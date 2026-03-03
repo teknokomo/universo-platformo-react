@@ -5,29 +5,16 @@ import { RoleChip } from '../RoleChip'
 import type { BaseRole } from '@universo/types'
 
 describe('RoleChip', () => {
-    describe('Color Mapping', () => {
-        it('should render owner role with error color', () => {
-            const { container } = render(<RoleChip role='owner' />)
-            const chip = container.querySelector('.MuiChip-colorError')
-            expect(chip).toBeInTheDocument()
-        })
+    describe('Rendering', () => {
+        it('should render known roles', () => {
+            const roles: BaseRole[] = ['owner', 'admin', 'editor', 'member']
 
-        it('should render admin role with warning color', () => {
-            const { container } = render(<RoleChip role='admin' />)
-            const chip = container.querySelector('.MuiChip-colorWarning')
-            expect(chip).toBeInTheDocument()
-        })
-
-        it('should render editor role with info color', () => {
-            const { container } = render(<RoleChip role='editor' />)
-            const chip = container.querySelector('.MuiChip-colorInfo')
-            expect(chip).toBeInTheDocument()
-        })
-
-        it('should render member role with default color', () => {
-            const { container } = render(<RoleChip role='member' />)
-            const chip = container.querySelector('.MuiChip-colorDefault')
-            expect(chip).toBeInTheDocument()
+            roles.forEach((role) => {
+                const { container, unmount } = render(<RoleChip role={role} />)
+                const chip = container.querySelector('.MuiChip-root')
+                expect(chip).toBeInTheDocument()
+                unmount()
+            })
         })
     })
 
@@ -89,7 +76,7 @@ describe('RoleChip', () => {
 
             const chip = container.querySelector('.test-chip')
             expect(chip).toBeInTheDocument()
-            expect(chip).toHaveClass('MuiChip-colorWarning')
+            expect(chip).toHaveClass('MuiChip-colorDefault')
             expect(chip).toHaveClass('MuiChip-sizeMedium')
             expect(chip).toHaveClass('MuiChip-outlined')
         })

@@ -4,6 +4,9 @@ export type { MetahubGuardProps } from './MetahubGuard'
 export { CodenameField } from './CodenameField'
 export type { CodenameFieldProps } from './CodenameField'
 
+export { ExistingCodenamesProvider, useExistingCodenames } from './ExistingCodenamesContext'
+export type { ExistingCodenameEntity } from './ExistingCodenamesContext'
+
 export { HubSelectionPanel } from './HubSelectionPanel'
 export type { HubSelectionPanelProps } from './HubSelectionPanel'
 

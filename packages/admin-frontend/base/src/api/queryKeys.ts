@@ -25,6 +25,23 @@ export const adminQueryKeys = {
 }
 
 /**
+ * Query keys for admin settings module
+ */
+export const settingsQueryKeys = {
+    // Root key for all settings queries
+    all: ['admin-settings'] as const,
+
+    // All lists (for cache invalidation)
+    lists: () => [...settingsQueryKeys.all, 'list'] as const,
+
+    // Settings list by category
+    byCategory: (category: string) => [...settingsQueryKeys.all, 'category', category] as const,
+
+    // Single setting
+    detail: (category: string, key: string) => [...settingsQueryKeys.all, 'detail', category, key] as const
+}
+
+/**
  * Query keys for instances module
  */
 export const instancesQueryKeys = {

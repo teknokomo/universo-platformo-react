@@ -4,16 +4,31 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
-import { localizedContent, validation } from '@universo/utils'
+import { localizedContent } from '@universo/utils'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCodename, isValidCodename } = validation
 import { AttributeDataType, ATTRIBUTE_DATA_TYPES, TABLE_CHILD_DATA_TYPES, MetaEntityKind, META_ENTITY_KINDS } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import {
+    getCodenameSettings,
+    getAttributeCodenameScope,
+    codenameErrorMessage,
+    buildCodenameAttempt,
+    extractCodenameStyle,
+    extractCodenameAlphabet,
+    extractAllowMixedAlphabets,
+    extractAttributeCodenameScope,
+    extractAllowedAttributeTypes,
+    getAllowAttributeCopy,
+    getAllowAttributeDelete,
+    getAllowDeleteLastDisplayAttribute
+} from '../../shared/codenameStyleHelper'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
-import { KnexClient } from '../../ddl'
+import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -116,8 +131,19 @@ const uiConfigSchema = z
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 
+const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: string, fallbackPrimary = 'en'): unknown => {
+    if (codenameInput === undefined) return undefined
+    const codenameRecord: Record<string, string | undefined> =
+        typeof codenameInput === 'string' ? { en: codenameInput } : (codenameInput as Record<string, string | undefined>)
+    const sanitizedCodename = sanitizeLocalizedInput(codenameRecord)
+    if (Object.keys(sanitizedCodename).length === 0) return null
+    return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
+}
+
 const createAttributeSchema = z.object({
     codename: z.string().min(1).max(100),
+    codenameInput: localizedInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     dataType: z.enum(ATTRIBUTE_DATA_TYPES),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -137,6 +163,8 @@ const createAttributeSchema = z.object({
 
 const updateAttributeSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     dataType: z.enum(ATTRIBUTE_DATA_TYPES).optional(),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -159,6 +187,8 @@ const moveAttributeSchema = z.object({
 
 const copyAttributeSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
     copyChildAttributes: z.boolean().optional(),
@@ -169,11 +199,6 @@ const copyAttributeSchema = z.object({
 })
 
 const ATTRIBUTE_LIMIT = 100
-
-const buildCodenameAttempt = (base: string, attempt: number): string => {
-    if (attempt === 0) return base
-    return `${base}-${attempt + 1}`
-}
 
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     if (!name || typeof name !== 'object') {
@@ -215,6 +240,8 @@ const isUniqueViolation = (error: unknown): boolean => {
     return typeof message === 'string' && message.toLowerCase().includes('duplicate key value')
 }
 
+const GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR = 'Could not acquire attribute codename lock. Please retry.'
+
 export function createAttributesRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -240,7 +267,8 @@ export function createAttributesRoutes(
             attributesService: new MetahubAttributesService(schemaService),
             objectsService: new MetahubObjectsService(schemaService),
             enumerationValuesService: new MetahubEnumerationValuesService(schemaService),
-            schemaService
+            schemaService,
+            settingsService: new MetahubSettingsService(schemaService)
         }
     }
 
@@ -429,7 +457,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, ds, manager } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, ds, manager, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify catalog exists
@@ -454,6 +482,8 @@ export function createAttributesRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 dataType,
                 name,
                 namePrimaryLocale,
@@ -469,6 +499,19 @@ export function createAttributesRoutes(
             } = parsed.data
             const shouldBeDisplayAttribute = Boolean(isDisplayAttribute)
             const effectiveIsRequired = shouldBeDisplayAttribute || Boolean(isRequired)
+
+            // Load all settings in one query to avoid N+1
+            const allSettings = await settingsService.findAll(metahubId, userId)
+
+            // Check allowedAttributeTypes setting
+            const allowedTypes = extractAllowedAttributeTypes(allSettings)
+            if (allowedTypes.length > 0 && !allowedTypes.includes(dataType)) {
+                return res.status(400).json({
+                    error: `Attribute data type "${dataType}" is not allowed by metahub settings`,
+                    code: 'DATA_TYPE_NOT_ALLOWED',
+                    allowedTypes
+                })
+            }
 
             // TABLE-specific validation
             if (dataType === AttributeDataType.TABLE) {
@@ -497,25 +540,18 @@ export function createAttributesRoutes(
             const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
             const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId ? MetaEntityKind.CATALOG : undefined)
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const codenameStyle = extractCodenameStyle(allSettings)
+            const codenameAlphabet = extractCodenameAlphabet(allSettings)
+            const allowMixed = extractAllowMixedAlphabets(allSettings)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
-            // Check for duplicate codename
-            const existing = await attributesService.findByCodename(
-                metahubId,
-                catalogId,
-                normalizedCodename,
-                parentAttributeId ?? null,
-                userId
-            )
-            if (existing) {
-                return res.status(409).json({ error: 'Attribute with this codename already exists' })
-            }
+            const codenameScope = extractAttributeCodenameScope(allSettings)
 
             // For REF type, verify target entity exists and validate required fields
             if (dataType === AttributeDataType.REF) {
@@ -588,36 +624,77 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
+            let globalCodenameLockKey: string | null = null
+            if (codenameScope === 'global') {
+                globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
+                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                if (!lockAcquired) {
+                    return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
+                }
+            }
+
             // Normalize sort orders (scoped to siblings at same parent level)
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
-
-            // If sortOrder not provided, append to end
-            // We can fetch max sort order or trust service default (0 might overlap)
-            // Ideally we calculate max sort order here or in service.
-            // Let's rely on client or default 0 (which might conflict if unique? sort_order is not unique in schema usually).
-            // Actually, `ensureSequentialSortOrder` fixes it to 1..N. If we insert 0, we might need to reorder again.
-            // Better: get count/max.
-            // But let's simplify: pass provided sortOrder or default.
-
-            const attribute = await attributesService.create(
-                metahubId,
-                {
+            let attribute
+            try {
+                // Check for duplicate codename (respecting scope setting)
+                const existing = await attributesService.findByCodename(
+                    metahubId,
                     catalogId,
-                    codename: normalizedCodename,
-                    dataType,
-                    name: nameVlc,
-                    targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
-                    targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
-                    validationRules: validationRules ?? {},
-                    uiConfig: normalizedUiConfig,
-                    isRequired: effectiveIsRequired,
-                    isDisplayAttribute: false,
-                    sortOrder: sortOrder,
-                    parentAttributeId: parentAttributeId ?? null,
-                    createdBy: userId
-                },
-                userId
-            )
+                    normalizedCodename,
+                    parentAttributeId ?? null,
+                    userId,
+                    undefined,
+                    { ignoreParentScope: codenameScope === 'global' }
+                )
+                if (existing) {
+                    return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                }
+
+                await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
+
+                // If sortOrder not provided, append to end
+                // We can fetch max sort order or trust service default (0 might overlap)
+                // Ideally we calculate max sort order here or in service.
+                // Let's rely on client or default 0 (which might conflict if unique? sort_order is not unique in schema usually).
+                // Actually, `ensureSequentialSortOrder` fixes it to 1..N. If we insert 0, we might need to reorder again.
+                // Better: get count/max.
+                // But let's simplify: pass provided sortOrder or default.
+
+                attribute = await attributesService.create(
+                    metahubId,
+                    {
+                        catalogId,
+                        codename: normalizedCodename,
+                        codenameLocalized,
+                        dataType,
+                        name: nameVlc,
+                        targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
+                        targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
+                        validationRules: validationRules ?? {},
+                        uiConfig: normalizedUiConfig,
+                        isRequired: effectiveIsRequired,
+                        isDisplayAttribute: false,
+                        sortOrder: sortOrder,
+                        parentAttributeId: parentAttributeId ?? null,
+                        createdBy: userId
+                    },
+                    userId
+                )
+            } catch (error) {
+                if (error instanceof Error && error.message === GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR) {
+                    return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
+                }
+                if (isUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                }
+                throw error
+            } finally {
+                if (globalCodenameLockKey) {
+                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                }
+            }
 
             // Normalize again to fit new item (scoped to siblings)
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
@@ -647,12 +724,17 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, ds, manager } = services(req)
+            const { attributesService, ds, manager, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const source = await attributesService.findById(metahubId, attributeId, userId)
             if (!source || source.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
+            }
+
+            const allowAttributeCopy = await getAllowAttributeCopy(settingsService, metahubId, userId)
+            if (!allowAttributeCopy) {
+                return res.status(403).json({ error: 'Attribute copy is disabled by metahub settings' })
             }
 
             const parsed = copyAttributeSchema.safeParse(req.body ?? {})
@@ -664,11 +746,21 @@ export function createAttributesRoutes(
                 copyChildAttributes: parsed.data.copyChildAttributes !== false
             }
 
-            const normalizedBaseCodename = normalizeCodename(parsed.data.codename ?? `${source.codename}-copy`)
-            if (!normalizedBaseCodename || !isValidCodename(normalizedBaseCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
+            const normalizedBaseCodename = normalizeCodenameForStyle(
+                parsed.data.codename ?? `${source.codename}${copySuffix}`,
+                codenameStyle,
+                codenameAlphabet
+            )
+            if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -682,6 +774,15 @@ export function createAttributesRoutes(
             if (!copyName) {
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
+
+            const copyCodenameLocalized =
+                parsed.data.codenameInput !== undefined
+                    ? buildCodenameLocalizedVlc(
+                          parsed.data.codenameInput,
+                          parsed.data.codenamePrimaryLocale,
+                          parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en'
+                      )
+                    : source.codenameLocalized
 
             // Apply overrides from request body if provided, otherwise use source values
             const copyValidationRules: Record<string, unknown> =
@@ -701,83 +802,136 @@ export function createAttributesRoutes(
                       copiedChildAttributes: number
                   }
                 | undefined
-            for (let attempt = 0; attempt < 20 && !copyResult; attempt++) {
-                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt)
-                try {
-                    copyResult = await knex.transaction(async (trx) => {
-                        const existing = await attributesService.findByCodename(
-                            metahubId,
-                            catalogId,
-                            codenameCandidate,
-                            source.parentAttributeId ?? null,
-                            userId,
-                            trx
-                        )
-                        if (existing) {
-                            throw Object.assign(new Error('Attribute codename already exists'), { retryableConflict: true })
-                        }
+            const codenameScope = await getAttributeCodenameScope(settingsService, metahubId, userId)
+            let globalCodenameLockKey: string | null = null
+            if (codenameScope === 'global') {
+                globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
+                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                if (!lockAcquired) {
+                    return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
+                }
+            }
 
-                        const copiedAttribute = await attributesService.create(
-                            metahubId,
-                            {
+            try {
+                for (let attempt = 1; attempt <= 20 && !copyResult; attempt++) {
+                    const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
+                    try {
+                        copyResult = await knex.transaction(async (trx) => {
+                            const existing = await attributesService.findByCodename(
+                                metahubId,
                                 catalogId,
-                                codename: codenameCandidate,
-                                dataType: source.dataType,
-                                name: copyName,
-                                validationRules: copyValidationRules,
-                                uiConfig: copyUiConfig,
-                                isRequired: copyIsRequired,
-                                isDisplayAttribute: false,
-                                targetEntityId: source.targetEntityId ?? undefined,
-                                targetEntityKind: source.targetEntityKind ?? undefined,
-                                sortOrder: undefined,
-                                parentAttributeId: source.parentAttributeId ?? null,
-                                createdBy: userId
-                            },
-                            userId,
-                            trx
-                        )
-
-                        let copiedChildAttributes = 0
-                        if (source.dataType === AttributeDataType.TABLE && copyOptions.copyChildAttributes) {
-                            const children = await attributesService.findChildAttributes(metahubId, source.id, userId, trx)
-                            for (const child of children) {
-                                await attributesService.create(
-                                    metahubId,
-                                    {
-                                        catalogId,
-                                        codename: child.codename,
-                                        dataType: child.dataType,
-                                        name: child.name,
-                                        validationRules: (child.validationRules as Record<string, unknown> | undefined) ?? {},
-                                        uiConfig: { ...((child.uiConfig as Record<string, unknown> | undefined) ?? {}) },
-                                        isRequired: child.isDisplayAttribute ? true : Boolean(child.isRequired),
-                                        isDisplayAttribute: Boolean(child.isDisplayAttribute),
-                                        targetEntityId: child.targetEntityId ?? undefined,
-                                        targetEntityKind: child.targetEntityKind ?? undefined,
-                                        sortOrder: child.sortOrder,
-                                        parentAttributeId: copiedAttribute.id,
-                                        createdBy: userId
-                                    },
-                                    userId,
-                                    trx
-                                )
-                                copiedChildAttributes += 1
+                                codenameCandidate,
+                                source.parentAttributeId ?? null,
+                                userId,
+                                trx,
+                                { ignoreParentScope: codenameScope === 'global' }
+                            )
+                            if (existing) {
+                                throw Object.assign(new Error('Attribute codename already exists'), { retryableConflict: true })
                             }
-                        }
 
-                        return { copiedAttribute, copiedChildAttributes }
-                    })
-                } catch (error: unknown) {
-                    const retryableConflict =
-                        (error &&
-                            typeof error === 'object' &&
-                            'retryableConflict' in error &&
-                            (error as { retryableConflict?: boolean }).retryableConflict === true) ||
-                        isUniqueViolation(error)
-                    if (!retryableConflict) {
-                        throw error
+                            const copiedAttribute = await attributesService.create(
+                                metahubId,
+                                {
+                                    catalogId,
+                                    codename: codenameCandidate,
+                                    codenameLocalized: copyCodenameLocalized,
+                                    dataType: source.dataType,
+                                    name: copyName,
+                                    validationRules: copyValidationRules,
+                                    uiConfig: copyUiConfig,
+                                    isRequired: copyIsRequired,
+                                    isDisplayAttribute: false,
+                                    targetEntityId: source.targetEntityId ?? undefined,
+                                    targetEntityKind: source.targetEntityKind ?? undefined,
+                                    sortOrder: undefined,
+                                    parentAttributeId: source.parentAttributeId ?? null,
+                                    createdBy: userId
+                                },
+                                userId,
+                                trx
+                            )
+
+                            let copiedChildAttributes = 0
+                            if (source.dataType === AttributeDataType.TABLE && copyOptions.copyChildAttributes) {
+                                const children = await attributesService.findChildAttributes(metahubId, source.id, userId, trx)
+                                const usedChildCodenames = new Set<string>()
+                                for (const child of children) {
+                                    let childCodename = child.codename
+                                    if (codenameScope === 'global') {
+                                        let uniqueChildCodename: string | null = null
+                                        for (let childAttempt = 1; childAttempt <= 20; childAttempt++) {
+                                            const candidate = buildCodenameAttempt(child.codename, childAttempt, codenameStyle)
+                                            if (usedChildCodenames.has(candidate)) continue
+                                            const existingChild = await attributesService.findByCodename(
+                                                metahubId,
+                                                catalogId,
+                                                candidate,
+                                                copiedAttribute.id,
+                                                userId,
+                                                trx,
+                                                { ignoreParentScope: true }
+                                            )
+                                            if (!existingChild) {
+                                                uniqueChildCodename = candidate
+                                                break
+                                            }
+                                        }
+
+                                        if (!uniqueChildCodename) {
+                                            throw Object.assign(
+                                                new Error('Unable to generate unique codename for copied child attribute'),
+                                                {
+                                                    retryableConflict: true
+                                                }
+                                            )
+                                        }
+
+                                        childCodename = uniqueChildCodename
+                                    }
+
+                                    usedChildCodenames.add(childCodename)
+                                    await attributesService.create(
+                                        metahubId,
+                                        {
+                                            catalogId,
+                                            codename: childCodename,
+                                            dataType: child.dataType,
+                                            name: child.name,
+                                            validationRules: (child.validationRules as Record<string, unknown> | undefined) ?? {},
+                                            uiConfig: { ...((child.uiConfig as Record<string, unknown> | undefined) ?? {}) },
+                                            isRequired: child.isDisplayAttribute ? true : Boolean(child.isRequired),
+                                            isDisplayAttribute: Boolean(child.isDisplayAttribute),
+                                            targetEntityId: child.targetEntityId ?? undefined,
+                                            targetEntityKind: child.targetEntityKind ?? undefined,
+                                            sortOrder: child.sortOrder,
+                                            parentAttributeId: copiedAttribute.id,
+                                            createdBy: userId
+                                        },
+                                        userId,
+                                        trx
+                                    )
+                                    copiedChildAttributes += 1
+                                }
+                            }
+
+                            return { copiedAttribute, copiedChildAttributes }
+                        })
+                    } catch (error: unknown) {
+                        const retryableConflict =
+                            (error &&
+                                typeof error === 'object' &&
+                                'retryableConflict' in error &&
+                                (error as { retryableConflict?: boolean }).retryableConflict === true) ||
+                            isUniqueViolation(error)
+                        if (!retryableConflict) {
+                            throw error
+                        }
                     }
+                }
+            } finally {
+                if (globalCodenameLockKey) {
+                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
                 }
             }
 
@@ -810,7 +964,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, ds, manager } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, ds, manager, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -825,6 +979,8 @@ export function createAttributesRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 dataType,
                 name,
                 namePrimaryLocale,
@@ -885,29 +1041,26 @@ export function createAttributesRoutes(
                 })
             }
             const isRefType = effectiveDataType === AttributeDataType.REF
+            let codenameScope: 'per-level' | 'global' = 'per-level'
 
             let effectiveTargetEntityId = attribute.targetEntityId ?? null
             let effectiveTargetEntityKind = attribute.targetEntityKind ?? null
 
             if (codename && codename !== attribute.codename) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
                 if (normalizedCodename !== attribute.codename) {
-                    const existing = await attributesService.findByCodename(
-                        metahubId,
-                        catalogId,
-                        normalizedCodename,
-                        attribute.parentAttributeId ?? null,
-                        userId
-                    )
-                    if (existing) {
-                        return res.status(409).json({ error: 'Attribute with this codename already exists' })
-                    }
+                    codenameScope = await getAttributeCodenameScope(settingsService, metahubId, userId)
                     updateData.codename = normalizedCodename
                 }
             }
@@ -924,6 +1077,14 @@ export function createAttributesRoutes(
                 if (nameVlc) {
                     updateData.name = nameVlc
                 }
+            }
+
+            if (codenameInput !== undefined) {
+                updateData.codenameLocalized = buildCodenameLocalizedVlc(
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    attribute.name?._primary ?? namePrimaryLocale ?? 'en'
+                )
             }
 
             // Handle polymorphic reference update
@@ -1025,7 +1186,38 @@ export function createAttributesRoutes(
             if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
             updateData.updatedBy = userId
 
-            const updated = await attributesService.update(metahubId, attributeId, updateData, userId)
+            let globalCodenameLockKey: string | null = null
+            if (updateData.codename && codenameScope === 'global') {
+                globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
+                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                if (!lockAcquired) {
+                    return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
+                }
+            }
+
+            let updated
+            try {
+                if (updateData.codename) {
+                    const existing = await attributesService.findByCodename(
+                        metahubId,
+                        catalogId,
+                        updateData.codename,
+                        attribute.parentAttributeId ?? null,
+                        userId,
+                        undefined,
+                        { ignoreParentScope: codenameScope === 'global' }
+                    )
+                    if (existing) {
+                        return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                    }
+                }
+
+                updated = await attributesService.update(metahubId, attributeId, updateData, userId)
+            } finally {
+                if (globalCodenameLockKey) {
+                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                }
+            }
 
             // Handle isDisplayAttribute change atomically (clears flag from other attributes)
             if (isDisplayAttribute === true) {
@@ -1187,7 +1379,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, ds, manager } = services(req)
+            const { attributesService, ds, manager, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -1263,7 +1455,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, ds, manager } = services(req)
+            const { attributesService, settingsService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -1271,10 +1463,29 @@ export function createAttributesRoutes(
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
+            const allowAttributeDelete = await getAllowAttributeDelete(settingsService, metahubId, userId)
+            if (!allowAttributeDelete) {
+                return res.status(403).json({ error: 'Attribute delete is disabled by metahub settings' })
+            }
+
             if (attribute.isDisplayAttribute) {
-                return res.status(409).json({
-                    error: 'Cannot delete display attribute. Set another attribute as display first.'
-                })
+                const allowDeleteLastDisplayAttribute = await getAllowDeleteLastDisplayAttribute(settingsService, metahubId, userId)
+                if (!allowDeleteLastDisplayAttribute) {
+                    const scopedAttributes = attribute.parentAttributeId
+                        ? await attributesService.findChildAttributes(metahubId, attribute.parentAttributeId, userId)
+                        : await attributesService.findAll(metahubId, catalogId, userId)
+
+                    const displayAttributesCount = scopedAttributes.reduce(
+                        (count, scopedAttribute) => count + (scopedAttribute.isDisplayAttribute ? 1 : 0),
+                        0
+                    )
+
+                    if (displayAttributesCount <= 1) {
+                        return res.status(409).json({
+                            error: 'Cannot delete the last display attribute while this policy is disabled.'
+                        })
+                    }
+                }
             }
 
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, attribute.parentAttributeId ?? null)
@@ -1286,6 +1497,37 @@ export function createAttributesRoutes(
             })
 
             return res.status(204).send()
+        })
+    )
+
+    // ─── All attribute codenames (for global scope duplicate checking) ────────
+
+    /**
+     * GET /metahub/:metahubId/catalog/:catalogId/attribute-codenames
+     * Returns lightweight list of ALL attribute codenames (root + children) for the catalog.
+     * Used by the frontend when attributeCodenameScope = 'global' to enable cross-level
+     * duplicate checking in the UI.
+     */
+    router.get(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute-codenames',
+            '/metahub/:metahubId/catalog/:catalogId/attribute-codenames'
+        ],
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const allAttributes = await attributesService.findAllFlat(metahubId, catalogId, userId)
+
+            const items = allAttributes.map((attr) => ({
+                id: attr.id,
+                codename: attr.codename,
+                codenameLocalized: attr.codenameLocalized ?? null
+            }))
+
+            res.json({ items })
         })
     )
 
@@ -1332,7 +1574,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, ds, manager } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, ds, manager, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify parent TABLE attribute exists
@@ -1355,6 +1597,8 @@ export function createAttributesRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 dataType,
                 name,
                 namePrimaryLocale,
@@ -1369,6 +1613,19 @@ export function createAttributesRoutes(
             const shouldBeDisplayAttribute = Boolean(req.body.isDisplayAttribute)
             const effectiveIsRequired = shouldBeDisplayAttribute || Boolean(isRequired)
 
+            // Load all settings in one query to avoid N+1
+            const allSettings = await settingsService.findAll(metahubId, userId)
+
+            // Check allowedAttributeTypes setting
+            const allowedTypes = extractAllowedAttributeTypes(allSettings)
+            if (allowedTypes.length > 0 && !allowedTypes.includes(dataType)) {
+                return res.status(400).json({
+                    error: `Attribute data type "${dataType}" is not allowed by metahub settings`,
+                    code: 'DATA_TYPE_NOT_ALLOWED',
+                    allowedTypes
+                })
+            }
+
             // Validate child data type
             if (!TABLE_CHILD_DATA_TYPES.includes(dataType as any)) {
                 return res.status(400).json({
@@ -1377,11 +1634,14 @@ export function createAttributesRoutes(
                 })
             }
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const codenameStyle = extractCodenameStyle(allSettings)
+            const codenameAlphabet = extractCodenameAlphabet(allSettings)
+            const allowMixed = extractAllowMixedAlphabets(allSettings)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -1448,11 +1708,7 @@ export function createAttributesRoutes(
                 delete normalizedUiConfig.enumLabelEmptyDisplay
             }
 
-            // Check for duplicate codename among active attributes in the same catalog
-            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, attributeId, userId)
-            if (existing) {
-                return res.status(409).json({ error: 'Attribute with this codename already exists' })
-            }
+            const codenameScope = await getAttributeCodenameScope(settingsService, metahubId, userId)
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
             if (Object.keys(sanitizedName).length === 0) {
@@ -1463,25 +1719,62 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const attribute = await attributesService.create(
-                metahubId,
-                {
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
+            let globalCodenameLockKey: string | null = null
+            if (codenameScope === 'global') {
+                globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
+                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                if (!lockAcquired) {
+                    return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
+                }
+            }
+
+            let attribute
+            try {
+                const existing = await attributesService.findByCodename(
+                    metahubId,
                     catalogId,
-                    codename: normalizedCodename,
-                    dataType,
-                    name: nameVlc,
-                    validationRules: validationRules ?? {},
-                    uiConfig: normalizedUiConfig,
-                    isRequired: effectiveIsRequired,
-                    isDisplayAttribute: false,
-                    targetEntityId: resolvedTargetEntityId,
-                    targetEntityKind: resolvedTargetEntityKind,
-                    sortOrder,
-                    parentAttributeId: attributeId,
-                    createdBy: userId
-                },
-                userId
-            )
+                    normalizedCodename,
+                    attributeId,
+                    userId,
+                    undefined,
+                    { ignoreParentScope: codenameScope === 'global' }
+                )
+                if (existing) {
+                    return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                }
+
+                attribute = await attributesService.create(
+                    metahubId,
+                    {
+                        catalogId,
+                        codename: normalizedCodename,
+                        codenameLocalized,
+                        dataType,
+                        name: nameVlc,
+                        validationRules: validationRules ?? {},
+                        uiConfig: normalizedUiConfig,
+                        isRequired: effectiveIsRequired,
+                        isDisplayAttribute: false,
+                        targetEntityId: resolvedTargetEntityId,
+                        targetEntityKind: resolvedTargetEntityKind,
+                        sortOrder,
+                        parentAttributeId: attributeId,
+                        createdBy: userId
+                    },
+                    userId
+                )
+            } catch (error) {
+                if (isUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                }
+                throw error
+            } finally {
+                if (globalCodenameLockKey) {
+                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                }
+            }
 
             // If this should be the display attribute, set it (clears siblings automatically)
             if (shouldBeDisplayAttribute && attribute.id) {

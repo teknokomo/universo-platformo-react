@@ -46,6 +46,7 @@ export class MetahubHubsService {
         return {
             id: row.id,
             codename: row.codename,
+            codenameLocalized: (row.presentation as Record<string, unknown>)?.codename ?? null,
             name: (row.presentation as Record<string, unknown>)?.name ?? {},
             description: (row.presentation as Record<string, unknown>)?.description ?? null,
             sort_order: (row.config as Record<string, unknown>)?.sortOrder ?? 0,
@@ -155,6 +156,7 @@ export class MetahubHubsService {
         metahubId: string,
         input: {
             codename: string
+            codenameLocalized?: Record<string, unknown> | null
             name: Record<string, unknown>
             description?: Record<string, unknown>
             sortOrder?: number
@@ -177,6 +179,7 @@ export class MetahubHubsService {
                     codename: input.codename,
                     table_name: null,
                     presentation: {
+                        codename: input.codenameLocalized ?? null,
                         name: input.name,
                         description: input.description ?? null
                     },
@@ -210,6 +213,7 @@ export class MetahubHubsService {
         hubId: string,
         input: {
             codename?: string
+            codenameLocalized?: Record<string, unknown> | null
             name?: Record<string, unknown>
             description?: Record<string, unknown>
             sortOrder?: number
@@ -237,9 +241,10 @@ export class MetahubHubsService {
         }
 
         // Update presentation (merge with existing)
-        if (input.name !== undefined || input.description !== undefined) {
+        if (input.name !== undefined || input.description !== undefined || input.codenameLocalized !== undefined) {
             updateData.presentation = {
                 ...currentPresentation,
+                ...(input.codenameLocalized !== undefined ? { codename: input.codenameLocalized } : {}),
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined ? { description: input.description } : {})
             }

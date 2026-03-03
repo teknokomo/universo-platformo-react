@@ -239,6 +239,10 @@ export const metahubsQueryKeys = {
         return [...metahubsQueryKeys.attributesDirect(metahubId, catalogId), 'list', normalized] as const
     },
 
+    // All attribute codenames for a catalog (root + children, for global scope duplicate checking)
+    allAttributeCodenames: (metahubId: string, catalogId: string) =>
+        [...metahubsQueryKeys.catalogDetail(metahubId, catalogId), 'attributeCodenames'] as const,
+
     // Elements scoped to a specific catalog
     elements: (metahubId: string, hubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId), 'elements'] as const,
@@ -286,7 +290,14 @@ export const metahubsQueryKeys = {
         [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'versions', 'list'] as const,
 
     publicationApplicationsList: (metahubId: string, publicationId: string) =>
-        [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'applications', 'list'] as const
+        [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'applications', 'list'] as const,
+
+    // ============ SETTINGS ============
+    settings: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'settings'] as const,
+
+    settingsList: (metahubId: string) => [...metahubsQueryKeys.settings(metahubId), 'list'] as const,
+
+    settingDetail: (metahubId: string, key: string) => [...metahubsQueryKeys.settings(metahubId), 'detail', key] as const
 }
 
 /**
@@ -380,7 +391,10 @@ export const invalidateAttributesQueries = {
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(metahubId, hubId, catalogId) }),
 
     lists: (queryClient: QueryClient, metahubId: string, hubId: string, catalogId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesList(metahubId, hubId, catalogId) })
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesList(metahubId, hubId, catalogId) }),
+
+    allCodenames: (queryClient: QueryClient, metahubId: string, catalogId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allAttributeCodenames(metahubId, catalogId) })
 }
 
 export const invalidateElementsQueries = {
@@ -400,4 +414,15 @@ export const invalidatePublicationsQueries = {
 
     detail: (queryClient: QueryClient, metahubId: string, publicationId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publicationDetail(metahubId, publicationId) })
+}
+
+export const invalidateSettingsQueries = {
+    all: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.settings(metahubId) }),
+
+    lists: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.settingsList(metahubId) }),
+
+    detail: (queryClient: QueryClient, metahubId: string, key: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.settingDetail(metahubId, key) })
 }

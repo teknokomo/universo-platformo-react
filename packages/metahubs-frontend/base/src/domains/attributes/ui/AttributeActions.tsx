@@ -11,7 +11,64 @@ import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/templ
 import { notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import type { Attribute, AttributeDisplay, AttributeLocalizedPayload, AttributeValidationRules } from '../../../types'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
+
+const DEFAULT_CC: CodenameConfig = {
+    style: 'pascal-case',
+    alphabet: 'en-ru',
+    allowMixed: false,
+    autoConvertMixedAlphabets: true,
+    autoReformat: true,
+    requireReformat: true,
+    localizedEnabled: false
+}
+const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+
+type GenericFormValues = Record<string, unknown>
+
+type AttributeContextExtras = {
+    metahubId?: string
+    catalogId?: string
+    allowAttributeCopy?: boolean
+    allowAttributeDelete?: boolean
+    allowDeleteLastDisplayAttribute?: boolean
+    moveAttribute?: (id: string, direction: 'up' | 'down') => Promise<void>
+    toggleRequired?: (id: string, value: boolean) => Promise<void>
+    toggleDisplayAttribute?: (id: string, value: boolean) => Promise<void>
+}
+
+type AttributeTabArgs = {
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    errors: Record<string, string>
+}
+
+const getEntityDisplayAttributeFlag = (entity: AttributeDisplay): boolean =>
+    Boolean((entity as { isDisplayAttribute?: boolean }).isDisplayAttribute)
+
+const canDeleteAttributeEntity = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>): boolean => {
+    const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+    if (contextExtras.allowAttributeDelete === false) return false
+
+    const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+    const raw = attributeMap?.get(ctx.entity.id)
+    const isDisplayAttribute = raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity)
+
+    if (!isDisplayAttribute) return true
+    if (contextExtras.allowDeleteLastDisplayAttribute !== false) return true
+
+    if (!attributeMap) return false
+    const scopeParentId = raw?.parentAttributeId ?? null
+    const displayCount = Array.from(attributeMap.values()).reduce((count, attribute) => {
+        const parentId = attribute.parentAttributeId ?? null
+        if (parentId !== scopeParentId) return count
+        return count + (attribute.isDisplayAttribute ? 1 : 0)
+    }, 0)
+    return displayCount > 1
+}
+
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 
@@ -26,11 +83,12 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
 
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
+        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
         dataType: raw?.dataType ?? ctx.entity?.dataType ?? 'STRING',
         isRequired: isSingleAttribute ? true : raw?.isRequired ?? ctx.entity?.isRequired ?? false,
-        isDisplayAttribute: isSingleAttribute ? true : raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false,
+        isDisplayAttribute: isSingleAttribute ? true : raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity),
         validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
         targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
         targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null,
@@ -38,17 +96,18 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
     }
 }
 
-const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>, values: Record<string, any>) => {
+const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>, values: GenericFormValues) => {
+    const cc = _cc(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('attributes.validation.codenameRequired', 'Codename is required')
-    } else if (!isValidCodename(normalizedCodename)) {
+    } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
         errors.codename = ctx.t('attributes.validation.codenameInvalid', 'Codename contains invalid characters')
     }
     if (values.dataType === 'REF') {
@@ -65,11 +124,16 @@ const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLoc
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveAttributeForm = (values: Record<string, any>) => {
+const canSaveAttributeForm = (values: GenericFormValues) => {
+    const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
-    const hasBasicInfo = hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+    const hasBasicInfo =
+        !values._hasCodenameDuplicate &&
+        hasPrimaryContent(nameVlc) &&
+        Boolean(normalizedCodename) &&
+        isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)
     if (values.dataType === 'REF') {
         return hasBasicInfo && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
     }
@@ -127,10 +191,13 @@ const sanitizeAttributeUiConfig = (
     return nextUiConfig
 }
 
-const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
+const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
+    const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-    const codename = sanitizeCodename(String(values.codename || ''))
+    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
     const dataType = (values.dataType as AttributeLocalizedPayload['dataType']) ?? 'STRING'
     const isRequired = Boolean(values.isRequired)
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
@@ -142,6 +209,8 @@ const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
 
     return {
         codename,
+        codenameInput,
+        codenamePrimaryLocale,
         dataType,
         isRequired,
         isDisplayAttribute,
@@ -204,7 +273,7 @@ const getCurrentSortOrder = (ctx: ActionContext<AttributeDisplay, AttributeLocal
 const isDisplayAttributeEntity = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
     const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
     const raw = attributeMap?.get(ctx.entity.id)
-    return Boolean(raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false)
+    return Boolean(raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity))
 }
 
 const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = [
@@ -220,6 +289,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
             },
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
                 return {
                     open: true,
                     mode: 'edit' as const,
@@ -231,17 +301,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: ({
-                        values,
-                        setValue,
-                        isLoading,
-                        errors
-                    }: {
-                        values: Record<string, any>
-                        setValue: (name: string, value: any) => void
-                        isLoading: boolean
-                        errors: Record<string, string>
-                    }): TabConfig[] => {
+                    tabs: ({ values, setValue, isLoading, errors }: AttributeTabArgs): TabConfig[] => {
                         const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
                         const displayAttributeLocked = (attributeMap?.size ?? 0) <= 1
                         return [
@@ -301,8 +361,8 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                             }
                                         ]}
                                         physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
-                                        metahubId={(ctx as any).metahubId as string}
-                                        currentCatalogId={(ctx as any).catalogId as string | undefined}
+                                        metahubId={contextExtras.metahubId as string}
+                                        currentCatalogId={contextExtras.catalogId}
                                         dataTypeDisabled
                                         dataTypeHelperText={ctx.t(
                                             'attributes.edit.typeChangeDisabled',
@@ -310,6 +370,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                         )}
                                         disableVlcToggles
                                         hideDisplayAttribute
+                                        editingEntityId={ctx.entity.id}
                                     />
                                 )
                             },
@@ -321,7 +382,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                         values={values}
                                         setValue={setValue}
                                         isLoading={isLoading}
-                                        metahubId={(ctx as any).metahubId as string | undefined}
+                                        metahubId={contextExtras.metahubId}
                                         displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
                                         displayAttributeHelper={ctx.t(
                                             'attributes.isDisplayAttributeHelper',
@@ -345,10 +406,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                             }
                         ]
                     },
-                    validate: (values: Record<string, any>) => validateAttributeForm(ctx, values),
+                    validate: (values: GenericFormValues) => validateAttributeForm(ctx, values),
                     canSave: canSaveAttributeForm,
                     showDeleteButton: true,
-                    deleteButtonDisabled: isDisplayAttributeEntity(ctx),
+                    deleteButtonDisabled: !canDeleteAttributeEntity(ctx),
                     deleteButtonText: ctx.t('common:actions.delete'),
                     onDelete: () => {
                         ctx.helpers?.openDeleteDialog?.(ctx.entity)
@@ -364,7 +425,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                             console.error('Failed to refresh attributes list after edit', e)
                         }
                     },
-                    onSave: async (data: Record<string, any>) => {
+                    onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
@@ -383,6 +444,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         labelKey: 'common:actions.copy',
         icon: <ContentCopyRoundedIcon />,
         order: 15,
+        visible: (ctx) => {
+            const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+            return contextExtras.allowAttributeCopy !== false
+        },
         dialog: {
             loader: async () => {
                 const module = await import('@universo/template-mui/components/dialogs')
@@ -397,9 +462,15 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                 const sourceDataType = ATTRIBUTE_DATA_TYPES.has(rawDataType as Attribute['dataType'])
                     ? (rawDataType as Attribute['dataType'])
                     : 'STRING'
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
                 const initial = {
                     nameVlc: appendCopySuffix(raw?.name ?? null, uiLocale, sourceName),
-                    codename: sanitizeCodename(`${raw?.codename ?? ctx.entity?.codename ?? 'attribute'}-copy`),
+                    codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
+                    codename: normalizeCodenameForStyle(
+                        `${raw?.codename ?? ctx.entity?.codename ?? 'attribute'}-copy`,
+                        DEFAULT_CC.style,
+                        DEFAULT_CC.alphabet
+                    ),
                     codenameTouched: true,
                     dataType: sourceDataType,
                     isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false,
@@ -421,17 +492,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: ({
-                        values,
-                        setValue,
-                        isLoading,
-                        errors
-                    }: {
-                        values: Record<string, any>
-                        setValue: (name: string, value: any) => void
-                        isLoading: boolean
-                        errors: Record<string, string>
-                    }): TabConfig[] => {
+                    tabs: ({ values, setValue, isLoading, errors }: AttributeTabArgs): TabConfig[] => {
                         const tabs: TabConfig[] = [
                             {
                                 id: 'general',
@@ -489,11 +550,12 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                             }
                                         ]}
                                         physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
-                                        metahubId={(ctx as any).metahubId as string}
-                                        currentCatalogId={(ctx as any).catalogId as string | undefined}
+                                        metahubId={contextExtras.metahubId as string}
+                                        currentCatalogId={contextExtras.catalogId}
                                         dataTypeDisabled
                                         disableVlcToggles
                                         hideDisplayAttribute
+                                        editingEntityId={null}
                                     />
                                 )
                             },
@@ -505,7 +567,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                         values={values}
                                         setValue={setValue}
                                         isLoading={isLoading}
-                                        metahubId={(ctx as any).metahubId as string | undefined}
+                                        metahubId={contextExtras.metahubId}
                                         displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
                                         displayAttributeHelper={ctx.t(
                                             'attributes.isDisplayAttributeHelper',
@@ -551,29 +613,37 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                         }
                         return tabs
                     },
-                    validate: (values: Record<string, any>) => {
+                    validate: (values: GenericFormValues) => {
+                        const cc = _cc(values)
                         const errors: Record<string, string> = {}
                         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
                         if (!hasPrimaryContent(nameVlc)) {
                             errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
                         }
-                        const codename = sanitizeCodename(String(values.codename ?? ''))
+                        const codename = normalizeCodenameForStyle(String(values.codename ?? ''), cc.style, cc.alphabet)
                         if (!codename) {
                             errors.codename = ctx.t('attributes.validation.codenameRequired', 'Codename is required')
-                        } else if (!isValidCodename(codename)) {
+                        } else if (!isValidCodenameForStyle(codename, cc.style, cc.alphabet, cc.allowMixed)) {
                             errors.codename = ctx.t('attributes.validation.codenameInvalid', 'Codename contains invalid characters')
                         }
                         return Object.keys(errors).length > 0 ? errors : null
                     },
-                    canSave: (values: Record<string, any>) => {
-                        const codename = sanitizeCodename(String(values.codename ?? ''))
-                        return Boolean(codename) && isValidCodename(codename) && hasPrimaryContent(values.nameVlc)
+                    canSave: (values: GenericFormValues) => {
+                        const cc = _cc(values)
+                        const codename = normalizeCodenameForStyle(String(values.codename ?? ''), cc.style, cc.alphabet)
+                        return (
+                            !values._hasCodenameDuplicate &&
+                            Boolean(codename) &&
+                            isValidCodenameForStyle(codename, cc.style, cc.alphabet, cc.allowMixed) &&
+                            hasPrimaryContent(values.nameVlc)
+                        )
                     },
-                    onSave: async (values: Record<string, any>) => {
+                    onSave: async (values: GenericFormValues) => {
+                        const cc = _cc(values)
                         try {
                             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(values.nameVlc)
                             const payload: Record<string, unknown> = {
-                                codename: sanitizeCodename(String(values.codename ?? '')),
+                                codename: normalizeCodenameForStyle(String(values.codename ?? ''), cc.style, cc.alphabet),
                                 name: nameInput ?? {},
                                 namePrimaryLocale,
                                 validationRules: values.validationRules ?? {},
@@ -610,8 +680,9 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         },
         onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
             try {
-                if (typeof (ctx as any).moveAttribute === 'function') {
-                    await (ctx as any).moveAttribute(ctx.entity.id, 'up')
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+                if (typeof contextExtras.moveAttribute === 'function') {
+                    await contextExtras.moveAttribute(ctx.entity.id, 'up')
                 }
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -634,8 +705,9 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         },
         onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
             try {
-                if (typeof (ctx as any).moveAttribute === 'function') {
-                    await (ctx as any).moveAttribute(ctx.entity.id, 'down')
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+                if (typeof contextExtras.moveAttribute === 'function') {
+                    await contextExtras.moveAttribute(ctx.entity.id, 'down')
                 }
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -656,8 +728,9 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         },
         onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
             try {
-                if (typeof (ctx as any).toggleRequired === 'function') {
-                    await (ctx as any).toggleRequired(ctx.entity.id, true)
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+                if (typeof contextExtras.toggleRequired === 'function') {
+                    await contextExtras.toggleRequired(ctx.entity.id, true)
                 }
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -674,13 +747,14 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
             const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
             const raw = attributeMap?.get(ctx.entity.id)
             const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false
-            const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+            const isDisplayAttribute = raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity)
             return isRequired && !isDisplayAttribute
         },
         onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
             try {
-                if (typeof (ctx as any).toggleRequired === 'function') {
-                    await (ctx as any).toggleRequired(ctx.entity.id, false)
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+                if (typeof contextExtras.toggleRequired === 'function') {
+                    await contextExtras.toggleRequired(ctx.entity.id, false)
                 }
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -696,14 +770,15 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         visible: (ctx) => {
             const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
             const raw = attributeMap?.get(ctx.entity.id)
-            const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+            const isDisplayAttribute = raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity)
             // Hide if already display attribute or if only one attribute (locked)
             return !isDisplayAttribute
         },
         onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
             try {
-                if (typeof (ctx as any).toggleDisplayAttribute === 'function') {
-                    await (ctx as any).toggleDisplayAttribute(ctx.entity.id, true)
+                const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+                if (typeof contextExtras.toggleDisplayAttribute === 'function') {
+                    await contextExtras.toggleDisplayAttribute(ctx.entity.id, true)
                 }
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -717,7 +792,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         tone: 'danger',
         order: 100,
         group: 'danger',
-        enabled: (ctx) => !isDisplayAttributeEntity(ctx),
+        enabled: (ctx) => canDeleteAttributeEntity(ctx),
         dialog: {
             loader: async () => {
                 const module = await import('@universo/template-mui/components/dialogs')

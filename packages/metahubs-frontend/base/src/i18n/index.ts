@@ -21,6 +21,7 @@ interface MetahubsBundle {
     elements?: Record<string, unknown>
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
+    settings?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
     actions?: Record<string, unknown>
@@ -56,6 +57,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         elements: bundle?.elements ?? {},
         publications: bundle?.publications ?? {},
         migrations: bundle?.migrations ?? {},
+        settings: bundle?.settings ?? {},
         ref: bundle?.ref ?? {},
         common: bundle?.common ?? {},
         errors: bundle?.errors ?? {}
@@ -85,6 +87,7 @@ interface MetahubsTranslation {
     enumerationValues?: Record<string, unknown>
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
+    settings?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
     errors?: Record<string, unknown>

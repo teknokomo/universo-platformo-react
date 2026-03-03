@@ -86,6 +86,7 @@ export interface MetahubMembersResponse {
 export interface Metahub {
     id: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
     slug?: string
@@ -132,6 +133,7 @@ export interface MetahubBranch {
     id: string
     metahubId: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     sourceBranchId?: string | null
@@ -266,6 +268,7 @@ export interface Hub {
     id: string
     metahubId: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
@@ -315,6 +318,7 @@ export interface Catalog {
     id: string
     metahubId: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isSingleHub: boolean
@@ -359,6 +363,7 @@ export interface Enumeration {
     id: string
     metahubId: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isSingleHub: boolean
@@ -396,6 +401,7 @@ export interface EnumerationValue {
     id: string
     objectId: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
@@ -427,6 +433,7 @@ export interface Attribute {
     id: string
     catalogId: string
     codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
     dataType: AttributeDataType
     name: VersionedLocalizedContent<string>
     targetEntityId?: string | null
@@ -497,6 +504,8 @@ export interface HubElementDisplay {
 /** Payload for creating/updating Metahub */
 export interface MetahubLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -506,6 +515,8 @@ export interface MetahubLocalizedPayload {
 /** Payload for creating/updating Hub */
 export interface HubLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -515,6 +526,8 @@ export interface HubLocalizedPayload {
 /** Payload for creating/updating Branch */
 export interface BranchLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -530,6 +543,8 @@ export interface BranchLocalizedPayload {
 /** Payload for creating/updating Catalog */
 export interface CatalogLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -542,6 +557,8 @@ export interface CatalogLocalizedPayload {
 /** Payload for creating/updating Enumeration */
 export interface EnumerationLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -554,6 +571,8 @@ export interface EnumerationLocalizedPayload {
 /** Payload for creating/updating Enumeration value */
 export interface EnumerationValueLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -565,6 +584,8 @@ export interface EnumerationValueLocalizedPayload {
 /** Payload for creating/updating Attribute */
 export interface AttributeLocalizedPayload {
     codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
     dataType: AttributeDataType
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -660,6 +681,7 @@ export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'
 export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
     return {
         ...attr,
+        codename: getVLCString(attr.codenameLocalized, locale) || attr.codename,
         name: getVLCString(attr.name, locale)
     }
 }

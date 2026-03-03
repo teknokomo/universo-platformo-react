@@ -8,6 +8,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * - roles: System and custom roles with metadata (display_name, color, is_superuser)
  * - role_permissions: Permission assignments with wildcard support
  * - user_roles: User-to-role assignments
+ * - locales: Dynamic locale management for VLC and UI
+ * - settings: Platform-wide configuration (codename defaults, etc.)
  * - PostgreSQL functions for permission checking (CASL integration)
  * - RLS policies for security
  *
@@ -21,6 +23,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * Default instances:
  * - Local: Current installation (pre-seeded)
+ *
+ * System locales:
+ * - en (English), ru (Russian) — both content and UI enabled
+ *
+ * Default settings:
+ * - metahubs.codenameStyle: 'pascal-case'
+ * - metahubs.codenameAlphabet: 'en-ru'
+ * - metahubs.codenameAllowMixedAlphabets: false
+ * - metahubs.codenameLocalizedEnabled: false
  */
 export class CreateAdminSchema1733400000000 implements MigrationInterface {
     name = 'CreateAdminSchema1733400000000'
@@ -448,10 +459,167 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             )
             ON CONFLICT (codename) DO NOTHING
         `)
+
+        // ═══════════════════════════════════════════════════════════════
+        // 15. LOCALES TABLE (dynamic language management)
+        // ═══════════════════════════════════════════════════════════════
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS admin.locales (
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+                code VARCHAR(10) NOT NULL UNIQUE,
+                name JSONB NOT NULL DEFAULT '{}',
+                native_name VARCHAR(100),
+                is_enabled_content BOOLEAN NOT NULL DEFAULT true,
+                is_enabled_ui BOOLEAN NOT NULL DEFAULT false,
+                is_default_content BOOLEAN NOT NULL DEFAULT false,
+                is_default_ui BOOLEAN NOT NULL DEFAULT false,
+                is_system BOOLEAN NOT NULL DEFAULT false,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `)
+
+        // Partial unique index: only one default content locale
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_locales_default_content 
+            ON admin.locales (is_default_content) WHERE is_default_content = true
+        `)
+
+        // Partial unique index: only one default UI locale
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_locales_default_ui 
+            ON admin.locales (is_default_ui) WHERE is_default_ui = true
+        `)
+
+        // Index for enabled content locales (frequent query)
+        await queryRunner.query(`
+            CREATE INDEX IF NOT EXISTS idx_locales_enabled_content 
+            ON admin.locales (is_enabled_content) WHERE is_enabled_content = true
+        `)
+
+        // Enable RLS on locales
+        await queryRunner.query(`ALTER TABLE admin.locales ENABLE ROW LEVEL SECURITY`)
+
+        // Locales are readable by all authenticated users
+        await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_locales" ON admin.locales`)
+        await queryRunner.query(`
+            CREATE POLICY "authenticated_read_locales" ON admin.locales
+            FOR SELECT USING (true)
+        `)
+
+        // Only admins can manage locales
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_locales" ON admin.locales`)
+        await queryRunner.query(`
+            CREATE POLICY "admin_access_manage_locales" ON admin.locales
+            FOR ALL USING (
+                admin.has_admin_permission(auth.uid())
+            )
+        `)
+
+        // Seed system locales (en, ru)
+        await queryRunner.query(`
+            INSERT INTO admin.locales (code, name, native_name, is_enabled_content, is_enabled_ui, is_default_content, is_default_ui, is_system, sort_order)
+            VALUES
+                (
+                    'en',
+                    '{
+                        "_schema": "1",
+                        "_primary": "en",
+                        "locales": {
+                            "en": {"content": "English", "version": 1, "isActive": true, "createdAt": "2024-12-13T00:00:00.000Z", "updatedAt": "2024-12-13T00:00:00.000Z"},
+                            "ru": {"content": "Английский", "version": 1, "isActive": true, "createdAt": "2024-12-13T00:00:00.000Z", "updatedAt": "2024-12-13T00:00:00.000Z"}
+                        }
+                    }'::jsonb,
+                    'English',
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    1
+                ),
+                (
+                    'ru',
+                    '{
+                        "_schema": "1",
+                        "_primary": "en",
+                        "locales": {
+                            "en": {"content": "Russian", "version": 1, "isActive": true, "createdAt": "2024-12-13T00:00:00.000Z", "updatedAt": "2024-12-13T00:00:00.000Z"},
+                            "ru": {"content": "Русский", "version": 1, "isActive": true, "createdAt": "2024-12-13T00:00:00.000Z", "updatedAt": "2024-12-13T00:00:00.000Z"}
+                        }
+                    }'::jsonb,
+                    'Русский',
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    2
+                )
+            ON CONFLICT (code) DO NOTHING
+        `)
+
+        // ═══════════════════════════════════════════════════════════════
+        // 16. SETTINGS TABLE (admin-level platform settings)
+        // Key-value store for platform-wide configuration.
+        // Used for metahub codename defaults, application defaults, etc.
+        // ═══════════════════════════════════════════════════════════════
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS admin.settings (
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+                category VARCHAR(50) NOT NULL,
+                key VARCHAR(100) NOT NULL,
+                value JSONB NOT NULL DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(category, key)
+            )
+        `)
+
+        // Index for fast lookup by category
+        await queryRunner.query(`
+            CREATE INDEX IF NOT EXISTS idx_settings_category 
+            ON admin.settings (category)
+        `)
+
+        // Enable RLS on settings
+        await queryRunner.query(`ALTER TABLE admin.settings ENABLE ROW LEVEL SECURITY`)
+
+        // Settings are readable by all authenticated users
+        await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_settings" ON admin.settings`)
+        await queryRunner.query(`
+            CREATE POLICY "authenticated_read_settings" ON admin.settings
+            FOR SELECT USING (true)
+        `)
+
+        // Only admins can manage settings
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_settings" ON admin.settings`)
+        await queryRunner.query(`
+            CREATE POLICY "admin_access_manage_settings" ON admin.settings
+            FOR ALL USING (
+                admin.has_admin_permission(auth.uid())
+            )
+        `)
+
+        // Seed default metahub codename settings
+        await queryRunner.query(`
+            INSERT INTO admin.settings (category, key, value)
+            VALUES
+                ('metahubs', 'codenameStyle', '{"_value": "pascal-case"}'::jsonb),
+                ('metahubs', 'codenameAlphabet', '{"_value": "en-ru"}'::jsonb),
+                ('metahubs', 'codenameAllowMixedAlphabets', '{"_value": false}'::jsonb),
+                ('metahubs', 'codenameLocalizedEnabled', '{"_value": false}'::jsonb)
+            ON CONFLICT (category, key) DO NOTHING
+        `)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Drop policies
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_settings" ON admin.settings`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_settings" ON admin.settings`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_locales" ON admin.locales`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_locales" ON admin.locales`)
         await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_admin_access" ON admin.instances`)
         await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_admin_access" ON admin.instances`)
         await queryRunner.query(`DROP POLICY IF EXISTS "users_read_own_roles" ON admin.user_roles`)
@@ -468,6 +636,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_permission(UUID, TEXT, TEXT, JSONB)`)
 
         // Drop tables (in reverse FK order)
+        await queryRunner.query(`DROP TABLE IF EXISTS admin.settings CASCADE`)
+        await queryRunner.query(`DROP TABLE IF EXISTS admin.locales CASCADE`)
         await queryRunner.query(`DROP TABLE IF EXISTS admin.user_roles CASCADE`)
         await queryRunner.query(`DROP TABLE IF EXISTS admin.role_permissions CASCADE`)
         await queryRunner.query(`DROP TABLE IF EXISTS admin.roles CASCADE`)

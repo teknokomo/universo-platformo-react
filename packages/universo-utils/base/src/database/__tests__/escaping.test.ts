@@ -27,7 +27,7 @@ describe('escapeLikeWildcards', () => {
     })
 
     it('should not escape other special characters', () => {
-        expect(escapeLikeWildcards("test'\"\\data")).toBe("test'\"\\data")
+        expect(escapeLikeWildcards('test\'"\\data')).toBe('test\'"\\data')
     })
 
     it('should handle wildcards at start and end', () => {

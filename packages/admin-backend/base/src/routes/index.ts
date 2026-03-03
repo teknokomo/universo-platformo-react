@@ -2,3 +2,4 @@ export { createGlobalUsersRoutes, type GlobalUsersRoutesConfig } from './globalU
 export { createInstancesRoutes, type InstancesRoutesConfig } from './instancesRoutes'
 export { createLocalesRoutes, type LocalesRoutesConfig } from './localesRoutes'
 export { createPublicLocalesRoutes, type PublicLocalesRoutesConfig } from './publicLocalesRoutes'
+export { createAdminSettingsRoutes, type AdminSettingsRoutesConfig } from './adminSettingsRoutes'

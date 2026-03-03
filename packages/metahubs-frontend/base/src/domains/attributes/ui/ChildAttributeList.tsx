@@ -30,7 +30,10 @@ import {
     getPhysicalDataType,
     formatPhysicalType
 } from '../../../types'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { useSettingValue } from '../../settings/hooks/useSettings'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
 import * as attributesApi from '../api'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
@@ -42,6 +45,27 @@ import {
     useClearDisplayAttribute
 } from '../hooks/mutations'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+import { ExistingCodenamesProvider } from '../../../components'
+
+type GenericFormValues = Record<string, unknown>
+
+type ChildAttributeContextExtras = {
+    moveAttribute?: (id: string, direction: 'up' | 'down') => Promise<void>
+    toggleRequired?: (id: string, value: boolean) => Promise<void>
+    toggleDisplayAttribute?: (id: string, value: boolean) => Promise<void>
+}
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    const message = (data as { message?: unknown }).message
+    return typeof message === 'string' ? message : undefined
+}
+
+const getDisplayAttributeFlag = (row: AttributeDisplay): boolean => Boolean((row as { isDisplayAttribute?: boolean }).isDisplayAttribute)
 
 /**
  * Map known backend TABLE validation error messages to localized i18n strings.
@@ -173,6 +197,16 @@ interface ChildAttributeListProps {
 }
 
 const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, searchFilter, onRefresh }: ChildAttributeListProps) => {
+    const codenameConfig = useCodenameConfig()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
+    const attributeCodenameScope = useSettingValue<string>('catalogs.attributeCodenameScope') ?? 'per-level'
+    const allowedAttributeTypesSetting = useSettingValue<string[]>('catalogs.allowedAttributeTypes')
+    const allowAttributeCopySetting = useSettingValue<boolean>('catalogs.allowAttributeCopy')
+    const allowAttributeDeleteSetting = useSettingValue<boolean>('catalogs.allowAttributeDelete')
+    const allowDeleteLastDisplayAttributeSetting = useSettingValue<boolean>('catalogs.allowDeleteLastDisplayAttribute')
+    const allowAttributeCopy = allowAttributeCopySetting !== false
+    const allowAttributeDelete = allowAttributeDeleteSetting !== false
+    const allowDeleteLastDisplayAttribute = allowDeleteLastDisplayAttributeSetting !== false
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
@@ -204,7 +238,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
     const setDisplayAttributeMutation = useSetDisplayAttribute()
     const clearDisplayAttributeMutation = useClearDisplayAttribute()
 
-    const queryKey = ['metahubs', 'childAttributes', metahubId, catalogId, parentAttributeId] as const
+    const queryKey = useMemo(
+        () => ['metahubs', 'childAttributes', metahubId, catalogId, parentAttributeId] as const,
+        [metahubId, catalogId, parentAttributeId]
+    )
 
     const { data, isLoading, error } = useQuery({
         queryKey,
@@ -217,7 +254,17 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         enabled: !!metahubId && !!catalogId && !!parentAttributeId
     })
 
-    const childAttributes = data?.items ?? []
+    const childAttributes = useMemo(() => data?.items ?? [], [data?.items])
+
+    // When attributeCodenameScope is 'global', fetch ALL attribute codenames (root + children)
+    // to enable cross-level duplicate checking in the UI
+    const isGlobalScope = attributeCodenameScope === 'global'
+    const { data: globalCodenamesData } = useQuery({
+        queryKey: metahubsQueryKeys.allAttributeCodenames(metahubId, catalogId),
+        queryFn: () => attributesApi.listAllAttributeCodenames(metahubId, catalogId),
+        enabled: isGlobalScope && !!metahubId && !!catalogId
+    })
+    const codenameEntities = isGlobalScope && globalCodenamesData?.items ? globalCodenamesData.items : childAttributes
 
     /** Map from attribute id to full Attribute for quick context lookups */
     const childAttributeMap = useMemo(() => {
@@ -232,6 +279,8 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         // Also invalidate element-scoped child attribute & enum caches so stale uiConfig is refreshed
         queryClient.invalidateQueries({ queryKey: ['metahubs', 'childAttributesForElements', metahubId, catalogId] })
         queryClient.invalidateQueries({ queryKey: ['metahubs', 'childEnumValues', metahubId] })
+        // Invalidate global codenames cache (for global scope duplicate checking)
+        invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
         if (hubId) {
             await invalidateAttributesQueries.all(queryClient, metahubId, hubId, catalogId)
         } else {
@@ -256,13 +305,39 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         }
     })
 
+    const allowedChildDataTypes = useMemo(() => {
+        const baseChildTypes = TABLE_CHILD_DATA_TYPES as unknown as AttributeDataType[]
+        if (!Array.isArray(allowedAttributeTypesSetting)) return baseChildTypes
+        const allowedSet = new Set(
+            allowedAttributeTypesSetting.filter(
+                (item): item is AttributeDataType => typeof item === 'string' && baseChildTypes.includes(item as AttributeDataType)
+            )
+        )
+        const filtered = baseChildTypes.filter((item) => allowedSet.has(item))
+        return filtered.length > 0 ? filtered : baseChildTypes
+    }, [allowedAttributeTypesSetting])
+
     const childDataTypeOptions = useMemo(
         () =>
-            TABLE_CHILD_DATA_TYPES.map((dt) => ({
-                value: dt as AttributeDataType,
+            allowedChildDataTypes.map((dt) => ({
+                value: dt,
                 label: t(`attributes.dataTypeOptions.${dt.toLowerCase()}`, dt)
             })),
-        [t]
+        [allowedChildDataTypes, t]
+    )
+
+    const canDeleteChildAttribute = useCallback(
+        (attribute: AttributeDisplay | Attribute | null | undefined): boolean => {
+            if (!attribute || !allowAttributeDelete) return false
+            const isDisplayAttribute = Boolean((attribute as { isDisplayAttribute?: boolean }).isDisplayAttribute)
+            if (!isDisplayAttribute) return true
+            if (allowDeleteLastDisplayAttribute) return true
+            const displayAttributesCount = childAttributes.reduce((count, childAttribute) => {
+                return count + (childAttribute.isDisplayAttribute ? 1 : 0)
+            }, 0)
+            return displayAttributesCount > 1
+        },
+        [allowAttributeDelete, allowDeleteLastDisplayAttribute, childAttributes]
     )
 
     const childColumns = useMemo(
@@ -287,7 +362,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 sortAccessor: (row: AttributeDisplay) => row.name || '',
                 render: (row: AttributeDisplay) => {
                     const rawAttribute = childAttributeMap.get(row.id)
-                    const isDisplayAttr = rawAttribute?.isDisplayAttribute ?? (row as any)?.isDisplayAttribute ?? false
+                    const isDisplayAttr = rawAttribute?.isDisplayAttribute ?? getDisplayAttributeFlag(row)
                     return (
                         <Stack direction='row' spacing={0.5} alignItems='center'>
                             {isDisplayAttr && (
@@ -360,7 +435,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
     )
 
     const images = useMemo(() => {
-        const map: Record<string, any[]> = {}
+        const map: Record<string, unknown[]> = {}
         childAttributes.forEach((attr) => {
             if (attr?.id) map[attr.id] = []
         })
@@ -385,6 +460,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 labelKey: 'common:actions.copy',
                 icon: <ContentCopyRoundedIcon />,
                 order: 11,
+                visible: () => allowAttributeCopy,
                 onSelect: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const attr = childAttributeMap.get(ctx.entity.id)
                     if (attr) {
@@ -408,8 +484,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
-                        if (typeof (ctx as any).moveAttribute === 'function') {
-                            await (ctx as any).moveAttribute(ctx.entity.id, 'up')
+                        const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> &
+                            ChildAttributeContextExtras
+                        if (typeof contextExtras.moveAttribute === 'function') {
+                            await contextExtras.moveAttribute(ctx.entity.id, 'up')
                         }
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -432,8 +510,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
-                        if (typeof (ctx as any).moveAttribute === 'function') {
-                            await (ctx as any).moveAttribute(ctx.entity.id, 'down')
+                        const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> &
+                            ChildAttributeContextExtras
+                        if (typeof contextExtras.moveAttribute === 'function') {
+                            await contextExtras.moveAttribute(ctx.entity.id, 'down')
                         }
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -453,8 +533,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
-                        if (typeof (ctx as any).toggleRequired === 'function') {
-                            await (ctx as any).toggleRequired(ctx.entity.id, true)
+                        const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> &
+                            ChildAttributeContextExtras
+                        if (typeof contextExtras.toggleRequired === 'function') {
+                            await contextExtras.toggleRequired(ctx.entity.id, true)
                         }
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -470,13 +552,15 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const raw = childAttributeMap.get(ctx.entity.id)
                     const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false
-                    const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+                    const isDisplayAttribute = raw?.isDisplayAttribute ?? getDisplayAttributeFlag(ctx.entity)
                     return isRequired && !isDisplayAttribute
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
-                        if (typeof (ctx as any).toggleRequired === 'function') {
-                            await (ctx as any).toggleRequired(ctx.entity.id, false)
+                        const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> &
+                            ChildAttributeContextExtras
+                        if (typeof contextExtras.toggleRequired === 'function') {
+                            await contextExtras.toggleRequired(ctx.entity.id, false)
                         }
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -491,13 +575,15 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 group: 'flags',
                 visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const raw = childAttributeMap.get(ctx.entity.id)
-                    const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+                    const isDisplayAttribute = raw?.isDisplayAttribute ?? getDisplayAttributeFlag(ctx.entity)
                     return !isDisplayAttribute
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
-                        if (typeof (ctx as any).toggleDisplayAttribute === 'function') {
-                            await (ctx as any).toggleDisplayAttribute(ctx.entity.id, true)
+                        const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> &
+                            ChildAttributeContextExtras
+                        if (typeof contextExtras.toggleDisplayAttribute === 'function') {
+                            await contextExtras.toggleDisplayAttribute(ctx.entity.id, true)
                         }
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -512,7 +598,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 group: 'flags',
                 visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const raw = childAttributeMap.get(ctx.entity.id)
-                    const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+                    const isDisplayAttribute = raw?.isDisplayAttribute ?? getDisplayAttributeFlag(ctx.entity)
                     const displayAttributesCount = childAttributes.reduce(
                         (count, attribute) => count + (attribute.isDisplayAttribute ? 1 : 0),
                         0
@@ -521,8 +607,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
-                        if (typeof (ctx as any).toggleDisplayAttribute === 'function') {
-                            await (ctx as any).toggleDisplayAttribute(ctx.entity.id, false)
+                        const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> &
+                            ChildAttributeContextExtras
+                        if (typeof contextExtras.toggleDisplayAttribute === 'function') {
+                            await contextExtras.toggleDisplayAttribute(ctx.entity.id, false)
                         }
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
@@ -537,8 +625,8 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 order: 100,
                 group: 'danger',
                 enabled: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
-                    const raw = childAttributeMap.get(ctx.entity.id)
-                    return !(raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false)
+                    const raw = childAttributeMap.get(ctx.entity.id) ?? (ctx.entity as unknown as Attribute)
+                    return canDeleteChildAttribute(raw)
                 },
                 onSelect: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const attr = childAttributeMap.get(ctx.entity.id) ?? (ctx.entity as unknown as Attribute)
@@ -546,15 +634,15 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 }
             }
         ],
-        [childAttributes, childAttributeMap]
+        [allowAttributeCopy, canDeleteChildAttribute, childAttributes, childAttributeMap]
     )
 
     /** Factory function creating action context for BaseEntityMenu */
     const createChildAttributeContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: Record<string, unknown>) => ({
             ...baseContext,
             childAttributeMap,
-            uiLocale: i18n.language,
+            uiLocale: preferredVlcLocale,
             metahubId,
             catalogId,
             moveAttribute: async (id: string, direction: 'up' | 'down') => {
@@ -609,10 +697,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         }),
         [
             childAttributeMap,
-            i18n.language,
             metahubId,
             hubId,
             catalogId,
+            preferredVlcLocale,
             moveAttributeMutation,
             toggleRequiredMutation,
             setDisplayAttributeMutation,
@@ -622,34 +710,39 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         ]
     )
 
-    const localizedDefaults = useMemo(
-        () => ({
+    const localizedDefaults = useMemo(() => {
+        const defaultDataType = allowedChildDataTypes.includes('STRING') ? 'STRING' : allowedChildDataTypes[0] ?? 'STRING'
+        return {
             nameVlc: null,
+            codenameVlc: null,
             codename: '',
             codenameTouched: false,
-            dataType: 'STRING' as AttributeDataType,
+            dataType: defaultDataType as AttributeDataType,
             isRequired: childAttributes.length === 0,
             isDisplayAttribute: childAttributes.length === 0,
             targetEntityId: null,
             targetEntityKind: null,
-            validationRules: {
-                ...getDefaultValidationRules('STRING'),
-                maxLength: 10
-            },
+            validationRules:
+                defaultDataType === 'STRING'
+                    ? {
+                          ...getDefaultValidationRules('STRING'),
+                          maxLength: 10
+                      }
+                    : getDefaultValidationRules(defaultDataType),
             uiConfig: {}
-        }),
-        [childAttributes.length]
-    )
+        }
+    }, [childAttributes.length, allowedChildDataTypes])
 
     const validate = useCallback(
-        (values: Record<string, any>) => {
+        (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             if (!hasPrimaryContent(values.nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const normalized = sanitizeCodename(values.codename ?? '')
+            const normalized = normalizeCodenameForStyle(values.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
             if (!normalized) errors.codename = t('attributes.validation.codenameRequired', 'Codename is required')
-            else if (!isValidCodename(normalized)) errors.codename = t('attributes.validation.codenameInvalid')
+            else if (!isValidCodenameForStyle(normalized, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed))
+                errors.codename = t('attributes.validation.codenameInvalid')
             if (values.dataType === 'REF') {
                 if (!values.targetEntityKind) {
                     errors.targetEntityKind = t(
@@ -666,16 +759,27 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t, tc]
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSave = useCallback((values: Record<string, any>) => {
-        const hasBasic = hasPrimaryContent(values.nameVlc) && isValidCodename(sanitizeCodename(values.codename ?? ''))
-        if (values.dataType === 'REF') {
-            return hasBasic && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
-        }
-        return hasBasic
-    }, [])
+    const canSave = useCallback(
+        (values: GenericFormValues) => {
+            const hasBasic =
+                !values._hasCodenameDuplicate &&
+                hasPrimaryContent(values.nameVlc) &&
+                isValidCodenameForStyle(
+                    normalizeCodenameForStyle(values.codename ?? '', codenameConfig.style, codenameConfig.alphabet),
+                    codenameConfig.style,
+                    codenameConfig.alphabet,
+                    codenameConfig.allowMixed
+                )
+            if (values.dataType === 'REF') {
+                return hasBasic && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+            }
+            return hasBasic
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
+    )
 
     const buildTabs = useCallback(
         (
@@ -685,15 +789,16 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 isLoading: formLoading,
                 errors
             }: {
-                values: Record<string, any>
-                setValue: (name: string, value: any) => void
+                values: GenericFormValues
+                setValue: (name: string, value: unknown) => void
                 isLoading: boolean
                 errors?: Record<string, string>
             },
             isEditMode: boolean,
             includePresentationTab = true,
             forceDisplayAttributeWhenLocked = true,
-            displayAttributeLockedOverride?: boolean
+            displayAttributeLockedOverride?: boolean,
+            editingEntityId?: string | null
         ): TabConfig[] => {
             const tabs: TabConfig[] = [
                 {
@@ -705,7 +810,8 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                             setValue={setValue}
                             isLoading={formLoading}
                             errors={errors}
-                            uiLocale={i18n.language}
+                            editingEntityId={editingEntityId}
+                            uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             codenameLabel={t('attributes.codename', 'Codename')}
                             codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
@@ -780,20 +886,22 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
 
             return tabs
         },
-        [i18n.language, t, tc, metahubId, catalogId, childDataTypeOptions, childAttributes.length]
+        [preferredVlcLocale, t, tc, metahubId, catalogId, childDataTypeOptions, childAttributes.length]
     )
 
-    const handleCreate = async (data: Record<string, any>) => {
+    const handleCreate = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired'))
                 return
             }
-            const codename = sanitizeCodename(data.codename ?? '')
+            const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
             if (!codename) {
                 setDialogError(t('attributes.validation.codenameRequired'))
                 return
@@ -812,7 +920,9 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 targetEntityKind?: MetaEntityKind | null
             } = {
                 codename,
-                dataType: dataType as any,
+                codenameInput,
+                codenamePrimaryLocale,
+                dataType: dataType as AttributeDataType,
                 isRequired: Boolean(data.isRequired),
                 isDisplayAttribute: Boolean(data.isDisplayAttribute),
                 name: nameInput,
@@ -833,8 +943,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             setDialogOpen(false)
             enqueueSnackbar(t('attributes.createSuccess', 'Attribute created'), { variant: 'success' })
         } catch (e: unknown) {
-            const msg =
-                e && typeof e === 'object' && 'response' in e ? (e as any).response?.data?.message : e instanceof Error ? e.message : ''
+            const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
             const localizedMsg = localizeTableValidationError(msg, t) || t('attributes.createError')
             setDialogError(localizedMsg)
         } finally {
@@ -842,18 +951,20 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         }
     }
 
-    const handleUpdate = async (data: Record<string, any>) => {
+    const handleUpdate = async (data: GenericFormValues) => {
         if (!editState.attribute) return
         setEditDialogError(null)
         setUpdating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setEditDialogError(tc('crud.nameRequired'))
                 return
             }
-            const codename = sanitizeCodename(data.codename ?? '')
+            const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
             if (!codename) {
                 setEditDialogError(t('attributes.validation.codenameRequired'))
                 return
@@ -872,7 +983,9 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 targetEntityKind?: MetaEntityKind | null
             } = {
                 codename,
-                dataType: dataType as any,
+                codenameInput,
+                codenamePrimaryLocale,
+                dataType: dataType as AttributeDataType,
                 isRequired: Boolean(data.isRequired),
                 name: nameInput,
                 namePrimaryLocale,
@@ -893,27 +1006,28 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             setEditState({ open: false, attribute: null })
             enqueueSnackbar(t('attributes.updateSuccess', 'Attribute updated'), { variant: 'success' })
         } catch (e: unknown) {
-            const msg =
-                e && typeof e === 'object' && 'response' in e ? (e as any).response?.data?.message : e instanceof Error ? e.message : ''
+            const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
             setEditDialogError(localizeTableValidationError(msg, t) || t('attributes.updateError', 'Failed to update attribute'))
         } finally {
             setUpdating(false)
         }
     }
 
-    const handleCopy = async (data: Record<string, any>) => {
+    const handleCopy = async (data: GenericFormValues) => {
         if (!copyState.attribute) return
         setCopyDialogError(null)
         setCopying(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
 
-            const codename = sanitizeCodename(data.codename ?? '')
+            const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
             if (!codename) {
                 setCopyDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
                 return
@@ -926,6 +1040,8 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 attributeId: copyState.attribute.id,
                 data: {
                     codename,
+                    codenameInput,
+                    codenamePrimaryLocale,
                     name: nameInput,
                     namePrimaryLocale,
                     validationRules: data.validationRules ?? copyState.attribute.validationRules ?? {},
@@ -951,13 +1067,18 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         const attr = editState.attribute
         return {
             nameVlc: attr.name,
+            codenameVlc: attr.codenameLocalized ?? null,
             codename: attr.codename,
             codenameTouched: true,
             dataType: attr.dataType as AttributeDataType,
             isRequired: attr.isRequired,
             isDisplayAttribute: attr.isDisplayAttribute ?? false,
-            targetEntityId: attr.targetEntityId ?? (attr.validationRules as any)?.targetEntityId ?? null,
-            targetEntityKind: attr.targetEntityKind ?? (attr.validationRules as any)?.targetEntityKind ?? null,
+            targetEntityId:
+                attr.targetEntityId ?? (attr.validationRules as { targetEntityId?: string | null } | undefined)?.targetEntityId ?? null,
+            targetEntityKind:
+                attr.targetEntityKind ??
+                (attr.validationRules as { targetEntityKind?: MetaEntityKind | null } | undefined)?.targetEntityKind ??
+                null,
             validationRules: attr.validationRules ?? {},
             uiConfig: attr.uiConfig ?? {}
         }
@@ -969,7 +1090,8 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         const sourceName = source.codename || 'attribute'
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
-            codename: sanitizeCodename(`${source.codename}-copy`),
+            codenameVlc: source.codenameLocalized ?? null,
+            codename: normalizeCodenameForStyle(`${source.codename}-copy`, codenameConfig.style, codenameConfig.alphabet),
             codenameTouched: true,
             dataType: source.dataType as AttributeDataType,
             isRequired: source.isRequired ?? false,
@@ -979,7 +1101,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             validationRules: source.validationRules ?? {},
             uiConfig: source.uiConfig ?? {}
         }
-    }, [copyState.attribute, i18n.language])
+    }, [codenameConfig.alphabet, codenameConfig.style, copyState.attribute, i18n.language])
 
     const tableData = useMemo(() => {
         let filtered = childAttributes
@@ -990,9 +1112,9 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 const name = attr.name
                 if (!name) return false
                 if (typeof name === 'string') return name.toLowerCase().includes(lowerSearch)
-                if (typeof name === 'object' && 'locales' in (name as any)) {
-                    const locales = (name as any).locales ?? {}
-                    return Object.values(locales).some((entry: any) =>
+                if (typeof name === 'object' && 'locales' in name) {
+                    const locales = (name as { locales?: Record<string, { content?: string }> }).locales ?? {}
+                    return Object.values(locales).some((entry) =>
                         String(entry?.content ?? '')
                             .toLowerCase()
                             .includes(lowerSearch)
@@ -1013,138 +1135,140 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
     }
 
     return (
-        <Box>
-            <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ mb: 1 }}>
-                <Typography variant='caption' color='text.secondary'>
-                    {t('attributes.childAttributes', 'Child Attributes')} ({childAttributes.length})
-                </Typography>
-                <Button
-                    variant='contained'
-                    size='small'
-                    onClick={() => setDialogOpen(true)}
-                    startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
-                    sx={{ borderRadius: 1, height: 28, fontSize: 12, textTransform: 'none' }}
-                >
-                    {tc('create')}
-                </Button>
-            </Stack>
+        <ExistingCodenamesProvider entities={codenameEntities}>
+            <Box>
+                <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ mb: 1 }}>
+                    <Typography variant='caption' color='text.secondary'>
+                        {t('attributes.childAttributes', 'Child Attributes')} ({childAttributes.length})
+                    </Typography>
+                    <Button
+                        variant='contained'
+                        size='small'
+                        onClick={() => setDialogOpen(true)}
+                        startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
+                        sx={{ borderRadius: 1, height: 28, fontSize: 12, textTransform: 'none' }}
+                    >
+                        {tc('create')}
+                    </Button>
+                </Stack>
 
-            {isLoading ? (
-                <Skeleton variant='rectangular' height={60} />
-            ) : childAttributes.length === 0 ? (
-                <Typography variant='body2' color='text.secondary' sx={{ py: 1, textAlign: 'center' }}>
-                    {t('attributes.noChildAttributes', 'No child attributes yet')}
-                </Typography>
-            ) : (
-                <FlowListTable
-                    data={tableData}
-                    images={images}
-                    isLoading={isLoading}
-                    customColumns={childColumns}
-                    i18nNamespace='flowList'
-                    compact
-                    renderActions={(row: any) => {
-                        const originalAttribute = childAttributes.find((a) => a.id === row.id)
-                        if (!originalAttribute) return null
-                        return (
-                            <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
-                                entity={toAttributeDisplay(originalAttribute, i18n.language)}
-                                entityKind='child-attribute'
-                                descriptors={childActionDescriptors}
-                                namespace='metahubs'
-                                menuButtonLabelKey='flowList:menu.button'
-                                i18nInstance={i18n}
-                                createContext={createChildAttributeContext}
-                            />
-                        )
+                {isLoading ? (
+                    <Skeleton variant='rectangular' height={60} />
+                ) : childAttributes.length === 0 ? (
+                    <Typography variant='body2' color='text.secondary' sx={{ py: 1, textAlign: 'center' }}>
+                        {t('attributes.noChildAttributes', 'No child attributes yet')}
+                    </Typography>
+                ) : (
+                    <FlowListTable
+                        data={tableData}
+                        images={images}
+                        isLoading={isLoading}
+                        customColumns={childColumns}
+                        i18nNamespace='flowList'
+                        compact
+                        renderActions={(row: AttributeDisplay) => {
+                            const originalAttribute = childAttributes.find((a) => a.id === row.id)
+                            if (!originalAttribute) return null
+                            return (
+                                <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
+                                    entity={toAttributeDisplay(originalAttribute, i18n.language)}
+                                    entityKind='child-attribute'
+                                    descriptors={childActionDescriptors}
+                                    namespace='metahubs'
+                                    menuButtonLabelKey='flowList:menu.button'
+                                    i18nInstance={i18n}
+                                    createContext={createChildAttributeContext}
+                                />
+                            )
+                        }}
+                    />
+                )}
+
+                <EntityFormDialog
+                    open={isDialogOpen}
+                    title={t('attributes.createChildDialog.title', 'Add Child Attribute')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.create', 'Create')}
+                    savingButtonText={tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCreating}
+                    error={dialogError || undefined}
+                    onClose={() => setDialogOpen(false)}
+                    onSave={handleCreate}
+                    hideDefaultFields
+                    initialExtraValues={localizedDefaults}
+                    tabs={(args) => buildTabs(args, false, true, true, undefined, null)}
+                    validate={validate}
+                    canSave={canSave}
+                />
+
+                <EntityFormDialog
+                    key={`child-edit-${editState.attribute?.id ?? 'none'}-${editState.attribute?.version ?? 0}`}
+                    open={editState.open}
+                    mode='edit'
+                    title={t('attributes.editChildDialog.title', 'Edit Child Attribute')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.save', 'Save')}
+                    savingButtonText={tc('actions.saving', 'Saving...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isUpdating}
+                    error={editDialogError || undefined}
+                    onClose={() => setEditState({ open: false, attribute: null })}
+                    onSave={handleUpdate}
+                    hideDefaultFields
+                    initialExtraValues={editInitialValues}
+                    tabs={(args) => buildTabs(args, true, true, true, undefined, editState.attribute?.id ?? null)}
+                    validate={validate}
+                    canSave={canSave}
+                    showDeleteButton
+                    deleteButtonText={tc('actions.delete', 'Delete')}
+                    deleteButtonDisabled={!canDeleteChildAttribute(editState.attribute)}
+                    onDelete={() => {
+                        if (editState.attribute) {
+                            setDeleteState({ open: true, attribute: editState.attribute })
+                            setEditState({ open: false, attribute: null })
+                        }
                     }}
                 />
-            )}
 
-            <EntityFormDialog
-                open={isDialogOpen}
-                title={t('attributes.createChildDialog.title', 'Add Child Attribute')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.create', 'Create')}
-                savingButtonText={tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
-                error={dialogError || undefined}
-                onClose={() => setDialogOpen(false)}
-                onSave={handleCreate}
-                hideDefaultFields
-                initialExtraValues={localizedDefaults}
-                tabs={(args) => buildTabs(args, false)}
-                validate={validate}
-                canSave={canSave}
-            />
+                <EntityFormDialog
+                    key={`child-copy-${copyState.attribute?.id ?? 'none'}-${copyState.attribute?.version ?? 0}`}
+                    open={copyState.open}
+                    mode='copy'
+                    title={t('attributes.copyTitle', 'Copy Attribute')}
+                    saveButtonText={t('attributes.copy.action', 'Copy')}
+                    savingButtonText={t('attributes.copy.actionLoading', 'Copying...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCopying}
+                    error={copyDialogError || undefined}
+                    onClose={() => setCopyState({ open: false, attribute: null })}
+                    onSave={handleCopy}
+                    hideDefaultFields
+                    initialExtraValues={copyInitialValues ?? localizedDefaults}
+                    tabs={(args) => buildTabs(args, true, true, false, false, null)}
+                    validate={validate}
+                    canSave={(values) => canSave(values)}
+                />
 
-            <EntityFormDialog
-                key={`child-edit-${editState.attribute?.id ?? 'none'}-${editState.attribute?.version ?? 0}`}
-                open={editState.open}
-                mode='edit'
-                title={t('attributes.editChildDialog.title', 'Edit Child Attribute')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.save', 'Save')}
-                savingButtonText={tc('actions.saving', 'Saving...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isUpdating}
-                error={editDialogError || undefined}
-                onClose={() => setEditState({ open: false, attribute: null })}
-                onSave={handleUpdate}
-                hideDefaultFields
-                initialExtraValues={editInitialValues}
-                tabs={(args) => buildTabs(args, true)}
-                validate={validate}
-                canSave={canSave}
-                showDeleteButton
-                deleteButtonText={tc('actions.delete', 'Delete')}
-                deleteButtonDisabled={Boolean(editState.attribute?.isDisplayAttribute)}
-                onDelete={() => {
-                    if (editState.attribute) {
-                        setDeleteState({ open: true, attribute: editState.attribute })
-                        setEditState({ open: false, attribute: null })
-                    }
-                }}
-            />
-
-            <EntityFormDialog
-                key={`child-copy-${copyState.attribute?.id ?? 'none'}-${copyState.attribute?.version ?? 0}`}
-                open={copyState.open}
-                mode='copy'
-                title={t('attributes.copyTitle', 'Copy Attribute')}
-                saveButtonText={t('attributes.copy.action', 'Copy')}
-                savingButtonText={t('attributes.copy.actionLoading', 'Copying...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCopying}
-                error={copyDialogError || undefined}
-                onClose={() => setCopyState({ open: false, attribute: null })}
-                onSave={handleCopy}
-                hideDefaultFields
-                initialExtraValues={copyInitialValues ?? localizedDefaults}
-                tabs={(args) => buildTabs(args, true, true, false, false)}
-                validate={validate}
-                canSave={(values) => canSave(values)}
-            />
-
-            <ConfirmDeleteDialog
-                open={deleteState.open}
-                title={t('attributes.deleteDialog.title', 'Delete Attribute')}
-                description={t('attributes.deleteChildDialog.message', 'Are you sure you want to delete this child attribute?')}
-                confirmButtonText={tc('actions.delete', 'Delete')}
-                deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteState({ open: false, attribute: null })}
-                onConfirm={async () => {
-                    if (deleteState.attribute) {
-                        await deleteMutation.mutateAsync(deleteState.attribute.id)
-                        setDeleteState({ open: false, attribute: null })
-                    }
-                }}
-            />
-        </Box>
+                <ConfirmDeleteDialog
+                    open={deleteState.open}
+                    title={t('attributes.deleteDialog.title', 'Delete Attribute')}
+                    description={t('attributes.deleteChildDialog.message', 'Are you sure you want to delete this child attribute?')}
+                    confirmButtonText={tc('actions.delete', 'Delete')}
+                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => setDeleteState({ open: false, attribute: null })}
+                    onConfirm={async () => {
+                        if (deleteState.attribute) {
+                            await deleteMutation.mutateAsync(deleteState.attribute.id)
+                            setDeleteState({ open: false, attribute: null })
+                        }
+                    }}
+                />
+            </Box>
+        </ExistingCodenamesProvider>
     )
 }
 

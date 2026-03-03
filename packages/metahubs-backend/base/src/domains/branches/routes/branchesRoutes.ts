@@ -5,12 +5,16 @@ import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
 import { database, localizedContent, validation, OptimisticLockError } from '@universo/utils'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
 import type { BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
 import { ensureMetahubAccess } from '../../shared/guards'
+import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { getCodenameSettings, codenameErrorMessage } from '../../shared/codenameStyleHelper'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCodename, isValidCodename, normalizeBranchCopyOptions } = validation
+const { normalizeBranchCopyOptions } = validation
 
 interface AuthLikeUser {
     id?: string
@@ -43,12 +47,17 @@ const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transfo
 const optionalLocalizedInputSchema = z
     .union([z.string(), z.record(z.string())])
     .transform((val) => (typeof val === 'string' ? { en: val } : val))
+const localizedCodenameInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
 const sourceBranchIdSchema = z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().uuid().optional())
 
 const createBranchSchema = z
     .object({
         codename: z.string().min(1).max(100),
+        codenameInput: localizedCodenameInputSchema.optional(),
+        codenamePrimaryLocale: z.string().optional(),
         name: localizedInputSchema.optional(),
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
@@ -90,6 +99,8 @@ const getBranchCopyCompatibilityErrorCode = (error: unknown): 'BRANCH_COPY_ENUM_
 
 const updateBranchSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -116,6 +127,13 @@ export function createBranchesRoutes(
         const ds = getDataSource()
         const manager = getRequestManager(req, ds)
         return new MetahubBranchesService(ds, manager)
+    }
+
+    const getSettingsService = (req: Request) => {
+        const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        return new MetahubSettingsService(schemaService)
     }
 
     const ensureMetahubRouteAccess = async (
@@ -173,6 +191,7 @@ export function createBranchesRoutes(
                 id: branch.id,
                 metahubId,
                 codename: branch.codename,
+                codenameLocalized: branch.codenameLocalized ?? null,
                 name: branch.name,
                 description: branch.description,
                 sourceBranchId: branch.sourceBranchId ?? null,
@@ -236,6 +255,7 @@ export function createBranchesRoutes(
                 id: branch.id,
                 metahubId,
                 codename: branch.codename,
+                codenameLocalized: branch.codenameLocalized ?? null,
                 name: branch.name,
                 description: branch.description,
                 sourceBranchId: branch.sourceBranchId ?? null,
@@ -289,6 +309,7 @@ export function createBranchesRoutes(
                 id: branch.id,
                 metahubId,
                 codename: branch.codename,
+                codenameLocalized: branch.codenameLocalized ?? null,
                 name: branch.name,
                 description: branch.description,
                 branchNumber: branch.branchNumber,
@@ -321,7 +342,16 @@ export function createBranchesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, namePrimaryLocale, descriptionPrimaryLocale, sourceBranchId } = parsed.data
+            const {
+                codename,
+                codenameInput,
+                codenamePrimaryLocale,
+                name,
+                description,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                sourceBranchId
+            } = parsed.data
             const copyOptions: BranchCopyOptions = normalizeBranchCopyOptions({
                 fullCopy: parsed.data.fullCopy,
                 copyLayouts: parsed.data.copyLayouts,
@@ -330,11 +360,17 @@ export function createBranchesRoutes(
                 copyEnumerations: parsed.data.copyEnumerations
             })
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const settingsService = getSettingsService(req)
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -364,11 +400,18 @@ export function createBranchesRoutes(
                 }
             }
 
+            const sanitizedCodenameInput = sanitizeLocalizedInput(codenameInput ?? {})
+            const codenameLocalizedVlc =
+                Object.keys(sanitizedCodenameInput).length > 0
+                    ? buildLocalizedContent(sanitizedCodenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+                    : null
+
             try {
                 const branch = await branchesService.createBranch({
                     metahubId,
                     sourceBranchId: sourceBranchId ?? null,
                     codename: normalizedCodename,
+                    codenameLocalized: codenameLocalizedVlc ?? null,
                     name: nameVlc,
                     description: descriptionVlc ?? null,
                     copyOptions,
@@ -379,6 +422,7 @@ export function createBranchesRoutes(
                     id: branch.id,
                     metahubId,
                     codename: branch.codename,
+                    codenameLocalized: branch.codenameLocalized ?? null,
                     name: branch.name,
                     description: branch.description,
                     sourceBranchId: branch.sourceBranchId ?? null,
@@ -453,9 +497,19 @@ export function createBranchesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = parsed.data
+            const {
+                codename,
+                codenameInput,
+                codenamePrimaryLocale,
+                name,
+                description,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                expectedVersion
+            } = parsed.data
             const updateData: {
                 codename?: string
+                codenameLocalized?: VersionedLocalizedContent<string> | null
                 name?: VersionedLocalizedContent<string>
                 description?: VersionedLocalizedContent<string> | null
                 expectedVersion?: number
@@ -463,11 +517,17 @@ export function createBranchesRoutes(
             } = {}
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const settingsService = getSettingsService(req)
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
 
@@ -500,6 +560,14 @@ export function createBranchesRoutes(
                         : null
             }
 
+            if (codenameInput !== undefined) {
+                const sanitizedCodenameInput = sanitizeLocalizedInput(codenameInput)
+                updateData.codenameLocalized =
+                    Object.keys(sanitizedCodenameInput).length > 0
+                        ? buildLocalizedContent(sanitizedCodenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+                        : null
+            }
+
             if (expectedVersion !== undefined) {
                 updateData.expectedVersion = expectedVersion
             }
@@ -512,6 +580,7 @@ export function createBranchesRoutes(
                     id: updated.id,
                     metahubId,
                     codename: updated.codename,
+                    codenameLocalized: updated.codenameLocalized ?? null,
                     name: updated.name,
                     description: updated.description,
                     sourceBranchId: updated.sourceBranchId ?? null,

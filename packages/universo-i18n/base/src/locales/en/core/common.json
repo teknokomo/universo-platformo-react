@@ -190,6 +190,8 @@
     "confirm": {
       "title": "Confirm Action",
       "cancel": "Cancel",
+      "cancelButtonText": "Cancel",
+      "confirmButtonText": "Confirm",
       "delete": {
         "title": "Delete {{entity}}",
         "description": "This action cannot be undone. {{entity}} \"{{name}}\" and all its data will be permanently deleted.",

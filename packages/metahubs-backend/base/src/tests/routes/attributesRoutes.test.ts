@@ -42,6 +42,9 @@ import { createAttributesRoutes } from '../../domains/attributes/routes/attribut
 
 const mockTrx = { __trx: true }
 const mockKnexTransaction = jest.fn(async (cb: (trx: unknown) => Promise<unknown>) => cb(mockTrx))
+const mockAcquireAdvisoryLock = jest.fn(async () => true)
+const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
+const mockUuidToLockKey = jest.fn((value: string) => value)
 
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
@@ -49,7 +52,10 @@ jest.mock('../../domains/ddl', () => ({
         getInstance: jest.fn(() => ({
             transaction: mockKnexTransaction
         }))
-    }
+    },
+    acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
+    releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
+    uuidToLockKey: (...args: unknown[]) => mockUuidToLockKey(...args)
 }))
 
 const mockAttributesService = {
@@ -93,6 +99,25 @@ jest.mock('../../domains/metahubs/services/MetahubEnumerationValuesService', () 
     MetahubEnumerationValuesService: jest.fn().mockImplementation(() => mockEnumerationValuesService)
 }))
 
+const mockSettingsService = {
+    findByKey: jest.fn(async () => null),
+    findAll: jest.fn(async () => [
+        { key: 'general.codenameStyle', value: { _value: 'pascal-case' } },
+        { key: 'general.codenameAlphabet', value: { _value: 'en-ru' } },
+        { key: 'general.codenameAllowMixedAlphabets', value: { _value: false } },
+        { key: 'catalogs.attributeCodenameScope', value: { _value: 'per-level' } },
+        {
+            key: 'catalogs.allowedAttributeTypes',
+            value: { _value: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] }
+        }
+    ])
+}
+
+jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
+    __esModule: true,
+    MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
+}))
+
 describe('Attributes Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as unknown as { user?: { id: string } }).user = { id: 'test-user-id' }
@@ -122,6 +147,9 @@ describe('Attributes Routes', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         mockKnexTransaction.mockImplementation(async (cb: (trx: unknown) => Promise<unknown>) => cb(mockTrx))
+        mockAcquireAdvisoryLock.mockResolvedValue(true)
+        mockReleaseAdvisoryLock.mockResolvedValue(undefined)
+        mockUuidToLockKey.mockImplementation((value: string) => value)
         mockAttributesService.findById.mockResolvedValue(null)
         mockAttributesService.update.mockResolvedValue({})
         mockAttributesService.findByCodename.mockResolvedValue(null)
@@ -245,10 +273,11 @@ describe('Attributes Routes', () => {
             expect(mockAttributesService.findByCodename).toHaveBeenCalledWith(
                 'metahub-1',
                 'catalog-1',
-                'products-copy',
+                'ProductsCopy',
                 null,
                 'test-user-id',
-                mockTrx
+                mockTrx,
+                { ignoreParentScope: false }
             )
             expect(mockAttributesService.create).toHaveBeenCalledWith(
                 'metahub-1',
@@ -284,6 +313,41 @@ describe('Attributes Routes', () => {
             expect(response.body.error).toBe('Unable to generate unique codename for attribute copy')
             expect(mockAttributesService.create).not.toHaveBeenCalled()
             expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
+        })
+
+        it('returns 409 when global codename lock cannot be acquired', async () => {
+            mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
+                if (key === 'catalogs.attributeCodenameScope') {
+                    return { key, value: { _value: 'global' } }
+                }
+                const defaults: Record<string, unknown> = {
+                    'general.codenameStyle': 'pascal-case',
+                    'general.codenameAlphabet': 'en-ru',
+                    'general.codenameAllowMixedAlphabets': false
+                }
+                return key in defaults ? { key, value: { _value: defaults[key] } } : null
+            })
+            mockAcquireAdvisoryLock.mockResolvedValue(false)
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-source',
+                catalogId: 'catalog-1',
+                codename: 'products',
+                dataType: 'STRING',
+                name: { _primary: 'en', locales: { en: { content: 'Products' } } },
+                uiConfig: {},
+                validationRules: {},
+                isRequired: false,
+                parentAttributeId: null,
+                targetEntityId: null,
+                targetEntityKind: null
+            })
+
+            const app = buildApp()
+            const response = await request(app).post('/metahub/metahub-1/catalog/catalog-1/attribute/attr-source/copy').expect(409)
+
+            expect(response.body.error).toContain('Could not acquire attribute codename lock')
+            expect(mockAttributesService.create).not.toHaveBeenCalled()
+            expect(mockReleaseAdvisoryLock).not.toHaveBeenCalled()
         })
     })
 })

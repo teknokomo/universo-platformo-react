@@ -159,7 +159,8 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
 
 vi.mock('../../../../components', () => ({
     CodenameField: () => null,
-    BranchDeleteDialog: () => null
+    BranchDeleteDialog: () => null,
+    ExistingCodenamesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
 }))
 
 describe('BranchList create flow copy options', () => {

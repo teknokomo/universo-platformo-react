@@ -39,7 +39,7 @@ export interface NumberValidationRules {
 
 /**
  * Default precision/scale values matching PostgreSQL NUMERIC defaults.
- * 
+ *
  * Note: maxPrecision is limited to 15 (not PostgreSQL's 38) because JavaScript
  * numbers lose precision beyond Number.MAX_SAFE_INTEGER (2^53-1 = ~16 digits).
  */
@@ -145,10 +145,7 @@ function countDecimalDigits(value: number): number {
  * validateNumber(123456789.99, { precision: 10, scale: 2 })
  * // → { valid: false, errorKey: 'tooManyIntegerDigits', ... }
  */
-export function validateNumber(
-    value: unknown,
-    rules: NumberValidationRules = {}
-): NumberValidationResult {
+export function validateNumber(value: unknown, rules: NumberValidationRules = {}): NumberValidationResult {
     // Type check
     if (typeof value !== 'number') {
         return {
@@ -246,9 +243,7 @@ export function validateNumber(
     }
 
     // Normalize: round to scale decimal places
-    const normalizedValue = scale > 0
-        ? Number(value.toFixed(scale))
-        : Math.trunc(value)
+    const normalizedValue = scale > 0 ? Number(value.toFixed(scale)) : Math.trunc(value)
 
     return { valid: true, normalizedValue }
 }
@@ -271,9 +266,7 @@ export function validateNumberOrThrow(
     const result = validateNumber(value, rules)
 
     if (!result.valid) {
-        const prefix = context.elementId
-            ? `Element ${context.elementId}, field "${context.fieldName}"`
-            : `Field "${context.fieldName}"`
+        const prefix = context.elementId ? `Element ${context.elementId}, field "${context.fieldName}"` : `Field "${context.fieldName}"`
 
         throw new Error(`${prefix}: ${result.errorMessage}`)
     }

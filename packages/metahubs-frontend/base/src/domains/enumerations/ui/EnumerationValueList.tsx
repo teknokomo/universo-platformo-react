@@ -23,6 +23,7 @@ import {
     ViewHeaderMUI as ViewHeader,
     LocalizedInlineField,
     useCodenameAutoFill,
+    useCodenameVlcSync,
     BaseEntityMenu
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
@@ -31,8 +32,9 @@ import type { ActionDescriptor } from '@universo/template-mui'
 import type { EnumerationValue, EnumerationValueDisplay } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
 import { normalizeLocale, extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
-import { CodenameField } from '../../../components'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { CodenameField, ExistingCodenamesProvider } from '../../../components'
 import { getEnumerationValueBlockingReferences, listEnumerationValues } from '../api'
 import {
     useCopyEnumerationValue,
@@ -46,6 +48,7 @@ import { metahubsQueryKeys } from '../../shared'
 type ValueFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
     isDefault?: boolean
@@ -54,9 +57,24 @@ type ValueFormValues = {
 type CopyValueFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
     isDefault?: boolean
+}
+
+type GenericFormValues = Record<string, unknown>
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    const responseError = (data as { error?: unknown }).error
+    if (typeof responseError === 'string') return responseError
+    const responseMessage = (data as { message?: unknown }).message
+    return typeof responseMessage === 'string' ? responseMessage : undefined
 }
 
 const appendCopySuffix = (
@@ -92,23 +110,33 @@ const ValueFormFields = ({
     errors,
     uiLocale,
     translate,
-    showDefaultToggle = true
+    showDefaultToggle = true,
+    editingEntityId
 }: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
     translate: (key: string, defaultValue?: string) => string
     showDefaultToggle?: boolean
+    editingEntityId?: string | null
 }) => {
+    const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -116,6 +144,23 @@ const ValueFormFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -162,17 +207,24 @@ const ValueFormFields = ({
                 onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={translate('enumerationValues.codename', 'Codename')}
                 helperText={translate('enumerationValues.codenameHelper', 'Unique identifier')}
                 error={errors.codename}
                 disabled={isLoading}
                 required
+                editingEntityId={editingEntityId}
             />
         </Stack>
     )
 }
 
 const EnumerationValueList = () => {
+    const codenameConfig = useCodenameConfig()
     const { metahubId, enumerationId } = useParams<{ metahubId: string; enumerationId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
@@ -414,7 +466,7 @@ const EnumerationValueList = () => {
     )
 
     const images = useMemo(() => {
-        const imageMap: Record<string, any[]> = {}
+        const imageMap: Record<string, unknown[]> = {}
         values.forEach((value) => {
             imageMap[value.id] = []
         })
@@ -425,6 +477,7 @@ const EnumerationValueList = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
+            codenameVlc: null,
             codename: '',
             codenameTouched: false,
             isDefault: false
@@ -437,6 +490,7 @@ const EnumerationValueList = () => {
         return {
             nameVlc: editingValue.name ?? null,
             descriptionVlc: editingValue.description ?? null,
+            codenameVlc: editingValue.codenameLocalized ?? null,
             codename: editingValue.codename,
             codenameTouched: true,
             isDefault: editingValue.isDefault ?? false
@@ -448,6 +502,7 @@ const EnumerationValueList = () => {
             return {
                 nameVlc: null,
                 descriptionVlc: null,
+                codenameVlc: null,
                 codename: '',
                 codenameTouched: false,
                 isDefault: false
@@ -458,44 +513,52 @@ const EnumerationValueList = () => {
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
             descriptionVlc: source.description ?? null,
-            codename: sanitizeCodename(`${source.codename}-copy`),
+            codenameVlc: source.codenameLocalized ?? null,
+            codename: normalizeCodenameForStyle(`${source.codename}-copy`, codenameConfig.style, codenameConfig.alphabet),
             codenameTouched: true,
             isDefault: false
         }
-    }, [copyState.value, i18n.language])
+    }, [codenameConfig.alphabet, codenameConfig.style, copyState.value, i18n.language])
 
-    const validateForm = (valuesToValidate: Record<string, any>) => {
+    const validateForm = (valuesToValidate: GenericFormValues) => {
         const errors: Record<string, string> = {}
         const nameVlc = valuesToValidate.nameVlc as VersionedLocalizedContent<string> | null | undefined
         if (!hasPrimaryContent(nameVlc)) {
             errors.nameVlc = tc('crud.nameRequired', 'Name is required')
         }
         const rawCodename = typeof valuesToValidate.codename === 'string' ? valuesToValidate.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         if (!normalizedCodename) {
             errors.codename = t('enumerationValues.validation.codenameRequired', 'Codename is required')
-        } else if (!isValidCodename(normalizedCodename)) {
+        } else if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
             errors.codename = t('enumerationValues.validation.codenameInvalid', 'Codename contains invalid characters')
         }
         return Object.keys(errors).length > 0 ? errors : null
     }
 
-    const canSaveForm = (valuesToValidate: Record<string, any>) => {
+    const canSaveForm = (valuesToValidate: GenericFormValues) => {
         const nameVlc = valuesToValidate.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const rawCodename = typeof valuesToValidate.codename === 'string' ? valuesToValidate.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+        return (
+            !valuesToValidate._hasCodenameDuplicate &&
+            hasPrimaryContent(nameVlc) &&
+            Boolean(normalizedCodename) &&
+            isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+        )
     }
 
-    const handleSave = async (formValues: Record<string, any>) => {
+    const handleSave = async (formValues: GenericFormValues) => {
         if (!metahubId || !enumerationId) return
         setDialogError(null)
 
         const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = formValues.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-        const codename = sanitizeCodename(String(formValues.codename || ''))
+        const codename = normalizeCodenameForStyle(String(formValues.codename || ''), codenameConfig.style, codenameConfig.alphabet)
         const isDefault = Boolean(formValues.isDefault)
 
         if (!nameInput || !namePrimaryLocale) {
@@ -515,6 +578,8 @@ const EnumerationValueList = () => {
                     valueId: editingValue.id,
                     data: {
                         codename,
+                        codenameInput,
+                        codenamePrimaryLocale,
                         name: nameInput,
                         description: descriptionInput,
                         namePrimaryLocale,
@@ -529,6 +594,8 @@ const EnumerationValueList = () => {
                     enumerationId,
                     data: {
                         codename,
+                        codenameInput,
+                        codenamePrimaryLocale,
                         name: nameInput,
                         description: descriptionInput,
                         namePrimaryLocale,
@@ -542,10 +609,7 @@ const EnumerationValueList = () => {
             setEditingValue(null)
             setDialogError(null)
         } catch (e: unknown) {
-            const responseMessage =
-                e && typeof e === 'object' && 'response' in e
-                    ? (e as any)?.response?.data?.error ?? (e as any)?.response?.data?.message
-                    : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -581,294 +645,302 @@ const EnumerationValueList = () => {
             border={false}
             shadow={false}
         >
-            {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={t('errors.pleaseTryLater')}
-                />
-            ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search={true}
-                        searchPlaceholder={t('enumerationValues.searchPlaceholder', 'Search enumeration values...')}
-                        onSearchChange={setSearch}
-                        title={t('enumerationValues.title', 'Values')}
-                    >
-                        <ToolbarControls
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: () => {
-                                    setEditingValue(null)
-                                    setDialogError(null)
-                                    setDialogOpen(true)
-                                },
-                                startIcon: <AddRoundedIcon />
-                            }}
-                        />
-                    </ViewHeader>
+            <ExistingCodenamesProvider entities={values}>
+                {error ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Connection error'
+                        title={t('errors.connectionFailed')}
+                        description={t('errors.pleaseTryLater')}
+                    />
+                ) : (
+                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                        <ViewHeader
+                            search={true}
+                            searchPlaceholder={t('enumerationValues.searchPlaceholder', 'Search enumeration values...')}
+                            onSearchChange={setSearch}
+                            title={t('enumerationValues.title', 'Values')}
+                        >
+                            <ToolbarControls
+                                primaryAction={{
+                                    label: tc('create'),
+                                    onClick: () => {
+                                        setEditingValue(null)
+                                        setDialogError(null)
+                                        setDialogOpen(true)
+                                    },
+                                    startIcon: <AddRoundedIcon />
+                                }}
+                            />
+                        </ViewHeader>
 
-                    {!isBusy && tableData.length === 0 ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt='No enumeration values'
-                            title={t('enumerationValues.empty', 'No values yet')}
-                            description={t(
-                                'enumerationValues.emptyDescription',
-                                'Add values to define available options in this enumeration'
-                            )}
-                        />
-                    ) : (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                            <FlowListTable
-                                data={tableData}
-                                images={images}
-                                isLoading={isBusy}
-                                customColumns={[
-                                    {
-                                        id: 'sortOrder',
-                                        label: t('attributes.table.order', '#'),
-                                        width: '4%',
-                                        align: 'center',
-                                        sortable: true,
-                                        sortAccessor: (row: EnumerationValueDisplay) => row.sortOrder ?? 0,
-                                        render: (row: EnumerationValueDisplay) => (
-                                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ?? 0}</Typography>
-                                        )
-                                    },
-                                    {
-                                        id: 'name',
-                                        label: tc('table.name', 'Name'),
-                                        width: '30%',
-                                        align: 'left',
-                                        render: (row: EnumerationValueDisplay) => (
-                                            <Stack direction='row' spacing={0.5} alignItems='center'>
-                                                {row.isDefault && (
-                                                    <Tooltip
-                                                        title={t('enumerationValues.defaultTooltip', 'This value is used by default.')}
-                                                        arrow
-                                                    >
-                                                        <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                                    </Tooltip>
-                                                )}
-                                                <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>
-                                                    {row.name || '—'}
-                                                </Typography>
-                                            </Stack>
-                                        )
-                                    },
-                                    {
-                                        id: 'description',
-                                        label: tc('table.description', 'Description'),
-                                        width: '30%',
-                                        align: 'left',
-                                        render: (row: EnumerationValueDisplay) => (
-                                            <Typography sx={{ fontSize: 14, wordBreak: 'break-word' }}>{row.description || '—'}</Typography>
-                                        )
-                                    },
-                                    {
-                                        id: 'codename',
-                                        label: t('enumerationValues.codename', 'Codename'),
-                                        width: '20%',
-                                        align: 'left',
-                                        render: (row: EnumerationValueDisplay) => (
-                                            <Typography sx={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace' }}>
-                                                {row.codename}
-                                            </Typography>
-                                        )
-                                    }
-                                ]}
-                                i18nNamespace='flowList'
-                                renderActions={(row: EnumerationValueDisplay) => (
-                                    <BaseEntityMenu<EnumerationValueDisplay, never>
-                                        entity={row}
-                                        entityKind='enumerationValue'
-                                        descriptors={valueActions}
-                                        namespace='metahubs'
-                                        menuButtonLabelKey='flowList:menu.button'
-                                        i18nInstance={i18n}
-                                        createContext={createValueActionContext}
-                                    />
+                        {!isBusy && tableData.length === 0 ? (
+                            <EmptyListState
+                                image={APIEmptySVG}
+                                imageAlt='No enumeration values'
+                                title={t('enumerationValues.empty', 'No values yet')}
+                                description={t(
+                                    'enumerationValues.emptyDescription',
+                                    'Add values to define available options in this enumeration'
                                 )}
                             />
-                        </Box>
-                    )}
-                </Stack>
-            )}
-
-            <EntityFormDialog
-                key={`enum-value-edit-${editingValue?.id ?? 'none'}-${editingValue?.version ?? 0}`}
-                open={isDialogOpen}
-                mode='edit'
-                title={
-                    editingValue
-                        ? t('enumerationValues.editDialog.title', 'Edit enumeration value')
-                        : t('enumerationValues.createDialog.title', 'Create value')
-                }
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={editingValue ? tc('actions.save', 'Save') : tc('actions.create', 'Create')}
-                savingButtonText={editingValue ? tc('actions.saving', 'Saving...') : tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={createMutation.isPending || updateMutation.isPending}
-                error={dialogError || undefined}
-                onClose={() => {
-                    setDialogOpen(false)
-                    setEditingValue(null)
-                    setDialogError(null)
-                }}
-                onSave={handleSave}
-                hideDefaultFields
-                initialExtraValues={initialFormValues}
-                extraFields={({ values, setValue, isLoading, errors }) => (
-                    <ValueFormFields
-                        values={values}
-                        setValue={setValue}
-                        isLoading={isLoading}
-                        errors={errors ?? {}}
-                        uiLocale={i18n.language}
-                        translate={(key, defaultValue) => t(key, defaultValue)}
-                    />
+                        ) : (
+                            <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                <FlowListTable
+                                    data={tableData}
+                                    images={images}
+                                    isLoading={isBusy}
+                                    customColumns={[
+                                        {
+                                            id: 'sortOrder',
+                                            label: t('attributes.table.order', '#'),
+                                            width: '4%',
+                                            align: 'center',
+                                            sortable: true,
+                                            sortAccessor: (row: EnumerationValueDisplay) => row.sortOrder ?? 0,
+                                            render: (row: EnumerationValueDisplay) => (
+                                                <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ?? 0}</Typography>
+                                            )
+                                        },
+                                        {
+                                            id: 'name',
+                                            label: tc('table.name', 'Name'),
+                                            width: '30%',
+                                            align: 'left',
+                                            render: (row: EnumerationValueDisplay) => (
+                                                <Stack direction='row' spacing={0.5} alignItems='center'>
+                                                    {row.isDefault && (
+                                                        <Tooltip
+                                                            title={t('enumerationValues.defaultTooltip', 'This value is used by default.')}
+                                                            arrow
+                                                        >
+                                                            <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                                        </Tooltip>
+                                                    )}
+                                                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>
+                                                        {row.name || '—'}
+                                                    </Typography>
+                                                </Stack>
+                                            )
+                                        },
+                                        {
+                                            id: 'description',
+                                            label: tc('table.description', 'Description'),
+                                            width: '30%',
+                                            align: 'left',
+                                            render: (row: EnumerationValueDisplay) => (
+                                                <Typography sx={{ fontSize: 14, wordBreak: 'break-word' }}>
+                                                    {row.description || '—'}
+                                                </Typography>
+                                            )
+                                        },
+                                        {
+                                            id: 'codename',
+                                            label: t('enumerationValues.codename', 'Codename'),
+                                            width: '20%',
+                                            align: 'left',
+                                            render: (row: EnumerationValueDisplay) => (
+                                                <Typography sx={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace' }}>
+                                                    {row.codename}
+                                                </Typography>
+                                            )
+                                        }
+                                    ]}
+                                    i18nNamespace='flowList'
+                                    renderActions={(row: EnumerationValueDisplay) => (
+                                        <BaseEntityMenu<EnumerationValueDisplay, never>
+                                            entity={row}
+                                            entityKind='enumerationValue'
+                                            descriptors={valueActions}
+                                            namespace='metahubs'
+                                            menuButtonLabelKey='flowList:menu.button'
+                                            i18nInstance={i18n}
+                                            createContext={createValueActionContext}
+                                        />
+                                    )}
+                                />
+                            </Box>
+                        )}
+                    </Stack>
                 )}
-                validate={validateForm}
-                canSave={canSaveForm}
-                showDeleteButton={Boolean(editingValue)}
-                deleteButtonText={tc('actions.delete', 'Delete')}
-                deleteButtonDisabled={Boolean(editingValue && blockingInfo && !blockingInfo.canDelete)}
-                deleteButtonDisabledReason={
-                    editingValue && blockingInfo && !blockingInfo.canDelete
-                        ? t(
-                              'enumerationValues.deleteBlockedReason',
-                              'Deletion is blocked because this value is used in defaults or predefined elements.'
-                          )
-                        : undefined
-                }
-                onDelete={() => {
-                    if (editingValue) {
-                        setDeleteState({ open: true, value: editingValue })
+
+                <EntityFormDialog
+                    key={`enum-value-edit-${editingValue?.id ?? 'none'}-${editingValue?.version ?? 0}`}
+                    open={isDialogOpen}
+                    mode='edit'
+                    title={
+                        editingValue
+                            ? t('enumerationValues.editDialog.title', 'Edit enumeration value')
+                            : t('enumerationValues.createDialog.title', 'Create value')
+                    }
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={editingValue ? tc('actions.save', 'Save') : tc('actions.create', 'Create')}
+                    savingButtonText={editingValue ? tc('actions.saving', 'Saving...') : tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={createMutation.isPending || updateMutation.isPending}
+                    error={dialogError || undefined}
+                    onClose={() => {
                         setDialogOpen(false)
+                        setEditingValue(null)
+                        setDialogError(null)
+                    }}
+                    onSave={handleSave}
+                    hideDefaultFields
+                    initialExtraValues={initialFormValues}
+                    extraFields={({ values, setValue, isLoading, errors }) => (
+                        <ValueFormFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            errors={errors ?? {}}
+                            uiLocale={i18n.language}
+                            translate={(key, defaultValue) => t(key, defaultValue)}
+                            editingEntityId={editingValue?.id}
+                        />
+                    )}
+                    validate={validateForm}
+                    canSave={canSaveForm}
+                    showDeleteButton={Boolean(editingValue)}
+                    deleteButtonText={tc('actions.delete', 'Delete')}
+                    deleteButtonDisabled={Boolean(editingValue && blockingInfo && !blockingInfo.canDelete)}
+                    deleteButtonDisabledReason={
+                        editingValue && blockingInfo && !blockingInfo.canDelete
+                            ? t(
+                                  'enumerationValues.deleteBlockedReason',
+                                  'Deletion is blocked because this value is used in defaults or predefined elements.'
+                              )
+                            : undefined
                     }
-                }}
-            />
+                    onDelete={() => {
+                        if (editingValue) {
+                            setDeleteState({ open: true, value: editingValue })
+                            setDialogOpen(false)
+                        }
+                    }}
+                />
 
-            <EntityFormDialog
-                key={`enum-value-copy-${copyState.value?.id ?? 'none'}-${copyState.value?.version ?? 0}`}
-                open={copyState.open}
-                mode='copy'
-                title={t('enumerationValues.copyTitle', 'Copy Value')}
-                saveButtonText={t('enumerationValues.copy.action', 'Copy')}
-                savingButtonText={t('enumerationValues.copy.actionLoading', 'Copying...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={copyMutation.isPending}
-                error={copyDialogError || undefined}
-                onClose={() => {
-                    setCopyState({ open: false, value: null })
-                    setCopyDialogError(null)
-                }}
-                onSave={async (formValues: Record<string, any>) => {
-                    if (!metahubId || !enumerationId || !copyState.value) return
-                    setCopyDialogError(null)
-
-                    const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
-                    const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-                    const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-                    const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-                    const codename = sanitizeCodename(String(formValues.codename || ''))
-                    const isDefault = Boolean(formValues.isDefault)
-
-                    if (!nameInput || !namePrimaryLocale) {
-                        setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
-                        return
-                    }
-                    if (!codename) {
-                        setCopyDialogError(t('enumerationValues.validation.codenameRequired', 'Codename is required'))
-                        return
-                    }
-
-                    try {
-                        await copyMutation.mutateAsync({
-                            metahubId,
-                            enumerationId,
-                            valueId: copyState.value.id,
-                            data: {
-                                codename,
-                                name: nameInput,
-                                description: descriptionInput,
-                                namePrimaryLocale,
-                                descriptionPrimaryLocale,
-                                isDefault
-                            }
-                        })
+                <EntityFormDialog
+                    key={`enum-value-copy-${copyState.value?.id ?? 'none'}-${copyState.value?.version ?? 0}`}
+                    open={copyState.open}
+                    mode='copy'
+                    title={t('enumerationValues.copyTitle', 'Copy Value')}
+                    saveButtonText={t('enumerationValues.copy.action', 'Copy')}
+                    savingButtonText={t('enumerationValues.copy.actionLoading', 'Copying...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={copyMutation.isPending}
+                    error={copyDialogError || undefined}
+                    onClose={() => {
                         setCopyState({ open: false, value: null })
-                    } catch (e: unknown) {
-                        const responseMessage =
-                            e && typeof e === 'object' && 'response' in e
-                                ? (e as any)?.response?.data?.error ?? (e as any)?.response?.data?.message
-                                : undefined
-                        setCopyDialogError(
-                            typeof responseMessage === 'string'
-                                ? responseMessage
-                                : e instanceof Error
-                                ? e.message
-                                : t('enumerationValues.copyError', 'Failed to copy enumeration value')
-                        )
-                    }
-                }}
-                hideDefaultFields
-                initialExtraValues={copyInitialValues}
-                extraFields={({ values, setValue, isLoading, errors }) => (
-                    <ValueFormFields
-                        values={values}
-                        setValue={setValue}
-                        isLoading={isLoading}
-                        errors={errors ?? {}}
-                        uiLocale={i18n.language}
-                        translate={(key, defaultValue) => t(key, defaultValue)}
-                    />
-                )}
-                validate={validateForm}
-                canSave={canSaveForm}
-            />
+                        setCopyDialogError(null)
+                    }}
+                    onSave={async (formValues: GenericFormValues) => {
+                        if (!metahubId || !enumerationId || !copyState.value) return
+                        setCopyDialogError(null)
 
-            <ConfirmDeleteDialog
-                open={deleteState.open}
-                title={t('enumerationValues.deleteDialog.title', 'Delete enumeration value')}
-                description={t(
-                    'enumerationValues.deleteDialog.message',
-                    'Are you sure you want to delete this enumeration value? This action cannot be undone.'
-                )}
-                confirmButtonText={tc('actions.delete', 'Delete')}
-                deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteState({ open: false, value: null })}
-                onConfirm={async () => {
-                    if (!deleteState.value || !metahubId || !enumerationId) return
-                    try {
-                        await deleteMutation.mutateAsync({
-                            metahubId,
-                            enumerationId,
-                            valueId: deleteState.value.id
-                        })
-                        setDeleteState({ open: false, value: null })
-                    } catch (e: unknown) {
-                        const responseMessage =
-                            e && typeof e === 'object' && 'response' in e
-                                ? (e as any)?.response?.data?.error ?? (e as any)?.response?.data?.message
-                                : undefined
-                        const message =
-                            typeof responseMessage === 'string'
-                                ? responseMessage
-                                : e instanceof Error
-                                ? e.message
-                                : typeof e === 'string'
-                                ? e
-                                : t('enumerationValues.deleteError', 'Failed to delete enumeration value')
-                        enqueueSnackbar(message, { variant: 'error' })
-                    }
-                }}
-                deleting={deleteMutation.isPending}
-            />
+                        const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
+                        const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+                        const codenameVlc = formValues.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+                        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+                        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+                        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+                        const codename = normalizeCodenameForStyle(
+                            String(formValues.codename || ''),
+                            codenameConfig.style,
+                            codenameConfig.alphabet
+                        )
+                        const isDefault = Boolean(formValues.isDefault)
+
+                        if (!nameInput || !namePrimaryLocale) {
+                            setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
+                            return
+                        }
+                        if (!codename) {
+                            setCopyDialogError(t('enumerationValues.validation.codenameRequired', 'Codename is required'))
+                            return
+                        }
+
+                        try {
+                            await copyMutation.mutateAsync({
+                                metahubId,
+                                enumerationId,
+                                valueId: copyState.value.id,
+                                data: {
+                                    codename,
+                                    codenameInput,
+                                    codenamePrimaryLocale,
+                                    name: nameInput,
+                                    description: descriptionInput,
+                                    namePrimaryLocale,
+                                    descriptionPrimaryLocale,
+                                    isDefault
+                                }
+                            })
+                            setCopyState({ open: false, value: null })
+                        } catch (e: unknown) {
+                            const responseMessage = extractResponseMessage(e)
+                            setCopyDialogError(
+                                typeof responseMessage === 'string'
+                                    ? responseMessage
+                                    : e instanceof Error
+                                    ? e.message
+                                    : t('enumerationValues.copyError', 'Failed to copy enumeration value')
+                            )
+                        }
+                    }}
+                    hideDefaultFields
+                    initialExtraValues={copyInitialValues}
+                    extraFields={({ values, setValue, isLoading, errors }) => (
+                        <ValueFormFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            errors={errors ?? {}}
+                            uiLocale={i18n.language}
+                            translate={(key, defaultValue) => t(key, defaultValue)}
+                            editingEntityId={null}
+                        />
+                    )}
+                    validate={validateForm}
+                    canSave={canSaveForm}
+                />
+
+                <ConfirmDeleteDialog
+                    open={deleteState.open}
+                    title={t('enumerationValues.deleteDialog.title', 'Delete enumeration value')}
+                    description={t(
+                        'enumerationValues.deleteDialog.message',
+                        'Are you sure you want to delete this enumeration value? This action cannot be undone.'
+                    )}
+                    confirmButtonText={tc('actions.delete', 'Delete')}
+                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => setDeleteState({ open: false, value: null })}
+                    onConfirm={async () => {
+                        if (!deleteState.value || !metahubId || !enumerationId) return
+                        try {
+                            await deleteMutation.mutateAsync({
+                                metahubId,
+                                enumerationId,
+                                valueId: deleteState.value.id
+                            })
+                            setDeleteState({ open: false, value: null })
+                        } catch (e: unknown) {
+                            const responseMessage = extractResponseMessage(e)
+                            const message =
+                                typeof responseMessage === 'string'
+                                    ? responseMessage
+                                    : e instanceof Error
+                                    ? e.message
+                                    : typeof e === 'string'
+                                    ? e
+                                    : t('enumerationValues.deleteError', 'Failed to delete enumeration value')
+                            enqueueSnackbar(message, { variant: 'error' })
+                        }
+                    }}
+                    deleting={deleteMutation.isPending}
+                />
+            </ExistingCodenamesProvider>
         </MainCard>
     )
 }

@@ -7,12 +7,14 @@ import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { database, normalizeHubCopyOptions } from '@universo/utils'
 import { MetaEntityKind, type HubCopyOptions } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { getCodenameSettings, codenameErrorMessage, buildCodenameAttempt } from '../../shared/codenameStyleHelper'
 import { KnexClient, generateTableName } from '../../ddl'
 
 type RequestUser = {
@@ -47,6 +49,7 @@ type CopiedHubRow = {
     id: string
     codename: string
     presentation?: {
+        codename?: unknown
         name?: unknown
         description?: unknown
     }
@@ -90,16 +93,6 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     return result
 }
 
-const buildCodenameAttempt = (baseCodename: string, attempt: number): string => {
-    if (attempt <= 1) {
-        return baseCodename
-    }
-
-    const attemptSuffix = `-${attempt}`
-    const maxLength = Math.max(1, 100 - attemptSuffix.length)
-    return `${baseCodename.slice(0, maxLength)}${attemptSuffix}`
-}
-
 class HubCopyConcurrentUpdateError extends Error {
     constructor() {
         super('Concurrent update detected while propagating hub relations')
@@ -111,9 +104,14 @@ const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transfo
 const optionalLocalizedInputSchema = z
     .union([z.string(), z.record(z.string())])
     .transform((val) => (typeof val === 'string' ? { en: val } : val))
+const localizedCodenameInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
 const createHubSchema = z.object({
     codename: z.string().min(1).max(100),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -123,6 +121,8 @@ const createHubSchema = z.object({
 
 const updateHubSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -133,6 +133,8 @@ const updateHubSchema = z.object({
 
 const copyHubSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -163,11 +165,13 @@ export function createHubsRoutes(
         const schemaService = new MetahubSchemaService(ds, undefined, manager)
         const objectsService = new MetahubObjectsService(schemaService)
         const hubsService = new MetahubHubsService(schemaService)
+        const settingsService = new MetahubSettingsService(schemaService)
         return {
             metahubRepo: manager.getRepository(Metahub),
             schemaService,
             objectsService,
-            hubsService
+            hubsService,
+            settingsService
         }
     }
 
@@ -245,6 +249,7 @@ export function createHubsRoutes(
                 .andWhere('_upl_deleted', false)
                 .andWhere('_mhb_deleted', false)
                 .andWhereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
+                .forUpdate()
                 .select('id', 'config')) as Array<{ id: string; config?: Record<string, unknown> }>
 
             if (linkedObjects.length === 0) return
@@ -397,7 +402,7 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { metahubRepo, hubsService } = services(req)
+            const { metahubRepo, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify metahub exists
@@ -411,13 +416,27 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+            const {
+                codename,
+                codenameInput,
+                codenamePrimaryLocale,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale
+            } = parsed.data
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -445,21 +464,37 @@ export function createHubsRoutes(
                 }
             }
 
-            const saved = await hubsService.create(
-                metahubId,
-                {
-                    codename: normalizedCodename,
-                    name: nameVlc as unknown as Record<string, unknown>,
-                    description: descriptionVlc as unknown as Record<string, unknown> | undefined,
-                    sortOrder,
-                    createdBy: userId
-                },
-                userId
-            )
+            const sanitizedCodenameInput = sanitizeLocalizedInput(codenameInput ?? {})
+            const codenameLocalizedVlc =
+                Object.keys(sanitizedCodenameInput).length > 0
+                    ? buildLocalizedContent(sanitizedCodenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+                    : null
+
+            let saved
+            try {
+                saved = await hubsService.create(
+                    metahubId,
+                    {
+                        codename: normalizedCodename,
+                        codenameLocalized: (codenameLocalizedVlc as unknown as Record<string, unknown>) ?? null,
+                        name: nameVlc as unknown as Record<string, unknown>,
+                        description: descriptionVlc as unknown as Record<string, unknown> | undefined,
+                        sortOrder,
+                        createdBy: userId
+                    },
+                    userId
+                )
+            } catch (error) {
+                if (database.isUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'Hub with this codename already exists' })
+                }
+                throw error
+            }
 
             res.status(201).json({
                 id: saved.id,
                 codename: saved.codename,
+                codenameLocalized: saved.codenameLocalized ?? null,
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
@@ -481,7 +516,7 @@ export function createHubsRoutes(
             const { metahubId, hubId } = req.params
             const ds = getDataSource()
             const rlsRunner = getRequestQueryRunner(req)
-            const { metahubRepo, schemaService, hubsService } = services(req)
+            const { metahubRepo, schemaService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
@@ -492,6 +527,13 @@ export function createHubsRoutes(
                 return res.status(401).json({ error: 'Unauthorized' })
             }
             await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            // Check allowCopy setting
+            const allowCopyRow = await settingsService.findByKey(metahubId, 'hubs.allowCopy', userId)
+            const allowCopy = allowCopyRow ? (allowCopyRow.value as { _value: boolean })._value !== false : true
+            if (!allowCopy) {
+                return res.status(403).json({ error: 'Copying hubs is disabled by metahub settings' })
+            }
 
             const sourceHub = await hubsService.findById(metahubId, hubId, userId)
             if (!sourceHub) {
@@ -528,11 +570,34 @@ export function createHubsRoutes(
                 }
             }
 
-            const normalizedBaseCodename = normalizeCodename(parsed.data.codename ?? `${sourceHub.codename}-copy`)
-            if (!normalizedBaseCodename || !isValidCodename(normalizedBaseCodename)) {
+            let codenameLocalizedVlc: unknown = sourceHub.codenameLocalized ?? null
+            if (parsed.data.codenameInput !== undefined) {
+                const sanitizedCodenameInput = sanitizeLocalizedInput(parsed.data.codenameInput)
+                codenameLocalizedVlc =
+                    Object.keys(sanitizedCodenameInput).length > 0
+                        ? buildLocalizedContent(
+                              sanitizedCodenameInput,
+                              parsed.data.codenamePrimaryLocale,
+                              parsed.data.namePrimaryLocale ?? sourceNamePrimary
+                          )
+                        : null
+            }
+
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
+            const normalizedBaseCodename = normalizeCodenameForStyle(
+                parsed.data.codename ?? `${sourceHub.codename}${copySuffix}`,
+                codenameStyle,
+                codenameAlphabet
+            )
+            if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -557,6 +622,7 @@ export function createHubsRoutes(
                             codename,
                             table_name: null,
                             presentation: {
+                                codename: codenameLocalizedVlc ?? null,
                                 name: nameVlc,
                                 description: descriptionVlc ?? null
                             },
@@ -647,7 +713,7 @@ export function createHubsRoutes(
 
             let copiedHub: CopiedHubRow | null = null
             for (let attempt = 1; attempt <= MAX_CODENAME_ATTEMPTS; attempt += 1) {
-                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt)
+                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                 let shouldTryNextCodename = false
 
                 for (let concurrentRetry = 0; concurrentRetry <= MAX_CONCURRENT_RETRIES_PER_CODENAME; concurrentRetry += 1) {
@@ -690,6 +756,7 @@ export function createHubsRoutes(
             return res.status(201).json({
                 id: copiedHub.id,
                 codename: copiedHub.codename,
+                codenameLocalized: copiedHub.presentation?.codename ?? null,
                 name: copiedHub.presentation?.name ?? {},
                 description: copiedHub.presentation?.description ?? null,
                 sortOrder: copiedHub.config?.sortOrder ?? 0,
@@ -709,7 +776,7 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubsService } = services(req)
+            const { hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -722,16 +789,31 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = parsed.data
+            const {
+                codename,
+                codenameInput,
+                codenamePrimaryLocale,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                expectedVersion
+            } = parsed.data
 
             const updateData: Record<string, unknown> = {}
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
                 if (normalizedCodename !== hub.codename) {
@@ -776,6 +858,18 @@ export function createHubsRoutes(
                 }
             }
 
+            if (codenameInput !== undefined) {
+                const sanitizedCodenameInput = sanitizeLocalizedInput(codenameInput)
+                updateData.codenameLocalized =
+                    Object.keys(sanitizedCodenameInput).length > 0
+                        ? (buildLocalizedContent(
+                              sanitizedCodenameInput,
+                              codenamePrimaryLocale,
+                              namePrimaryLocale ?? 'en'
+                          ) as unknown as Record<string, unknown>)
+                        : null
+            }
+
             if (sortOrder !== undefined) {
                 updateData.sortOrder = sortOrder
             }
@@ -791,6 +885,7 @@ export function createHubsRoutes(
             res.json({
                 id: saved.id,
                 codename: saved.codename,
+                codenameLocalized: saved.codenameLocalized ?? null,
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
@@ -842,12 +937,19 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubsService, schemaService } = services(req)
+            const { hubsService, schemaService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
+            }
+
+            // Check allowDelete setting
+            const allowDeleteRow = await settingsService.findByKey(metahubId, 'hubs.allowDelete', userId)
+            const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+            if (!allowDelete) {
+                return res.status(403).json({ error: 'Deleting hubs is disabled by metahub settings' })
             }
 
             const { blockingCatalogs, blockingEnumerations } = await findBlockingHubObjects(metahubId, hubId, schemaService, userId)

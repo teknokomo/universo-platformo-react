@@ -87,6 +87,19 @@ describe('CodenameField', () => {
         expect(onChange).not.toHaveBeenCalled()
     })
 
+    it('should use custom normalizeOnBlur when provided', () => {
+        const onChange = jest.fn()
+        const normalizeOnBlur = jest.fn((input: string) => input.replace(/\s+/g, ''))
+
+        render(<CodenameField {...defaultProps} value='A B' onChange={onChange} normalizeOnBlur={normalizeOnBlur} />)
+
+        const input = screen.getByLabelText('Codename')
+        fireEvent.blur(input)
+
+        expect(normalizeOnBlur).toHaveBeenCalledWith('A B')
+        expect(onChange).toHaveBeenCalledWith('AB')
+    })
+
     it('should display helper text', () => {
         render(<CodenameField {...defaultProps} helperText='Enter a unique codename' />)
         expect(screen.getByText('Enter a unique codename')).toBeInTheDocument()

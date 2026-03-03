@@ -72,7 +72,7 @@ import { ensureAuth, createEnsureAuthWithRls, createPermissionService } from '@u
 // Universo Platformo | AR.js publishing integration
 import { createPublishRoutes } from '@universo/publish-backend'
 // Universo Platformo | Admin - global users management
-import { createGlobalUsersRoutes, createGlobalAccessService, createInstancesRoutes, createRolesRoutes, createLocalesRoutes, createPublicLocalesRoutes } from '@universo/admin-backend'
+import { createGlobalUsersRoutes, createGlobalAccessService, createInstancesRoutes, createRolesRoutes, createLocalesRoutes, createPublicLocalesRoutes, createAdminSettingsRoutes } from '@universo/admin-backend'
 // Universo Platformo | Profile service integration
 import { createProfileRoutes } from '@universo/profile-backend'
 import { getDataSource } from '../DataSource'
@@ -547,6 +547,10 @@ router.use('/admin/roles', ensureAuthWithRls, rolesRouter)
 // Universo Platformo | Admin Routes (locales management)
 const localesRouter = createLocalesRoutes({ globalAccessService, permissionService, getDataSource })
 router.use('/admin/locales', ensureAuthWithRls, localesRouter)
+
+// Universo Platformo | Admin Routes (settings management)
+const adminSettingsRouter = createAdminSettingsRoutes({ globalAccessService, permissionService, getDataSource })
+router.use('/admin/settings', ensureAuthWithRls, adminSettingsRouter)
 
 // Universo Platformo | Public Routes (locales - no auth required)
 const publicLocalesRouter = createPublicLocalesRoutes({ getDataSource })

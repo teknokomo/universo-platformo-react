@@ -21,6 +21,10 @@ export class MetahubBranch {
     @Column({ type: 'varchar', length: 100 })
     codename!: string
 
+    /** Optional localized codename variants (VLC mode), canonical codename remains the uniqueness key */
+    @Column({ name: 'codename_localized', type: 'jsonb', nullable: true })
+    codenameLocalized?: VersionedLocalizedContent<string> | null
+
     @Column({ name: 'branch_number', type: 'int' })
     branchNumber!: number
 

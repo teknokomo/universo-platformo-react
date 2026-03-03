@@ -34,7 +34,8 @@ import {
     FlowListTable,
     gridSpacing,
     LocalizedInlineField,
-    useCodenameAutoFill
+    useCodenameAutoFill,
+    useCodenameVlcSync
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -57,9 +58,10 @@ import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload, getVLCString, toBranchDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { normalizeBranchCopyOptions } from '@universo/utils'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField, BranchDeleteDialog } from '../../../components'
+import { CodenameField, BranchDeleteDialog, ExistingCodenamesProvider } from '../../../components'
 import {
     getBranchCopyOptions,
     resolveBranchCopyCompatibilityCode,
@@ -67,10 +69,12 @@ import {
     toggleBranchCopyChild
 } from '../utils/copyOptions'
 import branchActions from './BranchActions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 
 type BranchFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
     sourceBranchId?: string | null
@@ -81,9 +85,41 @@ type BranchFormValues = {
     copyEnumerations?: boolean
 }
 
+type GenericFormValues = Record<string, unknown>
+
+type BranchMenuBaseContext = {
+    t: (key: string, options?: unknown) => string
+} & Record<string, unknown>
+
+const extractResponseStatus = (error: unknown): number | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const status = (response as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+}
+
+const extractResponseData = (error: unknown): Record<string, unknown> | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    return data as Record<string, unknown>
+}
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    const data = extractResponseData(error)
+    if (!data) return undefined
+    const backendError = data.error
+    if (typeof backendError === 'string') return backendError
+    const message = data.message
+    return typeof message === 'string' ? message : undefined
+}
+
 type BranchFormFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
@@ -95,6 +131,7 @@ type BranchFormFieldsProps = {
     sourceHelper: string
     sourceOptions: { id: string; label: string; isDefault?: boolean; isEmpty?: boolean }[]
     showSourceField: boolean
+    editingEntityId?: string | null
 }
 
 const BranchFormFields = ({
@@ -110,15 +147,24 @@ const BranchFormFields = ({
     sourceLabel,
     sourceHelper,
     sourceOptions,
-    showSourceField
+    showSourceField,
+    editingEntityId
 }: BranchFormFieldsProps) => {
+    const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
     const sourceBranchId = values.sourceBranchId as string | undefined
     const selectedSource = sourceOptions.find((option) => option.id === sourceBranchId)
 
@@ -134,6 +180,23 @@ const BranchFormFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     const renderSourceValue = (selected: unknown) => {
@@ -171,11 +234,17 @@ const BranchFormFields = ({
                 onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={errors.codename}
                 disabled={isLoading}
                 required
+                editingEntityId={editingEntityId}
             />
             {showSourceField ? (
                 <FormControl fullWidth error={Boolean(errors.sourceBranchId)} disabled={isLoading}>
@@ -204,8 +273,8 @@ const BranchFormFields = ({
 }
 
 type BranchSourceFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     sourceLabel: string
@@ -258,8 +327,8 @@ const BranchSourceFields = ({
 }
 
 type BranchCopyOptionsFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     t: (key: string, defaultValue?: string) => string
 }
@@ -329,9 +398,11 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
 }
 
 const BranchList = () => {
+    const codenameConfig = useCodenameConfig()
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
@@ -437,8 +508,8 @@ const BranchList = () => {
             isLoading: isFormLoading,
             errors
         }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
+            values: GenericFormValues
+            setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors: Record<string, string>
         }): TabConfig[] => [
@@ -451,7 +522,7 @@ const BranchList = () => {
                         setValue={setValue}
                         isLoading={isFormLoading}
                         errors={errors}
-                        uiLocale={i18n.language}
+                        uiLocale={preferredVlcLocale}
                         nameLabel={tc('fields.name', 'Name')}
                         descriptionLabel={tc('fields.description', 'Description')}
                         codenameLabel={t('metahubs:branches.codename', 'Codename')}
@@ -488,34 +559,44 @@ const BranchList = () => {
                 content: <BranchCopyOptionsFields values={values} setValue={setValue} isLoading={isFormLoading} t={t} />
             }
         ],
-        [i18n.language, sourceOptions, t, tc]
+        [preferredVlcLocale, sourceOptions, t, tc]
     )
 
     const validateBranchForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
             const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-            const normalizedCodename = sanitizeCodename(rawCodename)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('metahubs:branches.validation.codenameRequired', 'Codename is required')
-            } else if (!isValidCodename(normalizedCodename)) {
+            } else if (
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 errors.codename = t('metahubs:branches.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t, tc]
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSaveBranchForm = useCallback((values: Record<string, any>) => {
-        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
-    }, [])
+    const canSaveBranchForm = useCallback(
+        (values: GenericFormValues) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            return (
+                !values._hasCodenameDuplicate &&
+                hasPrimaryContent(nameVlc) &&
+                Boolean(normalizedCodename) &&
+                isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            )
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
+    )
 
     const getBranchDisplay = useCallback(
         (branch: MetahubBranch): MetahubBranchDisplay => {
@@ -602,14 +683,14 @@ const BranchList = () => {
     )
 
     const createBranchContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: BranchMenuBaseContext) => ({
             ...baseContext,
             branchMap,
-            uiLocale: i18n.language,
+            uiLocale: preferredVlcLocale,
             api: {
                 updateEntity: async (id: string, patch: BranchLocalizedPayload) => {
                     if (!metahubId) return
-                    const normalizedCodename = sanitizeCodename(patch.codename)
+                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
                     }
@@ -690,11 +771,13 @@ const BranchList = () => {
         [
             activateBranchMutation,
             branchMap,
+            codenameConfig.alphabet,
+            codenameConfig.style,
             copyBranchMutation,
             deleteBranchMutation,
             enqueueSnackbar,
-            i18n.language,
             metahubId,
+            preferredVlcLocale,
             queryClient,
             setDefaultBranchMutation,
             t,
@@ -721,19 +804,21 @@ const BranchList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateBranch = async (data: Record<string, any>) => {
+    const handleCreateBranch = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 setDialogError(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
                 return
@@ -746,6 +831,8 @@ const BranchList = () => {
                 metahubId,
                 data: {
                     codename: normalizedCodename,
+                    codenameInput,
+                    codenamePrimaryLocale,
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
@@ -756,10 +843,11 @@ const BranchList = () => {
             })
 
             setDialogOpen(false)
-        } catch (error: any) {
-            const status = error?.response?.status
-            const errorCode = error?.response?.data?.code
-            const backendMessage = error?.response?.data?.error
+        } catch (error: unknown) {
+            const status = extractResponseStatus(error)
+            const responseData = extractResponseData(error)
+            const errorCode = responseData?.code
+            const backendMessage = extractResponseMessage(error)
             const compatibilityCode = resolveBranchCopyCompatibilityCode(errorCode, backendMessage)
             if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
                 setDialogError(t('metahubs:branches.createLocked', 'Branch creation is already in progress. Please try again.'))
@@ -782,7 +870,8 @@ const BranchList = () => {
                     )
                 )
             } else {
-                setDialogError(backendMessage || error.message || t('metahubs:branches.createError', 'Failed to create branch'))
+                const fallbackMessage = error instanceof Error ? error.message : undefined
+                setDialogError(backendMessage || fallbackMessage || t('metahubs:branches.createError', 'Failed to create branch'))
             }
         } finally {
             setCreating(false)
@@ -794,8 +883,12 @@ const BranchList = () => {
         try {
             await deleteBranchMutation.mutateAsync({ metahubId, branchId: branch.id })
             setDeleteDialogState({ open: false, branch: null })
-        } catch (error: any) {
-            enqueueSnackbar(error.message || t('metahubs:branches.deleteError', 'Failed to delete branch'), { variant: 'error' })
+        } catch (error: unknown) {
+            const responseMessage = extractResponseMessage(error)
+            const fallbackMessage = error instanceof Error ? error.message : undefined
+            enqueueSnackbar(responseMessage || fallbackMessage || t('metahubs:branches.deleteError', 'Failed to delete branch'), {
+                variant: 'error'
+            })
         }
     }
 
@@ -808,193 +901,195 @@ const BranchList = () => {
             border={false}
             shadow={false}
         >
-            {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                    action={{
-                        label: t('actions.retry'),
-                        onClick: () => paginationResult.actions.goToPage(1)
-                    }}
-                />
-            ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search={true}
-                        searchPlaceholder={t('metahubs:branches.searchPlaceholder', 'Search branches...')}
-                        onSearchChange={handleSearchChange}
-                        title={t('metahubs:branches.title', 'Branches')}
-                    >
-                        <ToolbarControls
-                            viewToggleEnabled
-                            viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode) => setView(mode)}
-                            cardViewTitle={tc('cardView')}
-                            listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
-                        />
-                    </ViewHeader>
+            <ExistingCodenamesProvider entities={branches ?? []}>
+                {error ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Connection error'
+                        title={t('errors.connectionFailed')}
+                        description={!extractResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                        action={{
+                            label: t('actions.retry'),
+                            onClick: () => paginationResult.actions.goToPage(1)
+                        }}
+                    />
+                ) : (
+                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                        <ViewHeader
+                            search={true}
+                            searchPlaceholder={t('metahubs:branches.searchPlaceholder', 'Search branches...')}
+                            onSearchChange={handleSearchChange}
+                            title={t('metahubs:branches.title', 'Branches')}
+                        >
+                            <ToolbarControls
+                                viewToggleEnabled
+                                viewMode={view as 'card' | 'list'}
+                                onViewModeChange={(mode) => setView(mode)}
+                                cardViewTitle={tc('cardView')}
+                                listViewTitle={tc('listView')}
+                                primaryAction={{
+                                    label: tc('create'),
+                                    onClick: handleAddNew,
+                                    startIcon: <AddRoundedIcon />
+                                }}
+                            />
+                        </ViewHeader>
 
-                    {isLoading && branches.length === 0 ? (
-                        view === 'card' ? (
-                            <SkeletonGrid />
-                        ) : (
-                            <Skeleton variant='rectangular' height={120} />
-                        )
-                    ) : !isLoading && branches.length === 0 ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt='No branches'
-                            title={t('metahubs:branches.empty', 'No branches yet')}
-                            description={t('metahubs:branches.emptyDescription', 'Create your first branch to start iterating')}
-                        />
-                    ) : (
-                        <>
-                            {view === 'card' ? (
-                                <Box
-                                    sx={{
-                                        display: 'grid',
-                                        gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
-                                        gridTemplateColumns: {
-                                            xs: '1fr',
-                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                        },
-                                        justifyContent: 'start',
-                                        alignContent: 'start'
-                                    }}
-                                >
-                                    {branches.map((branch: MetahubBranch) => {
-                                        const descriptors = [...branchActions]
-
-                                        return (
-                                            <ItemCard
-                                                key={branch.id}
-                                                data={getBranchDisplay(branch)}
-                                                images={[]}
-                                                footerStartContent={getStatusChips(branch)}
-                                                headerAction={
-                                                    descriptors.length > 0 ? (
-                                                        <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<MetahubBranchDisplay, BranchLocalizedPayload>
-                                                                entity={getBranchDisplay(branch)}
-                                                                entityKind='branch'
-                                                                descriptors={descriptors}
-                                                                namespace='metahubs'
-                                                                i18nInstance={i18n}
-                                                                createContext={createBranchContext}
-                                                            />
-                                                        </Box>
-                                                    ) : null
-                                                }
-                                            />
-                                        )
-                                    })}
-                                </Box>
+                        {isLoading && branches.length === 0 ? (
+                            view === 'card' ? (
+                                <SkeletonGrid />
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    <FlowListTable
-                                        data={branches.map(getBranchDisplay)}
-                                        images={{}}
-                                        isLoading={isLoading}
-                                        customColumns={branchColumns}
-                                        i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
-                                            const originalBranch = branches.find((b) => b.id === row.id)
-                                            if (!originalBranch) return null
-
+                                <Skeleton variant='rectangular' height={120} />
+                            )
+                        ) : !isLoading && branches.length === 0 ? (
+                            <EmptyListState
+                                image={APIEmptySVG}
+                                imageAlt='No branches'
+                                title={t('metahubs:branches.empty', 'No branches yet')}
+                                description={t('metahubs:branches.emptyDescription', 'Create your first branch to start iterating')}
+                            />
+                        ) : (
+                            <>
+                                {view === 'card' ? (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gap: gridSpacing,
+                                            mx: { xs: -1.5, md: -2 },
+                                            gridTemplateColumns: {
+                                                xs: '1fr',
+                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                            },
+                                            justifyContent: 'start',
+                                            alignContent: 'start'
+                                        }}
+                                    >
+                                        {branches.map((branch: MetahubBranch) => {
                                             const descriptors = [...branchActions]
-                                            if (!descriptors.length) return null
 
                                             return (
-                                                <BaseEntityMenu<MetahubBranchDisplay, BranchLocalizedPayload>
-                                                    entity={getBranchDisplay(originalBranch)}
-                                                    entityKind='branch'
-                                                    descriptors={descriptors}
-                                                    namespace='metahubs'
-                                                    menuButtonLabelKey='flowList:menu.button'
-                                                    i18nInstance={i18n}
-                                                    createContext={createBranchContext}
+                                                <ItemCard
+                                                    key={branch.id}
+                                                    data={getBranchDisplay(branch)}
+                                                    images={[]}
+                                                    footerStartContent={getStatusChips(branch)}
+                                                    headerAction={
+                                                        descriptors.length > 0 ? (
+                                                            <Box onClick={(e) => e.stopPropagation()}>
+                                                                <BaseEntityMenu<MetahubBranchDisplay, BranchLocalizedPayload>
+                                                                    entity={getBranchDisplay(branch)}
+                                                                    entityKind='branch'
+                                                                    descriptors={descriptors}
+                                                                    namespace='metahubs'
+                                                                    i18nInstance={i18n}
+                                                                    createContext={createBranchContext}
+                                                                />
+                                                            </Box>
+                                                        ) : null
+                                                    }
                                                 />
                                             )
-                                        }}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
+                                        })}
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                        <FlowListTable
+                                            data={branches.map(getBranchDisplay)}
+                                            images={{}}
+                                            isLoading={isLoading}
+                                            customColumns={branchColumns}
+                                            i18nNamespace='flowList'
+                                            renderActions={(row: MetahubBranchDisplay) => {
+                                                const originalBranch = branches.find((b) => b.id === row.id)
+                                                if (!originalBranch) return null
 
-                    {!isLoading && branches.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                namespace='common'
-                            />
-                        </Box>
-                    )}
-                </Stack>
-            )}
+                                                const descriptors = [...branchActions]
+                                                if (!descriptors.length) return null
 
-            <EntityFormDialog
-                open={isDialogOpen}
-                title={t('metahubs:branches.createDialog.title', 'Create Branch')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.create', 'Create')}
-                savingButtonText={tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
-                error={dialogError || undefined}
-                onClose={handleDialogClose}
-                onSave={handleCreateBranch}
-                hideDefaultFields
-                initialExtraValues={localizedFormDefaults}
-                tabs={buildCreateTabs}
-                validate={validateBranchForm}
-                canSave={canSaveBranchForm}
-            />
+                                                return (
+                                                    <BaseEntityMenu<MetahubBranchDisplay, BranchLocalizedPayload>
+                                                        entity={getBranchDisplay(originalBranch)}
+                                                        entityKind='branch'
+                                                        descriptors={descriptors}
+                                                        namespace='metahubs'
+                                                        menuButtonLabelKey='flowList:menu.button'
+                                                        i18nInstance={i18n}
+                                                        createContext={createBranchContext}
+                                                    />
+                                                )
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+                            </>
+                        )}
 
-            <BranchDeleteDialog
-                open={deleteDialogState.open}
-                branch={deleteDialogState.branch}
-                metahubId={metahubId}
-                onClose={() => setDeleteDialogState({ open: false, branch: null })}
-                onConfirm={handleDeleteBranch}
-                isDeleting={deleteBranchMutation.isPending}
-            />
+                        {!isLoading && branches.length > 0 && (
+                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <PaginationControls
+                                    pagination={paginationResult.pagination}
+                                    actions={paginationResult.actions}
+                                    isLoading={paginationResult.isLoading}
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    namespace='common'
+                                />
+                            </Box>
+                        )}
+                    </Stack>
+                )}
 
-            <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
-                onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                    if (metahubId) {
-                        invalidateBranchesQueries.all(queryClient, metahubId)
-                    }
-                }}
-                onOverwrite={async () => {
-                    if (conflictState.pendingUpdate && metahubId) {
-                        const { id, patch } = conflictState.pendingUpdate
-                        await updateBranchMutation.mutateAsync({
-                            metahubId,
-                            branchId: id,
-                            data: patch
-                        })
+                <EntityFormDialog
+                    open={isDialogOpen}
+                    title={t('metahubs:branches.createDialog.title', 'Create Branch')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.create', 'Create')}
+                    savingButtonText={tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCreating}
+                    error={dialogError || undefined}
+                    onClose={handleDialogClose}
+                    onSave={handleCreateBranch}
+                    hideDefaultFields
+                    initialExtraValues={localizedFormDefaults}
+                    tabs={buildCreateTabs}
+                    validate={validateBranchForm}
+                    canSave={canSaveBranchForm}
+                />
+
+                <BranchDeleteDialog
+                    open={deleteDialogState.open}
+                    branch={deleteDialogState.branch}
+                    metahubId={metahubId}
+                    onClose={() => setDeleteDialogState({ open: false, branch: null })}
+                    onConfirm={handleDeleteBranch}
+                    isDeleting={deleteBranchMutation.isPending}
+                />
+
+                <ConflictResolutionDialog
+                    open={conflictState.open}
+                    conflict={conflictState.conflict}
+                    onCancel={() => {
                         setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                    }
-                }}
-                isLoading={updateBranchMutation.isPending}
-            />
+                        if (metahubId) {
+                            invalidateBranchesQueries.all(queryClient, metahubId)
+                        }
+                    }}
+                    onOverwrite={async () => {
+                        if (conflictState.pendingUpdate && metahubId) {
+                            const { id, patch } = conflictState.pendingUpdate
+                            await updateBranchMutation.mutateAsync({
+                                metahubId,
+                                branchId: id,
+                                data: patch
+                            })
+                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        }
+                    }}
+                    isLoading={updateBranchMutation.isPending}
+                />
+            </ExistingCodenamesProvider>
         </MainCard>
     )
 }

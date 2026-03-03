@@ -49,6 +49,7 @@ import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { useSettingValue } from '../../settings/hooks/useSettings'
 import elementActions from './ElementActions'
 import InlineTableEditor from './InlineTableEditor'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui/components/dialogs'
@@ -538,6 +539,19 @@ const ElementList = () => {
     })
 
     const attributes = attributesData?.items ?? []
+
+    // Filter element actions based on settings (allowElementCopy / allowElementDelete)
+    const allowElementCopy = useSettingValue<boolean>('catalogs.allowElementCopy')
+    const allowElementDelete = useSettingValue<boolean>('catalogs.allowElementDelete')
+    const filteredElementActions = useMemo(
+        () =>
+            elementActions.filter((a) => {
+                if (a.id === 'copy' && allowElementCopy === false) return false
+                if (a.id === 'delete' && allowElementDelete === false) return false
+                return true
+            }),
+        [allowElementCopy, allowElementDelete]
+    )
 
     // Identify TABLE attributes and fetch their children for inline editing
     const tableAttributes = useMemo(() => attributes.filter((a) => a.dataType === 'TABLE'), [attributes])
@@ -1490,7 +1504,7 @@ const ElementList = () => {
                                     const originalElement = elements.find((element) => element.id === row.id)
                                     if (!originalElement) return null
 
-                                    const descriptors = [...elementActions]
+                                    const descriptors = [...filteredElementActions]
                                     if (!descriptors.length) return null
 
                                     return (

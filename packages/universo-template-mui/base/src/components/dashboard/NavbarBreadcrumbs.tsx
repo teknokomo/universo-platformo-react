@@ -341,6 +341,8 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
                 } else if (segments[2] === 'branches') {
                     items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
+                } else if (segments[2] === 'settings') {
+                    items.push({ label: t('settings'), to: `/metahub/${segments[1]}/settings` })
                 } else if (segments[2] === 'layouts') {
                     items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/layouts` })
 

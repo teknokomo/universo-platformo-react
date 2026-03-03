@@ -306,3 +306,22 @@ export const createChildAttributeDirect = (
         targetEntityKind?: string | null
     }
 ) => apiClient.post<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`, data)
+
+// ============ All Attribute Codenames (for global scope duplicate checking) ============
+
+export interface AttributeCodenameEntry {
+    id: string
+    codename: string
+    codenameLocalized?: Record<string, unknown> | null
+}
+
+/**
+ * List ALL attribute codenames (root + children) for a catalog.
+ * Lightweight endpoint used when attributeCodenameScope = 'global'.
+ */
+export const listAllAttributeCodenames = async (metahubId: string, catalogId: string): Promise<{ items: AttributeCodenameEntry[] }> => {
+    const response = await apiClient.get<{ items: AttributeCodenameEntry[] }>(
+        `/metahub/${metahubId}/catalog/${catalogId}/attribute-codenames`
+    )
+    return response.data
+}

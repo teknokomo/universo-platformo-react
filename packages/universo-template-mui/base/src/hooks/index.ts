@@ -2,6 +2,8 @@
 export { default as useConfirm } from './useConfirm'
 export { useCodenameAutoFill } from './useCodenameAutoFill'
 export type { UseCodenameAutoFillOptions } from './useCodenameAutoFill'
+export { useCodenameVlcSync } from './useCodenameVlcSync'
+export type { UseCodenameVlcSyncOptions } from './useCodenameVlcSync'
 export { useDebouncedSearch } from './useDebouncedSearch'
 export { usePaginated } from './usePaginated'
 export { useUserSettings, resetUserSettingsCache, getShowAllItemsSetting } from './useUserSettings'

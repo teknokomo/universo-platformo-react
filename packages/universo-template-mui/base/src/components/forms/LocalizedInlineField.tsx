@@ -84,6 +84,8 @@ type LocalizedFieldProps = BaseProps & {
     uiLocale?: string
     autoInitialize?: boolean
     localesEndpoint?: string
+    /** Optional normalization applied on locale field blur (localized mode only). */
+    normalizeOnBlur?: (value: string) => string
 }
 
 export type LocalizedInlineFieldProps = SimpleFieldProps | VersionedFieldProps | LocalizedFieldProps
@@ -102,7 +104,8 @@ const resolveInlineMetrics = (size?: 'small' | 'medium') => {
     const buttonHeight = isSmall ? 22 : 24
     const buttonMinWidth = isSmall ? 32 : 36
     const offset = isSmall ? -4 : -6
-    return { buttonHeight, buttonMinWidth, offset }
+    const fieldCenter = isSmall ? 20 : 28
+    return { buttonHeight, buttonMinWidth, offset, fieldCenter }
 }
 
 /** Simple non-localized field variant (no hooks needed) */
@@ -259,6 +262,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
     uiLocale,
     autoInitialize = true,
     localesEndpoint = '/api/v1/locales/content',
+    normalizeOnBlur,
     maxLength,
     minLength
 }) => {
@@ -410,6 +414,16 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
         [maxLength, value, onChange]
     )
 
+    const handleLocaleBlur = useCallback(
+        (locale: string, currentValue: string) => {
+            if (!value || !normalizeOnBlur) return
+            const normalized = normalizeOnBlur(currentValue)
+            if (normalized === currentValue) return
+            onChange(updateLocalizedContentLocale(value, locale, normalized))
+        },
+        [normalizeOnBlur, onChange, value]
+    )
+
     if (localesLoading && !value) {
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
@@ -488,8 +502,8 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                                 sx={{
                                     position: 'absolute',
                                     left: -connectorOffset,
-                                    top: isFirst ? '50%' : `calc(0px - ${connectorGap})`,
-                                    bottom: isLast ? '50%' : `calc(0px - ${connectorGap})`,
+                                    top: isFirst ? `${metrics.fieldCenter}px` : `calc(0px - ${connectorGap})`,
+                                    bottom: isLast ? `calc(100% - ${metrics.fieldCenter}px)` : `calc(0px - ${connectorGap})`,
                                     width: connectorOffset,
                                     borderLeft: `1px solid ${theme.palette.divider}`,
                                     borderTopLeftRadius: isFirst ? theme.shape.borderRadius : 0,
@@ -512,7 +526,10 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             InputLabelProps={{ shrink: shouldShrink }}
                             onChange={(event) => handleLocaleChange(locale, event.target.value)}
                             onFocus={() => setFocusedLocale(locale)}
-                            onBlur={() => setFocusedLocale((prev) => (prev === locale ? null : prev))}
+                            onBlur={() => {
+                                setFocusedLocale((prev) => (prev === locale ? null : prev))
+                                handleLocaleBlur(locale, entry?.content ?? '')
+                            }}
                             inputProps={{
                                 maxLength: maxLength ?? undefined
                             }}

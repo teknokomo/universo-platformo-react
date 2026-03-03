@@ -125,6 +125,21 @@ const mockTemplatesList = [
  * MSW request handlers
  */
 export const handlers = [
+    // Platform-level codename defaults (used when creating a metahub without metahubId context)
+    http.get(`${API_BASE_URL}/metahubs/codename-defaults`, async () => {
+        await delay(10)
+        return HttpResponse.json({
+            success: true,
+            data: {
+                style: 'pascal-case',
+                alphabet: 'en-ru',
+                allowMixed: false,
+                autoConvertMixedAlphabets: true,
+                localizedEnabled: false
+            }
+        })
+    }),
+
     // Profile settings endpoint (required by many components)
     http.get(`${API_BASE_URL}/profile/settings`, async () => {
         await delay(10)

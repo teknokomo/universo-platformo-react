@@ -9,13 +9,15 @@ import { getRequestManager } from '../../../utils'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCodename, isValidCodename, normalizeCatalogCopyOptions } = validation
+const { normalizeCatalogCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
 import { type CatalogCopyOptions, MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { getCodenameSettings, codenameErrorMessage, buildCodenameAttempt } from '../../shared/codenameStyleHelper'
 import { KnexClient, generateTableName } from '../../ddl'
 
 type RequestUser = {
@@ -36,8 +38,10 @@ type HubSummaryRow = {
 
 type CatalogObjectRow = {
     id: string
+    kind?: string
     codename: string
     presentation?: {
+        codename?: unknown
         name?: unknown
         description?: unknown
     }
@@ -58,6 +62,7 @@ type CatalogListItemRow = {
     id: string
     metahubId: string
     codename: string
+    codenameLocalized: unknown
     name: unknown
     description: unknown
     isSingleHub: boolean
@@ -96,6 +101,7 @@ type CopiedCatalogRow = {
     id: string
     codename: string
     presentation?: {
+        codename?: unknown
         name?: unknown
         description?: unknown
     }
@@ -128,10 +134,21 @@ const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
 
 const mapHubSummaries = (hubs: Record<string, unknown>[]): HubSummaryRow[] => hubs.map(mapHubSummary)
 
+const isCatalogObject = (row: CatalogObjectRow | null | undefined): row is CatalogObjectRow => {
+    if (!row) return false
+    return row.kind === undefined || row.kind === MetaEntityKind.CATALOG
+}
+
 const getCatalogHubIds = (row: CatalogObjectRow): string[] => {
     const rawHubs = row.config?.hubs
     if (!Array.isArray(rawHubs)) return []
     return rawHubs.filter((hubId): hubId is string => typeof hubId === 'string')
+}
+
+const getLocalizedPrimaryLocale = (value: unknown): string | undefined => {
+    if (!value || typeof value !== 'object') return undefined
+    const primaryLocale = (value as Record<string, unknown>)._primary
+    return typeof primaryLocale === 'string' && primaryLocale.length > 0 ? primaryLocale : undefined
 }
 
 const mapCatalogListItem = (
@@ -143,6 +160,7 @@ const mapCatalogListItem = (
     id: row.id,
     metahubId,
     codename: row.codename,
+    codenameLocalized: row.presentation?.codename ?? null,
     name: row.presentation?.name || {},
     description: row.presentation?.description || {},
     isSingleHub: row.config?.isSingleHub || false,
@@ -176,16 +194,6 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
         result[locale] = `${content}${suffix}`
     }
     return result
-}
-
-const buildCodenameAttempt = (baseCodename: string, attempt: number): string => {
-    if (attempt <= 1) {
-        return baseCodename
-    }
-
-    const attemptSuffix = `-${attempt}`
-    const maxLength = Math.max(1, 100 - attemptSuffix.length)
-    return `${baseCodename.slice(0, maxLength)}${attemptSuffix}`
 }
 
 const findBlockingCatalogReferences = async (
@@ -254,6 +262,19 @@ const matchesCatalogSearch = (codename: string, name: unknown, searchLower: stri
     codename.toLowerCase().includes(searchLower) ||
     getLocalizedCandidates(name).some((candidate) => candidate.toLowerCase().includes(searchLower))
 
+const localizedCodenameInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: string, fallbackPrimary = 'en'): unknown => {
+    if (codenameInput === undefined) return undefined
+    const codenameRecord: Record<string, string | undefined> =
+        typeof codenameInput === 'string' ? { en: codenameInput } : (codenameInput as Record<string, string | undefined>)
+    const sanitizedCodename = sanitizeLocalizedInput(codenameRecord)
+    if (Object.keys(sanitizedCodename).length === 0) return null
+    return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
+}
+
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 const optionalLocalizedInputSchema = z
@@ -262,6 +283,8 @@ const optionalLocalizedInputSchema = z
 
 const createCatalogSchema = z.object({
     codename: z.string().min(1).max(100),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -274,6 +297,8 @@ const createCatalogSchema = z.object({
 
 const updateCatalogSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -288,6 +313,8 @@ const updateCatalogSchema = z.object({
 const copyCatalogSchema = z
     .object({
         codename: z.string().min(1).max(100).optional(),
+        codenameInput: localizedCodenameInputSchema.optional(),
+        codenamePrimaryLocale: z.string().optional(),
         name: localizedInputSchema.optional(),
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
@@ -328,6 +355,7 @@ export function createCatalogsRoutes(
         const hubsService = new MetahubHubsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
+        const settingsService = new MetahubSettingsService(schemaService)
         return {
             ds,
             manager,
@@ -336,7 +364,8 @@ export function createCatalogsRoutes(
             hubsService,
             objectsService,
             attributesService,
-            elementsService
+            elementsService,
+            settingsService
         }
     }
 
@@ -455,7 +484,7 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const parsed = createCatalogSchema.safeParse(req.body)
@@ -465,6 +494,8 @@ export function createCatalogsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -475,11 +506,16 @@ export function createCatalogsRoutes(
                 hubIds
             } = parsed.data
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -507,8 +543,14 @@ export function createCatalogsRoutes(
                 }
             }
 
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
             const effectiveIsRequired = isRequiredHub ?? false
             const targetHubIds: string[] = hubIds ?? []
+
+            if ((isSingleHub ?? false) && targetHubIds.length > 1) {
+                return res.status(400).json({ error: 'This catalog is restricted to a single hub' })
+            }
 
             if (effectiveIsRequired && targetHubIds.length === 0) {
                 return res.status(400).json({ error: 'Catalog with required hub flag must have at least one hub association' })
@@ -523,22 +565,31 @@ export function createCatalogsRoutes(
             }
 
             // Create catalog
-            const created = await objectsService.createCatalog(
-                metahubId,
-                {
-                    codename: normalizedCodename,
-                    name: nameVlc,
-                    description: descriptionVlc,
-                    config: {
-                        isSingleHub: isSingleHub ?? false,
-                        isRequiredHub: effectiveIsRequired,
-                        sortOrder,
-                        hubs: targetHubIds
+            let created
+            try {
+                created = await objectsService.createCatalog(
+                    metahubId,
+                    {
+                        codename: normalizedCodename,
+                        codenameLocalized,
+                        name: nameVlc,
+                        description: descriptionVlc,
+                        config: {
+                            isSingleHub: isSingleHub ?? false,
+                            isRequiredHub: effectiveIsRequired,
+                            sortOrder,
+                            hubs: targetHubIds
+                        },
+                        createdBy: userId
                     },
-                    createdBy: userId
-                },
-                userId
-            )
+                    userId
+                )
+            } catch (error) {
+                if (database.isUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
+                }
+                throw error
+            }
 
             // Fetch hubs for response
             const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
@@ -547,6 +598,7 @@ export function createCatalogsRoutes(
                 id: created.id,
                 metahubId,
                 codename: created.codename,
+                codenameLocalized: created.presentation?.codename ?? null,
                 name: created.presentation.name,
                 description: created.presentation.description,
                 isSingleHub: created.config.isSingleHub,
@@ -569,12 +621,12 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify catalog exists
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
@@ -585,6 +637,8 @@ export function createCatalogsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -601,10 +655,11 @@ export function createCatalogsRoutes(
 
             let finalName = currentPresentation.name
             let finalDescription = currentPresentation.description
+            let finalCodenameLocalized = currentPresentation.codename
             let finalCodename = catalog.codename
 
             // Handle hub associations update
-            let currentHubIds: string[] = currentConfig.hubs || []
+            let currentHubIds: string[] = getCatalogHubIds(catalog)
             let targetHubIds = currentHubIds
 
             if (hubIds !== undefined) {
@@ -631,11 +686,16 @@ export function createCatalogsRoutes(
             }
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
                 if (normalizedCodename !== catalog.codename) {
@@ -653,7 +713,7 @@ export function createCatalogsRoutes(
                 if (Object.keys(sanitizedName).length === 0) {
                     return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
                 }
-                const primary = namePrimaryLocale ?? currentPresentation.name?.['_primary'] ?? 'en'
+                const primary = namePrimaryLocale ?? getLocalizedPrimaryLocale(currentPresentation.name) ?? 'en'
                 const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
                 if (nameVlc) {
                     finalName = nameVlc
@@ -665,8 +725,8 @@ export function createCatalogsRoutes(
                 if (Object.keys(sanitizedDescription).length > 0) {
                     const primary =
                         descriptionPrimaryLocale ??
-                        currentPresentation.description?.['_primary'] ??
-                        currentPresentation.name?.['_primary'] ??
+                        getLocalizedPrimaryLocale(currentPresentation.description) ??
+                        getLocalizedPrimaryLocale(currentPresentation.name) ??
                         namePrimaryLocale ??
                         'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
@@ -676,6 +736,14 @@ export function createCatalogsRoutes(
                 } else {
                     finalDescription = undefined
                 }
+            }
+
+            if (codenameInput !== undefined) {
+                finalCodenameLocalized = buildCodenameLocalizedVlc(
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    getLocalizedPrimaryLocale(currentPresentation.codename) ?? namePrimaryLocale ?? 'en'
+                )
             }
 
             if (isSingleHub !== undefined) {
@@ -702,6 +770,7 @@ export function createCatalogsRoutes(
                 catalogId,
                 {
                     codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                    codenameLocalized: finalCodenameLocalized,
                     name: finalName,
                     description: finalDescription,
                     config: {
@@ -723,6 +792,7 @@ export function createCatalogsRoutes(
                 id: updated.id,
                 metahubId,
                 codename: updated.codename,
+                codenameLocalized: updated.presentation?.codename ?? null,
                 name: updated.presentation?.name ?? {},
                 description: updated.presentation?.description,
                 isSingleHub: updated.config?.isSingleHub ?? false,
@@ -859,18 +929,18 @@ export function createCatalogsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, attributesService, elementsService } = services(req)
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
 
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
             // Check if catalog is associated with this hub
             const currentConfig = catalog.config || {}
-            const currentHubs = currentConfig.hubs || []
+            const currentHubs = getCatalogHubIds(catalog)
 
             if (!currentHubs.includes(hubId)) {
                 return res.status(404).json({ error: 'Catalog not found in this hub' })
@@ -879,16 +949,21 @@ export function createCatalogsRoutes(
             // Get all hub associations
             const hubs = currentHubs.length > 0 ? await hubsService.findByIds(metahubId, currentHubs, userId) : []
 
-            // TODO: Implement counts
-            const attributesCount = 0
-            const elementsCount = 0
+            const [attributesCounts, elementsCounts] = await Promise.all([
+                attributesService.countByObjectIds(metahubId, [catalog.id], userId),
+                elementsService.countByObjectIds(metahubId, [catalog.id], userId)
+            ])
+
+            const attributesCount = attributesCounts.get(catalog.id) ?? 0
+            const elementsCount = elementsCounts.get(catalog.id) ?? 0
 
             res.json({
                 id: catalog.id,
                 metahubId,
                 codename: catalog.codename,
-                name: catalog.presentation.name,
-                description: catalog.presentation.description,
+                codenameLocalized: catalog.presentation?.codename ?? null,
+                name: catalog.presentation?.name ?? {},
+                description: catalog.presentation?.description,
                 isSingleHub: currentConfig.isSingleHub,
                 isRequiredHub: currentConfig.isRequiredHub,
                 sortOrder: currentConfig.sortOrder,
@@ -912,30 +987,35 @@ export function createCatalogsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, attributesService, elementsService } = services(req)
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
 
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
             const currentConfig = catalog.config || {}
-            const hubIds = currentConfig.hubs || []
+            const hubIds = getCatalogHubIds(catalog)
 
             const hubs = hubIds.length > 0 ? await hubsService.findByIds(metahubId, hubIds, userId) : []
 
-            // TODO: Implement counts using specialized services
-            const attributesCount = 0
-            const elementsCount = 0
+            const [attributesCounts, elementsCounts] = await Promise.all([
+                attributesService.countByObjectIds(metahubId, [catalog.id], userId),
+                elementsService.countByObjectIds(metahubId, [catalog.id], userId)
+            ])
+
+            const attributesCount = attributesCounts.get(catalog.id) ?? 0
+            const elementsCount = elementsCounts.get(catalog.id) ?? 0
 
             res.json({
                 id: catalog.id,
                 metahubId,
                 codename: catalog.codename,
-                name: catalog.presentation.name,
-                description: catalog.presentation.description,
+                codenameLocalized: catalog.presentation?.codename ?? null,
+                name: catalog.presentation?.name ?? {},
+                description: catalog.presentation?.description,
                 isSingleHub: currentConfig.isSingleHub,
                 isRequiredHub: currentConfig.isRequiredHub,
                 sortOrder: currentConfig.sortOrder,
@@ -958,7 +1038,7 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { ds, metahubRepo, objectsService, hubsService, schemaService } = services(req)
+            const { ds, metahubRepo, objectsService, hubsService, schemaService, settingsService } = services(req)
             const userId = resolveUserId(req)
             const rlsRunner = getRequestQueryRunner(req)
 
@@ -974,6 +1054,12 @@ export function createCatalogsRoutes(
             const sourceCatalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!sourceCatalog || sourceCatalog.kind !== MetaEntityKind.CATALOG) {
                 return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            // Check allowCopy setting
+            const allowCopyRow = await settingsService.findByKey(metahubId, 'catalogs.allowCopy', userId)
+            if (allowCopyRow && allowCopyRow.value?._value === false) {
+                return res.status(403).json({ error: 'Copying catalogs is disabled in metahub settings' })
             }
 
             const parsed = copyCatalogSchema.safeParse(req.body ?? {})
@@ -1011,11 +1097,30 @@ export function createCatalogsRoutes(
                 }
             }
 
-            const normalizedBaseCodename = normalizeCodename(parsed.data.codename ?? `${sourceCatalog.codename}-copy`)
-            if (!normalizedBaseCodename || !isValidCodename(normalizedBaseCodename)) {
+            let codenameLocalizedVlc: unknown = sourcePresentation.codename ?? null
+            if (parsed.data.codenameInput !== undefined) {
+                codenameLocalizedVlc = buildCodenameLocalizedVlc(
+                    parsed.data.codenameInput,
+                    parsed.data.codenamePrimaryLocale,
+                    parsed.data.namePrimaryLocale ?? sourceNamePrimary
+                )
+            }
+
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
+            const normalizedBaseCodename = normalizeCodenameForStyle(
+                parsed.data.codename ?? `${sourceCatalog.codename}${copySuffix}`,
+                codenameStyle,
+                codenameAlphabet
+            )
+            if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -1042,6 +1147,7 @@ export function createCatalogsRoutes(
                             codename,
                             table_name: null,
                             presentation: {
+                                codename: codenameLocalizedVlc,
                                 name: nameVlc,
                                 description: descriptionVlc ?? null
                             },
@@ -1174,7 +1280,7 @@ export function createCatalogsRoutes(
             let copiedResult: { catalog: CopiedCatalogRow; copiedAttributesCount: number; copiedElementsCount: number } | null = null
 
             for (let attempt = 1; attempt <= 1000; attempt += 1) {
-                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt)
+                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                 try {
                     copiedResult = await createCatalogCopy(codenameCandidate)
                     break
@@ -1204,6 +1310,7 @@ export function createCatalogsRoutes(
                 id: copiedCatalog.id,
                 metahubId,
                 codename: copiedCatalog.codename,
+                codenameLocalized: copiedCatalog.presentation?.codename ?? null,
                 name: copiedCatalog.presentation?.name ?? {},
                 description: copiedCatalog.presentation?.description ?? null,
                 isSingleHub: copiedConfig.isSingleHub ?? false,
@@ -1228,7 +1335,7 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify hub exists in this metahub
@@ -1244,6 +1351,8 @@ export function createCatalogsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -1254,11 +1363,16 @@ export function createCatalogsRoutes(
                 hubIds
             } = parsed.data
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -1286,12 +1400,18 @@ export function createCatalogsRoutes(
                 }
             }
 
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
             // Determine target hubs - Must include current hubId
             const effectiveIsRequired = isRequiredHub ?? false
             let targetHubIds = [hubId]
             if (hubIds && Array.isArray(hubIds)) {
                 // Merge provided hubIds with current hubId
                 targetHubIds = Array.from(new Set([...hubIds, hubId]))
+            }
+
+            if ((isSingleHub ?? false) && targetHubIds.length > 1) {
+                return res.status(400).json({ error: 'This catalog is restricted to a single hub' })
             }
 
             // Validate all hub IDs belong to this metahub
@@ -1301,22 +1421,31 @@ export function createCatalogsRoutes(
             }
 
             // Create catalog
-            const catalog = await objectsService.createCatalog(
-                metahubId,
-                {
-                    codename: normalizedCodename,
-                    name: nameVlc,
-                    description: descriptionVlc,
-                    config: {
-                        hubs: targetHubIds,
-                        isSingleHub: isSingleHub ?? false,
-                        isRequiredHub: effectiveIsRequired,
-                        sortOrder
+            let catalog
+            try {
+                catalog = await objectsService.createCatalog(
+                    metahubId,
+                    {
+                        codename: normalizedCodename,
+                        codenameLocalized,
+                        name: nameVlc,
+                        description: descriptionVlc,
+                        config: {
+                            hubs: targetHubIds,
+                            isSingleHub: isSingleHub ?? false,
+                            isRequiredHub: effectiveIsRequired,
+                            sortOrder
+                        },
+                        createdBy: userId
                     },
-                    createdBy: userId
-                },
-                userId
-            )
+                    userId
+                )
+            } catch (error) {
+                if (database.isUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
+                }
+                throw error
+            }
 
             // Return catalog with hubs
             const hubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
@@ -1325,6 +1454,7 @@ export function createCatalogsRoutes(
                 id: catalog.id,
                 metahubId,
                 codename: catalog.codename,
+                codenameLocalized: catalog.presentation?.codename ?? null,
                 name: catalog.presentation.name,
                 description: catalog.presentation.description,
                 isSingleHub: catalog.config.isSingleHub,
@@ -1349,16 +1479,16 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
             // Verify catalog is associated with this hub
-            const currentHubs = catalog.config?.hubs || []
+            const currentHubs = getCatalogHubIds(catalog)
             if (!currentHubs.includes(hubId)) {
                 return res.status(404).json({ error: 'Catalog not found in this hub' })
             }
@@ -1374,6 +1504,8 @@ export function createCatalogsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -1390,8 +1522,9 @@ export function createCatalogsRoutes(
 
             let finalName = currentPresentation.name
             let finalDescription = currentPresentation.description
+            let finalCodenameLocalized = currentPresentation.codename
             let finalCodename = catalog.codename
-            let targetHubIds = currentConfig.hubs || []
+            let targetHubIds = getCatalogHubIds(catalog)
 
             if (hubIds !== undefined) {
                 targetHubIds = hubIds
@@ -1415,9 +1548,17 @@ export function createCatalogsRoutes(
             }
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
-                    return res.status(400).json({ error: 'Validation failed', details: { codename: ['Invalid format'] } })
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
+                    return res.status(400).json({
+                        error: 'Validation failed',
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
+                    })
                 }
                 if (normalizedCodename !== catalog.codename) {
                     const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
@@ -1433,7 +1574,7 @@ export function createCatalogsRoutes(
                 if (Object.keys(sanitizedName).length === 0) {
                     return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
                 }
-                const primary = namePrimaryLocale ?? currentPresentation.name?.['_primary'] ?? 'en'
+                const primary = namePrimaryLocale ?? getLocalizedPrimaryLocale(currentPresentation.name) ?? 'en'
                 finalName = buildLocalizedContent(sanitizedName, primary, primary)
             }
 
@@ -1445,11 +1586,20 @@ export function createCatalogsRoutes(
                         : undefined
             }
 
+            if (codenameInput !== undefined) {
+                finalCodenameLocalized = buildCodenameLocalizedVlc(
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    getLocalizedPrimaryLocale(currentPresentation.codename) ?? namePrimaryLocale ?? 'en'
+                )
+            }
+
             const updated = (await objectsService.updateCatalog(
                 metahubId,
                 catalogId,
                 {
                     codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                    codenameLocalized: finalCodenameLocalized,
                     name: finalName,
                     description: finalDescription,
                     config: {
@@ -1470,6 +1620,7 @@ export function createCatalogsRoutes(
                 id: updated.id,
                 metahubId,
                 codename: updated.codename,
+                codenameLocalized: updated.presentation?.codename ?? null,
                 name: updated.presentation?.name ?? {},
                 description: updated.presentation?.description,
                 isSingleHub: updated.config?.isSingleHub ?? false,
@@ -1496,7 +1647,7 @@ export function createCatalogsRoutes(
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 // Return empty result for non-existent catalogs instead of 404.
                 // This prevents noisy console errors when React Query refetches
                 // after a successful catalog deletion (race condition).
@@ -1526,22 +1677,30 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
-            const { objectsService, attributesService } = services(req)
+            const { objectsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
             const currentConfig = catalog.config || {}
-            let currentHubIds: string[] = currentConfig.hubs || []
+            let currentHubIds: string[] = getCatalogHubIds(catalog)
 
             if (!currentHubIds.includes(hubId)) {
                 return res.status(404).json({ error: 'Catalog not found in this hub' })
             }
 
             const forceDelete = req.query.force === 'true'
+            const willDeleteEntireCatalog = !(currentHubIds.length > 1 && !forceDelete)
+
+            if (willDeleteEntireCatalog) {
+                const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+                if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                    return res.status(403).json({ error: 'Deleting catalogs is disabled in metahub settings' })
+                }
+            }
 
             if (currentConfig.isRequiredHub && currentHubIds.length === 1 && !forceDelete) {
                 return res.status(409).json({
@@ -1557,7 +1716,8 @@ export function createCatalogsRoutes(
                     catalogId,
                     {
                         config: { ...currentConfig, hubs: newHubIds },
-                        updatedBy: userId
+                        updatedBy: userId,
+                        expectedVersion: catalog._upl_version
                     },
                     userId
                 )
@@ -1586,11 +1746,17 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { objectsService, attributesService } = services(req)
+            const { objectsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
+            // Check allowDelete setting
+            const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+            if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                return res.status(403).json({ error: 'Deleting catalogs is disabled in metahub settings' })
+            }
+
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
@@ -1626,6 +1792,7 @@ export function createCatalogsRoutes(
                 id: row.id,
                 metahubId,
                 codename: row.codename,
+                codenameLocalized: row.presentation?.codename ?? null,
                 name: row.presentation?.name || {},
                 description: row.presentation?.description || {},
                 deletedAt: row.deleted_at,
@@ -1650,11 +1817,20 @@ export function createCatalogsRoutes(
 
             // Check if catalog exists in trash
             const catalog = await objectsService.findById(metahubId, catalogId, userId, { onlyDeleted: true })
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found in trash' })
             }
 
-            await objectsService.restore(metahubId, catalogId, userId)
+            try {
+                await objectsService.restore(metahubId, catalogId, userId)
+            } catch (error) {
+                if (database.isUniqueViolation(error)) {
+                    return res.status(409).json({
+                        error: 'Cannot restore catalog: codename already exists in this metahub'
+                    })
+                }
+                throw error
+            }
 
             res.json({ message: 'Catalog restored successfully', id: catalogId })
         })
@@ -1669,13 +1845,26 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { objectsService } = services(req)
+            const { objectsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
+
+            const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+            if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                return res.status(403).json({ error: 'Deleting catalogs is disabled in metahub settings' })
+            }
 
             // Check if catalog exists (including deleted)
             const catalog = await objectsService.findById(metahubId, catalogId, userId, { includeDeleted: true })
-            if (!catalog) {
+            if (!isCatalogObject(catalog)) {
                 return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+            if (blockingReferences.length > 0) {
+                return res.status(409).json({
+                    error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                    blockingReferences
+                })
             }
 
             await objectsService.permanentDelete(metahubId, catalogId, userId)

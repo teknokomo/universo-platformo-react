@@ -17,6 +17,246 @@ export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce((acc, value) => {
     return acc
 }, {} as Record<AttributeDataType, AttributeDataType>)
 
+// ═══════════════════════════════════════
+// Metahub Settings Types
+// ═══════════════════════════════════════
+
+/** Codename naming styles supported by the platform. */
+export type CodenameStyle = 'kebab-case' | 'pascal-case'
+
+/** Codename alphabet — which character sets are allowed in codenames. */
+export type CodenameAlphabet = 'en' | 'ru' | 'en-ru'
+
+/** Tab groups for the Settings UI. */
+export type SettingsTab = 'general' | 'common' | 'hubs' | 'catalogs' | 'enumerations'
+
+/** Value type discriminator for settings. */
+export type SettingValueType = 'string' | 'boolean' | 'select' | 'multiselect' | 'number'
+
+/** Individual setting definition in the registry. */
+export interface SettingDefinition {
+    /** Dot-notation key stored in _mhb_settings.key */
+    key: string
+    /** Which tab this setting belongs to */
+    tab: SettingsTab
+    /** Value type for UI rendering */
+    valueType: SettingValueType
+    /** Default value (used when setting doesn't exist in DB) */
+    defaultValue: unknown
+    /** For 'select' / 'multiselect' type — list of allowed values */
+    options?: readonly string[]
+    /** Sort order within its tab */
+    sortOrder: number
+}
+
+/**
+ * Shape of a setting row returned by the API.
+ * Matches _mhb_settings table structure.
+ */
+export interface MetahubSettingRow {
+    id: string
+    key: string
+    value: Record<string, unknown>
+    _upl_version: number
+    _upl_updated_at: string
+    _upl_updated_by: string | null
+}
+
+/**
+ * Bulk update payload: array of { key, value } pairs.
+ * Backend will upsert (insert if missing, update if exists).
+ */
+export interface SettingsUpdatePayload {
+    settings: Array<{
+        key: string
+        value: Record<string, unknown>
+    }>
+}
+
+/**
+ * All known metahub settings with their metadata.
+ * Single source of truth for both backend validation and frontend UI rendering.
+ */
+export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
+    // ── General ──
+    // NOTE: `general.language` = default primary locale for VLC fields in metahub entities.
+    // - 'system' means current interface language
+    // - explicit locale code means fixed locale for VLC primary values
+    {
+        key: 'general.language',
+        tab: 'general',
+        valueType: 'select',
+        defaultValue: 'system',
+        options: ['system', 'en', 'ru'] as const,
+        sortOrder: 1
+    },
+    {
+        key: 'general.timezone',
+        tab: 'general',
+        valueType: 'select',
+        defaultValue: 'UTC',
+        options: ['UTC', 'Europe/Moscow', 'Asia/Tokyo', 'America/New_York', 'Europe/London'] as const,
+        sortOrder: 2
+    },
+    {
+        key: 'general.codenameStyle',
+        tab: 'general',
+        valueType: 'select',
+        defaultValue: 'pascal-case',
+        options: ['kebab-case', 'pascal-case'] as const,
+        sortOrder: 3
+    },
+    {
+        key: 'general.codenameAlphabet',
+        tab: 'general',
+        valueType: 'select',
+        defaultValue: 'en-ru',
+        options: ['en', 'ru', 'en-ru'] as const,
+        sortOrder: 4
+    },
+    {
+        key: 'general.codenameAllowMixedAlphabets',
+        tab: 'general',
+        valueType: 'boolean',
+        defaultValue: false,
+        sortOrder: 5
+    },
+    {
+        key: 'general.codenameAutoConvertMixedAlphabets',
+        tab: 'general',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 6
+    },
+    {
+        key: 'general.codenameAutoReformat',
+        tab: 'general',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 7
+    },
+    {
+        key: 'general.codenameRequireReformat',
+        tab: 'general',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 8
+    },
+    {
+        key: 'general.codenameLocalizedEnabled',
+        tab: 'general',
+        valueType: 'boolean',
+        defaultValue: false,
+        sortOrder: 9
+    },
+
+    // ── Hubs ──
+    {
+        key: 'hubs.allowCopy',
+        tab: 'hubs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 1
+    },
+    {
+        key: 'hubs.allowDelete',
+        tab: 'hubs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
+    },
+
+    // ── Catalogs ──
+    {
+        key: 'catalogs.allowCopy',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 1
+    },
+    {
+        key: 'catalogs.allowDelete',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
+    },
+    {
+        key: 'catalogs.attributeCodenameScope',
+        tab: 'catalogs',
+        valueType: 'select',
+        defaultValue: 'per-level',
+        options: ['per-level', 'global'] as const,
+        sortOrder: 3
+    },
+    {
+        key: 'catalogs.allowedAttributeTypes',
+        tab: 'catalogs',
+        valueType: 'multiselect',
+        defaultValue: [...ATTRIBUTE_DATA_TYPES],
+        options: ATTRIBUTE_DATA_TYPES,
+        sortOrder: 4
+    },
+    {
+        key: 'catalogs.allowAttributeCopy',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 5
+    },
+    {
+        key: 'catalogs.allowAttributeDelete',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 6
+    },
+    {
+        key: 'catalogs.allowDeleteLastDisplayAttribute',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 7
+    },
+    {
+        key: 'catalogs.allowElementCopy',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 8
+    },
+    {
+        key: 'catalogs.allowElementDelete',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 9
+    },
+
+    // ── Enumerations ──
+    {
+        key: 'enumerations.allowCopy',
+        tab: 'enumerations',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 1
+    },
+    {
+        key: 'enumerations.allowDelete',
+        tab: 'enumerations',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
+    }
+]
+
+/** Helper to get settings for a specific tab. */
+export const getSettingsForTab = (tab: SettingsTab): SettingDefinition[] =>
+    METAHUB_SETTINGS_REGISTRY.filter((s) => s.tab === tab).sort((a, b) => a.sortOrder - b.sortOrder)
+
+/** Helper to get a setting definition by key. */
+export const getSettingDefinition = (key: string): SettingDefinition | undefined => METAHUB_SETTINGS_REGISTRY.find((s) => s.key === key)
+
 // ============ TYPE-SPECIFIC CONFIGURATION INTERFACES ============
 
 /**

@@ -78,6 +78,7 @@
         "chatFeedback": "Chat Feedback",
         "allowedDomains": "Allowed Domains",
         "speechToText": "Speech to Text",
-        "updateCategory": "Update Category"
+        "updateCategory": "Update Category",
+        "settings": "Settings"
     }
 }

@@ -1,6 +1,8 @@
 import React from 'react'
 import { TextField, TextFieldProps } from '@mui/material'
 import { sanitizeCodename } from '@universo/utils/validation/codename'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { LocalizedInlineField } from './LocalizedInlineField'
 
 export interface CodenameFieldProps {
     /** Current codename value */
@@ -21,6 +23,16 @@ export interface CodenameFieldProps {
     disabled?: boolean
     /** Whether the field is required */
     required?: boolean
+    /** Enables localized VLC mode for codename input */
+    localizedEnabled?: boolean
+    /** Current localized codename value (used when localizedEnabled=true) */
+    localizedValue?: VersionedLocalizedContent<string> | null
+    /** Called when localized codename changes (used when localizedEnabled=true) */
+    onLocalizedChange?: (value: VersionedLocalizedContent<string> | null) => void
+    /** UI locale used by localized editor */
+    uiLocale?: string
+    /** Optional blur normalizer override. Defaults to sanitizeCodename for backward compatibility. */
+    normalizeOnBlur?: (value: string) => string
     /** Additional TextField props */
     textFieldProps?: Partial<Omit<TextFieldProps, 'value' | 'onChange' | 'label' | 'helperText' | 'error' | 'disabled' | 'required'>>
 }
@@ -62,6 +74,11 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({
     error,
     disabled = false,
     required = false,
+    localizedEnabled = false,
+    localizedValue,
+    onLocalizedChange,
+    uiLocale,
+    normalizeOnBlur,
     textFieldProps
 }) => {
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,10 +89,41 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({
     }
 
     const handleBlur = () => {
-        const normalized = sanitizeCodename(value)
+        const normalized = normalizeOnBlur ? normalizeOnBlur(value) : sanitizeCodename(value)
         if (normalized && normalized !== value) {
             onChange(normalized)
         }
+    }
+
+    const handleLocalizedChange = (nextValue: VersionedLocalizedContent<string>) => {
+        onLocalizedChange?.(nextValue)
+        const primaryLocale = nextValue?._primary
+        const primaryContent =
+            primaryLocale && nextValue?.locales?.[primaryLocale] && typeof nextValue.locales[primaryLocale]?.content === 'string'
+                ? nextValue.locales[primaryLocale]?.content
+                : ''
+        onChange(primaryContent ?? '')
+        if (!touched) {
+            onTouchedChange(true)
+        }
+    }
+
+    if (localizedEnabled && onLocalizedChange) {
+        return (
+            <LocalizedInlineField
+                mode='localized'
+                label={label}
+                required={required}
+                disabled={disabled}
+                value={localizedValue ?? null}
+                onChange={handleLocalizedChange}
+                error={error || null}
+                helperText={error || helperText}
+                uiLocale={uiLocale}
+                normalizeOnBlur={(rawValue) => (normalizeOnBlur ? normalizeOnBlur(rawValue) : sanitizeCodename(rawValue))}
+                maxLength={100}
+            />
+        )
     }
 
     return (

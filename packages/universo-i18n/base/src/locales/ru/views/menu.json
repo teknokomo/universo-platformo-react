@@ -78,6 +78,7 @@
         "chatFeedback": "Обратная связь чата",
         "allowedDomains": "Разрешённые домены",
         "speechToText": "Речь в текст",
-        "updateCategory": "Обновить категорию"
+        "updateCategory": "Обновить категорию",
+        "settings": "Настройки"
     }
 }

@@ -413,7 +413,9 @@ describe('Metahubs Routes', () => {
                     description: null
                 }
             ])
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }])
+            ;(dataSource.manager.query as jest.Mock)
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }])
             metahubRepo.findOneOrFail.mockResolvedValue({
                 id: '018f8a78-7b8f-7c1d-a111-222233334444',
                 codename: 'source-hub-copy',
@@ -1086,7 +1088,7 @@ describe('Metahubs Routes', () => {
             expect(response.body).toMatchObject({ error: 'Codename already in use' })
             expect(metahubRepo.findOne).toHaveBeenCalledWith({
                 where: {
-                    codename: 'new-codename',
+                    codename: 'NewCodename',
                     _uplDeleted: false,
                     _mhbDeleted: false
                 }

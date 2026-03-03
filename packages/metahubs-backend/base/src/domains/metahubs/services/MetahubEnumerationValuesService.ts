@@ -6,6 +6,7 @@ import { incrementVersion, updateWithVersionCheck } from '../../../utils/optimis
 interface EnumerationValueCreateInput {
     enumerationId: string
     codename: string
+    codenameLocalized?: unknown
     name: unknown
     description?: unknown
     sortOrder?: number
@@ -15,6 +16,7 @@ interface EnumerationValueCreateInput {
 
 interface EnumerationValueUpdateInput {
     codename?: string
+    codenameLocalized?: unknown
     name?: unknown
     description?: unknown
     sortOrder?: number
@@ -134,6 +136,7 @@ export class MetahubEnumerationValuesService {
                     object_id: data.enumerationId,
                     codename: data.codename,
                     presentation: {
+                        codename: data.codenameLocalized,
                         name: data.name,
                         description: data.description
                     },
@@ -167,9 +170,10 @@ export class MetahubEnumerationValuesService {
             if (data.codename !== undefined) updateData.codename = data.codename
             if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-            if (data.name !== undefined || data.description !== undefined) {
+            if (data.name !== undefined || data.description !== undefined || data.codenameLocalized !== undefined) {
                 updateData.presentation = {
                     ...(current.presentation ?? {}),
+                    ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                     ...(data.name !== undefined ? { name: data.name } : {}),
                     ...(data.description !== undefined ? { description: data.description } : {})
                 }
@@ -298,6 +302,7 @@ export class MetahubEnumerationValuesService {
             id: row.id,
             objectId: row.object_id,
             codename: row.codename,
+            codenameLocalized: row.presentation?.codename ?? null,
             name: row.presentation?.name ?? {},
             description: row.presentation?.description ?? {},
             sortOrder: row.sort_order ?? 0,

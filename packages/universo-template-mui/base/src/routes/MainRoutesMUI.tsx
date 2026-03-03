@@ -148,6 +148,7 @@ const MetahubMigrationGuard = Loadable(
     lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrationGuard })))
 )
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
+const MetahubSettings = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.MetahubSettings }))))
 const PublicationVersionList = Loadable(
     lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationVersionList })))
 )
@@ -178,6 +179,8 @@ const RoleEdit = Loadable(lazy(() => import('@universo/admin-frontend/pages/Role
 const RoleUsers = Loadable(lazy(() => import('@universo/admin-frontend/pages/RoleUsers')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const LocalesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/LocalesList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const AdminSettings = Loadable(lazy(() => import('@universo/admin-frontend/pages/AdminSettings')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
@@ -586,6 +589,10 @@ const MainRoutesMUI = {
                 {
                     path: 'access',
                     element: <MetahubMembers />
+                },
+                {
+                    path: 'settings',
+                    element: <MetahubSettings />
                 }
             ]
         },
@@ -656,6 +663,11 @@ const MainRoutesMUI = {
                         {
                             path: 'locales',
                             element: <LocalesList />
+                        },
+                        // Platform settings (codename defaults, etc.)
+                        {
+                            path: 'settings',
+                            element: <AdminSettings />
                         }
                     ]
                 },

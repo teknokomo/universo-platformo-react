@@ -104,7 +104,7 @@ function getRoleName(
 
 export const RoleChip: React.FC<RoleChipProps> = ({ role, accessType, roleMetadata, size = 'small', variant = 'filled', className }) => {
     const { t, i18n: i18nInstance } = useTranslation('roles', { i18n })
-    const currentLanguage = i18nInstance.language?.split('-')[0] || 'en'
+    const currentLanguage = (i18nInstance?.language || i18n.language || 'en').split('-')[0]
 
     // Determine which role to display:
     // If accessType is not 'member', show that instead of entity role

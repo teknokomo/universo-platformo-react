@@ -186,10 +186,7 @@ export function buildVLC(enContent: string, ruContent: string): VersionedLocaliz
  * - If a plain string, wraps it into a VLC using the given locale.
  * - Otherwise returns null.
  */
-export function ensureVLC(
-    value: unknown,
-    locale: LocaleCode
-): VersionedLocalizedContent<string> | null {
+export function ensureVLC(value: unknown, locale: LocaleCode): VersionedLocalizedContent<string> | null {
     if (isLocalizedContent(value)) {
         return value as VersionedLocalizedContent<string>
     }

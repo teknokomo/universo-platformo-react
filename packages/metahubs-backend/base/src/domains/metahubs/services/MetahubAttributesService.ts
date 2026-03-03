@@ -213,7 +213,8 @@ export class MetahubAttributesService {
         codename: string,
         parentAttributeId?: string | null,
         userId?: string,
-        trx?: Knex.Transaction
+        trx?: Knex.Transaction,
+        options?: { ignoreParentScope?: boolean }
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const runner = this.getRunner(trx)
@@ -224,10 +225,12 @@ export class MetahubAttributesService {
             .andWhere('_upl_deleted', false)
             .andWhere('_mhb_deleted', false)
 
-        if (parentAttributeId) {
-            query = query.andWhere({ parent_attribute_id: parentAttributeId })
-        } else {
-            query = query.whereNull('parent_attribute_id')
+        if (!options?.ignoreParentScope) {
+            if (parentAttributeId) {
+                query = query.andWhere({ parent_attribute_id: parentAttributeId })
+            } else {
+                query = query.whereNull('parent_attribute_id')
+            }
         }
 
         const row = await query.first()
@@ -450,6 +453,7 @@ export class MetahubAttributesService {
             parent_attribute_id: data.parentAttributeId ?? null,
             sort_order: sortOrder,
             presentation: {
+                codename: data.codenameLocalized,
                 name: data.name
             },
             validation_rules: data.validationRules || {},
@@ -484,8 +488,13 @@ export class MetahubAttributesService {
         if (data.targetEntityKind !== undefined) updateData.target_object_kind = data.targetEntityKind
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-        if (data.name !== undefined) {
-            updateData.presentation = { name: data.name }
+        if (data.name !== undefined || data.codenameLocalized !== undefined) {
+            const current = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
+            updateData.presentation = {
+                ...(current?.presentation ?? {}),
+                ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
+                ...(data.name !== undefined ? { name: data.name } : {})
+            }
         }
 
         if (data.validationRules !== undefined) updateData.validation_rules = data.validationRules
@@ -759,6 +768,7 @@ export class MetahubAttributesService {
             id: row.id,
             catalogId: row.object_id,
             codename: row.codename,
+            codenameLocalized: row.presentation?.codename ?? null,
             dataType: row.data_type,
             isRequired: row.is_required,
             isDisplayAttribute: row.is_display_attribute ?? false,

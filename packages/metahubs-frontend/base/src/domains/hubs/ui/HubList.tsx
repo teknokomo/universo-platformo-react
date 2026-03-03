@@ -23,7 +23,8 @@ import {
     ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
-    useCodenameAutoFill
+    useCodenameAutoFill,
+    useCodenameVlcSync
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -36,21 +37,61 @@ import { metahubsQueryKeys, invalidateHubsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Hub, HubDisplay, HubLocalizedPayload, getVLCString, toHubDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField, HubDeleteDialog } from '../../../components'
+import { CodenameField, HubDeleteDialog, ExistingCodenamesProvider } from '../../../components'
 import hubActions from './HubActions'
+import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 
 type HubFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
 }
 
+type GenericFormValues = Record<string, unknown>
+
+type HubMenuBaseContext = {
+    t: (key: string, options?: unknown) => string
+} & Record<string, unknown>
+
+type ConfirmSpec = {
+    titleKey?: string
+    descriptionKey?: string
+    confirmKey?: string
+    cancelKey?: string
+    interpolate?: Record<string, unknown>
+    title?: string
+    description?: string
+    confirmButtonName?: string
+    cancelButtonName?: string
+}
+
+const extractResponseStatus = (error: unknown): number | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const status = (response as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+}
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    const message = (data as { message?: unknown }).message
+    return typeof message === 'string' ? message : undefined
+}
+
 type HubFormFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
@@ -71,13 +112,21 @@ const HubFormFields = ({
     codenameLabel,
     codenameHelper
 }: HubFormFieldsProps) => {
+    const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -85,6 +134,23 @@ const HubFormFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -116,6 +182,11 @@ const HubFormFields = ({
                 onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={errors.codename}
@@ -127,10 +198,12 @@ const HubFormFields = ({
 }
 
 const HubList = () => {
+    const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
@@ -176,6 +249,18 @@ const HubList = () => {
 
     const { confirm } = useConfirm()
 
+    // Filter entity actions based on settings (allowCopy / allowDelete)
+    const { allowCopy, allowDelete } = useEntityPermissions('hubs')
+    const filteredHubActions = useMemo(
+        () =>
+            hubActions.filter((a) => {
+                if (a.id === 'copy' && !allowCopy) return false
+                if (a.id === 'delete' && !allowDelete) return false
+                return true
+            }),
+        [allowCopy, allowDelete]
+    )
+
     const createHubMutation = useCreateHub()
     const updateHubMutation = useUpdateHub()
     const deleteHubMutation = useDeleteHub()
@@ -183,7 +268,7 @@ const HubList = () => {
 
     // Memoize images object
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(hubs)) {
             hubs.forEach((hub) => {
                 if (hub?.id) {
@@ -200,35 +285,45 @@ const HubList = () => {
     }, [hubs])
 
     const localizedFormDefaults = useMemo<HubFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, codename: '', codenameTouched: false }),
+        () => ({ nameVlc: null, descriptionVlc: null, codenameVlc: null, codename: '', codenameTouched: false }),
         []
     )
 
     const validateHubForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
             const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-            const normalizedCodename = sanitizeCodename(rawCodename)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('hubs.validation.codenameRequired', 'Codename is required')
-            } else if (!isValidCodename(normalizedCodename)) {
+            } else if (
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 errors.codename = t('hubs.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t, tc]
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSaveHubForm = useCallback((values: Record<string, any>) => {
-        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
-    }, [])
+    const canSaveHubForm = useCallback(
+        (values: GenericFormValues) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            return (
+                !values._hasCodenameDuplicate &&
+                hasPrimaryContent(nameVlc) &&
+                Boolean(normalizedCodename) &&
+                isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            )
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
+    )
 
     const renderLocalizedFields = useCallback(
         ({
@@ -237,8 +332,8 @@ const HubList = () => {
             isLoading,
             errors
         }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
+            values: GenericFormValues
+            setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors?: Record<string, string>
         }) => {
@@ -249,7 +344,7 @@ const HubList = () => {
                     setValue={setValue}
                     isLoading={isLoading}
                     errors={fieldErrors}
-                    uiLocale={i18n.language}
+                    uiLocale={preferredVlcLocale}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     codenameLabel={t('hubs.codename', 'Codename')}
@@ -257,7 +352,7 @@ const HubList = () => {
                 />
             )
         },
-        [i18n.language, t, tc]
+        [preferredVlcLocale, t, tc]
     )
 
     const hubColumns = useMemo(
@@ -353,14 +448,14 @@ const HubList = () => {
     )
 
     const createHubContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: HubMenuBaseContext) => ({
             ...baseContext,
             hubMap,
-            uiLocale: i18n.language,
+            uiLocale: preferredVlcLocale,
             api: {
                 updateEntity: async (id: string, patch: HubLocalizedPayload) => {
                     if (!metahubId) return
-                    const normalizedCodename = sanitizeCodename(patch.codename)
+                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('hubs.validation.codenameRequired', 'Codename is required'))
                     }
@@ -406,7 +501,7 @@ const HubList = () => {
                         await invalidateHubsQueries.all(queryClient, metahubId)
                     }
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
@@ -436,7 +531,20 @@ const HubList = () => {
                 }
             }
         }),
-        [confirm, copyHubMutation, deleteHubMutation, enqueueSnackbar, hubMap, i18n.language, metahubId, queryClient, t, updateHubMutation]
+        [
+            codenameConfig.alphabet,
+            codenameConfig.style,
+            confirm,
+            copyHubMutation,
+            deleteHubMutation,
+            enqueueSnackbar,
+            hubMap,
+            metahubId,
+            preferredVlcLocale,
+            queryClient,
+            t,
+            updateHubMutation
+        ]
     )
 
     // Validate metahubId from URL AFTER all hooks
@@ -463,19 +571,21 @@ const HubList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateHub = async (data: Record<string, any>) => {
+    const handleCreateHub = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 setDialogError(t('hubs.validation.codenameRequired', 'Codename is required'))
                 return
@@ -485,6 +595,8 @@ const HubList = () => {
                 metahubId,
                 data: {
                     codename: normalizedCodename,
+                    codenameInput,
+                    codenamePrimaryLocale,
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
@@ -495,7 +607,7 @@ const HubList = () => {
             await invalidateHubsQueries.all(queryClient, metahubId)
             handleDialogSave()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -515,7 +627,7 @@ const HubList = () => {
         navigate(`/metahub/${metahubId}/hub/${hub.id}/catalogs`)
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -532,228 +644,231 @@ const HubList = () => {
             border={false}
             shadow={false}
         >
-            {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                    action={{
-                        label: t('actions.retry'),
-                        onClick: () => paginationResult.actions.goToPage(1)
-                    }}
-                />
-            ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search={true}
-                        searchPlaceholder={t('hubs.searchPlaceholder')}
-                        onSearchChange={handleSearchChange}
-                        title={t('hubs.title')}
-                    >
-                        <ToolbarControls
-                            viewToggleEnabled
-                            viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => handleChange(null, mode)}
-                            cardViewTitle={tc('cardView')}
-                            listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
-                        />
-                    </ViewHeader>
+            <ExistingCodenamesProvider entities={hubs ?? []}>
+                {error ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Connection error'
+                        title={t('errors.connectionFailed')}
+                        description={!extractResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                        action={{
+                            label: t('actions.retry'),
+                            onClick: () => paginationResult.actions.goToPage(1)
+                        }}
+                    />
+                ) : (
+                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                        <ViewHeader
+                            search={true}
+                            searchPlaceholder={t('hubs.searchPlaceholder')}
+                            onSearchChange={handleSearchChange}
+                            title={t('hubs.title')}
+                        >
+                            <ToolbarControls
+                                viewToggleEnabled
+                                viewMode={view as 'card' | 'list'}
+                                onViewModeChange={(mode: string) => handleChange(null, mode)}
+                                cardViewTitle={tc('cardView')}
+                                listViewTitle={tc('listView')}
+                                primaryAction={{
+                                    label: tc('create'),
+                                    onClick: handleAddNew,
+                                    startIcon: <AddRoundedIcon />
+                                }}
+                            />
+                        </ViewHeader>
 
-                    {isLoading && hubs.length === 0 ? (
-                        view === 'card' ? (
-                            <SkeletonGrid />
-                        ) : (
-                            <Skeleton variant='rectangular' height={120} />
-                        )
-                    ) : !isLoading && hubs.length === 0 ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt='No hubs'
-                            title={t('hubs.empty')}
-                            description={t('hubs.emptyDescription')}
-                        />
-                    ) : (
-                        <>
-                            {view === 'card' ? (
-                                <Box
-                                    sx={{
-                                        display: 'grid',
-                                        gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
-                                        gridTemplateColumns: {
-                                            xs: '1fr',
-                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                        },
-                                        justifyContent: 'start',
-                                        alignContent: 'start'
-                                    }}
-                                >
-                                    {hubs.map((hub: Hub) => {
-                                        const descriptors = [...hubActions]
-                                        const itemsCount = typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.catalogsCount ?? 0
-
-                                        return (
-                                            <ItemCard
-                                                key={hub.id}
-                                                data={getHubCardData(hub)}
-                                                images={images[hub.id] || []}
-                                                onClick={() => goToHub(hub)}
-                                                footerEndContent={
-                                                    typeof hub.itemsCount === 'number' || typeof hub.catalogsCount === 'number' ? (
-                                                        <Typography variant='caption' color='text.secondary'>
-                                                            {t('hubs.itemsCount', { count: itemsCount })}
-                                                        </Typography>
-                                                    ) : null
-                                                }
-                                                headerAction={
-                                                    descriptors.length > 0 ? (
-                                                        <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
-                                                                entity={toHubDisplay(hub, i18n.language)}
-                                                                entityKind='hub'
-                                                                descriptors={descriptors}
-                                                                namespace='metahubs'
-                                                                i18nInstance={i18n}
-                                                                createContext={createHubContext}
-                                                            />
-                                                        </Box>
-                                                    ) : null
-                                                }
-                                            />
-                                        )
-                                    })}
-                                </Box>
+                        {isLoading && hubs.length === 0 ? (
+                            view === 'card' ? (
+                                <SkeletonGrid />
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    <FlowListTable
-                                        data={hubs.map(getHubCardData)}
-                                        images={images}
-                                        isLoading={isLoading}
-                                        getRowLink={(row: any) => (row?.id ? `/metahub/${metahubId}/hub/${row.id}/catalogs` : undefined)}
-                                        customColumns={hubColumns}
-                                        i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
-                                            const originalHub = hubs.find((h) => h.id === row.id)
-                                            if (!originalHub) return null
-
-                                            const descriptors = [...hubActions]
-                                            if (!descriptors.length) return null
+                                <Skeleton variant='rectangular' height={120} />
+                            )
+                        ) : !isLoading && hubs.length === 0 ? (
+                            <EmptyListState
+                                image={APIEmptySVG}
+                                imageAlt='No hubs'
+                                title={t('hubs.empty')}
+                                description={t('hubs.emptyDescription')}
+                            />
+                        ) : (
+                            <>
+                                {view === 'card' ? (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gap: gridSpacing,
+                                            mx: { xs: -1.5, md: -2 },
+                                            gridTemplateColumns: {
+                                                xs: '1fr',
+                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                            },
+                                            justifyContent: 'start',
+                                            alignContent: 'start'
+                                        }}
+                                    >
+                                        {hubs.map((hub: Hub) => {
+                                            const descriptors = [...filteredHubActions]
+                                            const itemsCount = typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.catalogsCount ?? 0
 
                                             return (
-                                                <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
-                                                    entity={toHubDisplay(originalHub, i18n.language)}
-                                                    entityKind='hub'
-                                                    descriptors={descriptors}
-                                                    namespace='metahubs'
-                                                    menuButtonLabelKey='flowList:menu.button'
-                                                    i18nInstance={i18n}
-                                                    createContext={createHubContext}
+                                                <ItemCard
+                                                    key={hub.id}
+                                                    data={getHubCardData(hub)}
+                                                    images={images[hub.id] || []}
+                                                    onClick={() => goToHub(hub)}
+                                                    footerEndContent={
+                                                        typeof hub.itemsCount === 'number' || typeof hub.catalogsCount === 'number' ? (
+                                                            <Typography variant='caption' color='text.secondary'>
+                                                                {t('hubs.itemsCount', { count: itemsCount })}
+                                                            </Typography>
+                                                        ) : null
+                                                    }
+                                                    headerAction={
+                                                        descriptors.length > 0 ? (
+                                                            <Box onClick={(e) => e.stopPropagation()}>
+                                                                <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
+                                                                    entity={toHubDisplay(hub, i18n.language)}
+                                                                    entityKind='hub'
+                                                                    descriptors={descriptors}
+                                                                    namespace='metahubs'
+                                                                    i18nInstance={i18n}
+                                                                    createContext={createHubContext}
+                                                                />
+                                                            </Box>
+                                                        ) : null
+                                                    }
                                                 />
                                             )
-                                        }}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
+                                        })}
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                        <FlowListTable
+                                            data={hubs.map(getHubCardData)}
+                                            images={images}
+                                            isLoading={isLoading}
+                                            getRowLink={(row: HubDisplay) =>
+                                                row?.id ? `/metahub/${metahubId}/hub/${row.id}/catalogs` : undefined
+                                            }
+                                            customColumns={hubColumns}
+                                            i18nNamespace='flowList'
+                                            renderActions={(row: HubDisplay) => {
+                                                const originalHub = hubs.find((h) => h.id === row.id)
+                                                if (!originalHub) return null
 
-                    {/* Table Pagination at bottom */}
-                    {!isLoading && hubs.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                namespace='common'
-                            />
-                        </Box>
-                    )}
-                </Stack>
-            )}
+                                                const descriptors = [...filteredHubActions]
+                                                if (!descriptors.length) return null
 
-            <EntityFormDialog
-                open={isDialogOpen}
-                title={t('hubs.createDialog.title', 'Create Hub')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.create', 'Create')}
-                savingButtonText={tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
-                error={dialogError || undefined}
-                onClose={handleDialogClose}
-                onSave={handleCreateHub}
-                hideDefaultFields
-                initialExtraValues={localizedFormDefaults}
-                extraFields={renderLocalizedFields}
-                validate={validateHubForm}
-                canSave={canSaveHubForm}
-            />
+                                                return (
+                                                    <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
+                                                        entity={toHubDisplay(originalHub, i18n.language)}
+                                                        entityKind='hub'
+                                                        descriptors={descriptors}
+                                                        namespace='metahubs'
+                                                        menuButtonLabelKey='flowList:menu.button'
+                                                        i18nInstance={i18n}
+                                                        createContext={createHubContext}
+                                                    />
+                                                )
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+                            </>
+                        )}
 
-            {/* Hub delete dialog with blocking catalogs check */}
-            <HubDeleteDialog
-                open={deleteDialogState.open}
-                hub={deleteDialogState.hub}
-                metahubId={metahubId}
-                onClose={() => setDeleteDialogState({ open: false, hub: null })}
-                onConfirm={async (hub) => {
-                    try {
-                        await deleteHubMutation.mutateAsync({
-                            metahubId,
-                            hubId: hub.id
-                        })
-                        setDeleteDialogState({ open: false, hub: null })
-                    } catch (err: unknown) {
-                        const responseMessage =
-                            err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                        const message =
-                            typeof responseMessage === 'string'
-                                ? responseMessage
-                                : err instanceof Error
-                                ? err.message
-                                : typeof err === 'string'
-                                ? err
-                                : t('hubs.deleteError')
-                        enqueueSnackbar(message, { variant: 'error' })
-                        setDeleteDialogState({ open: false, hub: null })
-                    }
-                }}
-                isDeleting={deleteHubMutation.isPending}
-                uiLocale={i18n.language}
-            />
+                        {/* Table Pagination at bottom */}
+                        {!isLoading && hubs.length > 0 && (
+                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <PaginationControls
+                                    pagination={paginationResult.pagination}
+                                    actions={paginationResult.actions}
+                                    isLoading={paginationResult.isLoading}
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    namespace='common'
+                                />
+                            </Box>
+                        )}
+                    </Stack>
+                )}
 
-            <ConfirmDialog />
+                <EntityFormDialog
+                    open={isDialogOpen}
+                    title={t('hubs.createDialog.title', 'Create Hub')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.create', 'Create')}
+                    savingButtonText={tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCreating}
+                    error={dialogError || undefined}
+                    onClose={handleDialogClose}
+                    onSave={handleCreateHub}
+                    hideDefaultFields
+                    initialExtraValues={localizedFormDefaults}
+                    extraFields={renderLocalizedFields}
+                    validate={validateHubForm}
+                    canSave={canSaveHubForm}
+                />
 
-            <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
-                onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                    if (metahubId) {
-                        invalidateHubsQueries.all(queryClient, metahubId)
-                    }
-                }}
-                onOverwrite={async () => {
-                    if (conflictState.pendingUpdate && metahubId) {
-                        const { id, patch } = conflictState.pendingUpdate
-                        await updateHubMutation.mutateAsync({
-                            metahubId,
-                            hubId: id,
-                            data: patch
-                        })
+                {/* Hub delete dialog with blocking catalogs check */}
+                <HubDeleteDialog
+                    open={deleteDialogState.open}
+                    hub={deleteDialogState.hub}
+                    metahubId={metahubId}
+                    onClose={() => setDeleteDialogState({ open: false, hub: null })}
+                    onConfirm={async (hub) => {
+                        try {
+                            await deleteHubMutation.mutateAsync({
+                                metahubId,
+                                hubId: hub.id
+                            })
+                            setDeleteDialogState({ open: false, hub: null })
+                        } catch (err: unknown) {
+                            const responseMessage = extractResponseMessage(err)
+                            const message =
+                                typeof responseMessage === 'string'
+                                    ? responseMessage
+                                    : err instanceof Error
+                                    ? err.message
+                                    : typeof err === 'string'
+                                    ? err
+                                    : t('hubs.deleteError')
+                            enqueueSnackbar(message, { variant: 'error' })
+                            setDeleteDialogState({ open: false, hub: null })
+                        }
+                    }}
+                    isDeleting={deleteHubMutation.isPending}
+                    uiLocale={i18n.language}
+                />
+
+                <ConfirmDialog />
+
+                <ConflictResolutionDialog
+                    open={conflictState.open}
+                    conflict={conflictState.conflict}
+                    onCancel={() => {
                         setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                    }
-                }}
-                isLoading={updateHubMutation.isPending}
-            />
+                        if (metahubId) {
+                            invalidateHubsQueries.all(queryClient, metahubId)
+                        }
+                    }}
+                    onOverwrite={async () => {
+                        if (conflictState.pendingUpdate && metahubId) {
+                            const { id, patch } = conflictState.pendingUpdate
+                            await updateHubMutation.mutateAsync({
+                                metahubId,
+                                hubId: id,
+                                data: patch
+                            })
+                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        }
+                    }}
+                    isLoading={updateHubMutation.isPending}
+                />
+            </ExistingCodenamesProvider>
         </MainCard>
     )
 }

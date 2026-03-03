@@ -26,6 +26,10 @@ export { default as ElementList } from './domains/elements/ui/ElementList'
 export { default as MetahubLayouts } from './domains/layouts/ui/LayoutList'
 export { default as MetahubLayoutDetails } from './domains/layouts/ui/LayoutDetails'
 
+// Settings
+export { default as MetahubSettings } from './domains/settings/ui/SettingsPage'
+export { useEntityPermissions } from './domains/settings/hooks/useEntityPermissions'
+
 export { default as metahubsDashboard } from './menu-items/metahubDashboard'
 export { metahubsTranslations } from './i18n'
 

@@ -23,7 +23,8 @@ import {
     ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
-    useCodenameAutoFill
+    useCodenameAutoFill,
+    useCodenameVlcSync
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -46,9 +47,12 @@ import { invalidateCatalogsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { CatalogDisplay, CatalogLocalizedPayload, Hub, PaginatedResponse, getVLCString, toCatalogDisplay } from '../../../types'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CatalogDeleteDialog, CodenameField, HubSelectionPanel } from '../../../components'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import { CatalogDeleteDialog, CodenameField, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
 import catalogActions, { CatalogDisplayWithHub } from './CatalogActions'
 
 /**
@@ -80,17 +84,58 @@ interface CatalogWithHubsDisplay extends CatalogDisplay {
 type CatalogFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
     /** For N:M relationship - array of hub IDs */
     hubIds: string[]
     /** Single hub mode flag */
     isSingleHub: boolean
+    /** Hub requirement flag */
+    isRequiredHub?: boolean
+}
+
+type GenericFormValues = Record<string, unknown>
+
+type CatalogPendingData = CatalogLocalizedPayload & { expectedVersion?: number }
+
+type CatalogMenuBaseContext = {
+    t: (key: string, options?: unknown) => string
+} & Record<string, unknown>
+
+type ConfirmSpec = {
+    titleKey?: string
+    descriptionKey?: string
+    confirmKey?: string
+    cancelKey?: string
+    interpolate?: Record<string, unknown>
+    title?: string
+    description?: string
+    confirmButtonName?: string
+    cancelButtonName?: string
+}
+
+const extractResponseStatus = (error: unknown): number | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const status = (response as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+}
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    const message = (data as { message?: unknown }).message
+    return typeof message === 'string' ? message : undefined
 }
 
 type GeneralTabFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
@@ -114,13 +159,21 @@ const GeneralTabFields = ({
     codenameLabel,
     codenameHelper
 }: GeneralTabFieldsProps) => {
+    const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -128,6 +181,23 @@ const GeneralTabFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -162,6 +232,11 @@ const GeneralTabFields = ({
                 onChange={(value: string) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc ?? null}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={errors.codename}
@@ -202,6 +277,8 @@ const toCatalogWithHubsDisplay = (catalog: CatalogWithHubs, locale: string): Cat
 
 const CatalogList = () => {
     const navigate = useNavigate()
+    const codenameConfig = useCodenameConfig()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
     // hubId is optional - when present, we're in hub-scoped mode; otherwise global mode
     const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
@@ -285,11 +362,23 @@ const CatalogList = () => {
     const [conflictState, setConflictState] = useState<{
         open: boolean
         conflict: ConflictInfo | null
-        pendingData: Record<string, any> | null
+        pendingData: CatalogPendingData | null
         catalogId: string | null
     }>({ open: false, conflict: null, pendingData: null, catalogId: null })
 
     const { confirm } = useConfirm()
+
+    // Filter entity actions based on settings (allowCopy / allowDelete)
+    const { allowCopy, allowDelete } = useEntityPermissions('catalogs')
+    const filteredCatalogActions = useMemo(
+        () =>
+            catalogActions.filter((a) => {
+                if (a.id === 'copy' && !allowCopy) return false
+                if (a.id === 'delete' && !allowDelete) return false
+                return true
+            }),
+        [allowCopy, allowDelete]
+    )
 
     const createCatalogMutation = useCreateCatalog()
     const createCatalogAtMetahubMutation = useCreateCatalogAtMetahub()
@@ -300,7 +389,7 @@ const CatalogList = () => {
 
     // Memoize images object
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(catalogs)) {
             catalogs.forEach((catalog) => {
                 if (catalog?.id) {
@@ -321,6 +410,7 @@ const CatalogList = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
+            codenameVlc: null,
             codename: '',
             codenameTouched: false,
             hubIds: hubId ? [hubId] : [], // Auto-select current hub
@@ -331,7 +421,7 @@ const CatalogList = () => {
     )
 
     const validateCatalogForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
             const isRequiredHub = Boolean(values.isRequiredHub)
@@ -344,27 +434,38 @@ const CatalogList = () => {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
             const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-            const normalizedCodename = sanitizeCodename(rawCodename)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('catalogs.validation.codenameRequired', 'Codename is required')
-            } else if (!isValidCodename(normalizedCodename)) {
+            } else if (
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 errors.codename = t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t, tc]
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSaveCatalogForm = useCallback((values: Record<string, any>) => {
-        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
-        const isRequiredHub = Boolean(values.isRequiredHub)
-        // Hub requirement only if isRequiredHub is true
-        const hubsValid = !isRequiredHub || hubIds.length > 0
-        return hubsValid && hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
-    }, [])
+    const canSaveCatalogForm = useCallback(
+        (values: GenericFormValues) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
+            const isRequiredHub = Boolean(values.isRequiredHub)
+            // Hub requirement only if isRequiredHub is true
+            const hubsValid = !isRequiredHub || hubIds.length > 0
+            return (
+                !values._hasCodenameDuplicate &&
+                hubsValid &&
+                hasPrimaryContent(nameVlc) &&
+                Boolean(normalizedCodename) &&
+                isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            )
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
+    )
 
     /**
      * Build tabs for the EntityFormDialog (N:M relationship)
@@ -378,8 +479,8 @@ const CatalogList = () => {
             isLoading: isFormLoading,
             errors
         }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
+            values: GenericFormValues
+            setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors: Record<string, string>
         }): TabConfig[] => {
@@ -397,7 +498,7 @@ const CatalogList = () => {
                             setValue={setValue}
                             isLoading={isFormLoading}
                             errors={errors}
-                            uiLocale={i18n.language}
+                            uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             codenameLabel={t('catalogs.codename', 'Codename')}
@@ -419,13 +520,13 @@ const CatalogList = () => {
                             onSingleHubChange={(value) => setValue('isSingleHub', value)}
                             disabled={isFormLoading}
                             error={errors.hubIds}
-                            uiLocale={i18n.language}
+                            uiLocale={preferredVlcLocale}
                         />
                     )
                 }
             ]
         },
-        [hubs, i18n.language, t, tc]
+        [hubs, preferredVlcLocale, t, tc]
     )
 
     const catalogColumns = useMemo(() => {
@@ -603,16 +704,16 @@ const CatalogList = () => {
     }, [t, tc, metahubId, hubId, isHubScoped])
 
     const createCatalogContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: CatalogMenuBaseContext) => ({
             ...baseContext,
             catalogMap,
-            uiLocale: i18n.language,
+            uiLocale: preferredVlcLocale,
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             api: {
                 updateEntity: async (id: string, patch: CatalogLocalizedPayload & { expectedVersion?: number }) => {
                     if (!metahubId) return
                     const catalog = catalogMap.get(id)
-                    const normalizedCodename = sanitizeCodename(patch.codename)
+                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('catalogs.validation.codenameRequired', 'Codename is required'))
                     }
@@ -699,7 +800,7 @@ const CatalogList = () => {
                         }
                     }
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
@@ -738,14 +839,16 @@ const CatalogList = () => {
         [
             confirm,
             copyCatalogMutation,
+            codenameConfig.alphabet,
+            codenameConfig.style,
             deleteCatalogMutation,
             enqueueSnackbar,
             catalogMap,
             hubs,
             hubId,
-            i18n.language,
             isHubScoped,
             metahubId,
+            preferredVlcLocale,
             queryClient,
             t,
             updateCatalogMutation,
@@ -778,7 +881,7 @@ const CatalogList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateCatalog = async (data: Record<string, any>) => {
+    const handleCreateCatalog = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
         try {
@@ -793,15 +896,21 @@ const CatalogList = () => {
 
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 setDialogError(t('catalogs.validation.codenameRequired', 'Codename is required'))
+                return
+            }
+            if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
+                setDialogError(t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters'))
                 return
             }
 
@@ -816,6 +925,8 @@ const CatalogList = () => {
                     hubId: primaryHubId,
                     data: {
                         codename: normalizedCodename,
+                        codenameInput,
+                        codenamePrimaryLocale,
                         name: nameInput,
                         description: descriptionInput,
                         namePrimaryLocale,
@@ -839,6 +950,8 @@ const CatalogList = () => {
                     metahubId: metahubId!,
                     data: {
                         codename: normalizedCodename,
+                        codenameInput,
+                        codenamePrimaryLocale,
                         name: nameInput,
                         description: descriptionInput,
                         namePrimaryLocale,
@@ -851,7 +964,7 @@ const CatalogList = () => {
             }
             handleDialogSave()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -876,7 +989,7 @@ const CatalogList = () => {
         }
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -902,241 +1015,274 @@ const CatalogList = () => {
             border={false}
             shadow={false}
         >
-            {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                    action={{
-                        label: t('actions.retry'),
-                        onClick: () => paginationResult.actions.goToPage(1)
-                    }}
-                />
-            ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search={true}
-                        searchPlaceholder={t('catalogs.searchPlaceholder')}
-                        onSearchChange={handleSearchChange}
-                        title={isHubScoped ? t('catalogs.title') : t('catalogs.allTitle')}
-                    >
-                        <ToolbarControls
-                            viewToggleEnabled
-                            viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => handleChange(null, mode)}
-                            cardViewTitle={tc('cardView')}
-                            listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
-                        />
-                    </ViewHeader>
-
-                    {isHubScoped && (
-                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                            <Tabs
-                                value='catalogs'
-                                onChange={handleHubTabChange}
-                                aria-label={t('hubs.title', 'Hubs')}
-                                textColor='primary'
-                                indicatorColor='primary'
-                                sx={{
-                                    minHeight: 40,
-                                    '& .MuiTab-root': {
-                                        minHeight: 40,
-                                        textTransform: 'none'
-                                    }
+            <ExistingCodenamesProvider entities={catalogs ?? []}>
+                {error ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Connection error'
+                        title={t('errors.connectionFailed')}
+                        description={!extractResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                        action={{
+                            label: t('actions.retry'),
+                            onClick: () => paginationResult.actions.goToPage(1)
+                        }}
+                    />
+                ) : (
+                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                        <ViewHeader
+                            search={true}
+                            searchPlaceholder={t('catalogs.searchPlaceholder')}
+                            onSearchChange={handleSearchChange}
+                            title={isHubScoped ? t('catalogs.title') : t('catalogs.allTitle')}
+                        >
+                            <ToolbarControls
+                                viewToggleEnabled
+                                viewMode={view as 'card' | 'list'}
+                                onViewModeChange={(mode: string) => handleChange(null, mode)}
+                                cardViewTitle={tc('cardView')}
+                                listViewTitle={tc('listView')}
+                                primaryAction={{
+                                    label: tc('create'),
+                                    onClick: handleAddNew,
+                                    startIcon: <AddRoundedIcon />
                                 }}
-                            >
-                                <Tab value='catalogs' label={t('catalogs.title')} />
-                                <Tab value='enumerations' label={t('enumerations.title')} />
-                            </Tabs>
-                        </Box>
-                    )}
+                            />
+                        </ViewHeader>
 
-                    {isLoading && catalogs.length === 0 ? (
-                        view === 'card' ? (
-                            <SkeletonGrid />
-                        ) : (
-                            <Skeleton variant='rectangular' height={120} />
-                        )
-                    ) : !isLoading && catalogs.length === 0 ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt='No catalogs'
-                            title={searchValue ? t('catalogs.noSearchResults') : t('catalogs.empty')}
-                            description={searchValue ? t('catalogs.noSearchResultsHint') : t('catalogs.emptyDescription')}
-                        />
-                    ) : (
-                        <>
-                            {view === 'card' ? (
-                                <Box
+                        {isHubScoped && (
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                <Tabs
+                                    value='catalogs'
+                                    onChange={handleHubTabChange}
+                                    aria-label={t('hubs.title', 'Hubs')}
+                                    textColor='primary'
+                                    indicatorColor='primary'
                                     sx={{
-                                        display: 'grid',
-                                        gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
-                                        gridTemplateColumns: {
-                                            xs: '1fr',
-                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                        },
-                                        justifyContent: 'start',
-                                        alignContent: 'start'
+                                        minHeight: 40,
+                                        '& .MuiTab-root': {
+                                            minHeight: 40,
+                                            textTransform: 'none'
+                                        }
                                     }}
                                 >
-                                    {catalogs.map((catalog: CatalogWithHubs) => {
-                                        const descriptors = [...catalogActions]
-                                        const displayData = getCatalogCardData(catalog)
+                                    <Tab value='catalogs' label={t('catalogs.title')} />
+                                    <Tab value='enumerations' label={t('enumerations.title')} />
+                                </Tabs>
+                            </Box>
+                        )}
 
-                                        return (
-                                            <ItemCard
-                                                key={catalog.id}
-                                                data={displayData}
-                                                images={images[catalog.id] || []}
-                                                onClick={() => goToCatalog(catalog)}
-                                                footerEndContent={
-                                                    <Stack direction='row' spacing={1} alignItems='center'>
-                                                        {/* Show hub chip only in global mode */}
-                                                        {!isHubScoped && displayData.hubName && (
-                                                            <>
-                                                                <Chip label={displayData.hubName} size='small' variant='outlined' />
-                                                                {displayData.hubsCount > 1 && (
-                                                                    <Typography variant='caption' color='text.secondary'>
-                                                                        +{displayData.hubsCount - 1}
-                                                                    </Typography>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                        {typeof catalog.attributesCount === 'number' && (
-                                                            <Typography variant='caption' color='text.secondary'>
-                                                                {t('catalogs.attributesCount', { count: catalog.attributesCount })}
-                                                            </Typography>
-                                                        )}
-                                                    </Stack>
-                                                }
-                                                headerAction={
-                                                    descriptors.length > 0 ? (
-                                                        <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<CatalogDisplayWithHub, CatalogLocalizedPayload>
-                                                                entity={displayData}
-                                                                entityKind='catalog'
-                                                                descriptors={descriptors}
-                                                                namespace='metahubs'
-                                                                i18nInstance={i18n}
-                                                                createContext={createCatalogContext}
-                                                            />
-                                                        </Box>
-                                                    ) : null
-                                                }
-                                            />
-                                        )
-                                    })}
-                                </Box>
+                        {isLoading && catalogs.length === 0 ? (
+                            view === 'card' ? (
+                                <SkeletonGrid />
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    <FlowListTable
-                                        data={catalogs.map(getCatalogCardData)}
-                                        images={images}
-                                        isLoading={isLoading}
-                                        getRowLink={(row: any) =>
-                                            row?.id
-                                                ? isHubScoped
-                                                    ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
-                                                    : `/metahub/${metahubId}/catalog/${row.id}/attributes`
-                                                : undefined
-                                        }
-                                        customColumns={catalogColumns}
-                                        i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
-                                            const originalCatalog = catalogs.find((c) => c.id === row.id)
-                                            if (!originalCatalog) return null
-
-                                            const descriptors = [...catalogActions]
-                                            if (!descriptors.length) return null
+                                <Skeleton variant='rectangular' height={120} />
+                            )
+                        ) : !isLoading && catalogs.length === 0 ? (
+                            <EmptyListState
+                                image={APIEmptySVG}
+                                imageAlt='No catalogs'
+                                title={searchValue ? t('catalogs.noSearchResults') : t('catalogs.empty')}
+                                description={searchValue ? t('catalogs.noSearchResultsHint') : t('catalogs.emptyDescription')}
+                            />
+                        ) : (
+                            <>
+                                {view === 'card' ? (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gap: gridSpacing,
+                                            mx: { xs: -1.5, md: -2 },
+                                            gridTemplateColumns: {
+                                                xs: '1fr',
+                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                            },
+                                            justifyContent: 'start',
+                                            alignContent: 'start'
+                                        }}
+                                    >
+                                        {catalogs.map((catalog: CatalogWithHubs) => {
+                                            const descriptors = [...filteredCatalogActions]
+                                            const displayData = getCatalogCardData(catalog)
 
                                             return (
-                                                <BaseEntityMenu<CatalogDisplayWithHub, CatalogLocalizedPayload>
-                                                    entity={getCatalogCardData(originalCatalog)}
-                                                    entityKind='catalog'
-                                                    descriptors={descriptors}
-                                                    namespace='metahubs'
-                                                    menuButtonLabelKey='flowList:menu.button'
-                                                    i18nInstance={i18n}
-                                                    createContext={createCatalogContext}
+                                                <ItemCard
+                                                    key={catalog.id}
+                                                    data={displayData}
+                                                    images={images[catalog.id] || []}
+                                                    onClick={() => goToCatalog(catalog)}
+                                                    footerEndContent={
+                                                        <Stack direction='row' spacing={1} alignItems='center'>
+                                                            {/* Show hub chip only in global mode */}
+                                                            {!isHubScoped && displayData.hubName && (
+                                                                <>
+                                                                    <Chip label={displayData.hubName} size='small' variant='outlined' />
+                                                                    {displayData.hubsCount > 1 && (
+                                                                        <Typography variant='caption' color='text.secondary'>
+                                                                            +{displayData.hubsCount - 1}
+                                                                        </Typography>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                            {typeof catalog.attributesCount === 'number' && (
+                                                                <Typography variant='caption' color='text.secondary'>
+                                                                    {t('catalogs.attributesCount', { count: catalog.attributesCount })}
+                                                                </Typography>
+                                                            )}
+                                                        </Stack>
+                                                    }
+                                                    headerAction={
+                                                        descriptors.length > 0 ? (
+                                                            <Box onClick={(e) => e.stopPropagation()}>
+                                                                <BaseEntityMenu<CatalogDisplayWithHub, CatalogLocalizedPayload>
+                                                                    entity={displayData}
+                                                                    entityKind='catalog'
+                                                                    descriptors={descriptors}
+                                                                    namespace='metahubs'
+                                                                    i18nInstance={i18n}
+                                                                    createContext={createCatalogContext}
+                                                                />
+                                                            </Box>
+                                                        ) : null
+                                                    }
                                                 />
                                             )
-                                        }}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
+                                        })}
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                        <FlowListTable
+                                            data={catalogs.map(getCatalogCardData)}
+                                            images={images}
+                                            isLoading={isLoading}
+                                            getRowLink={(row: CatalogWithHubsDisplay) =>
+                                                row?.id
+                                                    ? isHubScoped
+                                                        ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
+                                                        : `/metahub/${metahubId}/catalog/${row.id}/attributes`
+                                                    : undefined
+                                            }
+                                            customColumns={catalogColumns}
+                                            i18nNamespace='flowList'
+                                            renderActions={(row: CatalogWithHubsDisplay) => {
+                                                const originalCatalog = catalogs.find((c) => c.id === row.id)
+                                                if (!originalCatalog) return null
 
-                    {/* Table Pagination at bottom */}
-                    {!isLoading && catalogs.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                namespace='common'
-                            />
-                        </Box>
-                    )}
-                </Stack>
-            )}
+                                                const descriptors = [...filteredCatalogActions]
+                                                if (!descriptors.length) return null
 
-            <EntityFormDialog
-                open={isDialogOpen}
-                title={t('catalogs.createDialog.title', 'Create Catalog')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.create', 'Create')}
-                savingButtonText={tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
-                error={dialogError || undefined}
-                onClose={handleDialogClose}
-                onSave={handleCreateCatalog}
-                hideDefaultFields
-                initialExtraValues={localizedFormDefaults}
-                tabs={buildFormTabs}
-                validate={validateCatalogForm}
-                canSave={canSaveCatalogForm}
-            />
+                                                return (
+                                                    <BaseEntityMenu<CatalogDisplayWithHub, CatalogLocalizedPayload>
+                                                        entity={getCatalogCardData(originalCatalog)}
+                                                        entityKind='catalog'
+                                                        descriptors={descriptors}
+                                                        namespace='metahubs'
+                                                        menuButtonLabelKey='flowList:menu.button'
+                                                        i18nInstance={i18n}
+                                                        createContext={createCatalogContext}
+                                                    />
+                                                )
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+                            </>
+                        )}
 
-            {/* Independent ConfirmDeleteDialog */}
-            <ConfirmDeleteDialog
-                open={confirmDeleteDialogState.open}
-                title={t('catalogs.deleteDialog.title')}
-                description={t('catalogs.deleteDialog.message')}
-                confirmButtonText={tc('actions.delete', 'Delete')}
-                deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setConfirmDeleteDialogState({ open: false, catalog: null })}
-                onConfirm={async () => {
-                    if (confirmDeleteDialogState.catalog && metahubId) {
+                        {/* Table Pagination at bottom */}
+                        {!isLoading && catalogs.length > 0 && (
+                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <PaginationControls
+                                    pagination={paginationResult.pagination}
+                                    actions={paginationResult.actions}
+                                    isLoading={paginationResult.isLoading}
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    namespace='common'
+                                />
+                            </Box>
+                        )}
+                    </Stack>
+                )}
+
+                <EntityFormDialog
+                    open={isDialogOpen}
+                    title={t('catalogs.createDialog.title', 'Create Catalog')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.create', 'Create')}
+                    savingButtonText={tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCreating}
+                    error={dialogError || undefined}
+                    onClose={handleDialogClose}
+                    onSave={handleCreateCatalog}
+                    hideDefaultFields
+                    initialExtraValues={localizedFormDefaults}
+                    tabs={buildFormTabs}
+                    validate={validateCatalogForm}
+                    canSave={canSaveCatalogForm}
+                />
+
+                {/* Independent ConfirmDeleteDialog */}
+                <ConfirmDeleteDialog
+                    open={confirmDeleteDialogState.open}
+                    title={t('catalogs.deleteDialog.title')}
+                    description={t('catalogs.deleteDialog.message')}
+                    confirmButtonText={tc('actions.delete', 'Delete')}
+                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => setConfirmDeleteDialogState({ open: false, catalog: null })}
+                    onConfirm={async () => {
+                        if (confirmDeleteDialogState.catalog && metahubId) {
+                            try {
+                                const deletingCatalogId = confirmDeleteDialogState.catalog.id
+                                // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
+                                const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.catalog.hubs?.[0]?.id || ''
+                                await deleteCatalogMutation.mutateAsync({
+                                    metahubId,
+                                    hubId: targetHubId,
+                                    catalogId: deletingCatalogId,
+                                    force: !isHubScoped // Force delete in global mode
+                                })
+                                setConfirmDeleteDialogState({ open: false, catalog: null })
+                                queryClient.removeQueries({
+                                    queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, deletingCatalogId)
+                                })
+                            } catch (err: unknown) {
+                                const responseMessage = extractResponseMessage(err)
+                                const message =
+                                    typeof responseMessage === 'string'
+                                        ? responseMessage
+                                        : err instanceof Error
+                                        ? err.message
+                                        : typeof err === 'string'
+                                        ? err
+                                        : t('catalogs.deleteError')
+                                enqueueSnackbar(message, { variant: 'error' })
+                                setConfirmDeleteDialogState({ open: false, catalog: null })
+                            }
+                        }
+                    }}
+                />
+
+                <CatalogDeleteDialog
+                    open={blockingDeleteDialogState.open}
+                    catalog={blockingDeleteDialogState.catalog}
+                    metahubId={metahubId}
+                    onClose={() => setBlockingDeleteDialogState({ open: false, catalog: null })}
+                    onConfirm={async (catalog) => {
                         try {
-                            const deletingCatalogId = confirmDeleteDialogState.catalog.id
-                            // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
-                            const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.catalog.hubs?.[0]?.id || ''
+                            const targetHubId = isHubScoped ? hubId : catalog.hubs?.[0]?.id
                             await deleteCatalogMutation.mutateAsync({
                                 metahubId,
                                 hubId: targetHubId,
-                                catalogId: deletingCatalogId,
-                                force: !isHubScoped // Force delete in global mode
+                                catalogId: catalog.id,
+                                force: !isHubScoped
                             })
-                            setConfirmDeleteDialogState({ open: false, catalog: null })
-                            queryClient.removeQueries({
-                                queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, deletingCatalogId)
-                            })
+                            setBlockingDeleteDialogState({ open: false, catalog: null })
+                            queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, catalog.id) })
                         } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                            const responseMessage = extractResponseMessage(err)
                             const message =
                                 typeof responseMessage === 'string'
                                     ? responseMessage
@@ -1146,95 +1292,62 @@ const CatalogList = () => {
                                     ? err
                                     : t('catalogs.deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
-                            setConfirmDeleteDialogState({ open: false, catalog: null })
+                            setBlockingDeleteDialogState({ open: false, catalog: null })
                         }
-                    }
-                }}
-            />
+                    }}
+                    isDeleting={deleteCatalogMutation.isPending}
+                    uiLocale={i18n.language}
+                />
 
-            <CatalogDeleteDialog
-                open={blockingDeleteDialogState.open}
-                catalog={blockingDeleteDialogState.catalog}
-                metahubId={metahubId}
-                onClose={() => setBlockingDeleteDialogState({ open: false, catalog: null })}
-                onConfirm={async (catalog) => {
-                    try {
-                        const targetHubId = isHubScoped ? hubId : catalog.hubs?.[0]?.id
-                        await deleteCatalogMutation.mutateAsync({
-                            metahubId,
-                            hubId: targetHubId,
-                            catalogId: catalog.id,
-                            force: !isHubScoped
-                        })
-                        setBlockingDeleteDialogState({ open: false, catalog: null })
-                        queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, catalog.id) })
-                    } catch (err: unknown) {
-                        const responseMessage =
-                            err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                        const message =
-                            typeof responseMessage === 'string'
-                                ? responseMessage
-                                : err instanceof Error
-                                ? err.message
-                                : typeof err === 'string'
-                                ? err
-                                : t('catalogs.deleteError')
-                        enqueueSnackbar(message, { variant: 'error' })
-                        setBlockingDeleteDialogState({ open: false, catalog: null })
-                    }
-                }}
-                isDeleting={deleteCatalogMutation.isPending}
-                uiLocale={i18n.language}
-            />
-
-            {/* Conflict Resolution Dialog for optimistic locking */}
-            <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
-                onOverwrite={async () => {
-                    if (!metahubId || !conflictState.catalogId || !conflictState.pendingData) return
-                    try {
-                        const catalog = catalogMap.get(conflictState.catalogId)
-                        const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
-                        // Retry without expectedVersion to force overwrite
-                        if (targetHubId) {
-                            await updateCatalogMutation.mutateAsync({
-                                metahubId,
-                                hubId: targetHubId,
-                                catalogId: conflictState.catalogId,
-                                data: conflictState.pendingData as CatalogLocalizedPayload
-                            })
-                        } else {
-                            await updateCatalogAtMetahubMutation.mutateAsync({
-                                metahubId,
-                                catalogId: conflictState.catalogId,
-                                data: conflictState.pendingData as CatalogLocalizedPayload
-                            })
+                {/* Conflict Resolution Dialog for optimistic locking */}
+                <ConflictResolutionDialog
+                    open={conflictState.open}
+                    conflict={conflictState.conflict}
+                    onOverwrite={async () => {
+                        if (!metahubId || !conflictState.catalogId || !conflictState.pendingData) return
+                        try {
+                            const catalog = catalogMap.get(conflictState.catalogId)
+                            const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
+                            // Retry without expectedVersion to force overwrite
+                            if (targetHubId) {
+                                await updateCatalogMutation.mutateAsync({
+                                    metahubId,
+                                    hubId: targetHubId,
+                                    catalogId: conflictState.catalogId,
+                                    data: conflictState.pendingData as CatalogLocalizedPayload
+                                })
+                            } else {
+                                await updateCatalogAtMetahubMutation.mutateAsync({
+                                    metahubId,
+                                    catalogId: conflictState.catalogId,
+                                    data: conflictState.pendingData as CatalogLocalizedPayload
+                                })
+                            }
+                            setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
+                            enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
+                        } catch (e) {
+                            console.error('Failed to overwrite catalog', e)
+                            enqueueSnackbar(t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
+                        }
+                    }}
+                    onReload={async () => {
+                        // Reload the list to get latest data
+                        if (metahubId) {
+                            if (isHubScoped && hubId) {
+                                await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
+                            } else {
+                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
+                            }
                         }
                         setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
-                        enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
-                    } catch (e) {
-                        console.error('Failed to overwrite catalog', e)
-                        enqueueSnackbar(t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
-                    }
-                }}
-                onReload={async () => {
-                    // Reload the list to get latest data
-                    if (metahubId) {
-                        if (isHubScoped && hubId) {
-                            await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
-                        } else {
-                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
-                        }
-                    }
-                    setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
-                }}
-                onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
-                }}
-            />
+                    }}
+                    onCancel={() => {
+                        setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
+                    }}
+                />
 
-            <ConfirmDialog />
+                <ConfirmDialog />
+            </ExistingCodenamesProvider>
         </MainCard>
     )
 }

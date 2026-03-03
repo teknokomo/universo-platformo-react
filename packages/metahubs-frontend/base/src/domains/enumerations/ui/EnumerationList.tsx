@@ -23,7 +23,8 @@ import {
     ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
-    useCodenameAutoFill
+    useCodenameAutoFill,
+    useCodenameVlcSync
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -46,10 +47,13 @@ import { invalidateEnumerationsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { EnumerationDisplay, EnumerationLocalizedPayload, Hub, PaginatedResponse, getVLCString, toEnumerationDisplay } from '../../../types'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { EnumerationDeleteDialog, CodenameField, HubSelectionPanel } from '../../../components'
+import { EnumerationDeleteDialog, CodenameField, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
 import enumerationActions, { EnumerationDisplayWithHub } from './EnumerationActions'
+import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 
 /**
  * Hub info for display in the table column (global view)
@@ -80,6 +84,7 @@ interface EnumerationWithHubsDisplay extends EnumerationDisplay {
 type EnumerationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
     /** For N:M relationship - array of hub IDs */
@@ -90,9 +95,47 @@ type EnumerationFormValues = {
     isRequiredHub: boolean
 }
 
+type GenericFormValues = Record<string, unknown>
+
+type EnumerationPendingData = EnumerationLocalizedPayload & { expectedVersion?: number }
+
+type EnumerationMenuBaseContext = {
+    t: (key: string, options?: unknown) => string
+} & Record<string, unknown>
+
+type ConfirmSpec = {
+    titleKey?: string
+    descriptionKey?: string
+    confirmKey?: string
+    cancelKey?: string
+    interpolate?: Record<string, unknown>
+    title?: string
+    description?: string
+    confirmButtonName?: string
+    cancelButtonName?: string
+}
+
+const extractResponseStatus = (error: unknown): number | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const status = (response as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+}
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    const message = (data as { message?: unknown }).message
+    return typeof message === 'string' ? message : undefined
+}
+
 type GeneralTabFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
@@ -116,13 +159,21 @@ const GeneralTabFields = ({
     codenameLabel,
     codenameHelper
 }: GeneralTabFieldsProps) => {
+    const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -130,6 +181,23 @@ const GeneralTabFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -164,6 +232,11 @@ const GeneralTabFields = ({
                 onChange={(value: string) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={errors.codename}
@@ -203,11 +276,13 @@ const toEnumerationWithHubsDisplay = (enumeration: EnumerationWithHubs, locale: 
 }
 
 const EnumerationList = () => {
+    const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
     // hubId is optional - when present, we're in hub-scoped mode; otherwise global mode
     const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
 
     /**
      * isHubScoped determines the component behavior:
@@ -289,11 +364,23 @@ const EnumerationList = () => {
     const [conflictState, setConflictState] = useState<{
         open: boolean
         conflict: ConflictInfo | null
-        pendingData: Record<string, any> | null
+        pendingData: EnumerationPendingData | null
         enumerationId: string | null
     }>({ open: false, conflict: null, pendingData: null, enumerationId: null })
 
     const { confirm } = useConfirm()
+
+    // Filter entity actions based on settings (allowCopy / allowDelete)
+    const { allowCopy, allowDelete } = useEntityPermissions('enumerations')
+    const filteredEnumerationActions = useMemo(
+        () =>
+            enumerationActions.filter((a) => {
+                if (a.id === 'copy' && !allowCopy) return false
+                if (a.id === 'delete' && !allowDelete) return false
+                return true
+            }),
+        [allowCopy, allowDelete]
+    )
 
     const createEnumerationMutation = useCreateEnumeration()
     const createEnumerationAtMetahubMutation = useCreateEnumerationAtMetahub()
@@ -304,7 +391,7 @@ const EnumerationList = () => {
 
     // Memoize images object
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(enumerations)) {
             enumerations.forEach((enumeration) => {
                 if (enumeration?.id) {
@@ -325,6 +412,7 @@ const EnumerationList = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
+            codenameVlc: null,
             codename: '',
             codenameTouched: false,
             hubIds: hubId ? [hubId] : [], // Auto-select current hub
@@ -335,7 +423,7 @@ const EnumerationList = () => {
     )
 
     const validateEnumerationForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
             const isRequiredHub = Boolean(values.isRequiredHub)
@@ -348,27 +436,38 @@ const EnumerationList = () => {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
             const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-            const normalizedCodename = sanitizeCodename(rawCodename)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('enumerations.validation.codenameRequired', 'Codename is required')
-            } else if (!isValidCodename(normalizedCodename)) {
+            } else if (
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 errors.codename = t('enumerations.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t, tc]
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSaveEnumerationForm = useCallback((values: Record<string, any>) => {
-        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
-        const isRequiredHub = Boolean(values.isRequiredHub)
-        // Hub requirement only if isRequiredHub is true
-        const hubsValid = !isRequiredHub || hubIds.length > 0
-        return hubsValid && hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
-    }, [])
+    const canSaveEnumerationForm = useCallback(
+        (values: GenericFormValues) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
+            const isRequiredHub = Boolean(values.isRequiredHub)
+            // Hub requirement only if isRequiredHub is true
+            const hubsValid = !isRequiredHub || hubIds.length > 0
+            return (
+                !values._hasCodenameDuplicate &&
+                hubsValid &&
+                hasPrimaryContent(nameVlc) &&
+                Boolean(normalizedCodename) &&
+                isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            )
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
+    )
 
     /**
      * Build tabs for the EntityFormDialog (N:M relationship)
@@ -382,8 +481,8 @@ const EnumerationList = () => {
             isLoading: isFormLoading,
             errors
         }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
+            values: GenericFormValues
+            setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors: Record<string, string>
         }): TabConfig[] => {
@@ -401,7 +500,7 @@ const EnumerationList = () => {
                             setValue={setValue}
                             isLoading={isFormLoading}
                             errors={errors}
-                            uiLocale={i18n.language}
+                            uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             codenameLabel={t('enumerations.codename', 'Codename')}
@@ -423,13 +522,13 @@ const EnumerationList = () => {
                             onSingleHubChange={(value) => setValue('isSingleHub', value)}
                             disabled={isFormLoading}
                             error={errors.hubIds}
-                            uiLocale={i18n.language}
+                            uiLocale={preferredVlcLocale}
                         />
                     )
                 }
             ]
         },
-        [hubs, i18n.language, t, tc]
+        [hubs, preferredVlcLocale, t, tc]
     )
 
     const enumerationColumns = useMemo(() => {
@@ -600,16 +699,16 @@ const EnumerationList = () => {
     }, [t, tc, metahubId, hubId, isHubScoped])
 
     const createEnumerationContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: EnumerationMenuBaseContext) => ({
             ...baseContext,
             enumerationMap,
-            uiLocale: i18n.language,
+            uiLocale: preferredVlcLocale,
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             api: {
                 updateEntity: async (id: string, patch: EnumerationLocalizedPayload & { expectedVersion?: number }) => {
                     if (!metahubId) return
                     const enumeration = enumerationMap.get(id)
-                    const normalizedCodename = sanitizeCodename(patch.codename)
+                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('enumerations.validation.codenameRequired', 'Codename is required'))
                     }
@@ -696,7 +795,7 @@ const EnumerationList = () => {
                         }
                     }
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
@@ -733,6 +832,8 @@ const EnumerationList = () => {
             }
         }),
         [
+            codenameConfig.alphabet,
+            codenameConfig.style,
             confirm,
             copyEnumerationMutation,
             deleteEnumerationMutation,
@@ -740,9 +841,9 @@ const EnumerationList = () => {
             enumerationMap,
             hubs,
             hubId,
-            i18n.language,
             isHubScoped,
             metahubId,
+            preferredVlcLocale,
             queryClient,
             t,
             updateEnumerationMutation,
@@ -775,7 +876,7 @@ const EnumerationList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateEnumeration = async (data: Record<string, any>) => {
+    const handleCreateEnumeration = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
         try {
@@ -790,13 +891,15 @@ const EnumerationList = () => {
 
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 setDialogError(t('enumerations.validation.codenameRequired', 'Codename is required'))
                 return
@@ -813,6 +916,8 @@ const EnumerationList = () => {
                     hubId: primaryHubId,
                     data: {
                         codename: normalizedCodename,
+                        codenameInput,
+                        codenamePrimaryLocale,
                         name: nameInput,
                         description: descriptionInput,
                         namePrimaryLocale,
@@ -836,6 +941,8 @@ const EnumerationList = () => {
                     metahubId: metahubId!,
                     data: {
                         codename: normalizedCodename,
+                        codenameInput,
+                        codenamePrimaryLocale,
                         name: nameInput,
                         description: descriptionInput,
                         namePrimaryLocale,
@@ -848,7 +955,7 @@ const EnumerationList = () => {
             }
             handleDialogSave()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -873,7 +980,7 @@ const EnumerationList = () => {
         }
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -900,241 +1007,276 @@ const EnumerationList = () => {
             border={false}
             shadow={false}
         >
-            {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                    action={{
-                        label: t('actions.retry'),
-                        onClick: () => paginationResult.actions.goToPage(1)
-                    }}
-                />
-            ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search={true}
-                        searchPlaceholder={t('enumerations.searchPlaceholder')}
-                        onSearchChange={handleSearchChange}
-                        title={isHubScoped ? t('enumerations.title') : t('enumerations.allTitle')}
-                    >
-                        <ToolbarControls
-                            viewToggleEnabled
-                            viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => handleChange(null, mode)}
-                            cardViewTitle={tc('cardView')}
-                            listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
-                        />
-                    </ViewHeader>
-
-                    {isHubScoped && (
-                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                            <Tabs
-                                value='enumerations'
-                                onChange={handleHubTabChange}
-                                aria-label={t('hubs.title', 'Hubs')}
-                                textColor='primary'
-                                indicatorColor='primary'
-                                sx={{
-                                    minHeight: 40,
-                                    '& .MuiTab-root': {
-                                        minHeight: 40,
-                                        textTransform: 'none'
-                                    }
+            <ExistingCodenamesProvider entities={enumerations ?? []}>
+                {error ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Connection error'
+                        title={t('errors.connectionFailed')}
+                        description={!extractResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                        action={{
+                            label: t('actions.retry'),
+                            onClick: () => paginationResult.actions.goToPage(1)
+                        }}
+                    />
+                ) : (
+                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                        <ViewHeader
+                            search={true}
+                            searchPlaceholder={t('enumerations.searchPlaceholder')}
+                            onSearchChange={handleSearchChange}
+                            title={isHubScoped ? t('enumerations.title') : t('enumerations.allTitle')}
+                        >
+                            <ToolbarControls
+                                viewToggleEnabled
+                                viewMode={view as 'card' | 'list'}
+                                onViewModeChange={(mode: string) => handleChange(null, mode)}
+                                cardViewTitle={tc('cardView')}
+                                listViewTitle={tc('listView')}
+                                primaryAction={{
+                                    label: tc('create'),
+                                    onClick: handleAddNew,
+                                    startIcon: <AddRoundedIcon />
                                 }}
-                            >
-                                <Tab value='catalogs' label={t('catalogs.title')} />
-                                <Tab value='enumerations' label={t('enumerations.title')} />
-                            </Tabs>
-                        </Box>
-                    )}
+                            />
+                        </ViewHeader>
 
-                    {isLoading && enumerations.length === 0 ? (
-                        view === 'card' ? (
-                            <SkeletonGrid />
-                        ) : (
-                            <Skeleton variant='rectangular' height={120} />
-                        )
-                    ) : !isLoading && enumerations.length === 0 ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt='No enumerations'
-                            title={searchValue ? t('enumerations.noSearchResults') : t('enumerations.empty')}
-                            description={searchValue ? t('enumerations.noSearchResultsHint') : t('enumerations.emptyDescription')}
-                        />
-                    ) : (
-                        <>
-                            {view === 'card' ? (
-                                <Box
+                        {isHubScoped && (
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                <Tabs
+                                    value='enumerations'
+                                    onChange={handleHubTabChange}
+                                    aria-label={t('hubs.title', 'Hubs')}
+                                    textColor='primary'
+                                    indicatorColor='primary'
                                     sx={{
-                                        display: 'grid',
-                                        gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
-                                        gridTemplateColumns: {
-                                            xs: '1fr',
-                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                        },
-                                        justifyContent: 'start',
-                                        alignContent: 'start'
+                                        minHeight: 40,
+                                        '& .MuiTab-root': {
+                                            minHeight: 40,
+                                            textTransform: 'none'
+                                        }
                                     }}
                                 >
-                                    {enumerations.map((enumeration: EnumerationWithHubs) => {
-                                        const descriptors = [...enumerationActions]
-                                        const displayData = getEnumerationCardData(enumeration)
+                                    <Tab value='catalogs' label={t('catalogs.title')} />
+                                    <Tab value='enumerations' label={t('enumerations.title')} />
+                                </Tabs>
+                            </Box>
+                        )}
 
-                                        return (
-                                            <ItemCard
-                                                key={enumeration.id}
-                                                data={displayData}
-                                                images={images[enumeration.id] || []}
-                                                onClick={() => goToEnumeration(enumeration)}
-                                                footerEndContent={
-                                                    <Stack direction='row' spacing={1} alignItems='center'>
-                                                        {/* Show hub chip only in global mode */}
-                                                        {!isHubScoped && displayData.hubName && (
-                                                            <>
-                                                                <Chip label={displayData.hubName} size='small' variant='outlined' />
-                                                                {displayData.hubsCount > 1 && (
-                                                                    <Typography variant='caption' color='text.secondary'>
-                                                                        +{displayData.hubsCount - 1}
-                                                                    </Typography>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                        {typeof enumeration.valuesCount === 'number' && (
-                                                            <Typography variant='caption' color='text.secondary'>
-                                                                {t('enumerations.valuesCount', { count: enumeration.valuesCount })}
-                                                            </Typography>
-                                                        )}
-                                                    </Stack>
-                                                }
-                                                headerAction={
-                                                    descriptors.length > 0 ? (
-                                                        <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<EnumerationDisplayWithHub, EnumerationLocalizedPayload>
-                                                                entity={displayData}
-                                                                entityKind='enumeration'
-                                                                descriptors={descriptors}
-                                                                namespace='metahubs'
-                                                                i18nInstance={i18n}
-                                                                createContext={createEnumerationContext}
-                                                            />
-                                                        </Box>
-                                                    ) : null
-                                                }
-                                            />
-                                        )
-                                    })}
-                                </Box>
+                        {isLoading && enumerations.length === 0 ? (
+                            view === 'card' ? (
+                                <SkeletonGrid />
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    <FlowListTable
-                                        data={enumerations.map(getEnumerationCardData)}
-                                        images={images}
-                                        isLoading={isLoading}
-                                        getRowLink={(row: any) =>
-                                            row?.id
-                                                ? isHubScoped
-                                                    ? `/metahub/${metahubId}/hub/${hubId}/enumeration/${row.id}/values`
-                                                    : `/metahub/${metahubId}/enumeration/${row.id}/values`
-                                                : undefined
-                                        }
-                                        customColumns={enumerationColumns}
-                                        i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
-                                            const originalEnumeration = enumerations.find((c) => c.id === row.id)
-                                            if (!originalEnumeration) return null
-
-                                            const descriptors = [...enumerationActions]
-                                            if (!descriptors.length) return null
+                                <Skeleton variant='rectangular' height={120} />
+                            )
+                        ) : !isLoading && enumerations.length === 0 ? (
+                            <EmptyListState
+                                image={APIEmptySVG}
+                                imageAlt='No enumerations'
+                                title={searchValue ? t('enumerations.noSearchResults') : t('enumerations.empty')}
+                                description={searchValue ? t('enumerations.noSearchResultsHint') : t('enumerations.emptyDescription')}
+                            />
+                        ) : (
+                            <>
+                                {view === 'card' ? (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gap: gridSpacing,
+                                            mx: { xs: -1.5, md: -2 },
+                                            gridTemplateColumns: {
+                                                xs: '1fr',
+                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                            },
+                                            justifyContent: 'start',
+                                            alignContent: 'start'
+                                        }}
+                                    >
+                                        {enumerations.map((enumeration: EnumerationWithHubs) => {
+                                            const descriptors = [...filteredEnumerationActions]
+                                            const displayData = getEnumerationCardData(enumeration)
 
                                             return (
-                                                <BaseEntityMenu<EnumerationDisplayWithHub, EnumerationLocalizedPayload>
-                                                    entity={getEnumerationCardData(originalEnumeration)}
-                                                    entityKind='enumeration'
-                                                    descriptors={descriptors}
-                                                    namespace='metahubs'
-                                                    menuButtonLabelKey='flowList:menu.button'
-                                                    i18nInstance={i18n}
-                                                    createContext={createEnumerationContext}
+                                                <ItemCard
+                                                    key={enumeration.id}
+                                                    data={displayData}
+                                                    images={images[enumeration.id] || []}
+                                                    onClick={() => goToEnumeration(enumeration)}
+                                                    footerEndContent={
+                                                        <Stack direction='row' spacing={1} alignItems='center'>
+                                                            {/* Show hub chip only in global mode */}
+                                                            {!isHubScoped && displayData.hubName && (
+                                                                <>
+                                                                    <Chip label={displayData.hubName} size='small' variant='outlined' />
+                                                                    {displayData.hubsCount > 1 && (
+                                                                        <Typography variant='caption' color='text.secondary'>
+                                                                            +{displayData.hubsCount - 1}
+                                                                        </Typography>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                            {typeof enumeration.valuesCount === 'number' && (
+                                                                <Typography variant='caption' color='text.secondary'>
+                                                                    {t('enumerations.valuesCount', { count: enumeration.valuesCount })}
+                                                                </Typography>
+                                                            )}
+                                                        </Stack>
+                                                    }
+                                                    headerAction={
+                                                        descriptors.length > 0 ? (
+                                                            <Box onClick={(e) => e.stopPropagation()}>
+                                                                <BaseEntityMenu<EnumerationDisplayWithHub, EnumerationLocalizedPayload>
+                                                                    entity={displayData}
+                                                                    entityKind='enumeration'
+                                                                    descriptors={descriptors}
+                                                                    namespace='metahubs'
+                                                                    i18nInstance={i18n}
+                                                                    createContext={createEnumerationContext}
+                                                                />
+                                                            </Box>
+                                                        ) : null
+                                                    }
                                                 />
                                             )
-                                        }}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
+                                        })}
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                        <FlowListTable
+                                            data={enumerations.map(getEnumerationCardData)}
+                                            images={images}
+                                            isLoading={isLoading}
+                                            getRowLink={(row: EnumerationWithHubsDisplay) =>
+                                                row?.id
+                                                    ? isHubScoped
+                                                        ? `/metahub/${metahubId}/hub/${hubId}/enumeration/${row.id}/values`
+                                                        : `/metahub/${metahubId}/enumeration/${row.id}/values`
+                                                    : undefined
+                                            }
+                                            customColumns={enumerationColumns}
+                                            i18nNamespace='flowList'
+                                            renderActions={(row: EnumerationWithHubsDisplay) => {
+                                                const originalEnumeration = enumerations.find((c) => c.id === row.id)
+                                                if (!originalEnumeration) return null
 
-                    {/* Table Pagination at bottom */}
-                    {!isLoading && enumerations.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                namespace='common'
-                            />
-                        </Box>
-                    )}
-                </Stack>
-            )}
+                                                const descriptors = [...filteredEnumerationActions]
+                                                if (!descriptors.length) return null
 
-            <EntityFormDialog
-                open={isDialogOpen}
-                title={t('enumerations.createDialog.title', 'Create Enumeration')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.create', 'Create')}
-                savingButtonText={tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
-                error={dialogError || undefined}
-                onClose={handleDialogClose}
-                onSave={handleCreateEnumeration}
-                hideDefaultFields
-                initialExtraValues={localizedFormDefaults}
-                tabs={buildFormTabs}
-                validate={validateEnumerationForm}
-                canSave={canSaveEnumerationForm}
-            />
+                                                return (
+                                                    <BaseEntityMenu<EnumerationDisplayWithHub, EnumerationLocalizedPayload>
+                                                        entity={getEnumerationCardData(originalEnumeration)}
+                                                        entityKind='enumeration'
+                                                        descriptors={descriptors}
+                                                        namespace='metahubs'
+                                                        menuButtonLabelKey='flowList:menu.button'
+                                                        i18nInstance={i18n}
+                                                        createContext={createEnumerationContext}
+                                                    />
+                                                )
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+                            </>
+                        )}
 
-            {/* Independent ConfirmDeleteDialog */}
-            <ConfirmDeleteDialog
-                open={confirmDeleteDialogState.open}
-                title={t('enumerations.deleteDialog.title')}
-                description={t('enumerations.deleteDialog.message')}
-                confirmButtonText={tc('actions.delete', 'Delete')}
-                deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setConfirmDeleteDialogState({ open: false, enumeration: null })}
-                onConfirm={async () => {
-                    if (confirmDeleteDialogState.enumeration && metahubId) {
+                        {/* Table Pagination at bottom */}
+                        {!isLoading && enumerations.length > 0 && (
+                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <PaginationControls
+                                    pagination={paginationResult.pagination}
+                                    actions={paginationResult.actions}
+                                    isLoading={paginationResult.isLoading}
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    namespace='common'
+                                />
+                            </Box>
+                        )}
+                    </Stack>
+                )}
+
+                <EntityFormDialog
+                    open={isDialogOpen}
+                    title={t('enumerations.createDialog.title', 'Create Enumeration')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.create', 'Create')}
+                    savingButtonText={tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCreating}
+                    error={dialogError || undefined}
+                    onClose={handleDialogClose}
+                    onSave={handleCreateEnumeration}
+                    hideDefaultFields
+                    initialExtraValues={localizedFormDefaults}
+                    tabs={buildFormTabs}
+                    validate={validateEnumerationForm}
+                    canSave={canSaveEnumerationForm}
+                />
+
+                {/* Independent ConfirmDeleteDialog */}
+                <ConfirmDeleteDialog
+                    open={confirmDeleteDialogState.open}
+                    title={t('enumerations.deleteDialog.title')}
+                    description={t('enumerations.deleteDialog.message')}
+                    confirmButtonText={tc('actions.delete', 'Delete')}
+                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => setConfirmDeleteDialogState({ open: false, enumeration: null })}
+                    onConfirm={async () => {
+                        if (confirmDeleteDialogState.enumeration && metahubId) {
+                            try {
+                                const deletingEnumerationId = confirmDeleteDialogState.enumeration.id
+                                // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
+                                const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.enumeration.hubs?.[0]?.id || ''
+                                await deleteEnumerationMutation.mutateAsync({
+                                    metahubId,
+                                    hubId: targetHubId,
+                                    enumerationId: deletingEnumerationId,
+                                    force: !isHubScoped // Force delete in global mode
+                                })
+                                setConfirmDeleteDialogState({ open: false, enumeration: null })
+                                queryClient.removeQueries({
+                                    queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, deletingEnumerationId)
+                                })
+                            } catch (err: unknown) {
+                                const responseMessage = extractResponseMessage(err)
+                                const message =
+                                    typeof responseMessage === 'string'
+                                        ? responseMessage
+                                        : err instanceof Error
+                                        ? err.message
+                                        : typeof err === 'string'
+                                        ? err
+                                        : t('enumerations.deleteError')
+                                enqueueSnackbar(message, { variant: 'error' })
+                                setConfirmDeleteDialogState({ open: false, enumeration: null })
+                            }
+                        }
+                    }}
+                />
+
+                <EnumerationDeleteDialog
+                    open={blockingDeleteDialogState.open}
+                    enumeration={blockingDeleteDialogState.enumeration}
+                    metahubId={metahubId}
+                    onClose={() => setBlockingDeleteDialogState({ open: false, enumeration: null })}
+                    onConfirm={async (enumeration) => {
                         try {
-                            const deletingEnumerationId = confirmDeleteDialogState.enumeration.id
-                            // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
-                            const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.enumeration.hubs?.[0]?.id || ''
+                            const targetHubId = isHubScoped ? hubId : enumeration.hubs?.[0]?.id
                             await deleteEnumerationMutation.mutateAsync({
                                 metahubId,
                                 hubId: targetHubId,
-                                enumerationId: deletingEnumerationId,
-                                force: !isHubScoped // Force delete in global mode
+                                enumerationId: enumeration.id,
+                                force: !isHubScoped
                             })
-                            setConfirmDeleteDialogState({ open: false, enumeration: null })
+                            setBlockingDeleteDialogState({ open: false, enumeration: null })
                             queryClient.removeQueries({
-                                queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, deletingEnumerationId)
+                                queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, enumeration.id)
                             })
                         } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                            const responseMessage = extractResponseMessage(err)
                             const message =
                                 typeof responseMessage === 'string'
                                     ? responseMessage
@@ -1144,95 +1286,62 @@ const EnumerationList = () => {
                                     ? err
                                     : t('enumerations.deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
-                            setConfirmDeleteDialogState({ open: false, enumeration: null })
+                            setBlockingDeleteDialogState({ open: false, enumeration: null })
                         }
-                    }
-                }}
-            />
+                    }}
+                    isDeleting={deleteEnumerationMutation.isPending}
+                    uiLocale={i18n.language}
+                />
 
-            <EnumerationDeleteDialog
-                open={blockingDeleteDialogState.open}
-                enumeration={blockingDeleteDialogState.enumeration}
-                metahubId={metahubId}
-                onClose={() => setBlockingDeleteDialogState({ open: false, enumeration: null })}
-                onConfirm={async (enumeration) => {
-                    try {
-                        const targetHubId = isHubScoped ? hubId : enumeration.hubs?.[0]?.id
-                        await deleteEnumerationMutation.mutateAsync({
-                            metahubId,
-                            hubId: targetHubId,
-                            enumerationId: enumeration.id,
-                            force: !isHubScoped
-                        })
-                        setBlockingDeleteDialogState({ open: false, enumeration: null })
-                        queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, enumeration.id) })
-                    } catch (err: unknown) {
-                        const responseMessage =
-                            err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                        const message =
-                            typeof responseMessage === 'string'
-                                ? responseMessage
-                                : err instanceof Error
-                                ? err.message
-                                : typeof err === 'string'
-                                ? err
-                                : t('enumerations.deleteError')
-                        enqueueSnackbar(message, { variant: 'error' })
-                        setBlockingDeleteDialogState({ open: false, enumeration: null })
-                    }
-                }}
-                isDeleting={deleteEnumerationMutation.isPending}
-                uiLocale={i18n.language}
-            />
-
-            {/* Conflict Resolution Dialog for optimistic locking */}
-            <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
-                onOverwrite={async () => {
-                    if (!metahubId || !conflictState.enumerationId || !conflictState.pendingData) return
-                    try {
-                        const enumeration = enumerationMap.get(conflictState.enumerationId)
-                        const targetHubId = isHubScoped ? hubId! : enumeration?.hubs?.[0]?.id
-                        // Retry without expectedVersion to force overwrite
-                        if (targetHubId) {
-                            await updateEnumerationMutation.mutateAsync({
-                                metahubId,
-                                hubId: targetHubId,
-                                enumerationId: conflictState.enumerationId,
-                                data: conflictState.pendingData as EnumerationLocalizedPayload
-                            })
-                        } else {
-                            await updateEnumerationAtMetahubMutation.mutateAsync({
-                                metahubId,
-                                enumerationId: conflictState.enumerationId,
-                                data: conflictState.pendingData as EnumerationLocalizedPayload
-                            })
+                {/* Conflict Resolution Dialog for optimistic locking */}
+                <ConflictResolutionDialog
+                    open={conflictState.open}
+                    conflict={conflictState.conflict}
+                    onOverwrite={async () => {
+                        if (!metahubId || !conflictState.enumerationId || !conflictState.pendingData) return
+                        try {
+                            const enumeration = enumerationMap.get(conflictState.enumerationId)
+                            const targetHubId = isHubScoped ? hubId! : enumeration?.hubs?.[0]?.id
+                            // Retry without expectedVersion to force overwrite
+                            if (targetHubId) {
+                                await updateEnumerationMutation.mutateAsync({
+                                    metahubId,
+                                    hubId: targetHubId,
+                                    enumerationId: conflictState.enumerationId,
+                                    data: conflictState.pendingData as EnumerationLocalizedPayload
+                                })
+                            } else {
+                                await updateEnumerationAtMetahubMutation.mutateAsync({
+                                    metahubId,
+                                    enumerationId: conflictState.enumerationId,
+                                    data: conflictState.pendingData as EnumerationLocalizedPayload
+                                })
+                            }
+                            setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
+                            enqueueSnackbar(t('enumerations.updateSuccess', 'Enumeration updated'), { variant: 'success' })
+                        } catch (e) {
+                            console.error('Failed to overwrite enumeration', e)
+                            enqueueSnackbar(t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
+                        }
+                    }}
+                    onReload={async () => {
+                        // Reload the list to get latest data
+                        if (metahubId) {
+                            if (isHubScoped && hubId) {
+                                await invalidateEnumerationsQueries.all(queryClient, metahubId, hubId)
+                            } else {
+                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(metahubId) })
+                            }
                         }
                         setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
-                        enqueueSnackbar(t('enumerations.updateSuccess', 'Enumeration updated'), { variant: 'success' })
-                    } catch (e) {
-                        console.error('Failed to overwrite enumeration', e)
-                        enqueueSnackbar(t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
-                    }
-                }}
-                onReload={async () => {
-                    // Reload the list to get latest data
-                    if (metahubId) {
-                        if (isHubScoped && hubId) {
-                            await invalidateEnumerationsQueries.all(queryClient, metahubId, hubId)
-                        } else {
-                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(metahubId) })
-                        }
-                    }
-                    setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
-                }}
-                onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
-                }}
-            />
+                    }}
+                    onCancel={() => {
+                        setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
+                    }}
+                />
 
-            <ConfirmDialog />
+                <ConfirmDialog />
+            </ExistingCodenamesProvider>
         </MainCard>
     )
 }

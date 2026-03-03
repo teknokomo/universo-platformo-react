@@ -111,11 +111,7 @@ function toRoleMetadata(role: Role | RoleRow): RoleMetadata {
  * - Raw SQL for RLS functions and complex queries (consistency with PostgreSQL policies)
  */
 export function createGlobalAccessService({ getDataSource }: GlobalAccessServiceDeps) {
-    const runQuery = async <T = unknown>(
-        sql: string,
-        params: unknown[],
-        queryRunner?: QueryRunner
-    ): Promise<T[]> => {
+    const runQuery = async <T = unknown>(sql: string, params: unknown[], queryRunner?: QueryRunner): Promise<T[]> => {
         if (queryRunner && !queryRunner.isReleased) {
             return (await queryRunner.query(sql, params)) as T[]
         }
