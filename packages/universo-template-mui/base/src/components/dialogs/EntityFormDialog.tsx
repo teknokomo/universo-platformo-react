@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, Tabs, Tab } from '@mui/material'
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, Tabs, Tab, Tooltip } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 
 /**
@@ -49,8 +49,8 @@ function a11yProps(index: number) {
 export interface EntityFormDialogProps {
     open: boolean
     title: string
-    /** Mode of the dialog: 'create' for new entities, 'edit' for existing ones (default: 'create') */
-    mode?: 'create' | 'edit'
+    /** Mode of the dialog: 'create' for new entities, 'edit' for existing ones, 'copy' for duplication (default: 'create') */
+    mode?: 'create' | 'edit' | 'copy'
     saveButtonText?: string
     /** Text shown on save button while loading (e.g., "Saving...") */
     savingButtonText?: string
@@ -75,6 +75,8 @@ export interface EntityFormDialogProps {
     showDeleteButton?: boolean
     /** Disable delete button (shows button but in disabled state) */
     deleteButtonDisabled?: boolean
+    /** Reason why the delete button is disabled (shown as tooltip) */
+    deleteButtonDisabledReason?: string
     /** Callback when delete button is clicked (only in edit mode) */
     onDelete?: () => void | Promise<void>
     /** Hide default name/description fields (useful for custom field rendering). */
@@ -128,6 +130,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     autoCloseOnSuccess = true,
     showDeleteButton = false,
     deleteButtonDisabled = false,
+    deleteButtonDisabledReason,
     onDelete,
     hideDefaultFields = false,
     canSave,
@@ -314,18 +317,22 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             <DialogTitle>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible' }}>{renderContent()}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'space-between' }}>
-                {/* Delete button - shown in edit mode when showDeleteButton is true */}
-                {mode === 'edit' && showDeleteButton ? (
-                    <Button
-                        onClick={deleteButtonDisabled ? undefined : onDelete}
-                        disabled={isLoading || deleteButtonDisabled}
-                        variant='outlined'
-                        color='error'
-                        startIcon={<DeleteIcon />}
-                        sx={{ borderRadius: 1, mr: 'auto' }}
-                    >
-                        {deleteButtonText}
-                    </Button>
+                {/* Delete button - shown in edit/copy mode when showDeleteButton is true */}
+                {(mode === 'edit' || mode === 'copy') && showDeleteButton ? (
+                    <Tooltip title={deleteButtonDisabled && deleteButtonDisabledReason ? deleteButtonDisabledReason : ''} arrow>
+                        <span>
+                            <Button
+                                onClick={deleteButtonDisabled ? undefined : onDelete}
+                                disabled={isLoading || deleteButtonDisabled}
+                                variant='outlined'
+                                color='error'
+                                startIcon={<DeleteIcon />}
+                                sx={{ borderRadius: 1, mr: 'auto' }}
+                            >
+                                {deleteButtonText}
+                            </Button>
+                        </span>
+                    </Tooltip>
                 ) : (
                     <Box /> // Empty box to maintain layout when no delete button
                 )}

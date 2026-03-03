@@ -1,12 +1,147 @@
 # Active Context
 
-> **Last Updated**: 2026-03-03
+> **Last Updated**: 2026-03-04
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Codename Auto-Convert UX Hardening — Completed
+## Current Focus: QA Tech Debt Cleanup — Completed
+
+**Status**: ✅ Completed
+**Date**: 2026-03-04
+
+### What was done
+
+Fixed all tech debt items identified in the comprehensive QA analysis of the attribute DnD feature:
+
+1. **Stale JSDoc comment** — Updated `useReorderAttribute` docstring to reflect that cross-list optimistic updates are now implemented (was "cross-list skipped").
+
+2. **Fragile `movedItem` closure capture** — Replaced side-effect-based closure pattern (`movedItem` set inside `removeUpdater` callback passed to `setQueriesData`) with pre-extraction via `getQueriesData`. The moved item is now found from the cache BEFORE updaters run. The `insertUpdater` uses a `const captured = movedItem` local variable instead of the `movedItem!` non-null assertion.
+
+3. **Over-broad child cache invalidation** — `onSuccess` now invalidates child attribute caches only for cross-list transfers (`newParentAttributeId !== undefined`). Same-list reorder no longer triggers unnecessary refetch of all child lists.
+
+4. **`as any` cleanup** — Replaced `as any` casts in the same-list `reorderUpdater` with typed `Record<string, unknown>` casts, matching the pattern used in cross-list code.
+
+### Files modified
+
+- `mutations.ts` (metahubs-frontend) — all 4 fixes in this single file
+
+### Verified baseline
+
+- Lint: metahubs-frontend 0 errors/153 warnings
+- Tests: metahubs-frontend 97/97
+- Build: metahubs-frontend ✔ success
+
+## Previous Focus: Cross-List DnD Optimistic Update — Completed
+
+1. **Backend auto-set display attr (Fix 1)** — in `reorderAttribute()`, after cross-list move to a child list, counts siblings in target list. If count === 1 (attribute is the only child), auto-sets `is_display_attribute: true` and `is_required: true`. Ensures newly populated child lists always have a display attribute.
+
+2. **Ghost row collision guard (Fix 2)** — in `handleDragOver`, added early return when `over.id === active.id` and `pendingTransfer` exists, preventing render cycle where ghost row mounts/unmounts EmptyDroppableChildArea ↔ DroppableSortableBody. In `handleDragEnd`, saves `pendingTransferRef.current` before clearing state; when dropped on ghost, resolves target container from saved transfer. Sort order uses `savedPendingTransfer.insertIndex + 1` for accurate placement.
+
+3. **Source list display protection (Fix 3)** — changed `_validateCrossListTransfer()` check from `attribute.is_display_attribute && targetParentId !== null` to `attribute.is_display_attribute`. Now blocks ALL display attribute cross-list transfers (not just to-child), aligned with frontend behavior. Prevents source list from losing display attribute via direct API calls.
+
+4. **eslint-disable cleanup (Fix 4)** — extracted inline type annotation to named `EmptyDroppableChildAreaProps` interface. Reduced from 2 eslint-disable comments (one awkwardly inside type annotation) to 1 standard `eslint-disable-next-line` before component declaration.
+
+### Files modified
+
+- `MetahubAttributesService.ts` (metahubs-backend) — auto-set display+required for sole child; block all display attr cross-list transfers
+- `useAttributeDnd.ts` (metahubs-frontend) — ghost collision guard in handleDragOver + handleDragEnd; improved sort order calc
+- `ChildAttributeList.tsx` (metahubs-frontend) — EmptyDroppableChildAreaProps interface, cleaned eslint-disable
+
+### Verified baseline
+
+- Lint: metahubs-backend 0 errors/216 warnings, metahubs-frontend 0 errors/163 warnings
+- Tests: metahubs-backend 128/128, metahubs-frontend 97/97, template-mui 169/169
+- Build: 56/56 successful (5m29s)
+
+## Previous Focus: DnD QA Pass 4 — 4 Issues Fix — Completed
+
+**Status**: ✅ Completed
+**Date**: 2026-03-03
+
+### What was done
+
+1. **Jitter fix (Issue 1)** — added `overflowX: 'hidden'` to FlowListTable's TableContainer sx when `isDropTarget` is active. Prevents horizontal scrollbar cycle when wider ghost rows are injected into narrower child tables during cross-list drag.
+
+2. **Empty child table droppable (Issue 2)** — created `EmptyDroppableChildArea` component using `@dnd-kit/core` `useDroppable` with dashed border styling and drop target highlight. Restructured ChildAttributeList rendering: always computes effectiveData/effectiveIds; when empty shows EmptyDroppableChildArea, when data exists shows FlowListTable.
+
+3. **First-child confirmation dialog (Issue 3)** — extended `onValidateTransfer` signature to include `targetContainerItemCount: number`. In `handleValidateTransfer`, when target is empty child container (targetContainerItemCount === 0), shows confirmation dialog explaining the attribute will become display + required. Added i18n keys in EN and RU.
+
+4. **Display attribute toggle lock (Issue 4)** — in `AttributeActions.tsx` added `|| isDisplayAttributeEntity(ctx)` to `displayAttributeLocked`. In `ChildAttributeList.tsx` edit dialog, passes `displayAttributeLockedOverride: editState.attribute?.isDisplayAttribute ? true : undefined`. The toggle is now ON + disabled when editing the display attribute.
+
+### Files modified
+
+- `FlowListTable.tsx` (universo-template-mui) — `overflowX: 'hidden'` on isDropTarget
+- `ChildAttributeList.tsx` — EmptyDroppableChildArea component, restructured rendering, edit dialog displayAttributeLockedOverride
+- `useAttributeDnd.ts` — extended onValidateTransfer signature with targetContainerItemCount
+- `AttributeDndProvider.tsx` — updated onValidateTransfer prop type
+- `AttributeList.tsx` — first-child confirmation dialog in handleValidateTransfer
+- `AttributeActions.tsx` — displayAttributeLocked includes isDisplayAttributeEntity check
+- `en/metahubs.json` — added firstChildAttributeTitle/firstChildAttributeDescription
+- `ru/metahubs.json` — added Russian translations for same keys
+
+### Verified baseline
+
+- `pnpm --filter metahubs-frontend lint` → 0 errors, 163 warnings
+- `pnpm build` (root) → 56/56 successful, 5m36s
+
+## Previous Focus: DnD QA Critical Debt Closure — Completed
+
+**Status**: ✅ Completed
+**Date**: 2026-03-03
+
+### Finalized in this pass
+
+1. Enforced backend policy settings for cross-list attribute movement in reorder flow (`allowAttributeMoveBetweenRootAndChildren`, `allowAttributeMoveBetweenChildLists`) so transfer restrictions are no longer frontend-only.
+2. Added strict ownership/active-row guards in reorder services for attributes and enumeration values (`id + object_id` scope, deleted flags filtering), plus target-parent ownership validation.
+3. Added and extended route-level tests for reorder endpoints (settings propagation, transfer block mapping, happy-path reorder, validation/not-found paths).
+4. Cleared newly introduced prettier/lint errors in touched DnD/backend files and revalidated build/test baselines.
+
+### Verified baseline
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` -> pass (`2/2` suites, `21/21` tests)
+- `pnpm --filter @universo/metahubs-backend build` -> pass
+- `pnpm --filter @universo/metahubs-frontend build` -> pass (`Build complete in 6597ms`)
+- `pnpm --filter @universo/template-mui build` -> pass (`Build complete in 1461ms`)
+- `pnpm build` (root) -> pass (`56/56`, `6m33.197s`)
+
+### Active Risk / Follow-up
+
+- No blocker-level QA debt remains in this DnD remediation scope.
+- Legacy warning-only lint debt remains outside this focused closure and is unchanged.
+
+## Previous Focus: DnD for Attributes & Enumeration Values — Completed
+
+**Status**: ✅ Completed (all 11 phases + QA fixes)
+**Date**: 2026-03-03
+
+### Implementation summary
+
+Full drag-and-drop reordering for attributes (root + child lists with cross-list transfer) and enumeration values in metahubs-frontend + metahubs-backend. Uses `@dnd-kit` (same library as spaces-frontend CanvasTabs).
+
+**Backend**: `reorderAttribute()` with cross-list transfer validation (display attr, TABLE nesting, codename uniqueness with auto-rename up to 20 attempts), `reorderValue()` for enumerations. Both use transactional gap-shift + sequential normalization.
+
+**Frontend**: 11 DnD component files (7 for attributes, 4 for enumerations) with Provider/Hook/Component pattern. Integrated in AttributeList, ChildAttributeList, EnumerationValueList. Cross-list DnD via container registry. Two new metahub settings control cross-list permissions.
+
+### QA fixes applied (this pass)
+
+1. **Phase 2.2 settings i18n**: Added missing `catalogs.allowAttributeMoveBetweenRootAndChildren` and `catalogs.allowAttributeMoveBetweenChildLists` keys with descriptions in EN + RU.
+2. **Drag handle accessibility**: Added `dragHandleAriaLabel` prop chain through SortableRow → TableBody → List components using i18n `dnd.dragHandle` key.
+3. **Success snackbars**: Added `enqueueSnackbar(reorderSuccess)` after successful attribute and enumeration value reorder mutations.
+4. **Dead key cleanup**: Removed unused `attributes.dnd.transferBlocked` key (redundant with specific dialog messages).
+
+### Verified baseline
+
+- `pnpm --filter metahubs-frontend build` -> pass (5009ms)
+- All i18n keys verified: no unused DnD keys remain, JSON valid for both locales
+
+### Active Risk / Follow-up
+
+- **template-mui dist stale**: StyledTableCell/StyledTableRow present in source but not in dist type declarations. Full `pnpm build` resolves this.
+- **~9 pre-existing type errors** in EnumerationValueList.tsx unrelated to DnD — existed before and should be addressed in a separate pass.
+
+## Previous Focus: Codename Auto-Convert UX Hardening — Completed
 
 **Status**: ✅ Completed
 **Date**: 2026-03-03
@@ -28,7 +163,7 @@
 
 - No new regressions introduced by this hardening pass.
 
-## Current Focus: QA Debt Eradication — Completed
+## Previous Focus: QA Debt Eradication — Completed
 
 **Status**: ✅ Completed
 **Date**: 2026-03-03

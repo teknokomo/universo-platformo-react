@@ -63,7 +63,8 @@ const mockAttributesService = {
     update: jest.fn(),
     findByCodename: jest.fn(),
     create: jest.fn(),
-    findChildAttributes: jest.fn()
+    findChildAttributes: jest.fn(),
+    reorderAttribute: jest.fn()
 }
 
 const mockObjectsService = {}
@@ -155,7 +156,71 @@ describe('Attributes Routes', () => {
         mockAttributesService.findByCodename.mockResolvedValue(null)
         mockAttributesService.create.mockResolvedValue({})
         mockAttributesService.findChildAttributes.mockResolvedValue([])
+        mockAttributesService.reorderAttribute.mockResolvedValue({
+            id: '11111111-1111-1111-1111-111111111111',
+            objectId: '22222222-2222-2222-2222-222222222222',
+            sortOrder: 1,
+            parentAttributeId: null
+        })
         mockEnumerationValuesService.findById.mockResolvedValue(null)
+    })
+
+    describe('PATCH /metahub/:metahubId/catalog/:catalogId/attributes/reorder', () => {
+        it('passes cross-list move settings to reorder service', async () => {
+            mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
+                const values: Record<string, unknown> = {
+                    'catalogs.attributeCodenameScope': 'per-level',
+                    'general.codenameStyle': 'pascal-case',
+                    'catalogs.allowAttributeMoveBetweenRootAndChildren': false,
+                    'catalogs.allowAttributeMoveBetweenChildLists': false
+                }
+
+                return key in values ? { key, value: { _value: values[key] } } : null
+            })
+
+            const app = buildApp()
+            await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attributes/reorder')
+                .send({
+                    attributeId: '11111111-1111-1111-1111-111111111111',
+                    newSortOrder: 2,
+                    newParentAttributeId: '33333333-3333-3333-3333-333333333333'
+                })
+                .expect(200)
+
+            expect(mockAttributesService.reorderAttribute).toHaveBeenCalledWith(
+                'metahub-1',
+                'catalog-1',
+                '11111111-1111-1111-1111-111111111111',
+                2,
+                '33333333-3333-3333-3333-333333333333',
+                'per-level',
+                'pascal-case',
+                false,
+                false,
+                undefined,
+                'test-user-id'
+            )
+        })
+
+        it('returns 403 when service rejects cross-list transfer by settings', async () => {
+            mockAttributesService.reorderAttribute.mockRejectedValueOnce(
+                new Error('TRANSFER_NOT_ALLOWED: Moving attributes between root and child lists is disabled by settings')
+            )
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attributes/reorder')
+                .send({
+                    attributeId: '11111111-1111-1111-1111-111111111111',
+                    newSortOrder: 2,
+                    newParentAttributeId: '33333333-3333-3333-3333-333333333333'
+                })
+                .expect(403)
+
+            expect(response.body.code).toBe('TRANSFER_NOT_ALLOWED')
+            expect(response.body.message).toContain('TRANSFER_NOT_ALLOWED')
+        })
     })
 
     describe('PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/toggle-required', () => {

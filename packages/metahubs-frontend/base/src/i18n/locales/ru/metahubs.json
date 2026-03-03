@@ -682,6 +682,11 @@
             "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы",
             "codenameInvalidPascal": "Начинается с заглавной; разрешены буквы, цифры и подчёркивания",
             "codenameInvalidPascalEn": "Начинается с заглавной; разрешены только англ. буквы, цифры и подчёркивания"
+        },
+        "reorderSuccess": "Порядок значений обновлён",
+        "reorderError": "Не удалось изменить порядок значения",
+        "dnd": {
+            "dragHandle": "Перетащите для изменения порядка"
         }
     },
     "attributes": {
@@ -870,6 +875,20 @@
             "maxChildAttributes": "Максимум {{max}} дочерних атрибутов на ТАБЛИЦУ",
             "nestedTableNotAllowed": "Вложенные атрибуты ТАБЛИЦА не допускаются",
             "tableCannotBeDisplay": "Атрибуты ТАБЛИЦА не могут быть атрибутами представления"
+        },
+        "reorderSuccess": "Порядок атрибутов обновлён",
+        "reorderError": "Не удалось изменить порядок атрибута",
+        "dnd": {
+            "dragHandle": "Перетащите для изменения порядка",
+            "codenameConflictTitle": "Конфликт кодового имени",
+            "codenameConflictDescription": "Атрибут с кодовым именем «{{codename}}» уже существует в целевом списке. Переместить с автоматическим переименованием?",
+            "confirmMove": "Переместить",
+            "displayAttributeBlockedTitle": "Нельзя переместить атрибут отображения",
+            "displayAttributeBlockedDescription": "Этот атрибут является атрибутом отображения для своего списка. Сначала назначьте другой атрибут в качестве атрибута отображения, затем повторите попытку.",
+            "tableCannotMoveTitle": "Нельзя переместить TABLE-атрибут",
+            "tableCannotMoveDescription": "TABLE-атрибуты могут существовать только на корневом уровне.",
+            "firstChildAttributeTitle": "Первый дочерний атрибут",
+            "firstChildAttributeDescription": "Это будет первый атрибут в таблице. Он автоматически станет атрибутом представления и обязательным. После этого его нельзя будет переместить обратно, пока другой атрибут не будет назначен атрибутом представления."
         }
     },
     "ref": {
@@ -1289,6 +1308,10 @@
             "catalogs.allowAttributeDelete.description": "Разрешить удаление атрибутов в каталогах",
             "catalogs.allowDeleteLastDisplayAttribute": "Разрешить удаление последнего атрибута-представления",
             "catalogs.allowDeleteLastDisplayAttribute.description": "Разрешить удалять последний атрибут-представление в области (корневые атрибуты или дочерние атрибуты таблицы)",
+            "catalogs.allowAttributeMoveBetweenRootAndChildren": "Разрешить перемещение атрибутов между корнем и дочерними списками",
+            "catalogs.allowAttributeMoveBetweenRootAndChildren.description": "Разрешить перемещение атрибутов между корневым списком и дочерними списками TABLE-атрибутов",
+            "catalogs.allowAttributeMoveBetweenChildLists": "Разрешить перемещение атрибутов между дочерними списками",
+            "catalogs.allowAttributeMoveBetweenChildLists.description": "Разрешить перемещение атрибутов между дочерними списками разных TABLE-атрибутов",
             "catalogs.allowElementCopy": "Разрешить копирование элементов",
             "catalogs.allowElementCopy.description": "Разрешить копирование предзаданных элементов в каталогах",
             "catalogs.allowElementDelete": "Разрешить удаление элементов",

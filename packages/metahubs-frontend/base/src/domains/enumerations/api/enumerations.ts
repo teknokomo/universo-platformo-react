@@ -251,6 +251,12 @@ export const updateEnumerationValue = (
 export const moveEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, direction: 'up' | 'down') =>
     apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/move`, { direction })
 
+/**
+ * Reorder an enumeration value via DnD to a new sort_order position.
+ */
+export const reorderEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, newSortOrder: number) =>
+    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/values/reorder`, { valueId, newSortOrder })
+
 export const deleteEnumerationValue = (metahubId: string, enumerationId: string, valueId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`)
 

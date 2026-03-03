@@ -1,7 +1,9 @@
 export { default as ErrorBoundary } from './error/ErrorBoundary'
 export { MarketplaceTable } from './table/MarketplaceTable'
-export { FlowListTable } from './table/FlowListTable'
+export { FlowListTable, StyledTableCell, StyledTableRow } from './table/FlowListTable'
 export type { FlowListTableData, FlowListTableProps, TableColumn } from './table/FlowListTable'
+// Re-export DnD event types for FlowListTable DnD consumers
+export type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 export { CompactListTable } from './table/CompactListTable'
 export type { CompactListTableProps, CompactListTableLinkMode } from './table/CompactListTable'
 export { TableViewOnly } from './table/Table'

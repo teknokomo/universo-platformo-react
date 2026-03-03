@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Divider, Stack, Switch, FormControlLabel, Tooltip, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -28,7 +28,7 @@ import {
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
-import type { ActionDescriptor } from '@universo/template-mui'
+import type { ActionDescriptor, ActionContext, DragEndEvent } from '@universo/template-mui'
 import type { EnumerationValue, EnumerationValueDisplay } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
 import { normalizeLocale, extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
@@ -41,9 +41,11 @@ import {
     useCreateEnumerationValue,
     useDeleteEnumerationValue,
     useMoveEnumerationValue,
+    useReorderEnumerationValue,
     useUpdateEnumerationValue
 } from '../hooks'
 import { metahubsQueryKeys } from '../../shared'
+import { DragOverlayValueRow } from './dnd'
 
 type ValueFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -99,7 +101,7 @@ const appendCopySuffix = (
     }
     return {
         ...source,
-        locales: nextLocales
+        locales: nextLocales as VersionedLocalizedContent<string>['locales']
     }
 }
 
@@ -152,7 +154,7 @@ const ValueFormFields = ({
         codenameTouched,
         codenameVlc,
         nameVlc,
-        deriveCodename: (nameContent) =>
+        deriveCodename: (nameContent: string) =>
             sanitizeCodenameForStyle(
                 nameContent,
                 codenameConfig.style,
@@ -171,7 +173,7 @@ const ValueFormFields = ({
                 required
                 disabled={isLoading}
                 value={nameVlc}
-                onChange={(next) => setValue('nameVlc', next)}
+                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('nameVlc', next)}
                 error={errors.nameVlc || null}
                 helperText={errors.nameVlc}
                 uiLocale={uiLocale}
@@ -182,7 +184,7 @@ const ValueFormFields = ({
                 label={translate('common:fields.description', 'Description')}
                 disabled={isLoading}
                 value={descriptionVlc}
-                onChange={(next) => setValue('descriptionVlc', next)}
+                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('descriptionVlc', next)}
                 uiLocale={uiLocale}
                 multiline
                 rows={2}
@@ -204,13 +206,13 @@ const ValueFormFields = ({
 
             <CodenameField
                 value={codename}
-                onChange={(value) => setValue('codename', value)}
+                onChange={(value: string) => setValue('codename', value)}
                 touched={codenameTouched}
-                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
                 localizedEnabled={codenameConfig.localizedEnabled}
                 localizedValue={codenameVlc}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                onLocalizedChange={(next: VersionedLocalizedContent<string> | null) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={translate('enumerationValues.codename', 'Codename')}
                 helperText={translate('enumerationValues.codenameHelper', 'Unique identifier')}
@@ -241,6 +243,27 @@ const EnumerationValueList = () => {
     const deleteMutation = useDeleteEnumerationValue()
     const moveMutation = useMoveEnumerationValue()
     const copyMutation = useCopyEnumerationValue()
+    const reorderMutation = useReorderEnumerationValue()
+
+    // DnD: Handle value reorder
+    const handleValueReorder = useCallback(
+        async (valueId: string, newSortOrder: number) => {
+            if (!metahubId || !enumerationId) return
+            try {
+                await reorderMutation.mutateAsync({
+                    metahubId,
+                    enumerationId,
+                    valueId,
+                    newSortOrder
+                })
+                enqueueSnackbar(t('enumerationValues.reorderSuccess', 'Value order updated'), { variant: 'success' })
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : t('enumerationValues.reorderError', 'Failed to reorder value')
+                enqueueSnackbar(message, { variant: 'error' })
+            }
+        },
+        [metahubId, enumerationId, reorderMutation, enqueueSnackbar, t]
+    )
 
     const {
         data: valuesResponse,
@@ -274,6 +297,39 @@ const EnumerationValueList = () => {
             return displayName.toLowerCase().includes(searchValue) || value.codename.toLowerCase().includes(searchValue)
         })
     }, [values, search, i18n.language])
+
+    // Sorted raw values for DnD items — must match tableData order
+    const sortedFilteredValues = useMemo(
+        () => [...filteredValues].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+        [filteredValues]
+    )
+
+    // DnD: Handle drag end event (from FlowListTable InternalDndWrapper)
+    const handleDragEnd = useCallback(
+        async (event: DragEndEvent) => {
+            const { active, over } = event
+            if (!over || active.id === over.id) return
+
+            const oldIndex = sortedFilteredValues.findIndex((v) => v.id === String(active.id))
+            const overIndex = sortedFilteredValues.findIndex((v) => v.id === String(over.id))
+            if (oldIndex === -1 || overIndex === -1) return
+
+            const newSortOrder = sortedFilteredValues[overIndex].sortOrder ?? overIndex + 1
+            await handleValueReorder(String(active.id), newSortOrder)
+        },
+        [sortedFilteredValues, handleValueReorder]
+    )
+
+    // DnD: Render drag overlay
+    const renderDragOverlay = useCallback(
+        (activeId: string | null) => {
+            if (!activeId) return null
+            const val = sortedFilteredValues.find((v) => v.id === activeId)
+            if (!val) return null
+            return <DragOverlayValueRow value={toEnumerationValueDisplay(val, i18n.language)} />
+        },
+        [sortedFilteredValues, i18n.language]
+    )
 
     const tableData = useMemo<EnumerationValueDisplay[]>(
         () =>
@@ -344,6 +400,8 @@ const EnumerationValueList = () => {
         [valueMap, valueOrderMap, values.length, metahubId, enumerationId, updateMutation, moveMutation]
     )
 
+    type ValueActionCtx = ActionContext<EnumerationValueDisplay, never>
+
     const valueActions = useMemo<readonly ActionDescriptor<EnumerationValueDisplay, never>[]>(
         () => [
             {
@@ -351,7 +409,7 @@ const EnumerationValueList = () => {
                 labelKey: 'common:actions.edit',
                 order: 10,
                 icon: <EditRoundedIcon fontSize='small' />,
-                onSelect: (ctx) => {
+                onSelect: (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         ;(ctx.openEditDialog as ((value: EnumerationValue) => void) | undefined)?.(source)
@@ -363,7 +421,7 @@ const EnumerationValueList = () => {
                 labelKey: 'common:actions.copy',
                 order: 11,
                 icon: <ContentCopyRoundedIcon fontSize='small' />,
-                onSelect: (ctx) => {
+                onSelect: (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         setCopyDialogError(null)
@@ -376,11 +434,11 @@ const EnumerationValueList = () => {
                 labelKey: 'enumerationValues.actions.setDefault',
                 order: 20,
                 icon: <StarRoundedIcon fontSize='small' />,
-                visible: (ctx) => {
+                visible: (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     return !source?.isDefault
                 },
-                onSelect: async (ctx) => {
+                onSelect: async (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         await (ctx.setDefaultValue as ((value: EnumerationValue) => Promise<void>) | undefined)?.(source)
@@ -392,11 +450,11 @@ const EnumerationValueList = () => {
                 labelKey: 'enumerationValues.actions.clearDefault',
                 order: 21,
                 icon: <StarOutlineRoundedIcon fontSize='small' />,
-                visible: (ctx) => {
+                visible: (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     return Boolean(source?.isDefault)
                 },
-                onSelect: async (ctx) => {
+                onSelect: async (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         await (ctx.clearDefaultValue as ((value: EnumerationValue) => Promise<void>) | undefined)?.(source)
@@ -409,13 +467,13 @@ const EnumerationValueList = () => {
                 order: 30,
                 dividerBefore: true,
                 icon: <ArrowUpwardRoundedIcon fontSize='small' />,
-                enabled: (ctx) => {
+                enabled: (ctx: ValueActionCtx) => {
                     const orderMap = ctx.valueOrderMap as Map<string, number> | undefined
                     if (!orderMap || orderMap.size <= 1) return false
                     const index = orderMap.get(ctx.entity.id)
                     return typeof index === 'number' && index > 0
                 },
-                onSelect: async (ctx) => {
+                onSelect: async (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         await (ctx.moveValue as ((value: EnumerationValue, direction: 'up' | 'down') => Promise<void>) | undefined)?.(
@@ -430,14 +488,14 @@ const EnumerationValueList = () => {
                 labelKey: 'attributes.actions.moveDown',
                 order: 40,
                 icon: <ArrowDownwardRoundedIcon fontSize='small' />,
-                enabled: (ctx) => {
+                enabled: (ctx: ValueActionCtx) => {
                     const orderMap = ctx.valueOrderMap as Map<string, number> | undefined
                     if (!orderMap || orderMap.size <= 1) return false
                     const index = orderMap.get(ctx.entity.id)
                     if (typeof index !== 'number') return false
                     return index < orderMap.size - 1
                 },
-                onSelect: async (ctx) => {
+                onSelect: async (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         await (ctx.moveValue as ((value: EnumerationValue, direction: 'up' | 'down') => Promise<void>) | undefined)?.(
@@ -454,7 +512,7 @@ const EnumerationValueList = () => {
                 dividerBefore: true,
                 icon: <DeleteRoundedIcon fontSize='small' />,
                 tone: 'danger',
-                onSelect: (ctx) => {
+                onSelect: (ctx: ValueActionCtx) => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         ;(ctx.openDeleteDialog as ((value: EnumerationValue) => void) | undefined)?.(source)
@@ -465,13 +523,54 @@ const EnumerationValueList = () => {
         []
     )
 
-    const images = useMemo(() => {
-        const imageMap: Record<string, unknown[]> = {}
-        values.forEach((value) => {
-            imageMap[value.id] = []
-        })
-        return imageMap
-    }, [values])
+    const valueColumns = useMemo(
+        () => [
+            {
+                id: 'sortOrder',
+                label: t('attributes.table.order', '#'),
+                width: '4%',
+                align: 'center' as const,
+                render: (row: EnumerationValueDisplay) => (
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ?? 0}</Typography>
+                )
+            },
+            {
+                id: 'name',
+                label: tc('table.name', 'Name'),
+                width: '30%',
+                align: 'left' as const,
+                render: (row: EnumerationValueDisplay) => (
+                    <Stack direction='row' spacing={0.5} alignItems='center'>
+                        {row.isDefault && (
+                            <Tooltip title={t('enumerationValues.defaultTooltip', 'This value is used by default.')} arrow>
+                                <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            </Tooltip>
+                        )}
+                        <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.name || '—'}</Typography>
+                    </Stack>
+                )
+            },
+            {
+                id: 'description',
+                label: tc('table.description', 'Description'),
+                width: '30%',
+                align: 'left' as const,
+                render: (row: EnumerationValueDisplay) => (
+                    <Typography sx={{ fontSize: 14, wordBreak: 'break-word' }}>{row.description || '—'}</Typography>
+                )
+            },
+            {
+                id: 'codename',
+                label: t('enumerationValues.codename', 'Codename'),
+                width: '20%',
+                align: 'left' as const,
+                render: (row: EnumerationValueDisplay) => (
+                    <Typography sx={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace' }}>{row.codename}</Typography>
+                )
+            }
+        ],
+        [t, tc]
+    )
 
     const formDefaults = useMemo<ValueFormValues>(
         () => ({
@@ -658,7 +757,7 @@ const EnumerationValueList = () => {
                         <ViewHeader
                             search={true}
                             searchPlaceholder={t('enumerationValues.searchPlaceholder', 'Search enumeration values...')}
-                            onSearchChange={setSearch}
+                            onSearchChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setSearch(e.target.value)}
                             title={t('enumerationValues.title', 'Values')}
                         >
                             <ToolbarControls
@@ -686,67 +785,15 @@ const EnumerationValueList = () => {
                             />
                         ) : (
                             <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                <FlowListTable
+                                <FlowListTable<EnumerationValueDisplay>
                                     data={tableData}
-                                    images={images}
-                                    isLoading={isBusy}
-                                    customColumns={[
-                                        {
-                                            id: 'sortOrder',
-                                            label: t('attributes.table.order', '#'),
-                                            width: '4%',
-                                            align: 'center',
-                                            sortable: true,
-                                            sortAccessor: (row: EnumerationValueDisplay) => row.sortOrder ?? 0,
-                                            render: (row: EnumerationValueDisplay) => (
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ?? 0}</Typography>
-                                            )
-                                        },
-                                        {
-                                            id: 'name',
-                                            label: tc('table.name', 'Name'),
-                                            width: '30%',
-                                            align: 'left',
-                                            render: (row: EnumerationValueDisplay) => (
-                                                <Stack direction='row' spacing={0.5} alignItems='center'>
-                                                    {row.isDefault && (
-                                                        <Tooltip
-                                                            title={t('enumerationValues.defaultTooltip', 'This value is used by default.')}
-                                                            arrow
-                                                        >
-                                                            <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                                        </Tooltip>
-                                                    )}
-                                                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>
-                                                        {row.name || '—'}
-                                                    </Typography>
-                                                </Stack>
-                                            )
-                                        },
-                                        {
-                                            id: 'description',
-                                            label: tc('table.description', 'Description'),
-                                            width: '30%',
-                                            align: 'left',
-                                            render: (row: EnumerationValueDisplay) => (
-                                                <Typography sx={{ fontSize: 14, wordBreak: 'break-word' }}>
-                                                    {row.description || '—'}
-                                                </Typography>
-                                            )
-                                        },
-                                        {
-                                            id: 'codename',
-                                            label: t('enumerationValues.codename', 'Codename'),
-                                            width: '20%',
-                                            align: 'left',
-                                            render: (row: EnumerationValueDisplay) => (
-                                                <Typography sx={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace' }}>
-                                                    {row.codename}
-                                                </Typography>
-                                            )
-                                        }
-                                    ]}
-                                    i18nNamespace='flowList'
+                                    customColumns={valueColumns}
+                                    sortableRows
+                                    sortableItemIds={sortedFilteredValues.map((v) => v.id)}
+                                    dragHandleAriaLabel={t('enumerationValues.dnd.dragHandle', 'Drag to reorder')}
+                                    dragDisabled={isBusy}
+                                    onSortableDragEnd={handleDragEnd}
+                                    renderDragOverlay={renderDragOverlay}
                                     renderActions={(row: EnumerationValueDisplay) => (
                                         <BaseEntityMenu<EnumerationValueDisplay, never>
                                             entity={row}
@@ -788,14 +835,24 @@ const EnumerationValueList = () => {
                     onSave={handleSave}
                     hideDefaultFields
                     initialExtraValues={initialFormValues}
-                    extraFields={({ values, setValue, isLoading, errors }) => (
+                    extraFields={({
+                        values,
+                        setValue,
+                        isLoading,
+                        errors
+                    }: {
+                        values: Record<string, unknown>
+                        setValue: (name: string, value: unknown) => void
+                        isLoading: boolean
+                        errors: Record<string, string>
+                    }) => (
                         <ValueFormFields
                             values={values}
                             setValue={setValue}
                             isLoading={isLoading}
                             errors={errors ?? {}}
                             uiLocale={i18n.language}
-                            translate={(key, defaultValue) => t(key, defaultValue)}
+                            translate={(key, defaultValue) => t(key, defaultValue ? { defaultValue } : {})}
                             editingEntityId={editingValue?.id}
                         />
                     )}
@@ -890,14 +947,24 @@ const EnumerationValueList = () => {
                     }}
                     hideDefaultFields
                     initialExtraValues={copyInitialValues}
-                    extraFields={({ values, setValue, isLoading, errors }) => (
+                    extraFields={({
+                        values,
+                        setValue,
+                        isLoading,
+                        errors
+                    }: {
+                        values: Record<string, unknown>
+                        setValue: (name: string, value: unknown) => void
+                        isLoading: boolean
+                        errors: Record<string, string>
+                    }) => (
                         <ValueFormFields
                             values={values}
                             setValue={setValue}
                             isLoading={isLoading}
                             errors={errors ?? {}}
                             uiLocale={i18n.language}
-                            translate={(key, defaultValue) => t(key, defaultValue)}
+                            translate={(key, defaultValue) => t(key, defaultValue ? { defaultValue } : {})}
                             editingEntityId={null}
                         />
                     )}
@@ -938,7 +1005,7 @@ const EnumerationValueList = () => {
                             enqueueSnackbar(message, { variant: 'error' })
                         }
                     }}
-                    deleting={deleteMutation.isPending}
+                    loading={deleteMutation.isPending}
                 />
             </ExistingCodenamesProvider>
         </MainCard>

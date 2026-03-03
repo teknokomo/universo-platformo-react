@@ -1,8 +1,9 @@
 import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
-import { AttributeDataType } from '@universo/types'
+import { AttributeDataType, TABLE_CHILD_DATA_TYPES } from '@universo/types'
 import { generateUuidV7 } from '@universo/utils'
+import { buildCodenameAttempt } from '../../shared/codenameStyleHelper'
 import type { Knex } from 'knex'
 
 /**
@@ -583,6 +584,262 @@ export class MetahubAttributesService {
             const [updated] = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).returning('*')
             return this.mapRowToAttribute(updated)
         })
+    }
+
+    /**
+     * Reorder an attribute to a new sort_order (and optionally transfer to a different parent list).
+     * @param codenameScope - 'per-level' or 'global' codename uniqueness scope
+     * @param codenameStyle - 'kebab-case' or 'pascal-case' for auto-rename suffix
+     * @param autoRenameCodename - if true, auto-rename codename on conflict
+     */
+    async reorderAttribute(
+        metahubId: string,
+        objectId: string,
+        attributeId: string,
+        newSortOrder: number,
+        newParentAttributeId: string | null | undefined,
+        codenameScope: 'per-level' | 'global',
+        codenameStyle: 'kebab-case' | 'pascal-case',
+        allowCrossListRootChildren: boolean,
+        allowCrossListBetweenChildren: boolean,
+        autoRenameCodename?: boolean,
+        userId?: string
+    ) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
+        return this.knex.transaction(async (trx) => {
+            // 1. Fetch current attribute
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ id: attributeId, object_id: objectId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!current) throw new Error('Attribute not found')
+
+            const currentParent: string | null = current.parent_attribute_id ?? null
+            const targetParent: string | null = newParentAttributeId !== undefined ? newParentAttributeId : currentParent
+            const isCrossList = targetParent !== currentParent
+
+            if (isCrossList) {
+                // ── Cross-list transfer validation ──
+                await this._validateCrossListTransfer(
+                    trx,
+                    schemaName,
+                    objectId,
+                    current,
+                    currentParent,
+                    targetParent,
+                    allowCrossListRootChildren,
+                    allowCrossListBetweenChildren,
+                    codenameScope,
+                    codenameStyle,
+                    autoRenameCodename
+                )
+
+                // Move: update parent_attribute_id
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_attributes')
+                    .where({ id: attributeId })
+                    .update({ parent_attribute_id: targetParent })
+
+                // Normalize source list (close gap left by the moved attribute)
+                await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, currentParent)
+
+                // Auto-set display attribute + required when attribute becomes the only child in target list
+                if (targetParent !== null) {
+                    const siblingCount = await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_attributes')
+                        .where({ object_id: objectId, parent_attribute_id: targetParent })
+                        .andWhere('_upl_deleted', false)
+                        .andWhere('_mhb_deleted', false)
+                        .count('id as count')
+                        .first()
+                    if (siblingCount && Number(siblingCount.count) === 1) {
+                        await trx
+                            .withSchema(schemaName)
+                            .from('_mhb_attributes')
+                            .where({ id: attributeId })
+                            .update({ is_display_attribute: true, is_required: true })
+                    }
+                }
+            }
+
+            // 2. Ensure sequential order in target list
+            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, targetParent)
+
+            // 3. Re-fetch to get current sort_order after normalization
+            const refreshed = await trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ id: attributeId, object_id: objectId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!refreshed) throw new Error('Attribute not found')
+            const oldOrder = refreshed.sort_order
+            const clampedNew = Math.max(1, newSortOrder)
+
+            if (oldOrder !== clampedNew) {
+                // Build parent scope condition
+                const parentCondition = (q: Knex.QueryBuilder) => {
+                    if (targetParent) {
+                        q.where({ parent_attribute_id: targetParent })
+                    } else {
+                        q.whereNull('parent_attribute_id')
+                    }
+                }
+
+                if (clampedNew < oldOrder) {
+                    // Moving up: shift items [clampedNew, oldOrder) down by 1
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_attributes')
+                        .where({ object_id: objectId })
+                        .modify(parentCondition)
+                        .where('sort_order', '>=', clampedNew)
+                        .where('sort_order', '<', oldOrder)
+                        .whereNot({ id: attributeId })
+                        .increment('sort_order', 1)
+                } else {
+                    // Moving down: shift items (oldOrder, clampedNew] up by 1
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_attributes')
+                        .where({ object_id: objectId })
+                        .modify(parentCondition)
+                        .where('sort_order', '>', oldOrder)
+                        .where('sort_order', '<=', clampedNew)
+                        .whereNot({ id: attributeId })
+                        .decrement('sort_order', 1)
+                }
+
+                // Set the target sort_order
+                await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).update({ sort_order: clampedNew })
+            }
+
+            // 4. Final normalization pass
+            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, targetParent)
+
+            // 5. Return updated attribute
+            const updated = await trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ id: attributeId, object_id: objectId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!updated) throw new Error('Attribute not found')
+            return this.mapRowToAttribute(updated)
+        })
+    }
+
+    /**
+     * Validate a cross-list attribute transfer (change of parent_attribute_id).
+     * Throws typed errors that the route handler maps to HTTP status codes.
+     */
+    private async _validateCrossListTransfer(
+        trx: Knex.Transaction,
+        schemaName: string,
+        objectId: string,
+        attribute: any,
+        currentParentId: string | null,
+        targetParentId: string | null,
+        allowCrossListRootChildren: boolean,
+        allowCrossListBetweenChildren: boolean,
+        codenameScope: 'per-level' | 'global',
+        codenameStyle: 'kebab-case' | 'pascal-case',
+        autoRenameCodename?: boolean
+    ): Promise<void> {
+        const sourceIsRoot = currentParentId === null
+        const targetIsRoot = targetParentId === null
+
+        if ((sourceIsRoot || targetIsRoot) && !allowCrossListRootChildren) {
+            throw new Error('TRANSFER_NOT_ALLOWED: Moving attributes between root and child lists is disabled by settings')
+        }
+
+        if (!sourceIsRoot && !targetIsRoot && !allowCrossListBetweenChildren) {
+            throw new Error('TRANSFER_NOT_ALLOWED: Moving attributes between child lists is disabled by settings')
+        }
+
+        // 1. Display attribute cannot be moved across lists
+        if (attribute.is_display_attribute) {
+            throw new Error(
+                'DISPLAY_ATTRIBUTE_TRANSFER_BLOCKED: Display attribute cannot be moved. Assign another attribute as the display attribute first.'
+            )
+        }
+
+        // 2. TABLE attributes can only exist at root level
+        if (attribute.data_type === AttributeDataType.TABLE && targetParentId !== null) {
+            throw new Error('TRANSFER_NOT_ALLOWED: TABLE attributes can only exist at the root level')
+        }
+
+        // 3. If target is a child list, verify parent is TABLE type and data type is allowed
+        if (targetParentId !== null) {
+            const parentAttr = await trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ id: targetParentId, object_id: objectId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!parentAttr || parentAttr.data_type !== AttributeDataType.TABLE) {
+                throw new Error('TRANSFER_NOT_ALLOWED: Target parent is not a TABLE attribute')
+            }
+            if (!TABLE_CHILD_DATA_TYPES.includes(attribute.data_type)) {
+                throw new Error(`TRANSFER_NOT_ALLOWED: ${attribute.data_type} attributes are not allowed in TABLE children`)
+            }
+        }
+
+        // 4. Codename uniqueness check in target scope
+        const hasConflict = async (codename: string): Promise<boolean> => {
+            let query = trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ object_id: objectId, codename })
+                .whereNot({ id: attribute.id })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+
+            if (codenameScope !== 'global') {
+                // Per-level: unique among siblings at target level
+                if (targetParentId) {
+                    query = query.where({ parent_attribute_id: targetParentId })
+                } else {
+                    query = query.whereNull('parent_attribute_id')
+                }
+            }
+            return !!(await query.first())
+        }
+
+        if (await hasConflict(attribute.codename)) {
+            if (!autoRenameCodename) {
+                // No auto-rename — throw conflict so frontend can show dialog
+                const error: any = new Error(`CODENAME_CONFLICT: Codename "${attribute.codename}" already exists in the target scope`)
+                error.codename = attribute.codename
+                throw error
+            }
+
+            // Auto-rename using buildCodenameAttempt() retry loop
+            let renamed = false
+            for (let attempt = 2; attempt <= 20 && !renamed; attempt++) {
+                const candidate = buildCodenameAttempt(attribute.codename, attempt, codenameStyle)
+                if (!(await hasConflict(candidate))) {
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_attributes')
+                        .where({ id: attribute.id })
+                        .update({ codename: candidate, codename_localized: null })
+                    renamed = true
+                }
+            }
+            if (!renamed) {
+                throw new Error('CODENAME_CONFLICT: Could not generate unique codename after 20 attempts')
+            }
+        }
     }
 
     /**

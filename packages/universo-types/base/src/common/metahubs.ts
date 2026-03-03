@@ -232,6 +232,20 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         defaultValue: true,
         sortOrder: 9
     },
+    {
+        key: 'catalogs.allowAttributeMoveBetweenRootAndChildren',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 10
+    },
+    {
+        key: 'catalogs.allowAttributeMoveBetweenChildLists',
+        tab: 'catalogs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 11
+    },
 
     // ── Enumerations ──
     {

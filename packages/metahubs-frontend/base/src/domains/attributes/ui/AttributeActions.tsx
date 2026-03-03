@@ -303,7 +303,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     initialExtraValues: initial,
                     tabs: ({ values, setValue, isLoading, errors }: AttributeTabArgs): TabConfig[] => {
                         const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
-                        const displayAttributeLocked = (attributeMap?.size ?? 0) <= 1
+                        // Lock the display attribute toggle when:
+                        // 1. there's only one attribute (can't unset the only one), or
+                        // 2. the current attribute IS the display attribute (must assign to another first)
+                        const displayAttributeLocked = (attributeMap?.size ?? 0) <= 1 || isDisplayAttributeEntity(ctx)
                         return [
                             {
                                 id: 'general',

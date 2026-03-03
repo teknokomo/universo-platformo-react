@@ -77,6 +77,13 @@ interface CopyEnumerationValueParams {
     data?: EnumerationValueCopyInput
 }
 
+interface ReorderEnumerationValueParams {
+    metahubId: string
+    enumerationId: string
+    valueId: string
+    newSortOrder: number
+}
+
 export function useCreateEnumerationAtMetahub() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -302,6 +309,59 @@ export function useMoveEnumerationValue() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('enumerationValues.moveError', 'Failed to move value'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Reorder an enumeration value via DnD to a new sort_order position.
+ * Includes optimistic updates for instant visual feedback.
+ */
+export function useReorderEnumerationValue() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ metahubId, enumerationId, valueId, newSortOrder }: ReorderEnumerationValueParams) => {
+            const response = await enumerationsApi.reorderEnumerationValue(metahubId, enumerationId, valueId, newSortOrder)
+            return response.data
+        },
+        onMutate: async (variables) => {
+            const baseKey = metahubsQueryKeys.enumerationValues(variables.metahubId, variables.enumerationId)
+
+            // Cancel in-flight queries
+            await queryClient.cancelQueries({ queryKey: baseKey })
+
+            // Snapshot for rollback
+            const previousQueries = queryClient.getQueriesData<Record<string, unknown>>({ queryKey: baseKey })
+
+            // Optimistically reorder items
+            queryClient.setQueriesData<Record<string, unknown>>({ queryKey: baseKey }, (old) => {
+                if (!old || !Array.isArray((old as any).items)) return old
+                const items = [...(old as any).items]
+                const fromIndex = items.findIndex((i: any) => i.id === variables.valueId)
+                if (fromIndex === -1) return old
+
+                let toIndex = items.findIndex((i: any) => (i.sortOrder ?? 0) === variables.newSortOrder)
+                if (toIndex === -1) toIndex = items.length - 1
+
+                const [moved] = items.splice(fromIndex, 1)
+                items.splice(toIndex, 0, moved)
+                const updated = items.map((item: any, idx: number) => ({ ...item, sortOrder: idx + 1 }))
+                return { ...old, items: updated }
+            })
+
+            return { previousQueries, baseKey }
+        },
+        onError: (_error, _variables, context) => {
+            // Rollback optimistic update
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data)
+                }
+            }
+        },
+        onSuccess: (_data, variables) => {
+            invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
         }
     })
 }

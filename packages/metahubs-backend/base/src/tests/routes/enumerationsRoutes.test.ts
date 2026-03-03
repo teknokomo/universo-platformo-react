@@ -90,7 +90,9 @@ const mockAttributesService = {
     findReferenceBlockersByTarget: jest.fn()
 }
 
-const mockValuesService = {}
+const mockValuesService = {
+    reorderValue: jest.fn()
+}
 const mockHubsService = {
     findByIds: jest.fn()
 }
@@ -290,6 +292,11 @@ describe('Enumerations Routes', () => {
         )
         mockObjectsService.restore.mockResolvedValue(undefined)
         mockObjectsService.permanentDelete.mockResolvedValue(undefined)
+        mockValuesService.reorderValue.mockResolvedValue({
+            id: '44444444-4444-4444-4444-444444444444',
+            objectId: 'enum-1',
+            sortOrder: 2
+        })
         mockAttributesService.findReferenceBlockersByTarget.mockResolvedValue([])
         mockHubsService.findByIds.mockResolvedValue([
             {
@@ -301,6 +308,54 @@ describe('Enumerations Routes', () => {
         mockMetahubRepo.findOne.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+    })
+
+    describe('PATCH /metahub/:metahubId/enumeration/:enumerationId/values/reorder', () => {
+        it('reorders enumeration value and returns updated value', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/enumeration/enum-1/values/reorder')
+                .send({
+                    valueId: '44444444-4444-4444-4444-444444444444',
+                    newSortOrder: 2
+                })
+                .expect(200)
+
+            expect(response.body.id).toBe('44444444-4444-4444-4444-444444444444')
+            expect(mockValuesService.reorderValue).toHaveBeenCalledWith(
+                'metahub-1',
+                'enum-1',
+                '44444444-4444-4444-4444-444444444444',
+                2,
+                'test-user-id'
+            )
+        })
+
+        it('returns 404 when reordered value is not found in target enumeration', async () => {
+            mockValuesService.reorderValue.mockRejectedValueOnce(new Error('Enumeration value not found'))
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/enumeration/enum-1/values/reorder')
+                .send({
+                    valueId: '44444444-4444-4444-4444-444444444444',
+                    newSortOrder: 2
+                })
+                .expect(404)
+
+            expect(response.body.error).toBe('Enumeration value not found')
+        })
+
+        it('returns 400 when payload is invalid', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/enumeration/enum-1/values/reorder')
+                .send({ valueId: 'not-a-uuid', newSortOrder: 0 })
+                .expect(400)
+
+            expect(response.body.error).toBe('Validation failed')
+            expect(mockValuesService.reorderValue).not.toHaveBeenCalled()
+        })
     })
 
     describe('DELETE /metahub/:metahubId/enumeration/:enumerationId/permanent', () => {

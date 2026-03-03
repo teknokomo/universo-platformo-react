@@ -2004,6 +2004,51 @@ export function createEnumerationsRoutes(
         })
     )
 
+    /**
+     * PATCH /metahub/:metahubId/enumeration/:enumerationId/values/reorder
+     * Reorder a single enumeration value to a new sort_order position (DnD)
+     */
+    const reorderValueSchema = z.object({
+        valueId: z.string().uuid(),
+        newSortOrder: z.number().int().min(1)
+    })
+
+    router.patch(
+        '/metahub/:metahubId/enumeration/:enumerationId/values/reorder',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { metahubId, enumerationId } = req.params
+            const { objectsService, valuesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
+            if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+                return res.status(404).json({ error: 'Enumeration not found' })
+            }
+
+            const parsed = reorderValueSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            try {
+                const updated = await valuesService.reorderValue(
+                    metahubId,
+                    enumerationId,
+                    parsed.data.valueId,
+                    parsed.data.newSortOrder,
+                    userId
+                )
+                return res.json(updated)
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Enumeration value not found') {
+                    return res.status(404).json({ error: 'Enumeration value not found' })
+                }
+                throw error
+            }
+        })
+    )
+
     router.post(
         '/metahub/:metahubId/enumeration/:enumerationId/value/:valueId/copy',
         writeLimiter,
