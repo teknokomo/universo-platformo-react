@@ -69,11 +69,19 @@
     "pnpm": {
         "overrides": {
             "rolldown": "1.0.0-beta.43",
-            "axios": "1.13.2",
+            "axios": "1.13.5",
+            "@casl/ability": "6.7.5",
+            "@remix-run/router": "1.23.2",
+            "fast-xml-parser": "5.3.6",
+            "jsonwebtoken>jws": "3.2.3",
+            "google-auth-library>jws": "4.0.1",
+            "gtoken>jws": "4.0.1",
             "body-parser": "2.0.2",
             "braces": "3.0.3",
             "cross-spawn": "7.0.6",
             "glob-parent": "6.0.2",
+            "minimatch": "10.2.3",
+            "tar": "7.5.8",
             "http-proxy-middleware": "3.0.3",
             "json5": "2.2.3",
             "nth-check": "2.1.1",
@@ -123,6 +131,6 @@
         ]
     },
     "dependencies": {
-        "@casl/ability": "^6.7.3"
+        "@casl/ability": "^6.7.5"
     }
 }

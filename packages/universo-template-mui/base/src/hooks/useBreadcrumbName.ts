@@ -191,6 +191,12 @@ export const useMetahubName = createEntityNameHook({
     apiPath: 'metahub'
 })
 
+// Backward-compatible hook (legacy naming and endpoint contract)
+export const useMetaverseName = createEntityNameHook({
+    entityType: 'metaverse',
+    apiPath: 'metaverses'
+})
+
 /**
  * Hook to fetch and cache application name by ID for breadcrumb display.
  * Used for standalone Applications module (not metahub applications).
@@ -446,6 +452,9 @@ export function useConnectorName(applicationId: string | null, connectorId: stri
 
 /** Truncate metahub name with ellipsis (default: 30 chars) */
 export const truncateMetahubName = createTruncateFunction(30)
+
+/** Backward-compatible alias (legacy naming) */
+export const truncateMetaverseName = truncateMetahubName
 
 /** Truncate application name with ellipsis (default: 30 chars) */
 export const truncateApplicationName = createTruncateFunction(30)

@@ -19,10 +19,11 @@ Complete repository cleanup — removed all legacy Flowise packages and renamed 
 - **39 packages deleted** (38 from plan + flowise-template-mui merged)
 - **3 packages renamed**: core-backend, core-frontend, store
 - **24 packages remaining** (was ~63)
-- **14 commits**, all phases (0-15) completed
-- **23/23 packages build** successfully
-- **Zero @flowise/ references** in source code
-- **Final QA pass (2026-03-04)**: `pnpm build:clean` and `pnpm build` passed; one `@universo/api-client` prettier lint issue fixed; package docs cleaned to zero legacy `@flowise/` references in `packages/`
+- **Final QA hardening complete (2026-03-04)**
+- `pnpm build:clean`: 23/23 packages successful
+- Targeted tests/lint for touched packages: all pass
+- Security: `pnpm audit --prod --audit-level=high` has no high/critical findings (remaining low/moderate only)
+- **Zero @flowise/ references** in `packages/**` imports/config/docs
 
 ### Next steps
 

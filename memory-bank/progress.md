@@ -56,7 +56,7 @@ Massive repository cleanup: removed 39 legacy Flowise/UPDL packages, renamed rem
 - **24 packages remaining** (down from ~63)
 - **14 commits** on branch `cleanup/remove-legacy-packages`
 - **Zero `@flowise/` references** in source code, package.json, or config files
-- **2 historical `@flowise/` references** in READMEs (marked as "formerly")
+- **Zero `@flowise/` references** in `packages/**` docs/configs/imports
 
 ### Key changes
 
@@ -71,6 +71,40 @@ Massive repository cleanup: removed 39 legacy Flowise/UPDL packages, renamed rem
 - `pnpm build`: 23/23 packages successful (2m50s)
 - `pnpm install`: passes with cleaned lockfile
 - Zero `@flowise/` references in source (grep verified)
+
+---
+
+## Post-QA Hardening (2026-03-04)
+
+Closed all issues found in the latest QA pass for the cleanup scope.
+
+### What was fixed
+
+- Fixed failing `metahubs-frontend` test (`MetahubMembers`): merged duplicate `@universo/template-mui` mocks so `FlowListTable` and `InputHintDialog` are stubbed in one module mock.
+- Fixed failing `template-mui` tests (`useBreadcrumbName`): restored backward-compatible exports `useMetaverseName` and `truncateMetaverseName`.
+- Removed residual legacy package folders that violated the cleanup plan and broke clean build (`packages/flowise-core-backend`, `packages/flowise-store`).
+- Security hardening via dependency upgrades/overrides:
+  - `@casl/ability` → `6.7.5`
+  - `axios` → `1.13.5`
+  - `fast-xml-parser` → `5.3.6`
+  - `@remix-run/router` → `1.23.2`
+  - `jws` pinned via selectors for vulnerable chains
+  - `tar` → `7.5.8`
+  - `minimatch` → `10.2.3`
+
+### Verification
+
+- Tests:
+  - `@universo/metahubs-frontend`: pass
+  - `@universo/template-mui`: 169/169 pass
+- Lint (touched packages):
+  - `@universo/metahubs-frontend`: pass
+  - `@universo/template-mui`: pass
+  - `@universo/api-client`: pass
+- Security audit:
+  - `pnpm audit --prod --audit-level=high`: no high/critical issues (remaining: 5 low, 4 moderate)
+- Build:
+  - `pnpm build:clean`: 23/23 packages successful
 
 ---
 

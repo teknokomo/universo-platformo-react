@@ -4,6 +4,19 @@
 
 ---
 
+## Completed: Post-QA Hardening — 2026-03-04 ✅
+
+> **Goal**: Eliminate issues discovered in the latest QA pass (failing tests, lint blockers in touched scope, critical security advisories) without destabilizing the cleaned architecture.
+
+- [x] Fix failing `@universo/metahubs-frontend` test (`MetahubMembers` view toggle)
+- [x] Fix failing `@universo/template-mui` tests (`useBreadcrumbName` suite)
+- [x] Re-run targeted test suites and confirm green status
+- [x] Resolve critical dependency advisories (`@casl/ability`, `fast-xml-parser`) via safe version upgrades/overrides
+- [x] Re-run `pnpm audit --prod --audit-level=critical` and confirm no critical vulnerabilities
+- [x] Re-run `pnpm build:clean` and verify full workspace build stability
+
+---
+
 ## Completed: Legacy Cleanup — Remove Flowise Packages — 2026-03-04 ✅
 
 > **Goal**: Remove 39 legacy Flowise/UPDL packages, clean core packages, rename @flowise/* → @universo/*, update all cross-references, documentation, and configs.
