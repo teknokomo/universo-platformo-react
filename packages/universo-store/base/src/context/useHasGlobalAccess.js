@@ -6,7 +6,7 @@
  *
  * @example
  * ```jsx
- * import { useHasGlobalAccess } from '@flowise/store'
+ * import { useHasGlobalAccess } from '@universo/store'
  *
  * function MyComponent() {
  *   const { isSuperuser, canAccessAdmin, canAccessAdminPanel, loading, globalRoles } = useHasGlobalAccess()

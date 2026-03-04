@@ -12,7 +12,7 @@
         "@emotion/cache": "^11.4.0",
         "@emotion/react": "^11.10.6",
         "@emotion/styled": "^11.10.6",
-        "@flowise/store": "workspace:*",
+        "@universo/store": "workspace:*",
         "@flowise/template-mui": "workspace:*",
         "@mui/base": "5.0.0-beta.40",
         "@mui/icons-material": "catalog:",

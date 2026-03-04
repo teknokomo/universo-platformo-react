@@ -15,7 +15,7 @@ import themes from '@flowise/template-mui/themes'
 import NavigationScroll from '@flowise/template-mui/layout/NavigationScroll'
 
 // CASL Ability context
-import { AbilityContextProvider } from '@flowise/store'
+import { AbilityContextProvider } from '@universo/store'
 
 // ==============================|| APP ||============================== //
 

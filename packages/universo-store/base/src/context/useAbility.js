@@ -5,7 +5,7 @@
  *
  * Usage:
  * ```jsx
- * import { useAbility } from '@flowise/store'
+ * import { useAbility } from '@universo/store'
  *
  * const MyComponent = () => {
  *   const { ability, loading } = useAbility()

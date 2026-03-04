@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```jsx
- * import { Can, Cannot } from '@flowise/store'
+ * import { Can, Cannot } from '@universo/store'
  *
  * // Show element only if user CAN do action
  * <Can I="create" a="Metaverse">

@@ -7,7 +7,7 @@
  */
 
 import { createUniversoApiClient } from '@universo/api-client'
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@universo/store'
 
 /** Shared API client instance for the entire application. */
 export const api = createUniversoApiClient({

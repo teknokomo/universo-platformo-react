@@ -8,7 +8,7 @@ import Divider from '@mui/material/Divider'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
-import { useHasGlobalAccess } from '@flowise/store'
+import { useHasGlobalAccess } from '@universo/store'
 import {
     rootMenuItems,
     getApplicationsMenuItem,

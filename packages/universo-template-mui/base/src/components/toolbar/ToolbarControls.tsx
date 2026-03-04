@@ -5,7 +5,7 @@ import { useTheme } from '@mui/material/styles'
 import { IconLayoutGrid, IconList, IconSettings } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { SettingsDialog } from '../dialogs/SettingsDialog'
-import { useHasGlobalAccess } from '@flowise/store'
+import { useHasGlobalAccess } from '@universo/store'
 
 export type ViewMode = 'card' | 'list'
 

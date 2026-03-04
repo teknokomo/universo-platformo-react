@@ -1,7 +1,7 @@
 import '@/diagnostics/bootstrapDiagnostics'
 import React from 'react'
 import App from '@/App'
-import { store, ConfirmContextProvider } from '@flowise/store'
+import { store, ConfirmContextProvider } from '@universo/store'
 import { createRoot } from 'react-dom/client'
 import { AuthProvider } from '@universo/auth-frontend'
 import { QueryClientProvider } from '@tanstack/react-query'

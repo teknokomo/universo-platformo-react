@@ -61,7 +61,7 @@ export interface AuthPageProps {
  * ```tsx
  * import { AuthPage } from '@universo/auth-frontend'
  * import { useTranslation } from '@universo/i18n'
- * import { useAbility } from '@flowise/store'
+ * import { useAbility } from '@universo/store'
  *
  * const AuthRoute = () => {
  *   const { t } = useTranslation('auth')

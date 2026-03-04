@@ -7,7 +7,7 @@ import Link from '@mui/material/Link'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
-import { useHasGlobalAccess } from '@flowise/store'
+import { useHasGlobalAccess } from '@universo/store'
 import {
     useMetahubName,
     truncateMetahubName,

@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```jsx
- * import { AbilityContextProvider } from '@flowise/store'
+ * import { AbilityContextProvider } from '@universo/store'
  *
  * <AbilityContextProvider>
  *   <App />
@@ -16,7 +16,7 @@
  * Then in components:
  * ```jsx
  * import { Can } from '@casl/react'
- * import { useAbility } from '@flowise/store'
+ * import { useAbility } from '@universo/store'
  *
  * // Declarative (recommended)
  * <Can I="delete" a="Metaverse">

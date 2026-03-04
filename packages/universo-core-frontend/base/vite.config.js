@@ -86,7 +86,7 @@ export default defineConfig(async ({ mode }) => {
                 'i18next',
                 '@universo/auth-frontend',
                 '@flowise/template-mui',
-                '@flowise/store',
+                '@universo/store',
                 '@universo/i18n'
             ],
             alias: [

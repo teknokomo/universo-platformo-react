@@ -1,7 +1,7 @@
 {
-  "name": "@flowise/store",
+  "name": "@universo/store",
   "version": "0.1.0",
-  "description": "Shared Redux store for Flowise applications",
+  "description": "Shared Redux store for Universo Platformo applications",
   "license": "SEE LICENSE IN LICENSE-Flowise.md",
   "homepage": "https://universo.pro",
   "author": {

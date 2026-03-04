@@ -15,7 +15,7 @@ import {
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useUserSettings, type UserSettingsData } from '../../hooks/useUserSettings'
-import { useHasGlobalAccess } from '@flowise/store'
+import { useHasGlobalAccess } from '@universo/store'
 
 export interface SettingsDialogProps {
     open: boolean

@@ -8,7 +8,6 @@ export { store, persister } from './index.jsx'
 // Context exports
 export { default as ConfirmContext } from './context/ConfirmContext.jsx'
 export { default as ConfirmContextProvider } from './context/ConfirmContextProvider.jsx'
-export { flowContext, ReactFlowContext } from './context/ReactFlowContext.jsx'
 
 // CASL Ability context
 export { default as AbilityContext } from './context/AbilityContext.jsx'
