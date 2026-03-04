@@ -1,377 +1,143 @@
-# Flowise UI
+# Universo Core Frontend
 
-🚨 **LEGACY CODE WARNING** 🚨  
-This package is part of the legacy Flowise architecture and is scheduled for removal/refactoring after the Universo Platformo migration is complete (estimated Q2 2026). New features should be developed in the modern `@universo/*` packages instead.
+✅ **Modern Package** — `@universo/core-frontend`
 
 ## Overview
 
-The main React frontend application for the Universo Platformo visual programming interface, providing a comprehensive web-based UI for building, managing, and deploying AI workflows. This is the primary user interface that integrates all Flowise functionality with modern Universo features.
+The main React frontend application for Universo Platformo. This is the entry point that bootstraps the entire web UI — it wires together authentication, routing, state management, i18n, and all feature packages into a single-page application served by Vite.
 
 ## Package Information
 
-- **Package**: `flowise-ui`
-- **Version**: `2.2.8` (frozen legacy version)
-- **Type**: React Frontend Application (Legacy)
-- **Framework**: React 18 + Vite + Material-UI + React Flow
-- **Pattern**: Main application that consumes all other packages
-- **Build System**: Vite with 8GB memory allocation
+- **Package**: `@universo/core-frontend`
+- **Version**: `0.1.0`
+- **Type**: React Frontend Application (Modern)
+- **Framework**: React 18 + Vite + MUI v7 + TanStack Query v5
+- **Language**: TypeScript (TSX)
+- **Pattern**: Shell application that composes `@universo/*` feature packages
+- **Build System**: Vite (production build to `build/`)
 
 ## Key Features
 
-### 🎨 Visual Programming Interface
-- **React Flow Canvas**: Drag-and-drop node-based visual programming
-- **200+ AI Node Components**: Complete library of LangChain and AI integration nodes
-- **Real-time Execution**: Live workflow execution with streaming results
-- **Template System**: Reusable workflow templates and marketplace integration
+### 🏗️ Application Shell
+- **Provider Composition**: Redux store, React Query, Auth, Router, Snackbar, Confirm dialogs
+- **Conditional StrictMode**: Enabled in development only to avoid Router context loss in production
+- **Bootstrap Error Boundary**: Catch-all error boundary with diagnostics logging
+- **Global Diagnostics**: `window.onerror` / `unhandledrejection` listeners for early boot errors
 
-### 🏗️ Application Architecture
-- **Multi-View Interface**: Canvas editor, chatbot testing, credentials management
-- **Component Integration**: Uses `@universo/template-mui` for all UI components
-- **State Management**: Redux integration via `@universo/store`
-- **Modern Package Integration**: Incorporates all `@universo/*` packages
+### 🌐 Internationalization
+- **Runtime Locale Sync**: HTML `lang` attribute and `<meta>` tags updated on language change
+- **Alternate Locales**: `<link rel="alternate" hreflang="...">` tags auto-generated
+- **Package Namespaces**: Each feature package registers its own i18n namespace
 
-### 🌐 Universo Platform Features
-- **Authentication**: Modern auth system via `@universo/auth-frontend`
-- **Spaces**: Workspace management via `@universo/spaces-frontend`
-- **Publishing**: Content publishing via `@universo/publish-frontend`
-- **Metaverses**: Virtual world integration via `@universo/metaverses-frontend`
-- **Space Builder**: 3D space creation via `@universo/space-builder-frontend`
-- **Templates**: Quiz and interactive templates
+### 🔌 Integrated Feature Packages
+- **Authentication**: `@universo/auth-frontend` — login, session, protected routes
+- **Profile**: `@universo/profile-frontend` — user profile management
+- **Applications**: `@universo/applications-frontend` — application CRUD
+- **Metahubs**: `@universo/metahubs-frontend` — metadata hub management
+- **API Client**: `@universo/api-client` — centralized Axios-based API layer
+- **UI Components**: `@universo/template-mui` — shared MUI theme, layout, navigation
 
-### 🔧 Development Features
-- **Hot Reloading**: Vite-powered development server
-- **TypeScript Support**: Mixed JS/TS with gradual migration
-- **Internationalization**: Multi-language support via `@universo/i18n`
-- **Internationalized Metadata**: HTML lang + meta tags synced with i18n (runtime + build)
-- **API Integration**: Centralized API client via `@universo/api-client`
-
-## Installation & Setup
-
-### Prerequisites
-```bash
-# System requirements
-Node.js >= 18.0.0
-PNPM >= 8.0.0
-8GB+ RAM (for build process)
-```
-
-### Development Setup
-```bash
-# Install dependencies
-pnpm install
-
-# Start development server
-pnpm dev
-
-# Build for production
-pnpm build
-
-# Clean build artifacts
-pnpm clean
-```
-
-### Environment Configuration
-```bash
-# Copy example environment
-cp .env.example .env.local
-
-# Configure environment variables
-VITE_PORT=3000
-VITE_API_BASE_URL=http://localhost:3001
-# Add other configuration as needed
-```
+### 🔧 Development
+- **Hot Reloading**: Vite dev server with proxy to backend
+- **React Query DevTools**: Enabled in development builds
+- **Service Worker**: Optional PWA support (not enabled by default)
 
 ## Architecture
 
-### Application Structure
+### Entry Point Chain
+
 ```
-src/
-├── views/                  # Main application views
-│   ├── canvas/            # Visual flow editor
-│   ├── chatbot/           # Chat interface
-│   ├── credentials/       # API credentials management
-│   ├── agentflows/        # AI agent workflows
-│   ├── publish/           # Publishing interface
-│   ├── up-auth/           # Authentication views
-│   ├── up-admin/          # Admin interface
-│   └── ...
-├── components/            # Shared components
-├── api/                   # API integration layer
-├── config/                # Configuration
-├── shims/                 # Compatibility shims
-└── App.jsx                # Main application component
+index.tsx                     → Bootstrap providers & render
+  ├─ diagnostics/             → Global error listeners (before React)
+  ├─ config/queryClient.ts    → TanStack Query v5 client factory
+  ├─ components/BootstrapErrorBoundary.tsx → Catch-all error boundary
+  ├─ App.tsx                  → Theme, i18n meta, routes
+  └─ api/client.ts            → Axios API client instance
 ```
 
-### Package Integration
-- **UI Components**: `@universo/template-mui` - Complete Material-UI library
-- **State Management**: `@universo/store` - Redux store configuration
-- **Node Components**: `flowise-components` - AI workflow nodes
-- **Modern Features**: All `@universo/*` packages for new functionality
+### Provider Stack (inside → outside)
 
-### Build Configuration
-```javascript
-// vite.config.js - Optimized for large-scale application
-{
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: { /* optimized chunking */ }
-      }
-    }
-  }
-}
+```
+<StrictMode>                  (dev only)
+  <BootstrapErrorBoundary>
+    <QueryClientProvider>
+      <Provider store={store}>
+        <BrowserRouter>
+          <SnackbarProvider>
+            <ConfirmContextProvider>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </ConfirmContextProvider>
+          </SnackbarProvider>
+        </BrowserRouter>
+      </Provider>
+    </QueryClientProvider>
+  </BootstrapErrorBoundary>
+</StrictMode>
 ```
 
-## Internationalized Metadata
+### Key Dependencies
 
-This app keeps `<html lang>`, `<title>`, and key meta tags in sync with the active i18n language:
-- Runtime sync happens in `src/App.jsx`.
-- Early `lang` is set by an inline script in `index.html` before React loads.
-
-Supported languages are injected at build time:
-- Source list: `@universo/i18n` `supported-languages.json`
-- Vite HTML transform: `vite.config.js` replaces `__SUPPORTED_LANGS__`
-- `public/index.html` is synced by `scripts/sync-supported-langs.mjs` (prebuild)
-
-Example inline snippet:
-```html
-const supportedLanguages = __SUPPORTED_LANGS__
-```
-
-## Views & Features
-
-### Canvas Editor (`/canvas`)
-- Visual workflow editor with React Flow
-- Drag-and-drop node placement
-- Real-time connection validation
-- Workflow execution and testing
-
-### Chatbot Interface (`/chatbot`)
-- Interactive chat testing
-- Conversation history
-- Message feedback system
-- Streaming response handling
-
-### Credentials Management (`/credentials`)
-- API key management
-- Service authentication
-- Secure credential storage
-- Integration testing
-
-### Publishing Platform (`/publish`)
-- Content creation and management
-- Publication workflow
-- Template system integration
-
-### Administrative Interface (`/up-admin`)
-- User management
-- System configuration
-- Analytics and monitoring
-
-## API Integration
-
-### useApi Hook Pattern
-```javascript
-import { useApi } from '@universo/template-mui/hooks'
-
-function MyComponent() {
-  const { request } = useApi(fetchList)
-  
-  useEffect(() => {
-    request()
-  }, [request])
-}
-```
-
-### API Client Integration
-```javascript
-import { useApiClient } from '@universo/api-client'
-
-function DataComponent() {
-  const api = useApiClient()
-  
-  const fetchData = async () => {
-    const response = await api.get('/api/chatflows')
-    return response.data
-  }
-}
-```
+| Dependency | Purpose |
+|---|---|
+| `@universo/store` | Redux store + ConfirmContextProvider |
+| `@universo/template-mui` | Shared MUI theme, layout, SCSS |
+| `@universo/auth-frontend` | AuthProvider + session hooks |
+| `@universo/api-client` | Axios wrapper with interceptors |
+| `@universo/i18n` | i18next initialization singleton |
+| `@tanstack/react-query` | Server state management |
+| `react-router-dom` | Client-side routing |
+| `notistack` | Snackbar notifications |
 
 ## File Structure
 
 ```
-packages/flowise-core-frontend/base/
-├── public/                 # Static assets
-├── src/
-│   ├── views/             # Application views (15+ modules)
-│   │   ├── canvas/        # Visual flow editor
-│   │   ├── chatbot/       # Chat interface
-│   │   ├── credentials/   # Credentials management
-│   │   ├── agentflows/    # Agent workflows
-│   │   ├── assistants/    # AI assistants
-│   │   ├── docstore/      # Document storage
-│   │   ├── marketplaces/  # Template marketplace
-│   │   ├── publish/       # Publishing platform
-│   │   ├── settings/      # Application settings
-│   │   ├── tools/         # Tool management
-│   │   ├── up-admin/      # Admin interface
-│   │   ├── up-auth/       # Authentication
-│   │   └── variables/     # Variable management
-│   ├── components/        # Shared components
-│   │   └── BootstrapErrorBoundary.jsx
-│   ├── api/              # API integration
-│   ├── config/           # Configuration
-│   ├── diagnostics/      # Debug utilities
-│   ├── shims/            # Compatibility layers
-│   ├── App.jsx           # Main application
-│   └── index.jsx         # Application entry point
-├── .env.example          # Environment template
-├── vite.config.js        # Vite configuration
-├── package.json
-├── README.md             # This file
-└── LICENSE-Flowise.md
+packages/universo-core-frontend/
+└── base/
+    ├── public/                # Static assets & index.html
+    ├── scripts/               # Build-time scripts (sync-supported-langs)
+    ├── src/
+    │   ├── api/               # API client instance
+    │   ├── components/        # BootstrapErrorBoundary
+    │   ├── config/            # queryClient factory
+    │   ├── diagnostics/       # Global error listeners
+    │   ├── App.tsx            # Root component (theme, i18n meta, routes)
+    │   ├── index.tsx          # Entry point (provider composition)
+    │   └── serviceWorker.ts   # Optional PWA registration
+    ├── vite.config.js         # Vite configuration with aliases & proxy
+    ├── package.json
+    ├── README.md
+    └── README-RU.md
 ```
 
-## Legacy Status & Migration Plan
+## Configuration
 
-### Current State (2024)
-- ✅ **Functional**: Complete working React application
-- ✅ **Integrated**: Successfully incorporates all modern `@universo/*` packages
-- ✅ **Maintained**: Active development with modern feature integration
-- ⚠️ **Mixed Architecture**: Combines legacy Flowise with modern Universo features
+### Environment Variables
 
-### Migration Timeline
-- **Q1 2025**: Complete integration of remaining `@universo/*` packages
-- **Q2 2025**: Begin gradual migration away from legacy Flowise components
-- **Q3 2025**: Create new modern UI application structure
-- **Q4 2025**: Deprecate legacy views and components
-- **Q1 2026**: Launch new modern UI application
-- **Q2 2026**: Complete migration and retire legacy UI
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_PORT` | No | Dev server port (default: from Vite config) |
+| `PUBLIC_URL` | No | Base URL for asset loading |
 
-### Replacement Strategy
-1. **Modern UI Framework**: New React application with modern architecture
-2. **Component Migration**: Gradual replacement of legacy components
-3. **View Modernization**: Rebuild views with modern design system
-4. **Performance Optimization**: Optimize bundle size and runtime performance
-5. **Developer Experience**: Improve development workflow and tooling
+### Vite Aliases
 
-## Dependencies
-
-### Core React Dependencies
-```json
-{
-  "react": "^18.3.1",
-  "react-dom": "^18.3.1",
-  "react-router-dom": "~6.3.0",
-  "react-redux": "^8.0.5"
-}
-```
-
-### Material-UI Dependencies
-```json
-{
-  "@mui/material": "5.15.0",
-  "@mui/icons-material": "5.0.3",
-  "@mui/x-data-grid": "6.8.0"
-}
-```
-
-### Modern Universo Packages
-```json
-{
-  "@universo/auth-frontend": "workspace:*",
-  "@universo/api-client": "workspace:*",
-  "@universo/i18n": "workspace:*",
-  "@universo/spaces-frontend": "workspace:*",
-  "@universo/publish-frontend": "workspace:*"
-}
-```
-
-### Legacy Flowise Packages
-```json
-{
-  "@universo/store": "workspace:*",
-  "@universo/template-mui": "workspace:*"
-}
-```
+The `@/` prefix resolves to `src/` directory. All workspace package imports use `@universo/` scope via PNPM workspace resolution.
 
 ## Development
 
-### Development Server
 ```bash
-# Start development server
-pnpm dev
-
-# Server will start at http://localhost:3000
-# Hot reloading enabled
+# From project root
+pnpm install
+pnpm build              # Full workspace build
+pnpm dev                # Start dev servers (resource-intensive)
 ```
 
-### Build Process
-```bash
-# Production build (requires 8GB RAM)
-NODE_OPTIONS='--max-old-space-size=8192' pnpm build
+> **Note**: Always run commands from the project root. Individual package builds are for validation only — use `pnpm build` at root to propagate changes.
 
-# Build outputs to build/ directory
-# Optimized for production deployment
-```
+## Related Packages
 
-### Adding New Features
-⚠️ **Development Guidelines**:
-1. **Prefer Modern Packages**: Use `@universo/*` packages for new features
-2. **Component Reuse**: Utilize `@universo/template-mui` components when possible
-3. **State Management**: Use Redux store via `@universo/store`
-4. **API Integration**: Use `@universo/api-client` for backend communication
-5. **Internationalization**: Support multiple languages via `@universo/i18n`
-
-## Integration Points
-
-### Modern Package Integration
-- **Authentication**: `@universo/auth-frontend` for login/logout flows
-- **API Client**: `@universo/api-client` for backend communication
-- **Internationalization**: `@universo/i18n` for multi-language support
-- **Spaces**: `@universo/spaces-frontend` for workspace management
-- **Publishing**: `@universo/publish-frontend` for content creation
-
-### Legacy Package Dependencies
-- **UI Library**: `@universo/template-mui` for all UI components
-- **State Store**: `@universo/store` for Redux state management
-- **Node System**: Direct integration with `flowise-components`
-
-## Performance Considerations
-
-### Build Optimization
-- **Memory Allocation**: 8GB heap size for complex builds
-- **Code Splitting**: Vite-based chunk optimization
-- **Bundle Analysis**: Regular bundle size monitoring
-- **Tree Shaking**: Optimized imports for smaller bundles
-
-### Runtime Performance
-- **React Query**: Caching and data synchronization
-- **Virtualization**: Large list handling in data grids
-- **Lazy Loading**: Route-based code splitting
-- **Memoization**: Component and calculation optimization
-
-## Known Limitations
-
-1. **Large Bundle Size**: Complex application with many dependencies
-2. **Mixed Architecture**: Legacy and modern code coexistence
-3. **Memory Requirements**: High memory usage during build
-4. **Component Complexity**: Deep component hierarchy
-5. **Legacy Dependencies**: Reliance on legacy Flowise packages
-
-## Contributing
-
-🔄 **Active Development**: This package is actively developed but with migration planning:
-1. **New Features**: Should integrate modern `@universo/*` packages
-2. **Legacy Code**: Maintain compatibility with existing functionality
-3. **Migration Preparation**: Document and plan for future migration
-4. **Performance**: Monitor and optimize application performance
-5. **Modern Patterns**: Use modern React patterns for new code
-
-## License
-
-SEE LICENSE IN LICENSE-Flowise.md - Apache License Version 2.0
-
----
-
-**Migration Support**: This UI application is the primary integration point for the entire platform. Migration planning is crucial for maintaining functionality while modernizing the architecture.
+- [universo-core-backend](../../universo-core-backend/base/README.md) — Express backend server
+- [universo-template-mui](../../universo-template-mui/base/README.md) — Shared UI components and theme
+- [universo-i18n](../../universo-i18n/base/README.md) — Internationalization system
+- [auth-frontend](../../auth-frontend/base/README.md) — Authentication UI

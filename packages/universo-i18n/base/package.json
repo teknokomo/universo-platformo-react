@@ -1,6 +1,6 @@
 {
   "name": "@universo/i18n",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Centralized i18n instance for Universo Platformo",
   "type": "module",
   "main": "./src/index.ts",
@@ -69,7 +69,7 @@
     "name": "Vladimir Levadnij and Teknokomo",
     "email": "info@universo.pro"
   },
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "Omsk Open License",
   "repository": {
     "type": "git",
     "url": "https://github.com/teknokomo/universo-platformo-react.git",

@@ -14,7 +14,7 @@ import logger, { expressRequestLogger } from './utils/logger'
 import { getDataSource } from './DataSource'
 import { Telemetry } from './utils/telemetry'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
-import flowiseApiV1Router from './routes'
+import apiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
 import {
     initializeRateLimiters as initializeMetahubsRateLimiters,
@@ -74,7 +74,7 @@ export class App {
         }
 
         // Limit is needed to allow sending/receiving base64 encoded string
-        const fileSizeLimit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
+        const fileSizeLimit = process.env.FILE_SIZE_LIMIT || process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
         this.app.use(express.json({ limit: fileSizeLimit }))
         this.app.use(express.urlencoded({ limit: fileSizeLimit, extended: true }))
         if (process.env.NUMBER_OF_PROXIES && parseInt(process.env.NUMBER_OF_PROXIES) > 0)
@@ -213,7 +213,7 @@ export class App {
         }
 
         // Mount API v1 routes
-        this.app.use('/api/v1', flowiseApiV1Router)
+        this.app.use('/api/v1', apiV1Router)
 
         // ═══════════════════════════════════════════════════════════════
         // Serve UI static files

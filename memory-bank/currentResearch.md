@@ -1,5 +1,11 @@
 # Current Research
 
+## 2026-03-04: Codename QA closure follow-up
+
+- Research outcome implemented: codename retry policy standardized across backend domains using shared constants.
+- Added direct unit coverage for codename validation/sanitization (`@universo/utils`) and retry candidate generation (`metahubs-backend` helper).
+- No unresolved blocker from this research thread remains.
+
 ## 2026-02-10: Application Runtime 404 on Checkbox Update
 
 - Root cause: runtime update requests did not include `catalogId`, so backend defaulted to the first catalog by codename and returned 404 (row not found) for other catalogs.

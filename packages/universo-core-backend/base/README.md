@@ -1,298 +1,154 @@
-# Flowise Server
+# Universo Core Backend
 
-🚨 **LEGACY CODE WARNING** 🚨  
-This package is part of the legacy Flowise architecture and is scheduled for removal/refactoring after the Universo Platformo migration is complete (estimated Q2 2026). New features should be developed in the modern `@universo/*` packages instead.
+✅ **Modern Package** — `@universo/core-backend`
 
 ## Overview
 
-The main backend server for Universo Platformo, providing the foundational Express-based REST API, database management, and authentication services. This package serves as the central hub for all Flowise functionality and integrates with the modern `@universo/*` service packages.
+The main backend server for Universo Platformo. This is the central Express-based application that boots the HTTP server, connects to PostgreSQL via TypeORM, sets up authentication middleware, registers all API routes, and integrates feature-specific `@universo/*` backend packages.
 
 ## Package Information
 
-- **Package**: `flowise`
-- **Version**: `2.2.8` (frozen legacy version)
-- **Type**: Backend Server (Legacy)
+- **Package**: `@universo/core-backend`
+- **Version**: `0.1.0`
+- **Type**: Backend Server (Modern)
 - **Framework**: Express.js + TypeORM + OCLIF CLI
+- **Language**: TypeScript
 - **Database**: PostgreSQL via Supabase
 - **Authentication**: Passport.js + JWT + Supabase integration
 
 ## Key Features
 
 ### 🎯 Core Server Functionality
-- **Express API Server**: Complete REST API with rate limiting and middleware
-- **Database Management**: TypeORM integration with PostgreSQL and Supabase
-- **Authentication System**: Passport.js sessions with JWT token verification
-- **Entity Registry**: Centralized TypeORM entity and migration management
+- **Express API Server**: REST API with rate limiting, CORS, and body parsing
+- **TypeORM DataSource**: Centralized database connection with migration runner
+- **Entity & Migration Registry**: All packages register entities and migrations through the core
+- **OCLIF CLI**: `universo start` command with configurable port and host
+
+### 🔐 Security
+- **CSRF Protection**: Token-based CSRF middleware
+- **Rate Limiting**: Express rate limiter with configurable window
+- **Request Sanitization**: XSS protection middleware
+- **Session Management**: Passport.js with secure cookie sessions
+- **API Key Validation**: Multi-layer auth (JWT → session → API key fallback)
+
+### 🏗️ Architecture
+- **Modular Routes**: Feature routes imported from `@universo/*` backend packages
+- **Error Handling**: Centralized error middleware with `InternalError` class
 - **Queue Management**: Redis-based job queue for background processing
-- **Metrics & Telemetry**: Prometheus and OpenTelemetry integration
-
-### 🔐 Security Features
-- **CSRF Protection**: Token-based CSRF protection using `csurf`
-- **Rate Limiting**: Express rate limiting with Redis backend
-- **XSS Protection**: Request sanitization middleware
-- **Session Management**: Secure cookie-based sessions
-- **API Key Validation**: Multi-layer authentication with fallback to API keys
-
-### 🏗️ Architecture Integration
-- **Modern Service Integration**: Imports and uses `@universo/*` packages
-- **Flowise Node System**: Integration with legacy `flowise-components` and `flowise-ui`
-- **Multiplayer Support**: Colyseus multiplayer server integration
-- **Canvas System**: Integration with `@universo/spaces-backend` for flow execution
+- **Metrics**: Prometheus and OpenTelemetry integration (optional)
+- **Multiplayer**: Colyseus server integration for real-time features
 
 ## CLI Commands (OCLIF)
 
-### Basic Commands
 ```bash
 # Start the server
 pnpm start
 
-# Start in development mode
+# Start in development mode (from project root)
 pnpm dev
-
-# List all available commands
-pnpm flowise --help
-
-# User management
-pnpm user                              # List all users
-pnpm user --email admin@example.com --password newpass  # Reset password
 ```
 
-### Environment Variables
-```bash
-# Core Configuration
-PORT=3000
-HOST=localhost
-NODE_ENV=production
+## Architecture
 
-# Database (Supabase)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_JWT_SECRET=your-jwt-secret
+### Boot Sequence
 
-# Session Management
-SESSION_SECRET=your-strong-secret
-SESSION_COOKIE_NAME=up.session
-SESSION_COOKIE_MAXAGE=86400000
-SESSION_COOKIE_SAMESITE=lax
-SESSION_COOKIE_SECURE=false
-
-# Rate Limiting
-REDIS_URL=redis://localhost:6379
-
-# File Handling
-FLOWISE_FILE_SIZE_LIMIT=50mb
-
-# Metrics (Optional)
-ENABLE_METRICS=true
-METRICS_PROVIDER=prometheus
+```
+bin/run                        → OCLIF CLI entry point
+  └─ commands/start.ts         → Start command
+       └─ index.ts (App)       → Express application class
+            ├─ DataSource.ts   → TypeORM connection + migrations
+            ├─ middlewares/     → Auth, CSRF, rate-limit, error handling
+            ├─ routes/         → API v1 router (aggregates feature routes)
+            └─ utils/          → Server utilities (paths, versions)
 ```
 
-## Architecture Components
+### Key Modules
 
-### Main Server (`src/index.ts`)
-- **App Class**: Central application management
-- **Database Initialization**: TypeORM setup and migrations
-- **Middleware Stack**: Authentication, CORS, rate limiting, session management
-- **Route Registration**: API v1 routes and authentication endpoints
+| Module | Purpose |
+|---|---|
+| `index.ts` | `App` class — Express setup, middleware chain, route mounting |
+| `DataSource.ts` | TypeORM DataSource factory with pool management |
+| `routes/` | API v1 router that imports feature-specific routers |
+| `middlewares/errors/` | Centralized Express error handler |
+| `errors/internalError/` | `InternalError` custom HTTP error class |
+| `utils/` | `getUserHome()`, `getAppVersion()`, path utilities |
+| `database/entities/` | Central entity registry (all packages register here) |
+| `database/migrations/` | Central migration registry (Postgres) |
 
-### Authentication System
-- **JWT Verification**: Supabase JWT token validation
-- **Session Management**: Passport.js + express-session
-- **Multi-tier Auth**: Session tokens → Bearer tokens → API keys
-- **CSRF Protection**: Cross-site request forgery protection
+### Data Directory
 
-### Database Layer
-- **Entity Registry**: Central registration in `src/database/entities/index.ts`
-- **Migration Registry**: PostgreSQL migrations in `src/database/migrations/postgres/index.ts`
-- **TypeORM Integration**: Full repository pattern implementation
-- **Supabase Connection**: Direct PostgreSQL connection via Supabase
-
-### CLI Framework (OCLIF)
-- **Commands Directory**: `src/commands/` contains all CLI implementations
-- **Base Command**: Shared functionality in `src/commands/base.ts`
-- **Start Command**: Main server startup in `src/commands/start.ts`
-- **User Management**: User CRUD operations for authentication
-
-## Dependencies
-
-### Core Framework Dependencies
-```json
-{
-  "express": "^4.18.2",
-  "@oclif/core": "^3.18.1",
-  "typeorm": "^0.3.20",
-  "passport": "^0.7.0",
-  "express-session": "^1.17.3"
-}
-```
-
-### Universo Integration Dependencies
-```json
-{
-  "@universo/auth-backend": "workspace:*",
-  "@universo/spaces-backend": "workspace:*",
-  "@universo/metaverses-backend": "workspace:*",
-  "@universo/multiplayer-colyseus-backend": "workspace:*",
-  "@universo/utils": "workspace:*"
-}
-```
-
-### AI & LangChain Dependencies
-```json
-{
-  "langchain": "~0.1.25",
-  "@langchain/core": "~0.1.52",
-  "llamaindex": "^0.1.12",
-  "chromadb": "^1.8.1"
-}
-```
+The server stores runtime data in `~/.universo/` (configurable via `UNIVERSO_PATH` env var, with `FLOWISE_PATH` fallback for backward compatibility).
 
 ## File Structure
 
 ```
-packages/flowise-core-backend/base/
-├── bin/                    # OCLIF CLI executables
-│   ├── run                 # Main CLI entry point
-│   ├── run.cmd            # Windows CLI wrapper
-│   ├── dev                # Development CLI entry
-│   └── dev.cmd            # Windows dev wrapper
-├── src/
-│   ├── commands/          # OCLIF command implementations
-│   │   ├── base.ts        # Base command class
-│   │   ├── start.ts       # Server start command
-│   │   └── user.ts        # User management commands
-│   ├── database/          # Database layer
-│   │   ├── entities/      # TypeORM entity registry
-│   │   └── migrations/    # Migration registry
-│   ├── middlewares/       # Express middleware
-│   ├── routes/           # API route definitions
-│   ├── utils/            # Utility functions
-│   ├── metrics/          # Metrics providers
-│   ├── queue/            # Queue management
-│   ├── DataSource.ts     # TypeORM data source
-│   ├── Interface.ts      # Type definitions
-│   └── index.ts          # Main server application
-├── cypress/              # E2E testing with Cypress
-├── .env.example         # Environment variables template
-├── package.json         # Package configuration
-└── README.md           # This file
+packages/universo-core-backend/
+└── base/
+    ├── bin/                    # CLI entry point (OCLIF)
+    ├── src/
+    │   ├── commands/           # OCLIF commands (start)
+    │   ├── database/
+    │   │   ├── entities/       # Central entity registry
+    │   │   └── migrations/     # Central migration registry (postgres)
+    │   ├── errors/
+    │   │   └── internalError/  # InternalError HTTP error class
+    │   ├── middlewares/
+    │   │   └── errors/         # Express error handler
+    │   ├── routes/             # API v1 router
+    │   ├── utils/              # Server utilities
+    │   ├── DataSource.ts       # TypeORM DataSource factory
+    │   ├── Interface.ts        # Shared TypeScript interfaces
+    │   └── index.ts            # Express App class (main server)
+    ├── package.json
+    ├── README.md
+    └── README-RU.md
 ```
 
-## Legacy Status & Migration Plan
+## Configuration
 
-### Current State (2024)
-- ✅ **Functional**: Fully operational legacy server
-- ✅ **Integrated**: Successfully integrated with modern `@universo/*` packages
-- ✅ **Secured**: Updated authentication system with Supabase integration
-- ⚠️ **Frozen**: Version locked at 2.2.8, no new major features
+### Environment Variables
 
-### Migration Timeline
-- **Q1 2025**: Continue modernization of `@universo/*` packages
-- **Q2 2025**: Begin gradual migration of server functionality
-- **Q3 2025**: Deprecation warnings and migration documentation
-- **Q4 2025**: Feature freeze and migration preparation
-- **Q1 2026**: Begin server refactoring
-- **Q2 2026**: Complete migration and legacy removal
+| Variable | Required | Description |
+|---|---|---|
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+| `SUPABASE_JWT_SECRET` | Yes | JWT secret for token verification |
+| `UNIVERSO_PATH` | No | Custom data directory (default: `~/.universo`) |
+| `FILE_SIZE_LIMIT` | No | Max upload file size (default: `50mb`) |
+| `PORT` | No | Server port (default: `3000`) |
 
-### Replacement Strategy
-1. **API Layer**: Migrate to modern Express setup in new `@universo/server` package
-2. **Database Layer**: Retain TypeORM patterns but modernize entity management
-3. **Authentication**: Keep Supabase integration but simplify middleware stack
-4. **CLI Tools**: Migrate essential commands to new package structure
-5. **Queue System**: Modernize background job processing
+### Adding Entities & Migrations
 
-## Testing
+Feature packages register their TypeORM entities and migrations through the central registries:
 
-### E2E Testing with Cypress
-```bash
-# Install Cypress
-./node_modules/.bin/cypress install
+```typescript
+// 1. Define entity in your package
+// packages/your-backend/base/src/database/entities/YourEntity.ts
 
-# Build project first
-pnpm build
+// 2. Register in central entity registry
+// packages/universo-core-backend/base/src/database/entities/index.ts
+export { YourEntity } from '@universo/your-backend/entities'
 
-# Run E2E tests
-pnpm run e2e
-
-# Open Cypress GUI (development only)
-pnpm run cypress:open
+// 3. Register migrations in central migration registry
+// packages/universo-core-backend/base/src/database/migrations/postgres/index.ts
+import { yourMigrations } from '@universo/your-backend/migrations'
+export const postgresMigrations = [...yourMigrations, ...]
 ```
-
-### Test Structure
-- **Cypress Tests**: Located in `cypress/` directory
-- **Support Files**: Custom commands and utilities in `cypress/support/`
-- **Integration Tests**: Full flow testing for API endpoints
 
 ## Development
 
-### Local Development
 ```bash
-# Install dependencies
+# From project root
 pnpm install
-
-# Start in development mode
-pnpm dev
-
-# Build project
-pnpm build
-
-# Start production server
-pnpm start
+pnpm build              # Full workspace build
+pnpm start              # Start production server
 ```
 
-### Adding New Features (Legacy Package)
-⚠️ **Important**: This is legacy code. New features should be developed in modern `@universo/*` packages when possible.
+> **Note**: Always run commands from the project root. Individual package builds are for validation only — use `pnpm build` at root to propagate changes.
 
-If you must add features to this legacy package:
-1. Follow existing patterns and architecture
-2. Ensure compatibility with modern packages
-3. Add appropriate deprecation notices
-4. Document migration path for the feature
+## Related Packages
 
-## Rate Limiting & Production Deployment
-
-For production deployments with Redis-based rate limiting, refer to the comprehensive guide:
-
-**[Rate Limiting Deployment Guide](../universo-utils/base/DEPLOYMENT.md)**
-
-This guide covers:
-- Redis configuration and connection setup (`REDIS_URL`)
-- Docker, Kubernetes, and PM2 deployment examples
-- Health checks and monitoring
-- Troubleshooting common issues
-
-## Integration Points
-
-### Modern Package Integration
-- **Authentication**: Uses `@universo/auth-backend` for Passport.js configuration
-- **Spaces**: Integrates `@universo/spaces-backend` for canvas flow execution
-- **Metaverses**: Uses `@universo/metaverses-backend` for rate limiter initialization
-- **Multiplayer**: Coordinates with `@universo/multiplayer-colyseus-backend`
-- **Utils**: Leverages `@universo/utils` for networking and rate limiting
-
-### Legacy Package Dependencies
-- **UI**: Serves static files from `flowise-ui` package
-- **Components**: Integrates with `flowise-components` node system
-- **Templates**: Uses `flowise-template-mui` for UI components
-
-## Documentation
-
-- **API Documentation**: See `/docs/en/api-reference/` for REST API details
-- **Deployment Guides**: Check `/docs/en/getting-started/` for setup instructions
-- **Migration Guides**: Refer to `/docs/en/migration-guide/` for version updates
-
-## Contributing
-
-⚠️ **Legacy Package Notice**: This package is in maintenance mode. For new contributions:
-1. Consider if the feature belongs in a modern `@universo/*` package instead
-2. Follow existing code patterns if changes are necessary
-3. Add appropriate tests for any modifications
-4. Document the migration path for new features
-
-## License
-
-Apache License Version 2.0 - See the [LICENSE](../../LICENSE) file for details.
-
----
-
-**Migration Support**: If you need help migrating features from this legacy package to modern alternatives, please refer to the migration documentation or create an issue for guidance.
+- [universo-core-frontend](../../universo-core-frontend/base/README.md) — React frontend application
+- [universo-types](../../universo-types/base/README.md) — Shared TypeScript types
+- [universo-utils](../../universo-utils/base/README.md) — Shared utilities (UUID, codename, etc.)
+- [auth-backend](../../auth-backend/base/README.md) — Authentication service

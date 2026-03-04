@@ -1,10 +1,10 @@
 {
     "name": "@universo/core-frontend",
-    "version": "2.2.8",
-    "license": "SEE LICENSE IN LICENSE-Flowise.md",
+    "version": "0.1.0",
+    "license": "Omsk Open License",
     "homepage": "https://universo.pro",
     "author": {
-        "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+        "name": "Vladimir Levadnij and Teknokomo",
         "email": "info@universo.pro"
     },
     "dependencies": {
@@ -28,7 +28,6 @@
         "@universo/i18n": "workspace:*",
         "@universo/metahubs-frontend": "workspace:*",
         "@universo/profile-frontend": "workspace:*",
-        "@universo/template-mui": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "@yandex/smart-captcha": "catalog:",
@@ -50,7 +49,7 @@
         "dev": "vite",
         "start": "vite",
         "prebuild": "node scripts/sync-supported-langs.mjs",
-        "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build",
+        "build": "vite build",
         "clean": "rimraf build",
         "nuke": "rimraf build node_modules .turbo"
     },

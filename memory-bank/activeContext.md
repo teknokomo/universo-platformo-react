@@ -6,7 +6,7 @@
 
 ---
 
-## Current Focus: Legacy Cleanup — Completed
+## Current Focus: Catalog Attributes DnD Deep Fix — Completed
 
 **Status**: ✅ Completed
 **Date**: 2026-03-04
@@ -14,25 +14,63 @@
 
 ### What was done
 
-Complete repository cleanup — removed all legacy Flowise packages and renamed remaining ones to @universo/*.
+Fixed the remaining root-cause mismatch that still blocked attribute drag start after previous UI/i18n fixes.
 
-- **39 packages deleted** (38 from plan + flowise-template-mui merged)
-- **3 packages renamed**: core-backend, core-frontend, store
-- **24 packages remaining** (was ~63)
-- **Final QA hardening complete (2026-03-04)**
-- Final dependency hardening refined: replaced global `minimatch` override with scoped overrides (`glob>minimatch`, `@oclif/core>minimatch`) to keep lint tooling stable
-- `pnpm build:clean`: 23/23 packages successful
-- Targeted tests/lint for touched packages: all pass
-- Security: `pnpm audit --prod --audit-level=high` has no high/critical findings (remaining low/moderate only)
-- **Zero @flowise/ references** in `packages/**` imports/config/docs
+1. **Deep root cause confirmed** — Attributes DnD used an external provider from metahubs while sortable rows were rendered by template-mui. With different peer-resolved `@dnd-kit` instances in the workspace graph, this can still produce split context even after bundling externals fixes.
+
+2. **Technical fix implemented** — Unified runtime DnD imports through `@universo/template-mui`:
+	- re-exported DnD runtime APIs (`DndContext`, sensors, `useDroppable`, `sortableKeyboardCoordinates`) from template-mui
+	- switched attribute DnD provider and child droppable area in metahubs to consume those shared exports
+
+3. **Diagnostics added** — Added opt-in drag diagnostics in `AttributeDndProvider` gated by `localStorage['debug:metahubs:attributes-dnd'] = '1'`.
+
+### Files modified
+
+- `packages/universo-template-mui/base/src/components/index.ts` — shared DnD runtime exports
+- `packages/universo-template-mui/base/src/index.ts` — root re-exports for shared DnD runtime
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/AttributeDndProvider.tsx` — unified DnD imports + debug logs
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx` — unified `useDroppable` import
+
+### Build verification
+
+- Full workspace build: 23/23 packages (3m39s)
+- Lint: template-mui 0 errors, metahubs-frontend 0 errors
 
 ### Next steps
 
-- Branch `cleanup/remove-legacy-packages` is ready for merge to `main`
-- After merge: create fresh database (test DB will be deleted per plan)
-- Consider running `pnpm dev` to verify runtime behavior before merge
+- Test full application flow end-to-end
+- Commit all changes
 
-## Previous Focus: QA Tech Debt Cleanup — Completed
+## Previous Focus: Post-Cleanup Deep Hardening — Completed
+
+**Status**: ✅ Completed
+**Date**: 2026-03-04
+**Branch**: `cleanup/remove-legacy-packages`
+
+### What was done
+
+Comprehensive deep hardening across 5 areas after the main legacy cleanup refactor:
+
+1. **Ghost folder & legacy references** — Deleted `packages/flowise-core-backend/` ghost directory. Fixed all Flowise naming in core-backend: `.flowise` → `.universo` (DataSource), `flowiseApiV1Router` → `apiV1Router`, `FLOWISE_FILE_SIZE_LIMIT` → `FILE_SIZE_LIMIT`, `InternalFlowiseError` → `InternalError`. Updated 20+ docs/CI/agent-instruction files with correct paths.
+
+2. **Permission subjects** — Removed 6 legacy RBAC subjects (metaverses, spaces, uniks, sections, entities, canvases) from `@universo/types` admin.ts; added `settings` and `admin`.
+
+3. **Sidebar menu** — Reordered rootMenuItems: Applications → Profile → Docs | Metahubs → Admin. Added smart selected state for Applications menu item.
+
+4. **Core-frontend deep clean** — Deleted React 18 shims (`useSyncExternalStore` polyfills), removed 8 Vite aliases + 3 exclusions, replaced deprecated `optimizeDeps.disabled` with `noDiscovery: true`, converted all 6 JSX/JS files to fully-typed TSX/TS, updated `index.html` entry point, rewrote READMEs.
+
+5. **Core-backend deep clean** — Deleted `marketplaces/` directory (66 Flowise JSON templates), all naming fixes above, rewrote READMEs.
+
+### Build verification
+
+- Full workspace build: 23/23 packages successful (3m05s)
+
+### Next steps
+
+- Test full application flow end-to-end
+- Commit all changes to `cleanup/remove-legacy-packages` branch
+
+## Previous Focus: QA Findings Full Closure — Completed
 
 1. **Backend auto-set display attr (Fix 1)** — in `reorderAttribute()`, after cross-list move to a child list, counts siblings in target list. If count === 1 (attribute is the only child), auto-sets `is_display_attribute: true` and `is_required: true`. Ensures newly populated child lists always have a display attribute.
 
@@ -592,7 +630,7 @@ Full drag-and-drop reordering for attributes (root + child lists with cross-list
 
 - **Build**: 56/56 packages passing (`pnpm build`)
 - **Active Feature**: Comprehensive QA remediation closure fully verified and completed
-- **Key Packages**: admin-backend, admin-frontend, metahubs-backend, metahubs-frontend, universo-template-mui, flowise-core-backend
+- **Key Packages**: admin-backend, admin-frontend, metahubs-backend, metahubs-frontend, universo-template-mui, universo-core-backend
 - **Codename Defaults**: `pascal-case` style, `en-ru` alphabet, mixed alphabets disallowed
 - **Admin Settings Seed**: 3 settings in `admin.settings` table (codenameStyle, codenameAlphabet, codenameAllowMixedAlphabets)
 

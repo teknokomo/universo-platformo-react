@@ -44,6 +44,149 @@
 
 ---
 
+## Catalog Attributes DnD Deep Fix (2026-03-04)
+
+Resolved the remaining production issue where dragging catalog attributes did not start, even after full rebuild/hard refresh.
+
+### Root cause
+
+- Attribute DnD provider (`DndContext`) lived in `@universo/metahubs-frontend`
+- Sortable rows (`useSortable`) lived in `@universo/template-mui`
+- Under workspace peer resolution, this can still produce separate `@dnd-kit` runtime instances between packages, which breaks drag context sharing
+- Enumeration DnD kept working because it uses provider + sortable from template-mui in one runtime path
+
+### Changes
+
+1. **Shared DnD runtime exports in template-mui**
+  - `packages/universo-template-mui/base/src/components/index.ts`
+  - `packages/universo-template-mui/base/src/index.ts`
+  - Re-exported: `DndContext`, `DragOverlay`, `PointerSensor`, `KeyboardSensor`, `useSensors`, `useSensor`, `closestCenter`, `MeasuringStrategy`, `useDroppable`, `sortableKeyboardCoordinates`
+
+2. **Metahubs attributes switched to shared runtime imports**
+  - `packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/AttributeDndProvider.tsx`
+  - `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx`
+
+3. **Targeted diagnostics added**
+  - Opt-in debug logs for drag lifecycle in `AttributeDndProvider`
+  - Enable with: `localStorage.setItem('debug:metahubs:attributes-dnd', '1')`
+  - Disable with: `localStorage.removeItem('debug:metahubs:attributes-dnd')`
+
+### Verification
+- `pnpm --filter universo-template-mui lint` — 0 errors
+- `pnpm --filter metahubs-frontend lint` — 0 errors
+- `pnpm build` — 23/23 packages successful (3m39s)
+
+---
+
+## Fix 5 UI/UX Bugs (2026-03-04)
+
+Fixed 5 user-reported bugs across admin-frontend and metahubs-frontend.
+
+### Changes
+
+1. **Admin "settings" i18n** — Added missing `settings` key to `roles.permissions.subjects` in both ru/en admin locale files.
+
+2. **Catalog attributes DnD** — Root cause: `metahubs-frontend/tsdown.config.ts` did not externalize `@dnd-kit/*`, creating dual React contexts (bundled vs external). Added `/^@dnd-kit\//` to externals array, matching `universo-template-mui` pattern.
+
+3. **Row count pluralization** — Replaced `rowCount` with `_one/_few/_many` (ru) and `_one/_other` (en) plural forms in two metahubs i18n sections (attributes table, elements table).
+
+4. **Publication access tab i18n** — Fixed Russian `modeFullDescription`: "Publication" → "публикацию", "Метахаба" → "метахаба". Fixed 6 Russian fallback defaults in `AccessPanel.tsx` to use English.
+
+5. **Branch label i18n** — Added missing `branch` key to `publications.versions` in both locale files.
+
+### Verification
+- Build: 23/23 packages (3m55s)
+- Lint: admin-frontend 0 errors, metahubs-frontend 0 errors
+
+---
+
+## Post-Cleanup Deep Hardening (2026-03-04)
+
+Comprehensive deep hardening across core packages after the main legacy cleanup.
+
+### Changes
+
+**Ghost folder & Flowise naming**:
+- Deleted `packages/flowise-core-backend/` ghost directory (created by earlier `pnpm start`)
+- `DataSource.ts`: `.flowise` → `.universo` home directory
+- `index.ts`: `flowiseApiV1Router` → `apiV1Router`
+- `index.ts`: `FLOWISE_FILE_SIZE_LIMIT` → `FILE_SIZE_LIMIT` (backward compat)
+- `utils/index.ts`: `UNIVERSO_PATH` env var support (backward compat via `FLOWISE_PATH`)
+- Renamed `errors/internalFlowiseError/` → `errors/internalError/`, class `InternalFlowiseError` → `InternalError`
+- Updated 20+ CI/docker/agent-instruction/README files with correct `universo-core-*` paths
+
+**Admin RBAC subjects**:
+- Removed 6 legacy subjects from `@universo/types` admin.ts: `metaverses`, `spaces`, `uniks`, `sections`, `entities`, `canvases`
+- Added `settings` and `admin` — final set: `['publications', 'roles', 'instances', 'users', 'settings', 'admin']`
+
+**Sidebar menu**:
+- Reordered `rootMenuItems`: Applications → Profile → Docs | Metahubs → Admin
+- Merged Applications into root menu items (removed separate `getApplicationsMenuItem()`)
+- Added smart selected state for Applications item (highlights on `/applications/*` and `/a/*/admin/*`)
+
+**Core-frontend deep clean**:
+- Deleted `shims/` directory (React 18 native `useSyncExternalStore` makes polyfills unnecessary)
+- Removed 8 Vite aliases + 3 `optimizeDeps.exclude` entries for `use-sync-external-store`
+- Replaced deprecated `optimizeDeps.disabled: true` with `noDiscovery: true`
+- Converted all 6 source files: `App.jsx` → `.tsx`, `index.jsx` → `.tsx`, `BootstrapErrorBoundary.jsx` → `.tsx`, `queryClient.js` → `.ts`, `bootstrapDiagnostics.js` → `.ts`, `serviceWorker.js` → `.ts`
+- All files fully typed with TypeScript interfaces and annotations
+- Updated `index.html` entry point: `src/index.jsx` → `src/index.tsx`
+- Rewrote README.md and README-RU.md (removed legacy Flowise branding)
+
+**Core-backend deep clean**:
+- Deleted `marketplaces/` directory (66 Flowise JSON template files in canvases/agentflows/tools)
+- Rewrote README.md and README-RU.md (removed legacy Flowise branding)
+
+### Build Verification
+
+- Full workspace build: 23/23 packages successful (3m05s)
+
+### QA Remediation (2026-03-04)
+
+All issues from QA analysis resolved:
+- **Dead code removed**: `serviceWorker.ts` (CRA legacy, never imported) deleted
+- **Vite env fix**: `process.env.PUBLIC_URL` → `import.meta.env.BASE_URL` in `index.tsx`
+- **Type safety**: Created `src/global.d.ts` with `Window.__APP_BASEPATH__` and `ImportMetaEnv` declarations
+- **Error middleware typing**: Replaced `InternalError | any` with typed `ErrorLike` interface; removed unused import
+- **Hardcoded text**: Replaced Russian "Загрузка..." with language-neutral CSS spinner in `App.tsx`
+- **Prettier clean**: Fixed formatting in `MenuContent.tsx`, `admin.ts`, `abilities/index.ts`
+- **Gemini rules updated**: Fixed 4 stale `flowise-core-*` paths in `.gemini/rules/`
+- **Memory-bank reference**: Fixed stale `flowise-core-backend` in `activeContext.md`
+- Build: 23/23 packages successful (2m52s), lint: 0 errors
+
+---
+
+## Fix Auth Login TypeError (2026-03-04)
+
+After the legacy cleanup refactor, login was broken with `TypeError: e.get is not a function` in `useSession`. Root cause: `@/api/client.ts` exports the full `UniversoApiClient` wrapper, not a raw AxiosInstance. `AuthProvider` was receiving the wrapper object instead of the axios instance. Fixed by passing `api.$client` in `index.jsx`. Build verified (23/23).
+
+---
+
+## QA Findings Full Closure (2026-03-04)
+
+Implemented and verified full closure for the codename/CRUD QA findings.
+
+### What was fixed
+
+- **Unified retry policy**: introduced shared constants in backend helper:
+  - `CODENAME_RETRY_MAX_ATTEMPTS = 1000`
+  - `CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT = 5`
+- **Hardened codename attempts**: `buildCodenameAttempt()` now produces style-valid retry suffixes (`-<n>` for kebab-case, `<n>` for pascal-case) with deterministic max-length handling.
+- **Applied to all relevant flows**: updated copy/rename retry loops in attributes, hubs, catalogs, enumerations, enumeration values, and attribute auto-rename transfer logic.
+- **Added missing tests**:
+  - `@universo/utils`: `src/validation/__tests__/codename.test.ts` (8 tests)
+  - `@universo/metahubs-backend`: `src/tests/services/codenameStyleHelper.test.ts` (6 tests)
+
+### Verification
+
+- `pnpm --filter @universo/utils test` → pass (`11/11` files, `162/162` tests)
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/codenameStyleHelper.test.ts` → pass (`6/6`)
+- `pnpm --filter @universo/utils lint` → pass (`0` errors, warning-only legacy debt)
+- `pnpm --filter @universo/metahubs-backend lint` → pass (`0` errors, warning-only legacy debt)
+- `pnpm build` (root) → pass (`23/23` packages)
+
+---
+
 ## Legacy Cleanup — Remove Flowise Packages (2026-03-04)
 
 Massive repository cleanup: removed 39 legacy Flowise/UPDL packages, renamed remaining @flowise/* → @universo/*, cleaned all cross-references.

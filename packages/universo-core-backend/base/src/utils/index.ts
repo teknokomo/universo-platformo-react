@@ -5,7 +5,7 @@ import fs from 'fs'
  * Get user home directory
  */
 export const getUserHome = (): string => {
-    return process.env.FLOWISE_PATH ?? (process.env.HOME || process.env.USERPROFILE || '')
+    return process.env.UNIVERSO_PATH ?? process.env.FLOWISE_PATH ?? (process.env.HOME || process.env.USERPROFILE || '')
 }
 
 /**

@@ -11,7 +11,6 @@ import i18n from '@universo/i18n'
 import { useHasGlobalAccess } from '@universo/store'
 import {
     rootMenuItems,
-    getApplicationsMenuItem,
     getMetahubsMenuItem,
     getAdminMenuItems,
     getMetahubMenuItems,
@@ -60,8 +59,12 @@ export default function MenuContent() {
                         ? { component: 'a', href: item.url, target: item.target ?? '_blank', rel: 'noopener noreferrer' }
                         : { component: NavLink, to: item.url }
 
-                    // Exact match logic: selected only if pathname exactly matches item.url
-                    const isSelected = !item.external && location.pathname === item.url
+                    // Smart match logic: applications highlights on /applications/* and /a/*/admin/*
+                    const isSelected =
+                        !item.external &&
+                        (location.pathname === item.url ||
+                            (item.id === 'applications' &&
+                                (location.pathname.startsWith('/applications') || /^\/a\/[^/]+\/admin(?:\/|$)/.test(location.pathname))))
 
                     return (
                         <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
@@ -77,25 +80,6 @@ export default function MenuContent() {
                 {!instanceId && !applicationId && !metahubId && (
                     <>
                         <Divider sx={{ my: 1 }} />
-                        {/* Applications menu items */}
-                        {getApplicationsMenuItem().map((item) => {
-                            if (item.type === 'divider') return null
-                            const Icon = item.icon
-                            const isSelected =
-                                location.pathname === item.url ||
-                                location.pathname.startsWith('/applications') ||
-                                location.pathname.match(/^\/a\/[^/]+\/admin(?:\/|$)/) !== null
-                            return (
-                                <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                                    <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
-                                        <ListItemIcon>
-                                            <Icon size={20} stroke={1.5} />
-                                        </ListItemIcon>
-                                        <ListItemText primary={t(item.titleKey)} />
-                                    </ListItemButton>
-                                </ListItem>
-                            )
-                        })}
                         {/* Metahubs menu items */}
                         {getMetahubsMenuItem().map((item) => {
                             if (item.type === 'divider') return null
@@ -116,26 +100,22 @@ export default function MenuContent() {
                             )
                         })}
                         {/* Admin menu items - only for users with admin access */}
-                        {canAccessAdmin && (
-                            <>
-                                <Divider sx={{ my: 1 }} />
-                                {getAdminMenuItems().map((item) => {
-                                    if (item.type === 'divider') return null
-                                    const Icon = item.icon
-                                    const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
-                                    return (
-                                        <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                                            <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
-                                                <ListItemIcon>
-                                                    <Icon size={20} stroke={1.5} />
-                                                </ListItemIcon>
-                                                <ListItemText primary={t(item.titleKey)} />
-                                            </ListItemButton>
-                                        </ListItem>
-                                    )
-                                })}
-                            </>
-                        )}
+                        {canAccessAdmin &&
+                            getAdminMenuItems().map((item) => {
+                                if (item.type === 'divider') return null
+                                const Icon = item.icon
+                                const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
+                                return (
+                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                            <ListItemIcon>
+                                                <Icon size={20} stroke={1.5} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={t(item.titleKey)} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                )
+                            })}
                     </>
                 )}
             </List>

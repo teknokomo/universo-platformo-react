@@ -100,7 +100,7 @@ packages/
 
 ### Environment Setup
 
-Create `.env` file in `packages/flowise-core-backend/base/` directory:
+Create `.env` file in `packages/universo-core-backend/base/` directory:
 
 ```bash
 SUPABASE_URL=your_supabase_url
@@ -108,7 +108,7 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 ```
 
-**Note**: After refactoring, Supabase configuration should only be specified in `packages/flowise-core-backend/base/` directory.
+**Note**: After refactoring, Supabase configuration should only be specified in `packages/universo-core-backend/base/` directory.
 
 ## Coding Standards & Guidelines
 

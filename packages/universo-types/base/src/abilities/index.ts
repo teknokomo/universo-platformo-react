@@ -29,12 +29,7 @@ export type Actions = 'create' | 'read' | 'update' | 'delete' | 'manage'
 // ═══════════════════════════════════════════════════════════════
 
 /** All resource types in the platform */
-export type Subjects =
-    | 'Publication'
-    | 'Admin'
-    | 'Role'
-    | 'Instance'
-    | 'all'
+export type Subjects = 'Publication' | 'Admin' | 'Role' | 'Instance' | 'all'
 
 // ═══════════════════════════════════════════════════════════════
 // ABILITY TYPE

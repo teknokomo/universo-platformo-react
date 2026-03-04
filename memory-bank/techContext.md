@@ -45,7 +45,7 @@ if (!userId) return
 
 -   **Languages**: English (base) + Russian (full translation)
 -   **Implementation**: Complete UI text extraction and translation; feature packages register their own namespaces via `registerNamespace`.
--   **Files**: `packages/flowise-core-frontend/base/src/i18n/locales/en.json` & `ru.json`
+-   **Files**: `packages/universo-core-frontend/base/src/i18n/locales/en.json` & `ru.json`
 -   **Gotcha**: Some feature packages consolidate and **flatten** nested translation bundles into a single namespace; component translation keys must match the registered shape (inspect the package `src/i18n/index.ts`). Also, when an app exports a consolidated namespace bundle, every new top-level block (e.g., `applications`, `actions`) must be included in the merge, or the UI will render raw i18n keys.
 
 #### 3.1 Metahub Identifier Field
@@ -60,6 +60,14 @@ if (!userId) return
 
 #### 3.2.1 Metahub Attribute Defaults
 -   **NUMBER defaults**: `getDefaultValidationRules()` now uses `scale = 0` (precision 10). This keeps NUMERIC defaults as integers unless explicitly configured.
+
+#### 3.2.2 Codename Validation & Retry Reliability
+-   **Shared validation source**: Codename normalization/validation lives in `@universo/utils/validation/codename` and is consumed by frontend + backend.
+-   **Shared retry policy**: Backend codename copy/rename flows use centralized constants in `domains/shared/codenameStyleHelper.ts` (`CODENAME_RETRY_MAX_ATTEMPTS`, `CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT`).
+-   **Style-safe retry generation**: `buildCodenameAttempt()` now preserves style correctness for retry suffixes (`-N` for kebab-case, `N` for pascal-case) while respecting max-length limits.
+-   **Test coverage**:
+  - `packages/universo-utils/base/src/validation/__tests__/codename.test.ts`
+  - `packages/metahubs-backend/base/src/tests/services/codenameStyleHelper.test.ts`
 
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
@@ -219,9 +227,9 @@ if (!userId) return
 **Key Implementation Details:**
 
 -   No direct database calls - all operations through Repository pattern
--   Shared DataSource via `getDataSource()` from `packages/flowise-core-backend/base/src/DataSource.ts`
--   Entity registration in central registry `packages/flowise-core-backend/base/src/database/entities/index.ts`
--   Migration registration in `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts`
+-   Shared DataSource via `getDataSource()` from `packages/universo-core-backend/base/src/DataSource.ts`
+-   Entity registration in central registry `packages/universo-core-backend/base/src/database/entities/index.ts`
+-   Migration registration in `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`
 -   CASCADE delete relationships for data integrity
 -   UNIQUE constraints on junction tables to prevent duplicates
 
@@ -235,7 +243,7 @@ if (!userId) return
 
 -   **TypeORM Version**: 0.3.28 (upgraded from 0.3.6)
 -   **Infrastructure Migration**: PostgreSQL `public.uuid_generate_v7()` function in dedicated migration (MUST execute first)
-    - File: `packages/flowise-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts`
+    - File: `packages/universo-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts`
     - Timestamp: `1500000000000` (July 14, 2017) - Earliest migration to ensure execution before all table creation
     - Registered: First entry in `postgresMigrations` array (PHASE 0: Infrastructure)
     - Implementation: Custom PL/pgSQL function following RFC 9562 specification for PostgreSQL 17.4 (Supabase)
@@ -267,8 +275,8 @@ const newId = uuidv7()
 ```
 
 **Critical Files:**
-- Infrastructure migration: `packages/flowise-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts` (PHASE 0)
-- Migration registry: `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts` (infrastructure migration first)
+- Infrastructure migration: `packages/universo-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts` (PHASE 0)
+- Migration registry: `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts` (infrastructure migration first)
 - Backend module: `packages/universo-utils/base/src/uuid/index.ts`
 
 

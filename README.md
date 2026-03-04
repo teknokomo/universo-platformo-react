@@ -13,7 +13,7 @@
 
 ![image](https://github.com/user-attachments/assets/0be3687e-afe2-46be-a0f6-487ff03d9c80)
 
-Implementation of Universo Platformo / Universo MMOOMM / Universo Kiberplano built on React and related stack. This project is based on [Flowise AI](https://github.com/FlowiseAI/Flowise) (version 2.2.8) with multi-user functionality through Supabase integration and extended with UPDL (Universal Platform Description Language) for creating 3D/AR/VR applications.
+Implementation of Universo Platformo / Universo MMOOMM / Universo Kiberplano built on React and related stack.
 
 **In this repository, public efforts are currently underway to create Universo Platformo / Universo MMOOMM, in order to launch a global teknokomization and save humanity from final enslavement and complete destruction by creating special mass multi-user virtual worlds, such as Universo MMOOMM, and a platform for their creation - Universo Platformo, initially with gaming functionality, and then with the addition of the Cyberplan functionality.**
 
@@ -24,8 +24,6 @@ More details about all this are written in "The Book of The Future" and various 
 ## Inspiration
 
 Our wonderful project, which will help create a global teknokomization and save humanity from final enslavement and total destruction, is currently in pre-alpha stage. We are implementing a React-based version of Universo Platformo that will serve as a foundation for creating interactive 3D/AR/VR experiences.
-
-This implementation focuses on extending Flowise AI with UPDL (Universal Platform Description Language) to enable the creation of cross-platform 3D applications through a visual node-based interface.
 
 ## Where Am I and What Should I Do?
 
@@ -47,7 +45,7 @@ Our website: [https://universo.pro](https://universo.pro)
 
 ## Overview
 
-Universo Platformo React is a project that extends Flowise AI with:
+Universo Platformo React:
 
 -   **Multi-user functionality** through Supabase integration
 -   **Universal node system (UPDL)** for describing scenes and logic
@@ -73,13 +71,12 @@ The project aims to create a unified platform for developing interactive 3D appl
 -   PNPM (>=9)
 -   React
 -   Supabase (for multi-user functionality)
--   Flowise AI (core framework)
 
 ## Project Structure
 
 ```
 universo-platformo-react/
-├── packages/                  # Original Flowise packages
+├── packages/                  # Original packages
 │   ├── components/            # Components and utilities
 │   ├── server/                # Server-side code
 │   └── ui/                    # Frontend
@@ -96,7 +93,7 @@ universo-platformo-react/
 This structure allows for:
 
 -   **Modularity**: Each functional area is contained within its own application
--   **Minimal Core Changes**: Original Flowise code remains largely untouched
+-   **Minimal Core Changes**: Original code remains largely untouched
 -   **Easy Extension**: New technologies can be added as miniapps
 -   **Clean Separation**: Clear boundaries between different functional areas
 
@@ -181,8 +178,6 @@ Each implementation shares the same core concepts and goals while leveraging the
 
 ### Installation
 
-0. ATTENTION! Due to the fact that a global refactoring of the project is currently underway, the current version of the project is very unstable. For simple testing of the functionality, use the release [0.31.0 Alpha](https://github.com/teknokomo/universo-platformo-react/releases/tag/0.31.0-alpha)
-
 1. Clone the repository
 
     ```bash
@@ -198,16 +193,16 @@ Each implementation shares the same core concepts and goals while leveraging the
 
 3. Set up environment variables
 
-    - Create `.env` file in `packages/flowise-core-backend/base` directory
+    - Create `.env` file in `packages/universo-core-backend/base` directory
     - Add required Supabase configuration:
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
         ```
-    - Optionally, create `.env` file in `packages/flowise-core-frontend/base` directory for UI-specific settings like `VITE_PORT`
+    - Optionally, create `.env` file in `packages/universo-core-frontend/base` directory for UI-specific settings like `VITE_PORT`
 
-    Note: After refactoring, Supabase configuration should only be specified in the `packages/flowise-core-backend/base` directory.
+    Note: After refactoring, Supabase configuration should only be specified in the `packages/universo-core-backend/base` directory.
 
 4. Build the project
 
@@ -274,9 +269,7 @@ This project is being implemented under the [Omsk Open License](https://universo
 
 The Omsk Open License is similar to the MIT license, but includes additional "Basic Provisions" aimed at creating a meaningful and secure public domain while protecting traditional values.
 
-Packages `packages/flowise-*` are part of the [Flowise](https://github.com/FlowiseAI/Flowise), the code is licensed under Apache License Version 2.0, see the license text and information about the authors inside these packages. These packages are scheduled for removal when their functionality is transferred to the main structure of the project.
-
-AI agents are actively used in the development of this project, which are trained on a variety of other projects / code of various free source projects, and Universo Platformo React uses many libraries and large projects such as Flowise, which are gradually being replaced by their own code. 
+AI agents are actively used in the development of this project, which are trained on a variety of other projects / code of various free source projects, and Universo Platformo React uses many libraries and large projects. 
 
 If you believe that some code in this repository violates your copyrights, please create an Issue in which describe this problem, specify which code violates your rights, show the original author's code and evidence that this code itself is not a copy of another code, describe your suggestions for resolving the problem (attribution, code replacement, etc.). 
 

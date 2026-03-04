@@ -3,7 +3,7 @@ import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { AttributeDataType, TABLE_CHILD_DATA_TYPES } from '@universo/types'
 import { generateUuidV7 } from '@universo/utils'
-import { buildCodenameAttempt } from '../../shared/codenameStyleHelper'
+import { buildCodenameAttempt, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/codenameStyleHelper'
 import type { Knex } from 'knex'
 
 /**
@@ -825,7 +825,7 @@ export class MetahubAttributesService {
 
             // Auto-rename using buildCodenameAttempt() retry loop
             let renamed = false
-            for (let attempt = 2; attempt <= 20 && !renamed; attempt++) {
+            for (let attempt = 2; attempt <= CODENAME_RETRY_MAX_ATTEMPTS && !renamed; attempt++) {
                 const candidate = buildCodenameAttempt(attribute.codename, attempt, codenameStyle)
                 if (!(await hasConflict(candidate))) {
                     await trx
@@ -837,7 +837,7 @@ export class MetahubAttributesService {
                 }
             }
             if (!renamed) {
-                throw new Error('CODENAME_CONFLICT: Could not generate unique codename after 20 attempts')
+                throw new Error(`CODENAME_CONFLICT: Could not generate unique codename after ${CODENAME_RETRY_MAX_ATTEMPTS} attempts`)
             }
         }
     }

@@ -2,7 +2,7 @@
 
 > **Status:** Design Complete — Ready for PLAN  
 > **Complexity:** Level 4 (Major/Complex)  
-> **Scope:** metahubs-backend, schema-ddl, metahubs-frontend, flowise-core-backend (entities/migrations)
+> **Scope:** metahubs-backend, schema-ddl, metahubs-frontend, universo-core-backend (entities/migrations)
 
 ---
 

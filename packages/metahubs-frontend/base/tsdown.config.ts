@@ -20,6 +20,7 @@ export default defineConfig({
     'uuid',
     'notistack',
     '@tanstack/react-query',
+    /^@dnd-kit\//,
     /^@mui\//,
     /^@emotion\//,
     /^@tabler\//,

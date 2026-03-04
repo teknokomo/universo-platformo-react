@@ -17,7 +17,12 @@ import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
-import { getCodenameSettings, codenameErrorMessage, buildCodenameAttempt } from '../../shared/codenameStyleHelper'
+import {
+    getCodenameSettings,
+    codenameErrorMessage,
+    buildCodenameAttempt,
+    CODENAME_RETRY_MAX_ATTEMPTS
+} from '../../shared/codenameStyleHelper'
 import { KnexClient, generateTableName } from '../../ddl'
 
 type RequestUser = {
@@ -1279,7 +1284,7 @@ export function createCatalogsRoutes(
 
             let copiedResult: { catalog: CopiedCatalogRow; copiedAttributesCount: number; copiedElementsCount: number } | null = null
 
-            for (let attempt = 1; attempt <= 1000; attempt += 1) {
+            for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
                 const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                 try {
                     copiedResult = await createCatalogCopy(codenameCandidate)

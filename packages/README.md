@@ -272,7 +272,7 @@ packages/
 
 #### Universo Core Backend (@universo/core-backend)
 
-The main backend server for Universo Platformo (formerly `flowise-server`), providing API endpoints, database management, and business logic.
+The main backend server for Universo Platformo, providing API endpoints, database management, and business logic.
 
 **Key Features:**
 
@@ -286,11 +286,10 @@ The main backend server for Universo Platformo (formerly `flowise-server`), prov
 
 #### Universo Core Frontend (@universo/core-frontend)
 
-The main React frontend application (formerly `flowise-ui`) providing the visual programming interface.
+The main React frontend application providing the visual programming interface.
 
 **Key Features:**
 
--   React Flow-based canvas editor
 -   Material-UI component library
 -   Real-time flow execution
 -   Credential and configuration management

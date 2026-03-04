@@ -180,7 +180,7 @@ export async function applyRlsContext(
 
 ### 3. Route Integration (flowise-server)
 
-**File**: `packages/flowise-core-backend/base/src/routes/index.ts`
+**File**: `packages/universo-core-backend/base/src/routes/index.ts`
 
 ```typescript
 import { createEnsureAuthWithRls } from '@universo/auth-backend'
@@ -250,7 +250,7 @@ For services using `dataSource.transaction()`, RLS is applied at connection leve
 
 ### 5. PostgreSQL RLS Policies
 
-**Example Migration**: `packages/flowise-core-backend/base/src/database/migrations/xxxx-add-rls-policies.ts`
+**Example Migration**: `packages/universo-core-backend/base/src/database/migrations/xxxx-add-rls-policies.ts`
 
 ```sql
 -- Enable RLS on table

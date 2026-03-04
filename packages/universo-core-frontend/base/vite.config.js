@@ -47,8 +47,7 @@ export default defineConfig(async ({ mode }) => {
             target: 'es2022'
         },
         optimizeDeps: {
-            // Disable pre-bundling to eliminate accidental duplicate singletons during dev
-            disabled: true,
+            noDiscovery: true,
             include: [
                 '@universo/template-mui',
                 '@universo/utils',
@@ -57,14 +56,11 @@ export default defineConfig(async ({ mode }) => {
                 '@universo/applications-frontend',
                 '@universo/metahubs-frontend'
             ],
-            // Do not prebundle auth singleton (and other shims) to avoid duplicate copies across optimized deps
+            // Do not prebundle auth singleton to avoid duplicate copies across optimized deps
             exclude: [
                 '@universo/auth-frontend',
                 'react-i18next',
-                'i18next',
-                'use-sync-external-store',
-                'use-sync-external-store/shim',
-                'use-sync-external-store/with-selector'
+                'i18next'
             ],
             // Force Vite to pre-bundle CJS dependencies properly
             esbuildOptions: {
@@ -92,29 +88,6 @@ export default defineConfig(async ({ mode }) => {
             alias: [
                 { find: '@', replacement: resolve(__dirname, 'src') },
                 { find: '@ui', replacement: resolve(__dirname, 'src') },
-                {
-                    find: 'use-sync-external-store/with-selector',
-                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
-                },
-                {
-                    find: 'use-sync-external-store/with-selector.js',
-                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
-                },
-                {
-                    find: 'use-sync-external-store/shim/with-selector',
-                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
-                },
-                {
-                    find: 'use-sync-external-store/shim/with-selector.js',
-                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
-                },
-                {
-                    find: 'use-sync-external-store/shim/index.js',
-                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js')
-                },
-                { find: 'use-sync-external-store/shim', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
-                { find: 'use-sync-external-store/index.js', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
-                { find: /^use-sync-external-store$/, replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
                 { find: '@tabler/icons-react', replacement: tablerIconsEsm },
                 // Force browser version of @universo/utils (only bare import)
                 { find: /^@universo\/utils$/, replacement: resolve(__dirname, '../../universo-utils/base/src/index.browser.ts') }

@@ -1,11 +1,11 @@
 {
     "name": "@universo/core-backend",
-    "version": "2.2.8",
+    "version": "0.1.0",
     "description": "Universo Platformo React Server",
-    "license": "SEE LICENSE IN LICENSE-Flowise.md",
+    "license": "Omsk Open License",
     "homepage": "https://universo.pro",
     "author": {
-        "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+        "name": "Vladimir Levadnij and Teknokomo",
         "email": "info@universo.pro"
     },
     "main": "dist/index",

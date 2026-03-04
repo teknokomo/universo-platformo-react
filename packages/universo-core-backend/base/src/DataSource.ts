@@ -104,8 +104,8 @@ export const init = async (): Promise<void> => {
         throw new Error(`Unsupported database type "${databaseType}". This build supports only PostgreSQL configurations.`)
     }
 
-    const flowisePath = path.join(getUserHome(), '.flowise')
-    ensureDirectory(flowisePath)
+    const appDataPath = path.join(getUserHome(), '.universo')
+    ensureDirectory(appDataPath)
 
     const configuredDatabasePath = process.env.DATABASE_PATH
     if (configuredDatabasePath) {

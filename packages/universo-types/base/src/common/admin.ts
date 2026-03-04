@@ -245,34 +245,12 @@ export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | '*'
  * Platform subjects that can have permissions assigned
  * '*' means all subjects (CASL 'all')
  */
-export type PermissionSubject =
-    | 'metaverses'
-    | 'spaces'
-    | 'uniks'
-    | 'sections'
-    | 'entities'
-    | 'canvases'
-    | 'publications'
-    | 'roles'
-    | 'instances'
-    | 'users'
-    | '*'
+export type PermissionSubject = 'publications' | 'roles' | 'instances' | 'users' | 'settings' | 'admin' | '*'
 
 /**
  * All available permission subjects (for UI iteration)
  */
-export const PERMISSION_SUBJECTS: PermissionSubject[] = [
-    'metaverses',
-    'spaces',
-    'uniks',
-    'sections',
-    'entities',
-    'canvases',
-    'publications',
-    'roles',
-    'instances',
-    'users'
-]
+export const PERMISSION_SUBJECTS: PermissionSubject[] = ['publications', 'roles', 'instances', 'users', 'settings', 'admin']
 
 /**
  * Admin-related permission subjects that grant access to admin panel

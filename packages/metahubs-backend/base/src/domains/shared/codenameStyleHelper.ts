@@ -5,6 +5,9 @@ const DEFAULT_STYLE: CodenameStyle = 'pascal-case'
 const DEFAULT_ALPHABET: CodenameAlphabet = 'en-ru'
 const DEFAULT_ALLOW_MIXED = false
 
+export const CODENAME_RETRY_MAX_ATTEMPTS = 1000
+export const CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT = 5
+
 /**
  * Human-readable error message for codename validation failures.
  * Used by all entity route handlers (catalogs, hubs, enumerations, attributes).
@@ -245,8 +248,19 @@ export async function getAllowAttributeMoveBetweenChildLists(
 export function buildCodenameAttempt(baseCodename: string, attempt: number, style: CodenameStyle = 'kebab-case'): string {
     if (attempt <= 1) return baseCodename
 
-    const attemptSuffix = `${attempt}`
+    const attemptSuffix = style === 'kebab-case' ? `-${attempt}` : `${attempt}`
     const limit = style === 'pascal-case' ? 80 : 100
+
+    if (style === 'kebab-case') {
+        const sanitizedBase = baseCodename.replace(/-+$/g, '')
+        const maxLength = Math.max(1, limit - attemptSuffix.length)
+        let candidateBase = sanitizedBase.slice(0, maxLength).replace(/-+$/g, '')
+        if (!candidateBase) {
+            candidateBase = sanitizedBase.charAt(0) || 'a'
+        }
+        return `${candidateBase}${attemptSuffix}`
+    }
+
     const maxLength = Math.max(1, limit - attemptSuffix.length)
     return `${baseCodename.slice(0, maxLength)}${attemptSuffix}`
 }

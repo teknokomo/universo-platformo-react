@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import { OptimisticLockError, lookupUserEmail } from '@universo/utils'
-import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getDataSource } from '../../DataSource'
 
 /**
@@ -22,9 +21,18 @@ function isOptimisticLockError(err: unknown): err is OptimisticLockError {
     return false
 }
 
-// we need eslint because we have to pass next arg for the error middleware
-// eslint-disable-next-line
-async function errorHandlerMiddleware(err: InternalFlowiseError | any, req: Request, res: Response, next: NextFunction) {
+/** Shape of error properties that Express error handlers may receive */
+interface ErrorLike {
+    message?: string
+    stack?: string
+    code?: string
+    statusCode?: number
+    status?: number
+}
+
+// Express error middleware requires exactly 4 args (including unused next) for Express to recognize it
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function errorHandlerMiddleware(err: ErrorLike, req: Request, res: Response, next: NextFunction) {
     if (res.headersSent) {
         return next(err)
     }

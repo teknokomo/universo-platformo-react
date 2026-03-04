@@ -4,6 +4,134 @@
 
 ---
 
+## Completed: Catalog Attributes DnD Deep Fix — 2026-03-04 ✅
+
+> **Goal**: Find and fix the real root cause why attribute drag-and-drop still does not start, despite successful build and previous externals fix.
+
+- [x] Compare full DnD implementation chain: attributes vs enumerations (provider, sensors, sortable rows, event handlers)
+- [x] Verify runtime wiring assumptions and detect mismatch — root cause confirmed: runtime split between DnD context provider in metahubs and sortable hooks in template-mui under different `@dnd-kit` peer-resolved instances
+- [x] Implement technical fix in metahubs-frontend/template-mui at root cause level — unified DnD runtime imports through `@universo/template-mui`
+- [x] Add targeted diagnostic logs/guards for future quick troubleshooting — added opt-in logs via `localStorage['debug:metahubs:attributes-dnd'] = '1'`
+- [x] Run verification: package lint + full root build
+- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) with root cause and resolution
+
+### Verification
+- [x] `pnpm --filter universo-template-mui lint` — 0 errors
+- [x] `pnpm --filter metahubs-frontend lint` — 0 errors
+- [x] `pnpm build` — 23/23 successful (3m39s)
+
+---
+
+## Completed: Fix 5 UI/UX Bugs — 2026-03-04 ✅
+
+> **Goal**: Fix 5 user-reported UI/UX bugs across admin-frontend and metahubs-frontend.
+
+### Bug fixes
+- [x] Fix "settings" raw i18n key in admin role permissions — added `settings` key to `permissions.subjects` in ru/en admin.json
+- [x] Fix broken drag-and-drop in catalog attributes — added `/^@dnd-kit\//` to `metahubs-frontend/tsdown.config.ts` externals (root cause: bundled @dnd-kit created separate React context from template-mui's external instance)
+- [x] Fix row count pluralization "1 строк" → "1 строка" — replaced single `rowCount` key with `_one/_few/_many` (ru) and `_one/_other` (en) plural forms in two metahubs i18n sections
+- [x] Fix "Publication" English word in Russian access tab text — corrected `modeFullDescription` translation and fixed capitalization; fixed fallback defaults in AccessPanel.tsx from Russian to English
+- [x] Fix "Branch" English label in version creation dialog — added missing `branch` key to `publications.versions` in both locale files
+
+### Verification
+- [x] Full workspace build: 23/23 packages (3m55s)
+- [x] Lint: admin-frontend 0 errors, metahubs-frontend 0 errors
+- [x] Memory bank updated
+
+---
+
+## Completed: Post-Cleanup Deep Hardening — 2026-03-04 ✅
+
+> **Goal**: Complete post-legacy-cleanup deep audit and fix for core-frontend, core-backend, admin RBAC, and sidebar menu.
+
+### 1. Ghost folder & legacy references
+- [x] Delete `packages/flowise-core-backend/` ghost directory
+- [x] Fix `.flowise` home dir reference in DataSource.ts → `.universo`
+- [x] Rename `flowiseApiV1Router` → `apiV1Router` in core-backend index.ts
+- [x] Rename `FLOWISE_FILE_SIZE_LIMIT` env ref → `FILE_SIZE_LIMIT`
+- [x] Rename `InternalFlowiseError` → `InternalError` (class + directory + consumers)
+- [x] Update CI, docker, agent instruction docs with correct paths (20+ files updated)
+
+### 2. Clean stale permission subjects
+- [x] Remove 6 legacy subjects from `@universo/types` admin.ts
+- [x] Add `settings` and `admin` subjects for consistency with backend schemas
+
+### 3. Sidebar menu reorder
+- [x] Reorder `rootMenuItems` in menuConfigs.ts: Applications → Profile → Docs → divider → Metahubs + Admin
+- [x] Update MenuContent.tsx rendering to match new order
+- [x] Add smart selected state for Applications menu item
+
+### 4. Deep clean universo-core-frontend
+- [x] Delete `shims/` directory (React 18 native `useSyncExternalStore`)
+- [x] Remove shims aliases from vite.config.js (8 aliases + 3 exclusions)
+- [x] Replace deprecated `optimizeDeps.disabled` → `noDiscovery: true`
+- [x] Convert App.jsx → App.tsx (fully typed)
+- [x] Convert index.jsx → index.tsx (fully typed)
+- [x] Convert BootstrapErrorBoundary.jsx → BootstrapErrorBoundary.tsx (fully typed)
+- [x] Convert config/queryClient.js → queryClient.ts (fully typed)
+- [x] Convert diagnostics/bootstrapDiagnostics.js → bootstrapDiagnostics.ts (fully typed)
+- [x] Convert serviceWorker.js → serviceWorker.ts (fully typed with ServiceWorkerConfig interface)
+- [x] Update index.html entry point: `src/index.jsx` → `src/index.tsx`
+- [x] Rewrite README.md and README-RU.md per template guidelines
+
+### 5. Deep clean universo-core-backend
+- [x] Delete `marketplaces/` directory (66 Flowise legacy JSON templates)
+- [x] Remove legacy `.flowise` dir usage in DataSource.ts → `.universo`
+- [x] Clean `flowiseApiV1Router` naming → `apiV1Router`
+- [x] Clean `FLOWISE_FILE_SIZE_LIMIT` env var → `FILE_SIZE_LIMIT`
+- [x] Renamed `errors/internalFlowiseError` → `errors/internalError`
+- [x] Rewrite README.md and README-RU.md per template guidelines
+
+### 6. Final verification
+- [x] Full root build (pnpm build) — 23/23 successful (3m05s)
+- [x] Update Memory Bank
+
+---
+
+## Completed: QA Remediation — 2026-03-04 ✅
+
+> **Goal**: Fix all issues found during QA analysis of Post-Cleanup Deep Hardening sprint.
+
+### Fixes applied
+- [x] Delete dead `serviceWorker.ts` (CRA legacy, never imported)
+- [x] Replace `process.env.PUBLIC_URL` → `import.meta.env.BASE_URL` in index.tsx (Vite-native)
+- [x] Create `src/global.d.ts` with `Window.__APP_BASEPATH__` and `ImportMetaEnv` types
+- [x] Fix 4 stale `flowise-core-*` paths in Gemini rules (devops_mode.md, recommendations.md, pnpm-not-npm.md)
+- [x] Fix Prettier formatting in MenuContent.tsx (isSelected expression)
+- [x] Fix Prettier formatting in admin.ts (PermissionSubject union, PERMISSION_SUBJECTS array)
+- [x] Fix Prettier formatting in abilities/index.ts (Subjects union)
+- [x] Replace hardcoded Russian "Загрузка..." with language-neutral spinner in App.tsx
+- [x] Fix error middleware typing: `InternalError | any` → `ErrorLike` interface with proper shape
+- [x] Remove unused `InternalError` import from error middleware
+- [x] Fix stale `flowise-core-backend` reference in memory-bank/activeContext.md
+- [x] Full root build (pnpm build) — 23/23 successful (2m52s)
+- [x] Lint verification: 0 errors in @universo/types, 0 errors in @universo/template-mui
+
+---
+
+## Completed: Fix Auth Login TypeError — 2026-03-04 ✅
+
+> **Goal**: Fix `TypeError: e.get is not a function` in useSession/AuthProvider that prevented login after the legacy cleanup refactor.
+
+- [x] Diagnose root cause: `@/api/client.ts` default export changed from raw AxiosInstance to full UniversoApiClient object, but `AuthProvider` expects AxiosInstance
+- [x] Fix `index.jsx` to pass `api.$client` (raw AxiosInstance) instead of the full API client wrapper
+- [x] Verify full workspace build (23/23 packages)
+
+---
+
+## Completed: QA Findings Full Closure — 2026-03-04 ✅
+
+> **Goal**: Fully close all issues identified in the comprehensive QA report for codename/CRUD safety, including missing tests and retry consistency, without regressing existing functionality.
+
+- [x] Unify codename copy retry policy across domains (attributes/enumeration values/hubs/catalogs/enumerations) via shared constants in backend helper
+- [x] Harden `buildCodenameAttempt` generation rules to keep style-valid candidates and deterministic max-length behavior
+- [x] Add unit tests for `@universo/utils` codename validation/normalization functions (style, alphabet, mixed alphabet, sanitizer)
+- [x] Add backend unit tests for shared codename helper (`buildCodenameAttempt`) including kebab/pascal edge cases
+- [x] Re-run targeted lint/tests/build for touched packages and full root build; confirm no new errors
+- [x] Update Memory Bank status files (`activeContext.md`, `progress.md`, `tasks.md`) with completed outcomes
+
+---
+
 ## Completed: Final Hardening Wrap-up — 2026-03-04 ✅
 
 > **Goal**: Finalize post-QA dependency override refinements, re-run critical verification, and close implementation documentation.

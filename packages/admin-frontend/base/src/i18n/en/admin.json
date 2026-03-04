@@ -218,7 +218,8 @@
                 "admin": "Administration",
                 "roles": "Roles",
                 "instances": "Instances",
-                "users": "Users"
+                "users": "Users",
+                "settings": "Settings"
             },
             "actions": {
                 "create": "Create",

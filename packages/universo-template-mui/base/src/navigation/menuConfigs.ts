@@ -155,6 +155,12 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
 
 export const rootMenuItems: TemplateMenuItem[] = [
     {
+        id: 'applications',
+        titleKey: 'applications',
+        url: '/applications',
+        icon: IconApps
+    },
+    {
         id: 'profile',
         titleKey: 'profile',
         url: '/profile',
@@ -170,19 +176,6 @@ export const rootMenuItems: TemplateMenuItem[] = [
         chip: {
             label: '⧉'
         }
-    }
-]
-
-/**
- * Applications menu items (shown in a separate section before Metahubs)
- * Returns single menu item pointing to applications list
- */
-export const getApplicationsMenuItem = (): TemplateMenuItem[] => [
-    {
-        id: 'applications',
-        titleKey: 'applications',
-        url: '/applications',
-        icon: IconApps
     }
 ]
 
