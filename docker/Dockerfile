@@ -1,3 +1,7 @@
+# LEGACY: This Dockerfile installs the upstream Flowise package from npm.
+# It is NOT used for the Universo Platformo monorepo build.
+# For monorepo builds, use the root Dockerfile instead.
+
 # Stage 1: Build stage
 FROM node:20-alpine AS build
 

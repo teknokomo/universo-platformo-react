@@ -5,9 +5,7 @@
     "homepage": "https://universo.pro",
     "workspaces": [
         "packages/*/base",
-        "packages/*",
-        "components",
-        "universo-rest-docs"
+        "packages/*"
     ],
     "scripts": {
         "build": "turbo run build",
@@ -69,10 +67,6 @@
         "typescript": "^5.8.3"
     },
     "pnpm": {
-        "onlyBuiltDependencies": [
-            "faiss-node",
-            "sqlite3"
-        ],
         "overrides": {
             "rolldown": "1.0.0-beta.43",
             "axios": "1.13.2",
@@ -90,31 +84,15 @@
             "set-value": "4.1.0",
             "unset-value": "2.0.1",
             "webpack-dev-middleware": "7.4.2",
-            "langchain": "^0.3.5",
             "zod": "3.25.76",
             "@types/react": "^18.0.0",
             "pg": "8.11.1",
-            "mysql2": "3.11.3",
-            "sqlite3": "5.1.6",
-            "@google/generative-ai": "0.24.1",
-            "@langchain/openai": "0.6.3",
-            "@langchain/anthropic": "0.3.33",
-            "@aws-sdk/client-bedrock-runtime": "3.422.0",
-            "cohere-ai": "7.10.0",
             "@types/node": "20.12.12"
         }
     },
     "engines": {
         "node": ">=18.15.0 <19.0.0 || ^20",
         "pnpm": ">=9"
-    },
-    "resolutions": {
-        "@google/generative-ai": "^0.24.0",
-        "@grpc/grpc-js": "^1.10.10",
-        "@langchain/core": "0.3.61",
-        "@qdrant/openapi-typescript-fetch": "1.2.6",
-        "openai": "4.96.0",
-        "protobufjs": "7.4.0"
     },
     "eslintIgnore": [
         "**/dist",
@@ -145,8 +123,6 @@
         ]
     },
     "dependencies": {
-        "@casl/ability": "^6.7.3",
-        "@colyseus/ws-transport": "^0.16.0",
-        "redis": "^4.6.7"
+        "@casl/ability": "^6.7.3"
     }
 }
