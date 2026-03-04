@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { TableContainer, Table, TableHead, TableCell, TableRow, TableBody, Paper, Chip } from '@mui/material'
-// Use local TooltipWithParser (migrated from @flowise/template-mui)
+// Use local TooltipWithParser
 import { TooltipWithParser } from '../tooltips'
 
 export const TableViewOnly = ({ columns, rows, sx }) => {

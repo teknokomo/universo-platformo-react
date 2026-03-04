@@ -37,6 +37,7 @@ export {
     FilterToolbar,
     ViewHeaderMUI,
     TemplateMainCard,
+    MainCard,
     EmptyListState,
     SkeletonGrid,
     Loader,

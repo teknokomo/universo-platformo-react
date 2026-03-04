@@ -50,7 +50,7 @@ export default defineConfig(async ({ mode }) => {
             // Disable pre-bundling to eliminate accidental duplicate singletons during dev
             disabled: true,
             include: [
-                '@flowise/template-mui',
+                '@universo/template-mui',
                 '@universo/utils',
                 '@universo/types',
                 '@universo/profile-frontend',
@@ -85,7 +85,7 @@ export default defineConfig(async ({ mode }) => {
                 'react-i18next',
                 'i18next',
                 '@universo/auth-frontend',
-                '@flowise/template-mui',
+                '@universo/template-mui',
                 '@universo/store',
                 '@universo/i18n'
             ],

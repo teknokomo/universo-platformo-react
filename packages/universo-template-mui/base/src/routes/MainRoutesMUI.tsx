@@ -13,7 +13,7 @@ import StartLayoutMUI from '../layout/StartLayoutMUI'
 import Dashboard from '../views/dashboard/Dashboard'
 import { ErrorBoundary } from '../components'
 
-// Use local routing components (migrated from @flowise/template-mui)
+// Use local routing components
 import { AuthGuard, AdminGuard, Loadable } from '../components/routing'
 
 // Route factory from apps-template-mui

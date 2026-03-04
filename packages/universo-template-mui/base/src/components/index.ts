@@ -10,6 +10,7 @@ export { TableViewOnly } from './table/Table'
 export { ToolsTable } from './table/ToolsListTable'
 
 export { default as TemplateMainCard } from './cards/MainCard'
+export { default as MainCard } from './cards/MainCard'
 export type { MainCardProps } from './cards/MainCard'
 export { default as TemplateStatsCard } from './cards/StatsCard'
 export { default as TemplateFollowUpPromptsCard } from './cards/FollowUpPromptsCard'

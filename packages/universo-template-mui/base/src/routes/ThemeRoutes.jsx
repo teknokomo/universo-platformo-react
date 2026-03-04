@@ -1,7 +1,7 @@
 import { useRoutes } from 'react-router-dom'
 
-// New MUI routes (StartRoute, MinimalRoutes, MainRoutesMUI)
-import { MainRoutesMUI } from './MainRoutesMUI'
+// New MUI routes (StartRoute, MinimalRoutes, MainRoutesMUI, etc.)
+import MainRoutesMUI from './MainRoutesMUI'
 
 // Layout for auth/minimal pages
 import MinimalLayout from '../layout/MinimalLayout'
