@@ -67,6 +67,9 @@
         "typescript": "^5.8.3"
     },
     "pnpm": {
+        "onlyBuiltDependencies": [
+            "sqlite3"
+        ],
         "overrides": {
             "rolldown": "1.0.0-beta.43",
             "axios": "1.13.5",

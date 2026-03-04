@@ -4,6 +4,19 @@
 
 ---
 
+## In Progress: PR #706 Review Feedback Fixes — 2026-03-05
+
+> **Goal**: Address valid bot review comments on PR #706 (cleanup/remove-legacy-packages → main).
+
+- [x] Restore `pnpm.onlyBuiltDependencies: ["sqlite3"]` in root package.json (supply-chain hardening)
+- [x] Remove stale `flowise-components` reference from `.kiro/steering/pnpm-not-npm.md` and `.gemini/rules/pnpm-not-npm.md`
+- [x] Compress `activeContext.md` — remove historical "Previous Focus" sections (653 → 62 lines)
+- [x] Reject CI `working-directory` change (same pattern as main; Cypress needs backend CWD)
+- [ ] Build verification (`pnpm build`)
+- [ ] Commit and push fixes to PR branch
+
+---
+
 ## Completed: Catalog Attributes DnD Deep Fix — 2026-03-04 ✅
 
 > **Goal**: Find and fix the real root cause why attribute drag-and-drop still does not start, despite successful build and previous externals fix.
