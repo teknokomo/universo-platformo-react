@@ -6,34 +6,30 @@
 
 ---
 
-## Current Focus: QA Tech Debt Cleanup — Completed
+## Current Focus: Legacy Cleanup — Completed
 
 **Status**: ✅ Completed
 **Date**: 2026-03-04
+**Branch**: `cleanup/remove-legacy-packages`
 
 ### What was done
 
-Fixed all tech debt items identified in the comprehensive QA analysis of the attribute DnD feature:
+Complete repository cleanup — removed all legacy Flowise packages and renamed remaining ones to @universo/*.
 
-1. **Stale JSDoc comment** — Updated `useReorderAttribute` docstring to reflect that cross-list optimistic updates are now implemented (was "cross-list skipped").
+- **39 packages deleted** (38 from plan + flowise-template-mui merged)
+- **3 packages renamed**: core-backend, core-frontend, store
+- **24 packages remaining** (was ~63)
+- **14 commits**, all phases (0-15) completed
+- **23/23 packages build** successfully
+- **Zero @flowise/ references** in source code
 
-2. **Fragile `movedItem` closure capture** — Replaced side-effect-based closure pattern (`movedItem` set inside `removeUpdater` callback passed to `setQueriesData`) with pre-extraction via `getQueriesData`. The moved item is now found from the cache BEFORE updaters run. The `insertUpdater` uses a `const captured = movedItem` local variable instead of the `movedItem!` non-null assertion.
+### Next steps
 
-3. **Over-broad child cache invalidation** — `onSuccess` now invalidates child attribute caches only for cross-list transfers (`newParentAttributeId !== undefined`). Same-list reorder no longer triggers unnecessary refetch of all child lists.
+- Branch `cleanup/remove-legacy-packages` is ready for merge to `main`
+- After merge: create fresh database (test DB will be deleted per plan)
+- Consider running `pnpm dev` to verify runtime behavior before merge
 
-4. **`as any` cleanup** — Replaced `as any` casts in the same-list `reorderUpdater` with typed `Record<string, unknown>` casts, matching the pattern used in cross-list code.
-
-### Files modified
-
-- `mutations.ts` (metahubs-frontend) — all 4 fixes in this single file
-
-### Verified baseline
-
-- Lint: metahubs-frontend 0 errors/153 warnings
-- Tests: metahubs-frontend 97/97
-- Build: metahubs-frontend ✔ success
-
-## Previous Focus: Cross-List DnD Optimistic Update — Completed
+## Previous Focus: QA Tech Debt Cleanup — Completed
 
 1. **Backend auto-set display attr (Fix 1)** — in `reorderAttribute()`, after cross-list move to a child list, counts siblings in target list. If count === 1 (attribute is the only child), auto-sets `is_display_attribute: true` and `is_required: true`. Ensures newly populated child lists always have a display attribute.
 

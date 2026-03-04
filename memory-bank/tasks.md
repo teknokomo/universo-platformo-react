@@ -4,6 +4,60 @@
 
 ---
 
+## Completed: Legacy Cleanup — Remove Flowise Packages — 2026-03-04 ✅
+
+> **Goal**: Remove 39 legacy Flowise/UPDL packages, clean core packages, rename @flowise/* → @universo/*, update all cross-references, documentation, and configs.
+
+### Phase 0-3: Delete 38 legacy packages + clean types & permissions (commit a2a2d7e0)
+- [x] All 38+1 packages deleted (directories removed)
+- [x] @universo/types cleaned of Flowise-specific types
+- [x] Admin permissions cleaned
+
+### Phase 4: Clean flowise-core-backend (commit 271bd32a)
+- [x] Removed dead Flowise code & deps from core-backend
+
+### Phase 5: Migrate flowise-core-backend → universo-core-backend (commit 7d3812fb)
+- [x] Migrated remaining code to @universo/core-backend
+
+### Phase 6: Rename flowise-core-frontend → universo-core-frontend (commit e9eb5c97)
+- [x] Renamed package, updated all imports
+
+### Phase 7: Clean universo-template-mui (commit 05a51530)
+- [x] Removed dead routes (Canvas, Chatbot, PublicFlow) & unik/metaverse code
+
+### Phase 8: Rename flowise-store → universo-store (commit 57e92204)
+- [x] Renamed to @universo/store, cleaned dead canvas code
+
+### Phase 9: Merge flowise-template-mui → universo-template-mui (commit 34b9580e)
+- [x] Absorbed SCSS, themes, Nav, Auth routes into universo-template-mui
+- [x] Deleted flowise-template-mui (229 files, -22021 lines)
+
+### Phase 10: Clean universo-i18n (commit 526c13ff)
+- [x] Removed ~20 stale comments referencing deleted packages
+
+### Phase 11: Clean universo-api-client (commit 571c1ce5)
+- [x] Deleted 20 dead API modules, cleaned types/ and queryKeys/
+
+### Phase 12: Root configs cleanup (commit 9a8420a6)
+- [x] Removed ghost workspaces, dead AI/LLM overrides, stale resolutions, dead deps
+
+### Phase 13: Documentation update (commit e9deb169)
+- [x] Updated packages/README.md and README-RU.md
+
+### Phase 14: Full rebuild + lint (commit 3c21cb30)
+- [x] Fixed rest-docs stale Metaverse schema imports
+- [x] Fixed ThemeRoutes import (default vs named)
+- [x] Added MainCard export for backwards compatibility
+- [x] Removed all remaining @flowise/ stale references
+- [x] Lint-fixed template-mui (299 prettier errors auto-fixed)
+- [x] 23/23 packages build successfully
+
+### Phase 15: Documentation & Memory Bank (commit c6279e8d)
+- [x] Fixed 30+ @flowise/ references across 13 README/doc files
+- [x] Updated pnpm-workspace.yaml comment
+
+---
+
 ## Completed: QA Tech Debt Cleanup — 2026-03-04 ✅
 
 > **Goal**: Fix all issues found in the comprehensive QA analysis: stale JSDoc, fragile closure capture, over-broad cache invalidation, `as any` cleanup.

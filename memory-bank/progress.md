@@ -44,6 +44,36 @@
 
 ---
 
+## Legacy Cleanup — Remove Flowise Packages (2026-03-04)
+
+Massive repository cleanup: removed 39 legacy Flowise/UPDL packages, renamed remaining @flowise/* → @universo/*, cleaned all cross-references.
+
+### Summary
+
+- **39 packages deleted** (38 from plan + flowise-template-mui merged then deleted)
+- **3 packages renamed**: flowise-core-backend → universo-core-backend, flowise-core-frontend → universo-core-frontend, flowise-store → universo-store
+- **1 package merged**: flowise-template-mui → universo-template-mui
+- **24 packages remaining** (down from ~63)
+- **14 commits** on branch `cleanup/remove-legacy-packages`
+- **Zero `@flowise/` references** in source code, package.json, or config files
+- **2 historical `@flowise/` references** in READMEs (marked as "formerly")
+
+### Key changes
+
+- Root configs cleaned: removed ghost workspaces, 8+ dead AI/LLM overrides (langchain, openai, sqlite3, mysql2, etc.), all resolutions, @colyseus/ws-transport dep
+- universo-api-client: 20 dead API modules deleted, 6 dead type files removed
+- universo-rest-docs: removed stale Metaverse schema imports
+- universo-template-mui: added MainCard export, fixed ThemeRoutes routing, lint-fixed 299 prettier errors
+- All 30+ documentation files updated with correct @universo/* package names
+
+### Build Verification
+
+- `pnpm build`: 23/23 packages successful (2m50s)
+- `pnpm install`: passes with cleaned lockfile
+- Zero `@flowise/` references in source (grep verified)
+
+---
+
 ## QA Tech Debt Cleanup (2026-03-04)
 
 Fixed all tech debt items identified in the comprehensive QA analysis.
