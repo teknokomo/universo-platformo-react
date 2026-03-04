@@ -1,18 +1,78 @@
 # Universo Platformo Apps Directory
 
-This directory contains modular applications that extend the main Flowise platform, providing additional functionality without modifying the core codebase.
+This directory contains modular applications and shared libraries of the Universo Platformo, providing additional functionality in a modular architecture.
 
 ## Current Structure
 
 ```
 packages/
-├── analytics-frontend/       # Quiz analytics frontend
-│   └── base/            # Core analytics functionality
+├── admin-backend/            # Admin panel backend
+│   └── base/            # Core admin backend functionality
 │       ├── src/         # Source code
-│       │   ├── components/ # Analytics UI components
-│       │   ├── i18n/    # Internationalization
+│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── guards/  # Authorization guards
+│       │   ├── routes/  # Express routes for admin operations
+│       │   ├── schemas/ # Validation schemas
+│       │   ├── services/ # Business logic
 │       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── admin-frontend/           # Admin panel frontend
+│   └── base/            # Core admin frontend functionality
+│       ├── src/         # Source code
+│       │   ├── api/     # API clients
+│       │   ├── components/ # Admin UI components
+│       │   ├── hooks/   # React hooks
+│       │   ├── i18n/    # Internationalization
+│       │   ├── pages/   # Page components
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── applications-backend/     # Applications management backend
+│   └── base/            # Core applications backend functionality
+│       ├── src/         # Source code
+│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── routes/  # Express routes
+│       │   ├── schemas/ # Validation schemas
+│       │   ├── services/ # Business logic
+│       │   ├── tests/   # Test files
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── applications-frontend/    # Applications management frontend
+│   └── base/            # Core applications frontend functionality
+│       ├── src/         # Source code
+│       │   ├── api/     # API clients
+│       │   ├── components/ # Applications UI components
+│       │   ├── hooks/   # React hooks
+│       │   ├── i18n/    # Internationalization
+│       │   ├── pages/   # Page components
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── apps-template-mui/        # Apps MUI template with shared layouts and themes
+│       ├── src/         # Source code
+│       │   ├── components/ # Shared MUI components
+│       │   ├── layouts/ # Layout components
+│       │   ├── shared-theme/ # Theme configurations
+│       │   └── index.ts # Entry point
+│       ├── package.json
+│       └── README.md
+├── auth-backend/             # Passport.js + Supabase session backend
+│   └── base/            # Core auth backend functionality
+│       ├── src/         # Source code
+│       │   ├── middleware/ # Passport strategies and session handlers
+│       │   ├── routes/  # Auth routes (login, logout, session)
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
@@ -26,103 +86,51 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── auth-backend/            # Passport.js + Supabase session backend
-│   └── base/            # Core auth backend functionality
+├── metahubs-backend/         # MetaHubs management backend
+│   └── base/            # Core MetaHubs backend functionality
 │       ├── src/         # Source code
-│       │   ├── middleware/ # Passport strategies and session handlers
-│       │   ├── routes/  # Auth routes (login, logout, session)
+│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── domains/ # Domain logic modules
+│       │   ├── services/ # Business logic
+│       │   ├── tests/   # Test files
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── flowise-chatmessage/ # Chat message components
-│   └── base/            # Reusable chat interface components
+├── metahubs-frontend/        # MetaHubs management frontend
+│   └── base/            # Core MetaHubs frontend functionality
 │       ├── src/         # Source code
-│       │   ├── components/ # 7 chat components (ChatPopUp, ChatMessage, etc.)
-│       │   ├── styles/  # Component styles
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── flowise-components/  # Core Flowise node components
-│   ├── src/             # Source code
-│   │   ├── nodes/       # Node implementations
-│   │   └── index.ts     # Entry point
-│   ├── dist/            # Compiled output
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-├── flowise-server/      # Backend server
-│   ├── src/             # Source code
-│   │   ├── database/    # TypeORM entities and migrations
-│   │   ├── routes/      # API routes
-│   │   ├── services/    # Business logic
-│   │   └── index.ts     # Entry point
-│   ├── dist/            # Compiled output
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-├── flowise-store/       # Shared Redux store
-│   └── base/            # Redux store configuration
-│       ├── src/         # Source code
-│       │   ├── slices/  # Redux slices
-│       │   ├── store.ts # Store setup
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── flowise-template-mui/ # Material-UI component library (unbundled)
-│   └── base/            # MUI components extracted from flowise-ui
-│       ├── src/         # Source code
-│       │   ├── components/ # Layout, dialogs, forms, cards, pagination
-│       │   ├── themes/  # MUI theme configurations
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (17MB CJS, 5.2MB ESM, 5KB types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── flowise-ui/          # Main UI application
-│   ├── src/             # Source code
-│   │   ├── ui-component/ # React components
-│   │   ├── views/       # Page views
-│   │   └── index.tsx    # Entry point
-│   ├── public/          # Static files
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-├── metaverses-frontend/      # Metaverse management frontend
-│   └── base/            # Core metaverse UI functionality
-│       ├── src/         # Source code
-│       │   ├── components/ # Metaverse management UI
+│       │   ├── components/ # MetaHubs UI components
+│       │   ├── domains/ # Domain-specific feature modules
+│       │   ├── hooks/   # React hooks
 │       │   ├── i18n/    # Internationalization
-│       │   ├── pages/   # Page components
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output (CJS, ESM, types)
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── metaverses-backend/      # Metaverse management backend
-│   └── base/            # Core metaverse backend functionality
+├── migration-guard-shared/   # Shared migration guard utilities
+│   └── base/            # Core migration guard functionality
 │       ├── src/         # Source code
-│       │   ├── routes/  # Express routes for metaverse CRUD
+│       │   ├── MigrationGuardShell.tsx # Guard shell component
+│       │   ├── utils.ts # Utility functions
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── profile-backend/          # User profile management backend
+│   └── base/            # Core profile functionality
+│       ├── src/         # Source code
+│       │   ├── routes/  # Express routes for profile operations
 │       │   ├── database/ # TypeORM entities and migrations
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
-│       └── README.md
-├── multiplayer-colyseus-backend/ # Colyseus multiplayer server
-│   ├── src/             # Source code
-│   │   ├── rooms/       # Colyseus room implementations
-│   │   ├── schemas/     # State schemas
-│   │   └── index.ts     # Entry point
-│   ├── dist/            # Compiled output
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
+│       ├── README.md
+│       └── README-RU.md
 ├── profile-frontend/         # User profile management frontend
 │   └── base/            # Core profile functionality
 │       ├── src/         # Source code
@@ -135,158 +143,100 @@ packages/
 │       ├── gulpfile.ts
 │       ├── README.md
 │       └── README-RU.md
-├── profile-backend/         # User profile management backend (workspace package)
-│   └── base/            # Core profile functionality
+├── schema-ddl/               # Schema DDL utilities
+│   └── base/            # Core schema DDL functionality
 │       ├── src/         # Source code
-│       │   ├── routes/  # Express routes for profile operations
-│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── SchemaGenerator.ts # Runtime schema generation
+│       │   ├── SchemaMigrator.ts  # Schema migration logic
+│       │   ├── diff.ts  # Schema diff calculation
+│       │   ├── __tests__/ # Test files
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
-│       ├── README.md
-│       └── README-RU.md
-├── publish-frontend/         # Publication system frontend for exporting and sharing content
-│   └── base/            # Core frontend functionality for publication
+│       └── README.md
+├── start-backend/            # Onboarding/start page backend
+│   └── base/            # Core start backend functionality
 │       ├── src/         # Source code
-│       │   ├── api/     # HTTP clients to backend
-│       │   │   ├── common.ts          # Core API utilities
-│       │   │   ├── index.ts           # Central API exports
-│       │   │   └── publication/       # Publication-specific API clients
-│       │   │       ├── PublicationApi.ts        # Base publication API
-│       │   │       ├── ARJSPublicationApi.ts    # AR.js specific API
-│       │   │       ├── StreamingPublicationApi.ts # Streaming API
-│       │   │       └── index.ts       # Publication exports with compatibility
-│       │   ├── assets/  # Static resources (icons, images)
+│       │   ├── routes/  # Express routes
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── start-frontend/           # Onboarding/start page frontend
+│   └── base/            # Core start frontend functionality
+│       ├── src/         # Source code
+│       │   ├── api/     # API clients
+│       │   ├── components/ # Start page UI components
+│       │   ├── hooks/   # React hooks
+│       │   ├── i18n/    # Internationalization
+│       │   ├── views/   # View components
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── universo-api-client/      # TypeScript API client
+│   └── base/            # Core API client functionality
+│       ├── src/         # Source code
+│       │   ├── clients/ # API client implementations
+│       │   ├── types/   # Request/response types
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── universo-core-backend/    # Core backend server (formerly flowise-server)
+│   └── base/            # Core backend functionality
+│       ├── src/         # Source code
+│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── routes/  # API routes
+│       │   ├── middlewares/ # Express middlewares
+│       │   ├── utils/   # Utility functions
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── universo-core-frontend/   # Core frontend UI (formerly flowise-ui)
+│   └── base/            # Core frontend functionality
+│       ├── src/         # Source code
 │       │   ├── components/ # React components
-│       │   ├── features/   # Feature modules for various technologies
-│       │   ├── i18n/    # Localization
-│       │   ├── pages/   # Page components
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output
-│       ├── package.json
-│       ├── tsconfig.json
-│       ├── gulpfile.ts
-│       └── README.md
-├── publish-backend/         # Publication system backend (workspace package)
-│   └── base/            # Core backend functionality for publication
-│       ├── src/         # Source code
-│       │   ├── controllers/ # Express controllers
-│       │   ├── services/    # Business logic (e.g., FlowDataService)
-│       │   ├── routes/      # Asynchronous route factories
-│       │   ├── types/       # Shared UPDL type definitions
-│       │   └── index.ts     # Entry point for the package
-│       ├── dist/        # Compiled output
+│       │   ├── api/     # API clients
+│       │   └── index.jsx # Entry point
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── space-builder-frontend/   # Space Builder UI (prompt-to-flow)
-│   └── base/            # Core Space Builder frontend functionality
+├── universo-i18n/            # Centralized i18n instance
+│   └── base/            # Core i18n functionality
 │       ├── src/         # Source code
-│       │   ├── components/ # Prompt dialog, FAB, model selector
-│       │   ├── i18n/    # Internationalization
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── space-builder-backend/   # Space Builder API (prompt-to-flow)
-│   └── base/            # Core Space Builder backend functionality
-│       ├── src/         # Source code
-│       │   ├── routes/  # Generate, health, config endpoints
-│       │   ├── services/ # LLM integration and graph validation
+│       │   ├── locales/ # Translation files
+│       │   ├── i18n.ts  # i18next configuration
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── spaces-frontend/          # Spaces/Canvases frontend
-│   └── base/            # Core spaces UI functionality
+├── universo-rest-docs/       # API documentation server
 │       ├── src/         # Source code
-│       │   ├── components/ # Canvas UI components
-│       │   ├── i18n/    # Internationalization
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── spaces-backend/          # Spaces domain backend
-│   └── base/            # Core spaces backend functionality
-│       ├── src/         # Source code
-│       │   ├── routes/  # Express routes for spaces CRUD
-│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── swagger/ # OpenAPI specifications
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── template-mmoomm/     # PlayCanvas MMOOMM template package
-│   └── base/            # MMOOMM template functionality
+├── universo-store/           # Shared Redux store (formerly flowise-store)
+│   └── base/            # Redux store configuration
 │       ├── src/         # Source code
-│       │   ├── playcanvas/ # PlayCanvas specific implementations
+│       │   ├── reducers/ # Redux reducers
+│       │   ├── context/ # React context
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output (CJS, ESM, types)
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── template-quiz/       # AR.js Quiz template package
-│   └── base/            # Quiz template functionality
-│       ├── src/         # Source code
-│       │   ├── arjs/    # AR.js specific implementations
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── uniks-frontend/           # Workspace management frontend
-│   └── base/            # Core workspace functionality
-│       ├── src/         # Source code
-│       │   ├── i18n/    # Internationalization
-│       │   ├── pages/   # Page components (UnikList, UnikDetail, UnikDialog)
-│       │   ├── menu-items/ # Menu configurations
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── uniks-backend/           # Workspace management backend (workspace package)
-│   └── base/            # Core workspace functionality
-│       ├── src/         # Source code
-│       │   ├── routes/  # Express routes for Uniks CRUD operations
-│       │   ├── database/ # TypeORM entities and migrations
-│       │   ├── types/   # TypeScript declarations
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-├── universo-api-client/ # TypeScript API client
-│   ├── src/             # Source code
-│   │   ├── clients/     # API client implementations
-│   │   ├── types/       # Request/response types
-│   │   └── index.ts     # Entry point
-│   ├── dist/            # Compiled output (CJS, ESM, types)
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-├── universo-i18n/       # Centralized i18n instance
-│   ├── src/             # Source code
-│   │   ├── locales/     # Translation files
-│   │   ├── i18n.ts      # i18next configuration
-│   │   └── index.ts     # Entry point
-│   ├── dist/            # Compiled output
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-├── universo-rest-docs/  # API documentation server
-│   ├── src/             # Source code
-│   │   ├── swagger/     # OpenAPI specifications
-│   │   └── index.ts     # Entry point
-│   ├── dist/            # Compiled output
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md
-├── universo-template-mui/ # Material-UI template implementation
+├── universo-template-mui/    # Material-UI template implementation
 │   └── base/            # Core MUI template functionality
 │       ├── src/         # Source code
 │       │   ├── layouts/ # Layout components
@@ -296,59 +246,33 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── universo-types/      # Shared TypeScript types and interfaces
+├── universo-types/           # Shared TypeScript types and interfaces
 │   └── base/            # Core type definitions
 │       ├── src/         # Source code
-│       │   ├── interfaces/ # UPDL and platform interfaces
+│       │   ├── interfaces/ # Platform interfaces
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output (CJS, ESM, types)
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── universo-utils/      # Shared utilities and processors
+├── universo-utils/           # Shared utilities and processors
 │   └── base/            # Core utility functions
 │       ├── src/         # Source code
-│       │   ├── updl/    # UPDL processing utilities (UPDLProcessor)
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output (CJS, ESM, types)
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── updl/                # UPDL node system for creating universal 3D/AR/VR spaces
-│   └── base/            # Core UPDL functionality
-│       ├── src/         # Source code
-│       │   ├── assets/  # Static resources (icons, images)
-│       │   ├── i18n/    # Internationalization
-│       │   ├── interfaces/ # TypeScript types
-│       │   ├── nodes/   # UPDL node definitions
-│       │   └── index.ts # Entry point
-│       ├── dist/        # Compiled output (CJS, ESM, types)
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── README.md
-└── README.md            # This documentation
+└── README.md                 # This documentation
 ```
 
 ## Applications
 
 ### Core Platform Packages
 
-#### Flowise Components (flowise-components)
+#### Universo Core Backend (@universo/core-backend)
 
-Core Flowise node component implementations that power the visual programming interface.
-
-**Key Features:**
-
--   Complete node library for Flowise workflows
--   Integration with LangChain and other AI tools
--   Custom UPDL node implementations
--   Dual build system (tsdown): CJS + ESM outputs
-
-**Documentation:** See [packages/flowise-components/README.md](./flowise-components/README.md)
-
-#### Flowise Server (flowise-server)
-
-The main backend server for Universo Platformo, providing API endpoints, database management, and business logic.
+The main backend server for Universo Platformo (formerly `flowise-server`), providing API endpoints, database management, and business logic.
 
 **Key Features:**
 
@@ -358,11 +282,11 @@ The main backend server for Universo Platformo, providing API endpoints, databas
 -   Entity and migration registry system
 -   Asynchronous route initialization
 
-**Documentation:** See [packages/flowise-core-backend/base/README.md](./flowise-server/README.md)
+**Documentation:** See [packages/universo-core-backend/base/README.md](./universo-core-backend/base/README.md)
 
-#### Flowise UI (flowise-ui)
+#### Universo Core Frontend (@universo/core-frontend)
 
-The main React frontend application providing the visual programming interface.
+The main React frontend application (formerly `flowise-ui`) providing the visual programming interface.
 
 **Key Features:**
 
@@ -372,54 +296,22 @@ The main React frontend application providing the visual programming interface.
 -   Credential and configuration management
 -   Multi-workspace support
 
-**Documentation:** See [packages/flowise-core-frontend/base/README.md](./flowise-ui/README.md)
+**Documentation:** See [packages/universo-core-frontend/base/README.md](./universo-core-frontend/base/README.md)
 
-### Shared UI Components
+### Shared Infrastructure Packages
 
-#### Flowise Template MUI (@flowise/template-mui)
+#### Universo Store (@universo/store)
 
-Material-UI component library extracted from flowise-ui monolith using the unbundled source pattern.
-
-**Key Features:**
-
--   Extracted MUI components (Layout, Dialogs, Forms, Cards, Pagination)
--   Unbundled source pattern: distributes raw `.tsx` files
--   Large build output: 17MB CJS, 5.2MB ESM, 5KB types
--   Eliminates duplication across frontend packages
--   Theme configurations and customizations
-
-**Documentation:** See [packages/flowise-template-mui/base/README.md](./flowise-template-mui/base/README.md)
-
-#### Flowise Chat Message (@flowise/chatmessage)
-
-Reusable chat interface components with streaming, audio recording, and file upload support.
-
-**Key Features:**
-
--   7 chat components: ChatPopUp, ChatMessage, ChatExpandDialog, etc.
--   Eliminated ~7692 lines of duplication (3 copies → 1 package)
--   Streaming message support
--   Audio recording functionality
--   File upload integration
--   Dual build system (tsdown): CJS + ESM + Types
-
-**Documentation:** See [packages/flowise-chatmessage/base/README.md](./flowise-chatmessage/base/README.md)
-
-#### Flowise Store (@flowise/store)
-
-Shared Redux store configuration for Flowise applications.
+Shared Redux store configuration for Universo Platformo applications (formerly `@flowise/store`).
 
 **Key Features:**
 
 -   Centralized state management
--   Redux Toolkit integration
--   Reusable slices across frontend packages
+-   Redux reducers and context
+-   Reusable state logic across frontend packages
 -   TypeScript support
--   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/flowise-store/base/README.md](./flowise-store/base/README.md)
-
-### Shared Infrastructure Packages
+**Documentation:** See [packages/universo-store/base/README.md](./universo-store/base/README.md)
 
 #### Universo Platformo Types (@universo/types)
 
@@ -427,8 +319,7 @@ A shared package containing all TypeScript type definitions and interfaces used 
 
 **Key Features:**
 
--   **UPDL Interfaces**: Complete type definitions for UPDL nodes, spaces, and flow data
--   **Platform Types**: Shared types for publication, authentication, and API communication
+-   **Platform Interfaces**: Shared types for all platform operations
 -   **Dual Build System**: Compiled to both CommonJS and ES Modules for maximum compatibility
 -   **Type-Only Package**: Pure TypeScript definitions without runtime dependencies
 
@@ -440,9 +331,7 @@ A shared package containing utility functions and processors used across multipl
 
 **Key Features:**
 
--   **UPDLProcessor**: Core processor for converting flow data to UPDL structures
--   **Multi-Scene Support**: Handles both single space and multi-scene UPDL flows
--   **Template Agnostic**: Provides foundation for all template builders
+-   Shared utility functions for platform operations
 -   **Dual Build System**: Compiled to both CommonJS and ES Modules (tsdown)
 
 **Documentation:** See [packages/universo-utils/base/README.md](./universo-utils/base/README.md)
@@ -459,7 +348,7 @@ TypeScript API client for Universo Platformo backend services.
 -   Error handling and retry logic
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/universo-api-client/README.md](./universo-api-client/README.md)
+**Documentation:** See [packages/universo-api-client/base/README.md](./universo-api-client/base/README.md)
 
 #### Universo i18n (@universo/i18n)
 
@@ -472,7 +361,7 @@ Centralized i18next instance for internationalization across all Universo Platfo
 -   Language detection and switching
 -   Namespace support for modular translations
 
-**Documentation:** See [packages/universo-i18n/README.md](./universo-i18n/README.md)
+**Documentation:** See [packages/universo-i18n/base/README.md](./universo-i18n/base/README.md)
 
 #### Universo Template MUI (@universo/template-mui)
 
@@ -487,7 +376,20 @@ Material-UI template implementation for Universo Platformo React applications.
 
 **Documentation:** See [packages/universo-template-mui/base/README.md](./universo-template-mui/base/README.md)
 
-#### Universo REST Docs (universo-rest-docs)
+#### Apps Template MUI (@universo/apps-template-mui)
+
+MUI-based application template providing shared layouts, themes, and dashboard components.
+
+**Key Features:**
+
+-   Dashboard and CRUD layouts
+-   Shared MUI theme configurations
+-   Routing infrastructure
+-   Blog and marketing page templates
+
+**Documentation:** See [packages/apps-template-mui/README.md](./apps-template-mui/README.md)
+
+#### Universo REST Docs (@universo/rest-docs)
 
 API documentation server using OpenAPI/Swagger specifications.
 
@@ -499,6 +401,32 @@ API documentation server using OpenAPI/Swagger specifications.
 -   Auto-generated from TypeScript types
 
 **Documentation:** See [packages/universo-rest-docs/README.md](./universo-rest-docs/README.md)
+
+#### Schema DDL (@universo/schema-ddl)
+
+Schema DDL utilities for runtime schema generation, migration, and diff calculation.
+
+**Key Features:**
+
+-   Runtime schema generation (SchemaGenerator)
+-   Schema migration logic (SchemaMigrator)
+-   Schema diff calculation
+-   Database locking and snapshotting utilities
+
+**Documentation:** See [packages/schema-ddl/base/README.md](./schema-ddl/base/README.md)
+
+#### Migration Guard Shared (@universo/migration-guard-shared)
+
+Shared utilities and components for migration guard functionality across MetaHubs and Applications.
+
+**Key Features:**
+
+-   MigrationGuardShell React component
+-   Migration status query utilities
+-   Severity determination logic
+-   Shared across metahubs and applications modules
+
+**Documentation:** See [packages/migration-guard-shared/base/README.md](./migration-guard-shared/base/README.md)
 
 ### Authentication System
 
@@ -530,86 +458,93 @@ Passport.js + Supabase session toolkit for backend authentication.
 
 **Documentation:** See [packages/auth-backend/base/README.md](./auth-backend/base/README.md)
 
-### Template Packages
-
-#### Quiz Template (@universo/template-quiz)
-
-A specialized template package for creating AR.js educational quizzes with lead collection.
-
-**Key Features:**
-
--   **AR.js Integration**: Complete AR.js quiz implementation with marker tracking
--   **Multi-Scene Quizzes**: Support for sequential question flows
--   **Lead Collection**: Built-in forms for collecting user information
--   **Points System**: Automatic scoring and results display
--   **Modular Architecture**: Separate handlers for different UPDL node types
--   **Dual Build System**: tsdown (CJS + ESM + Types)
-
-**Documentation:** See [packages/template-quiz/base/README.md](./template-quiz/base/README.md)
-
-#### MMOOMM Template (@universo/template-mmoomm)
-
-A specialized template package for creating PlayCanvas space MMO experiences.
-
-**Key Features:**
-
--   **Space MMO Environment**: Complete 3D space simulation with physics
--   **Industrial Mining**: Laser mining system with auto-targeting
--   **Entity System**: Ships, asteroids, stations, and gates
--   **Multiplayer Support**: Real-time networking with Colyseus
--   **Advanced Controls**: WASD+QZ movement with quaternion rotation
--   **Dual Build System**: tsdown (CJS + ESM + Types)
-
-**Documentation:** See [packages/template-mmoomm/base/README.md](./template-mmoomm/base/README.md)
-
-### Multiplayer Infrastructure
-
-#### Multiplayer Colyseus Server (@universo/multiplayer-colyseus-backend)
-
-Colyseus multiplayer server for real-time networking in MMOOMM experiences.
-
-**Key Features:**
-
--   Colyseus room implementations
--   State synchronization
--   Player connection management
--   Entity replication for ships, asteroids, and projectiles
--   Integration with template-mmoomm
-
-**Documentation:** See [packages/multiplayer-colyseus-backend/README.md](./multiplayer-colyseus-backend/README.md)
-
 ### Domain Modules
 
-#### Uniks (Workspace Management)
+#### Admin (Global User Management)
 
-The Uniks application provides workspace management functionality, allowing users to create, manage, and organize their workspaces. It consists of a frontend application and a backend workspace package.
+The Admin application provides global user management functionality for platform administrators. It consists of a frontend application and a backend workspace package.
 
-##### Uniks Frontend (@universo/uniks-frontend)
+##### Admin Frontend (@universo/admin-frontend)
 
 **Key Features:**
 
--   Workspace creation and management interface
--   User-friendly workspace listing and navigation
--   Workspace member management
+-   Global user management interface
+-   Admin panel UI with Material-UI components
+-   Internationalization support
+-   API-driven admin operations
+
+**Documentation:** See [packages/admin-frontend/base/README.md](./admin-frontend/base/README.md)
+
+##### Admin Server (@universo/admin-backend)
+
+This is a backend service, structured as a workspace package (`@universo/admin-backend`), responsible for global user management operations.
+
+**Key Features:**
+
+-   Express routes for admin CRUD operations
+-   TypeORM entities for admin data management
+-   Authorization guards for admin access control
+-   Validation schemas for input data
+
+**Documentation:** See [packages/admin-backend/base/README.md](./admin-backend/base/README.md)
+
+#### Applications
+
+The Applications module provides application lifecycle management functionality. It consists of a frontend application and a backend workspace package.
+
+##### Applications Frontend (@universo/applications-frontend)
+
+**Key Features:**
+
+-   Application creation and management interface
+-   Application listing with menu integration
 -   Responsive design with Material-UI components
 -   Internationalization support (English and Russian)
--   Dual build system (tsdown): CJS + ESM + Types
+-   Comprehensive test coverage
 
-**Documentation:** See [packages/uniks-frontend/base/README.md](./uniks-frontend/base/README.md)
+**Documentation:** See [packages/applications-frontend/base/README.md](./applications-frontend/base/README.md)
 
-##### Uniks Server (@universo/uniks-backend)
+##### Applications Server (@universo/applications-backend)
 
-This is a backend service, structured as a workspace package (`@universo/uniks-backend`), responsible for handling workspace data and operations.
+This is a backend service, structured as a workspace package (`@universo/applications-backend`), responsible for handling application data and operations.
 
 **Key Features:**
 
--   Express routes for Uniks CRUD operations
--   TypeORM entities (`Unik`, `UserUnik`) for database management
--   PostgreSQL database migrations
--   Supabase integration for authentication
--   Nested route mounting for Flowise routes under `/:unikId` prefix
+-   Express routes for application CRUD operations
+-   TypeORM entities for database management
+-   Validation schemas
+-   Test coverage with Jest
 
-**Documentation:** See [packages/uniks-backend/base/README.md](./uniks-backend/base/README.md)
+**Documentation:** See [packages/applications-backend/base/README.md](./applications-backend/base/README.md)
+
+#### MetaHubs
+
+The MetaHubs application provides metahub management functionality including schema management, settings, and enumerations. It consists of a frontend application and a backend workspace package.
+
+##### MetaHubs Frontend (@universo/metahubs-frontend)
+
+**Key Features:**
+
+-   MetaHub management UI with domain-driven architecture
+-   Schema, settings, and enumeration management
+-   Responsive design with Material-UI
+-   Internationalization support
+-   Dual build system (tsdown): CJS + ESM + Types
+
+**Documentation:** See [packages/metahubs-frontend/base/README.md](./metahubs-frontend/base/README.md)
+
+##### MetaHubs Server (@universo/metahubs-backend)
+
+This is a backend service for MetaHub management.
+
+**Key Features:**
+
+-   Domain-driven service architecture
+-   TypeORM entities for MetaHub data
+-   PostgreSQL database migrations
+-   Test coverage with Jest
+
+**Documentation:** See [packages/metahubs-backend/base/README.md](./metahubs-backend/base/README.md)
 
 #### Profile
 
@@ -638,160 +573,31 @@ This is a backend service, structured as a workspace package (`@universo/profile
 
 **Documentation:** See [packages/profile-backend/base/README.md](./profile-backend/base/README.md)
 
-#### Spaces (Canvas Management)
+#### Start (Onboarding)
 
-The Spaces application provides canvas and flow management functionality. It consists of a frontend application and a backend workspace package.
+The Start application provides onboarding and start page functionality. It consists of a frontend application and a backend workspace package.
 
-##### Spaces Frontend (@universo/spaces-frontend)
-
-**Key Features:**
-
--   Canvas UI components extracted from flowise-ui
--   Flow/space management interface
--   Integration with React Flow
--   Dual build system (tsdown): CJS + ESM + Types
-
-**Documentation:** See [packages/spaces-frontend/base/README.md](./spaces-frontend/base/README.md)
-
-##### Spaces Server (@universo/spaces-backend)
-
-This is a backend service for managing spaces and canvases.
+##### Start Frontend (@universo/start-frontend)
 
 **Key Features:**
 
--   Express routes for spaces CRUD operations
--   TypeORM entities for space management
--   PostgreSQL database migrations
--   Integration with flowise-server
-
-**Documentation:** See [packages/spaces-backend/base/README.md](./spaces-backend/base/README.md)
-
-#### Metaverses
-
-The Metaverses application provides metaverse management functionality. It consists of a frontend application and a backend workspace package.
-
-##### Metaverses Frontend (@universo/metaverses-frontend)
-
-**Key Features:**
-
--   Metaverse creation and management UI
--   Metaverse listing and navigation
--   Responsive design with Material-UI
+-   Onboarding wizard and start page UI
+-   View components for initial setup
+-   API-driven content loading
 -   Internationalization support
--   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/metaverses-frontend/base/README.md](./metaverses-frontend/base/README.md)
+**Documentation:** See [packages/start-frontend/base/README.md](./start-frontend/base/README.md)
 
-##### Metaverses Server (@universo/metaverses-backend)
+##### Start Server (@universo/start-backend)
 
-This is a backend service for metaverse management.
-
-**Key Features:**
-
--   Express routes for metaverse CRUD operations
--   TypeORM entities for metaverse data
--   PostgreSQL database migrations
--   Integration with flowise-server
-
-**Documentation:** See [packages/metaverses-backend/base/README.md](./metaverses-backend/base/README.md)
-
-#### Analytics
-
-The Analytics application provides quiz analytics functionality.
-
-##### Analytics Frontend (@universo/analytics-frontend)
+This is a backend service, structured as a workspace package (`@universo/start-backend`), responsible for onboarding and start page data.
 
 **Key Features:**
 
--   Quiz analytics dashboard
--   Data visualization components
--   Internationalization support
--   Dual build system (tsdown): CJS + ESM + Types
+-   Express routes for start page operations
+-   Integration with platform services
 
-**Documentation:** See [packages/analytics-frontend/base/README.md](./analytics-frontend/base/README.md)
-
-### Space Builder (Prompt-to-Flow)
-
-The Space Builder application turns natural-language prompts into Flow graphs composed of UPDL nodes. It consists of a frontend application and a backend workspace package.
-
-#### Space Builder Frontend (@universo/space-builder-frontend)
-
-**Key Features:**
-
--   Prompt-to-flow generation (MUI dialog + FAB)
--   Model selection from Credentials; optional Test mode (via server env)
--   Append/Replace modes on the canvas
--   I18n integration
--   Dual build system (tsdown): CJS + ESM + Types
-
-**Documentation:** See [packages/space-builder-frontend/base/README.md](./space-builder-frontend/base/README.md)
-
-#### Space Builder Server (@universo/space-builder-backend)
-
-This is a backend service, structured as a workspace package (`@universo/space-builder-backend`), responsible for LLM call and safe JSON graph return.
-
-**Key Features:**
-
--   Endpoints: `/api/v1/space-builder/health`, `/config`, `/generate`
--   Meta-prompt → provider call → RAW JSON extraction
--   Credential resolution integrated with platform services
--   Zod-based validation and server-side normalization
-
-**Documentation:** See [packages/space-builder-backend/base/README.md](./space-builder-backend/base/README.md)
-
-### UPDL (Universal Platform Definition Language)
-
-The UPDL application provides a unified node system for describing 3D/AR/VR spaces that can be exported to multiple target platforms. It defines a standardized intermediate representation layer that abstracts away the specifics of different rendering engines.
-
-#### UPDL (@universo/updl)
-
-**Key Features:**
-
--   7 core high-level nodes for universal 3D/AR/VR scene description
--   Legacy nodes (Object, Camera, Light) for backward compatibility
--   Node definitions and icons
--   Pure Flowise integration
--   TypeScript interfaces
--   Dual build system (tsdown): CJS + ESM + Types
-
-**Interface Architecture:**
-
--   **Core UPDL Interfaces** (`UPDLInterfaces.ts`): Complete ecosystem definitions for flows, graphs, and detailed node properties
--   **Integration Interfaces** (`Interface.UPDL.ts`): Simplified interfaces for backend/frontend integration via `@server/interface` alias
-
-**Documentation:** See [packages/updl/base/README.md](./updl/base/README.md)
-
-### Publish
-
-The Publish application provides mechanisms for exporting UPDL spaces to AR.js and publishing them with shareable URLs.
-
-#### Publish Frontend (@universo/publish-frontend)
-
-The frontend application is responsible for the entire user-facing publication workflow, including the final conversion of data to viewable AR.js and PlayCanvas formats.
-
-**Key Features:**
-
--   **Client-Side UPDL Processing**: Uses the shared `UPDLProcessor` from `@universo/utils` to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences
--   **Template Registry System**: Modular template system that dynamically loads specialized template packages (`@universo/template-quiz`, `@universo/template-mmoomm`)
--   **Shared Type System**: Uses `@universo/types` for consistent type definitions across all templates and builders
--   **Template Packages**: Delegates specific functionality to specialized template packages for maintainability and modularity
--   **Supabase Integration**: Persists publication configurations
--   **Multi-Technology Support**: Supports AR.js quizzes and PlayCanvas MMO experiences through dedicated template packages
-
-**Documentation:** See [packages/publish-frontend/base/README.md](./publish-frontend/base/README.md)
-
-#### Publish Backend (@universo/publish-backend)
-
-This is a backend service, refactored into a workspace package (`@universo/publish-backend`), with a single responsibility: serving data to the frontend.
-
-**Key Features:**
-
--   **Workspace Package**: Provides shared types and services as `@universo/publish-backend`
--   **Raw Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend
--   **Source of Truth for Types**: Exports all shared UPDL and publication-related TypeScript types
--   **Asynchronous Route Initialization**: Prevents race conditions by initializing routes only after a database connection is established
-
-**Documentation:** See [packages/publish-backend/base/README.md](./publish-backend/base/README.md)
+**Documentation:** See [packages/start-backend/base/README.md](./start-backend/base/README.md)
 
 ## Architecture for Future Expansion
 
@@ -803,17 +609,17 @@ app-name/
 │   ├── src/             # Source code
 │   │   ├── api/         # API clients (for frontend)
 │   │   ├── assets/      # Static resources (icons, images)
-│   │   ├── builders/    # UPDL to target platform builders (for frontend)
 │   │   ├── components/  # React components (for frontend)
 │   │   ├── configs/     # Configuration constants
 │   │   ├── controllers/ # Express controllers (for backend)
-│   │   ├── features/    # Feature modules (former mini-apps)
+│   │   ├── database/    # TypeORM entities and migrations (for backend)
+│   │   ├── domains/     # Domain logic modules
+│   │   ├── features/    # Feature modules
 │   │   ├── hooks/       # React hooks (for frontend)
 │   │   ├── i18n/        # Internationalization resources
 │   │   ├── interfaces/  # TypeScript interfaces and types
 │   │   ├── middlewares/ # Middleware handlers (for backend)
 │   │   ├── models/      # Data models (for backend)
-│   │   ├── nodes/       # UPDL node definitions
 │   │   ├── routes/      # REST API routes (for backend)
 │   │   ├── services/    # Business logic (for backend)
 │   │   ├── store/       # State management (for frontend)
@@ -823,15 +629,13 @@ app-name/
 │   ├── dist/            # Compiled output
 │   ├── package.json
 │   ├── tsconfig.json
-│   ├── gulpfile.ts      # (for frontend modules with assets)
 │   └── README.md
 ```
 
 **Note:** Not all directories are required for every application. Create only the directories that are needed for your specific functionality:
 
--   **Frontend applications** typically need: `api/`, `assets/`, `components/`, `features/`, `pages/`, `utils/`, `gulpfile.ts`
--   **Backend applications** typically need: `controllers/`, `routes/`, `utils/`
--   **UPDL modules** typically need: `assets/`, `interfaces/`, `nodes/`, `gulpfile.ts`
+-   **Frontend applications** typically need: `api/`, `assets/`, `components/`, `hooks/`, `i18n/`, `pages/`, `utils/`
+-   **Backend applications** typically need: `database/`, `routes/`, `services/`, `utils/`
 
 ## Build System Evolution
 
@@ -841,28 +645,20 @@ Many packages have migrated from the legacy tsc+gulp build system to **tsdown** 
 
 **Migrated packages (tsdown):**
 
--   `@universo/analytics-frontend`
 -   `@universo/auth-frontend`
 -   `@universo/auth-backend`
--   `@flowise/chatmessage`
--   `@flowise/store`
--   `@universo/metaverses-frontend`
--   `@universo/spaces-frontend`
--   `@universo/space-builder-frontend`
--   `@universo/template-mmoomm`
--   `@universo/template-quiz`
+-   `@universo/store`
+-   `@universo/metahubs-frontend`
 -   `@universo/template-mui`
 -   `@universo/types`
--   `@universo/uniks-frontend`
--   `@universo/updl`
 -   `@universo/utils`
 -   `@universo/api-client`
--   `flowise-components`
+-   `@universo/i18n`
+-   `@universo/migration-guard-shared`
 
-**Legacy packages (tsc+gulp):**
+**Legacy packages (tsc or tsc+gulp):**
 
 -   `@universo/profile-frontend` (has gulpfile.ts)
--   `@universo/publish-frontend` (has gulpfile.ts)
 
 **tsdown benefits:**
 
@@ -876,47 +672,34 @@ Many packages have migrated from the legacy tsc+gulp build system to **tsdown** 
 The applications in this directory are designed to work together in a modular architecture:
 
 ```
-┌──────────────┐       ┌────────────────┐        ┌────────────────┐
-│              │       │                │        │                │
-│   Flowise    │──────▶│  UPDL Module   │───────▶│ Publish Module │
-│   Editor     │       │  (Space Graph) │        │  (Export/Share)│
-│              │       │                │        │                │
-└──────────────┘       └────────────────┘        └────────┬───────┘
-                                                          │
-                                                          ▼
-                                                 ┌────────────────┐
-                                                 │                │
-                                                 │  Public URL    │
-                                                 │  /p/{uuid}     │
-                                                 │                │
-                                                 └────────────────┘
-```
-
-In the current architecture:
-
-```
-┌──────────────┐
-│              │
-│   Flowise    │
-│   Editor     │
-│              │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐       ┌────────────────┐       ┌────────────────┐
-│              │       │                │       │                │
-│     UPDL     │──────▶│ PUBLISH-FRT    │──────▶│  PUBLISH-SRV   │
-│   (Nodes)    │       │   Frontend     │       │    Backend     │
-│              │       │                │       │                │
-└──────────────┘       └────────────────┘       └────────┬───────┘
-                                                          │
-                                                          ▼
-                                                 ┌────────────────┐
-                                                 │                │
-                                                 │  Public URL    │
-                                                 │  /p/{uuid}     │
-                                                 │                │
-                                                 └────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    Core Platform                     │
+│  ┌─────────────────┐    ┌──────────────────────┐    │
+│  │ Core Backend     │◄──►│ Core Frontend        │    │
+│  │ (@universo/      │    │ (@universo/          │    │
+│  │  core-backend)   │    │  core-frontend)      │    │
+│  └────────┬─────────┘    └──────────┬───────────┘   │
+└───────────┼──────────────────────────┼───────────────┘
+            │                          │
+            ▼                          ▼
+┌───────────────────────┐  ┌──────────────────────────┐
+│   Backend Modules     │  │   Frontend Modules       │
+│ ┌───────────────────┐ │  │ ┌──────────────────────┐ │
+│ │ admin-backend     │ │  │ │ admin-frontend       │ │
+│ │ applications-bknd │ │  │ │ applications-frt     │ │
+│ │ metahubs-backend  │ │  │ │ metahubs-frontend    │ │
+│ │ profile-backend   │ │  │ │ profile-frontend     │ │
+│ │ start-backend     │ │  │ │ start-frontend       │ │
+│ └───────────────────┘ │  │ └──────────────────────┘ │
+└───────────────────────┘  └──────────────────────────┘
+            │                          │
+            ▼                          ▼
+┌─────────────────────────────────────────────────────┐
+│              Shared Infrastructure                   │
+│  @universo/types  @universo/utils  @universo/i18n   │
+│  @universo/store  @universo/template-mui            │
+│  @universo/api-client  @universo/schema-ddl         │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Technology Requirements
@@ -924,7 +707,6 @@ In the current architecture:
 **Core Platform:**
 - **Node.js**: >=18.15.0 <19.0.0 || ^20 (LTS versions required for production)
 - **PNPM**: >=9 (package manager for monorepo)
-- **Flowise AI**: 2.2.8 (base visual programming platform)
 
 **Build Tools:**
 - **TypeScript**: Strict mode enabled across all packages
@@ -932,7 +714,7 @@ In the current architecture:
 - **Turborepo**: Efficient monorepo build orchestration
 
 **Frontend:**
-- **React**: Core UI library (version managed by Flowise)
+- **React**: Core UI library
 - **Material-UI (MUI)**: v6 with ColorScheme API for dark mode support
 - **React Flow**: Node-based visual editor infrastructure
 
@@ -949,7 +731,7 @@ In the current architecture:
 ## Development Guidelines
 
 1. **Modularity:** Keep each application self-contained with clear interfaces
-2. **Minimal Core Changes:** Avoid modifying the main Flowise codebase
+2. **Minimal Core Changes:** Avoid modifying the core backend/frontend codebase
 3. **Documentation:** Maintain README files in each application directory
 4. **Shared Types:** Use common type definitions for inter-application communication
 5. **Build System:** Prefer tsdown for new packages; migrate legacy packages gradually
@@ -971,45 +753,33 @@ pnpm build --filter @universo/types
 pnpm build --filter @universo/utils
 pnpm build --filter @universo/api-client
 pnpm build --filter @universo/i18n
-
-# Build shared UI components
-pnpm build --filter @flowise/template-mui
-pnpm build --filter @flowise/chatmessage
-pnpm build --filter @flowise/store
+pnpm build --filter @universo/store
 pnpm build --filter @universo/template-mui
-
-# Build template packages
-pnpm build --filter @universo/template-quiz
-pnpm build --filter @universo/template-mmoomm
+pnpm build --filter @universo/migration-guard-shared
+pnpm build --filter @universo/schema-ddl
 
 # Build authentication packages
 pnpm build --filter @universo/auth-frontend
 pnpm build --filter @universo/auth-backend
 
 # Build domain frontend applications
-pnpm build --filter @universo/analytics-frontend
-pnpm build --filter @universo/metaverses-frontend
+pnpm build --filter @universo/admin-frontend
+pnpm build --filter @universo/applications-frontend
+pnpm build --filter @universo/metahubs-frontend
 pnpm build --filter @universo/profile-frontend
-pnpm build --filter @universo/publish-frontend
-pnpm build --filter @universo/space-builder-frontend
-pnpm build --filter @universo/spaces-frontend
-pnpm build --filter @universo/uniks-frontend
-pnpm build --filter @universo/updl
+pnpm build --filter @universo/start-frontend
 
 # Build domain backend applications
-pnpm build --filter @universo/metaverses-backend
+pnpm build --filter @universo/admin-backend
+pnpm build --filter @universo/applications-backend
+pnpm build --filter @universo/metahubs-backend
 pnpm build --filter @universo/profile-backend
-pnpm build --filter @universo/publish-backend
-pnpm build --filter @universo/space-builder-backend
-pnpm build --filter @universo/spaces-backend
-pnpm build --filter @universo/uniks-backend
-pnpm build --filter @universo/multiplayer-colyseus-backend
+pnpm build --filter @universo/start-backend
 
 # Build core platform
-pnpm build --filter flowise-components
-pnpm build --filter flowise-server
-pnpm build --filter flowise-ui
-pnpm build --filter universo-rest-docs
+pnpm build --filter @universo/core-backend
+pnpm build --filter @universo/core-frontend
+pnpm build --filter @universo/rest-docs
 ```
 
 ## Development
@@ -1017,27 +787,21 @@ pnpm build --filter universo-rest-docs
 To run a specific application in development mode (watches for changes and rebuilds):
 
 ```bash
-# Frontend packages (tsdown watch mode)
-pnpm --filter @universo/analytics-frontend dev
+# Frontend packages
+pnpm --filter @universo/admin-frontend dev
+pnpm --filter @universo/applications-frontend dev
 pnpm --filter @universo/auth-frontend dev
-pnpm --filter @flowise/chatmessage dev
-pnpm --filter @universo/metaverses-frontend dev
+pnpm --filter @universo/metahubs-frontend dev
 pnpm --filter @universo/profile-frontend dev
-pnpm --filter @universo/publish-frontend dev
-pnpm --filter @universo/space-builder-frontend dev
-pnpm --filter @universo/spaces-frontend dev
-pnpm --filter @universo/uniks-frontend dev
-pnpm --filter @universo/updl dev
+pnpm --filter @universo/start-frontend dev
 
 # Backend packages
+pnpm --filter @universo/admin-backend dev
+pnpm --filter @universo/applications-backend dev
 pnpm --filter @universo/auth-backend dev
-pnpm --filter @universo/metaverses-backend dev
+pnpm --filter @universo/metahubs-backend dev
 pnpm --filter @universo/profile-backend dev
-pnpm --filter @universo/publish-backend dev
-pnpm --filter @universo/space-builder-backend dev
-pnpm --filter @universo/spaces-backend dev
-pnpm --filter @universo/uniks-backend dev
-pnpm --filter @universo/multiplayer-colyseus-backend dev
+pnpm --filter @universo/start-backend dev
 ```
 
 **Note about resources:** For packages still using gulp (legacy build), watch scripts don't automatically copy SVG icons. If you add or modify SVG resources during development, run `pnpm build --filter <app>` to ensure they are properly copied to the dist directory. Packages using tsdown handle assets automatically.
