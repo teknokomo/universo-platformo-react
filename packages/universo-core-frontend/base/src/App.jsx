@@ -6,13 +6,13 @@ import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline, StyledEngineProvider } from '@mui/material'
 
 // routing
-import Routes from '@flowise/template-mui/routes'
+import Routes from '@universo/template-mui/routes'
 
 // defaultTheme
-import themes from '@flowise/template-mui/themes'
+import themes from '@universo/template-mui/themes'
 
 // project imports
-import NavigationScroll from '@flowise/template-mui/layout/NavigationScroll'
+import NavigationScroll from '@universo/template-mui/layout/NavigationScroll'
 
 // CASL Ability context
 import { AbilityContextProvider } from '@universo/store'

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from '@universo/i18n'
 import { useAuth } from '@universo/auth-frontend'
-import { MainCard } from '@flowise/template-mui'
+import { MainCard } from '@universo/template-mui'
 import { Box, TextField, Button, Stack, Alert, Typography, Grid, Paper, Divider } from '@mui/material'
 
 const Profile = () => {

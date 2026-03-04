@@ -26,8 +26,17 @@
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
         },
+        "./routes": "./src/routes/ThemeRoutes.jsx",
+        "./themes": "./src/themes/legacy/index.js",
+        "./layout/NavigationScroll": "./src/layout/NavigationScroll.jsx",
+        "./assets/*": "./src/assets/*",
         "./package.json": "./package.json"
     },
+    "sideEffects": [
+        "**/*.css",
+        "**/*.scss",
+        "**/*.sass"
+    ],
     "scripts": {
         "clean": "rimraf dist",
         "build": "NODE_OPTIONS='--max-old-space-size=8192' tsdown && NODE_OPTIONS='--max-old-space-size=8192' tsc --emitDeclarationOnly --noEmit false",
@@ -55,6 +64,7 @@
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "@universo/admin-frontend": "workspace:*",
+        "@universo/auth-frontend": "workspace:*",
         "@universo/start-frontend": "workspace:*",
         "@emotion/react": "catalog:",
         "@emotion/styled": "catalog:",
@@ -63,6 +73,7 @@
         "use-debounce": "^10.0.6",
         "react-hook-form": "catalog:",
         "@hookform/resolvers": "catalog:",
+        "prop-types": "^15.8.1",
         "react-redux": "catalog:"
     },
     "devDependencies": {

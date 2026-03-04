@@ -17,10 +17,9 @@ import '@universo/i18n'
 import '@universo/profile-frontend/i18n'
 import '@universo/applications-frontend/i18n'
 import '@universo/metahubs-frontend/i18n'
-import '@flowise/template-mui/i18n'
 
 // style + assets
-import '@flowise/template-mui/assets/scss/style.scss'
+import '@universo/template-mui/assets/scss/style.scss'
 
 // third party
 import { BrowserRouter } from 'react-router-dom'

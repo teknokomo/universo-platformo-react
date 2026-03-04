@@ -32,6 +32,7 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@universo/template-mui": "workspace:*",
         "react": "^18.2.0",
         "typescript": "^5.4.5"
     },

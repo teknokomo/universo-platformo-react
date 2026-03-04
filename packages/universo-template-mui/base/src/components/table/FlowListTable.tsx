@@ -25,7 +25,11 @@ import { Link } from 'react-router-dom'
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableTableRow, SortableTableBody, InternalDndWrapper } from './FlowListTableDnd'
 
-export const StyledTableCell = styled(TableCell)(({ theme }) => ({
+import type { StyledComponent } from '@emotion/styled'
+import type { TableCellProps, TableRowProps } from '@mui/material'
+import type { Theme } from '@mui/material/styles'
+
+export const StyledTableCell: StyledComponent<TableCellProps & { theme?: Theme }> = styled(TableCell)(({ theme }) => ({
     borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
 
     [`&.${tableCellClasses.head}`]: {
@@ -49,7 +53,7 @@ export const StyledTableCell = styled(TableCell)(({ theme }) => ({
     }
 }))
 
-export const StyledTableRow = styled(TableRow)(() => ({
+export const StyledTableRow: StyledComponent<TableRowProps & { theme?: Theme }> = styled(TableRow)(() => ({
     // hide last border
     '&:last-child td, &:last-child th': {
         border: 0
