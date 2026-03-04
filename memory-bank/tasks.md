@@ -4,6 +4,17 @@
 
 ---
 
+## Completed: Final Hardening Wrap-up — 2026-03-04 ✅
+
+> **Goal**: Finalize post-QA dependency override refinements, re-run critical verification, and close implementation documentation.
+
+- [x] Re-run regression tests for previously failing suites (`@universo/metahubs-frontend`, `@universo/template-mui`)
+- [x] Re-run lint for touched packages (`@universo/metahubs-frontend`, `@universo/template-mui`, `@universo/api-client`)
+- [x] Confirm production security gate (`pnpm audit --prod --audit-level=high`) and clean workspace build (`pnpm build:clean`)
+- [x] Document final state in Memory Bank (`activeContext.md`, `progress.md`) and commit lockfile/override refinements
+
+---
+
 ## Completed: Post-QA Hardening — 2026-03-04 ✅
 
 > **Goal**: Eliminate issues discovered in the latest QA pass (failing tests, lint blockers in touched scope, critical security advisories) without destabilizing the cleaned architecture.

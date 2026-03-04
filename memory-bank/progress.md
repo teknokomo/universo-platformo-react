@@ -90,7 +90,7 @@ Closed all issues found in the latest QA pass for the cleanup scope.
   - `@remix-run/router` → `1.23.2`
   - `jws` pinned via selectors for vulnerable chains
   - `tar` → `7.5.8`
-  - `minimatch` → `10.2.3`
+  - `minimatch` hardened via scoped selectors (`glob>minimatch` → `10.2.3`, `@oclif/core>minimatch` → `9.0.7`) to avoid lint plugin runtime breakage
 
 ### Verification
 
@@ -105,6 +105,19 @@ Closed all issues found in the latest QA pass for the cleanup scope.
   - `pnpm audit --prod --audit-level=high`: no high/critical issues (remaining: 5 low, 4 moderate)
 - Build:
   - `pnpm build:clean`: 23/23 packages successful
+
+### Final verification rerun (same day)
+
+- Re-ran previously failing suites after final lockfile/override refinement:
+  - `@universo/metahubs-frontend` tests: pass
+  - `@universo/template-mui` tests: 169/169 pass
+- Re-ran touched-package lint gates:
+  - `@universo/metahubs-frontend`: pass
+  - `@universo/template-mui`: pass
+  - `@universo/api-client`: pass
+- Reconfirmed gates after scoped minimatch strategy:
+  - `pnpm audit --prod --audit-level=high`: pass (no high/critical)
+  - `pnpm build:clean`: pass (23/23)
 
 ---
 

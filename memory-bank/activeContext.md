@@ -20,6 +20,7 @@ Complete repository cleanup — removed all legacy Flowise packages and renamed 
 - **3 packages renamed**: core-backend, core-frontend, store
 - **24 packages remaining** (was ~63)
 - **Final QA hardening complete (2026-03-04)**
+- Final dependency hardening refined: replaced global `minimatch` override with scoped overrides (`glob>minimatch`, `@oclif/core>minimatch`) to keep lint tooling stable
 - `pnpm build:clean`: 23/23 packages successful
 - Targeted tests/lint for touched packages: all pass
 - Security: `pnpm audit --prod --audit-level=high` has no high/critical findings (remaining low/moderate only)
