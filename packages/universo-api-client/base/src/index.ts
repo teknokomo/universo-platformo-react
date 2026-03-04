@@ -27,12 +27,7 @@ export const api = createUniversoApiClient({ baseURL: `${getApiBaseURL()}/api/v1
 export { AttachmentsApi, attachmentsQueryKeys } from './api/attachments'
 export { ConfigApi, configQueryKeys } from './api/config'
 export { FeedbackApi, feedbackQueryKeys } from './api/feedback'
-export {
-    createValidationApi,
-    type ValidationApi,
-    type ValidationResult,
-    type ValidationResponse
-} from './api/validation'
+export { createValidationApi, type ValidationApi, type ValidationResult, type ValidationResponse } from './api/validation'
 
 // TypeScript types
 export * from './types'

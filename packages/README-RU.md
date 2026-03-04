@@ -302,7 +302,7 @@ packages/
 
 #### Universo Store (@universo/store)
 
-Общая конфигурация Redux хранилища для приложений Universo Platformo (бывший `@flowise/store`).
+Общая конфигурация Redux хранилища для приложений Universo Platformo.
 
 **Ключевые возможности:**
 

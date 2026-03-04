@@ -302,7 +302,7 @@ The main React frontend application (formerly `flowise-ui`) providing the visual
 
 #### Universo Store (@universo/store)
 
-Shared Redux store configuration for Universo Platformo applications (formerly `@flowise/store`).
+Shared Redux store configuration for Universo Platformo applications.
 
 **Key Features:**
 

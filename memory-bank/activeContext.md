@@ -22,6 +22,7 @@ Complete repository cleanup — removed all legacy Flowise packages and renamed 
 - **14 commits**, all phases (0-15) completed
 - **23/23 packages build** successfully
 - **Zero @flowise/ references** in source code
+- **Final QA pass (2026-03-04)**: `pnpm build:clean` and `pnpm build` passed; one `@universo/api-client` prettier lint issue fixed; package docs cleaned to zero legacy `@flowise/` references in `packages/`
 
 ### Next steps
 
