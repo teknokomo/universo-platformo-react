@@ -132,7 +132,7 @@ pnpm --filter @universo/applications-backend build
 ## Связанные пакеты
 
 - `@universo/applications-frontend` - Frontend UI для приложений
-- `@flowise/core-backend` - Core backend с DataSource и миграциями
+- `@universo/core-backend` - Core backend с DataSource и миграциями
 - `@universo/types` - Общие TypeScript типы
 
 ## Лицензия

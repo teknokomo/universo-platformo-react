@@ -26,8 +26,8 @@
 
 ### 🏗️ Архитектура приложения
 - **Мульти-представленческий интерфейс**: Редактор canvas, тестирование чатбота, управление учетными данными
-- **Интеграция компонентов**: Использует `@flowise/template-mui` для всех UI компонентов
-- **Управление состоянием**: Интеграция Redux через `@flowise/store`
+- **Интеграция компонентов**: Использует `@universo/template-mui` для всех UI компонентов
+- **Управление состоянием**: Интеграция Redux через `@universo/store`
 - **Интеграция современных пакетов**: Включает все пакеты `@universo/*`
 
 ### 🌐 Функции платформы Universo
@@ -103,8 +103,8 @@ src/
 ```
 
 ### Интеграция пакетов
-- **UI компоненты**: `@flowise/template-mui` - Полная библиотека Material-UI
-- **Управление состоянием**: `@flowise/store` - Конфигурация Redux store
+- **UI компоненты**: `@universo/template-mui` - Полная библиотека Material-UI
+- **Управление состоянием**: `@universo/store` - Конфигурация Redux store
 - **Компоненты узлов**: `flowise-components` - Узлы AI рабочих потоков
 - **Современные функции**: Все пакеты `@universo/*` для новой функциональности
 
@@ -172,7 +172,7 @@ const supportedLanguages = __SUPPORTED_LANGS__
 
 ### Паттерн useApi Hook
 ```javascript
-import { useApi } from '@flowise/template-mui/hooks'
+import { useApi } from '@universo/template-mui/hooks'
 
 function MyComponent() {
   const { request } = useApi(fetchList)
@@ -290,8 +290,8 @@ packages/flowise-core-frontend/base/
 ### Legacy пакеты Flowise
 ```json
 {
-  "@flowise/store": "workspace:*",
-  "@flowise/template-mui": "workspace:*"
+  "@universo/store": "workspace:*",
+  "@universo/template-mui": "workspace:*"
 }
 ```
 
@@ -318,8 +318,8 @@ NODE_OPTIONS='--max-old-space-size=8192' pnpm build
 ### Добавление новых функций
 ⚠️ **Рекомендации по разработке**:
 1. **Предпочитайте современные пакеты**: Используйте пакеты `@universo/*` для новых функций
-2. **Переиспользование компонентов**: Используйте компоненты `@flowise/template-mui` когда возможно
-3. **Управление состоянием**: Используйте Redux store через `@flowise/store`
+2. **Переиспользование компонентов**: Используйте компоненты `@universo/template-mui` когда возможно
+3. **Управление состоянием**: Используйте Redux store через `@universo/store`
 4. **Интеграция API**: Используйте `@universo/api-client` для связи с backend
 5. **Интернационализация**: Поддерживайте несколько языков через `@universo/i18n`
 
@@ -333,8 +333,8 @@ NODE_OPTIONS='--max-old-space-size=8192' pnpm build
 - **Публикация**: `@universo/publish-frontend` для создания контента
 
 ### Зависимости Legacy пакетов
-- **UI библиотека**: `@flowise/template-mui` для всех UI компонентов
-- **Store состояний**: `@flowise/store` для управления состоянием Redux
+- **UI библиотека**: `@universo/template-mui` для всех UI компонентов
+- **Store состояний**: `@universo/store` для управления состоянием Redux
 - **Система узлов**: Прямая интеграция с `flowise-components`
 
 ## Соображения производительности

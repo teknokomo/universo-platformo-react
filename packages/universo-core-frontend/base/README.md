@@ -26,8 +26,8 @@ The main React frontend application for the Universo Platformo visual programmin
 
 ### 🏗️ Application Architecture
 - **Multi-View Interface**: Canvas editor, chatbot testing, credentials management
-- **Component Integration**: Uses `@flowise/template-mui` for all UI components
-- **State Management**: Redux integration via `@flowise/store`
+- **Component Integration**: Uses `@universo/template-mui` for all UI components
+- **State Management**: Redux integration via `@universo/store`
 - **Modern Package Integration**: Incorporates all `@universo/*` packages
 
 ### 🌐 Universo Platform Features
@@ -103,8 +103,8 @@ src/
 ```
 
 ### Package Integration
-- **UI Components**: `@flowise/template-mui` - Complete Material-UI library
-- **State Management**: `@flowise/store` - Redux store configuration
+- **UI Components**: `@universo/template-mui` - Complete Material-UI library
+- **State Management**: `@universo/store` - Redux store configuration
 - **Node Components**: `flowise-components` - AI workflow nodes
 - **Modern Features**: All `@universo/*` packages for new functionality
 
@@ -172,7 +172,7 @@ const supportedLanguages = __SUPPORTED_LANGS__
 
 ### useApi Hook Pattern
 ```javascript
-import { useApi } from '@flowise/template-mui/hooks'
+import { useApi } from '@universo/template-mui/hooks'
 
 function MyComponent() {
   const { request } = useApi(fetchList)
@@ -290,8 +290,8 @@ packages/flowise-core-frontend/base/
 ### Legacy Flowise Packages
 ```json
 {
-  "@flowise/store": "workspace:*",
-  "@flowise/template-mui": "workspace:*"
+  "@universo/store": "workspace:*",
+  "@universo/template-mui": "workspace:*"
 }
 ```
 
@@ -318,8 +318,8 @@ NODE_OPTIONS='--max-old-space-size=8192' pnpm build
 ### Adding New Features
 ⚠️ **Development Guidelines**:
 1. **Prefer Modern Packages**: Use `@universo/*` packages for new features
-2. **Component Reuse**: Utilize `@flowise/template-mui` components when possible
-3. **State Management**: Use Redux store via `@flowise/store`
+2. **Component Reuse**: Utilize `@universo/template-mui` components when possible
+3. **State Management**: Use Redux store via `@universo/store`
 4. **API Integration**: Use `@universo/api-client` for backend communication
 5. **Internationalization**: Support multiple languages via `@universo/i18n`
 
@@ -333,8 +333,8 @@ NODE_OPTIONS='--max-old-space-size=8192' pnpm build
 - **Publishing**: `@universo/publish-frontend` for content creation
 
 ### Legacy Package Dependencies
-- **UI Library**: `@flowise/template-mui` for all UI components
-- **State Store**: `@flowise/store` for Redux state management
+- **UI Library**: `@universo/template-mui` for all UI components
+- **State Store**: `@universo/store` for Redux state management
 - **Node System**: Direct integration with `flowise-components`
 
 ## Performance Considerations

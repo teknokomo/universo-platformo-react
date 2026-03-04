@@ -31,7 +31,7 @@ catalog:
     # Build tools and bundlers
     # PINNED: tsdown 0.15.7 - newer versions use rolldown 1.0.0-beta.45 which generates
     # broken CJS code with __esm() wrappers that fail on circular dependencies
-    # See: flowise-components circular deps (storageUtils <-> utils)
+    # See: circular deps issue in some packages (storageUtils <-> utils)
     tsdown: 0.15.7
     vite: ^5.4.19
     '@vitejs/plugin-react': ^4.3.4

@@ -132,7 +132,7 @@ pnpm --filter @universo/applications-backend build
 ## Related Packages
 
 - `@universo/applications-frontend` - Frontend UI for applications
-- `@flowise/core-backend` - Core backend with DataSource and migrations
+- `@universo/core-backend` - Core backend with DataSource and migrations
 - `@universo/types` - Shared TypeScript types
 
 ## License

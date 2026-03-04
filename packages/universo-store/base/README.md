@@ -9,7 +9,7 @@ Shared Redux store configuration for Flowise applications, providing centralized
 
 ## Package Information
 
-- **Package**: `@flowise/store`
+- **Package**: `@universo/store`
 - **Version**: `0.1.0` (legacy version)
 - **Type**: Redux Store Library (Legacy)
 - **Framework**: Redux + React Context API
@@ -81,7 +81,7 @@ React Redux ^9.1.0
 ### Installation
 ```bash
 # Install in workspace
-pnpm install @flowise/store
+pnpm install @universo/store
 
 # Build the package
 pnpm build
@@ -91,7 +91,7 @@ pnpm build
 
 ### Basic Store Setup
 ```jsx
-import { store } from '@flowise/store'
+import { store } from '@universo/store'
 import { Provider } from 'react-redux'
 
 function App() {
@@ -105,7 +105,7 @@ function App() {
 
 ### Using Context Providers
 ```jsx
-import { ReactFlowContext, ConfirmContextProvider } from '@flowise/store'
+import { ReactFlowContext, ConfirmContextProvider } from '@universo/store'
 
 function FlowEditor() {
   return (
@@ -121,7 +121,7 @@ function FlowEditor() {
 ### Dispatching Actions
 ```jsx
 import { useDispatch } from 'react-redux'
-import { SET_CANVAS, SET_DIRTY } from '@flowise/store'
+import { SET_CANVAS, SET_DIRTY } from '@universo/store'
 
 function CanvasComponent() {
   const dispatch = useDispatch()
@@ -136,7 +136,7 @@ function CanvasComponent() {
 ### Using React Flow Context
 ```jsx
 import { useContext } from 'react'
-import { flowContext } from '@flowise/store'
+import { flowContext } from '@universo/store'
 
 function FlowToolbar() {
   const { duplicateNode, deleteNode } = useContext(flowContext)
