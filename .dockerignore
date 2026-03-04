@@ -6,5 +6,5 @@ build
 **/build
 **/dist
 
-packages/flowise-core-backend/base/.env
-packages/flowise-core-frontend/base/.env
+packages/universo-core-backend/base/.env
+packages/universo-core-frontend/base/.env

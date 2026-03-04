@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Universo Platformo — exploration, collaboration, digital twins, metaverses</title>
+        <link rel="icon" href="favicon.ico" />
+        <!-- Meta Tags-->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#2296f3" />
+        <meta name="title" content="Universo Platformo — exploration, collaboration, digital twins, metaverses" />
+        <meta
+            name="description"
+            content="Universo Platformo is an infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
+        />
+        <meta
+            name="keywords"
+            content="Universo Platformo, Universo Kiberplano, Universo Kompendio, Universo Grandaringo, digital twins, metaverse, collaboration, planning, organizations, projects"
+        />
+        <meta name="author" content="Universo Platformo" />
+        <script>
+            ;(function () {
+                try {
+                    const supportedLanguages = __SUPPORTED_LANGS__
+                    const storedLang = localStorage.getItem('i18nextLng')
+                    const browserLang = (navigator.languages && navigator.languages[0]) || navigator.language || 'en'
+                    const rawLang = storedLang || browserLang
+                    if (rawLang) {
+                        const baseLang = String(rawLang).split('-')[0].toLowerCase()
+                        if (supportedLanguages.includes(baseLang)) {
+                            document.documentElement.setAttribute('lang', baseLang)
+                        }
+                    }
+                } catch (e) {
+                    // no-op
+                }
+            })()
+        </script>
+        <!-- Open Graph / Facebook -->
+        <meta property="og:locale" content="en_US" />
+        <meta property="og:locale:alternate" content="ru_RU" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://universo.pro/" />
+        <meta property="og:site_name" content="universo.pro/" />
+        <meta property="og:title" content="Universo Platformo — exploration and collaboration" />
+        <meta
+            property="og:description"
+            content="An infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
+        />
+        <meta property="og:image" content="https://flowiseai.com/og-image/og-facebook.png" />
+        <!-- Twitter -->
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content="https://universo.pro/" />
+        <meta property="twitter:title" content="Universo Platformo — exploration and collaboration" />
+        <meta
+            property="twitter:description"
+            content="An infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
+        />
+        <meta property="twitter:image" content="https://flowiseai.com/og-image/og-twitter.png" />
+
+        <link rel="preconnect" href="https://fonts.gstatic.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="root"></div>
+        <div id="portal"></div>
+        <script type="module">
+            import * as React from 'react'
+            import * as ReactJsxRuntime from 'react/jsx-runtime'
+            import * as ReactJsxDevRuntime from 'react/jsx-dev-runtime'
+
+            const requireMap = {
+                react: React,
+                'react/jsx-runtime': ReactJsxRuntime,
+                'react/jsx-dev-runtime': ReactJsxDevRuntime
+            }
+
+            if (typeof window !== 'undefined') {
+                window.__requireMap = requireMap
+                window.require = (moduleId) => {
+                    if (moduleId in requireMap) {
+                        return requireMap[moduleId]
+                    }
+
+                    const error = new Error(`Browser require invoked for "${moduleId}"`)
+                    console.error('[ui-debug] window.require fallback', { moduleId, stack: error.stack })
+                    throw error
+                }
+            }
+        </script>
+        <script type="module" src="src/index.tsx"></script>
+        <script>
+            if (global === undefined) {
+                var global = window
+            }
+        </script>
+    </body>
+</html>

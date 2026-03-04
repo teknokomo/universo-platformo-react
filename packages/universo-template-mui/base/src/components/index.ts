@@ -4,12 +4,25 @@ export { FlowListTable, StyledTableCell, StyledTableRow } from './table/FlowList
 export type { FlowListTableData, FlowListTableProps, TableColumn } from './table/FlowListTable'
 // Re-export DnD event types for FlowListTable DnD consumers
 export type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
+export {
+	DndContext,
+	DragOverlay,
+	PointerSensor,
+	KeyboardSensor,
+	useSensors,
+	useSensor,
+	closestCenter,
+	MeasuringStrategy,
+	useDroppable
+} from '@dnd-kit/core'
+export { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 export { CompactListTable } from './table/CompactListTable'
 export type { CompactListTableProps, CompactListTableLinkMode } from './table/CompactListTable'
 export { TableViewOnly } from './table/Table'
 export { ToolsTable } from './table/ToolsListTable'
 
 export { default as TemplateMainCard } from './cards/MainCard'
+export { default as MainCard } from './cards/MainCard'
 export type { MainCardProps } from './cards/MainCard'
 export { default as TemplateStatsCard } from './cards/StatsCard'
 export { default as TemplateFollowUpPromptsCard } from './cards/FollowUpPromptsCard'

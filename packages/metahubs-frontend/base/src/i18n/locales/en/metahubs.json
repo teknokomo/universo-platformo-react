@@ -759,7 +759,8 @@
                 "addRow": "Add row",
                 "deleteRow": "Delete row",
                 "noRows": "No rows yet",
-                "rowCount": "{{count}} row(s)"
+                "rowCount_one": "{{count}} row",
+                "rowCount_other": "{{count}} rows"
             }
         },
         "physicalType": {
@@ -920,7 +921,8 @@
             "updated": "Updated",
             "addRow": "Add Row",
             "noRows": "No rows yet. Click \"Add Row\" to add data.",
-            "rowCount": "{{count}} rows",
+            "rowCount_one": "{{count}} row",
+            "rowCount_other": "{{count}} rows",
             "edit": "Edit",
             "delete": "Delete",
             "actions": "Actions",
@@ -1097,6 +1099,7 @@
             "createFirstDescription": "When creating a publication, the first version will be created. Provide its name and description.",
             "versionName": "Version name",
             "versionDescription": "Version description",
+            "branch": "Branch",
             "branchLabel": "Branch for version",
             "branchHelper": "The version snapshot will be created from the selected branch.",
             "branchMissing": "Deleted branch",

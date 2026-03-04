@@ -1,6 +1,6 @@
 {
     "name": "@universo/rest-docs",
-    "version": "3.0.0",
+    "version": "0.1.0",
     "description": "Universo Platformo REST API documentation server with modular OpenAPI 3.1 specification",
     "scripts": {
         "build": "pnpm build:ts && pnpm build:openapi",
@@ -12,7 +12,7 @@
         "validate:bundled": "openapi lint dist/openapi-bundled.yml",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
     },
-    "license": "SEE LICENSE IN LICENSE.md",
+    "license": "Omsk Open License",
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "^8.1.0",
         "@universo/types": "workspace:*",

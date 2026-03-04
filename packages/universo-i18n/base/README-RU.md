@@ -228,7 +228,7 @@ FRT пакеты (publish-frontend, analytics-frontend, и т.д.)
 - `flowList`, `menu`, `profile-menu`, `templates`
 - Диалоги вроде `about`, `manageLinks`, `viewLeads` и др.
 
-> Специализированные пространства (document-store, vector-store, assistants, tools, credentials, variables, api-keys и т.д.) **регистрируются самими функциональными пакетами**. Перед рендерингом соответствующих страниц импортируйте эти пакеты (например, `import '@flowise/docstore-frontend/i18n'`).
+> Специализированные пространства (document-store, vector-store, assistants, tools, credentials, variables, api-keys и т.д.) **регистрируются самими функциональными пакетами**. Перед рендерингом соответствующих страниц импортируйте эти пакеты.
 
 FRT пакеты добавляют свои собственные пространства имён динамически.
 

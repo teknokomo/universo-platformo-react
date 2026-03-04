@@ -3,7 +3,7 @@
 We are using PNPM in our current project not npm/yarn.
 
 IMPORTANT: Run PNPM commands ONLY in the root directory of the project.
-Do not run commands in packages/flowise-core-backend/base, packages/flowise-core-frontend/base, packages/flowise-components directories.
+Do not run commands in packages/universo-core-backend/base, packages/universo-core-frontend/base directories.
 All package management should be handled from the project root.
 
 In this project, running `pnpm dev` takes a lot of resources, use it only if it is absolutely necessary, for example, in complex cases of troubleshooting and only with the user's permission. In all other cases, use `pnpm build`.

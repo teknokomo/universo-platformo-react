@@ -780,7 +780,9 @@
                 "addRow": "Добавить строку",
                 "deleteRow": "Удалить строку",
                 "noRows": "Строк пока нет",
-                "rowCount": "{{count}} строк(а)"
+                "rowCount_one": "{{count}} строка",
+                "rowCount_few": "{{count}} строки",
+                "rowCount_many": "{{count}} строк"
             }
         },
         "physicalType": {
@@ -950,7 +952,9 @@
             "updated": "Обновлено",
             "addRow": "Добавить строку",
             "noRows": "Строк пока нет. Нажмите \"Добавить строку\" для ввода данных.",
-            "rowCount": "{{count}} строк",
+            "rowCount_one": "{{count}} строка",
+            "rowCount_few": "{{count}} строки",
+            "rowCount_many": "{{count}} строк",
             "edit": "Редактировать",
             "copy": "Копировать",
             "delete": "Удалить",
@@ -1014,7 +1018,7 @@
         "access": {
             "modeLabel": "Режим доступа",
             "modeFull": "Полный доступ",
-            "modeFullDescription": "Все данные Метахаба доступны через Publication",
+            "modeFullDescription": "Все данные метахаба доступны через публикацию",
             "modeRestricted": "Ограниченный доступ",
             "modeRestrictedDescription": "Доступ контролируется конфигурацией (скоро)",
             "configPlaceholder": "Конфигурация ограниченного доступа будет доступна в будущих версиях."
@@ -1128,6 +1132,7 @@
             "createFirstDescription": "При создании публикации будет создана первая версия. Укажите её название и описание.",
             "versionName": "Название версии",
             "versionDescription": "Описание версии",
+            "branch": "Ветка",
             "branchLabel": "Ветка для версии",
             "branchHelper": "Снапшот версии будет создан на основе выбранной ветки.",
             "branchMissing": "Удалённая ветка",

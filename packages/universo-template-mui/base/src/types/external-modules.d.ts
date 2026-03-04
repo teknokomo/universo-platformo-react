@@ -66,9 +66,3 @@ declare module '@universo/metahubs-frontend' {
     export const MetahubMigrations: ComponentType<any>
     export const MetahubMigrationGuard: ComponentType<any>
 }
-
-declare module '@flowise/tools-frontend/pages/Tools' {
-    import type { ComponentType } from 'react'
-    const Component: ComponentType<any>
-    export default Component
-}

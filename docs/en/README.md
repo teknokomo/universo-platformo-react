@@ -12,7 +12,7 @@ description: >-
 
 ## What is Universo Platformo?
 
-**Universo Platformo React** is an advanced open-source platform built upon [Flowise](https://flowiseai.com/), extending it with powerful capabilities for creating universal digital spaces, AI-driven workflows, and immersive 3D/AR/VR experiences.
+**Universo Platformo React** is an advanced open-source platform.
 
 The platform implements the **UPDL** (Universal Platform Description Language) — a unified node-based language for describing 3D scenes, game logic, and interactive content across multiple engines and frameworks.
 

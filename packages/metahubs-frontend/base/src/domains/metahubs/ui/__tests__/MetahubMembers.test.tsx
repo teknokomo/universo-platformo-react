@@ -13,6 +13,7 @@ vi.mock('@universo/template-mui', async () => {
     const actual = await vi.importActual<any>('@universo/template-mui')
     return {
         ...actual,
+        InputHintDialog: vi.fn(() => null),
         FlowListTable: (props: any) => {
             const rows = Array.isArray(props?.data) ? props.data : []
             const firstRow = rows[0]
@@ -82,14 +83,6 @@ vi.mock('@universo/utils', async () => {
         isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
         isApiError: vi.fn((error: any) => !!error?.response),
         getApiBaseURL: vi.fn(() => 'http://localhost:3000')
-    }
-})
-
-vi.mock('@flowise/template-mui', async () => {
-    const actual = await vi.importActual<any>('@flowise/template-mui')
-    return {
-        ...actual,
-        InputHintDialog: vi.fn(() => null)
     }
 })
 

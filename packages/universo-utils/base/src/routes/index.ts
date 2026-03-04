@@ -9,7 +9,7 @@
 
 /**
  * Backend API endpoints that don't require JWT authentication.
- * Used by flowise-core-backend authentication middleware.
+ * Used by universo-core-backend authentication middleware.
  *
  * These endpoints are accessible without a valid JWT token.
  * Add new public API endpoints here when needed.

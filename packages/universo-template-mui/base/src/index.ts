@@ -37,6 +37,7 @@ export {
     FilterToolbar,
     ViewHeaderMUI,
     TemplateMainCard,
+    MainCard,
     EmptyListState,
     SkeletonGrid,
     Loader,
@@ -71,6 +72,18 @@ export type {
 } from './components'
 // Re-export DnD event types so FlowListTable DnD consumers can import them directly
 export type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
+export {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    KeyboardSensor,
+    useSensors,
+    useSensor,
+    closestCenter,
+    MeasuringStrategy,
+    useDroppable,
+    sortableKeyboardCoordinates
+} from './components'
 
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'

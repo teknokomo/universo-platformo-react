@@ -107,6 +107,21 @@ return repo.find({ where: { ... } })
 **Avoid**: Deprecated static wrappers (use naming utilities directly) and raw string interpolation in `knex.raw`.
 **Why**: Consistent DI simplifies testing and reduces SQL injection risk.
 
+## Codename Retry Policy Pattern (IMPORTANT)
+
+**Rule**: All codename copy/auto-rename flows must use shared retry constants from `codenameStyleHelper.ts`.
+
+**Required constants**:
+- `CODENAME_RETRY_MAX_ATTEMPTS` (global retry cap)
+- `CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT` (for concurrent conflict retries where applicable)
+
+**Generation rule**:
+- `buildCodenameAttempt(base, attempt, 'kebab-case')` appends `-<attempt>` for attempts >= 2
+- `buildCodenameAttempt(base, attempt, 'pascal-case')` appends `<attempt>` for attempts >= 2
+- Candidate length is capped by style limits (kebab 100, pascal 80)
+
+**Why**: Prevents domain drift (20 vs 1000 attempts), keeps copy behavior deterministic, and reduces collision-related regressions under concurrent writes.
+
 ## Database Pool Budget + Error Logging Pattern
 
 **Rule**: Keep total pooled connections within Supabase Pool Size; log pool state on errors.

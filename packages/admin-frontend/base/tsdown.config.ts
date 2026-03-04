@@ -20,7 +20,6 @@ export default defineConfig({
         '@universo/template-mui',
         '@universo/types',
         '@universo/utils',
-        '@flowise/template-mui',
         'axios',
         'i18next',
         'react-i18next',

@@ -14,7 +14,13 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
-import { getCodenameSettings, codenameErrorMessage, buildCodenameAttempt } from '../../shared/codenameStyleHelper'
+import {
+    getCodenameSettings,
+    codenameErrorMessage,
+    buildCodenameAttempt,
+    CODENAME_RETRY_MAX_ATTEMPTS,
+    CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT
+} from '../../shared/codenameStyleHelper'
 import { KnexClient, generateTableName } from '../../ddl'
 
 type RequestUser = {
@@ -708,21 +714,18 @@ export function createHubsRoutes(
                 })
             }
 
-            const MAX_CODENAME_ATTEMPTS = 1000
-            const MAX_CONCURRENT_RETRIES_PER_CODENAME = 5
-
             let copiedHub: CopiedHubRow | null = null
-            for (let attempt = 1; attempt <= MAX_CODENAME_ATTEMPTS; attempt += 1) {
+            for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
                 const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                 let shouldTryNextCodename = false
 
-                for (let concurrentRetry = 0; concurrentRetry <= MAX_CONCURRENT_RETRIES_PER_CODENAME; concurrentRetry += 1) {
+                for (let concurrentRetry = 0; concurrentRetry <= CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT; concurrentRetry += 1) {
                     try {
                         copiedHub = await createHubCopy(codenameCandidate)
                         break
                     } catch (error) {
                         if (error instanceof HubCopyConcurrentUpdateError) {
-                            if (concurrentRetry < MAX_CONCURRENT_RETRIES_PER_CODENAME) {
+                            if (concurrentRetry < CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT) {
                                 continue
                             }
                             shouldTryNextCodename = true

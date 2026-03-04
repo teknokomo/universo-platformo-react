@@ -327,7 +327,7 @@ pnpm test -- --coverage      # With coverage report
 // Required peer dependencies
 import { useAuth } from '@universo/auth-frontend'
 import { useTranslation } from '@universo/i18n'
-import { MainCard } from '@flowise/template-mui'
+import { MainCard } from '@universo/template-mui'
 ```
 
 ### Environment Configuration

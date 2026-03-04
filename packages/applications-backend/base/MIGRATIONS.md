@@ -33,7 +33,7 @@ Static schema migrations are in `src/database/migrations/postgres/`:
 |---|---|
 | `1800000000000-CreateApplicationsSchema` | Creates `applications` schema with `applications` and `connector_publications` tables |
 
-Migrations are exported as `applicationsMigrations` array and registered in `@flowise/core-backend` central registry.
+Migrations are exported as `applicationsMigrations` array and registered in `@universo/core-backend` central registry.
 
 ## Dynamic Schema Tables
 

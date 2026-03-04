@@ -17,20 +17,9 @@ import { z } from 'zod'
 // Extend Zod with OpenAPI capabilities
 extendZodWithOpenApi(z)
 
-// Import ONLY existing schemas from @universo/types
+// Import existing schemas from @universo/types
 import {
-    // Metaverse schemas ✅
-    MetaverseSchema,
-    SectionSchema,
-    EntitySchema,
-    CreateMetaverseSchema,
-    CreateSectionSchema,
-    CreateEntitySchema,
-    UpdateMetaverseSchema,
-    UpdateSectionSchema,
-    UpdateEntitySchema,
-
-    // Common schemas ✅
+    // Common schemas
     PaginationMetaSchema,
     PaginationQuerySchema,
     ApiErrorSchema
@@ -40,6 +29,7 @@ import {
  * Register OpenAPI metadata for schemas
  *
  * TODO: The following schemas are not yet implemented in @universo/types:
+ * - Metaverse schemas (will be added when metaverses-backend defines Zod schemas)
  * - Unik schemas
  * - Space schemas
  * - Canvas schemas
@@ -47,43 +37,6 @@ import {
  *
  * These will be added as part of future validation infrastructure work.
  */
-
-// Metaverse schemas
-const MetaverseSchemaWithMeta = MetaverseSchema.openapi('Metaverse', {
-    description: 'Metaverse collection - thematic grouping of spaces'
-})
-
-const SectionSchemaWithMeta = SectionSchema.openapi('Section', {
-    description: 'Section within metaverse - organizational unit'
-})
-
-const EntitySchemaWithMeta = EntitySchema.openapi('Entity', {
-    description: '3D entity or interactive object within section'
-})
-
-const CreateMetaverseSchemaWithMeta = CreateMetaverseSchema.openapi('CreateMetaverse', {
-    description: 'Metaverse creation request'
-})
-
-const UpdateMetaverseSchemaWithMeta = UpdateMetaverseSchema.openapi('UpdateMetaverse', {
-    description: 'Metaverse update request'
-})
-
-const CreateSectionSchemaWithMeta = CreateSectionSchema.openapi('CreateSection', {
-    description: 'Section creation request'
-})
-
-const UpdateSectionSchemaWithMeta = UpdateSectionSchema.openapi('UpdateSection', {
-    description: 'Section update request'
-})
-
-const CreateEntitySchemaWithMeta = CreateEntitySchema.openapi('CreateEntity', {
-    description: 'Entity creation request'
-})
-
-const UpdateEntitySchemaWithMeta = UpdateEntitySchema.openapi('UpdateEntity', {
-    description: 'Entity update request'
-})
 
 // Common schemas
 const PaginationMetaSchemaWithMeta = PaginationMetaSchema.openapi('PaginationMeta', {
@@ -102,17 +55,6 @@ const ApiErrorSchemaWithMeta = ApiErrorSchema.openapi('ApiError', {
  * Export all registered schemas for use in OpenAPI spec generation
  */
 export const openApiSchemas = {
-    // Metaverse
-    Metaverse: MetaverseSchemaWithMeta,
-    Section: SectionSchemaWithMeta,
-    Entity: EntitySchemaWithMeta,
-    CreateMetaverse: CreateMetaverseSchemaWithMeta,
-    UpdateMetaverse: UpdateMetaverseSchemaWithMeta,
-    CreateSection: CreateSectionSchemaWithMeta,
-    UpdateSection: UpdateSectionSchemaWithMeta,
-    CreateEntity: CreateEntitySchemaWithMeta,
-    UpdateEntity: UpdateEntitySchemaWithMeta,
-
     // Common
     PaginationMeta: PaginationMetaSchemaWithMeta,
     ApiError: ApiErrorSchemaWithMeta

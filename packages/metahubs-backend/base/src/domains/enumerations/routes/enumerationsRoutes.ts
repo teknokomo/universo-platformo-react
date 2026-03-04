@@ -14,7 +14,12 @@ import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
-import { getCodenameSettings, codenameErrorMessage, buildCodenameAttempt } from '../../shared/codenameStyleHelper'
+import {
+    getCodenameSettings,
+    codenameErrorMessage,
+    buildCodenameAttempt,
+    CODENAME_RETRY_MAX_ATTEMPTS
+} from '../../shared/codenameStyleHelper'
 import { type EnumerationCopyOptions, MetaEntityKind } from '@universo/types'
 import { KnexClient } from '../../ddl'
 
@@ -821,7 +826,7 @@ export function createEnumerationsRoutes(
 
             let copiedResult: { enumeration: CopiedEnumerationRow; copiedValuesCount: number } | null = null
 
-            for (let attempt = 1; attempt <= 1000; attempt += 1) {
+            for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
                 const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                 try {
                     copiedResult = await createEnumerationCopy(codenameCandidate)
@@ -2130,7 +2135,7 @@ export function createEnumerationsRoutes(
             }
 
             let copiedValue: Awaited<ReturnType<typeof valuesService.create>> | null = null
-            const maxAttempts = requestedCodename ? 1 : 20
+            const maxAttempts = requestedCodename ? 1 : CODENAME_RETRY_MAX_ATTEMPTS
             let copyCodenameLocalized: unknown = (sourceValue as { codenameLocalized?: unknown }).codenameLocalized ?? null
             if (parsed.data.codenameInput !== undefined) {
                 copyCodenameLocalized = buildCodenameLocalizedVlc(

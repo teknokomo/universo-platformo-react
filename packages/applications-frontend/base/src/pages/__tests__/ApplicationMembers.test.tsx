@@ -85,8 +85,8 @@ vi.mock('@universo/utils', async () => {
     }
 })
 
-vi.mock('@flowise/template-mui', async () => {
-    const actual = await vi.importActual<any>('@flowise/template-mui')
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<any>('@universo/template-mui')
     return {
         ...actual,
         InputHintDialog: vi.fn(() => null)

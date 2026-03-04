@@ -27,7 +27,8 @@ import {
     getAllowAttributeDelete,
     getAllowDeleteLastDisplayAttribute,
     getAllowAttributeMoveBetweenRootAndChildren,
-    getAllowAttributeMoveBetweenChildLists
+    getAllowAttributeMoveBetweenChildLists,
+    CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
@@ -815,7 +816,7 @@ export function createAttributesRoutes(
             }
 
             try {
-                for (let attempt = 1; attempt <= 20 && !copyResult; attempt++) {
+                for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS && !copyResult; attempt++) {
                     const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                     try {
                         copyResult = await knex.transaction(async (trx) => {
@@ -862,7 +863,7 @@ export function createAttributesRoutes(
                                     let childCodename = child.codename
                                     if (codenameScope === 'global') {
                                         let uniqueChildCodename: string | null = null
-                                        for (let childAttempt = 1; childAttempt <= 20; childAttempt++) {
+                                        for (let childAttempt = 1; childAttempt <= CODENAME_RETRY_MAX_ATTEMPTS; childAttempt++) {
                                             const candidate = buildCodenameAttempt(child.codename, childAttempt, codenameStyle)
                                             if (usedChildCodenames.has(candidate)) continue
                                             const existingChild = await attributesService.findByCodename(

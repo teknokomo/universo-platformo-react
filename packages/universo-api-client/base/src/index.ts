@@ -7,22 +7,10 @@
  *
  * @example
  * ```typescript
- * import { createUniversoApiClient, canvasQueryKeys } from '@universo/api-client'
- * import { useQuery } from '@tanstack/react-query'
+ * import { createUniversoApiClient } from '@universo/api-client'
  *
  * // Create client instance
  * const api = createUniversoApiClient({ baseURL: '/api/v1' })
- *
- * // Use in React component with TanStack Query
- * function MyComponent({ unikId, spaceId }) {
- *   const { data, isLoading } = useQuery({
- *     queryKey: canvasQueryKeys.list(unikId, spaceId),
- *     queryFn: () => api.canvases.getCanvases(unikId, spaceId)
- *   })
- *
- *   if (isLoading) return <div>Loading...</div>
- *   return <div>{data.canvases.length} canvases</div>
- * }
  * ```
  */
 
@@ -35,87 +23,11 @@ import { createUniversoApiClient } from './client'
 import { getApiBaseURL } from '@universo/utils'
 export const api = createUniversoApiClient({ baseURL: `${getApiBaseURL()}/api/v1` })
 
-// API classes (for advanced use cases) - alphabetical order
-export {
-    ApiKeyApi,
-    apikeyQueryKeys,
-    type ApiKey,
-    type CreateApiKeyPayload,
-    type UpdateApiKeyPayload,
-    type ImportApiKeysPayload
-} from './api/apikey'
-export { AssistantsApi, assistantQueryKeys } from './api/assistants'
+// API classes (for advanced use cases)
 export { AttachmentsApi, attachmentsQueryKeys } from './api/attachments'
-export { CanvasMessagesApi, canvasMessagesQueryKeys } from './api/canvasMessages'
-export { CanvasesApi, canvasQueryKeys } from './api/canvases'
-export {
-    CanvasVersionsApi,
-    canvasVersionsQueryKeys,
-    type CanvasVersion,
-    type CreateCanvasVersionPayload,
-    type UpdateCanvasVersionPayload,
-    type CanvasVersionsListResponse,
-    type CanvasVersionResponse
-} from './api/canvasVersions'
-export { ChatMessageFeedbackApi, chatmessagefeedbackQueryKeys } from './api/chatmessagefeedback'
 export { ConfigApi, configQueryKeys } from './api/config'
-export { CredentialsApi, credentialQueryKeys } from './api/credentials'
-export {
-    DocumentStoreApi,
-    documentstoreQueryKeys,
-    type DocumentStore,
-    type DocumentLoader,
-    type CreateDocumentStoreBody,
-    type PreviewChunksBody,
-    type PreviewChunksResponse
-} from './api/documentstore'
-export {
-    ExecutionsApi,
-    executionQueryKeys,
-    ExecutionState,
-    type Execution,
-    type GetExecutionsParams,
-    type GetExecutionsResponse,
-    type UpdateExecutionPayload,
-    type DeleteExecutionsPayload,
-    type DeleteExecutionsResponse
-} from './api/executions'
-export { ExportImportApi, exportimportQueryKeys } from './api/exportimport'
 export { FeedbackApi, feedbackQueryKeys } from './api/feedback'
-export { LeadApi, leadQueryKeys } from './api/lead'
-export {
-    TemplatesApi,
-    templatesQueryKeys,
-    type Template,
-    type CommunityTemplate,
-    type ToolTemplate,
-    type CustomTemplate,
-    type SaveCustomTemplateBody,
-    // Legacy aliases for backward compatibility
-    MarketplacesApi,
-    marketplacesQueryKeys,
-    type MarketplaceTemplate
-} from './api/templates'
-export { NodesApi, nodeQueryKeys } from './api/nodes'
-export { PredictionApi, predictionQueryKeys } from './api/prediction'
-export { PromptApi, promptQueryKeys } from './api/prompt'
-export { ScraperApi, scraperQueryKeys } from './api/scraper'
-export { SpacesApi, spaceQueryKeys } from './api/spaces'
-export { ToolsApi, toolQueryKeys, type CustomTool, type CreateToolBody, type UpdateToolBody } from './api/tools'
-export {
-    createValidationApi,
-    type ValidationApi,
-    type ValidationResult,
-    type ValidationResponse
-} from './api/validation'
-export { VariablesApi, variablesQueryKeys } from './api/variables'
-export {
-    VectorStoreApi,
-    vectorstoreQueryKeys,
-    type UpsertHistoryEntry,
-    type UpsertVectorStoreBody,
-    type GetUpsertHistoryParams
-} from './api/vectorstore'
+export { createValidationApi, type ValidationApi, type ValidationResult, type ValidationResponse } from './api/validation'
 
 // TypeScript types
 export * from './types'

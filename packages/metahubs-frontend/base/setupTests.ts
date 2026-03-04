@@ -2,7 +2,7 @@ import { setupServer } from 'msw/node'
 import { handlers } from './src/__mocks__/handlers'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 
-vi.mock('@flowise/store', () => ({
+vi.mock('@universo/store', () => ({
     useHasGlobalAccess: () => ({
         isSuperuser: false,
         hasAdminAccess: false,

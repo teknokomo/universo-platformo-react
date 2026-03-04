@@ -7,14 +7,10 @@ import Link from '@mui/material/Link'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
-import { useHasGlobalAccess } from '@flowise/store'
+import { useHasGlobalAccess } from '@universo/store'
 import {
-    useMetaverseName,
-    truncateMetaverseName,
     useMetahubName,
     truncateMetahubName,
-    useUnikName,
-    truncateUnikName,
     useApplicationName,
     truncateApplicationName,
     useMetahubPublicationName,
@@ -49,11 +45,6 @@ const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
 export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
-
-    // Extract metaverseId from URL for dynamic name loading (both singular and plural routes)
-    const metaverseIdMatch = location.pathname.match(/^\/metaverses?\/([^/]+)/)
-    const metaverseId = metaverseIdMatch ? metaverseIdMatch[1] : null
-    const metaverseName = useMetaverseName(metaverseId)
 
     // Extract metahubId from URL for dynamic name loading (both singular and plural routes)
     const metahubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)/)
@@ -95,7 +86,7 @@ export default function NavbarBreadcrumbs() {
     const hubName = useHubName(hubParentMetahubId, hubId)
 
     // Extract catalogId from URL for dynamic name loading (under hub context)
-    // Pattern: /metahub/:metahubId/hub/:hubId/catalog/:catalogId/... (singular 'catalog' for specific catalog)
+    // Pattern: /metahub/:metahubId/hub/:hubId/catalog/:catalogId/...
     const catalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs?\/([^/]+)/)
     const catalogParentMetahubId = catalogIdMatch ? catalogIdMatch[1] : null
     const catalogParentHubId = catalogIdMatch ? catalogIdMatch[2] : null
@@ -103,16 +94,13 @@ export default function NavbarBreadcrumbs() {
     const catalogName = useCatalogName(catalogParentMetahubId, catalogParentHubId, catalogId)
 
     // Extract catalogId from URL for catalog-centric navigation (without hub context)
-    // Pattern: /metahub/:metahubId/catalog/:catalogId/... (NOT /hub/) - singular 'catalog' for specific catalog
+    // Pattern: /metahub/:metahubId/catalog/:catalogId/...
     const standaloneCatalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalogs?\/([^/]+)/)
     const standaloneCatalogMetahubId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[1] : null
     const standaloneCatalogId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[2] : null
     const standaloneCatalogName = useCatalogNameStandalone(standaloneCatalogMetahubId, standaloneCatalogId)
 
     // Extract enumerationId from global and hub-scoped metahub routes
-    // Patterns:
-    // - /metahub/:metahubId/enumeration/:enumerationId/values
-    // - /metahub/:metahubId/hub/:hubId/enumeration/:enumerationId/values
     const standaloneEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/enumeration\/([^/]+)/)
     const hubEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/enumeration\/([^/]+)/)
     const enumerationParentMetahubId = standaloneEnumerationIdMatch
@@ -128,17 +116,12 @@ export default function NavbarBreadcrumbs() {
     const enumerationName = useEnumerationName(enumerationParentMetahubId, enumerationId)
 
     // Extract attributeId from URL for dynamic name loading (under catalog context)
-    // Pattern: /metahub/:metahubId/hub/:hubId/catalogs/:catalogId/attributes/:attributeId
     const attributeIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs\/([^/]+)\/attributes\/([^/]+)/)
     const attrParentMetahubId = attributeIdMatch ? attributeIdMatch[1] : null
     const attrParentHubId = attributeIdMatch ? attributeIdMatch[2] : null
     const attrParentCatalogId = attributeIdMatch ? attributeIdMatch[3] : null
     const attributeId = attributeIdMatch ? attributeIdMatch[4] : null
     const attributeName = useAttributeName(attrParentMetahubId, attrParentHubId, attrParentCatalogId, attributeId)
-    // Extract unikId from URL for dynamic name loading
-    const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
-    const unikId = unikIdMatch ? unikIdMatch[1] : null
-    const unikName = useUnikName(unikId)
 
     // Extract instanceId and roleId from admin routes for dynamic name loading
     const instanceIdMatch = location.pathname.match(/^\/admin\/instance\/([^/]+)/)
@@ -150,17 +133,13 @@ export default function NavbarBreadcrumbs() {
     const roleName = useRoleName(roleId)
 
     // Check admin panel access for admin routes
-    // This prevents breadcrumbs from showing "Администрирование" before redirect
     const { canAccessAdminPanel, loading: adminAccessLoading } = useHasGlobalAccess()
 
     // Clean keys without 'menu.' prefix since we're already using 'menu' namespace
     const menuMap: Record<string, string> = {
-        uniks: 'uniks',
-        metaverses: 'metaverses',
         metahubs: 'metahubs',
         profile: 'profile',
         docs: 'docs',
-        spaces: 'spaces',
         admin: 'administration'
     }
 
@@ -168,95 +147,10 @@ export default function NavbarBreadcrumbs() {
 
     const crumbs = (() => {
         if (segments.length === 0) {
-            return [{ label: t(menuMap.uniks), to: '/uniks' }]
+            return [{ label: t('applications'), to: '/applications' }]
         }
 
         const primary = segments[0]
-
-        // Early return for metaverse context routes when access is not yet verified
-        // This prevents UI flicker before MetaverseGuard redirects unauthorized users
-        const isMetaverseContextRoute = (primary === 'metaverses' || primary === 'metaverse') && segments.length > 1
-        if (isMetaverseContextRoute && !metaverseName) {
-            return []
-        }
-        if (primary === 'unik') {
-            const items = [{ label: t(menuMap.uniks), to: '/uniks' }]
-
-            if (segments[1] && unikName) {
-                // Use actual unik name with truncation for long names
-                items.push({
-                    label: truncateUnikName(unikName),
-                    to: `/unik/${segments[1]}`
-                })
-
-                // Sub-pages (spaces, tools, credentials, etc.) - use keys from menu namespace
-                if (segments[2] === 'spaces') {
-                    items.push({ label: t('spaces'), to: location.pathname })
-                } else if (segments[2] === 'tools') {
-                    items.push({ label: t('tools'), to: location.pathname })
-                } else if (segments[2] === 'credentials') {
-                    items.push({ label: t('credentials'), to: location.pathname })
-                } else if (segments[2] === 'variables') {
-                    items.push({ label: t('variables'), to: location.pathname })
-                } else if (segments[2] === 'apikeys') {
-                    items.push({ label: t('apiKeys'), to: location.pathname })
-                } else if (segments[2] === 'documents') {
-                    items.push({ label: t('documents'), to: location.pathname })
-                } else if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'analytics') {
-                    items.push({ label: t('analytics'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'metaverses') {
-            const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
-
-            // Handle nested routes like /metaverses/:id/sections or /metaverses/:id/entities
-            if (segments[1] && metaverseName) {
-                items.push({
-                    label: truncateMetaverseName(metaverseName),
-                    to: `/metaverse/${segments[1]}`
-                })
-
-                // Sub-pages (sections, entities) - use keys from menu namespace
-                if (segments[2] === 'sections') {
-                    items.push({ label: t('sections'), to: location.pathname })
-                } else if (segments[2] === 'entities') {
-                    items.push({ label: t('entities'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'metaverse') {
-            const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
-
-            if (segments[1] && metaverseName) {
-                // Use actual metaverse name with truncation for long names
-                items.push({
-                    label: truncateMetaverseName(metaverseName),
-                    to: `/metaverse/${segments[1]}`
-                })
-
-                // Sub-pages (access, sections, entities) - use keys from menu namespace
-                if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'sections') {
-                    items.push({ label: t('sections'), to: location.pathname })
-                } else if (segments[2] === 'entities') {
-                    items.push({ label: t('entities'), to: location.pathname })
-                } else if (segments[2] === 'members') {
-                    items.push({ label: t('access'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
 
         if (primary === 'metahubs') {
             return [{ label: t(menuMap.metahubs), to: '/metahubs' }]
@@ -266,7 +160,6 @@ export default function NavbarBreadcrumbs() {
             const items = [{ label: t(menuMap.metahubs), to: '/metahubs' }]
 
             if (segments[1] && metahubName) {
-                // Use actual metahub name with truncation for long names
                 items.push({
                     label: truncateMetahubName(metahubName),
                     to: `/metahub/${segments[1]}`
@@ -278,18 +171,14 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
                 } else if (segments[2] === 'catalogs') {
-                    // Catalog list navigation (without hub context)
                     items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
 
-                    // If a specific catalog is selected via list route (segments[3])
                     if (segments[3] && standaloneCatalogName) {
-                        // Link to attributes page (default view for catalog)
                         items.push({
                             label: truncateCatalogName(standaloneCatalogName),
                             to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
-                        // Nested under catalog: attributes or elements
                         if (segments[4] === 'attributes') {
                             items.push({ label: t('attributes'), to: location.pathname })
                         } else if (segments[4] === 'elements') {
@@ -297,18 +186,14 @@ export default function NavbarBreadcrumbs() {
                         }
                     }
                 } else if (segments[2] === 'catalog') {
-                    // Catalog-centric navigation - singular 'catalog' route for specific catalog view
                     items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
 
-                    // segments[3] is catalogId
                     if (segments[3] && standaloneCatalogName) {
-                        // Link to attributes page (default view for catalog)
                         items.push({
                             label: truncateCatalogName(standaloneCatalogName),
                             to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
-                        // Nested under catalog: attributes or elements
                         if (segments[4] === 'attributes') {
                             items.push({ label: t('attributes'), to: location.pathname })
                         } else if (segments[4] === 'elements') {
@@ -337,7 +222,6 @@ export default function NavbarBreadcrumbs() {
                         })
                     }
                 } else if (segments[2] === 'hubs') {
-                    // Hubs list
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
                 } else if (segments[2] === 'branches') {
                     items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
@@ -352,10 +236,8 @@ export default function NavbarBreadcrumbs() {
                         items.push({ label: segments[3], to: location.pathname })
                     }
                 } else if (segments[2] === 'publications') {
-                    // Publications list
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
                 } else if (segments[2] === 'publication') {
-                    // Publication details (singular route)
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
 
                     if (segments[3] && metahubPublicationName) {
@@ -364,11 +246,9 @@ export default function NavbarBreadcrumbs() {
                             to: `/metahub/${segments[1]}/publication/${segments[3]}/versions`
                         })
                     } else if (segments[3]) {
-                        // Show loading indicator while name is fetched (avoid UUID flash)
                         items.push({ label: '...', to: `/metahub/${segments[1]}/publication/${segments[3]}/versions` })
                     }
 
-                    // Add tab suffix: "Версии" or "Приложения"
                     if (segments[4] === 'versions' && segments[3]) {
                         items.push({
                             label: t('versions'),
@@ -381,34 +261,26 @@ export default function NavbarBreadcrumbs() {
                         })
                     }
                 } else if (segments[2] === 'hub') {
-                    // Specific hub selected - use singular 'hub' in URL
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
 
-                    // If we have a specific hub selected (segments[3])
                     if (segments[3] && hubName) {
-                        // Check if we're in catalogs context (list view)
                         if (segments[4] === 'catalogs') {
-                            // Hub name links to catalogs list (as default hub view)
                             items.push({
                                 label: truncateHubName(hubName),
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
                             })
 
-                            // Catalogs list under hub
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
 
-                            // If a specific catalog is selected via list route (segments[5])
                             if (segments[5] && catalogName) {
                                 items.push({
                                     label: truncateCatalogName(catalogName),
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
-                                // Nested under catalog: attributes or elements
                                 if (segments[6] === 'attributes') {
                                     items.push({ label: t('attributes'), to: location.pathname })
 
-                                    // If a specific attribute is selected
                                     if (segments[7] && attributeName) {
                                         items.push({
                                             label: truncateAttributeName(attributeName),
@@ -451,27 +323,22 @@ export default function NavbarBreadcrumbs() {
                                 })
                             }
                         } else if (segments[4] === 'catalog') {
-                            // Singular 'catalog' route - specific catalog view
                             items.push({
                                 label: truncateHubName(hubName),
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
                             })
 
-                            // Catalogs list link
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
 
-                            // segments[5] is catalogId
                             if (segments[5] && catalogName) {
                                 items.push({
                                     label: truncateCatalogName(catalogName),
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
-                                // Nested under catalog: attributes or elements
                                 if (segments[6] === 'attributes') {
                                     items.push({ label: t('attributes'), to: location.pathname })
 
-                                    // If a specific attribute is selected
                                     if (segments[7] && attributeName) {
                                         items.push({
                                             label: truncateAttributeName(attributeName),
@@ -483,7 +350,6 @@ export default function NavbarBreadcrumbs() {
                                 }
                             }
                         } else {
-                            // Other hub sub-pages (fallback)
                             items.push({
                                 label: truncateHubName(hubName),
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
@@ -496,6 +362,8 @@ export default function NavbarBreadcrumbs() {
                             }
                         }
                     }
+                } else if (segments[2] === 'migrations') {
+                    items.push({ label: t('migrations'), to: `/metahub/${segments[1]}/migrations` })
                 }
             } else if (segments[1]) {
                 items.push({
@@ -507,7 +375,7 @@ export default function NavbarBreadcrumbs() {
             return items
         }
 
-        // Standalone Applications module (not metahub applications)
+        // Standalone Applications module
         if (primary === 'applications') {
             return [{ label: t('applications'), to: '/applications' }]
         }
@@ -519,19 +387,18 @@ export default function NavbarBreadcrumbs() {
             const adminSection = segments[2]
 
             if (currentApplicationId && applicationName && adminSection === 'admin') {
-                // Use actual application name with truncation for long names
                 items.push({
                     label: truncateApplicationName(applicationName),
                     to: `/a/${currentApplicationId}/admin`
                 })
 
-                // Sub-pages (connectors, access, connector) - use keys from menu namespace
                 if (segments[3] === 'connectors') {
                     items.push({ label: t('connectors'), to: location.pathname })
                 } else if (segments[3] === 'access') {
                     items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[3] === 'migrations') {
+                    items.push({ label: t('migrations'), to: location.pathname })
                 } else if (segments[3] === 'connector' && segments[4]) {
-                    // Connector detail page: Application > Connectors > [Connector Name]
                     items.push({ label: t('connectors'), to: `/a/${currentApplicationId}/admin/connectors` })
                     if (connectorName) {
                         items.push({
@@ -539,12 +406,10 @@ export default function NavbarBreadcrumbs() {
                             to: location.pathname
                         })
                     } else {
-                        // Fallback while loading connector name
                         items.push({ label: '...', to: location.pathname })
                     }
                 }
             } else if (currentApplicationId) {
-                // Fallback while loading name
                 items.push({
                     label: '...',
                     to: `/a/${currentApplicationId}/admin`
@@ -555,8 +420,6 @@ export default function NavbarBreadcrumbs() {
         }
 
         // Admin routes handling
-        // Don't show admin breadcrumbs while checking access or if user doesn't have access
-        // This prevents UI flicker before AdminGuard redirects unauthorized users
         if (primary === 'admin') {
             if (adminAccessLoading || !canAccessAdminPanel) {
                 return []
@@ -567,27 +430,26 @@ export default function NavbarBreadcrumbs() {
             // Instance context routes
             if (segments[1] === 'instance' && segments[2]) {
                 const instanceIdFromUrl = segments[2]
-                // Use dynamic instance name or fallback to static label
                 const instanceLabel = instanceName ? truncateInstanceName(instanceName) : t('instance')
                 items.push({ label: instanceLabel, to: `/admin/instance/${instanceIdFromUrl}` })
 
-                // Sub-pages within instance
                 if (segments[3] === 'board') {
                     items.push({ label: t('board'), to: `/admin/instance/${instanceIdFromUrl}/board` })
                 } else if (segments[3] === 'users') {
                     items.push({ label: t('users'), to: `/admin/instance/${instanceIdFromUrl}/users` })
                 } else if (segments[3] === 'roles') {
                     items.push({ label: t('roles'), to: `/admin/instance/${instanceIdFromUrl}/roles` })
-                    // Role detail page
                     if (segments[4] && segments[4] !== 'new') {
-                        // Use dynamic role name or fallback to static label
                         const roleLabel = roleName ? truncateRoleName(roleName) : t('role')
                         items.push({ label: roleLabel, to: `/admin/instance/${instanceIdFromUrl}/roles/${segments[4]}` })
-                        // Users sub-page within role
                         if (segments[5] === 'users') {
                             items.push({ label: t('users'), to: location.pathname })
                         }
                     }
+                } else if (segments[3] === 'locales') {
+                    items.push({ label: t('locales'), to: `/admin/instance/${instanceIdFromUrl}/locales` })
+                } else if (segments[3] === 'settings') {
+                    items.push({ label: t('settings'), to: `/admin/instance/${instanceIdFromUrl}/settings` })
                 }
             }
             // Legacy routes

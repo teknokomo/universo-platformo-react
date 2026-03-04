@@ -4,6 +4,225 @@
 
 ---
 
+## In Progress: PR #706 Review Feedback Fixes — 2026-03-05
+
+> **Goal**: Address valid bot review comments on PR #706 (cleanup/remove-legacy-packages → main).
+
+- [x] Restore `pnpm.onlyBuiltDependencies: ["sqlite3"]` in root package.json (supply-chain hardening)
+- [x] Remove stale `flowise-components` reference from `.kiro/steering/pnpm-not-npm.md` and `.gemini/rules/pnpm-not-npm.md`
+- [x] Compress `activeContext.md` — remove historical "Previous Focus" sections (653 → 62 lines)
+- [x] Reject CI `working-directory` change (same pattern as main; Cypress needs backend CWD)
+- [ ] Build verification (`pnpm build`)
+- [ ] Commit and push fixes to PR branch
+
+---
+
+## Completed: Catalog Attributes DnD Deep Fix — 2026-03-04 ✅
+
+> **Goal**: Find and fix the real root cause why attribute drag-and-drop still does not start, despite successful build and previous externals fix.
+
+- [x] Compare full DnD implementation chain: attributes vs enumerations (provider, sensors, sortable rows, event handlers)
+- [x] Verify runtime wiring assumptions and detect mismatch — root cause confirmed: runtime split between DnD context provider in metahubs and sortable hooks in template-mui under different `@dnd-kit` peer-resolved instances
+- [x] Implement technical fix in metahubs-frontend/template-mui at root cause level — unified DnD runtime imports through `@universo/template-mui`
+- [x] Add targeted diagnostic logs/guards for future quick troubleshooting — added opt-in logs via `localStorage['debug:metahubs:attributes-dnd'] = '1'`
+- [x] Run verification: package lint + full root build
+- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) with root cause and resolution
+
+### Verification
+- [x] `pnpm --filter universo-template-mui lint` — 0 errors
+- [x] `pnpm --filter metahubs-frontend lint` — 0 errors
+- [x] `pnpm build` — 23/23 successful (3m39s)
+
+---
+
+## Completed: Fix 5 UI/UX Bugs — 2026-03-04 ✅
+
+> **Goal**: Fix 5 user-reported UI/UX bugs across admin-frontend and metahubs-frontend.
+
+### Bug fixes
+- [x] Fix "settings" raw i18n key in admin role permissions — added `settings` key to `permissions.subjects` in ru/en admin.json
+- [x] Fix broken drag-and-drop in catalog attributes — added `/^@dnd-kit\//` to `metahubs-frontend/tsdown.config.ts` externals (root cause: bundled @dnd-kit created separate React context from template-mui's external instance)
+- [x] Fix row count pluralization "1 строк" → "1 строка" — replaced single `rowCount` key with `_one/_few/_many` (ru) and `_one/_other` (en) plural forms in two metahubs i18n sections
+- [x] Fix "Publication" English word in Russian access tab text — corrected `modeFullDescription` translation and fixed capitalization; fixed fallback defaults in AccessPanel.tsx from Russian to English
+- [x] Fix "Branch" English label in version creation dialog — added missing `branch` key to `publications.versions` in both locale files
+
+### Verification
+- [x] Full workspace build: 23/23 packages (3m55s)
+- [x] Lint: admin-frontend 0 errors, metahubs-frontend 0 errors
+- [x] Memory bank updated
+
+---
+
+## Completed: Post-Cleanup Deep Hardening — 2026-03-04 ✅
+
+> **Goal**: Complete post-legacy-cleanup deep audit and fix for core-frontend, core-backend, admin RBAC, and sidebar menu.
+
+### 1. Ghost folder & legacy references
+- [x] Delete `packages/flowise-core-backend/` ghost directory
+- [x] Fix `.flowise` home dir reference in DataSource.ts → `.universo`
+- [x] Rename `flowiseApiV1Router` → `apiV1Router` in core-backend index.ts
+- [x] Rename `FLOWISE_FILE_SIZE_LIMIT` env ref → `FILE_SIZE_LIMIT`
+- [x] Rename `InternalFlowiseError` → `InternalError` (class + directory + consumers)
+- [x] Update CI, docker, agent instruction docs with correct paths (20+ files updated)
+
+### 2. Clean stale permission subjects
+- [x] Remove 6 legacy subjects from `@universo/types` admin.ts
+- [x] Add `settings` and `admin` subjects for consistency with backend schemas
+
+### 3. Sidebar menu reorder
+- [x] Reorder `rootMenuItems` in menuConfigs.ts: Applications → Profile → Docs → divider → Metahubs + Admin
+- [x] Update MenuContent.tsx rendering to match new order
+- [x] Add smart selected state for Applications menu item
+
+### 4. Deep clean universo-core-frontend
+- [x] Delete `shims/` directory (React 18 native `useSyncExternalStore`)
+- [x] Remove shims aliases from vite.config.js (8 aliases + 3 exclusions)
+- [x] Replace deprecated `optimizeDeps.disabled` → `noDiscovery: true`
+- [x] Convert App.jsx → App.tsx (fully typed)
+- [x] Convert index.jsx → index.tsx (fully typed)
+- [x] Convert BootstrapErrorBoundary.jsx → BootstrapErrorBoundary.tsx (fully typed)
+- [x] Convert config/queryClient.js → queryClient.ts (fully typed)
+- [x] Convert diagnostics/bootstrapDiagnostics.js → bootstrapDiagnostics.ts (fully typed)
+- [x] Convert serviceWorker.js → serviceWorker.ts (fully typed with ServiceWorkerConfig interface)
+- [x] Update index.html entry point: `src/index.jsx` → `src/index.tsx`
+- [x] Rewrite README.md and README-RU.md per template guidelines
+
+### 5. Deep clean universo-core-backend
+- [x] Delete `marketplaces/` directory (66 Flowise legacy JSON templates)
+- [x] Remove legacy `.flowise` dir usage in DataSource.ts → `.universo`
+- [x] Clean `flowiseApiV1Router` naming → `apiV1Router`
+- [x] Clean `FLOWISE_FILE_SIZE_LIMIT` env var → `FILE_SIZE_LIMIT`
+- [x] Renamed `errors/internalFlowiseError` → `errors/internalError`
+- [x] Rewrite README.md and README-RU.md per template guidelines
+
+### 6. Final verification
+- [x] Full root build (pnpm build) — 23/23 successful (3m05s)
+- [x] Update Memory Bank
+
+---
+
+## Completed: QA Remediation — 2026-03-04 ✅
+
+> **Goal**: Fix all issues found during QA analysis of Post-Cleanup Deep Hardening sprint.
+
+### Fixes applied
+- [x] Delete dead `serviceWorker.ts` (CRA legacy, never imported)
+- [x] Replace `process.env.PUBLIC_URL` → `import.meta.env.BASE_URL` in index.tsx (Vite-native)
+- [x] Create `src/global.d.ts` with `Window.__APP_BASEPATH__` and `ImportMetaEnv` types
+- [x] Fix 4 stale `flowise-core-*` paths in Gemini rules (devops_mode.md, recommendations.md, pnpm-not-npm.md)
+- [x] Fix Prettier formatting in MenuContent.tsx (isSelected expression)
+- [x] Fix Prettier formatting in admin.ts (PermissionSubject union, PERMISSION_SUBJECTS array)
+- [x] Fix Prettier formatting in abilities/index.ts (Subjects union)
+- [x] Replace hardcoded Russian "Загрузка..." with language-neutral spinner in App.tsx
+- [x] Fix error middleware typing: `InternalError | any` → `ErrorLike` interface with proper shape
+- [x] Remove unused `InternalError` import from error middleware
+- [x] Fix stale `flowise-core-backend` reference in memory-bank/activeContext.md
+- [x] Full root build (pnpm build) — 23/23 successful (2m52s)
+- [x] Lint verification: 0 errors in @universo/types, 0 errors in @universo/template-mui
+
+---
+
+## Completed: Fix Auth Login TypeError — 2026-03-04 ✅
+
+> **Goal**: Fix `TypeError: e.get is not a function` in useSession/AuthProvider that prevented login after the legacy cleanup refactor.
+
+- [x] Diagnose root cause: `@/api/client.ts` default export changed from raw AxiosInstance to full UniversoApiClient object, but `AuthProvider` expects AxiosInstance
+- [x] Fix `index.jsx` to pass `api.$client` (raw AxiosInstance) instead of the full API client wrapper
+- [x] Verify full workspace build (23/23 packages)
+
+---
+
+## Completed: QA Findings Full Closure — 2026-03-04 ✅
+
+> **Goal**: Fully close all issues identified in the comprehensive QA report for codename/CRUD safety, including missing tests and retry consistency, without regressing existing functionality.
+
+- [x] Unify codename copy retry policy across domains (attributes/enumeration values/hubs/catalogs/enumerations) via shared constants in backend helper
+- [x] Harden `buildCodenameAttempt` generation rules to keep style-valid candidates and deterministic max-length behavior
+- [x] Add unit tests for `@universo/utils` codename validation/normalization functions (style, alphabet, mixed alphabet, sanitizer)
+- [x] Add backend unit tests for shared codename helper (`buildCodenameAttempt`) including kebab/pascal edge cases
+- [x] Re-run targeted lint/tests/build for touched packages and full root build; confirm no new errors
+- [x] Update Memory Bank status files (`activeContext.md`, `progress.md`, `tasks.md`) with completed outcomes
+
+---
+
+## Completed: Final Hardening Wrap-up — 2026-03-04 ✅
+
+> **Goal**: Finalize post-QA dependency override refinements, re-run critical verification, and close implementation documentation.
+
+- [x] Re-run regression tests for previously failing suites (`@universo/metahubs-frontend`, `@universo/template-mui`)
+- [x] Re-run lint for touched packages (`@universo/metahubs-frontend`, `@universo/template-mui`, `@universo/api-client`)
+- [x] Confirm production security gate (`pnpm audit --prod --audit-level=high`) and clean workspace build (`pnpm build:clean`)
+- [x] Document final state in Memory Bank (`activeContext.md`, `progress.md`) and commit lockfile/override refinements
+
+---
+
+## Completed: Post-QA Hardening — 2026-03-04 ✅
+
+> **Goal**: Eliminate issues discovered in the latest QA pass (failing tests, lint blockers in touched scope, critical security advisories) without destabilizing the cleaned architecture.
+
+- [x] Fix failing `@universo/metahubs-frontend` test (`MetahubMembers` view toggle)
+- [x] Fix failing `@universo/template-mui` tests (`useBreadcrumbName` suite)
+- [x] Re-run targeted test suites and confirm green status
+- [x] Resolve critical dependency advisories (`@casl/ability`, `fast-xml-parser`) via safe version upgrades/overrides
+- [x] Re-run `pnpm audit --prod --audit-level=critical` and confirm no critical vulnerabilities
+- [x] Re-run `pnpm build:clean` and verify full workspace build stability
+
+---
+
+## Completed: Legacy Cleanup — Remove Flowise Packages — 2026-03-04 ✅
+
+> **Goal**: Remove 39 legacy Flowise/UPDL packages, clean core packages, rename @flowise/* → @universo/*, update all cross-references, documentation, and configs.
+
+### Phase 0-3: Delete 38 legacy packages + clean types & permissions (commit a2a2d7e0)
+- [x] All 38+1 packages deleted (directories removed)
+- [x] @universo/types cleaned of Flowise-specific types
+- [x] Admin permissions cleaned
+
+### Phase 4: Clean flowise-core-backend (commit 271bd32a)
+- [x] Removed dead Flowise code & deps from core-backend
+
+### Phase 5: Migrate flowise-core-backend → universo-core-backend (commit 7d3812fb)
+- [x] Migrated remaining code to @universo/core-backend
+
+### Phase 6: Rename flowise-core-frontend → universo-core-frontend (commit e9eb5c97)
+- [x] Renamed package, updated all imports
+
+### Phase 7: Clean universo-template-mui (commit 05a51530)
+- [x] Removed dead routes (Canvas, Chatbot, PublicFlow) & unik/metaverse code
+
+### Phase 8: Rename flowise-store → universo-store (commit 57e92204)
+- [x] Renamed to @universo/store, cleaned dead canvas code
+
+### Phase 9: Merge flowise-template-mui → universo-template-mui (commit 34b9580e)
+- [x] Absorbed SCSS, themes, Nav, Auth routes into universo-template-mui
+- [x] Deleted flowise-template-mui (229 files, -22021 lines)
+
+### Phase 10: Clean universo-i18n (commit 526c13ff)
+- [x] Removed ~20 stale comments referencing deleted packages
+
+### Phase 11: Clean universo-api-client (commit 571c1ce5)
+- [x] Deleted 20 dead API modules, cleaned types/ and queryKeys/
+
+### Phase 12: Root configs cleanup (commit 9a8420a6)
+- [x] Removed ghost workspaces, dead AI/LLM overrides, stale resolutions, dead deps
+
+### Phase 13: Documentation update (commit e9deb169)
+- [x] Updated packages/README.md and README-RU.md
+
+### Phase 14: Full rebuild + lint (commit 3c21cb30)
+- [x] Fixed rest-docs stale Metaverse schema imports
+- [x] Fixed ThemeRoutes import (default vs named)
+- [x] Added MainCard export for backwards compatibility
+- [x] Removed all remaining @flowise/ stale references
+- [x] Lint-fixed template-mui (299 prettier errors auto-fixed)
+- [x] 23/23 packages build successfully
+
+### Phase 15: Documentation & Memory Bank (commit c6279e8d)
+- [x] Fixed 30+ @flowise/ references across 13 README/doc files
+- [x] Updated pnpm-workspace.yaml comment
+
+---
+
 ## Completed: QA Tech Debt Cleanup — 2026-03-04 ✅
 
 > **Goal**: Fix all issues found in the comprehensive QA analysis: stale JSDoc, fragile closure capture, over-broad cache invalidation, `as any` cleanup.

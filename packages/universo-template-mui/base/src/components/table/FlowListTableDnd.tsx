@@ -56,11 +56,7 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
     }
 
     return (
-        <StyledTableRow
-            ref={setNodeRef}
-            style={style}
-            sx={hasExpansion ? { '& td, & th': { borderBottom: 0 } } : undefined}
-        >
+        <StyledTableRow ref={setNodeRef} style={style} sx={hasExpansion ? { '& td, & th': { borderBottom: 0 } } : undefined}>
             {/* Drag handle column — attributes + listeners must be on the same focusable element for keyboard DnD */}
             <StyledTableCell
                 align='center'
@@ -96,11 +92,7 @@ interface SortableTableBodyProps {
 /**
  * Droppable variant: uses useDroppable for multi-container DnD scenarios.
  */
-const DroppableSortableBody: React.FC<SortableTableBodyProps & { containerId: string }> = ({
-    itemIds,
-    containerId,
-    children
-}) => {
+const DroppableSortableBody: React.FC<SortableTableBodyProps & { containerId: string }> = ({ itemIds, containerId, children }) => {
     const { setNodeRef } = useDroppable({ id: containerId })
     return (
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
@@ -206,9 +198,7 @@ export const InternalDndWrapper: React.FC<InternalDndWrapperProps> = ({
             }}
         >
             {children}
-            <DragOverlay dropAnimation={null}>
-                {renderDragOverlay ? renderDragOverlay(activeId) : null}
-            </DragOverlay>
+            <DragOverlay dropAnimation={null}>{renderDragOverlay ? renderDragOverlay(activeId) : null}</DragOverlay>
         </DndContext>
     )
 }

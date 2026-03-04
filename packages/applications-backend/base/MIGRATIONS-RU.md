@@ -33,7 +33,7 @@
 |---|---|
 | `1800000000000-CreateApplicationsSchema` | Создаёт схему `applications` с таблицами `applications` и `connector_publications` |
 
-Миграции экспортируются как массив `applicationsMigrations` и регистрируются в центральном реестре `@flowise/core-backend`.
+Миграции экспортируются как массив `applicationsMigrations` и регистрируются в центральном реестре `@universo/core-backend`.
 
 ## Таблицы динамической схемы
 

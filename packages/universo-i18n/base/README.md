@@ -228,7 +228,7 @@ The following namespaces are included by default (EN + RU):
 - `flowList`, `menu`, `profile-menu`, `templates`
 - Dialog namespaces such as `about`, `manageLinks`, `viewLeads`, etc.
 
-> Module-specific namespaces (document-store, vector-store, assistants, tools, credentials, variables, api-keys, etc.) are **registered by their respective feature packages**. Import those packages (e.g., `import '@flowise/docstore-frontend/i18n'`) before rendering the related routes/components.
+> Module-specific namespaces (document-store, vector-store, assistants, tools, credentials, variables, api-keys, etc.) are **registered by their respective feature packages**. Import those packages before rendering the related routes/components.
 
 FRT packages add their own namespaces dynamically.
 

@@ -168,14 +168,14 @@ const canvas = await canvasRepo.findOne({
 
 ### Entity Registration
 
-**Central Registry:** `packages/flowise-core-backend/base/src/database/entities/index.ts`
+**Central Registry:** `packages/universo-core-backend/base/src/database/entities/index.ts`
 
 All entities must be:
 1. Defined in their package's `src/database/entities/` directory
 2. Exported from the central `index.ts`
 3. Registered in `AppDataSource` initialization
 
-**Migration Registration:** `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts`
+**Migration Registration:** `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`
 
 Each package exports its migrations, which are combined into `postgresMigrations` array.
 
@@ -442,10 +442,10 @@ packages/new-service-backend/
 
 **Entity Registration Steps:**
 1. Create entity in package: `src/database/entities/NewEntity.ts`
-2. Export from central registry: `packages/flowise-core-backend/base/src/database/entities/index.ts`
+2. Export from central registry: `packages/universo-core-backend/base/src/database/entities/index.ts`
 3. Create migrations in package: `src/database/migrations/postgres/`
 4. Export migrations array: `src/database/migrations/postgres/index.ts`
-5. Import into central registry: `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts`
+5. Import into central registry: `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`
 
 ### Workspace Imports
 

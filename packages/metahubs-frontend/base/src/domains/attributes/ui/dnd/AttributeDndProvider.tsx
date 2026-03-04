@@ -7,9 +7,10 @@ import {
     useSensors,
     useSensor,
     closestCenter,
-    MeasuringStrategy
-} from '@dnd-kit/core'
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+    MeasuringStrategy,
+    sortableKeyboardCoordinates
+} from '@universo/template-mui'
+import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@universo/template-mui'
 import { useAttributeDnd } from './useAttributeDnd'
 import type { ContainerInfo, PendingTransfer } from './useAttributeDnd'
 import { DragOverlayRow } from './DragOverlayRow'
@@ -116,15 +117,55 @@ export const AttributeDndProvider: React.FC<AttributeDndProviderProps> = ({
         [activeId, activeContainerId, overContainerId, pendingTransfer, activeAttribute]
     )
 
+    const isDebugEnabled = useMemo(() => {
+        if (typeof window === 'undefined') return false
+        return window.localStorage.getItem('debug:metahubs:attributes-dnd') === '1'
+    }, [])
+
+    const debugLog = (eventName: string, payload: Record<string, unknown>) => {
+        if (!isDebugEnabled) return
+        console.info(`[attributes-dnd] ${eventName}`, payload)
+    }
+
+    const handleDragStartWithDebug = (event: DragStartEvent) => {
+        debugLog('drag-start', {
+            activeId: String(event.active.id),
+            containersCount: containers.length,
+            rootItemsCount: rootItems.length
+        })
+        handleDragStart(event)
+    }
+
+    const handleDragOverWithDebug = (event: DragOverEvent) => {
+        debugLog('drag-over', {
+            activeId: String(event.active.id),
+            overId: event.over ? String(event.over.id) : null
+        })
+        handleDragOver(event)
+    }
+
+    const handleDragEndWithDebug = async (event: DragEndEvent) => {
+        debugLog('drag-end', {
+            activeId: String(event.active.id),
+            overId: event.over ? String(event.over.id) : null
+        })
+        await handleDragEnd(event)
+    }
+
+    const handleDragCancelWithDebug = () => {
+        debugLog('drag-cancel', { reason: 'cancelled' })
+        handleDragCancel()
+    }
+
     return (
         <AttributeDndStateContext.Provider value={dndState}>
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-                onDragCancel={handleDragCancel}
+                onDragStart={handleDragStartWithDebug}
+                onDragOver={handleDragOverWithDebug}
+                onDragEnd={handleDragEndWithDebug}
+                onDragCancel={handleDragCancelWithDebug}
                 // Prevent validateDOMNesting warnings for <div> inside <table>
                 accessibility={{ container: document.body }}
                 measuring={{
