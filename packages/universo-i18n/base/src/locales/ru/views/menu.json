@@ -48,6 +48,8 @@
         "branches": "Ветки",
         "hubs": "Хабы",
         "catalogs": "Каталоги",
+        "sets": "Наборы",
+        "constants": "Константы",
         "enumerations": "Перечисления",
         "layouts": "Макеты",
         "menus": "Меню",

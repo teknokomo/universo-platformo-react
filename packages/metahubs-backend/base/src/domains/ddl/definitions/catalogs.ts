@@ -32,7 +32,7 @@ export const buildCatalogDefinitions = (catalogs: any[], allAttributes: any[]): 
                     codename: attr.codename,
                     dataType: attr.data_type || attr.dataType,
                     isRequired: attr.is_required || attr.isRequired || false,
-                    targetEntityId: attr.target_object_id || attr.targetCatalogId || null,
+                    targetEntityId: attr.target_object_id || attr.targetEntityId || null,
                     targetEntityKind: attr.target_object_kind || attr.targetEntityKind || null,
                     presentation: {
                         name: (attr.presentation?.name ||

@@ -44,10 +44,11 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 import { useCreateElement, useUpdateElement, useDeleteElement } from '../hooks/mutations'
 import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
+import * as constantsApi from '../../constants/api'
 import { getCatalogById } from '../../catalogs'
 import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
-import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
+import { Constant, HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import elementActions from './ElementActions'
@@ -74,8 +75,39 @@ type ElementOption = {
 }
 
 type RefTargetDescriptor = {
-    kind: 'catalog' | 'enumeration'
+    kind: 'catalog' | 'enumeration' | 'set'
     targetId: string
+    targetConstantId?: string | null
+    setConstantLabel?: string | null
+}
+
+const resolveSetConstantLabel = (constant: Constant, locale: string): string => {
+    const rawValue = constant.value
+    if (rawValue === null || rawValue === undefined) return '—'
+
+    if (typeof rawValue === 'object') {
+        const localized = getVLCString(rawValue as Record<string, unknown>, locale)
+        if (localized && localized.trim().length > 0) return localized
+    }
+
+    if (constant.dataType === 'DATE' && typeof rawValue === 'string') {
+        const parsed = new Date(rawValue)
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed.toLocaleString(locale)
+        }
+    }
+
+    return String(rawValue)
+}
+
+const resolveRefId = (value: unknown): string | null => {
+    if (typeof value === 'string' && value.length > 0) return value
+    if (value && typeof value === 'object') {
+        const obj = value as Record<string, unknown>
+        if (typeof obj.id === 'string' && obj.id.length > 0) return obj.id
+        if (typeof obj.value === 'string' && obj.value.length > 0) return obj.value
+    }
+    return null
 }
 
 type ReferenceFieldAutocompleteProps = {
@@ -585,8 +617,8 @@ const ElementList = () => {
         Object.values(childAttributesMap).forEach((children) => {
             children.forEach((child) => {
                 if (child.dataType !== 'REF') return
-                const kind = child.targetEntityKind ?? (child.targetCatalogId ? 'catalog' : null)
-                const targetId = child.targetEntityId ?? child.targetCatalogId ?? null
+                const kind = child.targetEntityKind ?? null
+                const targetId = child.targetEntityId ?? null
                 if (kind === 'enumeration' && targetId) ids.add(targetId)
             })
         })
@@ -640,6 +672,63 @@ const ElementList = () => {
         [attributes]
     )
 
+    const setConstantTargets = useMemo(() => {
+        const pairs = new Set<string>()
+
+        orderedAttributes.forEach((attribute) => {
+            if (attribute.dataType !== 'REF') return
+            if (attribute.targetEntityKind !== 'set') return
+            if (!attribute.targetEntityId || !attribute.targetConstantId) return
+            pairs.add(`${attribute.targetEntityId}:${attribute.targetConstantId}`)
+        })
+
+        if (childAttributesMap) {
+            Object.values(childAttributesMap).forEach((children) => {
+                children.forEach((child) => {
+                    if (child.dataType !== 'REF') return
+                    if (child.targetEntityKind !== 'set') return
+                    if (!child.targetEntityId || !child.targetConstantId) return
+                    pairs.add(`${child.targetEntityId}:${child.targetConstantId}`)
+                })
+            })
+        }
+
+        return Array.from(pairs)
+            .map((pair) => {
+                const [setId, constantId] = pair.split(':')
+                return { setId, constantId }
+            })
+            .filter((pair) => pair.setId && pair.constantId)
+            .sort((a, b) => a.setId.localeCompare(b.setId) || a.constantId.localeCompare(b.constantId))
+    }, [childAttributesMap, orderedAttributes])
+
+    const { data: setConstantsMap } = useQuery({
+        queryKey: [
+            'metahubs',
+            'setConstantsForElements',
+            metahubId,
+            setConstantTargets.map((target) => `${target.setId}:${target.constantId}`).join(','),
+            i18n.language
+        ],
+        queryFn: async () => {
+            if (!metahubId || setConstantTargets.length === 0) return {}
+            const result: Record<string, Constant[]> = {}
+            await Promise.all(
+                setConstantTargets.map(async ({ setId: setTargetId, constantId }) => {
+                    try {
+                        const response = await constantsApi.getConstantDirect(metahubId, setTargetId, constantId)
+                        const current = result[setTargetId] ?? []
+                        result[setTargetId] = [...current, response.data]
+                    } catch (err) {
+                        console.warn(`[ElementList] Failed to load constant ${constantId} for set ${setTargetId}:`, err)
+                    }
+                })
+            )
+            return result
+        },
+        enabled: Boolean(metahubId) && setConstantTargets.length > 0
+    })
+
     const buildStringLengthHelperText = useCallback(
         (rules?: { minLength?: number | null; maxLength?: number | null }) => {
             const minLength = typeof rules?.minLength === 'number' ? rules.minLength : null
@@ -683,8 +772,14 @@ const ElementList = () => {
     const elementFields = useMemo<DynamicFieldConfig[]>(
         () =>
             orderedAttributes.map((attribute) => {
-                const resolvedTargetEntityId = attribute.targetEntityId ?? attribute.targetCatalogId ?? null
-                const resolvedTargetEntityKind = attribute.targetEntityKind ?? (attribute.targetCatalogId ? 'catalog' : null)
+                const resolvedTargetEntityId = attribute.targetEntityId ?? null
+                const resolvedTargetEntityKind = attribute.targetEntityKind ?? null
+                const resolvedTargetConstantId = resolvedTargetEntityKind === 'set' ? attribute.targetConstantId ?? null : null
+                const resolvedSetConstant =
+                    resolvedTargetEntityKind === 'set' && resolvedTargetEntityId && resolvedTargetConstantId
+                        ? (setConstantsMap?.[resolvedTargetEntityId] ?? []).find((constant) => constant.id === resolvedTargetConstantId) ??
+                          null
+                        : null
                 const uiConfig = (attribute.uiConfig ?? {}) as Record<string, unknown>
                 const enumPresentationMode =
                     uiConfig.enumPresentationMode === 'radio' || uiConfig.enumPresentationMode === 'label'
@@ -701,8 +796,14 @@ const ElementList = () => {
                     childFields = children
                         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
                         .map((child) => {
-                            const childTargetId = child.targetEntityId ?? child.targetCatalogId ?? null
-                            const childTargetKind = child.targetEntityKind ?? (child.targetCatalogId ? 'catalog' : null)
+                            const childTargetId = child.targetEntityId ?? null
+                            const childTargetKind = child.targetEntityKind ?? null
+                            const childTargetConstantId = childTargetKind === 'set' ? child.targetConstantId ?? null : null
+                            const childSetConstant =
+                                childTargetKind === 'set' && childTargetId && childTargetConstantId
+                                    ? (setConstantsMap?.[childTargetId] ?? []).find((constant) => constant.id === childTargetConstantId) ??
+                                      null
+                                    : null
                             const childUiConfig = (child.uiConfig ?? {}) as Record<string, unknown>
                             const childEnumPresentationMode =
                                 childUiConfig.enumPresentationMode === 'radio' || childUiConfig.enumPresentationMode === 'label'
@@ -717,7 +818,26 @@ const ElementList = () => {
                             let enumOptions: DynamicFieldConfig['enumOptions']
                             if (child.dataType === 'REF' && childTargetKind === 'enumeration' && childTargetId) {
                                 enumOptions = childEnumValuesMap?.[childTargetId] ?? []
+                            } else if (child.dataType === 'REF' && childTargetKind === 'set' && childTargetConstantId) {
+                                enumOptions = [
+                                    {
+                                        id: childTargetConstantId,
+                                        label: childSetConstant
+                                            ? resolveSetConstantLabel(childSetConstant, i18n.language)
+                                            : t('ref.unknownEnumerationValue', 'Value {{id}}', {
+                                                  id: childTargetConstantId.slice(0, 8)
+                                              })
+                                    }
+                                ]
                             }
+
+                            const effectiveChildEnumPresentationMode =
+                                childTargetKind === 'set'
+                                    ? 'label'
+                                    : (childEnumPresentationMode as DynamicFieldConfig['enumPresentationMode'])
+                            const effectiveChildDefaultEnumValueId =
+                                childTargetKind === 'set' ? childTargetConstantId : childDefaultEnumValueId
+                            const effectiveChildEnumAllowEmpty = childTargetKind === 'set' ? false : childEnumAllowEmpty
 
                             return {
                                 id: child.codename,
@@ -727,14 +847,34 @@ const ElementList = () => {
                                 validationRules: child.validationRules as DynamicFieldValidationRules | undefined,
                                 refTargetEntityId: childTargetId,
                                 refTargetEntityKind: childTargetKind,
+                                refTargetConstantId: childTargetConstantId,
+                                refSetConstantLabel:
+                                    childTargetKind === 'set' && childSetConstant
+                                        ? resolveSetConstantLabel(childSetConstant, i18n.language)
+                                        : null,
+                                refSetConstantDataType: childTargetKind === 'set' && childSetConstant ? childSetConstant.dataType : null,
                                 enumOptions,
-                                enumPresentationMode: childEnumPresentationMode as DynamicFieldConfig['enumPresentationMode'],
-                                defaultEnumValueId: childDefaultEnumValueId,
-                                enumAllowEmpty: childEnumAllowEmpty,
+                                enumPresentationMode: effectiveChildEnumPresentationMode,
+                                defaultEnumValueId: effectiveChildDefaultEnumValueId,
+                                enumAllowEmpty: effectiveChildEnumAllowEmpty,
                                 enumLabelEmptyDisplay: childEnumLabelEmptyDisplay as DynamicFieldConfig['enumLabelEmptyDisplay']
                             }
                         })
                 }
+
+                const topLevelEnumOptions =
+                    resolvedTargetEntityKind === 'set' && resolvedTargetConstantId
+                        ? [
+                              {
+                                  id: resolvedTargetConstantId,
+                                  label: resolvedSetConstant
+                                      ? resolveSetConstantLabel(resolvedSetConstant, i18n.language)
+                                      : t('ref.unknownEnumerationValue', 'Value {{id}}', {
+                                            id: resolvedTargetConstantId.slice(0, 8)
+                                        })
+                              }
+                          ]
+                        : undefined
 
                 return {
                     id: attribute.codename,
@@ -750,15 +890,29 @@ const ElementList = () => {
                     validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined,
                     refTargetEntityId: resolvedTargetEntityId,
                     refTargetEntityKind: resolvedTargetEntityKind,
-                    enumPresentationMode,
-                    defaultEnumValueId,
-                    enumAllowEmpty,
+                    refTargetConstantId: resolvedTargetConstantId,
+                    refSetConstantLabel: resolvedSetConstant ? resolveSetConstantLabel(resolvedSetConstant, i18n.language) : null,
+                    refSetConstantDataType: resolvedSetConstant?.dataType ?? null,
+                    enumOptions: topLevelEnumOptions,
+                    enumPresentationMode:
+                        resolvedTargetEntityKind === 'set' ? ('label' as DynamicFieldConfig['enumPresentationMode']) : enumPresentationMode,
+                    defaultEnumValueId: resolvedTargetEntityKind === 'set' ? resolvedTargetConstantId : defaultEnumValueId,
+                    enumAllowEmpty: resolvedTargetEntityKind === 'set' ? false : enumAllowEmpty,
                     enumLabelEmptyDisplay,
                     childFields,
                     tableShowTitle: attribute.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined
                 }
             }),
-        [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText, childAttributesMap, childEnumValuesMap]
+        [
+            orderedAttributes,
+            i18n.language,
+            buildStringLengthHelperText,
+            buildNumberRangeHelperText,
+            childAttributesMap,
+            childEnumValuesMap,
+            setConstantsMap,
+            t
+        ]
     )
 
     const renderElementField = useCallback(
@@ -864,6 +1018,30 @@ const ElementList = () => {
                 )
             }
 
+            if (targetKind === 'set') {
+                const targetConstantId = field.refTargetConstantId ?? null
+                const displayValue =
+                    typeof field.refSetConstantLabel === 'string' && field.refSetConstantLabel.length > 0 ? field.refSetConstantLabel : '—'
+                const resolvedCurrentValue = resolveRefId(value)
+                const hasMismatch = Boolean(targetConstantId && resolvedCurrentValue && resolvedCurrentValue !== targetConstantId)
+                const mismatchMessage =
+                    targetConstantId && resolvedCurrentValue
+                        ? t('ref.unknownEnumerationValue', 'Value {{id}}', { id: resolvedCurrentValue.slice(0, 8) })
+                        : t('ref.targetConstantHint', 'Select constant from the selected set')
+
+                return (
+                    <TextField
+                        fullWidth
+                        size='small'
+                        label={field.label}
+                        value={displayValue}
+                        disabled
+                        error={Boolean(error) || hasMismatch}
+                        helperText={error ?? (hasMismatch ? mismatchMessage : helperText)}
+                    />
+                )
+            }
+
             return (
                 <TextField
                     fullWidth
@@ -948,40 +1126,66 @@ const ElementList = () => {
     const orderedAttributesForColumns = orderedAttributes
     const visibleAttributesForColumns = useMemo(() => orderedAttributesForColumns.slice(0, 4), [orderedAttributesForColumns])
 
-    const refAttributesForColumns = useMemo(() => {
+    const visibleRefAttributesForColumns = useMemo(() => {
         return visibleAttributesForColumns.filter((attr) => {
-            const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
-            const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
-            return attr.dataType === 'REF' && (targetKind === 'catalog' || targetKind === 'enumeration') && Boolean(targetId)
+            const targetKind = attr.targetEntityKind ?? null
+            const targetId = attr.targetEntityId ?? null
+            return (
+                attr.dataType === 'REF' &&
+                (targetKind === 'catalog' || targetKind === 'enumeration' || targetKind === 'set') &&
+                Boolean(targetId)
+            )
         })
     }, [visibleAttributesForColumns])
 
+    const refAttributesForColumns = useMemo(() => {
+        return visibleRefAttributesForColumns.filter((attr) => {
+            const targetKind = attr.targetEntityKind ?? null
+            return targetKind === 'catalog' || targetKind === 'enumeration'
+        })
+    }, [visibleRefAttributesForColumns])
+
     const refTargetByAttribute = useMemo(() => {
         const map: Record<string, RefTargetDescriptor> = {}
-        refAttributesForColumns.forEach((attr) => {
-            const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
-            const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
-            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) return
+        visibleRefAttributesForColumns.forEach((attr) => {
+            const targetKind = attr.targetEntityKind ?? null
+            const targetId = attr.targetEntityId ?? null
+            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration' && targetKind !== 'set')) return
+            if (targetKind === 'set') {
+                const targetConstantId = attr.targetConstantId ?? null
+                const targetConstant =
+                    targetConstantId && targetId
+                        ? (setConstantsMap?.[targetId] ?? []).find((constant) => constant.id === targetConstantId) ?? null
+                        : null
+                map[attr.codename] = {
+                    kind: targetKind,
+                    targetId,
+                    targetConstantId,
+                    setConstantLabel: targetConstant ? resolveSetConstantLabel(targetConstant, i18n.language) : null
+                }
+                return
+            }
             map[attr.codename] = { kind: targetKind, targetId }
         })
         return map
-    }, [refAttributesForColumns])
+    }, [visibleRefAttributesForColumns, setConstantsMap, i18n.language])
 
     const refIdsByTarget = useMemo(() => {
         const map: Record<string, Set<string>> = {}
         if (!Array.isArray(elements) || refAttributesForColumns.length === 0) return map
 
         refAttributesForColumns.forEach((attr) => {
-            const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
-            const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
+            const targetKind = attr.targetEntityKind ?? null
+            const targetId = attr.targetEntityId ?? null
             if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) return
 
             const mapKey = `${targetKind}:${targetId}`
             if (!map[mapKey]) map[mapKey] = new Set()
             elements.forEach((element) => {
                 const rawValue = element.data?.[attr.codename]
-                if (typeof rawValue === 'string' && rawValue) {
-                    map[mapKey].add(rawValue)
+                const resolvedId = resolveRefId(rawValue)
+                if (resolvedId) {
+                    map[mapKey].add(resolvedId)
                 }
             })
         })
@@ -1087,8 +1291,16 @@ const ElementList = () => {
                         }
                         case 'REF': {
                             const target = refTargetByAttribute[attr.codename]
+                            if (target?.kind === 'set') {
+                                return (
+                                    <Typography sx={{ fontSize: 14 }} noWrap>
+                                        {target.setConstantLabel || '—'}
+                                    </Typography>
+                                )
+                            }
                             const targetKey = target ? `${target.kind}:${target.targetId}` : null
-                            const displayName = targetKey && typeof value === 'string' ? refDisplayMap?.[targetKey]?.[value] : undefined
+                            const resolvedRefValue = resolveRefId(value)
+                            const displayName = targetKey && resolvedRefValue ? refDisplayMap?.[targetKey]?.[resolvedRefValue] : undefined
                             const isMappingLoading = Boolean(targetKey) && isFetchingRefDisplayMap
                             return (
                                 <Typography sx={{ fontSize: 14 }} noWrap>
@@ -1268,6 +1480,44 @@ const ElementList = () => {
         })
     }, [copyingElement?.data, i18n.language, orderedAttributes])
 
+    const applySetReferenceDefaultsToPayload = useCallback(
+        (inputData: Record<string, unknown>): Record<string, unknown> => {
+            const nextData: Record<string, unknown> = { ...inputData }
+
+            orderedAttributes.forEach((attribute) => {
+                if (attribute.dataType === 'REF' && attribute.targetEntityKind === 'set' && attribute.targetConstantId) {
+                    const currentValue = resolveRefId(nextData[attribute.codename])
+                    if (!currentValue || currentValue !== attribute.targetConstantId) {
+                        nextData[attribute.codename] = attribute.targetConstantId
+                    }
+                    return
+                }
+
+                if (attribute.dataType !== 'TABLE') return
+                const childAttributes = childAttributesMap?.[attribute.id] ?? []
+                if (childAttributes.length === 0) return
+                const rawRows = nextData[attribute.codename]
+                if (!Array.isArray(rawRows)) return
+
+                nextData[attribute.codename] = rawRows.map((rawRow) => {
+                    if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow)) return rawRow
+                    const row = { ...(rawRow as Record<string, unknown>) }
+                    childAttributes.forEach((child) => {
+                        if (child.dataType !== 'REF' || child.targetEntityKind !== 'set' || !child.targetConstantId) return
+                        const currentValue = resolveRefId(row[child.codename])
+                        if (!currentValue || currentValue !== child.targetConstantId) {
+                            row[child.codename] = child.targetConstantId
+                        }
+                    })
+                    return row
+                })
+            })
+
+            return nextData
+        },
+        [childAttributesMap, orderedAttributes]
+    )
+
     // Validate metahubId and catalogId from URL AFTER all hooks
     if (!metahubId || !catalogId) {
         return (
@@ -1337,11 +1587,12 @@ const ElementList = () => {
         setDialogError(null)
         setSubmitting(true)
         try {
+            const normalizedData = applySetReferenceDefaultsToPayload(data)
             await createElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
-                data: { data }
+                data: { data: normalizedData }
             })
 
             // Invalidation handled by mutation hook
@@ -1369,12 +1620,13 @@ const ElementList = () => {
         setDialogError(null)
         setSubmitting(true)
         try {
+            const normalizedData = applySetReferenceDefaultsToPayload(data)
             await updateElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
                 elementId: editingElement.id,
-                data: { data }
+                data: { data: normalizedData }
             })
 
             // Invalidation handled by mutation hook
@@ -1401,11 +1653,12 @@ const ElementList = () => {
         setCopyDialogError(null)
         setSubmitting(true)
         try {
+            const normalizedData = applySetReferenceDefaultsToPayload(values)
             await createElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
-                data: { data: values }
+                data: { data: normalizedData }
             })
             handleCopyClose()
         } catch (e: unknown) {

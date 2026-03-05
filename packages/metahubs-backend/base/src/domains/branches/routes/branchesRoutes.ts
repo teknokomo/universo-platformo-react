@@ -67,10 +67,11 @@ const createBranchSchema = z
         copyLayouts: z.boolean().optional(),
         copyHubs: z.boolean().optional(),
         copyCatalogs: z.boolean().optional(),
+        copySets: z.boolean().optional(),
         copyEnumerations: z.boolean().optional()
     })
     .superRefine((value, ctx) => {
-        const childFlags = [value.copyLayouts, value.copyHubs, value.copyCatalogs, value.copyEnumerations]
+        const childFlags = [value.copyLayouts, value.copyHubs, value.copyCatalogs, value.copySets, value.copyEnumerations]
         const hasExplicitChildDisabled = childFlags.some((flag) => flag === false)
 
         if (value.fullCopy === true && hasExplicitChildDisabled) {
@@ -357,6 +358,7 @@ export function createBranchesRoutes(
                 copyLayouts: parsed.data.copyLayouts,
                 copyHubs: parsed.data.copyHubs,
                 copyCatalogs: parsed.data.copyCatalogs,
+                copySets: parsed.data.copySets,
                 copyEnumerations: parsed.data.copyEnumerations
             })
 

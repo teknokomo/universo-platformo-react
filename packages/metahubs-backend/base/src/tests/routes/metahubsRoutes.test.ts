@@ -394,7 +394,7 @@ describe('Metahubs Routes', () => {
                     codename: 'main',
                     schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
                     lastTemplateVersionId: 'tpl-v100',
-                    lastTemplateVersionLabel: '1.0.0',
+                    lastTemplateVersionLabel: '0.1.0',
                     lastTemplateSyncedAt: new Date('2026-02-12T11:00:00.000Z'),
                     name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main' } } },
                     description: null
@@ -407,7 +407,7 @@ describe('Metahubs Routes', () => {
                     codename: 'feature',
                     schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2',
                     lastTemplateVersionId: 'tpl-v100',
-                    lastTemplateVersionLabel: '1.0.0',
+                    lastTemplateVersionLabel: '0.1.0',
                     lastTemplateSyncedAt: new Date('2026-02-12T11:00:00.000Z'),
                     name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Feature' } } },
                     description: null
@@ -457,7 +457,7 @@ describe('Metahubs Routes', () => {
             expect(metahubBranchRepo.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     lastTemplateVersionId: 'tpl-v100',
-                    lastTemplateVersionLabel: '1.0.0'
+                    lastTemplateVersionLabel: '0.1.0'
                 })
             )
             expect(metahubUserRepo.create).toHaveBeenCalledWith(

@@ -10,7 +10,7 @@ export const DEFAULT_APPLICATION_COPY_OPTIONS: ApplicationCopyOptions = {
     copyAccess: false
 }
 
-export const BRANCH_COPY_OPTION_KEYS = ['copyLayouts', 'copyHubs', 'copyCatalogs', 'copyEnumerations'] as const
+export const BRANCH_COPY_OPTION_KEYS = ['copyLayouts', 'copyHubs', 'copyCatalogs', 'copySets', 'copyEnumerations'] as const
 
 export type BranchCopyOptionKey = (typeof BRANCH_COPY_OPTION_KEYS)[number]
 
@@ -19,6 +19,7 @@ export interface BranchCopyOptions {
     copyLayouts: boolean
     copyHubs: boolean
     copyCatalogs: boolean
+    copySets: boolean
     copyEnumerations: boolean
 }
 
@@ -27,22 +28,25 @@ export const DEFAULT_BRANCH_COPY_OPTIONS: BranchCopyOptions = {
     copyLayouts: true,
     copyHubs: true,
     copyCatalogs: true,
+    copySets: true,
     copyEnumerations: true
 }
 
-export const HUB_COPY_OPTION_KEYS = ['copyCatalogRelations', 'copyEnumerationRelations'] as const
+export const HUB_COPY_OPTION_KEYS = ['copyCatalogRelations', 'copySetRelations', 'copyEnumerationRelations'] as const
 
 export type HubCopyOptionKey = (typeof HUB_COPY_OPTION_KEYS)[number]
 
 export interface HubCopyOptions {
     copyAllRelations: boolean
     copyCatalogRelations: boolean
+    copySetRelations: boolean
     copyEnumerationRelations: boolean
 }
 
 export const DEFAULT_HUB_COPY_OPTIONS: HubCopyOptions = {
     copyAllRelations: true,
     copyCatalogRelations: true,
+    copySetRelations: true,
     copyEnumerationRelations: true
 }
 
@@ -64,6 +68,14 @@ export const DEFAULT_ENUMERATION_COPY_OPTIONS: EnumerationCopyOptions = {
     copyValues: true
 }
 
+export interface SetCopyOptions {
+    copyConstants: boolean
+}
+
+export const DEFAULT_SET_COPY_OPTIONS: SetCopyOptions = {
+    copyConstants: true
+}
+
 export interface LayoutCopyOptions {
     copyWidgets: boolean
     deactivateAllWidgets: boolean
@@ -80,6 +92,14 @@ export interface AttributeCopyOptions {
 
 export const DEFAULT_ATTRIBUTE_COPY_OPTIONS: AttributeCopyOptions = {
     copyChildAttributes: true
+}
+
+export interface ConstantCopyOptions {
+    copyValue: boolean
+}
+
+export const DEFAULT_CONSTANT_COPY_OPTIONS: ConstantCopyOptions = {
+    copyValue: true
 }
 
 export interface ElementCopyOptions {

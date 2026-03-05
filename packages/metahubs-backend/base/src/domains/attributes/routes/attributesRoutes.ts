@@ -12,6 +12,7 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
+import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import {
     getCodenameSettings,
@@ -42,6 +43,7 @@ const resolveUserId = (req: Request): string | undefined => {
 const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
 const ENUM_LABEL_EMPTY_DISPLAY_MODES = ['empty', 'dash'] as const
 const ENUMERATION_KIND = 'enumeration' as const
+const SET_KIND = 'set' as const
 
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
@@ -143,46 +145,48 @@ const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: strin
     return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
 }
 
-const createAttributeSchema = z.object({
-    codename: z.string().min(1).max(100),
-    codenameInput: localizedInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    dataType: z.enum(ATTRIBUTE_DATA_TYPES),
-    name: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    // Polymorphic reference fields
-    targetEntityId: z.string().uuid().optional(),
-    targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
-    // Legacy alias for backward compatibility
-    targetCatalogId: z.string().uuid().optional(),
-    validationRules: validationRulesSchema,
-    uiConfig: uiConfigSchema,
-    isRequired: z.boolean().optional(),
-    isDisplayAttribute: z.boolean().optional(),
-    sortOrder: z.number().int().optional(),
-    // TABLE parent reference
-    parentAttributeId: z.string().uuid().nullish()
-})
+const createAttributeSchema = z
+    .object({
+        codename: z.string().min(1).max(100),
+        codenameInput: localizedInputSchema.optional(),
+        codenamePrimaryLocale: z.string().optional(),
+        dataType: z.enum(ATTRIBUTE_DATA_TYPES),
+        name: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        // Polymorphic reference fields
+        targetEntityId: z.string().uuid().optional(),
+        targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
+        targetConstantId: z.string().uuid().optional(),
+        validationRules: validationRulesSchema,
+        uiConfig: uiConfigSchema,
+        isRequired: z.boolean().optional(),
+        isDisplayAttribute: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+        // TABLE parent reference
+        parentAttributeId: z.string().uuid().nullish()
+    })
+    .strict()
 
-const updateAttributeSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    dataType: z.enum(ATTRIBUTE_DATA_TYPES).optional(),
-    name: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    // Polymorphic reference fields
-    targetEntityId: z.string().uuid().nullable().optional(),
-    targetEntityKind: z.enum(META_ENTITY_KINDS).nullable().optional(),
-    // Legacy alias for backward compatibility
-    targetCatalogId: z.string().uuid().nullable().optional(),
-    validationRules: validationRulesSchema,
-    uiConfig: uiConfigSchema,
-    isRequired: z.boolean().optional(),
-    isDisplayAttribute: z.boolean().optional(),
-    sortOrder: z.number().int().optional(),
-    expectedVersion: z.number().int().positive().optional() // For optimistic locking
-})
+const updateAttributeSchema = z
+    .object({
+        codename: z.string().min(1).max(100).optional(),
+        codenameInput: localizedInputSchema.optional(),
+        codenamePrimaryLocale: z.string().optional(),
+        dataType: z.enum(ATTRIBUTE_DATA_TYPES).optional(),
+        name: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        // Polymorphic reference fields
+        targetEntityId: z.string().uuid().nullable().optional(),
+        targetEntityKind: z.enum(META_ENTITY_KINDS).nullable().optional(),
+        targetConstantId: z.string().uuid().nullable().optional(),
+        validationRules: validationRulesSchema,
+        uiConfig: uiConfigSchema,
+        isRequired: z.boolean().optional(),
+        isDisplayAttribute: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+        expectedVersion: z.number().int().positive().optional() // For optimistic locking
+    })
+    .strict()
 
 const moveAttributeSchema = z.object({
     direction: z.enum(['up', 'down'])
@@ -198,7 +202,8 @@ const copyAttributeSchema = z.object({
     // Optional overrides — when provided, the copy uses these instead of the source values
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
-    isRequired: z.boolean().optional()
+    isRequired: z.boolean().optional(),
+    targetConstantId: z.string().uuid().nullable().optional()
 })
 
 const ATTRIBUTE_LIMIT = 100
@@ -270,6 +275,7 @@ export function createAttributesRoutes(
             attributesService: new MetahubAttributesService(schemaService),
             objectsService: new MetahubObjectsService(schemaService),
             enumerationValuesService: new MetahubEnumerationValuesService(schemaService),
+            constantsService: new MetahubConstantsService(schemaService),
             schemaService,
             settingsService: new MetahubSettingsService(schemaService)
         }
@@ -460,7 +466,8 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, ds, manager, settingsService } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, constantsService, ds, manager, settingsService } =
+                services(req)
             const userId = resolveUserId(req)
 
             // Verify catalog exists
@@ -492,7 +499,7 @@ export function createAttributesRoutes(
                 namePrimaryLocale,
                 targetEntityId,
                 targetEntityKind,
-                targetCatalogId,
+                targetConstantId,
                 validationRules,
                 uiConfig,
                 isRequired,
@@ -539,9 +546,10 @@ export function createAttributesRoutes(
                 })
             }
 
-            // Resolve target entity with compatibility fallback
-            const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
-            const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId ? MetaEntityKind.CATALOG : undefined)
+            // Resolve target entity from polymorphic reference fields
+            const resolvedTargetEntityId = targetEntityId
+            const resolvedTargetEntityKind = targetEntityKind
+            const resolvedTargetConstantId = targetConstantId
 
             const codenameStyle = extractCodenameStyle(allSettings)
             const codenameAlphabet = extractCodenameAlphabet(allSettings)
@@ -563,7 +571,11 @@ export function createAttributesRoutes(
                         error: 'REF type requires targetEntityId and targetEntityKind'
                     })
                 }
-                if (resolvedTargetEntityKind !== MetaEntityKind.CATALOG && resolvedTargetEntityKind !== ENUMERATION_KIND) {
+                if (
+                    resolvedTargetEntityKind !== MetaEntityKind.CATALOG &&
+                    resolvedTargetEntityKind !== ENUMERATION_KIND &&
+                    resolvedTargetEntityKind !== SET_KIND
+                ) {
                     return res.status(400).json({
                         error: 'Unsupported targetEntityKind for REF',
                         details: { targetEntityKind: resolvedTargetEntityKind }
@@ -573,9 +585,42 @@ export function createAttributesRoutes(
                 const targetEntity = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
                 if (!targetEntity || targetEntity.kind !== resolvedTargetEntityKind) {
                     return res.status(400).json({
-                        error: resolvedTargetEntityKind === ENUMERATION_KIND ? 'Target enumeration not found' : 'Target catalog not found'
+                        error:
+                            resolvedTargetEntityKind === ENUMERATION_KIND
+                                ? 'Target enumeration not found'
+                                : resolvedTargetEntityKind === SET_KIND
+                                ? 'Target set not found'
+                                : 'Target catalog not found'
                     })
                 }
+
+                if (resolvedTargetEntityKind === SET_KIND) {
+                    if (!resolvedTargetConstantId) {
+                        return res.status(400).json({
+                            error: 'REF type with targetEntityKind=set requires targetConstantId'
+                        })
+                    }
+                    const constantBelongsToSet = await constantsService.belongsToSet(
+                        metahubId,
+                        resolvedTargetEntityId,
+                        resolvedTargetConstantId,
+                        userId
+                    )
+                    if (!constantBelongsToSet) {
+                        return res.status(400).json({
+                            error: 'Target constant not found in selected set'
+                        })
+                    }
+                } else if (resolvedTargetConstantId !== undefined && resolvedTargetConstantId !== null) {
+                    return res.status(400).json({
+                        error: 'targetConstantId is only supported for targetEntityKind=set'
+                    })
+                }
+            }
+            if (dataType !== AttributeDataType.REF && resolvedTargetConstantId !== undefined) {
+                return res.status(400).json({
+                    error: 'targetConstantId is only supported for REF type'
+                })
             }
 
             const normalizedUiConfig: Record<string, unknown> = { ...(uiConfig ?? {}) }
@@ -675,6 +720,10 @@ export function createAttributesRoutes(
                         name: nameVlc,
                         targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
                         targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
+                        targetConstantId:
+                            dataType === AttributeDataType.REF && resolvedTargetEntityKind === SET_KIND
+                                ? resolvedTargetConstantId
+                                : undefined,
                         validationRules: validationRules ?? {},
                         uiConfig: normalizedUiConfig,
                         isRequired: effectiveIsRequired,
@@ -727,7 +776,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, ds, manager, settingsService } = services(req)
+            const { attributesService, constantsService, ds, manager, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const source = await attributesService.findById(metahubId, attributeId, userId)
@@ -798,6 +847,32 @@ export function createAttributesRoutes(
                     : { ...((source.uiConfig as Record<string, unknown> | undefined) ?? {}) }
             const copyIsRequired: boolean = parsed.data.isRequired !== undefined ? parsed.data.isRequired : Boolean(source.isRequired)
 
+            if (parsed.data.targetConstantId !== undefined && source.targetEntityKind !== SET_KIND) {
+                return res.status(400).json({
+                    error: 'targetConstantId override is only supported for attributes referencing sets'
+                })
+            }
+            const copyTargetConstantId = parsed.data.targetConstantId !== undefined ? parsed.data.targetConstantId : source.targetConstantId
+            if (source.targetEntityKind === SET_KIND) {
+                if (!source.targetEntityId) {
+                    return res.status(400).json({ error: 'Source attribute has invalid set reference configuration' })
+                }
+                if (!copyTargetConstantId) {
+                    return res.status(400).json({ error: 'Set reference copy requires targetConstantId' })
+                }
+                const constantBelongsToSet = await constantsService.belongsToSet(
+                    metahubId,
+                    source.targetEntityId,
+                    copyTargetConstantId,
+                    userId
+                )
+                if (!constantBelongsToSet) {
+                    return res.status(400).json({
+                        error: 'targetConstantId override must reference a constant from source target set'
+                    })
+                }
+            }
+
             const knex = KnexClient.getInstance()
             let copyResult:
                 | {
@@ -847,6 +922,7 @@ export function createAttributesRoutes(
                                     isDisplayAttribute: false,
                                     targetEntityId: source.targetEntityId ?? undefined,
                                     targetEntityKind: source.targetEntityKind ?? undefined,
+                                    targetConstantId: source.targetEntityKind === SET_KIND ? copyTargetConstantId ?? undefined : undefined,
                                     sortOrder: undefined,
                                     parentAttributeId: source.parentAttributeId ?? null,
                                     createdBy: userId
@@ -907,6 +983,8 @@ export function createAttributesRoutes(
                                             isDisplayAttribute: Boolean(child.isDisplayAttribute),
                                             targetEntityId: child.targetEntityId ?? undefined,
                                             targetEntityKind: child.targetEntityKind ?? undefined,
+                                            targetConstantId:
+                                                child.targetEntityKind === SET_KIND ? child.targetConstantId ?? undefined : undefined,
                                             sortOrder: child.sortOrder,
                                             parentAttributeId: copiedAttribute.id,
                                             createdBy: userId
@@ -967,7 +1045,8 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, ds, manager, settingsService } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, constantsService, ds, manager, settingsService } =
+                services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -989,7 +1068,7 @@ export function createAttributesRoutes(
                 namePrimaryLocale,
                 targetEntityId,
                 targetEntityKind,
-                targetCatalogId,
+                targetConstantId,
                 validationRules,
                 uiConfig,
                 isRequired,
@@ -1029,11 +1108,12 @@ export function createAttributesRoutes(
                 }
             }
 
-            // Resolve target entity with compatibility fallback
-            const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
-            const resolvedTargetEntityKind =
-                targetEntityKind ?? (targetCatalogId !== undefined && targetCatalogId !== null ? MetaEntityKind.CATALOG : undefined)
-            const targetChanged = resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined
+            // Resolve target entity from polymorphic reference fields
+            const resolvedTargetEntityId = targetEntityId
+            const resolvedTargetEntityKind = targetEntityKind
+            const resolvedTargetConstantId = targetConstantId
+            const targetChanged =
+                resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined || resolvedTargetConstantId !== undefined
 
             const updateData: any = {}
             const effectiveDataType = dataType ?? attribute.dataType
@@ -1048,6 +1128,7 @@ export function createAttributesRoutes(
 
             let effectiveTargetEntityId = attribute.targetEntityId ?? null
             let effectiveTargetEntityKind = attribute.targetEntityKind ?? null
+            let effectiveTargetConstantId = attribute.targetConstantId ?? null
 
             if (codename && codename !== attribute.codename) {
                 const {
@@ -1091,13 +1172,15 @@ export function createAttributesRoutes(
             }
 
             // Handle polymorphic reference update
-            if (resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined) {
+            if (resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined || resolvedTargetConstantId !== undefined) {
                 if (resolvedTargetEntityId === null) {
                     // Clear reference
                     effectiveTargetEntityId = null
                     effectiveTargetEntityKind = null
+                    effectiveTargetConstantId = null
                     updateData.targetEntityId = null
                     updateData.targetEntityKind = null
+                    updateData.targetConstantId = null
                 } else if (isRefType) {
                     effectiveTargetEntityId = resolvedTargetEntityId ?? effectiveTargetEntityId
                     effectiveTargetEntityKind = resolvedTargetEntityKind ?? effectiveTargetEntityKind
@@ -1108,7 +1191,11 @@ export function createAttributesRoutes(
                         })
                     }
 
-                    if (effectiveTargetEntityKind !== MetaEntityKind.CATALOG && effectiveTargetEntityKind !== ENUMERATION_KIND) {
+                    if (
+                        effectiveTargetEntityKind !== MetaEntityKind.CATALOG &&
+                        effectiveTargetEntityKind !== ENUMERATION_KIND &&
+                        effectiveTargetEntityKind !== SET_KIND
+                    ) {
                         return res.status(400).json({
                             error: 'Unsupported targetEntityKind for REF',
                             details: { targetEntityKind: effectiveTargetEntityKind }
@@ -1119,13 +1206,59 @@ export function createAttributesRoutes(
                     if (!targetEntity || targetEntity.kind !== effectiveTargetEntityKind) {
                         return res.status(400).json({
                             error:
-                                effectiveTargetEntityKind === ENUMERATION_KIND ? 'Target enumeration not found' : 'Target catalog not found'
+                                effectiveTargetEntityKind === ENUMERATION_KIND
+                                    ? 'Target enumeration not found'
+                                    : effectiveTargetEntityKind === SET_KIND
+                                    ? 'Target set not found'
+                                    : 'Target catalog not found'
                         })
+                    }
+
+                    if (effectiveTargetEntityKind === SET_KIND) {
+                        effectiveTargetConstantId =
+                            resolvedTargetConstantId !== undefined ? resolvedTargetConstantId : effectiveTargetConstantId
+                        if (!effectiveTargetConstantId) {
+                            return res.status(400).json({
+                                error: 'REF type with targetEntityKind=set requires targetConstantId'
+                            })
+                        }
+                        const constantBelongsToSet = await constantsService.belongsToSet(
+                            metahubId,
+                            effectiveTargetEntityId,
+                            effectiveTargetConstantId,
+                            userId
+                        )
+                        if (!constantBelongsToSet) {
+                            return res.status(400).json({
+                                error: 'Target constant not found in selected set'
+                            })
+                        }
+                        if (resolvedTargetConstantId !== undefined) {
+                            updateData.targetConstantId = resolvedTargetConstantId
+                        } else if (resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined) {
+                            updateData.targetConstantId = effectiveTargetConstantId
+                        }
+                    } else {
+                        if (resolvedTargetConstantId !== undefined && resolvedTargetConstantId !== null) {
+                            return res.status(400).json({
+                                error: 'targetConstantId is only supported for targetEntityKind=set'
+                            })
+                        }
+                        effectiveTargetConstantId = null
+                        if (attribute.targetConstantId !== null || resolvedTargetConstantId !== undefined) {
+                            updateData.targetConstantId = null
+                        }
                     }
 
                     if (resolvedTargetEntityId !== undefined) updateData.targetEntityId = resolvedTargetEntityId
                     if (resolvedTargetEntityKind !== undefined) updateData.targetEntityKind = resolvedTargetEntityKind
                 }
+            }
+
+            if (resolvedTargetConstantId !== undefined && !isRefType) {
+                return res.status(400).json({
+                    error: 'targetConstantId is only supported for REF type'
+                })
             }
 
             if (validationRules) updateData.validationRules = validationRules
@@ -1650,7 +1783,8 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, ds, manager, settingsService } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, constantsService, ds, manager, settingsService } =
+                services(req)
             const userId = resolveUserId(req)
 
             // Verify parent TABLE attribute exists
@@ -1680,7 +1814,7 @@ export function createAttributesRoutes(
                 namePrimaryLocale,
                 targetEntityId,
                 targetEntityKind,
-                targetCatalogId,
+                targetConstantId,
                 validationRules,
                 uiConfig,
                 isRequired,
@@ -1721,8 +1855,9 @@ export function createAttributesRoutes(
                 })
             }
 
-            const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
-            const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId ? MetaEntityKind.CATALOG : undefined)
+            const resolvedTargetEntityId = targetEntityId
+            const resolvedTargetEntityKind = targetEntityKind
+            const resolvedTargetConstantId = targetConstantId
 
             if (dataType === AttributeDataType.REF) {
                 if (!resolvedTargetEntityId || !resolvedTargetEntityKind) {
@@ -1730,7 +1865,11 @@ export function createAttributesRoutes(
                         error: 'REF type requires targetEntityId and targetEntityKind'
                     })
                 }
-                if (resolvedTargetEntityKind !== MetaEntityKind.CATALOG && resolvedTargetEntityKind !== ENUMERATION_KIND) {
+                if (
+                    resolvedTargetEntityKind !== MetaEntityKind.CATALOG &&
+                    resolvedTargetEntityKind !== ENUMERATION_KIND &&
+                    resolvedTargetEntityKind !== SET_KIND
+                ) {
                     return res.status(400).json({
                         error: 'Unsupported targetEntityKind for REF',
                         details: { targetEntityKind: resolvedTargetEntityKind }
@@ -1740,9 +1879,42 @@ export function createAttributesRoutes(
                 const targetEntity = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
                 if (!targetEntity || targetEntity.kind !== resolvedTargetEntityKind) {
                     return res.status(400).json({
-                        error: resolvedTargetEntityKind === ENUMERATION_KIND ? 'Target enumeration not found' : 'Target catalog not found'
+                        error:
+                            resolvedTargetEntityKind === ENUMERATION_KIND
+                                ? 'Target enumeration not found'
+                                : resolvedTargetEntityKind === SET_KIND
+                                ? 'Target set not found'
+                                : 'Target catalog not found'
                     })
                 }
+
+                if (resolvedTargetEntityKind === SET_KIND) {
+                    if (!resolvedTargetConstantId) {
+                        return res.status(400).json({
+                            error: 'REF type with targetEntityKind=set requires targetConstantId'
+                        })
+                    }
+                    const constantBelongsToSet = await constantsService.belongsToSet(
+                        metahubId,
+                        resolvedTargetEntityId,
+                        resolvedTargetConstantId,
+                        userId
+                    )
+                    if (!constantBelongsToSet) {
+                        return res.status(400).json({
+                            error: 'Target constant not found in selected set'
+                        })
+                    }
+                } else if (resolvedTargetConstantId !== undefined && resolvedTargetConstantId !== null) {
+                    return res.status(400).json({
+                        error: 'targetConstantId is only supported for targetEntityKind=set'
+                    })
+                }
+            }
+            if (dataType !== AttributeDataType.REF && resolvedTargetConstantId !== undefined) {
+                return res.status(400).json({
+                    error: 'targetConstantId is only supported for REF type'
+                })
             }
 
             const normalizedUiConfig: Record<string, unknown> = { ...(uiConfig ?? {}) }
@@ -1835,6 +2007,7 @@ export function createAttributesRoutes(
                         isDisplayAttribute: false,
                         targetEntityId: resolvedTargetEntityId,
                         targetEntityKind: resolvedTargetEntityKind,
+                        targetConstantId: resolvedTargetEntityKind === SET_KIND ? resolvedTargetConstantId : undefined,
                         sortOrder,
                         parentAttributeId: attributeId,
                         createdBy: userId

@@ -6,7 +6,13 @@ import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
 import { TemplateVersion } from '../../../database/entities/TemplateVersion'
 import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
-import { getStructureVersion, CURRENT_STRUCTURE_VERSION } from './structureVersions'
+import {
+    getStructureVersion,
+    CURRENT_STRUCTURE_VERSION,
+    semverToStructureVersion,
+    structureVersionToSemver,
+    normalizeStoredStructureVersion
+} from './structureVersions'
 import { SystemTableMigrator } from './SystemTableMigrator'
 import { buildSystemStructureSnapshot } from './systemTableDefinitions'
 import { buildBaselineMigrationMeta, buildTemplateSeedMigrationMeta } from './metahubMigrationMeta'
@@ -184,8 +190,8 @@ export class MetahubSchemaService {
                     metahubId,
                     branchId: resolved.branchId,
                     schemaName: resolved.schemaName,
-                    fromVersion: resolved.structureVersion,
-                    toVersion: CURRENT_STRUCTURE_VERSION
+                    fromVersion: structureVersionToSemver(resolved.structureVersion),
+                    toVersion: structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
                 })
             }
 
@@ -268,7 +274,7 @@ export class MetahubSchemaService {
                     await this.initSystemTables(resolved.schemaName, manifest)
                     tablesInitCache.add(resolved.schemaName)
                     initializedNow = true
-                    effectiveStructureVersion = manifest.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+                    effectiveStructureVersion = semverToStructureVersion(manifest.minStructureVersion)
                 }
 
                 if (mode === 'apply_migrations' && !initializedNow && resolved.structureVersion < CURRENT_STRUCTURE_VERSION) {
@@ -361,7 +367,7 @@ export class MetahubSchemaService {
      * Optionally accepts a template manifest; falls back to default built-in template.
      */
     async initializeSchema(schemaName: string, manifest?: MetahubTemplateManifest): Promise<void> {
-        const targetStructureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+        const targetStructureVersion = manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
         const schemaState = await this.inspectSchemaState(schemaName, targetStructureVersion)
         const schemaInitializedInDb = schemaState.initialized
         if (schemaInitializedInDb) {
@@ -412,7 +418,7 @@ export class MetahubSchemaService {
         return {
             branchId,
             schemaName: branch.schemaName,
-            structureVersion: branch.structureVersion ?? 1,
+            structureVersion: semverToStructureVersion(branch.structureVersion),
             metahubTemplateVersionId: metahub.templateVersionId ?? null,
             lastTemplateVersionId: branch.lastTemplateVersionId ?? null,
             lastTemplateVersionLabel: branch.lastTemplateVersionLabel ?? null
@@ -480,7 +486,7 @@ export class MetahubSchemaService {
      */
     private async initSystemTables(schemaName: string, manifest: MetahubTemplateManifest): Promise<void> {
         // 1. Create DDL structure (tables + indexes) based on structure version
-        const structureVersion = manifest.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+        const structureVersion = semverToStructureVersion(manifest.minStructureVersion)
         const versionHandler = getStructureVersion(structureVersion)
         await versionHandler.init(this.knex, schemaName)
 
@@ -544,7 +550,7 @@ export class MetahubSchemaService {
 
         // 3. Update branch structure version only after successful structure + seed sync
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        await branchRepo.update({ id: branchId }, { structureVersion: CURRENT_STRUCTURE_VERSION })
+        await branchRepo.update({ id: branchId }, { structureVersion: normalizeStoredStructureVersion(CURRENT_STRUCTURE_VERSION) })
 
         return seedSynced
     }
@@ -592,6 +598,7 @@ export class MetahubSchemaService {
             seedResult.zoneWidgetsAdded > 0 ||
             seedResult.settingsAdded > 0 ||
             seedResult.entitiesAdded > 0 ||
+            seedResult.constantsAdded > 0 ||
             seedResult.attributesAdded > 0 ||
             seedResult.elementsAdded > 0
 
@@ -603,7 +610,8 @@ export class MetahubSchemaService {
             `[MetahubSchemaService] Seed sync for ${schemaName}: ` +
                 `+${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
                 `+${seedResult.settingsAdded} settings, +${seedResult.entitiesAdded} entities, ` +
-                `+${seedResult.attributesAdded} attributes, +${seedResult.enumValuesAdded} enum values, +${seedResult.elementsAdded} elements`
+                `+${seedResult.constantsAdded} constants, +${seedResult.attributesAdded} attributes, ` +
+                `+${seedResult.enumValuesAdded} enum values, +${seedResult.elementsAdded} elements`
         )
         return true
     }
@@ -616,6 +624,7 @@ export class MetahubSchemaService {
             zoneWidgetsAdded: number
             settingsAdded: number
             entitiesAdded: number
+            constantsAdded: number
             attributesAdded: number
             enumValuesAdded: number
             elementsAdded: number
@@ -633,6 +642,7 @@ export class MetahubSchemaService {
                 zoneWidgetsAdded: seedResult.zoneWidgetsAdded,
                 settingsAdded: seedResult.settingsAdded,
                 entitiesAdded: seedResult.entitiesAdded,
+                constantsAdded: seedResult.constantsAdded,
                 attributesAdded: seedResult.attributesAdded,
                 enumValuesAdded: seedResult.enumValuesAdded,
                 elementsAdded: seedResult.elementsAdded

@@ -48,6 +48,8 @@
         "branches": "Branches",
         "hubs": "Hubs",
         "catalogs": "Catalogs",
+        "sets": "Sets",
+        "constants": "Constants",
         "enumerations": "Enumerations",
         "layouts": "Layouts",
         "menus": "Menus",

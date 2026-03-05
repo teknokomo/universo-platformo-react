@@ -55,9 +55,11 @@ const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend'
 const BranchList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.BranchList }))))
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
 const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
+const SetList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.SetList }))))
 const EnumerationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EnumerationList }))))
 const EnumerationValueList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EnumerationValueList }))))
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
+const ConstantList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.ConstantList }))))
 const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
 const MetahubLayouts = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayouts }))))
 const MetahubLayoutDetails = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails }))))
@@ -275,6 +277,10 @@ const MainRoutesMUI = {
                     element: <CatalogList />
                 },
                 {
+                    path: 'sets',
+                    element: <SetList />
+                },
+                {
                     path: 'enumerations',
                     element: <EnumerationList />
                 },
@@ -295,6 +301,10 @@ const MainRoutesMUI = {
                     element: <ElementList />
                 },
                 {
+                    path: 'set/:setId/constants',
+                    element: <ConstantList />
+                },
+                {
                     path: 'enumeration/:enumerationId/values',
                     element: <EnumerationValueList />
                 },
@@ -302,6 +312,10 @@ const MainRoutesMUI = {
                 {
                     path: 'hub/:hubId/catalogs',
                     element: <CatalogList />
+                },
+                {
+                    path: 'hub/:hubId/sets',
+                    element: <SetList />
                 },
                 {
                     path: 'hub/:hubId/enumerations',
@@ -314,6 +328,10 @@ const MainRoutesMUI = {
                 {
                     path: 'hub/:hubId/catalog/:catalogId/elements',
                     element: <ElementList />
+                },
+                {
+                    path: 'hub/:hubId/set/:setId/constants',
+                    element: <ConstantList />
                 },
                 {
                     path: 'hub/:hubId/enumeration/:enumerationId/values',

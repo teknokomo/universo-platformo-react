@@ -10,6 +10,7 @@ import type { SchemaDiff } from './diff'
 
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
+const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 
 /**
  * Options for generateFullSchema method
@@ -98,7 +99,7 @@ export class SchemaGenerator {
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {
-                    if (entity.kind === ENUMERATION_KIND) {
+                    if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND) {
                         continue
                     }
                     await this.createEntityTable(schemaName, entity, trx)
@@ -189,8 +190,8 @@ export class SchemaGenerator {
     }
 
     public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
-        if (entity.kind === ENUMERATION_KIND) {
-            console.log(`[SchemaGenerator] Skipping physical table for enumeration entity: ${entity.codename}`)
+        if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND) {
+            console.log(`[SchemaGenerator] Skipping physical table for ${entity.kind} entity: ${entity.codename}`)
             return
         }
 
@@ -439,6 +440,13 @@ export class SchemaGenerator {
                 ON DELETE SET NULL
             `,
                 [schemaName, sourceTableName, constraintName, columnName, schemaName]
+            )
+            return
+        }
+
+        if (field.targetEntityKind === SET_KIND) {
+            console.log(
+                `[SchemaGenerator] Skipping FK for set constant reference: ${sourceTableName}.${columnName} (set refs store constant IDs)`
             )
             return
         }
@@ -999,6 +1007,19 @@ export class SchemaGenerator {
                     field.dataType === AttributeDataType.TABLE && !field.parentAttributeId
                         ? generateChildTableName(field.id)
                         : generateColumnName(field.id)
+                const baseUiConfig = ((field.uiConfig as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
+                const setTargetConstantId =
+                    field.targetEntityKind === 'set' && typeof field.targetConstantId === 'string' ? field.targetConstantId : null
+                const normalizedUiConfig = setTargetConstantId
+                    ? {
+                          ...baseUiConfig,
+                          targetConstantId: setTargetConstantId,
+                          setConstantRef:
+                              baseUiConfig.setConstantRef && typeof baseUiConfig.setConstantRef === 'object'
+                                  ? baseUiConfig.setConstantRef
+                                  : { id: setTargetConstantId }
+                      }
+                    : baseUiConfig
 
                 return {
                     id: field.id,
@@ -1014,7 +1035,7 @@ export class SchemaGenerator {
                     parent_attribute_id: field.parentAttributeId ?? null,
                     presentation: field.presentation,
                     validation_rules: field.validationRules ?? {},
-                    ui_config: field.uiConfig ?? {},
+                    ui_config: normalizedUiConfig,
                     _upl_created_at: knex.fn.now(),
                     _upl_created_by: userId,
                     _upl_updated_at: knex.fn.now(),

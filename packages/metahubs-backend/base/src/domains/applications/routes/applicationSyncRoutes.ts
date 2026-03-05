@@ -42,6 +42,7 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { TARGET_APP_STRUCTURE_VERSION } from '../constants'
+import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
 
 interface RequestUser {
     id?: string
@@ -188,13 +189,52 @@ function normalizeReferenceId(value: unknown): string | null {
     return null
 }
 
+function extractSetConstantRefConfig(
+    uiConfig: unknown
+): { id: string; codename?: string; dataType?: string; value?: unknown; name?: unknown } | null {
+    if (!isRecord(uiConfig)) return null
+    const candidate = uiConfig.setConstantRef
+    if (!isRecord(candidate)) return null
+    if (typeof candidate.id !== 'string' || candidate.id.trim().length === 0) return null
+
+    return {
+        id: candidate.id.trim(),
+        codename: typeof candidate.codename === 'string' ? candidate.codename : undefined,
+        dataType: typeof candidate.dataType === 'string' ? candidate.dataType : undefined,
+        value: candidate.value,
+        name: candidate.name
+    }
+}
+
+function resolveSetReferenceId(
+    value: unknown,
+    field: { targetConstantId?: string | null; uiConfig?: Record<string, unknown> }
+): string | null {
+    if (typeof field.targetConstantId === 'string' && field.targetConstantId.trim().length > 0) {
+        return field.targetConstantId.trim()
+    }
+
+    const setConstantRef = extractSetConstantRefConfig(field.uiConfig)
+    if (setConstantRef?.id) {
+        return setConstantRef.id
+    }
+
+    return normalizeReferenceId(value)
+}
+
 /**
  * Normalize a child field value for TABLE row seeding.
  * Applies the same type-specific handling as parent seed logic.
  */
 function normalizeChildFieldValue(
     value: unknown,
-    field: { dataType: AttributeDataType; validationRules?: Record<string, unknown> },
+    field: {
+        dataType: AttributeDataType
+        validationRules?: Record<string, unknown>
+        targetEntityKind?: string | null
+        targetConstantId?: string | null
+        uiConfig?: Record<string, unknown>
+    },
     codename: string,
     tableName: string,
     elementId: string
@@ -210,7 +250,12 @@ function normalizeChildFieldValue(
             elementId
         })
     }
-    if (field.dataType === AttributeDataType.REF) return normalizeReferenceId(value)
+    if (field.dataType === AttributeDataType.REF) {
+        if (field.targetEntityKind === 'set') {
+            return resolveSetReferenceId(value, field)
+        }
+        return normalizeReferenceId(value)
+    }
     return value
 }
 
@@ -422,7 +467,11 @@ export async function seedPredefinedElements(
                                 elementId: element.id
                             })
                         } else if (field.dataType === AttributeDataType.REF) {
-                            row[columnName] = normalizeReferenceId(rawValue)
+                            if (field.targetEntityKind === 'set') {
+                                row[columnName] = resolveSetReferenceId(rawValue, field)
+                            } else {
+                                row[columnName] = normalizeReferenceId(rawValue)
+                            }
                         } else {
                             row[columnName] = rawValue
                         }
@@ -874,6 +923,33 @@ function resolveElementPreviewLabel(entity: EntityDefinition, data: Record<strin
     return null
 }
 
+function resolveSetConstantPreviewValue(field: EntityField, fallbackRefId: string): unknown {
+    const setConstantRef = extractSetConstantRefConfig(field.uiConfig)
+    if (!setConstantRef) return fallbackRefId
+
+    const value = setConstantRef.value
+    if (value === null || value === undefined) {
+        const localizedName = resolveLocalizedPreviewText(setConstantRef.name)
+        return localizedName ?? setConstantRef.codename ?? setConstantRef.id
+    }
+
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return value
+    }
+
+    const localizedValue = resolveLocalizedPreviewText(value)
+    if (localizedValue) return localizedValue
+
+    const localizedName = resolveLocalizedPreviewText(setConstantRef.name)
+    if (localizedName) return localizedName
+
+    try {
+        return JSON.stringify(value)
+    } catch {
+        return setConstantRef.codename ?? setConstantRef.id
+    }
+}
+
 function buildPreviewLabelMaps(
     entities: EntityDefinition[],
     snapshot: MetahubSnapshot
@@ -969,6 +1045,11 @@ function buildCreateTableDetails(options: {
                           if (field.targetEntityKind === ENUMERATION_KIND && field.targetEntityId) {
                               const label = enumerationValueLabels.get(field.targetEntityId)?.get(refId)
                               previewData[field.codename] = label ?? refId
+                              continue
+                          }
+
+                          if (field.targetEntityKind === 'set') {
+                              previewData[field.codename] = resolveSetConstantPreviewValue(field, refId)
                               continue
                           }
 
@@ -1463,7 +1544,8 @@ export function createApplicationSyncRoutes(
                 // hubRepo removed - hubs are now in isolated schemas
 
                 const serializer = new SnapshotSerializer(objectsService, attributesService)
-                const catalogDefs = serializer.deserializeSnapshot(snapshot)
+                const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
+                const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshot)
                 const snapshotHash = activeVersion.snapshotHash || serializer.calculateHash(snapshot)
 
                 const { generator, migrator, migrationManager } = getDDLServices()
@@ -1816,7 +1898,8 @@ export function createApplicationSyncRoutes(
             // hubRepo removed - hubs are now in isolated schemas
 
             const serializer = new SnapshotSerializer(objectsService, attributesService)
-            const catalogDefs = serializer.deserializeSnapshot(snapshot)
+            const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
+            const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshot)
             const snapshotHash = activeVersion.snapshotHash || serializer.calculateHash(snapshot)
 
             const { generator, migrator, migrationManager } = getDDLServices()

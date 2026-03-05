@@ -11,6 +11,7 @@ import { MigrationManager, generateMigrationName } from './MigrationManager'
 
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
+const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 
 /**
  * Options for applying changes with migration recording
@@ -297,6 +298,10 @@ export class SchemaMigrator {
                 if (targetEntityKind === ENUMERATION_KIND) {
                     await this.generator.ensureSystemTables(schemaName, trx)
                     targetTableName = '_app_values'
+                } else if (targetEntityKind === SET_KIND) {
+                    // Set references are mapped to constant IDs in data rows and are resolved via ui_config metadata.
+                    // They are intentionally stored without physical FK constraints.
+                    return
                 } else {
                     if (!targetEntity) {
                         console.warn(`[SchemaMigrator] Target entity ${targetEntityId ?? change.newValue} not found for FK`)

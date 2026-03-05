@@ -79,6 +79,7 @@ export const appDataResponseSchema = z.object({
             uiConfig: z.record(z.unknown()).optional().default({}),
             refTargetEntityId: z.string().nullable().optional(),
             refTargetEntityKind: z.string().nullable().optional(),
+            refTargetConstantId: z.string().nullable().optional(),
             refOptions: z
                 .array(
                     z.object({
@@ -116,6 +117,7 @@ export const appDataResponseSchema = z.object({
                         uiConfig: z.record(z.unknown()).optional().default({}),
                         refTargetEntityId: z.string().nullable().optional(),
                         refTargetEntityKind: z.string().nullable().optional(),
+                        refTargetConstantId: z.string().nullable().optional(),
                         refOptions: z
                             .array(
                                 z.object({

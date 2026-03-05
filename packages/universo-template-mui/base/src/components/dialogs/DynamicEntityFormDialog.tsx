@@ -73,6 +73,12 @@ export interface DynamicFieldConfig {
     refTargetEntityId?: string | null
     /** Optional target entity kind for REF fields */
     refTargetEntityKind?: string | null
+    /** Optional target constant ID for REF fields pointing to sets. */
+    refTargetConstantId?: string | null
+    /** Precomputed display label for REF fields pointing to sets. */
+    refSetConstantLabel?: string | null
+    /** Data type of selected set constant (for diagnostics/UI hints). */
+    refSetConstantDataType?: string | null
     /** Runtime options for REF->enumeration fields. */
     enumOptions?: Array<{
         id: string
@@ -503,13 +509,24 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
             for (const field of fields) {
                 if (next[field.id] !== undefined) continue
                 if (field.type !== 'REF') continue
-                if (field.refTargetEntityKind !== 'enumeration') continue
+                if (field.refTargetEntityKind === 'enumeration') {
+                    const defaultFromConfig = field.defaultEnumValueId ?? null
+                    const defaultFromOptions = field.enumOptions?.find((option) => option.isDefault)?.id ?? null
+                    const fallbackDefault = defaultFromConfig ?? defaultFromOptions
+                    if (fallbackDefault) {
+                        next[field.id] = fallbackDefault
+                    }
+                    continue
+                }
 
-                const defaultFromConfig = field.defaultEnumValueId ?? null
-                const defaultFromOptions = field.enumOptions?.find((option) => option.isDefault)?.id ?? null
-                const fallbackDefault = defaultFromConfig ?? defaultFromOptions
-                if (fallbackDefault) {
-                    next[field.id] = fallbackDefault
+                if (field.refTargetEntityKind === 'set') {
+                    const defaultSetConstantId =
+                        typeof field.refTargetConstantId === 'string' && field.refTargetConstantId.length > 0
+                            ? field.refTargetConstantId
+                            : null
+                    if (defaultSetConstantId) {
+                        next[field.id] = defaultSetConstantId
+                    }
                 }
             }
 

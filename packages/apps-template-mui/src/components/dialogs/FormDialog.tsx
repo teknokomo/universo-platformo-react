@@ -75,6 +75,12 @@ export interface FieldConfig {
     refTargetEntityId?: string | null
     /** Optional target entity kind for REF fields */
     refTargetEntityKind?: string | null
+    /** Optional target constant ID for REF fields pointing to sets. */
+    refTargetConstantId?: string | null
+    /** Precomputed display label for REF fields pointing to sets. */
+    refSetConstantLabel?: string | null
+    /** Data type of selected set constant (for diagnostics/UI hints). */
+    refSetConstantDataType?: string | null
     /** Runtime options for REF fields (catalog/enumeration). */
     refOptions?: Array<{
         id: string
@@ -250,13 +256,24 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             for (const field of fields) {
                 if (next[field.id] !== undefined) continue
                 if (field.type !== 'REF') continue
-                if (field.refTargetEntityKind !== 'enumeration') continue
+                if (field.refTargetEntityKind === 'enumeration') {
+                    const defaultFromConfig = field.defaultEnumValueId ?? null
+                    const defaultFromOptions = field.enumOptions?.find((option) => option.isDefault)?.id ?? null
+                    const fallbackDefault = defaultFromConfig ?? defaultFromOptions
+                    if (fallbackDefault) {
+                        next[field.id] = fallbackDefault
+                    }
+                    continue
+                }
 
-                const defaultFromConfig = field.defaultEnumValueId ?? null
-                const defaultFromOptions = field.enumOptions?.find((option) => option.isDefault)?.id ?? null
-                const fallbackDefault = defaultFromConfig ?? defaultFromOptions
-                if (fallbackDefault) {
-                    next[field.id] = fallbackDefault
+                if (field.refTargetEntityKind === 'set') {
+                    const defaultSetConstantId =
+                        typeof field.refTargetConstantId === 'string' && field.refTargetConstantId.length > 0
+                            ? field.refTargetConstantId
+                            : null
+                    if (defaultSetConstantId) {
+                        next[field.id] = defaultSetConstantId
+                    }
                 }
             }
 
@@ -451,8 +468,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     // TABLE required: must have at least max(1, minRows) rows
                     const rows = formData[field.id]
                     const rowCount = Array.isArray(rows) ? rows.length : 0
-                    const tableMinRows =
-                        typeof field.validationRules?.minRows === 'number' ? field.validationRules.minRows : null
+                    const tableMinRows = typeof field.validationRules?.minRows === 'number' ? field.validationRules.minRows : null
                     const minRequired = Math.max(1, tableMinRows ?? 1)
                     if (rowCount < minRequired) return true
                     return false
@@ -711,19 +727,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         return
                     }
 
-                    if (
-                        [
-                            'Backspace',
-                            'Delete',
-                            'Tab',
-                            'Escape',
-                            'Enter',
-                            'ArrowLeft',
-                            'ArrowRight',
-                            'Home',
-                            'End'
-                        ].includes(key)
-                    ) {
+                    if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) {
                         return
                     }
 
@@ -1010,6 +1014,24 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 )
             }
             case 'REF':
+                if (field.refTargetEntityKind === 'set') {
+                    const setLabelFromOption =
+                        Array.isArray(field.refOptions) && field.refOptions.length > 0 ? field.refOptions[0].label : null
+                    const displayLabel =
+                        (typeof field.refSetConstantLabel === 'string' && field.refSetConstantLabel.trim().length > 0
+                            ? field.refSetConstantLabel
+                            : setLabelFromOption) ?? '—'
+                    return (
+                        <Stack spacing={0.5}>
+                            <Typography variant='body2' color='text.secondary'>
+                                {field.label}
+                            </Typography>
+                            <Typography variant='body1'>{displayLabel}</Typography>
+                            {helperText ? <FormHelperText error={Boolean(fieldError)}>{helperText}</FormHelperText> : null}
+                        </Stack>
+                    )
+                }
+
                 if (field.refTargetEntityKind === 'enumeration' && Array.isArray(field.enumOptions)) {
                     const options = field.refOptions && field.refOptions.length > 0 ? field.refOptions : field.enumOptions
                     const mode = field.enumPresentationMode ?? 'select'
@@ -1127,7 +1149,10 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 const rowCount = tableValue.length
 
                 const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
-                    required: field.required, minRows: tableMinRows, maxRows: tableMaxRows, t
+                    required: field.required,
+                    minRows: tableMinRows,
+                    maxRows: tableMaxRows,
+                    t
                 })
                 const tableMissing = checkMissing(rowCount)
 
@@ -1151,11 +1176,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 maxRows={tableMaxRows}
                             />
                             {tableHelperText && (
-                                <Typography
-                                    variant='caption'
-                                    color={tableMissing ? 'error' : 'text.secondary'}
-                                    sx={{ mt: 0.5, ml: 1.75 }}
-                                >
+                                <Typography variant='caption' color={tableMissing ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.75 }}>
                                     {tableHelperText}
                                 </Typography>
                             )}
@@ -1178,11 +1199,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 maxRows={tableMaxRows}
                             />
                             {tableHelperText && (
-                                <Typography
-                                    variant='caption'
-                                    color={tableMissing ? 'error' : 'text.secondary'}
-                                    sx={{ mt: 0.5, ml: 1.75 }}
-                                >
+                                <Typography variant='caption' color={tableMissing ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.75 }}>
                                     {tableHelperText}
                                 </Typography>
                             )}

@@ -44,6 +44,185 @@
 
 ---
 
+## Sets/Constants Final Debt Closure + Build Fix (2026-03-05)
+
+Completed the focused implementation cycle for remaining Sets/Constants debt and the blocking metahubs-backend TypeScript build failure.
+
+### Completed changes
+
+- Fixed `TS2352` in `applicationSyncRoutes.ts` by replacing unsafe cast flow with typed `MetaConstantSnapshot` lookup (`buildSetConstantLookup` now stores typed snapshots).
+- Improved constants mutation consistency in frontend:
+  - `useCreateConstant`, `useUpdateConstant`, `useDeleteConstant`, `useMoveConstant`, `useCopyConstant` now `await` cache invalidation/refetch before completion.
+- Removed hardcoded constants fetch cap in REF->set resolution (`ElementList`):
+  - replaced list fetch with `limit=1000` by exact constant fetches via `getConstantDirect` for referenced `(setId, constantId)` pairs.
+- Aligned backend NUMBER validation in constants routes with shared validation utility:
+  - switched to `validateNumber` + `toNumberRules` from `@universo/utils`.
+- Harmonized constants delete lifecycle with metahub soft-delete model:
+  - `MetahubConstantsService.delete` now performs soft-delete (`_mhb_deleted*`) instead of hard row delete,
+  - active-only filtering was enforced for count/list/sort/move/reorder paths to preserve stable active sort order behavior.
+
+### Verification executed
+
+- `pnpm --filter @universo/metahubs-backend build` → pass
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/constantsRoutes.test.ts src/tests/routes/setsRoutes.test.ts` → pass (`2/2`, `14/14`)
+- `pnpm --filter @universo/metahubs-backend lint -- src/domains/constants/routes/constantsRoutes.ts src/domains/metahubs/services/MetahubConstantsService.ts src/domains/applications/routes/applicationSyncRoutes.ts` → pass (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-frontend lint -- src/domains/constants/hooks/mutations.ts src/domains/elements/ui/ElementList.tsx` → pass (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-frontend test -- src/components/__tests__/TargetEntitySelector.test.tsx src/components/__tests__/SetDeleteDialog.test.tsx` → pass (`24/24`, `100/100`)
+
+### Environment note
+
+- During verification, metahubs-frontend tests initially failed because `@universo/applications-frontend` `dist/i18n` artifacts were missing in local workspace state.
+- Executed `pnpm --filter @universo/applications-frontend build` to restore required exports used by template-mui imports in vitest runtime.
+
+## Sets/Constants Stabilization + SemVer Alignment Closure (2026-03-04)
+
+Completed the implementation closure cycle for Sets/Constants runtime issues reported after QA and aligned verification scope with full workspace build.
+
+### Key outcomes
+
+- Fixed Sets/Constants i18n leakage path in UI screens by enforcing `metahubs` namespace usage in:
+  - `SetList.tsx`
+  - `ConstantList.tsx`
+- Kept Sets breadcrumbs and constants-in-set breadcrumbs consistent with catalogs flow.
+- Ensured constants list footer/pagination remains present and aligned with attributes list behavior.
+- Improved constants list refresh latency after create/copy/update/delete/reorder by making cache invalidation/refetch flow explicitly async/awaited in constants mutations.
+- Preserved SemVer structure baseline (`0.1.0`) and single-line structure target behavior (no intentional V2 drift).
+- Removed route-level direct import of `@universo/metahubs-frontend/i18n` from `template-mui` to avoid cyclic self-resolution in tests.
+- Rebuilt `@universo/template-mui` to refresh `dist` used by `@universo/metahubs-frontend` tests.
+
+### Verification executed
+
+- `pnpm --filter @universo/metahubs-backend lint` → pass (warnings only)
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/constantsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/metahubMigrationsRoutes.test.ts src/tests/services/metahubSchemaService.test.ts src/tests/services/structureVersions.test.ts` → pass
+- `pnpm --filter @universo/metahubs-backend build` → pass
+- `pnpm --filter @universo/metahubs-frontend lint` → pass (warnings only)
+- `pnpm --filter @universo/metahubs-frontend test` → pass (`24/24` files, `100/100` tests)
+- `pnpm --filter @universo/metahubs-frontend build` → pass
+- `pnpm --filter @universo/template-mui build` → pass
+- `pnpm build` → pass (`23/23` tasks successful)
+
+### Environment audit note (UP-test)
+
+- Supabase `UP-test` currently still shows legacy schema state:
+  - `metahubs.metahubs_branches.structure_version` is `integer` (default `1`)
+  - `metahubs.templates_versions.min_structure_version` is `integer` (default `1`)
+  - Active `basic` template version label is `1.0.0`
+  - Existing branch row shows `structure_version = 2`
+- This DB state can trigger migration-required behavior even after code fixes and must be reset/aligned for deterministic SemVer (`0.1.0`) runtime validation.
+
+## Sets/Constants QA Final Closure (Transactional + Concurrency) (2026-03-04)
+
+Closed the remaining QA findings for Sets/Constants by hardening transaction boundaries, concurrency checks, and removing legacy attribute aliases.
+
+### Backend safety and consistency
+
+- Implemented atomic set copy flow:
+  - `POST /metahub/:metahubId/set/:setId/copy` now wraps set creation + optional constants copy in one Knex transaction.
+  - Added external transaction support to `MetahubObjectsService.createObject` and wrappers (`createSet`, `createCatalog`, `createEnumeration`) for caller-managed atomic workflows.
+- Implemented optimistic locking for set unlink:
+  - Unlink branch of `DELETE /metahub/:metahubId/hub/:hubId/set/:setId` now passes `expectedVersion`.
+  - Route now returns `409` with optimistic-lock payload on conflict.
+- Removed naming residue:
+  - `constantsRoutes.ts`: `ATTRIBUTE_LIMIT` renamed to `CONSTANT_LIMIT`.
+
+### Legacy contract debt removal
+
+- Removed `targetCatalogId` alias from attribute create/update route schemas and processing logic.
+- Removed `targetCatalogId` compatibility mapping from `MetahubAttributesService` create/update/map paths.
+- Updated downstream consumers to canonical polymorphic reference contract:
+  - `SnapshotSerializer` no longer uses `targetCatalogId` fallback.
+  - DDL catalog definition builder no longer reads `targetCatalogId`.
+  - Frontend metahubs attribute types/api/hooks switched to `targetEntityId/targetEntityKind` only.
+  - `ElementList` ref-resolution logic no longer relies on `targetCatalogId` fallback.
+
+### Test hardening
+
+- Extended backend route tests (`setsRoutes`):
+  - transactional copy path assertion (transaction invoked, trx passed through service calls),
+  - copy failure path assertion (error propagation under transaction),
+  - optimistic-lock conflict assertion for hub unlink flow.
+
+### Verification
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/setsRoutes.test.ts src/tests/routes/constantsRoutes.test.ts` → **pass**
+- `pnpm --filter @universo/metahubs-backend lint` → **pass** (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-backend build` → **pass**
+- `pnpm --filter @universo/metahubs-frontend lint` → **pass** (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-frontend test` → **pass** (`24/24` files, `100/100` tests)
+- `pnpm --filter @universo/metahubs-frontend build` → **pass**
+
+---
+
+## Sets/Constants QA Closure & Final Hardening (2026-03-05)
+
+Closed remaining QA gaps for Sets/Constants with strict contract hardening, blocker semantic alignment, and additional regression tests.
+
+### Backend hardening completed
+
+- Removed legacy reorder payload handling in constants route and enforced strict schema payload shape.
+- Added safe regex validation handling for STRING constants (`invalid regex -> 400` instead of unhandled errors).
+- Added deterministic codename conflict handling for sets/constants create/update/copy flows with explicit `409` behavior.
+- Enforced unique codename resolution when copying sets with `copyConstants=true`.
+- Aligned set-delete blockers payload semantics to `sourceCatalog* + attribute*` naming in backend service output.
+
+### Frontend alignment completed
+
+- Updated set blockers API typing and removed fallback call to legacy blockers endpoint.
+- Updated `SetDeleteDialog` table semantics and links to catalog attributes (`/metahub/:id/catalog/:catalogId/attributes`).
+- Removed unused legacy constants DnD files cloned from old flow.
+- Added regression tests:
+  - `SetDeleteDialog` blockers mapping + link generation.
+  - `TargetEntitySelector` set/constant reference flow + reset behavior on entity-kind change.
+
+### Verification
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/constantsRoutes.test.ts src/tests/routes/setsRoutes.test.ts` → **pass**
+- `pnpm --filter @universo/metahubs-frontend test` → **pass** (`24/24` files, `100/100` tests)
+- `pnpm --filter @universo/metahubs-backend lint` → **pass** (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-frontend lint` → **pass** (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-backend build` → **pass**
+- `pnpm --filter @universo/metahubs-frontend build` → **pass**
+
+---
+
+## Metahub Sets & Constants Full Implementation (2026-03-04)
+
+Completed end-to-end implementation and verification for the Sets/Constants scope based on clone-first parity with Catalogs/Attributes.
+
+### What was finalized
+
+- **Backend template/publication integration**
+  - Completed constants support in template execution/migration paths (`TemplateSeedExecutor`, `TemplateSeedMigrator`), including `target_constant_id`.
+  - Extended migration dry-run/accounting metadata with `constantsAdded`.
+  - Finalized publication snapshot serialization for sets/constants and REF-to-set/constant link data.
+- **Frontend and API parity**
+  - Completed Set/Constant domains wiring and exports.
+  - Finalized constants UX contract (types only: `STRING`, `NUMBER`, `BOOLEAN`, `DATE`; no presentation tab; value tab behavior preserved).
+  - Confirmed REF selector flow supports Set + Constant targeting.
+- **Test and migration expectation alignment**
+  - Reworked Sets/Constants backend route tests (`setsRoutes`, `constantsRoutes`) to match current contracts.
+  - Updated migration/status tests for `CURRENT_STRUCTURE_VERSION = 2`.
+  - Updated branch/schema service tests to account for `set` and `_mhb_constants` expectations.
+
+### Additional stability hardening
+
+- Resolved frontend test runtime mismatch caused by peer auto-resolution (`react-dom@19` with `react@18`):
+  - Added `react-dom` to `@universo/metahubs-frontend` devDependencies via catalog.
+  - Added root overrides for `react` and `react-dom` pinned to `18.3.1`.
+  - Added root devDependencies `react`/`react-dom` `18.3.1` to stabilize peer resolution in test runs.
+
+### Verification
+
+- `pnpm --filter @universo/metahubs-backend test` → **pass** (`20/20` suites)
+- `pnpm --filter @universo/metahubs-frontend test` → **pass** (`22/22` files, `97/97` tests)
+- `pnpm --filter @universo/metahubs-backend lint` → **pass** (warnings only)
+- `pnpm --filter @universo/metahubs-frontend lint` → **pass** (warnings only)
+- `pnpm --filter @universo/metahubs-backend build` → **pass**
+- `pnpm --filter @universo/metahubs-frontend build` → **pass**
+- `pnpm build` → **pass** (`23/23` packages, after dependency stabilization)
+
+---
+
 ## Catalog Attributes DnD Deep Fix (2026-03-04)
 
 Resolved the remaining production issue where dragging catalog attributes did not start, even after full rebuild/hard refresh.

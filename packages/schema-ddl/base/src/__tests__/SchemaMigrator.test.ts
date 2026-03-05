@@ -59,4 +59,56 @@ describe('SchemaMigrator', () => {
             ['app_test_schema', 'cat_orders', 'fk_cat_orders_attr_status', 'attr_status', 'app_test_schema', '_app_values']
         )
     })
+
+    it('skips physical FK creation for REF->set fields', async () => {
+        const trx = {
+            raw: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('knex').Knex.Transaction
+
+        const generator = {
+            ensureSystemTables: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('../SchemaGenerator').SchemaGenerator
+
+        const migrator = new SchemaMigrator({} as import('knex').Knex, generator, {} as import('../MigrationManager').MigrationManager)
+
+        const field: FieldDefinition = {
+            id: 'field-ref-0000-0000-0000-000000000002',
+            codename: 'version',
+            dataType: AttributeDataType.REF,
+            isRequired: false,
+            targetEntityId: 'set-0000-0000-0000-000000000001',
+            targetEntityKind: 'set'
+        }
+        const entities: EntityDefinition[] = [
+            {
+                id: 'catalog-0000-0000-0000-000000000001',
+                codename: 'orders',
+                kind: 'catalog',
+                fields: [field]
+            }
+        ]
+
+        const change: SchemaChange = {
+            type: ChangeType.ADD_FK,
+            entityId: entities[0].id,
+            fieldId: field.id,
+            tableName: 'cat_orders',
+            columnName: 'attr_version',
+            newValue: field.targetEntityId,
+            isDestructive: false,
+            description: 'Add FK on "version"'
+        }
+
+        const applyChange = Reflect.get(migrator as object, 'applyChange') as (
+            schemaName: string,
+            change: SchemaChange,
+            entities: EntityDefinition[],
+            trx: import('knex').Knex.Transaction
+        ) => Promise<void>
+
+        await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
+
+        expect(generator.ensureSystemTables).not.toHaveBeenCalled()
+        expect(trx.raw).not.toHaveBeenCalled()
+    })
 })

@@ -47,6 +47,7 @@
             "lengthBetween": "Length must be between {{min}} and {{max}}",
             "minLength": "Minimum length: {{min}}",
             "maxLength": "Maximum length: {{max}}",
+            "invalidNumber": "Invalid number",
             "nonNegative": "Must be non-negative",
             "minValue": "Minimum value: {{min}}",
             "maxValue": "Maximum value: {{max}}",
@@ -401,6 +402,7 @@
                 "copyLayouts": "Layouts",
                 "copyHubs": "Hubs",
                 "copyCatalogs": "Catalogs",
+                "copySets": "Sets",
                 "copyEnumerations": "Enumerations"
             }
         }
@@ -462,6 +464,7 @@
             "options": {
                 "copyAllRelations": "Copy all relations",
                 "copyCatalogRelations": "Catalog relations",
+                "copySetRelations": "Set relations",
                 "copyEnumerationRelations": "Enumeration relations",
                 "singleHubNotice": "Relations to entities with the \"Single hub\" restriction will not be copied."
             }
@@ -561,6 +564,157 @@
         "isSingleHubEnabled": "Catalog can only be in one hub",
         "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
         "isSingleHubWarning": "Cannot enable while multiple hubs are selected"
+    },
+    "sets": {
+        "title": "Sets",
+        "allTitle": "Sets",
+        "description": "Containers that organize constants within a metahub",
+        "searchPlaceholder": "Search sets...",
+        "empty": "No sets yet",
+        "emptyDescription": "Create your first set to organize constants",
+        "noSearchResults": "No sets found",
+        "noSearchResultsHint": "Try different search terms",
+        "createDialog": {
+            "title": "Create Set"
+        },
+        "editDialog": {
+            "title": "Edit Set"
+        },
+        "editTitle": "Edit Set",
+        "copyTitle": "Copying Set",
+        "copySuccess": "Set copied",
+        "copyError": "Failed to copy set",
+        "createSuccess": "Set created",
+        "createError": "Failed to create set",
+        "updateSuccess": "Set updated",
+        "updateError": "Failed to update set",
+        "deleteSuccess": "Set deleted",
+        "deleteError": "Failed to delete set",
+        "codename": "Codename",
+        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+        "table": {
+            "order": "#"
+        },
+        "tabs": {
+            "general": "General",
+            "hubs": "Hubs",
+            "options": "Options"
+        },
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Codename contains invalid characters",
+            "hubRequired": "At least one hub is required"
+        },
+        "constantsHeader": "Constants",
+        "constantsCount_one": "{{count}} constant",
+        "constantsCount_other": "{{count}} constants",
+        "copy": {
+            "action": "Copy",
+            "actionLoading": "Copying...",
+            "options": {
+                "copyConstants": "Copy constants"
+            }
+        },
+        "deleteDialog": {
+            "title": "Delete Set",
+            "message": "Are you sure you want to delete this set?",
+            "confirmMessage": "Are you sure you want to delete this set? This action cannot be undone.",
+            "hasBlockingReferences": "Cannot delete set. Remove these references from catalog attributes first:",
+            "resolutionHint": "Open source catalogs from the table and adjust the listed attributes.",
+            "fetchBlockingError": "Failed to check for blocking references",
+            "blockingTable": {
+                "catalog": "Catalog",
+                "attribute": "Attribute"
+            }
+        }
+    },
+    "constants": {
+        "title": "Constants",
+        "searchPlaceholder": "Search constants...",
+        "empty": "No constants yet",
+        "emptyDescription": "Create constants to store reusable typed values",
+        "setRequired": "Set context is required",
+        "setNotFound": "Set not found",
+        "createDialog": {
+            "title": "Create Constant"
+        },
+        "editDialog": {
+            "title": "Edit Constant"
+        },
+        "copyDialog": {
+            "title": "Copy Constant"
+        },
+        "createSuccess": "Constant created",
+        "createError": "Failed to create constant",
+        "updateSuccess": "Constant updated",
+        "updateError": "Failed to update constant",
+        "deleteSuccess": "Constant deleted",
+        "deleteError": "Failed to delete constant",
+        "copySuccess": "Constant copied",
+        "copyError": "Failed to copy constant",
+        "moveSuccess": "Constant order updated",
+        "moveError": "Failed to update constant order",
+        "reorderSuccess": "Constant order updated",
+        "reorderError": "Failed to reorder constant",
+        "codename": "Codename",
+        "codenameHelper": "Unique identifier",
+        "dataType": "Data Type",
+        "table": {
+            "order": "#"
+        },
+        "tabs": {
+            "general": "General",
+            "value": "Value"
+        },
+        "typeSettings": {
+            "title": "Type Settings",
+            "string": {
+                "minLength": "Min Length",
+                "maxLength": "Max Length",
+                "localized": "Localized (VLC)",
+                "versioned": "Versioned (VLC)"
+            },
+            "number": {
+                "precision": "Length",
+                "scale": "Decimal places",
+                "min": "Min Value",
+                "max": "Max Value",
+                "nonNegative": "Non-negative only"
+            },
+            "date": {
+                "composition": "Date Composition",
+                "compositionOptions": {
+                    "date": "Date only",
+                    "time": "Time only",
+                    "datetime": "Date and Time"
+                }
+            }
+        },
+        "value": {
+            "title": "Value",
+            "localizedTitle": "Localized value",
+            "boolTrue": "True",
+            "boolFalse": "False"
+        },
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Codename contains invalid characters"
+        },
+        "copy": {
+            "action": "Copy",
+            "actionLoading": "Copying..."
+        },
+        "actions": {
+            "moveUp": "Move up",
+            "moveDown": "Move down"
+        },
+        "deleteDialog": {
+            "title": "Delete Constant",
+            "message": "Are you sure you want to delete this constant?"
+        },
+        "dnd": {
+            "dragHandle": "Drag to reorder"
+        }
     },
     "enumerations": {
         "title": "Enumerations",
@@ -822,7 +976,9 @@
             "numberMax": "Max value: {{max}}",
             "numberNonNegative": "Non-negative value",
             "targetEntityKindRequired": "Target entity type is required for Reference",
-            "targetEntityIdRequired": "Target entity is required for Reference"
+            "targetEntityIdRequired": "Target entity is required for Reference",
+            "targetConstantIdRequired": "Target constant is required for references to Set",
+            "targetConstantOnlyForSet": "Target constant can be selected only for references to Set"
         },
         "createError": "Failed to create attribute",
         "updateError": "Failed to update attribute",
@@ -876,14 +1032,22 @@
         "notSelected": "Not selected",
         "targetCatalog": "Target Catalog",
         "targetEnumeration": "Target Enumeration",
+        "targetSet": "Target Set",
+        "targetConstant": "Target Constant",
         "selectCatalog": "Select catalog...",
         "selectEnumeration": "Select enumeration...",
+        "selectSet": "Select set...",
+        "selectConstant": "Select constant...",
         "selectEnumerationValue": "Select value...",
         "selectElement": "Select element...",
         "catalogRequired": "Please select a catalog",
         "enumerationRequired": "Please select an enumeration",
+        "setRequired": "Please select a set",
+        "targetConstantHint": "Select constant from the selected set",
         "noCatalogsAvailable": "No catalogs available",
         "noEnumerationsAvailable": "No enumerations available",
+        "noSetsAvailable": "No sets available",
+        "noConstantsAvailable": "No constants available",
         "noEnumerationValuesAvailable": "No values available",
         "noElementsAvailable": "No elements available",
         "loadingElements": "Loading elements...",
@@ -894,6 +1058,7 @@
         "entityKind": {
             "catalog": "Catalog",
             "enumeration": "Enumeration",
+            "set": "Set",
             "document": "Document",
             "hub": "Hub"
         }

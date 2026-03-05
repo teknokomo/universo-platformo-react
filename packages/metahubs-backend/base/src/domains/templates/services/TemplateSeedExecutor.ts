@@ -8,9 +8,11 @@ import type {
     DashboardLayoutZone
 } from '@universo/types'
 import { buildDashboardLayoutConfig } from '../../shared'
+import { toJsonbValue } from '../../shared/jsonb'
 import { resolveWidgetTableName } from './widgetTableResolver'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
+const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
 
 const resolveEntityIdByCodename = (entityIdMap: Map<string, string>, codename: string, preferredKind?: string): string | null => {
     if (preferredKind) {
@@ -241,6 +243,7 @@ export class TemplateSeedExecutor {
 
     private async createEntities(qb: Knex, entities: NonNullable<MetahubTemplateSeed['entities']>): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
+        const constantIdMap = new Map<string, string>()
         const now = new Date()
 
         // ── Pass 1: Insert all entities and build complete codename→id map ──
@@ -283,7 +286,75 @@ export class TemplateSeedExecutor {
             entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
         }
 
-        // ── Pass 2: Insert attributes using the complete entity map ──
+        // ── Pass 2: Insert set constants and build complete set+constant codename→id map ──
+        for (const entity of entities) {
+            if (entity.kind !== 'set' || !entity.constants?.length) continue
+
+            const setId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
+            if (!setId) continue
+
+            for (let constantIndex = 0; constantIndex < entity.constants.length; constantIndex++) {
+                const constant = entity.constants[constantIndex]
+                const existing = await qb
+                    .withSchema(this.schemaName)
+                    .from('_mhb_constants')
+                    .where({
+                        object_id: setId,
+                        codename: constant.codename,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (existing) {
+                    constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), existing.id)
+                    continue
+                }
+
+                const [inserted] = await qb
+                    .withSchema(this.schemaName)
+                    .into('_mhb_constants')
+                    .insert({
+                        object_id: setId,
+                        codename: constant.codename,
+                        data_type: constant.dataType,
+                        presentation: {
+                            codename: null,
+                            name: constant.name,
+                            description: constant.description ?? null
+                        },
+                        validation_rules: constant.validationRules ?? {},
+                        ui_config: constant.uiConfig ?? {},
+                        value_json: toJsonbValue(constant.value),
+                        sort_order: constant.sortOrder ?? constantIndex + 1,
+                        _upl_created_at: now,
+                        _upl_created_by: null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: true,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                    .returning('id')
+
+                constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), inserted.id)
+            }
+        }
+
+        const resolveTargetConstantId = (
+            targetEntityKind: string | null | undefined,
+            targetEntityCodename: string | undefined,
+            targetConstantCodename: string | undefined
+        ): string | null => {
+            if (targetEntityKind !== 'set' || !targetEntityCodename || !targetConstantCodename) return null
+            return constantIdMap.get(buildConstantMapKey(targetEntityCodename, targetConstantCodename)) ?? null
+        }
+
+        // ── Pass 3: Insert attributes using the complete entity + constants maps ──
         for (const entity of entities) {
             const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
             if (!entityId || !entity.attributes?.length) continue
@@ -320,6 +391,11 @@ export class TemplateSeedExecutor {
                                 ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
                                 : null,
                             target_object_kind: attr.targetEntityKind ?? null,
+                            target_constant_id: resolveTargetConstantId(
+                                attr.targetEntityKind,
+                                attr.targetEntityCodename,
+                                attr.targetConstantCodename
+                            ),
                             _upl_created_at: now,
                             _upl_created_by: null,
                             _upl_updated_at: now,
@@ -382,6 +458,11 @@ export class TemplateSeedExecutor {
                                           )
                                         : null,
                                 target_object_kind: (child.targetEntityKind as string | null | undefined) ?? null,
+                                target_constant_id: resolveTargetConstantId(
+                                    (child.targetEntityKind as string | null | undefined) ?? null,
+                                    (child.targetEntityCodename as string | undefined) ?? undefined,
+                                    (child.targetConstantCodename as string | undefined) ?? undefined
+                                ),
                                 _upl_created_at: now,
                                 _upl_created_by: null,
                                 _upl_updated_at: now,

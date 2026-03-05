@@ -92,6 +92,7 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
         validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
         targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
         targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null,
+        targetConstantId: raw?.targetConstantId ?? ctx.entity?.targetConstantId ?? null,
         uiConfig: raw?.uiConfig ?? ctx.entity?.uiConfig ?? {}
     }
 }
@@ -120,6 +121,18 @@ const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLoc
         if (!values.targetEntityId) {
             errors.targetEntityId = ctx.t('attributes.validation.targetEntityIdRequired', 'Target entity is required for Reference type')
         }
+        if (values.targetEntityKind === 'set' && !values.targetConstantId) {
+            errors.targetConstantId = ctx.t(
+                'attributes.validation.targetConstantIdRequired',
+                'Target constant is required for references to Set'
+            )
+        }
+    }
+    if (values.dataType === 'REF' && values.targetEntityKind !== 'set' && values.targetConstantId) {
+        errors.targetConstantId = ctx.t(
+            'attributes.validation.targetConstantOnlyForSet',
+            'Target constant can be selected only for references to Set'
+        )
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
@@ -135,7 +148,12 @@ const canSaveAttributeForm = (values: GenericFormValues) => {
         Boolean(normalizedCodename) &&
         isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)
     if (values.dataType === 'REF') {
-        return hasBasicInfo && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+        const hasTarget = Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+        if (!hasTarget) return false
+        if (values.targetEntityKind === 'set') {
+            return Boolean(values.targetConstantId)
+        }
+        return true
     }
     return hasBasicInfo
 }
@@ -204,6 +222,8 @@ const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
     const validationRules = values.validationRules as AttributeValidationRules | undefined
     const targetEntityId = (values.targetEntityId as string | null | undefined) ?? undefined
     const targetEntityKind = (values.targetEntityKind as MetaEntityKind | null | undefined) ?? undefined
+    const targetConstantId =
+        dataType === 'REF' && targetEntityKind === 'set' ? (values.targetConstantId as string | null | undefined) ?? null : undefined
     const sourceUiConfig = (values.uiConfig as Record<string, unknown> | undefined) ?? {}
     const uiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, sourceUiConfig, isRequired)
 
@@ -219,6 +239,7 @@ const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
         validationRules,
         targetEntityId,
         targetEntityKind,
+        targetConstantId,
         uiConfig: Object.keys(uiConfig).length > 0 ? uiConfig : undefined
     }
 }
@@ -480,6 +501,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     isDisplayAttribute: false,
                     targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
                     targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null,
+                    targetConstantId: raw?.targetConstantId ?? ctx.entity?.targetConstantId ?? null,
                     validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
                     uiConfig: raw?.uiConfig ?? ctx.entity?.uiConfig ?? {},
                     copyChildAttributes: true

@@ -13,7 +13,7 @@ interface QueryOptions {
     onlyDeleted?: boolean
 }
 
-type MetahubObjectKind = 'catalog' | 'enumeration' | 'hub' | 'document'
+type MetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub' | 'document'
 
 /**
  * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
@@ -107,11 +107,12 @@ export class MetahubObjectsService {
             config?: any
             createdBy?: string | null
         },
-        userId?: string
+        userId?: string,
+        trx?: Knex.Transaction
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        return this.knex.transaction(async (trx) => {
+        const createWithRunner = async (runner: Knex.Transaction) => {
             const config =
                 input.config && typeof input.config === 'object'
                     ? { ...(input.config as Record<string, unknown>) }
@@ -119,10 +120,10 @@ export class MetahubObjectsService {
 
             const hasExplicitSortOrder = typeof config.sortOrder === 'number' && Number.isFinite(config.sortOrder)
             if (!hasExplicitSortOrder) {
-                config.sortOrder = await this.getNextSortOrder(schemaName, kind, trx)
+                config.sortOrder = await this.getNextSortOrder(schemaName, kind, runner)
             }
 
-            const [created] = await trx
+            const [created] = await runner
                 .withSchema(schemaName)
                 .into('_mhb_objects')
                 .insert({
@@ -143,9 +144,9 @@ export class MetahubObjectsService {
                 .returning('*')
 
             // Only catalogs/documents/hubs may need physical runtime tables.
-            if (kind !== 'enumeration') {
+            if (kind !== 'enumeration' && kind !== 'set') {
                 const tableName = generateTableName(created.id, kind)
-                const [updated] = await trx
+                const [updated] = await runner
                     .withSchema(schemaName)
                     .from('_mhb_objects')
                     .where({ id: created.id })
@@ -155,7 +156,13 @@ export class MetahubObjectsService {
             }
 
             return created
-        })
+        }
+
+        if (trx) {
+            return createWithRunner(trx)
+        }
+
+        return this.knex.transaction(async (innerTrx) => createWithRunner(innerTrx))
     }
 
     /**
@@ -172,9 +179,10 @@ export class MetahubObjectsService {
             config?: any
             createdBy?: string | null
         },
-        userId?: string
+        userId?: string,
+        trx?: Knex.Transaction
     ) {
-        return this.createObject(metahubId, 'catalog', input, userId)
+        return this.createObject(metahubId, 'catalog', input, userId, trx)
     }
 
     async createEnumeration(
@@ -187,9 +195,26 @@ export class MetahubObjectsService {
             config?: any
             createdBy?: string | null
         },
-        userId?: string
+        userId?: string,
+        trx?: Knex.Transaction
     ) {
-        return this.createObject(metahubId, 'enumeration', input, userId)
+        return this.createObject(metahubId, 'enumeration', input, userId, trx)
+    }
+
+    async createSet(
+        metahubId: string,
+        input: {
+            codename: string
+            codenameLocalized?: any
+            name: any
+            description?: any
+            config?: any
+            createdBy?: string | null
+        },
+        userId?: string,
+        trx?: Knex.Transaction
+    ) {
+        return this.createObject(metahubId, 'set', input, userId, trx)
     }
 
     async updateObject(
@@ -281,6 +306,23 @@ export class MetahubObjectsService {
         userId?: string
     ) {
         return this.updateObject(metahubId, id, 'enumeration', input, userId)
+    }
+
+    async updateSet(
+        metahubId: string,
+        id: string,
+        input: {
+            codename?: string
+            codenameLocalized?: any
+            name?: any
+            description?: any
+            config?: any
+            updatedBy?: string | null
+            expectedVersion?: number
+        },
+        userId?: string
+    ) {
+        return this.updateObject(metahubId, id, 'set', input, userId)
     }
 
     /**

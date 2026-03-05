@@ -51,8 +51,10 @@ export {
     normalizeElementCopyOptions,
     normalizeHubCopyOptions,
     normalizeCatalogCopyOptions,
+    normalizeSetCopyOptions,
     normalizeEnumerationCopyOptions,
-    normalizeLayoutCopyOptions
+    normalizeLayoutCopyOptions,
+    normalizeConstantCopyOptions
 } from './validation/copyOptions'
 
 export {

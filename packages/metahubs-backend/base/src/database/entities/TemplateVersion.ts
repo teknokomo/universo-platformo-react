@@ -31,8 +31,8 @@ export class TemplateVersion {
     versionLabel!: string
 
     /** Minimum structure version required by this template version */
-    @Column({ name: 'min_structure_version', type: 'integer', default: 1 })
-    minStructureVersion!: number
+    @Column({ name: 'min_structure_version', type: 'varchar', length: 20, default: '0.1.0' })
+    minStructureVersion!: string
 
     /** Full MetahubTemplateManifest JSON */
     @Column({ name: 'manifest_json', type: 'jsonb' })

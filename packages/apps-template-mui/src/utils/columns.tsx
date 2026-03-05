@@ -159,14 +159,28 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
         validationRules: (c.validationRules ?? {}) as FieldValidationRules,
         refTargetEntityId: c.refTargetEntityId ?? null,
         refTargetEntityKind: c.refTargetEntityKind ?? null,
+        refTargetConstantId: c.refTargetConstantId ?? null,
+        refSetConstantLabel:
+            c.refTargetEntityKind === 'set' && Array.isArray(c.refOptions) && c.refOptions.length > 0 ? c.refOptions[0].label : null,
+        refSetConstantDataType:
+            c.refTargetEntityKind === 'set' && c.uiConfig && typeof c.uiConfig.setConstantDataType === 'string'
+                ? c.uiConfig.setConstantDataType
+                : null,
         refOptions: c.refOptions ?? c.enumOptions ?? [],
         enumOptions: c.enumOptions ?? [],
         enumPresentationMode:
-            c.uiConfig?.enumPresentationMode === 'radio' || c.uiConfig?.enumPresentationMode === 'label'
+            c.refTargetEntityKind === 'set'
+                ? 'label'
+                : c.uiConfig?.enumPresentationMode === 'radio' || c.uiConfig?.enumPresentationMode === 'label'
                 ? c.uiConfig.enumPresentationMode
                 : 'select',
-        defaultEnumValueId: typeof c.uiConfig?.defaultEnumValueId === 'string' ? c.uiConfig.defaultEnumValueId : null,
-        enumAllowEmpty: c.uiConfig?.enumAllowEmpty !== false,
+        defaultEnumValueId:
+            c.refTargetEntityKind === 'set'
+                ? c.refTargetConstantId ?? null
+                : typeof c.uiConfig?.defaultEnumValueId === 'string'
+                ? c.uiConfig.defaultEnumValueId
+                : null,
+        enumAllowEmpty: c.refTargetEntityKind === 'set' ? false : c.uiConfig?.enumAllowEmpty !== false,
         enumLabelEmptyDisplay: c.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash',
         // TABLE-specific: child field definitions and attribute UUID
         ...(c.dataType === 'TABLE' && c.childColumns
@@ -180,14 +194,30 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
                       validationRules: (child.validationRules ?? {}) as FieldValidationRules,
                       refTargetEntityId: child.refTargetEntityId ?? null,
                       refTargetEntityKind: child.refTargetEntityKind ?? null,
+                      refTargetConstantId: child.refTargetConstantId ?? null,
+                      refSetConstantLabel:
+                          child.refTargetEntityKind === 'set' && Array.isArray(child.refOptions) && child.refOptions.length > 0
+                              ? child.refOptions[0].label
+                              : null,
+                      refSetConstantDataType:
+                          child.refTargetEntityKind === 'set' && child.uiConfig && typeof child.uiConfig.setConstantDataType === 'string'
+                              ? child.uiConfig.setConstantDataType
+                              : null,
                       refOptions: child.refOptions ?? child.enumOptions ?? [],
                       enumOptions: child.enumOptions ?? [],
                       enumPresentationMode:
-                          child.uiConfig?.enumPresentationMode === 'radio' || child.uiConfig?.enumPresentationMode === 'label'
+                          child.refTargetEntityKind === 'set'
+                              ? 'label'
+                              : child.uiConfig?.enumPresentationMode === 'radio' || child.uiConfig?.enumPresentationMode === 'label'
                               ? child.uiConfig.enumPresentationMode
                               : 'select',
-                      defaultEnumValueId: typeof child.uiConfig?.defaultEnumValueId === 'string' ? child.uiConfig.defaultEnumValueId : null,
-                      enumAllowEmpty: child.uiConfig?.enumAllowEmpty !== false,
+                      defaultEnumValueId:
+                          child.refTargetEntityKind === 'set'
+                              ? child.refTargetConstantId ?? null
+                              : typeof child.uiConfig?.defaultEnumValueId === 'string'
+                              ? child.uiConfig.defaultEnumValueId
+                              : null,
+                      enumAllowEmpty: child.refTargetEntityKind === 'set' ? false : child.uiConfig?.enumAllowEmpty !== false,
                       enumLabelEmptyDisplay: child.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
                   })),
                   tableUiConfig: c.uiConfig

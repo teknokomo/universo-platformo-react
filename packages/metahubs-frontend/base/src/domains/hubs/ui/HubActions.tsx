@@ -116,6 +116,7 @@ const getHubCopyOptions = (values: Record<string, unknown>) => {
     return normalizeHubCopyOptions({
         copyAllRelations: values.copyAllRelations as boolean | undefined,
         copyCatalogRelations: values.copyCatalogRelations as boolean | undefined,
+        copySetRelations: values.copySetRelations as boolean | undefined,
         copyEnumerationRelations: values.copyEnumerationRelations as boolean | undefined
     })
 }
@@ -337,6 +338,16 @@ const HubCopyOptionsTab = ({
                     />
                 }
                 label={t('hubs.copy.options.copyCatalogRelations', 'Catalog relations')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copySetRelations}
+                        onChange={(event) => toggleHubCopyChild(setValue, 'copySetRelations', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('hubs.copy.options.copySetRelations', 'Set relations')}
             />
             <FormControlLabel
                 control={

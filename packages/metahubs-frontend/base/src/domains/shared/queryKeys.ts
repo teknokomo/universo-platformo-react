@@ -160,6 +160,80 @@ export const metahubsQueryKeys = {
     catalogDetailInHub: (metahubId: string, hubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogs(metahubId, hubId), 'detail', catalogId] as const,
 
+    // Blocking references for set deletion (REF attributes in catalogs)
+    blockingSetReferences: (metahubId: string, setId: string) =>
+        [...metahubsQueryKeys.setDetail(metahubId, setId), 'blockingReferences'] as const,
+
+    // Sets scoped to a specific hub
+    sets: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'sets'] as const,
+
+    setsList: (metahubId: string, hubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.sets(metahubId, hubId), 'list', normalized] as const
+    },
+
+    // All sets across all hubs in a metahub
+    allSets: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'allSets'] as const,
+
+    allSetsList: (metahubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.allSets(metahubId), 'list', normalized] as const
+    },
+
+    // Set detail without hub context
+    setDetail: (metahubId: string, setId: string) => [...metahubsQueryKeys.allSets(metahubId), 'detail', setId] as const,
+
+    // Set detail scoped to a specific hub
+    setDetailInHub: (metahubId: string, hubId: string, setId: string) =>
+        [...metahubsQueryKeys.sets(metahubId, hubId), 'detail', setId] as const,
+
+    // Constants scoped to a specific set in hub context
+    constants: (metahubId: string, hubId: string, setId: string) =>
+        [...metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId), 'constants'] as const,
+
+    constantsList: (metahubId: string, hubId: string, setId: string, params?: PaginationParams & { locale?: string }) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined,
+            locale: params?.locale
+        }
+        return [...metahubsQueryKeys.constants(metahubId, hubId, setId), 'list', normalized] as const
+    },
+
+    // Constants scoped directly to set (without hub context)
+    constantsDirect: (metahubId: string, setId: string) => [...metahubsQueryKeys.setDetail(metahubId, setId), 'constants'] as const,
+
+    constantsListDirect: (metahubId: string, setId: string, params?: PaginationParams & { locale?: string }) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined,
+            locale: params?.locale
+        }
+        return [...metahubsQueryKeys.constantsDirect(metahubId, setId), 'list', normalized] as const
+    },
+
+    // All constant codenames for a set (for global duplicate check)
+    allConstantCodenames: (metahubId: string, setId: string) =>
+        [...metahubsQueryKeys.setDetail(metahubId, setId), 'constantCodenames'] as const,
+
     // Enumerations scoped to a specific hub
     enumerations: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'enumerations'] as const,
 
@@ -357,6 +431,43 @@ export const invalidateCatalogsQueries = {
 
     detail: (queryClient: QueryClient, metahubId: string, hubId: string, catalogId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId) })
+}
+
+export const invalidateSetsQueries = {
+    all: (queryClient: QueryClient, metahubId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId ? metahubsQueryKeys.sets(metahubId, hubId) : metahubsQueryKeys.allSets(metahubId)
+        }),
+
+    lists: (queryClient: QueryClient, metahubId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId ? metahubsQueryKeys.setsList(metahubId, hubId) : metahubsQueryKeys.allSetsList(metahubId)
+        }),
+
+    detail: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId ? metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId) : metahubsQueryKeys.setDetail(metahubId, setId)
+        }),
+
+    blockingReferences: (queryClient: QueryClient, metahubId: string, setId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, setId) })
+}
+
+export const invalidateConstantsQueries = {
+    all: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId ? metahubsQueryKeys.constants(metahubId, hubId, setId) : metahubsQueryKeys.constantsDirect(metahubId, setId)
+        }),
+
+    lists: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId
+                ? metahubsQueryKeys.constantsList(metahubId, hubId, setId)
+                : metahubsQueryKeys.constantsListDirect(metahubId, setId)
+        }),
+
+    allCodenames: (queryClient: QueryClient, metahubId: string, setId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId) })
 }
 
 export const invalidateEnumerationsQueries = {

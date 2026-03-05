@@ -115,7 +115,7 @@ const mockTemplatesList = [
         activeVersion: {
             id: 'template-basic-v1',
             versionNumber: 1,
-            versionLabel: '1.0.0',
+            versionLabel: '0.1.0',
             changelog: 'Baseline template version'
         }
     }
@@ -184,7 +184,7 @@ export const handlers = [
                 {
                     id: template.activeVersion?.id ?? 'template-version-1',
                     versionNumber: template.activeVersion?.versionNumber ?? 1,
-                    versionLabel: template.activeVersion?.versionLabel ?? '1.0.0',
+                    versionLabel: template.activeVersion?.versionLabel ?? '0.1.0',
                     changelog: template.activeVersion?.changelog ?? null,
                     isActive: true,
                     createdAt: CREATED_30_DAYS_AGO

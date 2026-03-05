@@ -32,8 +32,10 @@ export {
     normalizeElementCopyOptions,
     normalizeHubCopyOptions,
     normalizeCatalogCopyOptions,
+    normalizeSetCopyOptions,
     normalizeEnumerationCopyOptions,
-    normalizeLayoutCopyOptions
+    normalizeLayoutCopyOptions,
+    normalizeConstantCopyOptions
 } from './copyOptions'
 export {
     validateNumber,

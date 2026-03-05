@@ -11,7 +11,6 @@ interface CreateAttributeParams {
     hubId?: string
     catalogId: string
     data: AttributeLocalizedPayload & {
-        targetCatalogId?: string
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -25,7 +24,6 @@ interface UpdateAttributeParams {
     catalogId: string
     attributeId: string
     data: AttributeLocalizedPayload & {
-        targetCatalogId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean

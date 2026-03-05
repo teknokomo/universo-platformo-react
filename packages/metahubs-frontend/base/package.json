@@ -19,6 +19,7 @@
         "./package.json": "./package.json"
     },
     "sideEffects": [
+        "src/i18n/index.ts",
         "dist/i18n/index.mjs",
         "dist/i18n/index.js"
     ],
@@ -70,6 +71,7 @@
     "devDependencies": {
         "@types/node": "catalog:",
         "@types/react": "catalog:",
+        "react-dom": "catalog:",
         "eslint": "catalog:",
         "rimraf": "^5.0.5",
         "tsdown": "catalog:",

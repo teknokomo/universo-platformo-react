@@ -203,6 +203,29 @@ describe('SchemaGenerator', () => {
         })
     })
 
+    describe('addForeignKey', () => {
+        it('skips physical FK for REF fields targeting set constants', async () => {
+            const field = {
+                id: 'field-ref-set-0000-0000-0000-000000000001',
+                codename: 'version',
+                dataType: AttributeDataType.REF,
+                isRequired: false,
+                targetEntityId: 'set-0000-0000-0000-000000000001',
+                targetEntityKind: 'set'
+            }
+            const entity = {
+                id: 'catalog-0000-0000-0000-000000000001',
+                codename: 'orders',
+                kind: 'catalog' as const,
+                fields: [field]
+            }
+
+            await generator.addForeignKey('app_test123', entity, field, [entity])
+
+            expect(mockKnex.raw).not.toHaveBeenCalled()
+        })
+    })
+
     describe('syncSystemMetadata', () => {
         const createTableMock = (tableName: string, operations: string[]) => {
             const table = {

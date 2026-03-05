@@ -114,6 +114,7 @@ type AttributeFormValues = {
     validationRules?: AttributeValidationRules
     targetEntityId?: string | null
     targetEntityKind?: MetaEntityKind | null
+    targetConstantId?: string | null
     uiConfig?: Record<string, unknown>
 }
 
@@ -486,6 +487,7 @@ const AttributeList = () => {
             isDisplayAttribute: hasNoAttributes,
             targetEntityId: null,
             targetEntityKind: null,
+            targetConstantId: null,
             validationRules: {
                 ...getDefaultValidationRules('STRING'),
                 maxLength: 10
@@ -524,6 +526,18 @@ const AttributeList = () => {
                         'Target entity is required for Reference type'
                     )
                 }
+                if (values.targetEntityKind === 'set' && !values.targetConstantId) {
+                    errors.targetConstantId = t(
+                        'attributes.validation.targetConstantIdRequired',
+                        'Target constant is required for references to Set'
+                    )
+                }
+            }
+            if (values.dataType === 'REF' && values.targetEntityKind !== 'set' && values.targetConstantId) {
+                errors.targetConstantId = t(
+                    'attributes.validation.targetConstantOnlyForSet',
+                    'Target constant can be selected only for references to Set'
+                )
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -541,7 +555,12 @@ const AttributeList = () => {
                 Boolean(normalizedCodename) &&
                 isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
             if (values.dataType === 'REF') {
-                return hasBasicInfo && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+                const hasTarget = Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+                if (!hasTarget) return false
+                if (values.targetEntityKind === 'set') {
+                    return Boolean(values.targetConstantId)
+                }
+                return true
             }
             return hasBasicInfo
         },
@@ -1048,6 +1067,8 @@ const AttributeList = () => {
             // REF type: extract target entity info
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null) : undefined
             const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null) : undefined
+            const targetConstantId =
+                dataType === 'REF' && targetEntityKind === 'set' ? (data.targetConstantId as string | null) ?? null : undefined
             const normalizedUiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, uiConfig)
 
             await createAttributeMutation.mutateAsync({
@@ -1064,6 +1085,7 @@ const AttributeList = () => {
                     isDisplayAttribute,
                     targetEntityId,
                     targetEntityKind,
+                    targetConstantId,
                     uiConfig: normalizedUiConfig
                 }
             })

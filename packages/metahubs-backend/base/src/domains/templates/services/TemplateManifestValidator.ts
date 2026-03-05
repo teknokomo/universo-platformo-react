@@ -1,12 +1,17 @@
 import { z } from 'zod'
 import {
     ATTRIBUTE_DATA_TYPES,
+    CONSTANT_DATA_TYPES,
     META_ENTITY_KINDS,
     DASHBOARD_LAYOUT_ZONES,
     DASHBOARD_LAYOUT_WIDGETS,
     DashboardLayoutWidgetKey
 } from '@universo/types'
-import { CURRENT_STRUCTURE_VERSION } from '../../metahubs/services/structureVersions'
+import {
+    CURRENT_STRUCTURE_VERSION,
+    CURRENT_STRUCTURE_VERSION_SEMVER,
+    semverToStructureVersion
+} from '../../metahubs/services/structureVersions'
 
 const widgetKeys = DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
 
@@ -57,6 +62,9 @@ const seedChildAttributeSchema = z.object({
     description: vlcSchema.optional(),
     isRequired: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
+    targetEntityCodename: z.string().optional(),
+    targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
+    targetConstantCodename: z.string().optional(),
     validationRules: z.record(z.unknown()).optional(),
     uiConfig: z.record(z.unknown()).optional()
 })
@@ -71,10 +79,22 @@ const seedAttributeSchema = z.object({
     sortOrder: z.number().int().optional(),
     targetEntityCodename: z.string().optional(),
     targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
+    targetConstantCodename: z.string().optional(),
     validationRules: z.record(z.unknown()).optional(),
     uiConfig: z.record(z.unknown()).optional(),
     /** Child attributes for TABLE data type (tabular parts). */
     childAttributes: z.array(seedChildAttributeSchema).optional()
+})
+
+const seedConstantSchema = z.object({
+    codename: z.string().min(1).max(100),
+    dataType: z.enum(CONSTANT_DATA_TYPES),
+    name: vlcSchema,
+    description: vlcSchema.optional(),
+    sortOrder: z.number().int().optional(),
+    validationRules: z.record(z.unknown()).optional(),
+    uiConfig: z.record(z.unknown()).optional(),
+    value: z.unknown().optional()
 })
 
 const seedEntitySchema = z.object({
@@ -84,6 +104,7 @@ const seedEntitySchema = z.object({
     description: vlcSchema.optional(),
     config: z.record(z.unknown()).optional(),
     attributes: z.array(seedAttributeSchema).optional(),
+    constants: z.array(seedConstantSchema).optional(),
     hubs: z.array(z.string()).optional()
 })
 
@@ -125,7 +146,7 @@ const baseTemplateManifestSchema = z.object({
         .max(100)
         .regex(/^[a-z0-9-]+$/, 'Codename must be lowercase alphanumeric with hyphens'),
     version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be SemVer (e.g., 1.0.0)'),
-    minStructureVersion: z.number().int().positive(),
+    minStructureVersion: z.string().regex(/^\d+\.\d+\.\d+$/, 'Structure version must be SemVer (e.g., 0.1.0)'),
     name: vlcSchema,
     description: vlcSchema.optional(),
     meta: templateMetaSchema.optional(),
@@ -137,11 +158,11 @@ const baseTemplateManifestSchema = z.object({
  * Used by TemplateSeeder to validate manifest data before inserting into DB.
  */
 export const templateManifestSchema = baseTemplateManifestSchema.superRefine((manifest, ctx) => {
-    if (manifest.minStructureVersion > CURRENT_STRUCTURE_VERSION) {
+    if (semverToStructureVersion(manifest.minStructureVersion) > CURRENT_STRUCTURE_VERSION) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['minStructureVersion'],
-            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION}`
+            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION_SEMVER}`
         })
     }
 
@@ -184,6 +205,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
     const entityByCodename = new Map<string, number>()
     const entityKindsByCodename = new Map<string, Set<string>>()
     const entityByKindCodename = new Set<string>()
+    const setConstantsByEntityCodename = new Map<string, Set<string>>()
 
     for (let i = 0; i < entities.length; i++) {
         const entity = entities[i]
@@ -201,6 +223,32 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         const kinds = entityKindsByCodename.get(entity.codename) ?? new Set<string>()
         kinds.add(entity.kind)
         entityKindsByCodename.set(entity.codename, kinds)
+
+        const entityConstants = entity.constants ?? []
+        if (entityConstants.length > 0 && entity.kind !== 'set') {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'entities', i, 'constants'],
+                message: `constants are supported only for entities with kind "set": ${entity.codename}`
+            })
+        }
+
+        const seenConstantCodenames = new Set<string>()
+        for (let constantIndex = 0; constantIndex < entityConstants.length; constantIndex++) {
+            const constant = entityConstants[constantIndex]
+            if (seenConstantCodenames.has(constant.codename)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['seed', 'entities', i, 'constants', constantIndex, 'codename'],
+                    message: `Duplicate constant codename in set "${entity.codename}": ${constant.codename}`
+                })
+            }
+            seenConstantCodenames.add(constant.codename)
+        }
+
+        if (entity.kind === 'set') {
+            setConstantsByEntityCodename.set(entity.codename, seenConstantCodenames)
+        }
     }
 
     const elementsByEntity = manifest.seed.elements ?? {}
@@ -272,20 +320,81 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         const entity = entities[i]
         for (let attrIndex = 0; attrIndex < (entity.attributes?.length ?? 0); attrIndex++) {
             const attribute = entity.attributes?.[attrIndex]
-            if (!attribute?.targetEntityCodename) {
-                continue
+            if (!attribute) continue
+
+            const attrPath = ['seed', 'entities', i, 'attributes', attrIndex] as (string | number)[]
+            const nestedAttributes = attribute.childAttributes ?? []
+
+            const attributesToValidate: Array<{
+                attribute: typeof attribute | (typeof nestedAttributes)[number]
+                path: (string | number)[]
+            }> = [{ attribute, path: attrPath }]
+
+            for (let childIndex = 0; childIndex < nestedAttributes.length; childIndex++) {
+                attributesToValidate.push({
+                    attribute: nestedAttributes[childIndex],
+                    path: [...attrPath, 'childAttributes', childIndex]
+                })
             }
 
-            const hasTarget = attribute.targetEntityKind
-                ? entityByKindCodename.has(`${attribute.targetEntityKind}:${attribute.targetEntityCodename}`)
-                : (entityByCodename.get(attribute.targetEntityCodename) ?? 0) === 1
+            for (const { attribute: attr, path } of attributesToValidate) {
+                if (attr.targetEntityCodename) {
+                    const hasTarget = attr.targetEntityKind
+                        ? entityByKindCodename.has(`${attr.targetEntityKind}:${attr.targetEntityCodename}`)
+                        : (entityByCodename.get(attr.targetEntityCodename) ?? 0) === 1
 
-            if (!hasTarget) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['seed', 'entities', i, 'attributes', attrIndex, 'targetEntityCodename'],
-                    message: `Attribute target not found or ambiguous: ${attribute.targetEntityCodename}`
-                })
+                    if (!hasTarget) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: [...path, 'targetEntityCodename'],
+                            message: `Attribute target not found or ambiguous: ${attr.targetEntityCodename}`
+                        })
+                    }
+                }
+
+                if (attr.targetConstantCodename && attr.dataType !== 'REF') {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [...path, 'targetConstantCodename'],
+                        message: 'targetConstantCodename is only supported for REF attributes'
+                    })
+                }
+
+                if (!attr.targetConstantCodename && attr.targetEntityKind === 'set' && attr.dataType === 'REF') {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [...path, 'targetConstantCodename'],
+                        message: 'REF attributes targeting set must define targetConstantCodename'
+                    })
+                }
+
+                if (attr.targetConstantCodename && attr.targetEntityKind !== 'set') {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [...path, 'targetConstantCodename'],
+                        message: 'targetConstantCodename requires targetEntityKind="set"'
+                    })
+                }
+
+                if (attr.targetConstantCodename && !attr.targetEntityCodename) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [...path, 'targetEntityCodename'],
+                        message: 'targetEntityCodename is required when targetConstantCodename is provided'
+                    })
+                    continue
+                }
+
+                if (attr.targetConstantCodename && attr.targetEntityCodename) {
+                    const targetSetConstants = setConstantsByEntityCodename.get(attr.targetEntityCodename)
+                    if (!targetSetConstants || !targetSetConstants.has(attr.targetConstantCodename)) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: [...path, 'targetConstantCodename'],
+                            message: `Set constant not found: ${attr.targetEntityCodename}.${attr.targetConstantCodename}`
+                        })
+                    }
+                }
             }
         }
     }

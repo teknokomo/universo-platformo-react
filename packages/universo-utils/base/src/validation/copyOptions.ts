@@ -3,11 +3,13 @@ import type {
     AttributeCopyOptions,
     BranchCopyOptionKey,
     BranchCopyOptions,
+    ConstantCopyOptions,
     ElementCopyOptions,
     HubCopyOptionKey,
     HubCopyOptions,
     CatalogCopyOptions,
     EnumerationCopyOptions,
+    SetCopyOptions,
     LayoutCopyOptions
 } from '@universo/types'
 import {
@@ -15,10 +17,12 @@ import {
     DEFAULT_APPLICATION_COPY_OPTIONS,
     DEFAULT_ATTRIBUTE_COPY_OPTIONS,
     DEFAULT_BRANCH_COPY_OPTIONS,
+    DEFAULT_CONSTANT_COPY_OPTIONS,
     HUB_COPY_OPTION_KEYS,
     DEFAULT_HUB_COPY_OPTIONS,
     DEFAULT_CATALOG_COPY_OPTIONS,
     DEFAULT_ENUMERATION_COPY_OPTIONS,
+    DEFAULT_SET_COPY_OPTIONS,
     DEFAULT_LAYOUT_COPY_OPTIONS,
     DEFAULT_ELEMENT_COPY_OPTIONS
 } from '@universo/types'
@@ -52,6 +56,7 @@ export const normalizeBranchCopyOptions = (input?: Partial<BranchCopyOptions> | 
         copyLayouts: toBoolean(input?.copyLayouts ?? DEFAULT_BRANCH_COPY_OPTIONS.copyLayouts),
         copyHubs: toBoolean(input?.copyHubs ?? DEFAULT_BRANCH_COPY_OPTIONS.copyHubs),
         copyCatalogs: toBoolean(input?.copyCatalogs ?? DEFAULT_BRANCH_COPY_OPTIONS.copyCatalogs),
+        copySets: toBoolean(input?.copySets ?? DEFAULT_BRANCH_COPY_OPTIONS.copySets),
         copyEnumerations: toBoolean(input?.copyEnumerations ?? DEFAULT_BRANCH_COPY_OPTIONS.copyEnumerations)
     }
 
@@ -86,6 +91,7 @@ export const normalizeHubCopyOptions = (input?: Partial<HubCopyOptions> | null):
     const merged: HubCopyOptions = {
         copyAllRelations: toBoolean(input?.copyAllRelations ?? DEFAULT_HUB_COPY_OPTIONS.copyAllRelations),
         copyCatalogRelations: toBoolean(input?.copyCatalogRelations ?? DEFAULT_HUB_COPY_OPTIONS.copyCatalogRelations),
+        copySetRelations: toBoolean(input?.copySetRelations ?? DEFAULT_HUB_COPY_OPTIONS.copySetRelations),
         copyEnumerationRelations: toBoolean(input?.copyEnumerationRelations ?? DEFAULT_HUB_COPY_OPTIONS.copyEnumerationRelations)
     }
 
@@ -128,6 +134,12 @@ export const normalizeEnumerationCopyOptions = (input?: Partial<EnumerationCopyO
     }
 }
 
+export const normalizeSetCopyOptions = (input?: Partial<SetCopyOptions> | null): SetCopyOptions => {
+    return {
+        copyConstants: toBoolean(input?.copyConstants ?? DEFAULT_SET_COPY_OPTIONS.copyConstants)
+    }
+}
+
 export const normalizeLayoutCopyOptions = (input?: Partial<LayoutCopyOptions> | null): LayoutCopyOptions => {
     const normalized: LayoutCopyOptions = {
         copyWidgets: toBoolean(input?.copyWidgets ?? DEFAULT_LAYOUT_COPY_OPTIONS.copyWidgets),
@@ -144,6 +156,12 @@ export const normalizeLayoutCopyOptions = (input?: Partial<LayoutCopyOptions> | 
 export const normalizeAttributeCopyOptions = (input?: Partial<AttributeCopyOptions> | null): AttributeCopyOptions => {
     return {
         copyChildAttributes: toBoolean(input?.copyChildAttributes ?? DEFAULT_ATTRIBUTE_COPY_OPTIONS.copyChildAttributes)
+    }
+}
+
+export const normalizeConstantCopyOptions = (input?: Partial<ConstantCopyOptions> | null): ConstantCopyOptions => {
+    return {
+        copyValue: toBoolean(input?.copyValue ?? DEFAULT_CONSTANT_COPY_OPTIONS.copyValue)
     }
 }
 

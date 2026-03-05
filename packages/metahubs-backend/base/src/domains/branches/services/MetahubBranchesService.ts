@@ -10,7 +10,7 @@ import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
 import { KnexClient, getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
-import { CURRENT_STRUCTURE_VERSION } from '../../metahubs/services/structureVersions'
+import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
 
@@ -74,11 +74,13 @@ export class MetahubBranchesService {
     private async assertCopyCompatibility(manager: EntityManager, schemaName: string, options: BranchCopyOptions): Promise<void> {
         const keptKinds: string[] = []
         if (options.copyCatalogs) keptKinds.push('catalog')
+        if (options.copySets) keptKinds.push('set')
         if (options.copyHubs) keptKinds.push('hub')
         if (options.copyEnumerations) keptKinds.push('enumeration')
 
         const removedKinds: string[] = []
         if (!options.copyCatalogs) removedKinds.push('catalog')
+        if (!options.copySets) removedKinds.push('set')
         if (!options.copyHubs) removedKinds.push('hub')
         if (!options.copyEnumerations) removedKinds.push('enumeration')
 
@@ -134,6 +136,7 @@ export class MetahubBranchesService {
 
         const kindsWithHubConfig: string[] = []
         if (options.copyCatalogs) kindsWithHubConfig.push('catalog')
+        if (options.copySets) kindsWithHubConfig.push('set')
         if (options.copyEnumerations) kindsWithHubConfig.push('enumeration')
         if (kindsWithHubConfig.length === 0) return
 
@@ -172,6 +175,7 @@ export class MetahubBranchesService {
         const kindsToDelete: string[] = []
         if (!options.copyHubs) kindsToDelete.push('hub')
         if (!options.copyCatalogs) kindsToDelete.push('catalog')
+        if (!options.copySets) kindsToDelete.push('set')
         if (!options.copyEnumerations) kindsToDelete.push('enumeration')
 
         if (kindsToDelete.length > 0) {
@@ -344,7 +348,9 @@ export class MetahubBranchesService {
             const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null)
             await schemaService.initializeSchema(schemaName, manifest)
 
-            const structureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+            const structureVersion = structureVersionToSemver(
+                manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
+            )
 
             const savedBranch = await this.repoManager.transaction(async (manager) => {
                 const txMetahubRepo = manager.getRepository(Metahub)
@@ -460,7 +466,7 @@ export class MetahubBranchesService {
                 const nextNumber = baseBranchNumber + 1
                 schemaName = this.buildSchemaName(metahubId, nextNumber)
 
-                let branchStructureVersion: number
+                let branchStructureVersion: string
                 let templateVersionSyncId: string | null = null
                 let templateVersionSyncLabel: string | null = null
                 let templateSyncedAt: Date | null = null
@@ -478,7 +484,7 @@ export class MetahubBranchesService {
                     if (!normalizedCopyOptions.fullCopy) {
                         await this.pruneClonedSchema(manager, schemaName, normalizedCopyOptions)
                     }
-                    branchStructureVersion = sourceBranch.structureVersion ?? CURRENT_STRUCTURE_VERSION
+                    branchStructureVersion = structureVersionToSemver(sourceBranch.structureVersion)
                     templateVersionSyncId = sourceBranch.lastTemplateVersionId ?? null
                     templateVersionSyncLabel = sourceBranch.lastTemplateVersionLabel ?? null
                     templateSyncedAt = sourceBranch.lastTemplateSyncedAt ?? null
@@ -486,7 +492,9 @@ export class MetahubBranchesService {
                     // Load template manifest for new branch from scratch
                     const manifest = await this.loadManifestForMetahub(metahub)
                     await schemaService.initializeSchema(schemaName, manifest)
-                    branchStructureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+                    branchStructureVersion = structureVersionToSemver(
+                        manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
+                    )
                     const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null, manager)
                     templateVersionSyncId = templateVersionInfo.templateVersionId
                     templateVersionSyncLabel = templateVersionInfo.templateVersionLabel

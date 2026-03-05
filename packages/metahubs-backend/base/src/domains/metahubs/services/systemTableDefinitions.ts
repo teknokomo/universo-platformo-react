@@ -172,6 +172,47 @@ const mhbAttributes: SystemTableDef = {
     ]
 }
 
+const mhbConstants: SystemTableDef = {
+    name: '_mhb_constants',
+    description: 'Constant definitions for objects with kind=set',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'object_id', type: 'uuid', nullable: false },
+        { name: 'codename', type: 'string', nullable: false },
+        { name: 'data_type', type: 'string', nullable: false },
+        { name: 'presentation', type: 'jsonb', defaultTo: '{}' },
+        { name: 'validation_rules', type: 'jsonb', defaultTo: '{}' },
+        { name: 'ui_config', type: 'jsonb', defaultTo: '{}' },
+        { name: 'value_json', type: 'jsonb', nullable: true },
+        { name: 'sort_order', type: 'integer', defaultTo: 0 }
+    ],
+    foreignKeys: [{ column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_constants_object_id', columns: ['object_id'] },
+        { name: 'idx_mhb_constants_object_sort', columns: ['object_id', 'sort_order'] },
+        {
+            name: 'idx_mhb_constants_object_codename_active',
+            columns: ['object_id', 'codename'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_constants_type_allowed',
+            columns: ['data_type']
+        }
+    ]
+}
+
+const mhbAttributesV2: SystemTableDef = {
+    ...mhbAttributes,
+    columns: [...mhbAttributes.columns, { name: 'target_constant_id', type: 'uuid', nullable: true }],
+    foreignKeys: [
+        ...(mhbAttributes.foreignKeys ?? []),
+        { column: 'target_constant_id', referencesTable: '_mhb_constants', referencesColumn: 'id', onDelete: 'SET NULL' }
+    ],
+    indexes: [...(mhbAttributes.indexes ?? []), { name: 'idx_mhb_attributes_target_constant_id', columns: ['target_constant_id'] }]
+}
+
 const mhbEnumerationValues: SystemTableDef = {
     name: '_mhb_values',
     description: 'Enumeration values for objects with kind=enumeration',
@@ -330,7 +371,8 @@ const mhbWidgets: SystemTableDef = {
  */
 export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbObjects,
-    mhbAttributes,
+    mhbConstants,
+    mhbAttributesV2,
     mhbEnumerationValues,
     mhbElements,
     mhbSettings,

@@ -158,7 +158,7 @@ describe('MetahubBranchesService', () => {
             findOneBy: jest.fn().mockResolvedValue({
                 id: 'tpl-v1',
                 manifestJson: {
-                    minStructureVersion: 1
+                    minStructureVersion: '0.1.0'
                 }
             })
         }
@@ -182,9 +182,9 @@ describe('MetahubBranchesService', () => {
             sourceBranchId: null
         })
 
-        expect(mockInitializeSchema).toHaveBeenCalledWith('mhb_metahub1_b2', expect.objectContaining({ minStructureVersion: 1 }))
-        expect(branchRepo.create).toHaveBeenCalledWith(expect.objectContaining({ structureVersion: 1 }))
-        expect((created as any).structureVersion).toBe(1)
+        expect(mockInitializeSchema).toHaveBeenCalledWith('mhb_metahub1_b2', expect.objectContaining({ minStructureVersion: '0.1.0' }))
+        expect(branchRepo.create).toHaveBeenCalledWith(expect.objectContaining({ structureVersion: '0.1.0' }))
+        expect((created as any).structureVersion).toBe('0.1.0')
         expect(mockAcquireAdvisoryLock).toHaveBeenCalled()
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
@@ -215,7 +215,7 @@ describe('MetahubBranchesService', () => {
             id: 'source-branch-1',
             metahubId,
             schemaName: 'mhb_metahub1_b1',
-            structureVersion: 1,
+            structureVersion: '0.1.0',
             lastTemplateVersionId: null,
             lastTemplateVersionLabel: null,
             lastTemplateSyncedAt: null
@@ -291,7 +291,7 @@ describe('MetahubBranchesService', () => {
             id: 'source-branch-1',
             metahubId,
             schemaName: 'mhb_metahub1_b1',
-            structureVersion: 1,
+            structureVersion: '0.1.0',
             lastTemplateVersionId: null,
             lastTemplateVersionLabel: null,
             lastTemplateSyncedAt: null
@@ -342,7 +342,7 @@ describe('MetahubBranchesService', () => {
             }
         })
 
-        expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('UPDATE "mhb_metahub1_b2"._mhb_objects'), [['catalog']])
+        expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('UPDATE "mhb_metahub1_b2"._mhb_objects'), [['catalog', 'set']])
         expect(queryMock).toHaveBeenCalledWith(
             expect.stringContaining('DELETE FROM "mhb_metahub1_b2"._mhb_objects WHERE kind = ANY($1::text[])'),
             [['hub', 'enumeration']]
