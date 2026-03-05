@@ -138,6 +138,12 @@ export type EnumerationCopyInput = EnumerationLocalizedPayload & {
 export const copyEnumeration = (metahubId: string, enumerationId: string, data: EnumerationCopyInput) =>
     apiClient.post<Enumeration>(`/metahub/${metahubId}/enumeration/${enumerationId}/copy`, data)
 
+export const reorderEnumeration = (metahubId: string, enumerationId: string, newSortOrder: number, hubId?: string) =>
+    apiClient.patch<Enumeration>(
+        hubId ? `/metahub/${metahubId}/hub/${hubId}/enumerations/reorder` : `/metahub/${metahubId}/enumerations/reorder`,
+        { enumerationId, newSortOrder }
+    )
+
 /**
  * Update a enumeration (including hub associations via hubIds array)
  * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict

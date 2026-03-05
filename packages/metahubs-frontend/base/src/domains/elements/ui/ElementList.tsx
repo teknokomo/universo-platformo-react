@@ -38,10 +38,11 @@ import {
     ConfirmDialog,
     useConfirm
 } from '@universo/template-mui'
+import type { DragEndEvent } from '@universo/template-mui'
 import { ConfirmDeleteDialog, DynamicEntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateElement, useUpdateElement, useDeleteElement } from '../hooks/mutations'
+import { useCreateElement, useUpdateElement, useDeleteElement, useMoveElement, useReorderElement } from '../hooks/mutations'
 import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
 import * as constantsApi from '../../constants/api'
@@ -1057,7 +1058,7 @@ const ElementList = () => {
     )
 
     // Use paginated hook for elements list
-    const paginationResult = usePaginated<HubElement, 'created' | 'updated'>({
+    const paginationResult = usePaginated<HubElement, 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn:
             metahubId && catalogId
                 ? (params) =>
@@ -1073,8 +1074,8 @@ const ElementList = () => {
                           : elementsApi.listElementsDirect(metahubId, catalogId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
-        sortBy: 'updated',
-        sortOrder: 'desc',
+        sortBy: 'sortOrder',
+        sortOrder: 'asc',
         enabled: canLoadData
     })
 
@@ -1104,24 +1105,45 @@ const ElementList = () => {
     const createElementMutation = useCreateElement()
     const updateElementMutation = useUpdateElement()
     const deleteElementMutation = useDeleteElement()
+    const moveElementMutation = useMoveElement()
+    const reorderElementMutation = useReorderElement()
+
+    const sortedElements = useMemo(
+        () =>
+            [...elements].sort((a, b) => {
+                const sortA = a.sortOrder ?? 0
+                const sortB = b.sortOrder ?? 0
+                if (sortA !== sortB) return sortA - sortB
+                return a.id.localeCompare(b.id)
+            }),
+        [elements]
+    )
 
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
-        if (Array.isArray(elements)) {
-            elements.forEach((element) => {
+        if (Array.isArray(sortedElements)) {
+            sortedElements.forEach((element) => {
                 if (element?.id) {
                     imagesMap[element.id] = []
                 }
             })
         }
         return imagesMap
-    }, [elements])
+    }, [sortedElements])
 
     const elementMap = useMemo(() => {
-        if (!Array.isArray(elements)) return new Map<string, HubElement>()
-        return new Map(elements.map((element) => [element.id, element]))
-    }, [elements])
+        if (!Array.isArray(sortedElements)) return new Map<string, HubElement>()
+        return new Map(sortedElements.map((element) => [element.id, element]))
+    }, [sortedElements])
+
+    const elementOrderMap = useMemo(() => {
+        const map = new Map<string, number>()
+        sortedElements.forEach((element, index) => {
+            map.set(element.id, index)
+        })
+        return map
+    }, [sortedElements])
 
     const orderedAttributesForColumns = orderedAttributes
     const visibleAttributesForColumns = useMemo(() => orderedAttributesForColumns.slice(0, 4), [orderedAttributesForColumns])
@@ -1265,6 +1287,16 @@ const ElementList = () => {
             render: (row: HubElementDisplay) => React.ReactNode
         }> = []
 
+        cols.push({
+            id: 'sortOrder',
+            label: t('elements.table.order', '#'),
+            width: '5%',
+            align: 'center',
+            render: (row: HubElementDisplay) => (
+                <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{typeof row.sortOrder === 'number' ? row.sortOrder : '—'}</Typography>
+            )
+        })
+
         // Add columns for first 4 attributes
         const visibleAttrs = visibleAttributesForColumns
         visibleAttrs.forEach((attr) => {
@@ -1351,9 +1383,39 @@ const ElementList = () => {
         return cols
     }, [i18n.language, visibleAttributesForColumns, refDisplayMap, refTargetByAttribute, isFetchingRefDisplayMap, t])
 
+    const handleMoveElement = useCallback(
+        async (elementId: string, direction: 'up' | 'down') => {
+            if (!metahubId || !catalogId) return
+
+            try {
+                await moveElementMutation.mutateAsync({
+                    metahubId,
+                    hubId: effectiveHubId,
+                    catalogId,
+                    elementId,
+                    direction
+                })
+                enqueueSnackbar(t('elements.moveSuccess', 'Element order updated'), { variant: 'success' })
+            } catch (error: unknown) {
+                const message =
+                    typeof error === 'object' &&
+                    error !== null &&
+                    'message' in error &&
+                    typeof (error as { message?: unknown }).message === 'string'
+                        ? (error as { message: string }).message
+                        : t('elements.moveError', 'Failed to update element order')
+                enqueueSnackbar(message, { variant: 'error' })
+            }
+        },
+        [catalogId, effectiveHubId, enqueueSnackbar, metahubId, moveElementMutation, t]
+    )
+
     const createElementContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
+            orderMap: elementOrderMap,
+            totalCount: sortedElements.length,
+            moveElement: handleMoveElement,
             api: {
                 updateEntity: async (id: string, patch: any) => {
                     if (!metahubId || !catalogId) return
@@ -1461,11 +1523,14 @@ const ElementList = () => {
             catalogId,
             confirm,
             deleteElementMutation,
+            elementOrderMap,
             effectiveHubId,
             enqueueSnackbar,
+            handleMoveElement,
             metahubId,
             queryClient,
             elementMap,
+            sortedElements.length,
             t,
             updateElementMutation
         ]
@@ -1675,6 +1740,61 @@ const ElementList = () => {
         }
     }
 
+    const handleSortableDragEnd = async (event: DragEndEvent) => {
+        if (!metahubId || !catalogId) return
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const overElement = sortedElements.find((element) => element.id === String(over.id))
+        if (!overElement) return
+
+        try {
+            await reorderElementMutation.mutateAsync({
+                metahubId,
+                hubId: effectiveHubId,
+                catalogId,
+                elementId: String(active.id),
+                newSortOrder: overElement.sortOrder ?? 1
+            })
+            enqueueSnackbar(t('elements.reorderSuccess', 'Element order updated'), { variant: 'success' })
+        } catch (error: unknown) {
+            const message =
+                typeof error === 'object' &&
+                error !== null &&
+                'message' in error &&
+                typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : t('elements.reorderError', 'Failed to reorder element')
+            enqueueSnackbar(message, { variant: 'error' })
+        }
+    }
+
+    const renderDragOverlay = (activeId: string | null) => {
+        if (!activeId) return null
+        const element = elementMap.get(activeId)
+        if (!element) return null
+        const display = toHubElementDisplay(element, attributes, i18n.language)
+        return (
+            <Box
+                sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    boxShadow: 6,
+                    bgcolor: 'background.paper',
+                    minWidth: 260
+                }}
+            >
+                <Stack spacing={0.25}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{display.name || element.id}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                        {typeof element.sortOrder === 'number' ? `#${element.sortOrder}` : ''}
+                    </Typography>
+                </Stack>
+            </Box>
+        )
+    }
+
     // Transform Element data for FlowListTable
     const getElementTableData = (element: HubElement): HubElementDisplay => toHubElementDisplay(element, attributes, i18n.language)
 
@@ -1736,9 +1856,9 @@ const ElementList = () => {
                         </Tabs>
                     </Box>
 
-                    {isLoading && elements.length === 0 ? (
+                    {isLoading && sortedElements.length === 0 ? (
                         <Skeleton variant='rectangular' height={120} />
-                    ) : !isLoading && elements.length === 0 ? (
+                    ) : !isLoading && sortedElements.length === 0 ? (
                         <EmptyListState
                             image={APIEmptySVG}
                             imageAlt='No elements'
@@ -1748,13 +1868,19 @@ const ElementList = () => {
                     ) : (
                         <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                             <FlowListTable
-                                data={elements.map(getElementTableData)}
+                                data={sortedElements.map(getElementTableData)}
                                 images={images}
                                 isLoading={isLoading}
                                 customColumns={elementColumns}
+                                sortableRows
+                                sortableItemIds={sortedElements.map((element) => element.id)}
+                                dragHandleAriaLabel={t('elements.dnd.dragHandle', 'Drag to reorder')}
+                                dragDisabled={reorderElementMutation.isPending || isLoading}
+                                onSortableDragEnd={handleSortableDragEnd}
+                                renderDragOverlay={renderDragOverlay}
                                 i18nNamespace='flowList'
                                 renderActions={(row: any) => {
-                                    const originalElement = elements.find((element) => element.id === row.id)
+                                    const originalElement = elementMap.get(row.id)
                                     if (!originalElement) return null
 
                                     const descriptors = [...filteredElementActions]
@@ -1778,7 +1904,7 @@ const ElementList = () => {
                     )}
 
                     {/* Table Pagination at bottom */}
-                    {!isLoading && elements.length > 0 && (
+                    {!isLoading && sortedElements.length > 0 && (
                         <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                             <PaginationControls
                                 pagination={paginationResult.pagination}

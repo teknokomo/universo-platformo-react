@@ -4,6 +4,83 @@
 
 ---
 
+## Completed: QA Cleanup — DnD Diagnostic Logs + Migration Display + Legacy ConfirmContext — 2026-03-05 ✅
+
+> **Goal**: Clean up all technical debt identified during QA review of DnD implementation; remove diagnostic traces, fix display bug, eliminate dead legacy code.
+
+### Phase 1. Remove Diagnostic Logs
+- [x] Remove all `[DND-DIAG]` console.warn from `useAttributeDnd.ts` (2 locations)
+- [x] Remove all `[DND-DIAG]` console.warn from `AttributeList.tsx` (2 locations)
+- [x] Remove `[DND-DIAG]` console.warn from `useConfirm.ts` (1 location)
+- [x] Remove `[DND-DIAG]` console.warn from `ConfirmDialog.tsx` (1 location)
+
+### Phase 2. Fix Migration Version Display
+- [x] Change baseline schema version from `'—'` to `'0'` in `MetahubMigrations.tsx` line 132
+
+### Phase 3. Remove Legacy ConfirmContext from @universo/store
+- [x] Remove `ConfirmContextProvider` wrapper from `index.tsx` (root app)
+- [x] Remove `ConfirmContext` and `ConfirmContextProvider` exports from `@universo/store/index.ts`
+- [x] Delete `ConfirmContext.jsx`, `ConfirmContextProvider.jsx`, `dialogReducer.js` files
+- [x] Remove `dialogReducer` from `reducer.jsx` (Redux combineReducers)
+- [x] Update `@universo/store` README.md and README-RU.md
+
+### Phase 4. Verification
+- [x] Full project build (`pnpm build`) — 23/23 tasks, 0 errors
+- [x] Update memory-bank files
+
+---
+
+## Completed: DnD Empty Child Table Drop Regression Fix — 2026-03-05 ✅
+
+> **Goal**: Fix regression where dragging first attribute into empty child TABLE attribute list silently fails (drop rejected, attribute returns to original position).
+
+### Phase 1. Stable Droppable Container
+- [x] Add `emptyStateMessage` prop to `FlowListTable` — renders empty-state row maintaining droppable zone height; hides table header in empty state.
+- [x] Remove `EmptyDroppableChildArea` component and component switching in `ChildAttributeList` — always render `FlowListTable` with `emptyStateMessage` for stable droppable.
+- [x] Remove unused `useDroppable` import from `ChildAttributeList`.
+
+### Phase 2. Confirm Dialog Fix (dnd-kit `unstable_batchedUpdates` workaround)
+- [x] Diagnose root cause: dnd-kit calls `onDragEnd` inside `unstable_batchedUpdates`, batching `dispatch(SHOW_CONFIRM)` with DnD state clearing — dialog Promise hangs forever.
+- [x] Defer cross-list validation + transfer to next macrotask via `setTimeout(fn, 0)` in `handleDragEnd` — lets React flush DnD cleanup first, then show confirm dialog in separate render cycle.
+- [x] Remove all `[DND-DEBUG]` diagnostic `console.warn` logs from `useAttributeDnd.ts`.
+- [x] Add `handleDragOver` guard: preserve `pendingTransfer` when collision detection temporarily resolves to source-container item while cross-list transfer is active.
+
+### Phase 3. Verification
+- [x] Full project build (`pnpm build`, 23 tasks) — success.
+- [x] Lint — no new errors.
+- [x] Update memory-bank files.
+
+---
+
+## Completed: Metahub Ordering/Validation QA Debt Closure — 2026-03-05 ✅
+
+> **Goal**: Eliminate remaining QA findings for ordering safety and legacy validation fallback paths, and align verification evidence with real implementation state.
+
+### Phase 1. Ordering Concurrency Hardening (Backend)
+- [x] Serialize object-kind ordering operations with transaction-scoped advisory locks to prevent concurrent sort-order collisions.
+- [x] Serialize element ordering operations (create/move/reorder/delete) with transaction-scoped advisory locks.
+- [x] Add DB-level active unique index for element ordering (`object_id + sort_order` for active rows) in system table definitions.
+
+### Phase 2. Elements Active-Row Consistency (Backend)
+- [x] Enforce active-row filtering (`_upl_deleted=false`, `_mhb_deleted=false`) in element read/count queries for consistent behavior with move/reorder logic.
+
+### Phase 3. Structured Validation Errors (Backend + Frontend)
+- [x] Remove message-prefix fallback for TABLE child-limit detection in routes; rely on structured `code`.
+- [x] Add structured error code for TABLE display-attribute prohibition and ensure routes return consistent payloads.
+- [x] Add structured error code for TABLE attribute count limit and map it in route responses.
+- [x] Replace UI regex/message parsing for TABLE limit localization with code-based mapping.
+
+### Phase 4. Tests and Verification
+- [x] Extend backend attribute route tests for new structured TABLE error contracts.
+- [x] Fix elements route tests to use structured backend error codes (no legacy message-only mocks).
+- [x] Fix frontend runtime TDZ issue in `ElementList` context wiring for move/reorder actions.
+- [x] Remove duplicate success/error notifications for element move flow (single UX signal source).
+- [x] Fix prettier/lint errors introduced in touched backend/frontend files.
+- [x] Run scoped backend/frontend/template lint + tests + builds for touched files and packages.
+- [x] Update `memory-bank/progress.md` with the QA debt closure implementation summary and verification results.
+
+---
+
 ## In Progress: Constants Value Tab + Localization + Table Layout + App REF Display — 2026-03-05
 
 > **Goal**: Close remaining runtime/UI defects in Sets/Constants flow and application element REF rendering with zero legacy fallback debt.
@@ -29,6 +106,60 @@
 - [ ] `pnpm --filter @universo/metahubs-frontend build`
 - [ ] `pnpm --filter @universo/apps-template-mui build` (if touched)
 - [ ] Update `memory-bank/progress.md` with implementation and verification notes.
+
+---
+
+## Completed: Metahub Ordering + Table DnD + TABLE Child Limits — 2026-03-05 ✅
+
+> **Goal**: Fully implement ordered behavior and table drag-and-drop parity for metahub entities, plus per-TABLE child attribute limits, with no legacy fallback debt.
+
+### Phase 1. Backend Ordering Foundation
+- [x] Add shared reorder primitive for `_mhb_objects` (`hub|catalog|set|enumeration`) with transaction-safe deterministic ordering.
+- [x] Add reorder endpoints for hubs, catalogs, sets, enumerations (usable from both hub-scoped and metahub-scoped UIs).
+- [x] Add elements move/reorder endpoints and service logic parity with enum values/constants.
+- [x] Ensure elements create defaults to append sort order (`MAX(sort_order)+1`) and reorder normalization after delete/move.
+
+### Phase 2. Backend Consistency Fixes
+- [x] Fix attribute codename auto-rename update path (`presentation.codename` JSONB, not nonexistent `codename_localized` column).
+- [x] Standardize object copy behavior to append copied hubs/catalogs/sets/enumerations at end of list by default.
+
+### Phase 3. TABLE Child Limit Contract
+- [x] Extend `AttributeValidationRules` with `maxChildAttributes?: number | null`.
+- [x] Validate `maxChildAttributes` (integer, `>= 1`, nullable for unlimited) in API contract.
+- [x] Enforce max child attribute limit on child create and cross-list transfer in backend.
+- [x] Return structured error payload for child-limit violations (no regex/legacy parsing fallback path).
+
+### Phase 4. Frontend Table DnD Expansion
+- [x] Enable table DnD for hubs list using existing `FlowListTable` sortable APIs and existing patterns.
+- [x] Enable table DnD for catalogs list using existing `FlowListTable` sortable APIs and existing patterns.
+- [x] Enable table DnD for sets list using existing `FlowListTable` sortable APIs and existing patterns.
+- [x] Enable table DnD for enumerations list using existing `FlowListTable` sortable APIs and existing patterns.
+- [x] Enable table DnD for elements list, including visible order (`#`) and move parity.
+- [x] Keep card views without DnD.
+- [x] Disable misleading table-header sorting behavior where ordering is controlled by sortable DnD rows.
+
+### Phase 5. Frontend TABLE Child Limit UX
+- [x] Add TABLE type setting input for `maxChildAttributes` next to `minRows/maxRows`.
+- [x] Disable child `Create` action when limit reached.
+- [x] Block cross-list drops into full TABLE child lists.
+- [x] Show invalid drop target state with red dashed indication while preserving existing table style language.
+- [x] Add RU/EN i18n keys for new labels/messages.
+
+### Phase 6. Dependency Cleanup
+- [x] Confirm `flowise-react-json-view` is unused in source/tests/build paths.
+- [x] Remove `flowise-react-json-view` from package devDependencies and workspace catalog entries.
+
+### Phase 7. Ordering Performance/Determinism Hardening
+- [x] Improve catalogs list ordering/pagination flow to reduce in-memory sort drift and enforce deterministic tie-break ordering.
+- [x] Improve sets list ordering/pagination flow to reduce in-memory sort drift and enforce deterministic tie-break ordering.
+- [x] Improve enumerations list ordering/pagination flow to reduce in-memory sort drift and enforce deterministic tie-break ordering.
+
+### Phase 8. Tests, Verification, and Memory Bank
+- [x] Add/extend backend tests for new reorder endpoints and elements move/reorder behavior.
+- [x] Add/extend backend tests for TABLE `maxChildAttributes` enforcement and structured error contract.
+- [x] Add/extend frontend tests for new table DnD flows and TABLE child-limit UX states.
+- [x] Run scoped lint/build/test checks for touched packages.
+- [x] Update `memory-bank/progress.md` with implementation and verification results.
 
 ---
 

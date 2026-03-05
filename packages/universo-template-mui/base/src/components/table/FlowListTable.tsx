@@ -129,6 +129,10 @@ export interface FlowListTableProps<T extends FlowListTableData = FlowListTableD
     dragDisabled?: boolean
     /** Visual indicator that this table is a DnD drop target (e.g. during cross-list drag). */
     isDropTarget?: boolean
+    /** Visual indicator that current DnD drop target is invalid (e.g. limit reached). */
+    isDropTargetInvalid?: boolean
+    /** Message to display when data is empty. Maintains droppable zone height for DnD. */
+    emptyStateMessage?: string
 }
 
 const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean): string => {
@@ -165,7 +169,9 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     renderDragOverlay,
     dragHandleAriaLabel,
     dragDisabled = false,
-    isDropTarget = false
+    isDropTarget = false,
+    isDropTargetInvalid = false,
+    emptyStateMessage
 }: FlowListTableProps<T>): React.ReactElement => {
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
@@ -249,12 +255,13 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
         <TableContainer
             sx={{
                 border: 1,
-                borderColor: isDropTarget ? 'primary.main' : borderColor,
+                borderColor: isDropTargetInvalid ? 'error.main' : isDropTarget ? 'primary.main' : borderColor,
                 borderRadius: 1,
-                ...(isDropTarget && {
+                ...((isDropTarget || isDropTargetInvalid) && {
                     borderWidth: 2,
                     borderStyle: 'dashed',
-                    backgroundColor: (th: any) => alpha(th.palette.primary.main, 0.04),
+                    backgroundColor: (th: any) =>
+                        isDropTargetInvalid ? alpha(th.palette.error.main, 0.08) : alpha(th.palette.primary.main, 0.04),
                     transition: 'border-color 0.2s, background-color 0.2s',
                     // Prevent horizontal scrollbar jitter when a wider ghost row
                     // is injected during cross-list DnD (e.g. root → child table).
@@ -269,6 +276,8 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                 aria-label='a dense table'
                 className={compact ? 'FlowListTable-compact' : undefined}
             >
+                {/* Hide table header when showing empty state placeholder */}
+                {!(emptyStateMessage && !isLoading && (sortedData ?? []).length === 0) && (
                 <TableHead
                     sx={{
                         backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
@@ -286,7 +295,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                         style={{ width: column.width || '25%' }}
                                         align={column.align || 'left'}
                                     >
-                                        {column.sortable ? (
+                                        {column.sortable && !sortableRows ? (
                                             <TableSortLabel
                                                 active={orderBy === column.id}
                                                 direction={order}
@@ -356,6 +365,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         )}
                     </TableRow>
                 </TableHead>
+                )}
                 {/* ── Table Body ─────────────────────────────────────── */}
                 {(() => {
                     // Shared rendering logic for row cells (used by both normal and sortable paths)
@@ -589,7 +599,21 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         return rowContent
                     })
 
-                    const bodyContent = isLoading ? skeletonContent : dataRows
+                    // Empty state row — maintains droppable zone height when no data rows
+                    const emptyRow = !isLoading && displayData.length === 0 && emptyStateMessage ? (
+                        <TableRow>
+                            <TableCell
+                                colSpan={totalCols}
+                                sx={{ textAlign: 'center', py: 3, borderBottom: 'none' }}
+                            >
+                                <Typography variant='body2' color='text.secondary'>
+                                    {emptyStateMessage}
+                                </Typography>
+                            </TableCell>
+                        </TableRow>
+                    ) : null
+
+                    const bodyContent = isLoading ? skeletonContent : dataRows.length > 0 ? dataRows : emptyRow
 
                     // Wrap in SortableTableBody or plain TableBody
                     if (sortableRows) {

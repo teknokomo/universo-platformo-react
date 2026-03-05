@@ -123,6 +123,12 @@ export type SetCopyInput = SetLocalizedPayload & {
 export const copySet = (metahubId: string, setId: string, data: SetCopyInput) =>
     apiClient.post<MetahubSet>(`/metahub/${metahubId}/set/${setId}/copy`, data)
 
+export const reorderSet = (metahubId: string, setId: string, newSortOrder: number, hubId?: string) =>
+    apiClient.patch<MetahubSet>(hubId ? `/metahub/${metahubId}/hub/${hubId}/sets/reorder` : `/metahub/${metahubId}/sets/reorder`, {
+        setId,
+        newSortOrder
+    })
+
 /**
  * Update a set (including hub associations via hubIds array)
  * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict

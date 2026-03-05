@@ -377,6 +377,22 @@ const AttributeFormFields = ({
                                 helperText={t('attributes.typeSettings.table.maxRowsHelper', 'Leave empty for no limit')}
                             />
                         </Stack>
+                        <TextField
+                            label={t('attributes.typeSettings.table.maxChildAttributes', 'Max child attributes')}
+                            type='number'
+                            size='small'
+                            fullWidth
+                            disabled={isLoading}
+                            value={validationRules.maxChildAttributes ?? ''}
+                            onChange={(e) =>
+                                updateValidationRule('maxChildAttributes', e.target.value ? parseInt(e.target.value, 10) : null)
+                            }
+                            inputProps={{ min: 1 }}
+                            helperText={t(
+                                'attributes.typeSettings.table.maxChildAttributesHelper',
+                                'Limit for child attributes in this TABLE. Leave empty for no limit'
+                            )}
+                        />
                     </Stack>
                 )
             default:

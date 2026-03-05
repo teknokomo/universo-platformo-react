@@ -1,37 +1,32 @@
 # Active Context
 
-> **Last Updated**: 2026-03-04
+> **Last Updated**: 2026-03-05
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Sets/Constants Stabilization + SemVer Alignment — Completed
+## Current Focus: QA Cleanup Complete — Ready for Testing
 
 **Status**: ✅ Completed  
-**Date**: 2026-03-04  
-**Scope**: Final runtime stabilization for Sets/Constants UI + migration/versioning behavior after QA.
+**Date**: 2026-03-05  
+**Scope**: Post-QA cleanup of DnD implementation, migration display fix, legacy ConfirmContext removal.
 
-### Finalized in this cycle
+### Recently Completed
 
-1. **Sets/Constants UI correctness**
-   - Fixed namespace usage on Sets/Constants screens to avoid raw i18n keys (`useTranslation('metahubs')`).
-   - Kept breadcrumbs for `/metahub/:id/sets` and `/metahub/:id/set/:setId/constants` aligned with catalogs behavior.
-   - Confirmed constants table footer pagination + spacing parity with attributes list.
-2. **Mutation responsiveness**
-   - Hardened constants mutation invalidation (`invalidateQueries` + `refetchQueries`) with awaited async flow.
-   - Reduced perceived delay after create/copy/update/delete/reorder in constants list.
-3. **Versioning consistency**
-   - SemVer baseline remains `0.1.0` across branch/template contracts and runtime checks.
-   - Fresh branch/template sync logic stays aligned with one active structure baseline (no intentional V2 drift).
-4. **Build/runtime safety**
-   - Removed direct `@universo/metahubs-frontend/i18n` import from template routes to avoid circular self-resolution in tests.
-   - Rebuilt `@universo/template-mui` so `dist` reflects updated route imports used by `metahubs-frontend` tests.
-5. **Environment finding (UP-test)**
-   - Supabase `UP-test` still contains legacy DB state (`structure_version`/`min_structure_version` are `integer`, active basic template version is `1.0.0`, branch row with `structure_version = 2`).
-   - This state can still force migration-required UX even with corrected code; DB must be reset or migrated to the new SemVer schema baseline.
+1. **DnD Empty Child Table Drop fix** — confirmed working by user (confirm dialog appears, attribute moves successfully).
+2. **QA cleanup** of all diagnostic `[DND-DIAG]` console.warn logs (6 locations in 4 files).
+3. **Migration display fix** — baseline schema version now shows `0 → 0.1.0` instead of `— → 0.1.0`.
+4. **Legacy ConfirmContext removal** — deleted unused `ConfirmContext.jsx`, `ConfirmContextProvider.jsx`, `dialogReducer.js` from `@universo/store`; removed wrapper from `index.tsx`; updated README docs. Zero runtime impact (0 consumers).
+5. **Local ConfirmContextProvider** added in `AttributeList.tsx` — ensures `useConfirm()` and `<ConfirmDialog />` share the same context instance (workaround for dnd-kit + React 18 batching).
+
+### Architecture Note
+
+The project now has a single `ConfirmContext` implementation in `@universo/template-mui`. The `ConfirmContextProvider` is mounted in two places:
+- `MainLayoutMUI` (shared layout for all authenticated pages)
+- `AttributeList` (local provider to ensure DnD confirm flow works reliably)
 
 ### Immediate Next Steps
 
-1. Run focused QA in UI against a freshly initialized DB/schema baseline (`0.1.0`).
-2. If `UP-test` remains in use, execute a controlled DB alignment migration/reset before next validation cycle.
+1. User testing of migration display fix (`0 → 0.1.0`).
+2. Continue with Constants Value Tab + Localization tasks (see tasks.md).

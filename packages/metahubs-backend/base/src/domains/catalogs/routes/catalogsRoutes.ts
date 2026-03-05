@@ -337,6 +337,46 @@ const copyCatalogSchema = z
         }
     })
 
+const reorderCatalogsSchema = z.object({
+    catalogId: z.string().uuid(),
+    newSortOrder: z.number().int().min(1)
+})
+
+const compareCatalogTieBreak = (a: CatalogListItemRow, b: CatalogListItemRow): number => {
+    const bySortOrder = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    if (bySortOrder !== 0) return bySortOrder
+
+    const byCodename = a.codename.localeCompare(b.codename)
+    if (byCodename !== 0) return byCodename
+
+    return a.id.localeCompare(b.id)
+}
+
+const compareCatalogItems = (a: CatalogListItemRow, b: CatalogListItemRow, sortBy: string, sortOrder: 'asc' | 'desc'): number => {
+    let valA: string | number
+    let valB: string | number
+    if (sortBy === 'name') {
+        valA = getLocalizedSortValue(a.name, a.codename)
+        valB = getLocalizedSortValue(b.name, b.codename)
+    } else if (sortBy === 'codename') {
+        valA = a.codename
+        valB = b.codename
+    } else if (sortBy === 'sortOrder') {
+        valA = a.sortOrder ?? 0
+        valB = b.sortOrder ?? 0
+    } else if (sortBy === 'updated') {
+        valA = toTimestamp(a.updatedAt)
+        valB = toTimestamp(b.updatedAt)
+    } else {
+        valA = toTimestamp(a.createdAt)
+        valB = toTimestamp(b.createdAt)
+    }
+
+    if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+    if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+    return compareCatalogTieBreak(a, b)
+}
+
 export function createCatalogsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -419,31 +459,7 @@ export function createCatalogsRoutes(
                 items = items.filter((item) => matchesCatalogSearch(item.codename, item.name, searchLower))
             }
 
-            // Sort
-            items.sort((a, b) => {
-                const sortField = sortBy as string
-                let valA, valB
-                if (sortField === 'name') {
-                    valA = getLocalizedSortValue(a.name, a.codename)
-                    valB = getLocalizedSortValue(b.name, b.codename)
-                } else if (sortField === 'codename') {
-                    valA = a.codename
-                    valB = b.codename
-                } else if (sortField === 'sortOrder') {
-                    valA = a.sortOrder ?? 0
-                    valB = b.sortOrder ?? 0
-                } else if (sortField === 'updated') {
-                    valA = toTimestamp(a.updatedAt)
-                    valB = toTimestamp(b.updatedAt)
-                } else {
-                    valA = toTimestamp(a.createdAt)
-                    valB = toTimestamp(b.createdAt)
-                }
-
-                if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-                if (valA > valB) return sortOrder === 'asc' ? 1 : -1
-                return 0
-            })
+            items.sort((a, b) => compareCatalogItems(a, b, sortBy, sortOrder))
 
             const total = items.length
             const paginatedItems = items.slice(offset, offset + limit)
@@ -863,31 +879,7 @@ export function createCatalogsRoutes(
                 items = items.filter((item) => matchesCatalogSearch(item.codename, item.name, searchLower))
             }
 
-            // Sort
-            items.sort((a, b) => {
-                const sortField = sortBy as string
-                let valA, valB
-                if (sortField === 'name') {
-                    valA = getLocalizedSortValue(a.name, a.codename)
-                    valB = getLocalizedSortValue(b.name, b.codename)
-                } else if (sortField === 'codename') {
-                    valA = a.codename
-                    valB = b.codename
-                } else if (sortField === 'sortOrder') {
-                    valA = a.sortOrder ?? 0
-                    valB = b.sortOrder ?? 0
-                } else if (sortField === 'updated') {
-                    valA = toTimestamp(a.updatedAt)
-                    valB = toTimestamp(b.updatedAt)
-                } else {
-                    valA = toTimestamp(a.createdAt)
-                    valB = toTimestamp(b.createdAt)
-                }
-
-                if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-                if (valA > valB) return sortOrder === 'asc' ? 1 : -1
-                return 0
-            })
+            items.sort((a, b) => compareCatalogItems(a, b, sortBy, sortOrder))
 
             const total = items.length
             const paginatedItems = items.slice(offset, offset + limit)
@@ -922,6 +914,49 @@ export function createCatalogsRoutes(
             })
 
             res.json({ items: resultItems, pagination: { total, limit, offset } })
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/catalogs/reorder
+     * PATCH /metahub/:metahubId/hub/:hubId/catalogs/reorder
+     * Reorder a catalog in metahub list.
+     */
+    router.patch(
+        ['/metahub/:metahubId/catalogs/reorder', '/metahub/:metahubId/hub/:hubId/catalogs/reorder'],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId } = req.params
+            const { ds, objectsService } = services(req)
+            const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            const parsed = reorderCatalogsSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            try {
+                const updated = await objectsService.reorderByKind(
+                    metahubId,
+                    MetaEntityKind.CATALOG,
+                    parsed.data.catalogId,
+                    parsed.data.newSortOrder,
+                    userId
+                )
+                return res.json({
+                    id: updated.id,
+                    sortOrder: updated.config?.sortOrder ?? 0
+                })
+            } catch (error: any) {
+                if (error.message === 'catalog not found') {
+                    return res.status(404).json({ error: 'Catalog not found' })
+                }
+                throw error
+            }
         })
     )
 
@@ -1158,6 +1193,7 @@ export function createCatalogsRoutes(
                             },
                             config: {
                                 ...sourceConfig,
+                                sortOrder: undefined,
                                 hubs: sourceHubIds
                             },
                             _upl_created_at: now,

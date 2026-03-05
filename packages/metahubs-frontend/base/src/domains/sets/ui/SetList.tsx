@@ -26,11 +26,20 @@ import {
     useCodenameAutoFill,
     useCodenameVlcSync
 } from '@universo/template-mui'
+import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateSet, useCreateSetAtMetahub, useUpdateSet, useUpdateSetAtMetahub, useDeleteSet, useCopySet } from '../hooks/mutations'
+import {
+    useCreateSet,
+    useCreateSetAtMetahub,
+    useUpdateSet,
+    useUpdateSetAtMetahub,
+    useDeleteSet,
+    useCopySet,
+    useReorderSet
+} from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as setsApi from '../api'
@@ -379,24 +388,36 @@ const SetList = () => {
     const deleteSetMutation = useDeleteSet()
     const updateSetAtMetahubMutation = useUpdateSetAtMetahub()
     const copySetMutation = useCopySet()
+    const reorderSetMutation = useReorderSet()
+
+    const sortedSets = useMemo(
+        () =>
+            [...sets].sort((a, b) => {
+                const sortA = a.sortOrder ?? 0
+                const sortB = b.sortOrder ?? 0
+                if (sortA !== sortB) return sortA - sortB
+                return a.id.localeCompare(b.id)
+            }),
+        [sets]
+    )
 
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(sets)) {
-            sets.forEach((set) => {
+        if (Array.isArray(sortedSets)) {
+            sortedSets.forEach((set) => {
                 if (set?.id) {
                     imagesMap[set.id] = []
                 }
             })
         }
         return imagesMap
-    }, [sets])
+    }, [sortedSets])
 
     const setMap = useMemo(() => {
-        if (!Array.isArray(sets)) return new Map<string, SetWithHubs>()
-        return new Map(sets.map((set) => [set.id, set]))
-    }, [sets])
+        if (!Array.isArray(sortedSets)) return new Map<string, SetWithHubs>()
+        return new Map(sortedSets.map((set) => [set.id, set]))
+    }, [sortedSets])
 
     // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<SetFormValues>(
@@ -992,6 +1013,58 @@ const SetList = () => {
     // Transform Set data for display - use hub-aware version for global mode
     const getSetCardData = (set: SetWithHubs): SetWithHubsDisplay => toSetWithHubsDisplay(set, i18n.language)
 
+    const handleSortableDragEnd = async (event: DragEndEvent) => {
+        if (!metahubId) return
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const overSet = sortedSets.find((set) => set.id === String(over.id))
+        if (!overSet) return
+
+        try {
+            await reorderSetMutation.mutateAsync({
+                metahubId,
+                hubId,
+                setId: String(active.id),
+                newSortOrder: overSet.sortOrder ?? 1
+            })
+            enqueueSnackbar(t('sets.reorderSuccess', 'Set order updated'), { variant: 'success' })
+        } catch (error: unknown) {
+            const message =
+                typeof error === 'object' &&
+                error !== null &&
+                'message' in error &&
+                typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : t('sets.reorderError', 'Failed to reorder set')
+            enqueueSnackbar(message, { variant: 'error' })
+        }
+    }
+
+    const renderDragOverlay = (activeId: string | null) => {
+        if (!activeId) return null
+        const set = setMap.get(activeId)
+        if (!set) return null
+        const display = getSetCardData(set)
+        return (
+            <Box
+                sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    boxShadow: 6,
+                    bgcolor: 'background.paper',
+                    minWidth: 260
+                }}
+            >
+                <Stack spacing={0.25}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{display.name || display.codename || set.id}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{display.codename || '—'}</Typography>
+                </Stack>
+            </Box>
+        )
+    }
+
     return (
         <MainCard
             sx={{ maxWidth: '100%', width: '100%' }}
@@ -1057,13 +1130,13 @@ const SetList = () => {
                             </Box>
                         )}
 
-                        {isLoading && sets.length === 0 ? (
+                        {isLoading && sortedSets.length === 0 ? (
                             view === 'card' ? (
                                 <SkeletonGrid />
                             ) : (
                                 <Skeleton variant='rectangular' height={120} />
                             )
-                        ) : !isLoading && sets.length === 0 ? (
+                        ) : !isLoading && sortedSets.length === 0 ? (
                             <EmptyListState
                                 image={APIEmptySVG}
                                 imageAlt='No sets'
@@ -1087,7 +1160,7 @@ const SetList = () => {
                                             alignContent: 'start'
                                         }}
                                     >
-                                        {sets.map((set: SetWithHubs) => {
+                                        {sortedSets.map((set: SetWithHubs) => {
                                             const descriptors = [...filteredSetActions]
                                             const displayData = getSetCardData(set)
 
@@ -1138,9 +1211,15 @@ const SetList = () => {
                                 ) : (
                                     <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                                         <FlowListTable
-                                            data={sets.map(getSetCardData)}
+                                            data={sortedSets.map(getSetCardData)}
                                             images={images}
                                             isLoading={isLoading}
+                                            sortableRows
+                                            sortableItemIds={sortedSets.map((set) => set.id)}
+                                            dragHandleAriaLabel={t('sets.dnd.dragHandle', 'Drag to reorder')}
+                                            dragDisabled={reorderSetMutation.isPending || isLoading}
+                                            onSortableDragEnd={handleSortableDragEnd}
+                                            renderDragOverlay={renderDragOverlay}
                                             getRowLink={(row: SetWithHubsDisplay) =>
                                                 row?.id
                                                     ? isHubScoped
@@ -1151,7 +1230,7 @@ const SetList = () => {
                                             customColumns={setColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: SetWithHubsDisplay) => {
-                                                const originalSet = sets.find((c) => c.id === row.id)
+                                                const originalSet = setMap.get(row.id)
                                                 if (!originalSet) return null
 
                                                 const descriptors = [...filteredSetActions]
@@ -1176,7 +1255,7 @@ const SetList = () => {
                         )}
 
                         {/* Table Pagination at bottom */}
-                        {!isLoading && sets.length > 0 && (
+                        {!isLoading && sortedSets.length > 0 && (
                             <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                                 <PaginationControls
                                     pagination={paginationResult.pagination}

@@ -258,6 +258,11 @@ const copyEnumerationSchema = z.object({
     copyValues: z.boolean().optional()
 })
 
+const reorderEnumerationsSchema = z.object({
+    enumerationId: z.string().uuid(),
+    newSortOrder: z.number().int().min(1)
+})
+
 const createEnumerationValueSchema = z.object({
     codename: z.string().min(1).max(100),
     codenameInput: localizedCodenameInputSchema.optional(),
@@ -307,6 +312,46 @@ const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
 const mapHubSummaries = (hubs: Record<string, unknown>[]): HubSummaryRow[] => hubs.map(mapHubSummary)
 const resolveCreatedAt = (row: EnumerationObjectRow): unknown => row._upl_created_at ?? row.created_at ?? null
 const resolveUpdatedAt = (row: EnumerationObjectRow): unknown => row._upl_updated_at ?? row.updated_at ?? null
+
+const compareEnumerationTieBreak = (a: EnumerationListItemRow, b: EnumerationListItemRow): number => {
+    const bySortOrder = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    if (bySortOrder !== 0) return bySortOrder
+
+    const byCodename = a.codename.localeCompare(b.codename)
+    if (byCodename !== 0) return byCodename
+
+    return a.id.localeCompare(b.id)
+}
+
+const compareEnumerationItems = (
+    a: EnumerationListItemRow,
+    b: EnumerationListItemRow,
+    sortBy: string,
+    sortOrder: 'asc' | 'desc'
+): number => {
+    let valA: string | number
+    let valB: string | number
+    if (sortBy === 'name') {
+        valA = getLocalizedSortValue(a.name, a.codename)
+        valB = getLocalizedSortValue(b.name, b.codename)
+    } else if (sortBy === 'codename') {
+        valA = a.codename
+        valB = b.codename
+    } else if (sortBy === 'sortOrder') {
+        valA = a.sortOrder ?? 0
+        valB = b.sortOrder ?? 0
+    } else if (sortBy === 'updated') {
+        valA = toTimestamp(a.updatedAt)
+        valB = toTimestamp(b.updatedAt)
+    } else {
+        valA = toTimestamp(a.createdAt)
+        valB = toTimestamp(b.createdAt)
+    }
+
+    if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+    if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+    return compareEnumerationTieBreak(a, b)
+}
 
 const getEnumerationHubIds = (row: EnumerationObjectRow): string[] => {
     const rawHubs = row.config?.hubs
@@ -463,31 +508,7 @@ export function createEnumerationsRoutes(
                 items = items.filter((item) => matchesEnumerationSearch(item.codename, item.name, searchLower))
             }
 
-            items.sort((a, b) => {
-                const sortField = sortBy as string
-                let valA
-                let valB
-                if (sortField === 'name') {
-                    valA = getLocalizedSortValue(a.name, a.codename)
-                    valB = getLocalizedSortValue(b.name, b.codename)
-                } else if (sortField === 'codename') {
-                    valA = a.codename
-                    valB = b.codename
-                } else if (sortField === 'sortOrder') {
-                    valA = a.sortOrder ?? 0
-                    valB = b.sortOrder ?? 0
-                } else if (sortField === 'updated') {
-                    valA = toTimestamp(a.updatedAt)
-                    valB = toTimestamp(b.updatedAt)
-                } else {
-                    valA = toTimestamp(a.createdAt)
-                    valB = toTimestamp(b.createdAt)
-                }
-
-                if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-                if (valA > valB) return sortOrder === 'asc' ? 1 : -1
-                return 0
-            })
+            items.sort((a, b) => compareEnumerationItems(a, b, sortBy, sortOrder))
 
             const total = items.length
             const paginatedItems = items.slice(offset, offset + limit)
@@ -775,6 +796,7 @@ export function createEnumerationsRoutes(
                             },
                             config: {
                                 ...sourceConfig,
+                                sortOrder: undefined,
                                 hubs: sourceHubIds
                             },
                             _upl_created_at: now,
@@ -1088,31 +1110,7 @@ export function createEnumerationsRoutes(
                 items = items.filter((item) => matchesEnumerationSearch(item.codename, item.name, searchLower))
             }
 
-            items.sort((a, b) => {
-                const sortField = sortBy as string
-                let valA
-                let valB
-                if (sortField === 'name') {
-                    valA = getLocalizedSortValue(a.name, a.codename)
-                    valB = getLocalizedSortValue(b.name, b.codename)
-                } else if (sortField === 'codename') {
-                    valA = a.codename
-                    valB = b.codename
-                } else if (sortField === 'sortOrder') {
-                    valA = a.sortOrder ?? 0
-                    valB = b.sortOrder ?? 0
-                } else if (sortField === 'updated') {
-                    valA = toTimestamp(a.updatedAt)
-                    valB = toTimestamp(b.updatedAt)
-                } else {
-                    valA = toTimestamp(a.createdAt)
-                    valB = toTimestamp(b.createdAt)
-                }
-
-                if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-                if (valA > valB) return sortOrder === 'asc' ? 1 : -1
-                return 0
-            })
+            items.sort((a, b) => compareEnumerationItems(a, b, sortBy, sortOrder))
 
             const total = items.length
             const paginatedItems = items.slice(offset, offset + limit)
@@ -1145,6 +1143,48 @@ export function createEnumerationsRoutes(
             })
 
             return res.json({ items: resultItems, pagination: { total, limit, offset } })
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/enumerations/reorder
+     * PATCH /metahub/:metahubId/hub/:hubId/enumerations/reorder
+     * Reorder an enumeration in metahub list.
+     */
+    router.patch(
+        ['/metahub/:metahubId/enumerations/reorder', '/metahub/:metahubId/hub/:hubId/enumerations/reorder'],
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { metahubId } = req.params
+            const { ds, objectsService } = services(req)
+            const userId = resolveUserId(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', getRequestQueryRunner(req))
+
+            const parsed = reorderEnumerationsSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            try {
+                const updated = await objectsService.reorderByKind(
+                    metahubId,
+                    MetaEntityKind.ENUMERATION,
+                    parsed.data.enumerationId,
+                    parsed.data.newSortOrder,
+                    userId
+                )
+                return res.json({
+                    id: updated.id,
+                    sortOrder: updated.config?.sortOrder ?? 0
+                })
+            } catch (error: any) {
+                if (error.message === 'enumeration not found') {
+                    return res.status(404).json({ error: 'Enumeration not found' })
+                }
+                throw error
+            }
         })
     )
 

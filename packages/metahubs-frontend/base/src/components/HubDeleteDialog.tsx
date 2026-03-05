@@ -32,7 +32,7 @@ interface BlockingHubObjectRow extends BlockingHubObject {
 
 /**
  * Dialog for confirming hub deletion.
- * Shows grouped blocking entities (catalogs + enumerations) and disables delete when blockers exist.
+ * Shows grouped blocking entities (catalogs + sets + enumerations) and disables delete when blockers exist.
  */
 export const HubDeleteDialog = ({
     open,
@@ -98,7 +98,15 @@ export const HubDeleteDialog = ({
         }))
     }, [blockingQuery.data?.blockingEnumerations, uiLocale])
 
-    const totalBlocking = blockingCatalogs.length + blockingEnumerations.length
+    const blockingSets: BlockingHubObjectRow[] = useMemo(() => {
+        const source = blockingQuery.data?.blockingSets ?? []
+        return source.map((entity) => ({
+            ...entity,
+            displayName: getVLCString(entity.name, uiLocale) || getVLCString(entity.name, 'en') || entity.codename || '—'
+        }))
+    }, [blockingQuery.data?.blockingSets, uiLocale])
+
+    const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length
     const isLoading = blockingQuery.isLoading || blockingQuery.isFetching
     const error = blockingQuery.isError ? t('hubs.deleteDialog.fetchError', 'Failed to check for blocking entities') : null
     const canDelete = !isLoading && !error && totalBlocking === 0
@@ -110,6 +118,7 @@ export const HubDeleteDialog = ({
     }
 
     const getCatalogLink = (catalog: BlockingHubObjectRow) => `/metahub/${metahubId}/catalog/${catalog.id}/attributes`
+    const getSetLink = (set: BlockingHubObjectRow) => `/metahub/${metahubId}/set/${set.id}/constants`
     const getEnumerationLink = (enumeration: BlockingHubObjectRow) => `/metahub/${metahubId}/enumeration/${enumeration.id}/values`
 
     if (!hub) return null
@@ -159,6 +168,21 @@ export const HubDeleteDialog = ({
                                     data={blockingEnumerations}
                                     maxHeight={180}
                                     getRowLink={getEnumerationLink}
+                                    linkMode='all-cells'
+                                    columns={columns}
+                                />
+                            </Box>
+                        )}
+
+                        {blockingSets.length > 0 && (
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant='subtitle2' sx={{ mb: 1, fontWeight: 600 }}>
+                                    {t('hubs.deleteDialog.sections.sets', 'Наборы')}
+                                </Typography>
+                                <CompactListTable<BlockingHubObjectRow>
+                                    data={blockingSets}
+                                    maxHeight={180}
+                                    getRowLink={getSetLink}
                                     linkMode='all-cells'
                                     columns={columns}
                                 />

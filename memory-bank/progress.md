@@ -44,6 +44,144 @@
 
 ---
 
+## QA Cleanup: Diagnostic Logs + Migration Display + Legacy ConfirmContext (2026-03-05)
+
+Comprehensive QA review identified three categories of technical debt; all resolved in a single implementation pass.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `useAttributeDnd.ts` | Removed 2 `[DND-DIAG]` console.warn calls from useEffect (deferred cross-list transfer processing) |
+| `AttributeList.tsx` | Removed 2 `[DND-DIAG]` console.warn calls from `handleValidateTransfer` |
+| `useConfirm.ts` | Removed 1 `[DND-DIAG]` console.warn from `confirm()` function |
+| `ConfirmDialog.tsx` | Removed 1 `[DND-DIAG]` console.warn from render body |
+| `MetahubMigrations.tsx` | Fixed baseline schema version display: `'—'` → `'0'` (line 132), now shows `0 → 0.1.0` instead of `— → 0.1.0` |
+| `index.tsx` (core-frontend) | Removed unused `ConfirmContextProvider` import and JSX wrapper from `@universo/store` |
+| `@universo/store/index.ts` | Removed `ConfirmContext` and `ConfirmContextProvider` exports |
+| `@universo/store/reducer.jsx` | Removed `dialogReducer` from Redux `combineReducers` |
+| `ConfirmContext.jsx` | **Deleted** — legacy, 0 consumers |
+| `ConfirmContextProvider.jsx` | **Deleted** — legacy, 0 consumers |
+| `dialogReducer.js` | **Deleted** — legacy, 0 consumers (`state.dialog` never read) |
+| `@universo/store` README.md, README-RU.md | Updated to reflect removed files |
+
+### Key Findings from QA
+- The project had TWO separate `ConfirmContext` implementations: one in `@universo/template-mui` (TypeScript, active, 20+ consumers) and one in `@universo/store` (JSX legacy, 0 consumers). The legacy version was safely removed.
+- The `useConfirm` hook uses a module-level singleton `resolveCallback` — functional but doesn't support concurrent `confirm()` calls. Noted as low-priority improvement for future.
+
+### Verification
+- `pnpm build` — 23/23 tasks, 0 errors
+
+---
+
+## DnD Empty Child Table Drop Regression Fix (2026-03-05)
+
+Fixed regression where dragging first attribute into an empty child TABLE attribute list was silently rejected (attribute returned to original position instead of showing confirmation dialog).
+
+### Root Cause (Two-Part)
+
+**Part 1 — Component switching**: `ChildAttributeList.tsx` switched between two components based on `effectiveData.length`:
+- **0 items** → `EmptyDroppableChildArea` (standalone `useDroppable({ id: containerId })`)
+- **>0 items** → `FlowListTable` (with `DroppableSortableBody` → its own `useDroppable({ id: containerId })`)
+
+On drag-over, ghost row injection made `effectiveData` transition from `[]` to `[ghost]`, triggering component switch. The unmount/remount briefly removed the droppable ID from dnd-kit's store. Collision detection lost the target → `handleDragOver` fell back to source container → cleared `pendingTransfer` → ghost disappeared → cycle repeated indefinitely.
+
+**Part 2 — Confirm dialog batching**: Even after fixing Part 1, the confirm dialog for "first child attribute" never appeared. Root cause: dnd-kit calls `onDragEnd` inside `unstable_batchedUpdates` (found in dnd-kit core source). All React state updates — DnD cleanup (`setActiveId(null)`, etc.) and `dispatch(SHOW_CONFIRM)` from `useConfirm` hook — were flushed in a single render. The confirm dialog's Promise from `confirm()` hung forever because the dialog's `show: true` state was applied alongside DnD teardown, preventing the dialog from rendering independently.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `FlowListTable.tsx` | Added `emptyStateMessage` prop: renders empty-state `<TableRow>` maintaining droppable height; conditionally hides `<TableHead>` when empty |
+| `ChildAttributeList.tsx` | Removed `EmptyDroppableChildArea` component + `EmptyDroppableChildAreaProps` interface + component switching. Always renders `FlowListTable` with `emptyStateMessage`. Removed unused `useDroppable` import |
+| `useAttributeDnd.ts` | Deferred cross-list validation + transfer to next macrotask via `setTimeout(fn, 0)` in `handleDragEnd` — React flushes DnD cleanup first, then confirm dialog renders in separate cycle |
+| `useAttributeDnd.ts` | Added `handleDragOver` guard: preserve `pendingTransfer` when collision detection temporarily resolves to source-container item while cross-list transfer active |
+
+### Verification
+
+- `pnpm build --filter apps-template-mui` — ✅ success
+- `pnpm build --filter metahubs-frontend` — ✅ success
+- `pnpm build` (full, 23 tasks) — ✅ success
+- `pnpm --filter apps-template-mui lint` — ✅ no new errors
+- `pnpm --filter metahubs-frontend lint` — ✅ no new errors (0 errors, 147 pre-existing warnings)
+
+---
+
+## Metahub Ordering/Validation QA Debt Closure (2026-03-05)
+
+Completed the follow-up implementation cycle after QA findings and re-validated the scope with fresh lint/test/build evidence.
+
+### Fixes delivered
+
+- Fixed `ElementList` runtime safety issue by moving move-handler wiring to a stable `useCallback` declared before context construction (removed TDZ risk for `handleMoveElement`).
+- Removed duplicate move notifications by keeping user feedback in UI flow and removing snackbar side-effects from `useMoveElement` hook.
+- Updated elements route tests to use structured backend errors (`code: ELEMENT_NOT_FOUND`) instead of legacy message-only rejection mocks.
+- Extended backend attribute route coverage with structured TABLE contracts:
+  - `TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN` (create pre-validation)
+  - `TABLE_ATTRIBUTE_LIMIT_REACHED` (service conflict mapping).
+- Applied Prettier normalization to touched backend/frontend files that previously broke lint quality gates.
+
+### Verification executed
+
+- `pnpm --filter @universo/metahubs-backend lint` -> pass (warnings only)
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/attributesRoutes.test.ts src/tests/routes/elementsRoutes.test.ts` -> pass (`6/6`, `71/71`)
+- `pnpm --filter @universo/metahubs-backend build` -> pass
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (warnings only)
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/elements/ui/__tests__/ElementActions.test.ts src/components/__tests__/SetDeleteDialog.test.tsx src/components/__tests__/TargetEntitySelector.test.tsx` -> pass (`25/25`, `102/102`)
+- `pnpm --filter @universo/metahubs-frontend build` -> pass
+- `pnpm --filter @universo/template-mui lint` -> pass (warnings only)
+- `pnpm --filter @universo/template-mui test -- src/components/table/__tests__/FlowListTable.test.tsx` -> pass
+- `pnpm --filter @universo/template-mui build` -> pass
+- `pnpm --filter @universo/types build` -> pass
+
+## Metahub Ordering + Table DnD + TABLE Child Limits (2026-03-05)
+
+Completed full implementation of ordering and table drag-and-drop parity for metahub entities, added per-TABLE child-attribute limits, and closed dependency/test debt for this scope.
+
+### Completed implementation
+
+- Added backend reorder foundation for object kinds (`hub`, `catalog`, `set`, `enumeration`) via shared `reorderByKind` path and new reorder endpoints in hubs/catalogs/sets/enumerations routes.
+- Added backend elements move/reorder endpoints and service logic (`moveElement`, `reorderElement`) with create-time append ordering (`MAX(sort_order)+1`) and sequential normalization guarantees.
+- Fixed backend attribute transfer/codename update path and enforced TABLE child limit contract with structured conflict payload (`code: TABLE_CHILD_LIMIT_REACHED`, `maxChildAttributes`).
+- Extended shared contracts in `@universo/types` with `AttributeValidationRules.maxChildAttributes`.
+- Expanded table-view DnD (without introducing new list components) for hubs/catalogs/sets/enumerations/elements using existing `FlowListTable` sortable APIs.
+- Added element order UX parity: visible `#` order column, move up/down actions, and drag reorder in table mode.
+- Kept card views without DnD as required.
+- Extended `FlowListTable` behavior:
+  - disable header sort controls when `sortableRows=true`,
+  - support invalid drop target visual state (`isDropTargetInvalid`) for red dashed border.
+- Added TABLE setting UI for `maxChildAttributes`, disabled child `Create` at limit, blocked invalid cross-list drops, and wired RU/EN i18n keys/messages.
+- Removed unused `flowise-react-json-view` from workspace/package dependencies and refreshed lockfile.
+- Added deterministic tie-break sorting for catalogs/sets/enumerations list comparators to reduce ordering drift.
+
+### Tests added/extended
+
+- Backend route tests:
+  - Added `elementsRoutes.test.ts` (move/reorder endpoint coverage).
+  - Extended `hubsRoutes.test.ts`, `catalogsRoutes.test.ts`, `setsRoutes.test.ts`, `enumerationsRoutes.test.ts` with reorder endpoint coverage.
+  - Extended `attributesRoutes.test.ts` with structured TABLE child-limit conflict coverage.
+- Frontend tests:
+  - Added `ElementActions.test.ts` for new element move-up/move-down behavior.
+  - Added `FlowListTable.test.tsx` for sortable-header disabling behavior in `sortableRows` mode.
+
+### Verification executed
+
+- `pnpm --filter @universo/metahubs-backend lint` -> pass (warnings only)
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/attributesRoutes.test.ts src/tests/routes/elementsRoutes.test.ts` -> pass (`6/6`, `69/69`)
+- `pnpm --filter @universo/metahubs-backend build` -> pass
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (warnings only)
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/elements/ui/__tests__/ElementActions.test.ts src/components/__tests__/SetDeleteDialog.test.tsx src/components/__tests__/TargetEntitySelector.test.tsx` -> pass
+- `pnpm --filter @universo/metahubs-frontend build` -> pass
+- `pnpm --filter @universo/template-mui lint` -> pass (warnings only)
+- `pnpm --filter @universo/template-mui test -- src/components/table/__tests__/FlowListTable.test.tsx` -> pass
+- `pnpm --filter @universo/template-mui build` -> pass
+- `pnpm --filter @universo/types build` -> pass
+
+### Documentation references used during implementation
+
+- Context7: `/clauderic/dnd-kit` (sortable list and drag integration patterns)
+- Context7: `/tanstack/query` (optimistic mutation update/rollback patterns)
+
 ## Sets/Constants Final Debt Closure + Build Fix (2026-03-05)
 
 Completed the focused implementation cycle for remaining Sets/Constants debt and the blocking metahubs-backend TypeScript build failure.

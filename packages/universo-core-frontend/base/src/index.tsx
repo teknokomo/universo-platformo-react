@@ -1,7 +1,7 @@
 import '@/diagnostics/bootstrapDiagnostics'
 import React, { type ReactNode } from 'react'
 import App from '@/App'
-import { store, ConfirmContextProvider } from '@universo/store'
+import { store } from '@universo/store'
 import { createRoot } from 'react-dom/client'
 import { AuthProvider } from '@universo/auth-frontend'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -88,11 +88,9 @@ root.render(
                 <Provider store={store}>
                     <RouterWrapper basename={routerConfig.basename}>
                         <SnackbarProvider>
-                            <ConfirmContextProvider>
-                                <AuthProvider client={api.$client}>
-                                    <App />
-                                </AuthProvider>
-                            </ConfirmContextProvider>
+                            <AuthProvider client={api.$client}>
+                                <App />
+                            </AuthProvider>
                         </SnackbarProvider>
                     </RouterWrapper>
                 </Provider>

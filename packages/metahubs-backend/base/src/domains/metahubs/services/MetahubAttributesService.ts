@@ -21,6 +21,43 @@ export class MetahubAttributesService {
         return trx ?? this.knex
     }
 
+    private getMaxChildAttributesLimit(validationRules: unknown): number | null {
+        if (!validationRules || typeof validationRules !== 'object') {
+            return null
+        }
+        const raw = (validationRules as Record<string, unknown>).maxChildAttributes
+        if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 1) {
+            return null
+        }
+        return raw
+    }
+
+    private createTableChildLimitError(maxChildAttributes: number): Error {
+        const error: Error & { code?: string; maxChildAttributes?: number } = new Error(
+            `TABLE_CHILD_LIMIT_REACHED: Maximum ${maxChildAttributes} child attributes per TABLE`
+        )
+        error.code = 'TABLE_CHILD_LIMIT_REACHED'
+        error.maxChildAttributes = maxChildAttributes
+        return error
+    }
+
+    private createTableAttributeLimitError(maxTableAttributes: number): Error {
+        const error: Error & { code?: string; maxTableAttributes?: number } = new Error(
+            `TABLE_ATTRIBUTE_LIMIT_REACHED: Maximum ${maxTableAttributes} TABLE attributes per catalog`
+        )
+        error.code = 'TABLE_ATTRIBUTE_LIMIT_REACHED'
+        error.maxTableAttributes = maxTableAttributes
+        return error
+    }
+
+    private createTableDisplayAttributeForbiddenError(): Error {
+        const error: Error & { code?: string } = new Error(
+            'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN: TABLE attributes cannot be set as display attribute'
+        )
+        error.code = 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
+        return error
+    }
+
     private async generateUniqueTableAttributeId(schemaName: string, catalogId: string, trx?: Knex.Transaction): Promise<string> {
         const runner = this.getRunner(trx)
         const existingTableAttrs = (await runner
@@ -426,16 +463,19 @@ export class MetahubAttributesService {
             if (data.dataType === AttributeDataType.TABLE) {
                 throw new Error('Nested TABLE attributes are not allowed')
             }
-            const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId, trx)
-            if (childCount >= 20) {
-                throw new Error('Maximum 20 child attributes per TABLE')
+            const maxChildAttributes = this.getMaxChildAttributesLimit(parent.validationRules)
+            if (typeof maxChildAttributes === 'number') {
+                const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId, trx)
+                if (childCount >= maxChildAttributes) {
+                    throw this.createTableChildLimitError(maxChildAttributes)
+                }
             }
         }
 
         if (data.dataType === AttributeDataType.TABLE) {
             const tableCount = await this.countTableAttributes(metahubId, data.catalogId, userId, trx)
             if (tableCount >= 10) {
-                throw new Error('Maximum 10 TABLE attributes per catalog')
+                throw this.createTableAttributeLimitError(10)
             }
 
             explicitAttributeId = await this.generateUniqueTableAttributeId(schemaName, data.catalogId, trx)
@@ -792,6 +832,24 @@ export class MetahubAttributesService {
             if (!TABLE_CHILD_DATA_TYPES.includes(attribute.data_type)) {
                 throw new Error(`TRANSFER_NOT_ALLOWED: ${attribute.data_type} attributes are not allowed in TABLE children`)
             }
+
+            const maxChildAttributes = this.getMaxChildAttributesLimit(parentAttr.validation_rules)
+            if (typeof maxChildAttributes === 'number') {
+                const countResult = await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_attributes')
+                    .where({ object_id: objectId, parent_attribute_id: targetParentId })
+                    .andWhere('_upl_deleted', false)
+                    .andWhere('_mhb_deleted', false)
+                    .count('id as count')
+                    .first()
+                const childCountRaw = countResult?.count
+                const childCount =
+                    typeof childCountRaw === 'number' ? childCountRaw : childCountRaw ? Number.parseInt(String(childCountRaw), 10) : 0
+                if (childCount >= maxChildAttributes) {
+                    throw this.createTableChildLimitError(maxChildAttributes)
+                }
+            }
         }
 
         // 4. Codename uniqueness check in target scope
@@ -828,11 +886,15 @@ export class MetahubAttributesService {
             for (let attempt = 2; attempt <= CODENAME_RETRY_MAX_ATTEMPTS && !renamed; attempt++) {
                 const candidate = buildCodenameAttempt(attribute.codename, attempt, codenameStyle)
                 if (!(await hasConflict(candidate))) {
+                    const nextPresentation =
+                        attribute.presentation && typeof attribute.presentation === 'object'
+                            ? { ...(attribute.presentation as Record<string, unknown>), codename: null }
+                            : { codename: null }
                     await trx
                         .withSchema(schemaName)
                         .from('_mhb_attributes')
                         .where({ id: attribute.id })
-                        .update({ codename: candidate, codename_localized: null })
+                        .update({ codename: candidate, presentation: nextPresentation })
                     renamed = true
                 }
             }
@@ -910,7 +972,7 @@ export class MetahubAttributesService {
 
         // TABLE type attributes cannot be display attributes
         if (attribute.dataType === AttributeDataType.TABLE) {
-            throw new Error('TABLE attributes cannot be set as display attribute')
+            throw this.createTableDisplayAttributeForbiddenError()
         }
 
         await this.knex.transaction(async (trx) => {

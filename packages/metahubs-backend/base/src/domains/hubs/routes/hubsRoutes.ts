@@ -151,6 +151,11 @@ const copyHubSchema = z.object({
     copyEnumerationRelations: z.boolean().optional()
 })
 
+const reorderHubsSchema = z.object({
+    hubId: z.string().uuid(),
+    newSortOrder: z.number().int().min(1)
+})
+
 export function createHubsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -174,6 +179,7 @@ export function createHubsRoutes(
         const hubsService = new MetahubHubsService(schemaService)
         const settingsService = new MetahubSettingsService(schemaService)
         return {
+            ds,
             metahubRepo: manager.getRepository(Metahub),
             schemaService,
             objectsService,
@@ -374,6 +380,48 @@ export function createHubsRoutes(
             })
 
             res.json({ items, pagination: { total, limit, offset } })
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hubs/reorder
+     * Reorder a hub in metahub list.
+     */
+    router.patch(
+        '/metahub/:metahubId/hubs/reorder',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId } = req.params
+            const { ds, objectsService } = services(req)
+            const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            const parsed = reorderHubsSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            try {
+                const updated = await objectsService.reorderByKind(
+                    metahubId,
+                    MetaEntityKind.HUB,
+                    parsed.data.hubId,
+                    parsed.data.newSortOrder,
+                    userId
+                )
+                return res.json({
+                    id: updated.id,
+                    sortOrder: updated.config?.sortOrder ?? 0
+                })
+            } catch (error: any) {
+                if (error.message === 'hub not found') {
+                    return res.status(404).json({ error: 'Hub not found' })
+                }
+                throw error
+            }
         })
     )
 
@@ -643,7 +691,7 @@ export function createHubsRoutes(
                                 description: descriptionVlc ?? null
                             },
                             config: {
-                                sortOrder: sourceHub.sort_order ?? 0
+                                sortOrder: undefined
                             },
                             _upl_created_at: now,
                             _upl_created_by: userId ?? null,
