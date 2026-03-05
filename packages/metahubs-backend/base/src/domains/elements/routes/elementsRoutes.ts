@@ -1,10 +1,11 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { OptimisticLockError } from '@universo/utils'
 import { getRequestManager } from '../../../utils'
+import { ensureMetahubAccess } from '../../shared/guards'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
@@ -24,6 +25,12 @@ const extractErrorCode = (error: unknown): string | undefined => {
     if (!error || typeof error !== 'object' || !('code' in error)) return undefined
     const code = (error as { code?: unknown }).code
     return typeof code === 'string' ? code : undefined
+}
+
+type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
+
+const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
+    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 // Request body schemas
@@ -75,6 +82,7 @@ export function createElementsRoutes(
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
+            ds,
             elementsService,
             attributesService
         }
@@ -266,8 +274,12 @@ export function createElementsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, elementId } = req.params
-            const { elementsService } = services(req)
+            const { ds, elementsService } = services(req)
             const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
 
             const parsed = moveElementSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -297,8 +309,12 @@ export function createElementsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { elementsService } = services(req)
+            const { ds, elementsService } = services(req)
             const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
 
             const parsed = reorderElementSchema.safeParse(req.body)
             if (!parsed.success) {

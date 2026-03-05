@@ -50,6 +50,30 @@ const isTableAttributeLimitReachedError = (error: unknown): error is Error & { c
     return (error as { code?: string }).code === 'TABLE_ATTRIBUTE_LIMIT_REACHED'
 }
 
+/**
+ * Shared handler for TABLE-related limit errors.
+ * Returns true if the error was handled (response sent), false otherwise.
+ */
+const handleTableLimitError = (error: unknown, res: Response): boolean => {
+    if (isTableChildLimitReachedError(error)) {
+        res.status(409).json({
+            error: error.message,
+            code: 'TABLE_CHILD_LIMIT_REACHED',
+            maxChildAttributes: error.maxChildAttributes ?? null
+        })
+        return true
+    }
+    if (isTableAttributeLimitReachedError(error)) {
+        res.status(409).json({
+            error: error.message,
+            code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
+            maxTableAttributes: error.maxTableAttributes ?? null
+        })
+        return true
+    }
+    return false
+}
+
 const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
 const ENUM_LABEL_EMPTY_DISPLAY_MODES = ['empty', 'dash'] as const
 const ENUMERATION_KIND = 'enumeration' as const
@@ -750,20 +774,7 @@ export function createAttributesRoutes(
                 if (error instanceof Error && error.message === GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
-                if (isTableChildLimitReachedError(error)) {
-                    return res.status(409).json({
-                        error: error.message,
-                        code: 'TABLE_CHILD_LIMIT_REACHED',
-                        maxChildAttributes: error.maxChildAttributes ?? null
-                    })
-                }
-                if (isTableAttributeLimitReachedError(error)) {
-                    return res.status(409).json({
-                        error: error.message,
-                        code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
-                        maxTableAttributes: error.maxTableAttributes ?? null
-                    })
-                }
+                if (handleTableLimitError(error, res)) return
                 if (isUniqueViolation(error)) {
                     return res.status(409).json({ error: 'Attribute with this codename already exists' })
                 }
@@ -1037,20 +1048,7 @@ export function createAttributesRoutes(
                     }
                 }
             } catch (error) {
-                if (isTableChildLimitReachedError(error)) {
-                    return res.status(409).json({
-                        error: error.message,
-                        code: 'TABLE_CHILD_LIMIT_REACHED',
-                        maxChildAttributes: error.maxChildAttributes ?? null
-                    })
-                }
-                if (isTableAttributeLimitReachedError(error)) {
-                    return res.status(409).json({
-                        error: error.message,
-                        code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
-                        maxTableAttributes: error.maxTableAttributes ?? null
-                    })
-                }
+                if (handleTableLimitError(error, res)) return
                 throw error
             } finally {
                 if (globalCodenameLockKey) {

@@ -302,7 +302,7 @@ const compareSetItems = (a: SetListItemRow, b: SetListItemRow, sortBy: string, s
     }
 
     if (sortBy === 'sortOrder') {
-        const orderDiff = a.sortOrder - b.sortOrder
+        const orderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
         if (orderDiff !== 0) return sortOrder === 'asc' ? orderDiff : -orderDiff
         return compareSetTieBreak(a, b)
     }
