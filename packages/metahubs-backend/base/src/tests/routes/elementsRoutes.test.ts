@@ -32,6 +32,13 @@ jest.mock('@universo/admin-backend', () => ({
     hasSubjectPermissionByDataSource: jest.fn(async () => false)
 }))
 
+const mockEnsureMetahubAccess = jest.fn(async () => undefined)
+
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+}))
+
 import type { NextFunction, Request, Response } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')

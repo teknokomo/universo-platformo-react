@@ -4,6 +4,33 @@
 
 ---
 
+## Completed: PR #710 QA Fixes — 2026-03-06 ✅
+
+> **Goal**: Fix failing tests and prettier errors discovered during comprehensive QA analysis of PR #710.
+
+- [x] Fix 4 failing tests in `elementsRoutes.test.ts` — add missing `ensureMetahubAccess` mock (same pattern as 7 other test files)
+- [x] Fix 2 prettier errors in `useAttributeDnd.ts` — arrow function body formatting (line 96), multi-line condition inlining (line 179)
+- [x] Verify: run tests (168/168 pass, 22/22 suites) and lint (0 errors)
+- [x] Update memory-bank files (activeContext.md, progress.md, tasks.md)
+- [x] Commit and push to PR #710 branch
+
+---
+
+## Completed: PR #710 Bot Review Fixes — 2026-03-06 ✅
+
+> **Goal**: Analyze bot review comments on PR #710, validate against codebase, fix genuine issues without breaking functionality.
+
+- [x] Fetch and analyze all 5 inline review comments + 1 summary from PR #710
+- [x] Fix SECURITY: Add `ensureMetahubAccess` to elements `/move` endpoint
+- [x] Fix SECURITY: Add `ensureMetahubAccess` to elements `/reorder` endpoint  
+- [x] Fix CORRECTNESS: Null-safe `sortOrder` comparison in setsRoutes.ts
+- [x] Fix DEDUP: Extract `handleTableLimitError` helper in attributesRoutes.ts (2 of 3 occurrences)
+- [x] Reject: Bulk CTE UPDATE suggestion (premature optimization)
+- [x] Full build verification (23/23 tasks, 0 errors)
+- [x] Commit and push fixes to PR #710 branch
+
+---
+
 ## Completed: QA Cleanup — DnD Diagnostic Logs + Migration Display + Legacy ConfirmContext — 2026-03-05 ✅
 
 > **Goal**: Clean up all technical debt identified during QA review of DnD implementation; remove diagnostic traces, fix display bug, eliminate dead legacy code.

@@ -1,32 +1,32 @@
 # Active Context
 
-> **Last Updated**: 2026-03-05
+> **Last Updated**: 2026-03-06
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: QA Cleanup Complete — Ready for Testing
+## Current Focus: PR #710 QA Fixes Pushed
 
 **Status**: ✅ Completed  
-**Date**: 2026-03-05  
-**Scope**: Post-QA cleanup of DnD implementation, migration display fix, legacy ConfirmContext removal.
+**Date**: 2026-03-06  
+**Branch**: `feature/dnd-ordering-entity-lists`  
+**PR**: [#710](https://github.com/teknokomo/universo-platformo-react/pull/710)
 
 ### Recently Completed
 
-1. **DnD Empty Child Table Drop fix** — confirmed working by user (confirm dialog appears, attribute moves successfully).
-2. **QA cleanup** of all diagnostic `[DND-DIAG]` console.warn logs (6 locations in 4 files).
-3. **Migration display fix** — baseline schema version now shows `0 → 0.1.0` instead of `— → 0.1.0`.
-4. **Legacy ConfirmContext removal** — deleted unused `ConfirmContext.jsx`, `ConfirmContextProvider.jsx`, `dialogReducer.js` from `@universo/store`; removed wrapper from `index.tsx`; updated README docs. Zero runtime impact (0 consumers).
-5. **Local ConfirmContextProvider** added in `AttributeList.tsx` — ensures `useConfirm()` and `<ConfirmDialog />` share the same context instance (workaround for dnd-kit + React 18 batching).
+1. **Comprehensive QA analysis** of all 66 files in PR #710 — reviewed backend services, frontend components, library versions, SQL injection safety, auth patterns, null-safety, ID uniqueness.
+2. **Test fix**: Added missing `ensureMetahubAccess` mock to `elementsRoutes.test.ts` — 4 tests were failing (500 instead of expected 200/404/400) after security fix added the guard to `/move` and `/reorder` endpoints without updating tests.
+3. **Prettier fix**: Fixed 2 formatting errors in `useAttributeDnd.ts` — expanded arrow function body (line 96), inlined multi-line condition (line 179).
+4. **Verification**: All 168 tests pass (22/22 suites), lint passes (0 errors, 147 pre-existing warnings).
 
 ### Architecture Note
 
-The project now has a single `ConfirmContext` implementation in `@universo/template-mui`. The `ConfirmContextProvider` is mounted in two places:
-- `MainLayoutMUI` (shared layout for all authenticated pages)
-- `AttributeList` (local provider to ensure DnD confirm flow works reliably)
+The `ensureMetahubAccess` guard is now consistently applied across ALL write endpoints in metahubs-backend domains: hubs, catalogs, sets, constants, enumerations, elements (move/reorder), attributes. All corresponding test files mock this guard.
 
-### Immediate Next Steps
+### Deferred Items (Future PRs)
 
-1. User testing of migration display fix (`0 → 0.1.0`).
+- `reorderElement` increment/decrement + unique partial index — potential constraint violation under concurrent load (medium risk, advisory locks mitigate).
+- `ObjectsService.delete()/restore()` and `AttributesService.delete()` don't resequence sortOrder — self-healing, low priority.
+- Missing try/catch in useEffect async `execute()` — low risk.
 2. Continue with Constants Value Tab + Localization tasks (see tasks.md).

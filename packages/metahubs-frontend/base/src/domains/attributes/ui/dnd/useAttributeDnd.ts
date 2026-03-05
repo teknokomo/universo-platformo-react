@@ -93,7 +93,9 @@ export function useAttributeDnd({
         }
 
         execute()
-        return () => { cancelled = true }
+        return () => {
+            cancelled = true
+        }
     }, [deferredCrossTransfer])
 
     const findContainer = useCallback(
@@ -176,10 +178,7 @@ export function useAttributeDnd({
                 // Guard: preserve cross-list transfer when collision detection temporarily
                 // resolves to a source-container item (not the container itself).
                 // This prevents flickering when the child droppable rect shifts after ghost mount.
-                if (
-                    pendingTransferRef.current &&
-                    pendingTransferRef.current.toContainerId !== activeContainer.id
-                ) {
+                if (pendingTransferRef.current && pendingTransferRef.current.toContainerId !== activeContainer.id) {
                     setOverId(String(over.id))
                     setOverContainerId(pendingTransferRef.current.toContainerId)
                     return

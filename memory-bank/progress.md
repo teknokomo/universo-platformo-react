@@ -44,6 +44,64 @@
 
 ---
 
+## PR #710 QA Fixes (2026-03-06)
+
+Comprehensive QA analysis of all 66 files in PR #710 found 4 failing tests and 2 prettier errors. Both issues fixed and verified.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `elementsRoutes.test.ts` | **TEST FIX**: Added missing `ensureMetahubAccess` mock — 4 tests were failing (500 instead of 200/404/400) after security fix added the guard without updating tests |
+| `useAttributeDnd.ts` | **PRETTIER**: Fixed arrow function body formatting (line 96) and multi-line condition inlining (line 179) |
+
+### QA Report Summary
+
+| Severity | Finding | Status |
+|----------|---------|--------|
+| CRITICAL | 4 failing tests in elementsRoutes.test.ts | ✅ Fixed |
+| MINOR | 2 prettier errors in useAttributeDnd.ts | ✅ Fixed |
+| MEDIUM | reorderElement constraint violation risk | Deferred (advisory locks mitigate) |
+| LOW | delete/restore don't resequence sortOrder | Deferred (self-healing) |
+| LOW | Missing try/catch in useEffect async | Deferred |
+
+### Verification
+
+- Tests: 168/168 pass (22/22 suites)
+- Lint: 0 errors, 147 pre-existing warnings
+
+---
+
+## PR #710 Bot Review Fixes (2026-03-06)
+
+Analyzed 5 inline review comments (Gemini + Copilot) on PR #710 and applied 3 validated fixes. Rejected 1 premature optimization suggestion.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `elementsRoutes.ts` | **SECURITY**: Added `ensureMetahubAccess` authorization checks to `/move` and `/reorder` endpoints — was the only domain missing this guard on write operations |
+| `setsRoutes.ts` | **CORRECTNESS**: Fixed `a.sortOrder - b.sortOrder` → `(a.sortOrder ?? 0) - (b.sortOrder ?? 0)` — prevents NaN when sortOrder is null |
+| `attributesRoutes.ts` | **DEDUP**: Extracted `handleTableLimitError(error, res)` helper; replaced 2 of 3 duplicate TABLE limit error blocks (3rd uses different response key `message` vs `error`) |
+
+### Review Comment Disposition
+
+| # | Source | Severity | Summary | Verdict |
+|---|--------|----------|---------|---------|
+| 1 | Gemini | HIGH | Missing `ensureMetahubAccess` in elements `/move` | ✅ Fixed |
+| 2 | Gemini | HIGH | Missing `ensureMetahubAccess` in elements `/reorder` | ✅ Fixed |
+| 3 | Gemini | MEDIUM | Duplicate TABLE limit error handling | ✅ Fixed (2 of 3) |
+| 4 | Copilot | — | NaN when sortOrder is null | ✅ Fixed |
+| 5 | Copilot | — | Bulk CTE UPDATE instead of per-row | ❌ Rejected (premature optimization) |
+
+### Verification
+
+- `pnpm build` — 23/23 tasks, 0 errors
+- Commit: `0a5e2d295` on `feature/dnd-ordering-entity-lists`
+- Pushed to upstream PR #710
+
+---
+
 ## QA Cleanup: Diagnostic Logs + Migration Display + Legacy ConfirmContext (2026-03-05)
 
 Comprehensive QA review identified three categories of technical debt; all resolved in a single implementation pass.
