@@ -69,7 +69,8 @@ const mockObjectsService = {
     delete: jest.fn(),
     findDeleted: jest.fn(),
     restore: jest.fn(),
-    permanentDelete: jest.fn()
+    permanentDelete: jest.fn(),
+    reorderByKind: jest.fn()
 }
 
 const mockHubsService = {
@@ -284,6 +285,10 @@ describe('Catalogs Routes', () => {
         mockObjectsService.findDeleted.mockResolvedValue([])
         mockObjectsService.restore.mockResolvedValue(undefined)
         mockObjectsService.permanentDelete.mockResolvedValue(undefined)
+        mockObjectsService.reorderByKind.mockResolvedValue({
+            id: '22222222-2222-4222-8222-222222222222',
+            config: { sortOrder: 3 }
+        })
 
         mockHubsService.findByIds.mockResolvedValue([])
         mockHubsService.findById.mockResolvedValue(null)
@@ -356,6 +361,46 @@ describe('Catalogs Routes', () => {
                     codename: 'hub-1'
                 }
             ])
+        })
+    })
+
+    describe('PATCH /metahub/:metahubId/catalogs/reorder', () => {
+        it('reorders catalog and returns updated sort order', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/test-metahub-id/catalogs/reorder')
+                .send({
+                    catalogId: '22222222-2222-4222-8222-222222222222',
+                    newSortOrder: 3
+                })
+                .expect(200)
+
+            expect(response.body).toEqual({
+                id: '22222222-2222-4222-8222-222222222222',
+                sortOrder: 3
+            })
+            expect(mockObjectsService.reorderByKind).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog',
+                '22222222-2222-4222-8222-222222222222',
+                3,
+                'test-user-id'
+            )
+        })
+
+        it('returns 404 when catalog is not found for reorder', async () => {
+            mockObjectsService.reorderByKind.mockRejectedValueOnce(new Error('catalog not found'))
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/test-metahub-id/catalogs/reorder')
+                .send({
+                    catalogId: '22222222-2222-4222-8222-222222222222',
+                    newSortOrder: 3
+                })
+                .expect(404)
+
+            expect(response.body.error).toBe('Catalog not found')
         })
     })
 

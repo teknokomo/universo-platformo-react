@@ -26,6 +26,7 @@ import {
     useCodenameAutoFill,
     useCodenameVlcSync
 } from '@universo/template-mui'
+import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -36,7 +37,8 @@ import {
     useUpdateCatalog,
     useUpdateCatalogAtMetahub,
     useDeleteCatalog,
-    useCopyCatalog
+    useCopyCatalog,
+    useReorderCatalog
 } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
@@ -386,24 +388,36 @@ const CatalogList = () => {
     const deleteCatalogMutation = useDeleteCatalog()
     const updateCatalogAtMetahubMutation = useUpdateCatalogAtMetahub()
     const copyCatalogMutation = useCopyCatalog()
+    const reorderCatalogMutation = useReorderCatalog()
+
+    const sortedCatalogs = useMemo(
+        () =>
+            [...catalogs].sort((a, b) => {
+                const sortA = a.sortOrder ?? 0
+                const sortB = b.sortOrder ?? 0
+                if (sortA !== sortB) return sortA - sortB
+                return a.id.localeCompare(b.id)
+            }),
+        [catalogs]
+    )
 
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(catalogs)) {
-            catalogs.forEach((catalog) => {
+        if (Array.isArray(sortedCatalogs)) {
+            sortedCatalogs.forEach((catalog) => {
                 if (catalog?.id) {
                     imagesMap[catalog.id] = []
                 }
             })
         }
         return imagesMap
-    }, [catalogs])
+    }, [sortedCatalogs])
 
     const catalogMap = useMemo(() => {
-        if (!Array.isArray(catalogs)) return new Map<string, CatalogWithHubs>()
-        return new Map(catalogs.map((catalog) => [catalog.id, catalog]))
-    }, [catalogs])
+        if (!Array.isArray(sortedCatalogs)) return new Map<string, CatalogWithHubs>()
+        return new Map(sortedCatalogs.map((catalog) => [catalog.id, catalog]))
+    }, [sortedCatalogs])
 
     // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<CatalogFormValues>(
@@ -1006,6 +1020,58 @@ const CatalogList = () => {
     // Transform Catalog data for display - use hub-aware version for global mode
     const getCatalogCardData = (catalog: CatalogWithHubs): CatalogWithHubsDisplay => toCatalogWithHubsDisplay(catalog, i18n.language)
 
+    const handleSortableDragEnd = async (event: DragEndEvent) => {
+        if (!metahubId) return
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const overCatalog = sortedCatalogs.find((catalog) => catalog.id === String(over.id))
+        if (!overCatalog) return
+
+        try {
+            await reorderCatalogMutation.mutateAsync({
+                metahubId,
+                hubId,
+                catalogId: String(active.id),
+                newSortOrder: overCatalog.sortOrder ?? 1
+            })
+            enqueueSnackbar(t('catalogs.reorderSuccess', 'Catalog order updated'), { variant: 'success' })
+        } catch (error: unknown) {
+            const message =
+                typeof error === 'object' &&
+                error !== null &&
+                'message' in error &&
+                typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : t('catalogs.reorderError', 'Failed to reorder catalog')
+            enqueueSnackbar(message, { variant: 'error' })
+        }
+    }
+
+    const renderDragOverlay = (activeId: string | null) => {
+        if (!activeId) return null
+        const catalog = catalogMap.get(activeId)
+        if (!catalog) return null
+        const display = getCatalogCardData(catalog)
+        return (
+            <Box
+                sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    boxShadow: 6,
+                    bgcolor: 'background.paper',
+                    minWidth: 260
+                }}
+            >
+                <Stack spacing={0.25}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{display.name || display.codename || catalog.id}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{display.codename || '—'}</Typography>
+                </Stack>
+            </Box>
+        )
+    }
+
     return (
         <MainCard
             sx={{ maxWidth: '100%', width: '100%' }}
@@ -1071,13 +1137,13 @@ const CatalogList = () => {
                             </Box>
                         )}
 
-                        {isLoading && catalogs.length === 0 ? (
+                        {isLoading && sortedCatalogs.length === 0 ? (
                             view === 'card' ? (
                                 <SkeletonGrid />
                             ) : (
                                 <Skeleton variant='rectangular' height={120} />
                             )
-                        ) : !isLoading && catalogs.length === 0 ? (
+                        ) : !isLoading && sortedCatalogs.length === 0 ? (
                             <EmptyListState
                                 image={APIEmptySVG}
                                 imageAlt='No catalogs'
@@ -1101,7 +1167,7 @@ const CatalogList = () => {
                                             alignContent: 'start'
                                         }}
                                     >
-                                        {catalogs.map((catalog: CatalogWithHubs) => {
+                                        {sortedCatalogs.map((catalog: CatalogWithHubs) => {
                                             const descriptors = [...filteredCatalogActions]
                                             const displayData = getCatalogCardData(catalog)
 
@@ -1152,9 +1218,15 @@ const CatalogList = () => {
                                 ) : (
                                     <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                                         <FlowListTable
-                                            data={catalogs.map(getCatalogCardData)}
+                                            data={sortedCatalogs.map(getCatalogCardData)}
                                             images={images}
                                             isLoading={isLoading}
+                                            sortableRows
+                                            sortableItemIds={sortedCatalogs.map((catalog) => catalog.id)}
+                                            dragHandleAriaLabel={t('catalogs.dnd.dragHandle', 'Drag to reorder')}
+                                            dragDisabled={reorderCatalogMutation.isPending || isLoading}
+                                            onSortableDragEnd={handleSortableDragEnd}
+                                            renderDragOverlay={renderDragOverlay}
                                             getRowLink={(row: CatalogWithHubsDisplay) =>
                                                 row?.id
                                                     ? isHubScoped
@@ -1165,7 +1237,7 @@ const CatalogList = () => {
                                             customColumns={catalogColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: CatalogWithHubsDisplay) => {
-                                                const originalCatalog = catalogs.find((c) => c.id === row.id)
+                                                const originalCatalog = catalogMap.get(row.id)
                                                 if (!originalCatalog) return null
 
                                                 const descriptors = [...filteredCatalogActions]
@@ -1190,7 +1262,7 @@ const CatalogList = () => {
                         )}
 
                         {/* Table Pagination at bottom */}
-                        {!isLoading && catalogs.length > 0 && (
+                        {!isLoading && sortedCatalogs.length > 0 && (
                             <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                                 <PaginationControls
                                     pagination={paginationResult.pagination}

@@ -6,6 +6,7 @@ import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@uni
 import { AttributeDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import type { Knex } from 'knex'
 
 /**
  * MetahubElementsService - CRUD operations for predefined elements in Design-Time.
@@ -27,15 +28,83 @@ export class MetahubElementsService {
         return KnexClient.getInstance()
     }
 
+    private createServiceError(code: 'CATALOG_NOT_FOUND' | 'ELEMENT_NOT_FOUND' | 'ELEMENT_VALIDATION_FAILED', message: string): Error {
+        const error: Error & { code?: string } = new Error(message)
+        error.code = code
+        return error
+    }
+
+    private applyActiveRowsFilter<TQuery extends Knex.QueryBuilder>(query: TQuery): TQuery {
+        return query.andWhere('_upl_deleted', false).andWhere('_mhb_deleted', false) as TQuery
+    }
+
+    private buildSortOrderLockKey(schemaName: string, catalogId: string): string {
+        return `mhb-elements-sort:${schemaName}:${catalogId}`
+    }
+
+    /**
+     * Serialize sort-order mutations per catalog.
+     * Uses transaction-scoped advisory lock, auto-released on commit/rollback.
+     */
+    private async acquireSortOrderLockInTransaction(trx: Knex.Transaction, schemaName: string, catalogId: string): Promise<void> {
+        const lockKey = this.buildSortOrderLockKey(schemaName, catalogId)
+        await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [lockKey])
+    }
+
+    private async getNextSortOrder(schemaName: string, catalogId: string, trx: Knex | Knex.Transaction): Promise<number> {
+        const result = await this.applyActiveRowsFilter(trx.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId }))
+            .max('sort_order as max')
+            .first()
+
+        const max = result?.max
+        if (typeof max === 'number') return max + 1
+        const parsed = max !== undefined && max !== null ? Number(max) : 0
+        return Number.isFinite(parsed) ? parsed + 1 : 1
+    }
+
+    private async ensureSequentialSortOrderInTransaction(
+        schemaName: string,
+        catalogId: string,
+        trx: Knex | Knex.Transaction
+    ): Promise<void> {
+        const rows = await trx
+            .withSchema(schemaName)
+            .from('_mhb_elements')
+            .where({ object_id: catalogId })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .orderBy('sort_order', 'asc')
+            .orderBy('_upl_created_at', 'asc')
+            .orderBy('id', 'asc')
+
+        let hasGaps = false
+        for (let index = 0; index < rows.length; index += 1) {
+            if ((rows[index].sort_order ?? 0) !== index + 1) {
+                hasGaps = true
+                break
+            }
+        }
+        if (!hasGaps) return
+
+        for (let index = 0; index < rows.length; index += 1) {
+            const row = rows[index]
+            const nextSortOrder = index + 1
+            if ((row.sort_order ?? 0) !== nextSortOrder) {
+                await trx.withSchema(schemaName).from('_mhb_elements').where({ id: row.id }).update({
+                    sort_order: nextSortOrder
+                })
+            }
+        }
+    }
+
     /**
      * Count elements for a specific catalog.
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const result = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ object_id: objectId })
+        const result = await this.applyActiveRowsFilter(
+            this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: objectId })
+        )
             .count('* as count')
             .first()
         return result ? parseInt(result.count as string, 10) : 0
@@ -48,10 +117,9 @@ export class MetahubElementsService {
         if (objectIds.length === 0) return new Map()
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const results = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .whereIn('object_id', objectIds)
+        const results = await this.applyActiveRowsFilter(
+            this.knex.withSchema(schemaName).from('_mhb_elements').whereIn('object_id', objectIds)
+        )
             .select('object_id')
             .count('* as count')
             .groupBy('object_id')
@@ -71,10 +139,9 @@ export class MetahubElementsService {
         if (objectIds.length === 0) return []
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const elements = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .whereIn('object_id', objectIds)
+        const elements = await this.applyActiveRowsFilter(
+            this.knex.withSchema(schemaName).from('_mhb_elements').whereIn('object_id', objectIds)
+        )
             .orderBy('object_id', 'asc')
             .orderBy('sort_order', 'asc')
             .orderBy('_upl_created_at', 'asc')
@@ -104,12 +171,12 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw new Error('Catalog not found')
+        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Query _mhb_elements table with object_id filter
-        let query = this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId })
+        let query = this.applyActiveRowsFilter(this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId }))
 
         if (options.search) {
             const escapedSearch = escapeLikeWildcards(options.search)
@@ -118,7 +185,13 @@ export class MetahubElementsService {
 
         const sortColumn =
             options.sortBy === 'created' ? '_upl_created_at' : options.sortBy === 'updated' ? '_upl_updated_at' : 'sort_order'
-        query = query.orderBy(sortColumn, options.sortOrder || 'asc')
+        const resolvedSortOrder = options.sortOrder || 'asc'
+        query = query.orderBy(sortColumn, resolvedSortOrder)
+        if (sortColumn === 'sort_order') {
+            query = query.orderBy('_upl_created_at', resolvedSortOrder).orderBy('id', resolvedSortOrder)
+        } else {
+            query = query.orderBy('id', resolvedSortOrder)
+        }
 
         if (options.limit) query = query.limit(options.limit)
         if (options.offset) query = query.offset(options.offset)
@@ -144,12 +217,12 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw new Error('Catalog not found')
+        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Base query with object_id filter
-        let query = this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId })
+        let query = this.applyActiveRowsFilter(this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId }))
 
         if (options.search) {
             const escapedSearch = escapeLikeWildcards(options.search)
@@ -163,7 +236,13 @@ export class MetahubElementsService {
         // Apply sorting
         const sortColumn =
             options.sortBy === 'created' ? '_upl_created_at' : options.sortBy === 'updated' ? '_upl_updated_at' : 'sort_order'
-        query = query.orderBy(sortColumn, options.sortOrder || 'asc')
+        const resolvedSortOrder = options.sortOrder || 'asc'
+        query = query.orderBy(sortColumn, resolvedSortOrder)
+        if (sortColumn === 'sort_order') {
+            query = query.orderBy('_upl_created_at', resolvedSortOrder).orderBy('id', resolvedSortOrder)
+        } else {
+            query = query.orderBy('id', resolvedSortOrder)
+        }
 
         // Apply pagination
         if (options.limit) query = query.limit(options.limit)
@@ -183,7 +262,9 @@ export class MetahubElementsService {
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const row = await this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId }).first()
+        const row = await this.applyActiveRowsFilter(
+            this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId })
+        ).first()
 
         return row ? this.mapRowToElement(row) : null
     }
@@ -203,34 +284,45 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw new Error('Catalog not found')
+        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         // Validate element data against catalog attributes (use findAllFlat to include child attrs for TABLE validation)
         const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
         const validation = this.validateElementData(input.data, attributes)
         if (!validation.valid) {
-            throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
+            throw this.createServiceError('ELEMENT_VALIDATION_FAILED', `Validation failed: ${validation.errors.join(', ')}`)
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        // Insert into _mhb_elements table
-        const [created] = await this.knex
-            .withSchema(schemaName)
-            .into('_mhb_elements')
-            .insert({
-                object_id: catalogId,
-                data: input.data,
-                sort_order: input.sortOrder ?? 0,
-                owner_id: null,
-                _upl_created_at: new Date(),
-                _upl_created_by: input.createdBy ?? null,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: input.createdBy ?? null
-            })
-            .returning('*')
+        return this.knex.transaction(async (trx) => {
+            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
 
-        return this.mapRowToElement(created)
+            const sortOrder =
+                typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
+                    ? input.sortOrder
+                    : await this.getNextSortOrder(schemaName, catalogId, trx)
+
+            const [created] = await trx
+                .withSchema(schemaName)
+                .into('_mhb_elements')
+                .insert({
+                    object_id: catalogId,
+                    data: input.data,
+                    sort_order: sortOrder,
+                    owner_id: null,
+                    _upl_created_at: new Date(),
+                    _upl_created_by: input.createdBy ?? null,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: input.createdBy ?? null
+                })
+                .returning('*')
+
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+
+            const normalized = await trx.withSchema(schemaName).from('_mhb_elements').where({ id: created.id }).first()
+            return this.mapRowToElement(normalized ?? created)
+        })
     }
 
     /**
@@ -250,14 +342,16 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw new Error('Catalog not found')
+        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Find existing element
-        const existing = await this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId }).first()
+        const existing = await this.applyActiveRowsFilter(
+            this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId })
+        ).first()
 
-        if (!existing) throw new Error('Element not found')
+        if (!existing) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
 
         const updateData: Record<string, unknown> = {
             _upl_updated_at: new Date(),
@@ -270,7 +364,7 @@ export class MetahubElementsService {
             const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
             const validation = this.validateElementData(mergedData, attributes)
             if (!validation.valid) {
-                throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
+                throw this.createServiceError('ELEMENT_VALIDATION_FAILED', `Validation failed: ${validation.errors.join(', ')}`)
             }
             updateData.data = mergedData
         }
@@ -304,15 +398,176 @@ export class MetahubElementsService {
     async delete(metahubId: string, catalogId: string, id: string, userId?: string) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw new Error('Catalog not found')
+        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const deleted = await this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId }).delete()
+        await this.knex.transaction(async (trx) => {
+            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
 
-        if (deleted === 0) {
-            throw new Error('Element not found')
-        }
+            const deleted = await this.applyActiveRowsFilter(
+                trx.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId })
+            ).delete()
+
+            if (deleted === 0) {
+                throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            }
+
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+        })
+    }
+
+    async moveElement(metahubId: string, catalogId: string, elementId: string, direction: 'up' | 'down', userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
+        return this.knex.transaction(async (trx) => {
+            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_elements')
+                .where({ id: elementId, object_id: catalogId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!current) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+
+            const currentOrder = current.sort_order ?? 0
+            const neighborQuery = trx
+                .withSchema(schemaName)
+                .from('_mhb_elements')
+                .where({ object_id: catalogId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+
+            const neighbor =
+                direction === 'up'
+                    ? await neighborQuery.where('sort_order', '<', currentOrder).orderBy('sort_order', 'desc').first()
+                    : await neighborQuery.where('sort_order', '>', currentOrder).orderBy('sort_order', 'asc').first()
+
+            if (neighbor) {
+                const now = new Date()
+                const temporarySortOrder = 0
+
+                // Move current row outside active range first to avoid unique index conflicts
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_elements')
+                    .where({ id: elementId, object_id: catalogId })
+                    .update({ sort_order: temporarySortOrder, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_elements')
+                    .where({ id: neighbor.id, object_id: catalogId })
+                    .update({ sort_order: currentOrder, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_elements')
+                    .where({ id: elementId, object_id: catalogId })
+                    .update({ sort_order: neighbor.sort_order, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+            }
+
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+
+            const updated = await trx
+                .withSchema(schemaName)
+                .from('_mhb_elements')
+                .where({ id: elementId, object_id: catalogId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!updated) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            return this.mapRowToElement(updated)
+        })
+    }
+
+    async reorderElement(metahubId: string, catalogId: string, elementId: string, newSortOrder: number, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
+        return this.knex.transaction(async (trx) => {
+            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_elements')
+                .where({ id: elementId, object_id: catalogId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!current) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+
+            const oldOrder = current.sort_order
+            const totalResult = await trx
+                .withSchema(schemaName)
+                .from('_mhb_elements')
+                .where({ object_id: catalogId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .count('id as count')
+                .first()
+            const totalRaw = totalResult?.count
+            const totalCount = typeof totalRaw === 'number' ? totalRaw : totalRaw ? Number.parseInt(String(totalRaw), 10) : 0
+            const maxSortOrder = Math.max(1, totalCount)
+            const clampedNew = Math.min(Math.max(1, newSortOrder), maxSortOrder)
+            const now = new Date()
+
+            if (oldOrder !== clampedNew) {
+                const temporarySortOrder = 0
+
+                // Move current row outside active range first to avoid unique index conflicts
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_elements')
+                    .where({ id: elementId, object_id: catalogId })
+                    .update({ sort_order: temporarySortOrder, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+
+                if (clampedNew < oldOrder) {
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_elements')
+                        .where({ object_id: catalogId })
+                        .andWhere('_upl_deleted', false)
+                        .andWhere('_mhb_deleted', false)
+                        .where('sort_order', '>=', clampedNew)
+                        .where('sort_order', '<', oldOrder)
+                        .whereNot({ id: elementId })
+                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                        .increment('sort_order', 1)
+                } else {
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_elements')
+                        .where({ object_id: catalogId })
+                        .andWhere('_upl_deleted', false)
+                        .andWhere('_mhb_deleted', false)
+                        .where('sort_order', '>', oldOrder)
+                        .where('sort_order', '<=', clampedNew)
+                        .whereNot({ id: elementId })
+                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                        .decrement('sort_order', 1)
+                }
+
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_elements')
+                    .where({ id: elementId, object_id: catalogId })
+                    .update({ sort_order: clampedNew, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+            }
+
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+
+            const updated = await trx
+                .withSchema(schemaName)
+                .from('_mhb_elements')
+                .where({ id: elementId, object_id: catalogId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!updated) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            return this.mapRowToElement(updated)
+        })
     }
 
     // Validation helpers

@@ -259,6 +259,57 @@ const copySetSchema = z.object({
     copyConstants: z.boolean().optional()
 })
 
+const reorderSetsSchema = z.object({
+    setId: z.string().uuid(),
+    newSortOrder: z.number().int().min(1)
+})
+
+const compareSetTieBreak = (a: SetListItemRow, b: SetListItemRow): number => {
+    const bySortOrder = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    if (bySortOrder !== 0) return bySortOrder
+
+    const byCodename = a.codename.localeCompare(b.codename)
+    if (byCodename !== 0) return byCodename
+
+    return a.id.localeCompare(b.id)
+}
+
+const compareSetItems = (a: SetListItemRow, b: SetListItemRow, sortBy: string, sortOrder: 'asc' | 'desc'): number => {
+    if (sortBy === 'name') {
+        const valueA = getLocalizedSortValue(a.name, a.codename).toLowerCase()
+        const valueB = getLocalizedSortValue(b.name, b.codename).toLowerCase()
+        if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1
+        if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1
+        return compareSetTieBreak(a, b)
+    }
+
+    if (sortBy === 'created') {
+        const createdDiff = toTimestamp(a.createdAt) - toTimestamp(b.createdAt)
+        if (createdDiff !== 0) return sortOrder === 'asc' ? createdDiff : -createdDiff
+        return compareSetTieBreak(a, b)
+    }
+
+    if (sortBy === 'updated') {
+        const updatedDiff = toTimestamp(a.updatedAt) - toTimestamp(b.updatedAt)
+        if (updatedDiff !== 0) return sortOrder === 'asc' ? updatedDiff : -updatedDiff
+        return compareSetTieBreak(a, b)
+    }
+
+    if (sortBy === 'codename') {
+        const codenameDiff = a.codename.localeCompare(b.codename)
+        if (codenameDiff !== 0) return sortOrder === 'asc' ? codenameDiff : -codenameDiff
+        return compareSetTieBreak(a, b)
+    }
+
+    if (sortBy === 'sortOrder') {
+        const orderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+        if (orderDiff !== 0) return sortOrder === 'asc' ? orderDiff : -orderDiff
+        return compareSetTieBreak(a, b)
+    }
+
+    return compareSetTieBreak(a, b)
+}
+
 const DEFAULT_PRIMARY_LOCALE = 'en'
 
 const validateHubConstraints = (hubIds: string[], isSingleHub: boolean, isRequiredHub: boolean): string | null => {
@@ -395,37 +446,7 @@ export function createSetsRoutes(
                 items = items.filter((item) => matchesSetSearch(item.codename, item.name, searchLower))
             }
 
-            items.sort((a, b) => {
-                if (sortBy === 'name') {
-                    const valueA = getLocalizedSortValue(a.name, a.codename).toLowerCase()
-                    const valueB = getLocalizedSortValue(b.name, b.codename).toLowerCase()
-                    if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1
-                    if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1
-                    return 0
-                }
-
-                if (sortBy === 'created') {
-                    const createdDiff = toTimestamp(a.createdAt) - toTimestamp(b.createdAt)
-                    return sortOrder === 'asc' ? createdDiff : -createdDiff
-                }
-
-                if (sortBy === 'updated') {
-                    const updatedDiff = toTimestamp(a.updatedAt) - toTimestamp(b.updatedAt)
-                    return sortOrder === 'asc' ? updatedDiff : -updatedDiff
-                }
-
-                if (sortBy === 'codename') {
-                    const codenameDiff = a.codename.localeCompare(b.codename)
-                    return sortOrder === 'asc' ? codenameDiff : -codenameDiff
-                }
-
-                if (sortBy === 'sortOrder') {
-                    const orderDiff = a.sortOrder - b.sortOrder
-                    return sortOrder === 'asc' ? orderDiff : -orderDiff
-                }
-
-                return 0
-            })
+            items.sort((a, b) => compareSetItems(a, b, sortBy, sortOrder))
 
             const total = items.length
             const paginatedItems = items.slice(offset, offset + limit)
@@ -487,37 +508,7 @@ export function createSetsRoutes(
                 items = items.filter((item) => matchesSetSearch(item.codename, item.name, searchLower))
             }
 
-            items.sort((a, b) => {
-                if (sortBy === 'name') {
-                    const valueA = getLocalizedSortValue(a.name, a.codename).toLowerCase()
-                    const valueB = getLocalizedSortValue(b.name, b.codename).toLowerCase()
-                    if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1
-                    if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1
-                    return 0
-                }
-
-                if (sortBy === 'created') {
-                    const createdDiff = toTimestamp(a.createdAt) - toTimestamp(b.createdAt)
-                    return sortOrder === 'asc' ? createdDiff : -createdDiff
-                }
-
-                if (sortBy === 'updated') {
-                    const updatedDiff = toTimestamp(a.updatedAt) - toTimestamp(b.updatedAt)
-                    return sortOrder === 'asc' ? updatedDiff : -updatedDiff
-                }
-
-                if (sortBy === 'codename') {
-                    const codenameDiff = a.codename.localeCompare(b.codename)
-                    return sortOrder === 'asc' ? codenameDiff : -codenameDiff
-                }
-
-                if (sortBy === 'sortOrder') {
-                    const orderDiff = a.sortOrder - b.sortOrder
-                    return sortOrder === 'asc' ? orderDiff : -orderDiff
-                }
-
-                return 0
-            })
+            items.sort((a, b) => compareSetItems(a, b, sortBy, sortOrder))
 
             const total = items.length
             const paginatedItems = items.slice(offset, offset + limit)
@@ -531,6 +522,48 @@ export function createSetsRoutes(
                     offset
                 }
             })
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/sets/reorder
+     * PATCH /metahub/:metahubId/hub/:hubId/sets/reorder
+     * Reorder a set in metahub list.
+     */
+    router.patch(
+        ['/metahub/:metahubId/sets/reorder', '/metahub/:metahubId/hub/:hubId/sets/reorder'],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId } = req.params
+            const { ds, objectsService } = services(req)
+            const userId = resolveUserId(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', getRequestQueryRunner(req))
+
+            const parsed = reorderSetsSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            try {
+                const updated = await objectsService.reorderByKind(
+                    metahubId,
+                    MetaEntityKind.SET,
+                    parsed.data.setId,
+                    parsed.data.newSortOrder,
+                    userId
+                )
+                return res.json({
+                    id: updated.id,
+                    sortOrder: updated.config?.sortOrder ?? 0
+                })
+            } catch (error: any) {
+                if (error.message === 'set not found') {
+                    return res.status(404).json({ error: 'Set not found' })
+                }
+                throw error
+            }
         })
     )
 
@@ -903,6 +936,7 @@ export function createSetsRoutes(
                             description: descriptionVlc,
                             config: {
                                 ...sourceConfig,
+                                sortOrder: undefined,
                                 hubs: sourceHubIds
                             },
                             createdBy: userId

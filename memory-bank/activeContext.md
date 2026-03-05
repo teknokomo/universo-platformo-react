@@ -1,37 +1,32 @@
 # Active Context
 
-> **Last Updated**: 2026-03-04
+> **Last Updated**: 2026-03-06
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Sets/Constants Stabilization + SemVer Alignment — Completed
+## Current Focus: PR #710 QA Fixes Pushed
 
 **Status**: ✅ Completed  
-**Date**: 2026-03-04  
-**Scope**: Final runtime stabilization for Sets/Constants UI + migration/versioning behavior after QA.
+**Date**: 2026-03-06  
+**Branch**: `feature/dnd-ordering-entity-lists`  
+**PR**: [#710](https://github.com/teknokomo/universo-platformo-react/pull/710)
 
-### Finalized in this cycle
+### Recently Completed
 
-1. **Sets/Constants UI correctness**
-   - Fixed namespace usage on Sets/Constants screens to avoid raw i18n keys (`useTranslation('metahubs')`).
-   - Kept breadcrumbs for `/metahub/:id/sets` and `/metahub/:id/set/:setId/constants` aligned with catalogs behavior.
-   - Confirmed constants table footer pagination + spacing parity with attributes list.
-2. **Mutation responsiveness**
-   - Hardened constants mutation invalidation (`invalidateQueries` + `refetchQueries`) with awaited async flow.
-   - Reduced perceived delay after create/copy/update/delete/reorder in constants list.
-3. **Versioning consistency**
-   - SemVer baseline remains `0.1.0` across branch/template contracts and runtime checks.
-   - Fresh branch/template sync logic stays aligned with one active structure baseline (no intentional V2 drift).
-4. **Build/runtime safety**
-   - Removed direct `@universo/metahubs-frontend/i18n` import from template routes to avoid circular self-resolution in tests.
-   - Rebuilt `@universo/template-mui` so `dist` reflects updated route imports used by `metahubs-frontend` tests.
-5. **Environment finding (UP-test)**
-   - Supabase `UP-test` still contains legacy DB state (`structure_version`/`min_structure_version` are `integer`, active basic template version is `1.0.0`, branch row with `structure_version = 2`).
-   - This state can still force migration-required UX even with corrected code; DB must be reset or migrated to the new SemVer schema baseline.
+1. **Comprehensive QA analysis** of all 66 files in PR #710 — reviewed backend services, frontend components, library versions, SQL injection safety, auth patterns, null-safety, ID uniqueness.
+2. **Test fix**: Added missing `ensureMetahubAccess` mock to `elementsRoutes.test.ts` — 4 tests were failing (500 instead of expected 200/404/400) after security fix added the guard to `/move` and `/reorder` endpoints without updating tests.
+3. **Prettier fix**: Fixed 2 formatting errors in `useAttributeDnd.ts` — expanded arrow function body (line 96), inlined multi-line condition (line 179).
+4. **Verification**: All 168 tests pass (22/22 suites), lint passes (0 errors, 147 pre-existing warnings).
 
-### Immediate Next Steps
+### Architecture Note
 
-1. Run focused QA in UI against a freshly initialized DB/schema baseline (`0.1.0`).
-2. If `UP-test` remains in use, execute a controlled DB alignment migration/reset before next validation cycle.
+The `ensureMetahubAccess` guard is now consistently applied across ALL write endpoints in metahubs-backend domains: hubs, catalogs, sets, constants, enumerations, elements (move/reorder), attributes. All corresponding test files mock this guard.
+
+### Deferred Items (Future PRs)
+
+- `reorderElement` increment/decrement + unique partial index — potential constraint violation under concurrent load (medium risk, advisory locks mitigate).
+- `ObjectsService.delete()/restore()` and `AttributesService.delete()` don't resequence sortOrder — self-healing, low priority.
+- Missing try/catch in useEffect async `execute()` — low risk.
+2. Continue with Constants Value Tab + Localization tasks (see tasks.md).

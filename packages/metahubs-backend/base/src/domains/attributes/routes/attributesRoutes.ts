@@ -40,6 +40,40 @@ const resolveUserId = (req: Request): string | undefined => {
     return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
+const isTableChildLimitReachedError = (error: unknown): error is Error & { code?: string; maxChildAttributes?: number } => {
+    if (!(error instanceof Error)) return false
+    return (error as { code?: string }).code === 'TABLE_CHILD_LIMIT_REACHED'
+}
+
+const isTableAttributeLimitReachedError = (error: unknown): error is Error & { code?: string; maxTableAttributes?: number } => {
+    if (!(error instanceof Error)) return false
+    return (error as { code?: string }).code === 'TABLE_ATTRIBUTE_LIMIT_REACHED'
+}
+
+/**
+ * Shared handler for TABLE-related limit errors.
+ * Returns true if the error was handled (response sent), false otherwise.
+ */
+const handleTableLimitError = (error: unknown, res: Response): boolean => {
+    if (isTableChildLimitReachedError(error)) {
+        res.status(409).json({
+            error: error.message,
+            code: 'TABLE_CHILD_LIMIT_REACHED',
+            maxChildAttributes: error.maxChildAttributes ?? null
+        })
+        return true
+    }
+    if (isTableAttributeLimitReachedError(error)) {
+        res.status(409).json({
+            error: error.message,
+            code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
+            maxTableAttributes: error.maxTableAttributes ?? null
+        })
+        return true
+    }
+    return false
+}
+
 const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
 const ENUM_LABEL_EMPTY_DISPLAY_MODES = ['empty', 'dash'] as const
 const ENUMERATION_KIND = 'enumeration' as const
@@ -76,7 +110,8 @@ const validationRulesSchema = z
         dateComposition: z.enum(['date', 'time', 'datetime']).nullable().optional(),
         // TABLE settings (row count limits for child table)
         minRows: z.number().int().min(0).nullable().optional(),
-        maxRows: z.number().int().min(1).nullable().optional()
+        maxRows: z.number().int().min(1).nullable().optional(),
+        maxChildAttributes: z.number().int().min(1).nullable().optional()
     })
     .optional()
     .refine(
@@ -533,7 +568,8 @@ export function createAttributesRoutes(
                 }
                 if (shouldBeDisplayAttribute) {
                     return res.status(400).json({
-                        error: 'TABLE attributes cannot be set as display attribute'
+                        error: 'TABLE attributes cannot be set as display attribute',
+                        code: 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
                     })
                 }
             }
@@ -738,6 +774,7 @@ export function createAttributesRoutes(
                 if (error instanceof Error && error.message === GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
+                if (handleTableLimitError(error, res)) return
                 if (isUniqueViolation(error)) {
                     return res.status(409).json({ error: 'Attribute with this codename already exists' })
                 }
@@ -1010,6 +1047,9 @@ export function createAttributesRoutes(
                         }
                     }
                 }
+            } catch (error) {
+                if (handleTableLimitError(error, res)) return
+                throw error
             } finally {
                 if (globalCodenameLockKey) {
                     await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
@@ -1120,7 +1160,8 @@ export function createAttributesRoutes(
             const requestedDisplayState = isDisplayAttribute !== undefined ? isDisplayAttribute : Boolean(attribute.isDisplayAttribute)
             if (requestedDisplayState && effectiveDataType === AttributeDataType.TABLE) {
                 return res.status(400).json({
-                    error: 'TABLE attributes cannot be set as display attribute'
+                    error: 'TABLE attributes cannot be set as display attribute',
+                    code: 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
                 })
             }
             const isRefType = effectiveDataType === AttributeDataType.REF
@@ -1486,6 +1527,13 @@ export function createAttributesRoutes(
                 if (error.message?.startsWith('TRANSFER_NOT_ALLOWED')) {
                     return res.status(403).json({ message: error.message, code: 'TRANSFER_NOT_ALLOWED' })
                 }
+                if (isTableChildLimitReachedError(error)) {
+                    return res.status(409).json({
+                        message: error.message,
+                        code: 'TABLE_CHILD_LIMIT_REACHED',
+                        maxChildAttributes: error.maxChildAttributes ?? null
+                    })
+                }
                 if (error.message === 'Attribute not found') {
                     return res.status(404).json({ error: 'Attribute not found' })
                 }
@@ -1598,7 +1646,10 @@ export function createAttributesRoutes(
 
             // TABLE attributes cannot be display attributes
             if (attribute.dataType === AttributeDataType.TABLE) {
-                return res.status(400).json({ error: 'TABLE attributes cannot be set as display attribute' })
+                return res.status(400).json({
+                    error: 'TABLE attributes cannot be set as display attribute',
+                    code: 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
+                })
             }
 
             await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import type { CatalogLocalizedPayload } from '../../../types'
-import { metahubsQueryKeys } from '../../shared'
+import { applyOptimisticReorder, metahubsQueryKeys, rollbackReorderSnapshots } from '../../shared'
 import * as catalogsApi from '../api'
 import type { CatalogCopyInput } from '../api'
 
@@ -41,6 +41,13 @@ interface CopyCatalogParams {
     metahubId: string
     catalogId: string
     data: CatalogCopyInput
+}
+
+interface ReorderCatalogParams {
+    metahubId: string
+    hubId?: string
+    catalogId: string
+    newSortOrder: number
 }
 
 export function useCreateCatalogAtMetahub() {
@@ -189,6 +196,57 @@ export function useCopyCatalog() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('catalogs.copyError', 'Failed to copy catalog'), { variant: 'error' })
+        }
+    })
+}
+
+export function useReorderCatalog() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, newSortOrder }: ReorderCatalogParams) => {
+            const response = await catalogsApi.reorderCatalog(metahubId, catalogId, newSortOrder, hubId)
+            return response.data
+        },
+        onMutate: async (variables) => {
+            const listSnapshots =
+                variables.hubId != null
+                    ? await applyOptimisticReorder(
+                          queryClient,
+                          metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId),
+                          variables.catalogId,
+                          variables.newSortOrder
+                      )
+                    : await applyOptimisticReorder(
+                          queryClient,
+                          metahubsQueryKeys.allCatalogs(variables.metahubId),
+                          variables.catalogId,
+                          variables.newSortOrder
+                      )
+
+            const globalSnapshots =
+                variables.hubId != null
+                    ? await applyOptimisticReorder(
+                          queryClient,
+                          metahubsQueryKeys.allCatalogs(variables.metahubId),
+                          variables.catalogId,
+                          variables.newSortOrder
+                      )
+                    : []
+
+            return { listSnapshots, globalSnapshots }
+        },
+        onError: (_error, _variables, context) => {
+            rollbackReorderSnapshots(queryClient, context?.listSnapshots)
+            rollbackReorderSnapshots(queryClient, context?.globalSnapshots)
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
         }
     })
 }

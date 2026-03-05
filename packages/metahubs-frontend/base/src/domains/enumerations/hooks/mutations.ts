@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import type { EnumerationLocalizedPayload, EnumerationValueLocalizedPayload } from '../../../types'
-import { invalidateEnumerationValuesQueries, metahubsQueryKeys } from '../../shared'
+import { applyOptimisticReorder, invalidateEnumerationValuesQueries, metahubsQueryKeys, rollbackReorderSnapshots } from '../../shared'
 import * as enumerationsApi from '../api'
 import type { EnumerationCopyInput } from '../api'
 import type { EnumerationValueCopyInput } from '../api'
@@ -42,6 +42,13 @@ interface CopyEnumerationParams {
     metahubId: string
     enumerationId: string
     data: EnumerationCopyInput
+}
+
+interface ReorderEnumerationParams {
+    metahubId: string
+    hubId?: string
+    enumerationId: string
+    newSortOrder: number
 }
 
 interface CreateEnumerationValueParams {
@@ -230,6 +237,57 @@ export function useCopyEnumeration() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('enumerations.copyError', 'Failed to copy enumeration'), { variant: 'error' })
+        }
+    })
+}
+
+export function useReorderEnumeration() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, enumerationId, newSortOrder }: ReorderEnumerationParams) => {
+            const response = await enumerationsApi.reorderEnumeration(metahubId, enumerationId, newSortOrder, hubId)
+            return response.data
+        },
+        onMutate: async (variables) => {
+            const listSnapshots =
+                variables.hubId != null
+                    ? await applyOptimisticReorder(
+                          queryClient,
+                          metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId),
+                          variables.enumerationId,
+                          variables.newSortOrder
+                      )
+                    : await applyOptimisticReorder(
+                          queryClient,
+                          metahubsQueryKeys.allEnumerations(variables.metahubId),
+                          variables.enumerationId,
+                          variables.newSortOrder
+                      )
+
+            const globalSnapshots =
+                variables.hubId != null
+                    ? await applyOptimisticReorder(
+                          queryClient,
+                          metahubsQueryKeys.allEnumerations(variables.metahubId),
+                          variables.enumerationId,
+                          variables.newSortOrder
+                      )
+                    : []
+
+            return { listSnapshots, globalSnapshots }
+        },
+        onError: (_error, _variables, context) => {
+            rollbackReorderSnapshots(queryClient, context?.listSnapshots)
+            rollbackReorderSnapshots(queryClient, context?.globalSnapshots)
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
         }
     })
 }

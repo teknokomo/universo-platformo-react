@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import type { Attribute } from '../../../../types'
 
@@ -30,6 +30,16 @@ interface UseAttributeDndOptions {
     onValidateTransfer?: (attribute: Attribute, targetParentId: string | null, targetContainerItemCount: number) => Promise<boolean>
 }
 
+/** Deferred cross-list transfer data, processed in a useEffect after DnD state cleanup. */
+interface DeferredCrossTransfer {
+    attribute: Attribute
+    activeId: string
+    targetParentId: string | null
+    sourceParentId: string | null
+    targetItemCount: number
+    newSortOrder: number
+}
+
 export function useAttributeDnd({
     containers,
     allowCrossListRootChildren,
@@ -46,8 +56,47 @@ export function useAttributeDnd({
     /** Virtual cross-list transfer for ghost row rendering */
     const [pendingTransfer, setPendingTransfer] = useState<PendingTransfer | null>(null)
 
+    /** Deferred cross-list transfer waiting for validation + execution after DnD cleanup render */
+    const [deferredCrossTransfer, setDeferredCrossTransfer] = useState<DeferredCrossTransfer | null>(null)
+
     // Ref to avoid stale closure reads in handleDragOver
     const pendingTransferRef = useRef<PendingTransfer | null>(null)
+
+    // Stable refs for useEffect — avoid re-firing when callbacks change identity
+    const onValidateTransferRef = useRef(onValidateTransfer)
+    onValidateTransferRef.current = onValidateTransfer
+    const onReorderRef = useRef(onReorder)
+    onReorderRef.current = onReorder
+
+    // Process deferred cross-list transfer AFTER React has committed the DnD cleanup render.
+    // useEffect runs after DOM commit, so any state updates (like SHOW_CONFIRM from confirm())
+    // happen in their own render cycle — unlike setTimeout which React 18 can still batch
+    // with the preceding unstable_batchedUpdates from dnd-kit.
+    useEffect(() => {
+        if (!deferredCrossTransfer) return
+
+        let cancelled = false
+        const { attribute, activeId: xferId, targetParentId, sourceParentId, targetItemCount, newSortOrder } = deferredCrossTransfer
+
+        const execute = async () => {
+            if (onValidateTransferRef.current) {
+                const allowed = await onValidateTransferRef.current(attribute, targetParentId, targetItemCount)
+                if (!allowed || cancelled) {
+                    if (!cancelled) setDeferredCrossTransfer(null)
+                    return
+                }
+            }
+            if (cancelled) return
+
+            await onReorderRef.current(xferId, newSortOrder, targetParentId, sourceParentId)
+            if (!cancelled) setDeferredCrossTransfer(null)
+        }
+
+        execute()
+        return () => {
+            cancelled = true
+        }
+    }, [deferredCrossTransfer])
 
     const findContainer = useCallback(
         (itemId: string): ContainerInfo | undefined => {
@@ -96,11 +145,10 @@ export function useAttributeDnd({
         (event: DragOverEvent) => {
             const { active, over } = event
             if (!over) {
-                setOverContainerId(null)
-                if (pendingTransferRef.current) {
-                    pendingTransferRef.current = null
-                    setPendingTransfer(null)
-                }
+                // Keep the last valid cross-list transfer while collisions are temporarily unstable.
+                // This is critical for empty child containers where pointer collisions can briefly disappear.
+                setOverId(null)
+                setOverContainerId(pendingTransferRef.current ? pendingTransferRef.current.toContainerId : null)
                 return
             }
 
@@ -113,16 +161,31 @@ export function useAttributeDnd({
             const overContainer = findContainer(String(over.id)) || containers.find((c) => c.id === String(over.id))
 
             if (!activeContainer || !overContainer) {
-                setOverContainerId(null)
-                if (pendingTransferRef.current) {
-                    pendingTransferRef.current = null
-                    setPendingTransfer(null)
-                }
+                setOverId(null)
+                setOverContainerId(pendingTransferRef.current ? pendingTransferRef.current.toContainerId : null)
                 return
             }
 
             if (activeContainer.id === overContainer.id) {
-                // Same container — no cross-list highlight, clear pending transfer
+                // Ignore noisy container-level collisions (e.g. root table body overlapping nested child area)
+                // when a valid cross-list target is already known.
+                if (pendingTransferRef.current && String(over.id) === activeContainer.id) {
+                    setOverId(String(over.id))
+                    setOverContainerId(pendingTransferRef.current.toContainerId)
+                    return
+                }
+
+                // Guard: preserve cross-list transfer when collision detection temporarily
+                // resolves to a source-container item (not the container itself).
+                // This prevents flickering when the child droppable rect shifts after ghost mount.
+                if (pendingTransferRef.current && pendingTransferRef.current.toContainerId !== activeContainer.id) {
+                    setOverId(String(over.id))
+                    setOverContainerId(pendingTransferRef.current.toContainerId)
+                    return
+                }
+
+                // Same container — no cross-list in progress, clear pending transfer.
+                setOverId(String(over.id))
                 setOverContainerId(null)
                 if (pendingTransferRef.current) {
                     pendingTransferRef.current = null
@@ -205,6 +268,19 @@ export function useAttributeDnd({
                 overContainer = containers.find((c) => c.id === savedPendingTransfer.toContainerId)
             }
 
+            // Prefer the last known cross-list target from drag-over when drop collision
+            // falls back to the active source item/container.
+            if (savedPendingTransfer && activeContainer && (!overContainer || overContainer.id === activeContainer.id)) {
+                const overId = String(over.id)
+                const shouldUsePendingTarget = !overContainer || overId === String(active.id) || overId === activeContainer.id
+                if (shouldUsePendingTarget) {
+                    const pendingTarget = containers.find((c) => c.id === savedPendingTransfer.toContainerId)
+                    if (pendingTarget && pendingTarget.id !== activeContainer.id) {
+                        overContainer = pendingTarget
+                    }
+                }
+            }
+
             if (!activeContainer || !overContainer) return
 
             const attribute = findAttribute(String(active.id))
@@ -224,13 +300,15 @@ export function useAttributeDnd({
                 // Cross-list transfer
                 if (!isCrossListAllowed(activeContainer, overContainer)) return
 
-                if (onValidateTransfer) {
-                    const allowed = await onValidateTransfer(attribute, overContainer.parentAttributeId, overContainer.items.length)
-                    if (!allowed) return
-                }
-
+                // Capture all data needed for deferred execution
+                const transferAttribute = attribute
+                const targetParentId = overContainer.parentAttributeId
+                const sourceParentId = activeContainer.parentAttributeId
                 const targetItems = overContainer.items
-                const overIndex = targetItems.findIndex((i) => i.id === String(over.id))
+                const targetItemCount = targetItems.length
+                const activeIdStr = String(active.id)
+                const overIdStr = String(over.id)
+                const overIndex = targetItems.findIndex((i) => i.id === overIdStr)
 
                 let newSortOrder: number
                 if (overIndex >= 0) {
@@ -242,10 +320,22 @@ export function useAttributeDnd({
                     newSortOrder = targetItems.length + 1
                 }
 
-                await onReorder(String(active.id), newSortOrder, overContainer.parentAttributeId, activeContainer.parentAttributeId)
+                // Set deferred cross-list transfer for processing in useEffect.
+                // dnd-kit calls onDragEnd inside unstable_batchedUpdates, and React 18
+                // auto-batches even setTimeout callbacks. useEffect runs AFTER React
+                // commits DOM from the DnD cleanup render, so confirm() dialog dispatch
+                // happens in a clean, independent render cycle.
+                setDeferredCrossTransfer({
+                    attribute: transferAttribute,
+                    activeId: activeIdStr,
+                    targetParentId,
+                    sourceParentId,
+                    targetItemCount,
+                    newSortOrder
+                })
             }
         },
-        [containers, findContainer, findAttribute, isCrossListAllowed, onReorder, onValidateTransfer]
+        [containers, findContainer, findAttribute, isCrossListAllowed, onReorder]
     )
 
     const handleDragCancel = useCallback(() => {

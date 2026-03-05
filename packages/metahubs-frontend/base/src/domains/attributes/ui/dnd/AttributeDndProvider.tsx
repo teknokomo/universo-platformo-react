@@ -10,6 +10,7 @@ import {
     MeasuringStrategy,
     sortableKeyboardCoordinates
 } from '@universo/template-mui'
+import { pointerWithin } from '@dnd-kit/core'
 import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@universo/template-mui'
 import { useAttributeDnd } from './useAttributeDnd'
 import type { ContainerInfo, PendingTransfer } from './useAttributeDnd'
@@ -117,10 +118,78 @@ export const AttributeDndProvider: React.FC<AttributeDndProviderProps> = ({
         [activeId, activeContainerId, overContainerId, pendingTransfer, activeAttribute]
     )
 
+    const droppableIdToContainerId = useMemo(() => {
+        const map = new Map<string, string>()
+        for (const container of containers) {
+            map.set(container.id, container.id)
+            for (const item of container.items) {
+                map.set(item.id, container.id)
+            }
+        }
+        return map
+    }, [containers])
+
+    const containerIds = useMemo(() => new Set(containers.map((container) => container.id)), [containers])
+
     const isDebugEnabled = useMemo(() => {
         if (typeof window === 'undefined') return false
         return window.localStorage.getItem('debug:metahubs:attributes-dnd') === '1'
     }, [])
+
+    const collisionDetection = useMemo(() => {
+        type PointerCollision = ReturnType<typeof pointerWithin>[number]
+
+        const prioritizeCrossContainerCollisions = (collisions: PointerCollision[], activeDroppableId: string): PointerCollision[] => {
+            const activeContainerId = droppableIdToContainerId.get(activeDroppableId)
+            if (!activeContainerId || collisions.length === 0) {
+                return collisions
+            }
+
+            const crossContainerCollisions = collisions
+                .map((collision, index) => {
+                    const collisionId = String(collision.id)
+                    const targetContainerId = droppableIdToContainerId.get(collisionId)
+                    if (!targetContainerId || targetContainerId === activeContainerId) {
+                        return null
+                    }
+                    return {
+                        collision,
+                        index,
+                        targetContainerId,
+                        isItemCollision: !containerIds.has(collisionId)
+                    }
+                })
+                .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+
+            if (crossContainerCollisions.length === 0) {
+                return collisions
+            }
+
+            crossContainerCollisions.sort((a, b) => {
+                if (a.isItemCollision !== b.isItemCollision) {
+                    return a.isItemCollision ? -1 : 1
+                }
+                const aIsRootTarget = a.targetContainerId === 'root'
+                const bIsRootTarget = b.targetContainerId === 'root'
+                if (aIsRootTarget !== bIsRootTarget) {
+                    return aIsRootTarget ? 1 : -1
+                }
+                return a.index - b.index
+            })
+
+            return crossContainerCollisions.map((entry) => entry.collision)
+        }
+
+        return (args: Parameters<typeof closestCenter>[0]) => {
+            const pointerCollisions = pointerWithin(args)
+            if (pointerCollisions.length > 0) {
+                return prioritizeCrossContainerCollisions(pointerCollisions, String(args.active.id))
+            }
+
+            const centerCollisions = closestCenter(args)
+            return prioritizeCrossContainerCollisions(centerCollisions, String(args.active.id))
+        }
+    }, [containerIds, droppableIdToContainerId])
 
     const debugLog = (eventName: string, payload: Record<string, unknown>) => {
         if (!isDebugEnabled) return
@@ -161,7 +230,7 @@ export const AttributeDndProvider: React.FC<AttributeDndProviderProps> = ({
         <AttributeDndStateContext.Provider value={dndState}>
             <DndContext
                 sensors={sensors}
-                collisionDetection={closestCenter}
+                collisionDetection={collisionDetection}
                 onDragStart={handleDragStartWithDebug}
                 onDragOver={handleDragOverWithDebug}
                 onDragEnd={handleDragEndWithDebug}

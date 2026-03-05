@@ -411,6 +411,8 @@ export interface AttributeValidationRules {
     minRows?: number | null
     /** Maximum number of rows in TABLE child table (leave empty for no limit) */
     maxRows?: number | null
+    /** Maximum number of child attributes allowed inside TABLE (leave empty for no limit) */
+    maxChildAttributes?: number | null
 }
 
 /**

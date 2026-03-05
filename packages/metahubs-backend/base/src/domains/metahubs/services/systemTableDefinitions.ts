@@ -262,6 +262,12 @@ const mhbElements: SystemTableDef = {
     indexes: [
         { name: 'idx_mhb_elements_object_id', columns: ['object_id'] },
         { name: 'idx_mhb_elements_object_sort', columns: ['object_id', 'sort_order'] },
+        {
+            name: 'uidx_mhb_elements_object_sort_active',
+            columns: ['object_id', 'sort_order'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
         { name: 'idx_mhb_elements_owner_id', columns: ['owner_id'] },
         { name: 'idx_mhb_elements_data_gin', columns: ['data'], method: 'gin' },
         {

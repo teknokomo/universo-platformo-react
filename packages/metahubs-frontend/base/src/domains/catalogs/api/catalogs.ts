@@ -124,6 +124,12 @@ export type CatalogCopyInput = CatalogLocalizedPayload & {
 export const copyCatalog = (metahubId: string, catalogId: string, data: CatalogCopyInput) =>
     apiClient.post<Catalog>(`/metahub/${metahubId}/catalog/${catalogId}/copy`, data)
 
+export const reorderCatalog = (metahubId: string, catalogId: string, newSortOrder: number, hubId?: string) =>
+    apiClient.patch<Catalog>(hubId ? `/metahub/${metahubId}/hub/${hubId}/catalogs/reorder` : `/metahub/${metahubId}/catalogs/reorder`, {
+        catalogId,
+        newSortOrder
+    })
+
 /**
  * Update a catalog (including hub associations via hubIds array)
  * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict

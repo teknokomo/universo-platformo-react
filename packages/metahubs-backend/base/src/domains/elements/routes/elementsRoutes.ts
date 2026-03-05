@@ -1,10 +1,11 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { OptimisticLockError } from '@universo/utils'
 import { getRequestManager } from '../../../utils'
+import { ensureMetahubAccess } from '../../shared/guards'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
@@ -18,6 +19,18 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+const extractErrorCode = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('code' in error)) return undefined
+    const code = (error as { code?: unknown }).code
+    return typeof code === 'string' ? code : undefined
+}
+
+type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
+
+const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
+    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 // Request body schemas
@@ -34,6 +47,15 @@ const updateElementSchema = z.object({
 
 const copyElementSchema = z.object({
     copyChildTables: z.boolean().optional()
+})
+
+const moveElementSchema = z.object({
+    direction: z.enum(['up', 'down'])
+})
+
+const reorderElementSchema = z.object({
+    elementId: z.string().uuid(),
+    newSortOrder: z.number().int().min(1)
 })
 
 export function createElementsRoutes(
@@ -60,6 +82,7 @@ export function createElementsRoutes(
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
+            ds,
             elementsService,
             attributesService
         }
@@ -173,10 +196,11 @@ export function createElementsRoutes(
                 )
                 res.status(201).json(element)
             } catch (error: any) {
-                if (error.message.includes('Catalog not found')) {
+                const code = extractErrorCode(error)
+                if (code === 'CATALOG_NOT_FOUND') {
                     return res.status(404).json({ error: 'Catalog not found' })
                 }
-                if (error.message.includes('Validation failed')) {
+                if (code === 'ELEMENT_VALIDATION_FAILED') {
                     return res.status(400).json({ error: error.message })
                 }
                 throw error
@@ -225,11 +249,87 @@ export function createElementsRoutes(
                 if (error instanceof OptimisticLockError) {
                     throw error // Let middleware handle it
                 }
-                if (error.message.includes('Catalog not found') || error.message.includes('Element not found')) {
+                const code = extractErrorCode(error)
+                if (code === 'CATALOG_NOT_FOUND' || code === 'ELEMENT_NOT_FOUND') {
                     return res.status(404).json({ error: error.message })
                 }
-                if (error.message.includes('Validation failed')) {
+                if (code === 'ELEMENT_VALIDATION_FAILED') {
                     return res.status(400).json({ error: error.message })
+                }
+                throw error
+            }
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId/move
+     * PATCH /metahub/:metahubId/catalog/:catalogId/element/:elementId/move
+     * Move element one step up/down in sort order.
+     */
+    router.patch(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId/move',
+            '/metahub/:metahubId/catalog/:catalogId/element/:elementId/move'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, elementId } = req.params
+            const { ds, elementsService } = services(req)
+            const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            const parsed = moveElementSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            try {
+                const updated = await elementsService.moveElement(metahubId, catalogId, elementId, parsed.data.direction, userId)
+                return res.json(updated)
+            } catch (error: any) {
+                const code = extractErrorCode(error)
+                if (code === 'CATALOG_NOT_FOUND' || code === 'ELEMENT_NOT_FOUND') {
+                    return res.status(404).json({ error: error.message })
+                }
+                throw error
+            }
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements/reorder
+     * PATCH /metahub/:metahubId/catalog/:catalogId/elements/reorder
+     * Reorder a single element to a new sort_order position.
+     */
+    router.patch(
+        ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements/reorder', '/metahub/:metahubId/catalog/:catalogId/elements/reorder'],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { ds, elementsService } = services(req)
+            const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            const parsed = reorderElementSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const { elementId, newSortOrder } = parsed.data
+
+            try {
+                const updated = await elementsService.reorderElement(metahubId, catalogId, elementId, newSortOrder, userId)
+                return res.json(updated)
+            } catch (error: any) {
+                const code = extractErrorCode(error)
+                if (code === 'CATALOG_NOT_FOUND' || code === 'ELEMENT_NOT_FOUND') {
+                    return res.status(404).json({ error: error.message })
                 }
                 throw error
             }
@@ -256,7 +356,8 @@ export function createElementsRoutes(
                 await elementsService.delete(metahubId, catalogId, elementId, userId)
                 res.status(204).send()
             } catch (error: any) {
-                if (error.message.includes('Catalog not found') || error.message.includes('Element not found')) {
+                const code = extractErrorCode(error)
+                if (code === 'CATALOG_NOT_FOUND' || code === 'ELEMENT_NOT_FOUND') {
                     return res.status(404).json({ error: error.message })
                 }
                 throw error
@@ -320,7 +421,6 @@ export function createElementsRoutes(
                 catalogId,
                 {
                     data: copiedData,
-                    sortOrder: typeof source.sortOrder === 'number' ? source.sortOrder + 1 : source.sortOrder,
                     createdBy: userId
                 },
                 userId

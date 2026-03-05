@@ -76,6 +76,9 @@ export type HubCopyInput = HubLocalizedPayload & {
 export const copyHub = (metahubId: string, hubId: string, data: HubCopyInput) =>
     apiClient.post<Hub>(`/metahub/${metahubId}/hub/${hubId}/copy`, data)
 
+export const reorderHub = (metahubId: string, hubId: string, newSortOrder: number) =>
+    apiClient.patch<Hub>(`/metahub/${metahubId}/hubs/reorder`, { hubId, newSortOrder })
+
 /**
  * Update a hub
  * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict

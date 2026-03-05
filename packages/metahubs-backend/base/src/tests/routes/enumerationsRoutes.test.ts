@@ -83,7 +83,8 @@ const mockObjectsService = {
     findById: jest.fn(),
     updateEnumeration: jest.fn(),
     restore: jest.fn(),
-    permanentDelete: jest.fn()
+    permanentDelete: jest.fn(),
+    reorderByKind: jest.fn()
 }
 
 const mockAttributesService = {
@@ -292,6 +293,10 @@ describe('Enumerations Routes', () => {
         )
         mockObjectsService.restore.mockResolvedValue(undefined)
         mockObjectsService.permanentDelete.mockResolvedValue(undefined)
+        mockObjectsService.reorderByKind.mockResolvedValue({
+            id: '44444444-4444-4444-8444-444444444444',
+            config: { sortOrder: 2 }
+        })
         mockValuesService.reorderValue.mockResolvedValue({
             id: '44444444-4444-4444-4444-444444444444',
             objectId: 'enum-1',
@@ -355,6 +360,31 @@ describe('Enumerations Routes', () => {
 
             expect(response.body.error).toBe('Validation failed')
             expect(mockValuesService.reorderValue).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('PATCH /metahub/:metahubId/enumerations/reorder', () => {
+        it('reorders enumeration and returns updated sort order', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/enumerations/reorder')
+                .send({
+                    enumerationId: '44444444-4444-4444-8444-444444444444',
+                    newSortOrder: 2
+                })
+                .expect(200)
+
+            expect(response.body).toEqual({
+                id: '44444444-4444-4444-8444-444444444444',
+                sortOrder: 2
+            })
+            expect(mockObjectsService.reorderByKind).toHaveBeenCalledWith(
+                'metahub-1',
+                'enumeration',
+                '44444444-4444-4444-8444-444444444444',
+                2,
+                'test-user-id'
+            )
         })
     })
 

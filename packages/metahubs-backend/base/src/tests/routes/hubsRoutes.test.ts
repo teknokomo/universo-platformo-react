@@ -70,6 +70,10 @@ const mockHubsService = {
     delete: jest.fn()
 }
 
+const mockObjectsService = {
+    reorderByKind: jest.fn()
+}
+
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
     MetahubSchemaService: jest.fn().mockImplementation(() => ({
@@ -79,7 +83,7 @@ jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
 
 jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     __esModule: true,
-    MetahubObjectsService: jest.fn().mockImplementation(() => ({}))
+    MetahubObjectsService: jest.fn().mockImplementation(() => mockObjectsService)
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
@@ -198,8 +202,66 @@ describe('Hubs Routes', () => {
         mockMetahubRepo.findOne.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockHubsService.findById.mockResolvedValue(null)
+        mockObjectsService.reorderByKind.mockResolvedValue({
+            id: '11111111-1111-4111-8111-111111111111',
+            config: { sortOrder: 2 }
+        })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
         mockGenerateTableName.mockImplementation((id: string, kind: string) => `${kind}_${id}`)
+    })
+
+    describe('PATCH /metahub/:metahubId/hubs/reorder', () => {
+        it('reorders hub and returns updated sort order', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/hubs/reorder')
+                .send({
+                    hubId: '11111111-1111-4111-8111-111111111111',
+                    newSortOrder: 2
+                })
+                .expect(200)
+
+            expect(response.body).toEqual({
+                id: '11111111-1111-4111-8111-111111111111',
+                sortOrder: 2
+            })
+            expect(mockObjectsService.reorderByKind).toHaveBeenCalledWith(
+                'metahub-1',
+                'hub',
+                '11111111-1111-4111-8111-111111111111',
+                2,
+                'test-user-id'
+            )
+        })
+
+        it('returns 404 when hub is not found', async () => {
+            mockObjectsService.reorderByKind.mockRejectedValueOnce(new Error('hub not found'))
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/hubs/reorder')
+                .send({
+                    hubId: '11111111-1111-4111-8111-111111111111',
+                    newSortOrder: 2
+                })
+                .expect(404)
+
+            expect(response.body.error).toBe('Hub not found')
+        })
+
+        it('returns 400 for invalid payload', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/hubs/reorder')
+                .send({
+                    hubId: 'invalid-id',
+                    newSortOrder: 0
+                })
+                .expect(400)
+
+            expect(response.body.error).toBe('Validation failed')
+            expect(mockObjectsService.reorderByKind).not.toHaveBeenCalled()
+        })
     })
 
     describe('POST /metahub/:metahubId/hub/:hubId/copy', () => {

@@ -59,7 +59,9 @@ jest.mock('../../domains/ddl', () => ({
 }))
 
 const mockAttributesService = {
+    countByObjectId: jest.fn(),
     findById: jest.fn(),
+    ensureSequentialSortOrder: jest.fn(),
     update: jest.fn(),
     findByCodename: jest.fn(),
     create: jest.fn(),
@@ -67,7 +69,9 @@ const mockAttributesService = {
     reorderAttribute: jest.fn()
 }
 
-const mockObjectsService = {}
+const mockObjectsService = {
+    findById: jest.fn()
+}
 
 const mockEnumerationValuesService = {
     findById: jest.fn()
@@ -151,11 +155,17 @@ describe('Attributes Routes', () => {
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
+        mockAttributesService.countByObjectId.mockResolvedValue(0)
         mockAttributesService.findById.mockResolvedValue(null)
+        mockAttributesService.ensureSequentialSortOrder.mockResolvedValue(undefined)
         mockAttributesService.update.mockResolvedValue({})
         mockAttributesService.findByCodename.mockResolvedValue(null)
         mockAttributesService.create.mockResolvedValue({})
         mockAttributesService.findChildAttributes.mockResolvedValue([])
+        mockObjectsService.findById.mockResolvedValue({
+            id: 'catalog-1',
+            kind: 'catalog'
+        })
         mockAttributesService.reorderAttribute.mockResolvedValue({
             id: '11111111-1111-1111-1111-111111111111',
             objectId: '22222222-2222-2222-2222-222222222222',
@@ -163,6 +173,50 @@ describe('Attributes Routes', () => {
             parentAttributeId: null
         })
         mockEnumerationValuesService.findById.mockResolvedValue(null)
+    })
+
+    describe('POST /metahub/:metahubId/catalog/:catalogId/attributes', () => {
+        it('returns 400 with TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN code for TABLE display attribute create attempt', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/catalog/catalog-1/attributes')
+                .send({
+                    codename: 'TableField',
+                    dataType: 'TABLE',
+                    name: { en: 'Table Field' },
+                    isDisplayAttribute: true
+                })
+                .expect(400)
+
+            expect(response.body).toMatchObject({
+                code: 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
+            })
+            expect(mockAttributesService.create).not.toHaveBeenCalled()
+        })
+
+        it('returns structured 409 when TABLE attribute catalog limit is reached', async () => {
+            const tableLimitError = Object.assign(new Error('TABLE_ATTRIBUTE_LIMIT_REACHED: Maximum 10 TABLE attributes per catalog'), {
+                code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
+                maxTableAttributes: 10
+            })
+            mockAttributesService.create.mockRejectedValueOnce(tableLimitError)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/catalog/catalog-1/attributes')
+                .send({
+                    codename: 'ItemsTable',
+                    dataType: 'TABLE',
+                    name: { en: 'Items' },
+                    isDisplayAttribute: false
+                })
+                .expect(409)
+
+            expect(response.body).toMatchObject({
+                code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
+                maxTableAttributes: 10
+            })
+        })
     })
 
     describe('PATCH /metahub/:metahubId/catalog/:catalogId/attributes/reorder', () => {
@@ -220,6 +274,29 @@ describe('Attributes Routes', () => {
 
             expect(response.body.code).toBe('TRANSFER_NOT_ALLOWED')
             expect(response.body.message).toContain('TRANSFER_NOT_ALLOWED')
+        })
+
+        it('returns structured 409 when TABLE child limit is reached', async () => {
+            const limitError = Object.assign(new Error('TABLE_CHILD_LIMIT_REACHED: Maximum 3 child attributes per TABLE'), {
+                code: 'TABLE_CHILD_LIMIT_REACHED',
+                maxChildAttributes: 3
+            })
+            mockAttributesService.reorderAttribute.mockRejectedValueOnce(limitError)
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attributes/reorder')
+                .send({
+                    attributeId: '11111111-1111-1111-1111-111111111111',
+                    newSortOrder: 2,
+                    newParentAttributeId: '33333333-3333-3333-3333-333333333333'
+                })
+                .expect(409)
+
+            expect(response.body).toMatchObject({
+                code: 'TABLE_CHILD_LIMIT_REACHED',
+                maxChildAttributes: 3
+            })
         })
     })
 

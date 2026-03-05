@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.53.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.54.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 ## Основная информация
@@ -56,7 +56,7 @@ Universo Platformo React:
 
 ## Текущий статус
 
-**Текущий спринт**: 0.53.0-alpha (Март 2026)
+**Текущий спринт**: 0.54.0-alpha (Март 2026)
 
 **Основной фокус**:
 

@@ -16,7 +16,6 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { EntityFormDialog, ConfirmDeleteDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import { BaseEntityMenu, notifyError, FlowListTable } from '@universo/template-mui'
-import { useDroppable } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import { TABLE_CHILD_DATA_TYPES } from '@universo/types'
@@ -57,43 +56,6 @@ type ChildAttributeContextExtras = {
     toggleDisplayAttribute?: (id: string, value: boolean) => Promise<void>
 }
 
-interface EmptyDroppableChildAreaProps {
-    containerId: string
-    isDropTarget: boolean
-    message: string
-}
-
-/**
- * Droppable placeholder shown when a child attribute list has no items.
- * Uses @dnd-kit useDroppable so the area can receive cross-list transfers.
- */
-// eslint-disable-next-line react/prop-types
-const EmptyDroppableChildArea: React.FC<EmptyDroppableChildAreaProps> = ({ containerId, isDropTarget, message }) => {
-    const { setNodeRef } = useDroppable({ id: containerId })
-    return (
-        <Box
-            ref={setNodeRef}
-            sx={{
-                py: 2,
-                textAlign: 'center',
-                border: 1,
-                borderRadius: 1,
-                borderColor: isDropTarget ? 'primary.main' : 'divider',
-                borderStyle: 'dashed',
-                ...(isDropTarget && {
-                    borderWidth: 2,
-                    backgroundColor: 'action.hover',
-                    transition: 'border-color 0.2s, background-color 0.2s'
-                })
-            }}
-        >
-            <Typography variant='body2' color='text.secondary'>
-                {message}
-            </Typography>
-        </Box>
-    )
-}
-
 const extractResponseMessage = (error: unknown): string | undefined => {
     if (!error || typeof error !== 'object' || !('response' in error)) return undefined
     const response = (error as { response?: unknown }).response
@@ -104,29 +66,55 @@ const extractResponseMessage = (error: unknown): string | undefined => {
     return typeof message === 'string' ? message : undefined
 }
 
+const extractResponseData = (error: unknown): Record<string, unknown> | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    return data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined
+}
+
+const extractResponseCode = (error: unknown): string | undefined => {
+    const data = extractResponseData(error)
+    const code = data?.code
+    return typeof code === 'string' ? code : undefined
+}
+
+const extractResponseMaxChildAttributes = (error: unknown): number | undefined => {
+    const data = extractResponseData(error)
+    const max = data?.maxChildAttributes
+    return typeof max === 'number' && Number.isFinite(max) ? max : undefined
+}
+
+const extractResponseMaxTableAttributes = (error: unknown): number | undefined => {
+    const data = extractResponseData(error)
+    const max = data?.maxTableAttributes
+    return typeof max === 'number' && Number.isFinite(max) ? max : undefined
+}
+
 const getDisplayAttributeFlag = (row: AttributeDisplay): boolean => Boolean((row as { isDisplayAttribute?: boolean }).isDisplayAttribute)
 
-/**
- * Map known backend TABLE validation error messages to localized i18n strings.
- * Returns the localized string if matched, or null to fall back to default error.
- */
 function localizeTableValidationError(
-    msg: string,
-    t: (key: string, defaultValue: string, opts?: Record<string, unknown>) => string
+    error: unknown,
+    t: (key: string, defaultValue: string, opts?: Record<string, unknown>) => string,
+    maxChildAttributesFallback?: number | null
 ): string | null {
-    if (!msg) return null
-    if (msg.includes('Nested TABLE attributes are not allowed')) {
+    const code = extractResponseCode(error)
+    if (!code) return null
+    if (code === 'NESTED_TABLE_FORBIDDEN') {
         return t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed')
     }
-    const maxChildMatch = msg.match(/Maximum (\d+) child attributes per TABLE/)
-    if (maxChildMatch) {
-        return t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', { max: maxChildMatch[1] })
+    if (code === 'TABLE_CHILD_LIMIT_REACHED') {
+        const max = extractResponseMaxChildAttributes(error)
+        return t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+            max: max ?? maxChildAttributesFallback ?? '—'
+        })
     }
-    const maxTableMatch = msg.match(/Maximum (\d+) TABLE attributes per catalog/)
-    if (maxTableMatch) {
-        return t('attributes.tableValidation.maxTableAttributes', 'Maximum {{max}} TABLE attributes per catalog', { max: maxTableMatch[1] })
+    if (code === 'TABLE_ATTRIBUTE_LIMIT_REACHED') {
+        const max = extractResponseMaxTableAttributes(error)
+        return t('attributes.tableValidation.maxTableAttributes', 'Maximum {{max}} TABLE attributes per catalog', { max: max ?? '—' })
     }
-    if (msg.includes('TABLE attributes cannot be set as display attribute')) {
+    if (code === 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN') {
         return t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute')
     }
     return null
@@ -230,12 +218,21 @@ interface ChildAttributeListProps {
     hubId?: string
     catalogId: string
     parentAttributeId: string
+    parentMaxChildAttributes?: number | null
     /** When set, only children matching this search term are shown */
     searchFilter?: string
     onRefresh?: () => void
 }
 
-const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, searchFilter, onRefresh }: ChildAttributeListProps) => {
+const ChildAttributeList = ({
+    metahubId,
+    hubId,
+    catalogId,
+    parentAttributeId,
+    parentMaxChildAttributes,
+    searchFilter,
+    onRefresh
+}: ChildAttributeListProps) => {
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const attributeCodenameScope = useSettingValue<string>('catalogs.attributeCodenameScope') ?? 'per-level'
@@ -294,6 +291,9 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
     })
 
     const childAttributes = useMemo(() => data?.items ?? [], [data?.items])
+    const maxChildAttributesLimit =
+        typeof parentMaxChildAttributes === 'number' && parentMaxChildAttributes > 0 ? parentMaxChildAttributes : null
+    const isChildLimitReached = maxChildAttributesLimit !== null && childAttributes.length >= maxChildAttributesLimit
 
     // When attributeCodenameScope is 'global', fetch ALL attribute codenames (root + children)
     // to enable cross-level duplicate checking in the UI
@@ -317,6 +317,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
     const { register, unregister } = useContainerRegistry()
     const { activeContainerId, overContainerId, pendingTransfer, activeAttribute: dndActiveAttr } = useAttributeDndState()
     const isDropTarget = overContainerId === containerId && activeContainerId !== null && activeContainerId !== containerId
+    const isInvalidDropTarget = isDropTarget && isChildLimitReached
     useEffect(() => {
         register({
             id: containerId,
@@ -988,8 +989,17 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             setDialogOpen(false)
             enqueueSnackbar(t('attributes.createSuccess', 'Attribute created'), { variant: 'success' })
         } catch (e: unknown) {
+            if (extractResponseCode(e) === 'TABLE_CHILD_LIMIT_REACHED') {
+                const max = extractResponseMaxChildAttributes(e)
+                setDialogError(
+                    t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                        max: max ?? maxChildAttributesLimit ?? '—'
+                    })
+                )
+                return
+            }
             const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
-            const localizedMsg = localizeTableValidationError(msg, t) || t('attributes.createError')
+            const localizedMsg = localizeTableValidationError(e, t, maxChildAttributesLimit) || msg || t('attributes.createError')
             setDialogError(localizedMsg)
         } finally {
             setCreating(false)
@@ -1052,7 +1062,11 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             enqueueSnackbar(t('attributes.updateSuccess', 'Attribute updated'), { variant: 'success' })
         } catch (e: unknown) {
             const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
-            setEditDialogError(localizeTableValidationError(msg, t) || t('attributes.updateError', 'Failed to update attribute'))
+            setEditDialogError(
+                localizeTableValidationError(e, t, maxChildAttributesLimit) ||
+                    msg ||
+                    t('attributes.updateError', 'Failed to update attribute')
+            )
         } finally {
             setUpdating(false)
         }
@@ -1099,6 +1113,15 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             setCopyState({ open: false, attribute: null })
             enqueueSnackbar(t('attributes.copy.success', 'Attribute copied'), { variant: 'success' })
         } catch (error: unknown) {
+            if (extractResponseCode(error) === 'TABLE_CHILD_LIMIT_REACHED') {
+                const max = extractResponseMaxChildAttributes(error)
+                setCopyDialogError(
+                    t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                        max: max ?? maxChildAttributesLimit ?? '—'
+                    })
+                )
+                return
+            }
             const message = error instanceof Error ? error.message : t('attributes.copy.error', 'Failed to copy attribute')
             setCopyDialogError(message)
         } finally {
@@ -1189,15 +1212,28 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                     <Typography variant='caption' color='text.secondary'>
                         {t('attributes.childAttributes', 'Child Attributes')} ({childAttributes.length})
                     </Typography>
-                    <Button
-                        variant='contained'
-                        size='small'
-                        onClick={() => setDialogOpen(true)}
-                        startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
-                        sx={{ borderRadius: 1, height: 28, fontSize: 12, textTransform: 'none' }}
+                    <Tooltip
+                        title={
+                            isChildLimitReached && maxChildAttributesLimit !== null
+                                ? t('attributes.typeSettings.table.maxChildAttributesReached', 'Maximum {{max}} child attributes reached', {
+                                      max: maxChildAttributesLimit
+                                  })
+                                : ''
+                        }
                     >
-                        {tc('create')}
-                    </Button>
+                        <span>
+                            <Button
+                                variant='contained'
+                                size='small'
+                                onClick={() => setDialogOpen(true)}
+                                startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
+                                sx={{ borderRadius: 1, height: 28, fontSize: 12, textTransform: 'none' }}
+                                disabled={isChildLimitReached}
+                            >
+                                {tc('create')}
+                            </Button>
+                        </span>
+                    </Tooltip>
                 </Stack>
 
                 {isLoading ? (
@@ -1224,18 +1260,6 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                             }
                         }
 
-                        // When there are no child attributes and no ghost row to show,
-                        // render a droppable empty placeholder
-                        if (effectiveData.length === 0) {
-                            return (
-                                <EmptyDroppableChildArea
-                                    containerId={containerId}
-                                    isDropTarget={isDropTarget}
-                                    message={t('attributes.noChildAttributes', 'No child attributes yet')}
-                                />
-                            )
-                        }
-
                         return (
                             <FlowListTable<AttributeDisplay>
                                 data={effectiveData}
@@ -1247,6 +1271,16 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                                 sortableItemIds={effectiveIds}
                                 dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
                                 isDropTarget={isDropTarget}
+                                isDropTargetInvalid={isInvalidDropTarget}
+                                emptyStateMessage={
+                                    isInvalidDropTarget && maxChildAttributesLimit !== null
+                                        ? t(
+                                              'attributes.typeSettings.table.maxChildAttributesReached',
+                                              'Maximum {{max}} child attributes reached',
+                                              { max: maxChildAttributesLimit }
+                                          )
+                                        : t('attributes.noChildAttributes', 'No child attributes yet')
+                                }
                                 renderActions={(row: AttributeDisplay) => {
                                     const originalAttribute = childAttributes.find((a) => a.id === row.id)
                                     if (!originalAttribute) return null

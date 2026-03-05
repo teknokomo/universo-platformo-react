@@ -82,6 +82,15 @@ export const deleteElement = (metahubId: string, hubId: string, catalogId: strin
 export const copyElement = (metahubId: string, hubId: string, catalogId: string, elementId: string, data?: Partial<ElementCopyOptions>) =>
     apiClient.post<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}/copy`, data ?? {})
 
+export const moveElement = (metahubId: string, hubId: string, catalogId: string, elementId: string, direction: 'up' | 'down') =>
+    apiClient.patch<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}/move`, { direction })
+
+export const reorderElement = (metahubId: string, hubId: string, catalogId: string, elementId: string, newSortOrder: number) =>
+    apiClient.patch<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/elements/reorder`, {
+        elementId,
+        newSortOrder
+    })
+
 // ============================================================================
 // Direct API (without hub) - for catalogs without hub association
 // ============================================================================
@@ -161,3 +170,12 @@ export const deleteElementDirect = (metahubId: string, catalogId: string, elemen
 
 export const copyElementDirect = (metahubId: string, catalogId: string, elementId: string, data?: Partial<ElementCopyOptions>) =>
     apiClient.post<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}/copy`, data ?? {})
+
+export const moveElementDirect = (metahubId: string, catalogId: string, elementId: string, direction: 'up' | 'down') =>
+    apiClient.patch<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}/move`, { direction })
+
+export const reorderElementDirect = (metahubId: string, catalogId: string, elementId: string, newSortOrder: number) =>
+    apiClient.patch<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/elements/reorder`, {
+        elementId,
+        newSortOrder
+    })

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import type { HubLocalizedPayload } from '../../../types'
-import { metahubsQueryKeys } from '../../shared'
+import { applyOptimisticReorder, metahubsQueryKeys, rollbackReorderSnapshots } from '../../shared'
 import * as hubsApi from '../api'
 import type { HubCopyInput } from '../api'
 
@@ -26,6 +26,12 @@ interface CopyHubParams {
     metahubId: string
     hubId: string
     data: HubCopyInput
+}
+
+interface ReorderHubParams {
+    metahubId: string
+    hubId: string
+    newSortOrder: number
 }
 
 export function useCreateHub() {
@@ -111,6 +117,33 @@ export function useCopyHub() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('hubs.copyError', 'Failed to copy hub'), { variant: 'error' })
+        }
+    })
+}
+
+export function useReorderHub() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, newSortOrder }: ReorderHubParams) => {
+            const response = await hubsApi.reorderHub(metahubId, hubId, newSortOrder)
+            return response.data
+        },
+        onMutate: async (variables) => {
+            const snapshots = await applyOptimisticReorder(
+                queryClient,
+                metahubsQueryKeys.hubs(variables.metahubId),
+                variables.hubId,
+                variables.newSortOrder
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            rollbackReorderSnapshots(queryClient, context?.snapshots)
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
         }
     })
 }

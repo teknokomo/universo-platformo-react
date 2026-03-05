@@ -26,6 +26,7 @@ import {
     useCodenameAutoFill,
     useCodenameVlcSync
 } from '@universo/template-mui'
+import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -36,7 +37,8 @@ import {
     useUpdateEnumeration,
     useUpdateEnumerationAtMetahub,
     useDeleteEnumeration,
-    useCopyEnumeration
+    useCopyEnumeration,
+    useReorderEnumeration
 } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
@@ -388,24 +390,36 @@ const EnumerationList = () => {
     const deleteEnumerationMutation = useDeleteEnumeration()
     const updateEnumerationAtMetahubMutation = useUpdateEnumerationAtMetahub()
     const copyEnumerationMutation = useCopyEnumeration()
+    const reorderEnumerationMutation = useReorderEnumeration()
+
+    const sortedEnumerations = useMemo(
+        () =>
+            [...enumerations].sort((a, b) => {
+                const sortA = a.sortOrder ?? 0
+                const sortB = b.sortOrder ?? 0
+                if (sortA !== sortB) return sortA - sortB
+                return a.id.localeCompare(b.id)
+            }),
+        [enumerations]
+    )
 
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(enumerations)) {
-            enumerations.forEach((enumeration) => {
+        if (Array.isArray(sortedEnumerations)) {
+            sortedEnumerations.forEach((enumeration) => {
                 if (enumeration?.id) {
                     imagesMap[enumeration.id] = []
                 }
             })
         }
         return imagesMap
-    }, [enumerations])
+    }, [sortedEnumerations])
 
     const enumerationMap = useMemo(() => {
-        if (!Array.isArray(enumerations)) return new Map<string, EnumerationWithHubs>()
-        return new Map(enumerations.map((enumeration) => [enumeration.id, enumeration]))
-    }, [enumerations])
+        if (!Array.isArray(sortedEnumerations)) return new Map<string, EnumerationWithHubs>()
+        return new Map(sortedEnumerations.map((enumeration) => [enumeration.id, enumeration]))
+    }, [sortedEnumerations])
 
     // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<EnumerationFormValues>(
@@ -998,6 +1012,58 @@ const EnumerationList = () => {
     const getEnumerationCardData = (enumeration: EnumerationWithHubs): EnumerationWithHubsDisplay =>
         toEnumerationWithHubsDisplay(enumeration, i18n.language)
 
+    const handleSortableDragEnd = async (event: DragEndEvent) => {
+        if (!metahubId) return
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const overEnumeration = sortedEnumerations.find((enumeration) => enumeration.id === String(over.id))
+        if (!overEnumeration) return
+
+        try {
+            await reorderEnumerationMutation.mutateAsync({
+                metahubId,
+                hubId,
+                enumerationId: String(active.id),
+                newSortOrder: overEnumeration.sortOrder ?? 1
+            })
+            enqueueSnackbar(t('enumerations.reorderSuccess', 'Enumeration order updated'), { variant: 'success' })
+        } catch (error: unknown) {
+            const message =
+                typeof error === 'object' &&
+                error !== null &&
+                'message' in error &&
+                typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : t('enumerations.reorderError', 'Failed to reorder enumeration')
+            enqueueSnackbar(message, { variant: 'error' })
+        }
+    }
+
+    const renderDragOverlay = (activeId: string | null) => {
+        if (!activeId) return null
+        const enumeration = enumerationMap.get(activeId)
+        if (!enumeration) return null
+        const display = getEnumerationCardData(enumeration)
+        return (
+            <Box
+                sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    boxShadow: 6,
+                    bgcolor: 'background.paper',
+                    minWidth: 260
+                }}
+            >
+                <Stack spacing={0.25}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{display.name || display.codename || enumeration.id}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{display.codename || '—'}</Typography>
+                </Stack>
+            </Box>
+        )
+    }
+
     return (
         <MainCard
             sx={{ maxWidth: '100%', width: '100%' }}
@@ -1063,13 +1129,13 @@ const EnumerationList = () => {
                             </Box>
                         )}
 
-                        {isLoading && enumerations.length === 0 ? (
+                        {isLoading && sortedEnumerations.length === 0 ? (
                             view === 'card' ? (
                                 <SkeletonGrid />
                             ) : (
                                 <Skeleton variant='rectangular' height={120} />
                             )
-                        ) : !isLoading && enumerations.length === 0 ? (
+                        ) : !isLoading && sortedEnumerations.length === 0 ? (
                             <EmptyListState
                                 image={APIEmptySVG}
                                 imageAlt='No enumerations'
@@ -1093,7 +1159,7 @@ const EnumerationList = () => {
                                             alignContent: 'start'
                                         }}
                                     >
-                                        {enumerations.map((enumeration: EnumerationWithHubs) => {
+                                        {sortedEnumerations.map((enumeration: EnumerationWithHubs) => {
                                             const descriptors = [...filteredEnumerationActions]
                                             const displayData = getEnumerationCardData(enumeration)
 
@@ -1144,9 +1210,15 @@ const EnumerationList = () => {
                                 ) : (
                                     <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                                         <FlowListTable
-                                            data={enumerations.map(getEnumerationCardData)}
+                                            data={sortedEnumerations.map(getEnumerationCardData)}
                                             images={images}
                                             isLoading={isLoading}
+                                            sortableRows
+                                            sortableItemIds={sortedEnumerations.map((enumeration) => enumeration.id)}
+                                            dragHandleAriaLabel={t('enumerations.dnd.dragHandle', 'Drag to reorder')}
+                                            dragDisabled={reorderEnumerationMutation.isPending || isLoading}
+                                            onSortableDragEnd={handleSortableDragEnd}
+                                            renderDragOverlay={renderDragOverlay}
                                             getRowLink={(row: EnumerationWithHubsDisplay) =>
                                                 row?.id
                                                     ? isHubScoped
@@ -1157,7 +1229,7 @@ const EnumerationList = () => {
                                             customColumns={enumerationColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: EnumerationWithHubsDisplay) => {
-                                                const originalEnumeration = enumerations.find((c) => c.id === row.id)
+                                                const originalEnumeration = enumerationMap.get(row.id)
                                                 if (!originalEnumeration) return null
 
                                                 const descriptors = [...filteredEnumerationActions]
@@ -1182,7 +1254,7 @@ const EnumerationList = () => {
                         )}
 
                         {/* Table Pagination at bottom */}
-                        {!isLoading && enumerations.length > 0 && (
+                        {!isLoading && sortedEnumerations.length > 0 && (
                             <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                                 <PaginationControls
                                     pagination={paginationResult.pagination}

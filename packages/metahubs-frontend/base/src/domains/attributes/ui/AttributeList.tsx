@@ -22,6 +22,7 @@ import {
     PaginationControls,
     FlowListTable,
     ConfirmDialog,
+    ConfirmContextProvider,
     useConfirm
 } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
@@ -101,7 +102,21 @@ const hasResponseStatus = (error: unknown): boolean => {
 const extractResponseMessage = (error: unknown): string | undefined => {
     const data = extractResponseData(error)
     const message = data?.message
-    return typeof message === 'string' ? message : undefined
+    if (typeof message === 'string' && message.trim().length > 0) return message
+    const fallbackError = data?.error
+    return typeof fallbackError === 'string' && fallbackError.trim().length > 0 ? fallbackError : undefined
+}
+
+const extractResponseCode = (error: unknown): string | undefined => {
+    const data = extractResponseData(error)
+    const code = data?.code
+    return typeof code === 'string' ? code : undefined
+}
+
+const extractResponseMaxChildAttributes = (error: unknown): number | undefined => {
+    const data = extractResponseData(error)
+    const max = data?.maxChildAttributes
+    return typeof max === 'number' && Number.isFinite(max) ? max : undefined
 }
 
 type AttributeFormValues = {
@@ -200,7 +215,7 @@ const DndDropTarget: React.FC<{
     return <>{children({ isDropTarget, pendingTransfer, activeAttribute })}</>
 }
 
-const AttributeList = () => {
+const AttributeListContent = () => {
     const navigate = useNavigate()
     const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
@@ -380,12 +395,24 @@ const AttributeList = () => {
             } catch (error: unknown) {
                 // Handle CODENAME_CONFLICT (409) — offer auto-rename
                 const responseData = extractResponseData(error)
+                const responseCode = extractResponseCode(error)
                 const responseStatus =
                     error && typeof error === 'object' && 'response' in error
                         ? (error as { response?: { status?: number } }).response?.status ?? 0
                         : 0
 
-                if (responseStatus === 409 && responseData?.code === 'CODENAME_CONFLICT') {
+                if (responseStatus === 409 && responseCode === 'TABLE_CHILD_LIMIT_REACHED') {
+                    const max = extractResponseMaxChildAttributes(error)
+                    enqueueSnackbar(
+                        t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                            max: max ?? '—'
+                        }),
+                        { variant: 'error' }
+                    )
+                    return
+                }
+
+                if (responseStatus === 409 && responseCode === 'CODENAME_CONFLICT') {
                     const conflictCodename = typeof responseData?.codename === 'string' ? responseData.codename : ''
                     const shouldAutoRename = await confirm({
                         title: t('attributes.dnd.codenameConflictTitle', 'Codename conflict'),
@@ -411,6 +438,16 @@ const AttributeList = () => {
                             })
                             enqueueSnackbar(t('attributes.reorderSuccess', 'Attribute order updated'), { variant: 'success' })
                         } catch (retryError: unknown) {
+                            if (extractResponseCode(retryError) === 'TABLE_CHILD_LIMIT_REACHED') {
+                                const max = extractResponseMaxChildAttributes(retryError)
+                                enqueueSnackbar(
+                                    t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                                        max: max ?? '—'
+                                    }),
+                                    { variant: 'error' }
+                                )
+                                return
+                            }
                             const msg =
                                 retryError instanceof Error
                                     ? retryError.message
@@ -457,6 +494,28 @@ const AttributeList = () => {
                 return false
             }
 
+            // Child TABLE limit validation
+            if (targetParentId !== null) {
+                const targetParent = attributeMap.get(targetParentId)
+                const maxChildAttributes =
+                    typeof targetParent?.validationRules?.maxChildAttributes === 'number' &&
+                    targetParent.validationRules.maxChildAttributes > 0
+                        ? targetParent.validationRules.maxChildAttributes
+                        : null
+
+                if (maxChildAttributes !== null && targetContainerItemCount >= maxChildAttributes) {
+                    await confirm({
+                        title: t('attributes.dnd.tableChildLimitTitle', 'Cannot move attribute'),
+                        description: t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                            max: maxChildAttributes
+                        }),
+                        confirmButtonName: tc('ok', 'OK'),
+                        hideCancelButton: true
+                    })
+                    return false
+                }
+            }
+
             // Moving to an empty child table — attribute will become display + required
             if (targetParentId !== null && targetContainerItemCount === 0) {
                 const shouldMove = await confirm({
@@ -473,7 +532,7 @@ const AttributeList = () => {
 
             return true
         },
-        [confirm, t, tc]
+        [attributeMap, confirm, t, tc]
     )
 
     const localizedFormDefaults = useMemo<AttributeFormValues>(() => {
@@ -1096,10 +1155,23 @@ const AttributeList = () => {
             handleDialogSave()
         } catch (e: unknown) {
             const responseData = extractResponseData(e)
-            const responseMessage = responseData?.message
+            const responseCode = typeof responseData?.code === 'string' ? responseData.code : null
+            const responseMessage = extractResponseMessage(e)
             const message =
                 responseData?.code === 'ATTRIBUTE_LIMIT_REACHED'
                     ? t('attributes.limitReached', { limit: responseData?.limit ?? limitValue })
+                    : responseCode === 'TABLE_CHILD_LIMIT_REACHED'
+                    ? t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                          max: responseData?.maxChildAttributes ?? '—'
+                      })
+                    : responseCode === 'TABLE_ATTRIBUTE_LIMIT_REACHED'
+                    ? t('attributes.tableValidation.maxTableAttributes', 'Maximum {{max}} TABLE attributes per catalog', {
+                          max: responseData?.maxTableAttributes ?? '—'
+                      })
+                    : responseCode === 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
+                    ? t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute')
+                    : responseCode === 'NESTED_TABLE_FORBIDDEN'
+                    ? t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed')
                     : typeof responseMessage === 'string'
                     ? responseMessage
                     : e instanceof Error
@@ -1313,6 +1385,12 @@ const AttributeList = () => {
                                                                         hubId={effectiveHubId}
                                                                         catalogId={catalogId!}
                                                                         parentAttributeId={row.id}
+                                                                        parentMaxChildAttributes={
+                                                                            typeof row.validationRules?.maxChildAttributes === 'number' &&
+                                                                            row.validationRules.maxChildAttributes > 0
+                                                                                ? row.validationRules.maxChildAttributes
+                                                                                : null
+                                                                        }
                                                                         searchFilter={
                                                                             childSearchMatchParentIds.includes(row.id)
                                                                                 ? searchValue
@@ -1471,6 +1549,14 @@ const AttributeList = () => {
                 </MainCard>
             </ExistingCodenamesProvider>
         </AttributeDndContainerRegistryProvider>
+    )
+}
+
+const AttributeList = () => {
+    return (
+        <ConfirmContextProvider>
+            <AttributeListContent />
+        </ConfirmContextProvider>
     )
 }
 

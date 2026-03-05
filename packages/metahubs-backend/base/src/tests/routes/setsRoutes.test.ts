@@ -64,7 +64,8 @@ const mockObjectsService = {
     findByCodenameAndKind: jest.fn(),
     createSet: jest.fn(),
     updateSet: jest.fn(),
-    delete: jest.fn()
+    delete: jest.fn(),
+    reorderByKind: jest.fn()
 }
 
 const mockHubsService = {
@@ -158,6 +159,10 @@ describe('Sets Routes', () => {
         mockObjectsService.createSet.mockResolvedValue(null)
         mockObjectsService.updateSet.mockResolvedValue(null)
         mockObjectsService.delete.mockResolvedValue(undefined)
+        mockObjectsService.reorderByKind.mockResolvedValue({
+            id: '33333333-3333-4333-8333-333333333333',
+            config: { sortOrder: 4 }
+        })
 
         mockHubsService.findByIds.mockResolvedValue([])
         mockHubsService.findById.mockResolvedValue({ id: 'hub-1' })
@@ -403,5 +408,28 @@ describe('Sets Routes', () => {
 
         expect(response.body.code).toBe('SET_DELETE_BLOCKED_BY_REFERENCES')
         expect(mockObjectsService.delete).not.toHaveBeenCalled()
+    })
+
+    it('PATCH /metahub/:metahubId/sets/reorder reorders set and returns updated sort order', async () => {
+        const app = buildApp()
+        const response = await request(app)
+            .patch('/metahub/test-metahub-id/sets/reorder')
+            .send({
+                setId: '33333333-3333-4333-8333-333333333333',
+                newSortOrder: 4
+            })
+            .expect(200)
+
+        expect(response.body).toEqual({
+            id: '33333333-3333-4333-8333-333333333333',
+            sortOrder: 4
+        })
+        expect(mockObjectsService.reorderByKind).toHaveBeenCalledWith(
+            'test-metahub-id',
+            'set',
+            '33333333-3333-4333-8333-333333333333',
+            4,
+            'test-user-id'
+        )
     })
 })

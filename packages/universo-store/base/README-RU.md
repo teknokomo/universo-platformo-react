@@ -105,15 +105,13 @@ function App() {
 
 ### Использование Context Providers
 ```jsx
-import { ReactFlowContext, ConfirmContextProvider } from '@universo/store'
+import { AbilityContextProvider } from '@universo/store'
 
-function FlowEditor() {
+function App() {
   return (
-    <ReactFlowContext>
-      <ConfirmContextProvider>
-        <FlowCanvas />
-      </ConfirmContextProvider>
-    </ReactFlowContext>
+    <AbilityContextProvider>
+      <YourComponents />
+    </AbilityContextProvider>
   )
 }
 ```
@@ -159,16 +157,15 @@ function FlowToolbar() {
 reducers/
 ├── canvasReducer.js       # Состояние Canvas и flow
 ├── customizationReducer.js # Настройки UI
-├── dialogReducer.js       # Модальные диалоги
 └── notifierReducer.js     # Уведомления
 ```
 
 ### Архитектура Context
 ```
 context/
-├── ReactFlowContext.jsx   # Операции Flow
-├── ConfirmContext.jsx     # Диалоги подтверждения
-└── ConfirmContextProvider.jsx # Провайдер диалогов
+├── ReactFlowContext.jsx       # Операции Flow
+├── AbilityContext.jsx         # CASL ability context
+└── AbilityContextProvider.jsx # Провайдер ability
 ```
 
 ## Типы действий
@@ -216,12 +213,11 @@ packages/flowise-store/
 │   │   ├── config.js       # Конфигурация
 │   │   ├── context/        # React contexts
 │   │   │   ├── ReactFlowContext.jsx
-│   │   │   ├── ConfirmContext.jsx
-│   │   │   └── ConfirmContextProvider.jsx
+│   │   │   ├── AbilityContext.jsx
+│   │   │   └── AbilityContextProvider.jsx
 │   │   └── reducers/       # Отдельные reducers
 │   │       ├── canvasReducer.js
 │   │       ├── customizationReducer.js
-│   │       ├── dialogReducer.js
 │   │       └── notifierReducer.js
 │   ├── package.json
 │   ├── tsconfig.json

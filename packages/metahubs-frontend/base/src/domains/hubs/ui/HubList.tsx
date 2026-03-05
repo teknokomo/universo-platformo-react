@@ -26,10 +26,11 @@ import {
     useCodenameAutoFill,
     useCodenameVlcSync
 } from '@universo/template-mui'
+import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateHub, useUpdateHub, useDeleteHub, useCopyHub } from '../hooks/mutations'
+import { useCreateHub, useUpdateHub, useDeleteHub, useCopyHub, useReorderHub } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as hubsApi from '../api'
@@ -265,24 +266,36 @@ const HubList = () => {
     const updateHubMutation = useUpdateHub()
     const deleteHubMutation = useDeleteHub()
     const copyHubMutation = useCopyHub()
+    const reorderHubMutation = useReorderHub()
+
+    const sortedHubs = useMemo(
+        () =>
+            [...hubs].sort((a, b) => {
+                const sortA = a.sortOrder ?? 0
+                const sortB = b.sortOrder ?? 0
+                if (sortA !== sortB) return sortA - sortB
+                return a.id.localeCompare(b.id)
+            }),
+        [hubs]
+    )
 
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(hubs)) {
-            hubs.forEach((hub) => {
+        if (Array.isArray(sortedHubs)) {
+            sortedHubs.forEach((hub) => {
                 if (hub?.id) {
                     imagesMap[hub.id] = []
                 }
             })
         }
         return imagesMap
-    }, [hubs])
+    }, [sortedHubs])
 
     const hubMap = useMemo(() => {
-        if (!Array.isArray(hubs)) return new Map<string, Hub>()
-        return new Map(hubs.map((hub) => [hub.id, hub]))
-    }, [hubs])
+        if (!Array.isArray(sortedHubs)) return new Map<string, Hub>()
+        return new Map(sortedHubs.map((hub) => [hub.id, hub]))
+    }, [sortedHubs])
 
     const localizedFormDefaults = useMemo<HubFormValues>(
         () => ({ nameVlc: null, descriptionVlc: null, codenameVlc: null, codename: '', codenameTouched: false }),
@@ -632,6 +645,57 @@ const HubList = () => {
         setView(nextView as 'card' | 'table')
     }
 
+    const handleSortableDragEnd = async (event: DragEndEvent) => {
+        if (!metahubId) return
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const overHub = sortedHubs.find((hub) => hub.id === String(over.id))
+        if (!overHub) return
+
+        try {
+            await reorderHubMutation.mutateAsync({
+                metahubId,
+                hubId: String(active.id),
+                newSortOrder: overHub.sortOrder ?? 1
+            })
+            enqueueSnackbar(t('hubs.reorderSuccess', 'Hub order updated'), { variant: 'success' })
+        } catch (error: unknown) {
+            const message =
+                typeof error === 'object' &&
+                error !== null &&
+                'message' in error &&
+                typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : t('hubs.reorderError', 'Failed to reorder hub')
+            enqueueSnackbar(message, { variant: 'error' })
+        }
+    }
+
+    const renderDragOverlay = (activeId: string | null) => {
+        if (!activeId) return null
+        const hub = hubMap.get(activeId)
+        if (!hub) return null
+        const display = toHubDisplay(hub, i18n.language)
+        return (
+            <Box
+                sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    boxShadow: 6,
+                    bgcolor: 'background.paper',
+                    minWidth: 260
+                }}
+            >
+                <Stack spacing={0.25}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{display.name || display.codename || hub.id}</Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{display.codename || '—'}</Typography>
+                </Stack>
+            </Box>
+        )
+    }
+
     // Transform Hub data for display (ItemCard and FlowListTable expect string name)
     const getHubCardData = (hub: Hub): HubDisplay => toHubDisplay(hub, i18n.language)
 
@@ -678,13 +742,13 @@ const HubList = () => {
                             />
                         </ViewHeader>
 
-                        {isLoading && hubs.length === 0 ? (
+                        {isLoading && sortedHubs.length === 0 ? (
                             view === 'card' ? (
                                 <SkeletonGrid />
                             ) : (
                                 <Skeleton variant='rectangular' height={120} />
                             )
-                        ) : !isLoading && hubs.length === 0 ? (
+                        ) : !isLoading && sortedHubs.length === 0 ? (
                             <EmptyListState
                                 image={APIEmptySVG}
                                 imageAlt='No hubs'
@@ -708,7 +772,7 @@ const HubList = () => {
                                             alignContent: 'start'
                                         }}
                                     >
-                                        {hubs.map((hub: Hub) => {
+                                        {sortedHubs.map((hub: Hub) => {
                                             const descriptors = [...filteredHubActions]
                                             const itemsCount = typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.catalogsCount ?? 0
 
@@ -746,16 +810,22 @@ const HubList = () => {
                                 ) : (
                                     <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                                         <FlowListTable
-                                            data={hubs.map(getHubCardData)}
+                                            data={sortedHubs.map(getHubCardData)}
                                             images={images}
                                             isLoading={isLoading}
+                                            sortableRows
+                                            sortableItemIds={sortedHubs.map((hub) => hub.id)}
+                                            dragHandleAriaLabel={t('hubs.dnd.dragHandle', 'Drag to reorder')}
+                                            dragDisabled={reorderHubMutation.isPending || isLoading}
+                                            onSortableDragEnd={handleSortableDragEnd}
+                                            renderDragOverlay={renderDragOverlay}
                                             getRowLink={(row: HubDisplay) =>
                                                 row?.id ? `/metahub/${metahubId}/hub/${row.id}/catalogs` : undefined
                                             }
                                             customColumns={hubColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: HubDisplay) => {
-                                                const originalHub = hubs.find((h) => h.id === row.id)
+                                                const originalHub = hubMap.get(row.id)
                                                 if (!originalHub) return null
 
                                                 const descriptors = [...filteredHubActions]
@@ -780,7 +850,7 @@ const HubList = () => {
                         )}
 
                         {/* Table Pagination at bottom */}
-                        {!isLoading && hubs.length > 0 && (
+                        {!isLoading && sortedHubs.length > 0 && (
                             <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                                 <PaginationControls
                                     pagination={paginationResult.pagination}
