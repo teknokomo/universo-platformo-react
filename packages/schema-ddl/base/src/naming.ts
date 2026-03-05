@@ -4,6 +4,7 @@ type RuntimeEntityKind = MetaEntityKind | 'enumeration'
 
 const ENTITY_TABLE_PREFIX: Record<string, string> = {
     catalog: 'cat',
+    set: 'set',
     enumeration: 'enum',
     hub: 'hub',
     document: 'doc'

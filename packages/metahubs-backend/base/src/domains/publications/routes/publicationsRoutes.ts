@@ -32,6 +32,9 @@ import { MetahubAttributesService } from '../../metahubs/services/MetahubAttribu
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
+import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
+import { structureVersionToSemver } from '../../metahubs/services/structureVersions'
+import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
 
 // Helper: Resolve user ID from request
 const resolveUserId = (req: Request): string | undefined => {
@@ -474,16 +477,18 @@ export function createPublicationsRoutes(
             const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
             const enumerationValuesService = new MetahubEnumerationValuesService(schemaService)
+            const constantsService = new MetahubConstantsService(schemaService)
             const serializer = new SnapshotSerializer(
                 objectsService,
                 attributesService,
                 elementsService,
                 hubsService,
-                enumerationValuesService
+                enumerationValuesService,
+                constantsService
             )
             const templateVersionLabel = await resolveTemplateVersionLabel(ds, metahub.templateVersionId)
             const snapshot = await serializer.serializeMetahub(metahubId, {
-                structureVersion: branch.structureVersion ?? 1,
+                structureVersion: structureVersionToSemver(branch.structureVersion),
                 templateVersion: templateVersionLabel
             })
 
@@ -588,7 +593,8 @@ export function createPublicationsRoutes(
             if (createApplicationSchema && result.applicationData) {
                 try {
                     const { generator, migrationManager } = getDDLServices()
-                    const catalogDefs = serializer.deserializeSnapshot(snapshot)
+                    const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
+                    const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshot)
 
                     const genResult = await generator.generateFullSchema(result.applicationData.appSchemaName, catalogDefs, {
                         recordMigration: true,
@@ -1042,7 +1048,8 @@ export function createPublicationsRoutes(
                         const objectsService = new MetahubObjectsService(schemaService)
                         const attributesService = new MetahubAttributesService(schemaService)
                         const snapshotSerializer = new SnapshotSerializer(objectsService, attributesService)
-                        const catalogDefs = snapshotSerializer.deserializeSnapshot(snapshotData)
+                        const rawCatalogDefs = snapshotSerializer.deserializeSnapshot(snapshotData)
+                        const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshotData)
 
                         const { generator, migrationManager } = getDDLServices()
                         const genResult = await generator.generateFullSchema(result.appSchemaName, catalogDefs, {
@@ -1152,7 +1159,8 @@ export function createPublicationsRoutes(
             }
 
             const serializer = new SnapshotSerializer(objectsService, attributesService)
-            const catalogDefs = serializer.deserializeSnapshot(snapshot)
+            const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
+            const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshot)
 
             const oldSnapshot = publication.schemaSnapshot as SchemaSnapshot | null
 
@@ -1222,7 +1230,8 @@ export function createPublicationsRoutes(
             }
 
             const serializer = new SnapshotSerializer(objectsService, attributesService)
-            const catalogDefs = serializer.deserializeSnapshot(snapshot)
+            const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
+            const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshot)
 
             const { generator, migrator, migrationManager } = getDDLServices()
 
@@ -1421,16 +1430,18 @@ export function createPublicationsRoutes(
             const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
             const enumerationValuesService = new MetahubEnumerationValuesService(schemaService)
+            const constantsService = new MetahubConstantsService(schemaService)
             const serializer = new SnapshotSerializer(
                 objectsService,
                 attributesService,
                 elementsService,
                 hubsService,
-                enumerationValuesService
+                enumerationValuesService,
+                constantsService
             )
             const templateVersionLabel = await resolveTemplateVersionLabel(getDataSource(), metahub.templateVersionId)
             const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId, {
-                structureVersion: branch.structureVersion ?? 1,
+                structureVersion: structureVersionToSemver(branch.structureVersion),
                 templateVersion: templateVersionLabel
             })
 

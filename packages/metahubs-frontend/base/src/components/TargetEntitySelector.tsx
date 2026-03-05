@@ -20,13 +20,15 @@ import { styled } from '@mui/material/styles'
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
 import type { MetaEntityKind } from '@universo/types'
 import { getVLCString } from '../types'
-import type { Catalog, Enumeration } from '../types'
+import type { Catalog, Constant, Enumeration } from '../types'
 import { listAllCatalogs } from '../domains/catalogs/api'
+import { listConstantsDirect } from '../domains/constants/api'
 import { listAllEnumerations } from '../domains/enumerations/api'
+import { listAllSets, type SetWithHubs } from '../domains/sets/api'
 import { metahubsQueryKeys } from '../domains/shared'
 
 /** Supported entity kinds for REF field targets */
-const SUPPORTED_ENTITY_KINDS: MetaEntityKind[] = ['catalog', 'enumeration']
+const SUPPORTED_ENTITY_KINDS: MetaEntityKind[] = ['catalog', 'enumeration', 'set']
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
     boxShadow: theme.shadows[4],
@@ -53,12 +55,18 @@ export interface TargetEntitySelectorProps {
     onEntityKindChange: (kind: MetaEntityKind | null) => void
     /** Callback when target entity ID changes */
     onEntityIdChange: (id: string | null) => void
+    /** Currently selected target constant ID (used when target entity kind is set) */
+    targetConstantId?: string | null
+    /** Callback when target constant ID changes */
+    onTargetConstantIdChange?: (id: string | null) => void
     /** ID of current catalog to exclude from selection (prevent self-reference) */
     excludeCatalogId?: string
     /** Whether the selector is disabled */
     disabled?: boolean
     /** Error message to display */
     error?: string | null
+    /** Error message to display for constant selector */
+    targetConstantError?: string | null
     /** Current UI locale for entity name display */
     uiLocale?: string
 }
@@ -75,9 +83,12 @@ export const TargetEntitySelector = ({
     targetEntityId,
     onEntityKindChange,
     onEntityIdChange,
+    targetConstantId,
+    onTargetConstantIdChange,
     excludeCatalogId,
     disabled = false,
     error,
+    targetConstantError,
     uiLocale = 'en'
 }: TargetEntitySelectorProps) => {
     const { t } = useTranslation('metahubs')
@@ -105,15 +116,33 @@ export const TargetEntitySelector = ({
         enabled: !!metahubId && targetEntityKind === 'enumeration',
         staleTime: 30000 // 30 seconds
     })
+    // Load all sets for the metahub
+    const { data: setsData, isLoading: isLoadingSets } = useQuery({
+        queryKey: metahubsQueryKeys.allSetsList(metahubId, listParams),
+        queryFn: () => listAllSets(metahubId, listParams),
+        enabled: !!metahubId && targetEntityKind === 'set',
+        staleTime: 30000 // 30 seconds
+    })
+    const { data: constantsData, isLoading: isLoadingConstants } = useQuery({
+        queryKey: targetEntityId
+            ? metahubsQueryKeys.constantsListDirect(metahubId, targetEntityId, { ...listParams, locale: uiLocale })
+            : ['metahubs', 'constants', 'empty'],
+        queryFn: () => listConstantsDirect(metahubId, targetEntityId!, { ...listParams, locale: uiLocale }),
+        enabled: !!metahubId && targetEntityKind === 'set' && !!targetEntityId,
+        staleTime: 30000 // 30 seconds
+    })
 
     const availableCatalogs = useMemo(() => catalogsData?.items ?? [], [catalogsData?.items])
     const availableEnumerations = useMemo(() => enumerationsData?.items ?? [], [enumerationsData?.items])
+    const availableSets = useMemo(() => setsData?.items ?? [], [setsData?.items])
+    const availableConstants = useMemo(() => constantsData?.items ?? [], [constantsData?.items])
 
     // Entity kind options with localized labels
     const entityKindOptions = useMemo(
         () => [
             { value: 'catalog' as MetaEntityKind, label: t('ref.entityKind.catalog', 'Catalog') },
-            { value: 'enumeration' as MetaEntityKind, label: t('ref.entityKind.enumeration', 'Enumeration') }
+            { value: 'enumeration' as MetaEntityKind, label: t('ref.entityKind.enumeration', 'Enumeration') },
+            { value: 'set' as MetaEntityKind, label: t('ref.entityKind.set', 'Set') }
             // Future: add 'document', 'hub' when supported
             // { value: 'document' as MetaEntityKind, label: t('ref.entityKind.document', 'Document') },
             // { value: 'hub' as MetaEntityKind, label: t('ref.entityKind.hub', 'Hub') },
@@ -135,6 +164,20 @@ export const TargetEntitySelector = ({
         },
         [uiLocale]
     )
+    // Get display name for set
+    const getSetDisplayName = useCallback(
+        (set: SetWithHubs): string => {
+            return getVLCString(set.name, uiLocale) || getVLCString(set.name, 'en') || set.codename
+        },
+        [uiLocale]
+    )
+    // Get display name for constant
+    const getConstantDisplayName = useCallback(
+        (constant: Constant): string => {
+            return getVLCString(constant.name, uiLocale) || getVLCString(constant.name, 'en') || constant.codename
+        },
+        [uiLocale]
+    )
 
     // Find selected catalog
     const selectedCatalog = useMemo(() => {
@@ -146,6 +189,16 @@ export const TargetEntitySelector = ({
         if (!targetEntityId || targetEntityKind !== 'enumeration') return null
         return availableEnumerations.find((enumeration) => enumeration.id === targetEntityId) || null
     }, [targetEntityId, targetEntityKind, availableEnumerations])
+    // Find selected set
+    const selectedSet = useMemo(() => {
+        if (!targetEntityId || targetEntityKind !== 'set') return null
+        return availableSets.find((set) => set.id === targetEntityId) || null
+    }, [targetEntityId, targetEntityKind, availableSets])
+    // Find selected constant
+    const selectedConstant = useMemo(() => {
+        if (!targetConstantId || targetEntityKind !== 'set') return null
+        return availableConstants.find((constant) => constant.id === targetConstantId) || null
+    }, [targetConstantId, targetEntityKind, availableConstants])
 
     // Handle entity kind change
     const handleKindChange = useCallback(
@@ -154,9 +207,10 @@ export const TargetEntitySelector = ({
             // Clear entity ID when kind changes
             if (newKind !== targetEntityKind) {
                 onEntityIdChange(null)
+                onTargetConstantIdChange?.(null)
             }
         },
-        [onEntityKindChange, onEntityIdChange, targetEntityKind]
+        [onEntityKindChange, onEntityIdChange, onTargetConstantIdChange, targetEntityKind]
     )
 
     // Handle catalog selection
@@ -172,6 +226,21 @@ export const TargetEntitySelector = ({
             onEntityIdChange(newValue?.id || null)
         },
         [onEntityIdChange]
+    )
+    // Handle set selection
+    const handleSetChange = useCallback(
+        (_event: unknown, newValue: SetWithHubs | null) => {
+            onEntityIdChange(newValue?.id || null)
+            onTargetConstantIdChange?.(null)
+        },
+        [onEntityIdChange, onTargetConstantIdChange]
+    )
+
+    const handleConstantChange = useCallback(
+        (_event: unknown, newValue: Constant | null) => {
+            onTargetConstantIdChange?.(newValue?.id || null)
+        },
+        [onTargetConstantIdChange]
     )
 
     // Filter out the current catalog to prevent self-reference
@@ -340,6 +409,148 @@ export const TargetEntitySelector = ({
                     )}
                     noOptionsText={t('ref.noEnumerationsAvailable', 'No enumerations available')}
                     loading={isLoadingEnumerations}
+                    loadingText={t('common.loading', 'Loading...')}
+                />
+            )}
+
+            {targetEntityKind === 'set' && (
+                <Autocomplete
+                    size='small'
+                    disabled={disabled}
+                    disableClearable
+                    options={availableSets}
+                    value={selectedSet}
+                    onChange={handleSetChange}
+                    getOptionLabel={(set) => getSetDisplayName(set)}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
+                    PopperComponent={StyledPopper}
+                    slotProps={{
+                        popupIndicator: {
+                            disableRipple: true,
+                            sx: {
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                boxShadow: 'none',
+                                padding: 0.5,
+                                '&:hover': { backgroundColor: 'transparent' }
+                            }
+                        }
+                    }}
+                    sx={{
+                        '& .MuiInputBase-root': { minHeight: 40 },
+                        '& .MuiAutocomplete-endAdornment': {
+                            top: '50%',
+                            transform: 'translateY(-50%)'
+                        },
+                        '& .MuiAutocomplete-popupIndicator': {
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            boxShadow: 'none'
+                        }
+                    }}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            size='small'
+                            label={t('ref.targetSet', 'Target Set')}
+                            placeholder={t('ref.selectSet', 'Select set...')}
+                            error={Boolean(error && !targetEntityId)}
+                            helperText={!targetEntityId && error ? t('ref.setRequired', 'Please select a set') : undefined}
+                            InputProps={{
+                                ...params.InputProps,
+                                endAdornment: (
+                                    <>
+                                        {isLoadingSets ? <CircularProgress color='inherit' size={16} /> : null}
+                                        {params.InputProps.endAdornment}
+                                    </>
+                                )
+                            }}
+                        />
+                    )}
+                    renderOption={(props, set) => (
+                        <Box component='li' {...props} key={set.id}>
+                            <Stack direction='row' spacing={1} alignItems='center'>
+                                <Typography variant='body2'>{getSetDisplayName(set)}</Typography>
+                                <Chip label={set.codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
+                            </Stack>
+                        </Box>
+                    )}
+                    noOptionsText={t('ref.noSetsAvailable', 'No sets available')}
+                    loading={isLoadingSets}
+                    loadingText={t('common.loading', 'Loading...')}
+                />
+            )}
+
+            {targetEntityKind === 'set' && targetEntityId && (
+                <Autocomplete
+                    size='small'
+                    disabled={disabled}
+                    disableClearable
+                    options={availableConstants}
+                    value={selectedConstant}
+                    onChange={handleConstantChange}
+                    getOptionLabel={(constant) => getConstantDisplayName(constant)}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
+                    PopperComponent={StyledPopper}
+                    slotProps={{
+                        popupIndicator: {
+                            disableRipple: true,
+                            sx: {
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                boxShadow: 'none',
+                                padding: 0.5,
+                                '&:hover': { backgroundColor: 'transparent' }
+                            }
+                        }
+                    }}
+                    sx={{
+                        '& .MuiInputBase-root': { minHeight: 40 },
+                        '& .MuiAutocomplete-endAdornment': {
+                            top: '50%',
+                            transform: 'translateY(-50%)'
+                        },
+                        '& .MuiAutocomplete-popupIndicator': {
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            boxShadow: 'none'
+                        }
+                    }}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            size='small'
+                            label={t('ref.targetConstant', 'Target Constant')}
+                            placeholder={t('ref.selectConstant', 'Select constant...')}
+                            error={Boolean(targetConstantError && !targetConstantId)}
+                            helperText={
+                                !targetConstantId && targetConstantError
+                                    ? targetConstantError
+                                    : t('ref.targetConstantHint', 'Select constant from the selected set')
+                            }
+                            InputProps={{
+                                ...params.InputProps,
+                                endAdornment: (
+                                    <>
+                                        {isLoadingConstants ? <CircularProgress color='inherit' size={16} /> : null}
+                                        {params.InputProps.endAdornment}
+                                    </>
+                                )
+                            }}
+                        />
+                    )}
+                    renderOption={(props, constant) => (
+                        <Box component='li' {...props} key={constant.id}>
+                            <Stack direction='row' spacing={1} alignItems='center'>
+                                <Typography variant='body2'>{getConstantDisplayName(constant)}</Typography>
+                                <Chip label={constant.codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
+                            </Stack>
+                        </Box>
+                    )}
+                    noOptionsText={t('ref.noConstantsAvailable', 'No constants available')}
+                    loading={isLoadingConstants}
                     loadingText={t('common.loading', 'Loading...')}
                 />
             )}

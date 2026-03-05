@@ -47,6 +47,7 @@
             "lengthBetween": "Длина должна быть от {{min}} до {{max}}",
             "minLength": "Минимальная длина: {{min}}",
             "maxLength": "Максимальная длина: {{max}}",
+            "invalidNumber": "Некорректное число",
             "nonNegative": "Только неотрицательное значение",
             "minValue": "Минимальное значение: {{min}}",
             "maxValue": "Максимальное значение: {{max}}",
@@ -401,6 +402,7 @@
                 "copyLayouts": "Макеты",
                 "copyHubs": "Хабы",
                 "copyCatalogs": "Каталоги",
+                "copySets": "Наборы",
                 "copyEnumerations": "Перечисления"
             }
         }
@@ -466,6 +468,7 @@
             "options": {
                 "copyAllRelations": "Копировать все связи",
                 "copyCatalogRelations": "Связи с каталогами",
+                "copySetRelations": "Связи с наборами",
                 "copyEnumerationRelations": "Связи с перечислениями",
                 "singleHubNotice": "Не будут скопированы связи с сущностями у которых стоит ограничение \"Только один хаб\"."
             }
@@ -569,6 +572,159 @@
         "isSingleHubEnabled": "Каталог может быть только в одном хабе",
         "isSingleHubDisabled": "Каталог может отображаться в нескольких хабах",
         "isSingleHubWarning": "Нельзя включить, пока выбрано несколько хабов"
+    },
+    "sets": {
+        "title": "Наборы",
+        "allTitle": "Наборы",
+        "description": "Контейнеры, которые объединяют константы в метахабе",
+        "searchPlaceholder": "Поиск наборов...",
+        "empty": "Наборов пока нет",
+        "emptyDescription": "Создайте первый набор для организации констант",
+        "noSearchResults": "Наборы не найдены",
+        "noSearchResultsHint": "Попробуйте изменить поисковый запрос",
+        "createDialog": {
+            "title": "Создать набор"
+        },
+        "editDialog": {
+            "title": "Редактировать набор"
+        },
+        "editTitle": "Редактировать набор",
+        "copyTitle": "Копирование набора",
+        "copySuccess": "Набор скопирован",
+        "copyError": "Не удалось скопировать набор",
+        "createSuccess": "Набор создан",
+        "createError": "Не удалось создать набор",
+        "updateSuccess": "Набор обновлён",
+        "updateError": "Не удалось обновить набор",
+        "deleteSuccess": "Набор удалён",
+        "deleteError": "Не удалось удалить набор",
+        "codename": "Кодовое имя",
+        "codenameHelper": "Уникальный идентификатор для URL (латиница в нижнем регистре, цифры, дефисы). Автоматически формируется из названия с транслитерацией. Можно изменить вручную.",
+        "table": {
+            "order": "#"
+        },
+        "tabs": {
+            "general": "Основное",
+            "hubs": "Хабы",
+            "options": "Опции"
+        },
+        "validation": {
+            "codenameRequired": "Кодовое имя обязательно",
+            "codenameInvalid": "Кодовое имя содержит недопустимые символы",
+            "hubRequired": "Нужно выбрать хотя бы один хаб"
+        },
+        "constantsHeader": "Константы",
+        "constantsCount_one": "{{count}} константа",
+        "constantsCount_few": "{{count}} константы",
+        "constantsCount_many": "{{count}} констант",
+        "constantsCount_other": "{{count}} констант",
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "options": {
+                "copyConstants": "Копировать константы"
+            }
+        },
+        "deleteDialog": {
+            "title": "Удалить набор",
+            "message": "Вы уверены, что хотите удалить этот набор?",
+            "confirmMessage": "Вы уверены, что хотите удалить этот набор? Это действие нельзя отменить.",
+            "hasBlockingReferences": "Нельзя удалить набор. Сначала удалите следующие ссылки из атрибутов каталогов:",
+            "resolutionHint": "Откройте исходные каталоги из таблицы и скорректируйте указанные атрибуты.",
+            "fetchBlockingError": "Не удалось проверить блокирующие ссылки",
+            "blockingTable": {
+                "catalog": "Каталог",
+                "attribute": "Атрибут"
+            }
+        }
+    },
+    "constants": {
+        "title": "Константы",
+        "searchPlaceholder": "Поиск констант...",
+        "empty": "Констант пока нет",
+        "emptyDescription": "Создайте константы для хранения переиспользуемых типизированных значений",
+        "setRequired": "Требуется контекст набора",
+        "setNotFound": "Набор не найден",
+        "createDialog": {
+            "title": "Создать константу"
+        },
+        "editDialog": {
+            "title": "Редактировать константу"
+        },
+        "copyDialog": {
+            "title": "Копировать константу"
+        },
+        "createSuccess": "Константа создана",
+        "createError": "Не удалось создать константу",
+        "updateSuccess": "Константа обновлена",
+        "updateError": "Не удалось обновить константу",
+        "deleteSuccess": "Константа удалена",
+        "deleteError": "Не удалось удалить константу",
+        "copySuccess": "Константа скопирована",
+        "copyError": "Не удалось скопировать константу",
+        "moveSuccess": "Порядок констант обновлён",
+        "moveError": "Не удалось изменить порядок констант",
+        "reorderSuccess": "Порядок констант обновлён",
+        "reorderError": "Не удалось изменить порядок констант",
+        "codename": "Кодовое имя",
+        "codenameHelper": "Уникальный идентификатор",
+        "dataType": "Тип данных",
+        "table": {
+            "order": "#"
+        },
+        "tabs": {
+            "general": "Основное",
+            "value": "Значение"
+        },
+        "typeSettings": {
+            "title": "Настройки типа",
+            "string": {
+                "minLength": "Мин. длина",
+                "maxLength": "Макс. длина",
+                "localized": "Локализуемый (VLC)",
+                "versioned": "Версионируемый (VLC)"
+            },
+            "number": {
+                "precision": "Длина",
+                "scale": "Знаков после запятой",
+                "min": "Мин. значение",
+                "max": "Макс. значение",
+                "nonNegative": "Только неотрицательные"
+            },
+            "date": {
+                "composition": "Состав даты",
+                "compositionOptions": {
+                    "date": "Только дата",
+                    "time": "Только время",
+                    "datetime": "Дата и время"
+                }
+            }
+        },
+        "value": {
+            "title": "Значение",
+            "localizedTitle": "Локализуемое значение",
+            "boolTrue": "Истина",
+            "boolFalse": "Ложь"
+        },
+        "validation": {
+            "codenameRequired": "Кодовое имя обязательно",
+            "codenameInvalid": "Кодовое имя содержит недопустимые символы"
+        },
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование..."
+        },
+        "actions": {
+            "moveUp": "Переместить выше",
+            "moveDown": "Переместить ниже"
+        },
+        "deleteDialog": {
+            "title": "Удалить константу",
+            "message": "Вы уверены, что хотите удалить эту константу?"
+        },
+        "dnd": {
+            "dragHandle": "Перетащите для изменения порядка"
+        }
     },
     "enumerations": {
         "title": "Перечисления",
@@ -844,7 +1000,9 @@
             "numberMax": "Макс. значение: {{max}}",
             "numberNonNegative": "Только неотрицательное значение",
             "targetEntityKindRequired": "Выберите тип целевой сущности для Ссылки",
-            "targetEntityIdRequired": "Выберите целевую сущность для Ссылки"
+            "targetEntityIdRequired": "Выберите целевую сущность для Ссылки",
+            "targetConstantIdRequired": "Для ссылки на набор выберите константу",
+            "targetConstantOnlyForSet": "Целевая константа доступна только для ссылок на набор"
         },
         "createError": "Не удалось создать атрибут",
         "updateError": "Не удалось обновить атрибут",
@@ -898,14 +1056,22 @@
         "notSelected": "Не выбрано",
         "targetCatalog": "Целевой каталог",
         "targetEnumeration": "Целевое перечисление",
+        "targetSet": "Целевой набор",
+        "targetConstant": "Целевая константа",
         "selectCatalog": "Выберите каталог...",
         "selectEnumeration": "Выберите перечисление...",
+        "selectSet": "Выберите набор...",
+        "selectConstant": "Выберите константу...",
         "selectEnumerationValue": "Выберите значение...",
         "selectElement": "Выберите элемент...",
         "catalogRequired": "Выберите каталог",
         "enumerationRequired": "Выберите перечисление",
+        "setRequired": "Выберите набор",
+        "targetConstantHint": "Выберите константу из выбранного набора",
         "noCatalogsAvailable": "Нет доступных каталогов",
         "noEnumerationsAvailable": "Нет доступных перечислений",
+        "noSetsAvailable": "Нет доступных наборов",
+        "noConstantsAvailable": "Нет доступных констант",
         "noEnumerationValuesAvailable": "Нет доступных значений",
         "noElementsAvailable": "Элементы недоступны",
         "loadingElements": "Загрузка элементов...",
@@ -916,6 +1082,7 @@
         "entityKind": {
             "catalog": "Каталог",
             "enumeration": "Перечисление",
+            "set": "Набор",
             "document": "Документ",
             "hub": "Хаб"
         }

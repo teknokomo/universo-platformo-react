@@ -24,6 +24,7 @@ import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
+import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
@@ -1121,7 +1122,7 @@ export function createMetahubsRoutes(
                                 codenameLocalized: planItem.sourceBranch.codenameLocalized ?? null,
                                 branchNumber: planItem.branchNumber,
                                 schemaName: planItem.schemaName,
-                                structureVersion: planItem.sourceBranch.structureVersion ?? 1,
+                                structureVersion: structureVersionToSemver(planItem.sourceBranch.structureVersion),
                                 lastTemplateVersionId: planItem.sourceBranch.lastTemplateVersionId ?? null,
                                 lastTemplateVersionLabel: planItem.sourceBranch.lastTemplateVersionLabel ?? null,
                                 lastTemplateSyncedAt: planItem.sourceBranch.lastTemplateSyncedAt ?? null,

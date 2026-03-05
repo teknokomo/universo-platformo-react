@@ -10,7 +10,7 @@ import { Template } from '../../../database/entities/Template'
 import { TemplateVersion } from '../../../database/entities/TemplateVersion'
 import { type MetahubMigrationStatusResponse, type MetahubTemplateManifest, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
-import { CURRENT_STRUCTURE_VERSION } from '../services/structureVersions'
+import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../services/structureVersions'
 import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
@@ -79,8 +79,8 @@ interface BranchContext {
 }
 
 interface StructurePlanStep {
-    fromVersion: number
-    toVersion: number
+    fromVersion: string
+    toVersion: string
     summary: string
     additive: string[]
     destructive: string[]
@@ -103,7 +103,7 @@ interface TemplateContext {
 }
 
 interface TemplatePlan {
-    minStructureVersion: number | null
+    minStructureVersion: string | null
     structureCompatible: boolean
     seedDryRun: (SeedMigrationResult & { hasChanges: boolean }) | null
     cleanup: TemplateSeedCleanupResult
@@ -113,8 +113,8 @@ interface TemplatePlan {
 interface MetahubMigrationPlanResponse {
     branchId: string
     schemaName: string
-    currentStructureVersion: number
-    targetStructureVersion: number
+    currentStructureVersion: string
+    targetStructureVersion: string
     structureUpgradeRequired: boolean
     structurePlan: StructurePlan
     templateId: string | null
@@ -132,18 +132,14 @@ interface BuildMigrationPlanOptions {
 
 // MetahubMigrationStatusResponse imported from @universo/types
 
-const normalizeStructureVersion = (value: number | null | undefined): number => {
-    if (!Number.isFinite(value) || !Number.isInteger(value) || (value ?? 0) <= 0) {
-        return 1
-    }
-    return Number(value)
-}
+const normalizeStructureVersion = (value: string | number | null | undefined): number => semverToStructureVersion(value)
 
 const zeroSeedCounts: MetahubTemplateSeedMigrationCounts = {
     layoutsAdded: 0,
     zoneWidgetsAdded: 0,
     settingsAdded: 0,
     entitiesAdded: 0,
+    constantsAdded: 0,
     attributesAdded: 0,
     enumValuesAdded: 0,
     elementsAdded: 0
@@ -355,8 +351,10 @@ const buildStructurePlan = (currentVersion: number, targetVersion: number): Stru
         if (!fromDefs || !toDefs) {
             blockers.push({
                 code: 'structure.missing_definitions',
-                params: { from: String(version), to: String(version + 1) },
-                message: `Missing structure definitions for version transition ${version} -> ${version + 1}`
+                params: { from: structureVersionToSemver(version), to: structureVersionToSemver(version + 1) },
+                message: `Missing structure definitions for version transition ${structureVersionToSemver(
+                    version
+                )} -> ${structureVersionToSemver(version + 1)}`
             })
             break
         }
@@ -364,8 +362,8 @@ const buildStructurePlan = (currentVersion: number, targetVersion: number): Stru
         const diff = calculateSystemTableDiff(fromDefs, toDefs, version, version + 1)
 
         steps.push({
-            fromVersion: version,
-            toVersion: version + 1,
+            fromVersion: structureVersionToSemver(version),
+            toVersion: structureVersionToSemver(version + 1),
             summary: diff.summary,
             additive: diff.additive.map((change) => change.description),
             destructive: diff.destructive.map((change) => change.description)
@@ -417,12 +415,15 @@ async function buildTemplatePlan(
     }
 
     const minStructureVersion = targetManifest.minStructureVersion
-    const structureCompatible = minStructureVersion <= structureTargetVersion
+    const requiredStructureVersion = semverToStructureVersion(minStructureVersion)
+    const structureCompatible = requiredStructureVersion <= structureTargetVersion
     if (!structureCompatible) {
         blockers.push({
             code: 'template.structure_incompatible',
-            params: { required: String(minStructureVersion), target: String(structureTargetVersion) },
-            message: `Template requires structure version ${minStructureVersion}, but target structure version is ${structureTargetVersion}`
+            params: { required: String(minStructureVersion), target: structureVersionToSemver(structureTargetVersion) },
+            message: `Template requires structure version ${minStructureVersion}, but target structure version is ${structureVersionToSemver(
+                structureTargetVersion
+            )}`
         })
         return {
             minStructureVersion,
@@ -451,6 +452,7 @@ async function buildTemplatePlan(
             dryRunResult.zoneWidgetsAdded > 0 ||
             dryRunResult.settingsAdded > 0 ||
             dryRunResult.entitiesAdded > 0 ||
+            dryRunResult.constantsAdded > 0 ||
             dryRunResult.attributesAdded > 0 ||
             dryRunResult.elementsAdded > 0
 
@@ -496,7 +498,7 @@ async function buildMigrationPlan(
     cleanupMode: TemplateCleanupMode = 'confirm',
     options?: BuildMigrationPlanOptions
 ): Promise<MetahubMigrationPlanResponse> {
-    const currentStructureVersion = normalizeStructureVersion(branch.structureVersion)
+    const currentStructureVersion = normalizeStructureVersion(branch.structureVersion as string | number | undefined)
     const targetStructureVersion = CURRENT_STRUCTURE_VERSION
     const includeTemplateSeedDryRun = options?.includeTemplateSeedDryRun ?? true
 
@@ -513,8 +515,8 @@ async function buildMigrationPlan(
     return {
         branchId: branch.id,
         schemaName: branch.schemaName,
-        currentStructureVersion,
-        targetStructureVersion,
+        currentStructureVersion: structureVersionToSemver(currentStructureVersion),
+        targetStructureVersion: structureVersionToSemver(targetStructureVersion),
         structureUpgradeRequired: currentStructureVersion < targetStructureVersion,
         structurePlan,
         templateId: metahub.templateId ?? null,
@@ -637,8 +639,8 @@ export function createMetahubMigrationsRoutes(
                         id: row.id,
                         name: row.name,
                         appliedAt: new Date(row.applied_at).toISOString(),
-                        fromVersion: row.from_version,
-                        toVersion: row.to_version,
+                        fromVersion: structureVersionToSemver(row.from_version),
+                        toVersion: structureVersionToSemver(row.to_version),
                         meta: parseMetahubMigrationMeta(row.meta)
                     })),
                     total,
@@ -895,14 +897,14 @@ export function createMetahubMigrationsRoutes(
                 await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
             }
 
-            let structureVersion = CURRENT_STRUCTURE_VERSION
+            let structureVersion: string | number = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
             let templateVersionId: string | null = plan.targetTemplateVersionId ?? null
             let latestMigrations: Array<{
                 id: string
                 name: string
                 appliedAt: string
-                fromVersion: number
-                toVersion: number
+                fromVersion: string
+                toVersion: string
                 meta: ReturnType<typeof parseMetahubMigrationMeta>
             }> = []
             let postApplyReadWarning: string | null = null
@@ -912,7 +914,7 @@ export function createMetahubMigrationsRoutes(
                     manager.getRepository(MetahubBranch).findOne({ where: { id: branch.id, metahubId } }),
                     manager.getRepository(Metahub).findOneBy({ id: metahub.id })
                 ])
-                structureVersion = refreshedBranch?.structureVersion ?? CURRENT_STRUCTURE_VERSION
+                structureVersion = refreshedBranch?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
                 templateVersionId = refreshedMetahub?.templateVersionId ?? null
 
                 const knex = KnexClient.getInstance()
@@ -930,8 +932,8 @@ export function createMetahubMigrationsRoutes(
                     id: row.id,
                     name: row.name,
                     appliedAt: new Date(row.applied_at).toISOString(),
-                    fromVersion: row.from_version,
-                    toVersion: row.to_version,
+                    fromVersion: structureVersionToSemver(row.from_version),
+                    toVersion: structureVersionToSemver(row.to_version),
                     meta: parseMetahubMigrationMeta(row.meta)
                 }))
             } catch (error) {
@@ -949,7 +951,7 @@ export function createMetahubMigrationsRoutes(
                 plan,
                 branchId: branch.id,
                 schemaName: branch.schemaName,
-                structureVersion,
+                structureVersion: structureVersionToSemver(structureVersion),
                 templateVersionId,
                 cleanupMode: parsed.data.cleanupMode,
                 cleanup: cleanupResult,

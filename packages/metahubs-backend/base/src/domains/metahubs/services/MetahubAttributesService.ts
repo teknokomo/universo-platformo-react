@@ -449,8 +449,9 @@ export class MetahubAttributesService {
             data_type: data.dataType,
             is_required: data.isDisplayAttribute ? true : data.isRequired ?? false,
             is_display_attribute: data.isDisplayAttribute ?? false,
-            target_object_id: data.targetEntityId ?? data.targetCatalogId ?? null,
+            target_object_id: data.targetEntityId ?? null,
             target_object_kind: data.targetEntityKind ?? null,
+            target_constant_id: data.targetConstantId ?? null,
             parent_attribute_id: data.parentAttributeId ?? null,
             sort_order: sortOrder,
             presentation: {
@@ -483,10 +484,9 @@ export class MetahubAttributesService {
         if (data.isRequired !== undefined) updateData.is_required = data.isRequired
         if (data.isDisplayAttribute !== undefined) updateData.is_display_attribute = data.isDisplayAttribute
         if (data.isDisplayAttribute === true) updateData.is_required = true
-        // Compatibility: support both targetEntityId/Kind and targetCatalogId payloads
         if (data.targetEntityId !== undefined) updateData.target_object_id = data.targetEntityId
-        else if (data.targetCatalogId !== undefined) updateData.target_object_id = data.targetCatalogId
         if (data.targetEntityKind !== undefined) updateData.target_object_kind = data.targetEntityKind
+        if (data.targetConstantId !== undefined) updateData.target_constant_id = data.targetConstantId
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
         if (data.name !== undefined || data.codenameLocalized !== undefined) {
@@ -1032,8 +1032,7 @@ export class MetahubAttributesService {
             // Polymorphic reference fields
             targetEntityId: row.target_object_id,
             targetEntityKind: row.target_object_kind,
-            // Legacy alias for backward compatibility
-            targetCatalogId: row.target_object_id,
+            targetConstantId: row.target_constant_id ?? null,
             // TABLE parent reference
             parentAttributeId: row.parent_attribute_id ?? null,
             sortOrder: row.sort_order,

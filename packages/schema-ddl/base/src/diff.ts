@@ -4,6 +4,7 @@ import { generateColumnName, generateTableName, generateChildTableName } from '.
 
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
+const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -58,6 +59,17 @@ const buildSummary = (diff: SchemaDiff): string => {
     return parts.length === 0 ? 'No changes' : parts.join(', ')
 }
 
+const shouldHavePhysicalForeignKey = (field: {
+    dataType?: unknown
+    targetEntityId?: string | null
+    targetEntityKind?: MetaEntityKind | null
+}): boolean => {
+    if (field.dataType !== 'REF') return false
+    if (!field.targetEntityId) return false
+    if (field.targetEntityKind === SET_KIND) return false
+    return true
+}
+
 export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntities: EntityDefinition[]): SchemaDiff => {
     const diff: SchemaDiff = {
         hasChanges: false,
@@ -65,10 +77,10 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
-    const newPhysicalEntities = newEntities.filter((entity) => entity.kind !== ENUMERATION_KIND)
+    const newPhysicalEntities = newEntities.filter((entity) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND)
     const oldPhysicalEntities = oldSnapshot?.entities
         ? Object.entries(oldSnapshot.entities)
-              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND)
+              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND)
               .map(([entityId, entity]) => ({
                   ...entity,
                   id: entityId
@@ -186,7 +198,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
                     const newChildFields = entity.fields.filter((childField) => childField.parentAttributeId === field.id)
                     for (const childField of newChildFields) {
-                        if (childField.dataType !== 'REF' || !childField.targetEntityId) continue
+                        if (!shouldHavePhysicalForeignKey(childField)) continue
 
                         diff.additive.push({
                             type: ChangeType.ADD_FK,
@@ -287,7 +299,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         description: `Add column "${child.codename}" (${child.dataType}) to tabular "${field.codename}"`
                     })
 
-                    if (child.dataType === 'REF' && child.targetEntityId) {
+                    if (shouldHavePhysicalForeignKey(child)) {
                         diff.additive.push({
                             type: ChangeType.ADD_FK,
                             entityId: entity.id,
@@ -310,7 +322,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                 if (!newChildIds.has(oldChildId)) {
                     const oldChild = oldChildFields[oldChildId]
 
-                    if (oldChild.targetEntityId) {
+                    if (shouldHavePhysicalForeignKey(oldChild)) {
                         diff.destructive.push({
                             type: ChangeType.DROP_FK,
                             entityId: entity.id,
@@ -346,8 +358,14 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                 if (!oldChildIds.has(child.id)) continue
                 const oldChild = oldChildFields[child.id]
 
-                if (oldChild.targetEntityId !== child.targetEntityId || oldChild.targetEntityKind !== child.targetEntityKind) {
-                    if (oldChild.targetEntityId) {
+                const oldChildHasPhysicalFk = shouldHavePhysicalForeignKey(oldChild)
+                const newChildHasPhysicalFk = shouldHavePhysicalForeignKey(child)
+                if (
+                    oldChild.targetEntityId !== child.targetEntityId ||
+                    oldChild.targetEntityKind !== child.targetEntityKind ||
+                    oldChildHasPhysicalFk !== newChildHasPhysicalFk
+                ) {
+                    if (oldChildHasPhysicalFk) {
                         diff.destructive.push({
                             type: ChangeType.DROP_FK,
                             entityId: entity.id,
@@ -363,7 +381,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         })
                     }
 
-                    if (child.targetEntityId) {
+                    if (newChildHasPhysicalFk) {
                         diff.additive.push({
                             type: ChangeType.ADD_FK,
                             entityId: entity.id,
@@ -458,8 +476,14 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                 })
             }
 
-            if (oldField.targetEntityId !== field.targetEntityId) {
-                if (oldField.targetEntityId) {
+            const oldFieldHasPhysicalFk = shouldHavePhysicalForeignKey(oldField)
+            const newFieldHasPhysicalFk = shouldHavePhysicalForeignKey(field)
+            if (
+                oldField.targetEntityId !== field.targetEntityId ||
+                oldField.targetEntityKind !== field.targetEntityKind ||
+                oldFieldHasPhysicalFk !== newFieldHasPhysicalFk
+            ) {
+                if (oldFieldHasPhysicalFk) {
                     diff.destructive.push({
                         type: ChangeType.DROP_FK,
                         entityId: entity.id,
@@ -473,7 +497,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         description: `Drop FK on "${field.codename}"`
                     })
                 }
-                if (field.targetEntityId) {
+                if (newFieldHasPhysicalFk) {
                     diff.additive.push({
                         type: ChangeType.ADD_FK,
                         entityId: entity.id,

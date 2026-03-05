@@ -294,6 +294,35 @@ export function useCatalogNameStandalone(metahubId: string | null, catalogId: st
 }
 
 /**
+ * Hook to fetch Set name for breadcrumb display in set-centric navigation.
+ * Uses the standalone set endpoint (without hub context).
+ */
+export function useSetNameStandalone(metahubId: string | null, setId: string | null): string | null {
+    const language = getCurrentLanguageKey()
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'set-standalone', metahubId, setId, language],
+        queryFn: async () => {
+            if (!metahubId || !setId) return null
+            const response = await fetch(`/api/v1/metahub/${metahubId}/set/${setId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw createHttpStatusError(response.status)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && setId),
+        staleTime: 5 * 60 * 1000,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+/**
  * Hook to fetch Enumeration name for breadcrumb display.
  * Requires metahubId and enumerationId since Enumeration API is nested under Metahub.
  */
@@ -467,6 +496,9 @@ export const truncateHubName = createTruncateFunction(30)
 
 /** Truncate catalog name with ellipsis (default: 30 chars) */
 export const truncateCatalogName = createTruncateFunction(30)
+
+/** Truncate set name with ellipsis (default: 30 chars) */
+export const truncateSetName = createTruncateFunction(30)
 
 /** Truncate enumeration name with ellipsis (default: 30 chars) */
 export const truncateEnumerationName = createTruncateFunction(30)

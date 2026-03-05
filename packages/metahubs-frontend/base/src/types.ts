@@ -12,6 +12,7 @@ import type {
     GlobalRole,
     VersionedLocalizedContent,
     AttributeDataType,
+    ConstantDataType,
     MetaEntityKind,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
@@ -35,7 +36,7 @@ export type { ConflictInfo } from '@universo/utils'
 // ============ PAGINATION TYPES ============
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
-export type { AttributeDataType, AttributeValidationRules, PhysicalTypeInfo } from '@universo/types'
+export type { AttributeDataType, ConstantDataType, AttributeValidationRules, PhysicalTypeInfo } from '@universo/types'
 export { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 
 // ============ ACCESS & PERMISSIONS ============
@@ -353,6 +354,49 @@ export interface CatalogDisplay {
     permissions?: MetahubPermissions
 }
 
+// ============ SET ENTITY ============
+
+/**
+ * Set - container of constants.
+ * Mirrors catalog structure, but stores constants instead of attributes/elements.
+ */
+export interface MetahubSet {
+    id: string
+    metahubId: string
+    codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    isSingleHub: boolean
+    isRequiredHub: boolean
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    version?: number
+    hubs?: HubRef[]
+    constantsCount?: number
+    role?: MetahubRole
+    permissions?: MetahubPermissions
+}
+
+/** Set with localized strings for table rendering. */
+export interface MetahubSetDisplay {
+    id: string
+    metahubId: string
+    codename: string
+    name: string
+    description: string
+    isSingleHub: boolean
+    isRequiredHub: boolean
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    hubs?: Array<{ id: string; name: string; codename: string }>
+    constantsCount?: number
+    role?: MetahubRole
+    permissions?: MetahubPermissions
+}
+
 // ============ ENUMERATION ENTITY ============
 
 /**
@@ -438,7 +482,7 @@ export interface Attribute {
     name: VersionedLocalizedContent<string>
     targetEntityId?: string | null
     targetEntityKind?: MetaEntityKind | null
-    targetCatalogId?: string
+    targetConstantId?: string | null
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
     isRequired: boolean
@@ -460,7 +504,7 @@ export interface AttributeDisplay {
     name: string
     targetEntityId?: string | null
     targetEntityKind?: MetaEntityKind | null
-    targetCatalogId?: string
+    targetConstantId?: string | null
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
     isRequired: boolean
@@ -470,6 +514,42 @@ export interface AttributeDisplay {
     updatedAt: string
     role?: MetahubRole
     permissions?: MetahubPermissions
+}
+
+// ============ CONSTANT ENTITY ============
+
+/**
+ * Constant - typed value definition inside a Set.
+ */
+export interface Constant {
+    id: string
+    setId: string
+    codename: string
+    codenameLocalized?: VersionedLocalizedContent<string> | null
+    dataType: ConstantDataType
+    name: VersionedLocalizedContent<string>
+    validationRules: Record<string, unknown>
+    uiConfig: Record<string, unknown>
+    value: unknown
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    version?: number
+}
+
+/** Constant with localized strings for table rendering. */
+export interface ConstantDisplay {
+    id: string
+    setId: string
+    codename: string
+    dataType: ConstantDataType
+    name: string
+    validationRules: Record<string, unknown>
+    uiConfig: Record<string, unknown>
+    value: unknown
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
 }
 
 // ============ ELEMENT ENTITY ============
@@ -537,11 +617,26 @@ export interface BranchLocalizedPayload {
     copyLayouts?: BranchCopyOptions['copyLayouts']
     copyHubs?: BranchCopyOptions['copyHubs']
     copyCatalogs?: BranchCopyOptions['copyCatalogs']
+    copySets?: BranchCopyOptions['copySets']
     copyEnumerations?: BranchCopyOptions['copyEnumerations']
 }
 
 /** Payload for creating/updating Catalog */
 export interface CatalogLocalizedPayload {
+    codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    isSingleHub?: boolean
+    isRequiredHub?: boolean
+    hubIds?: string[]
+}
+
+/** Payload for creating/updating Set. */
+export interface SetLocalizedPayload {
     codename: string
     codenameInput?: SimpleLocalizedInput
     codenamePrimaryLocale?: string
@@ -594,7 +689,23 @@ export interface AttributeLocalizedPayload {
     validationRules?: Record<string, unknown>
     targetEntityId?: string
     targetEntityKind?: MetaEntityKind
+    targetConstantId?: string | null
     uiConfig?: Record<string, unknown>
+}
+
+/** Payload for creating/updating Constant. */
+export interface ConstantLocalizedPayload {
+    codename: string
+    codenameInput?: SimpleLocalizedInput
+    codenamePrimaryLocale?: string
+    dataType: ConstantDataType
+    name: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
+    value?: unknown
+    sortOrder?: number
+    expectedVersion?: number
 }
 
 // ============ DISPLAY CONVERTERS ============
@@ -653,6 +764,21 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
     }
 }
 
+/** Convert Set to MetahubSetDisplay for table rendering. */
+export function toSetDisplay(set: MetahubSet, locale = 'en'): MetahubSetDisplay {
+    const name = getVLCString(set.name, locale)
+    return {
+        ...set,
+        name: name || set.codename || '',
+        description: getVLCString(set.description, locale),
+        hubs: set.hubs?.map((hub) => ({
+            id: hub.id,
+            name: getVLCString(hub.name, locale) || hub.codename,
+            codename: hub.codename
+        }))
+    }
+}
+
 /** Convert Enumeration to EnumerationDisplay for table rendering */
 export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): EnumerationDisplay {
     const name = getVLCString(enumeration.name, locale)
@@ -683,6 +809,15 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
         ...attr,
         codename: getVLCString(attr.codenameLocalized, locale) || attr.codename,
         name: getVLCString(attr.name, locale)
+    }
+}
+
+/** Convert Constant to ConstantDisplay for table rendering. */
+export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDisplay {
+    return {
+        ...constant,
+        codename: getVLCString(constant.codenameLocalized, locale) || constant.codename,
+        name: getVLCString(constant.name, locale)
     }
 }
 

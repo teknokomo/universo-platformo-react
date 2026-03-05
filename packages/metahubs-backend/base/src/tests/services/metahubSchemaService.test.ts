@@ -145,6 +145,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
     it('returns schema in read_only mode for fully initialized and up-to-date branch without acquiring lock', async () => {
         seedExpectedTables([
             '_mhb_objects',
+            '_mhb_constants',
             '_mhb_attributes',
             '_mhb_values',
             '_mhb_elements',

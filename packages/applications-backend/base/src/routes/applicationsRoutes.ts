@@ -1017,23 +1017,45 @@ export function createApplicationsRoutes(
 
             // Build menus from menuWidget config stored in zone widgets.
             // Menu data is now embedded inside widget config (JSONB) rather than separate _app_menus/_app_menu_items tables.
-            let menus: Array<{
+            type RuntimeMenuItem = {
+                id: string
+                kind: string
+                title: string
+                icon: string | null
+                href: string | null
+                catalogId: string | null
+                sortOrder: number
+                isActive: boolean
+            }
+
+            type RuntimeMenuEntry = {
                 id: string
                 widgetId: string
                 showTitle: boolean
                 title: string
                 autoShowAllCatalogs: boolean
-                items: Array<{
-                    id: string
-                    kind: string
-                    title: string
-                    icon: string | null
-                    href: string | null
-                    catalogId: string | null
-                    sortOrder: number
-                    isActive: boolean
-                }>
-            }> = []
+                items: RuntimeMenuItem[]
+            }
+
+            const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
+                if (!item || typeof item !== 'object') return null
+                const typed = item as Record<string, unknown>
+                if (typed.isActive === false) return null
+
+                const kind = typeof typed.kind === 'string' && typed.kind.trim().length > 0 ? typed.kind : 'link'
+                return {
+                    id: String(typed.id ?? ''),
+                    kind,
+                    title: resolveLocalizedContent(typed.title, requestedLocale, kind),
+                    icon: typeof typed.icon === 'string' ? typed.icon : null,
+                    href: typeof typed.href === 'string' ? typed.href : null,
+                    catalogId: typeof typed.catalogId === 'string' ? typed.catalogId : null,
+                    sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
+                    isActive: true
+                }
+            }
+
+            let menus: RuntimeMenuEntry[] = []
             let activeMenuId: string | null = null
 
             try {
@@ -1048,25 +1070,117 @@ export function createApplicationsRoutes(
                         title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
                         autoShowAllCatalogs: Boolean(cfg.autoShowAllCatalogs),
                         items: rawItems
-                            .filter((item: any) => item && Boolean(item.isActive !== false))
-                            .map((item: any) => ({
-                                id: String(item.id ?? ''),
-                                kind: String(item.kind ?? 'link'),
-                                title: resolveLocalizedContent(item.title, requestedLocale, String(item.kind ?? 'link')),
-                                icon: typeof item.icon === 'string' ? item.icon : null,
-                                href: typeof item.href === 'string' ? item.href : null,
-                                catalogId: typeof item.catalogId === 'string' ? item.catalogId : null,
-                                sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
-                                isActive: Boolean(item.isActive !== false)
-                            }))
-                            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
-                    }
+                            .map((item) => normalizeMenuItem(item))
+                            .filter((item): item is RuntimeMenuItem => item !== null)
+                            .sort((a, b) => a.sortOrder - b.sortOrder)
+                    } satisfies RuntimeMenuEntry
                     menus.push(menuEntry)
                 }
                 activeMenuId = menus[0]?.id ?? null
             } catch (e) {
                 // eslint-disable-next-line no-console
                 console.warn('[ApplicationsRuntime] Failed to build menus from widget config (ignored)', e)
+            }
+
+            type RuntimeColumnDefinition = {
+                id: string
+                codename: string
+                field: string
+                dataType: RuntimeDataType
+                isRequired: boolean
+                isDisplayAttribute: boolean
+                headerName: string
+                validationRules: Record<string, unknown>
+                uiConfig: Record<string, unknown>
+                refTargetEntityId: string | null
+                refTargetEntityKind: string | null
+                refTargetConstantId: string | null
+                refOptions?: RuntimeRefOption[]
+                enumOptions?: RuntimeRefOption[]
+                childColumns?: RuntimeColumnDefinition[]
+            }
+
+            const buildSetConstantOption = (setConstantConfig: SetConstantUiConfig | null): RuntimeRefOption[] | undefined => {
+                if (!setConstantConfig) return undefined
+                return [
+                    {
+                        id: setConstantConfig.id,
+                        label: resolveSetConstantLabel(setConstantConfig, requestedLocale),
+                        codename: setConstantConfig.codename ?? 'setConstant',
+                        isDefault: true,
+                        sortOrder: 0
+                    }
+                ]
+            }
+
+            const resolveRefOptions = (
+                attribute: (typeof safeAttributes)[number],
+                setConstantOption: RuntimeRefOption[] | undefined
+            ): RuntimeRefOption[] | undefined => {
+                if (
+                    attribute.data_type !== 'REF' ||
+                    typeof attribute.target_object_id !== 'string' ||
+                    (attribute.target_object_kind !== 'enumeration' &&
+                        attribute.target_object_kind !== 'catalog' &&
+                        attribute.target_object_kind !== 'set')
+                ) {
+                    return undefined
+                }
+
+                if (attribute.target_object_kind === 'enumeration') {
+                    return enumOptionsMap.get(attribute.target_object_id) ?? []
+                }
+                if (attribute.target_object_kind === 'catalog') {
+                    return catalogRefOptionsMap.get(attribute.target_object_id) ?? []
+                }
+                return setConstantOption ?? []
+            }
+
+            const mapAttributeToColumnDefinition = (
+                attribute: (typeof safeAttributes)[number],
+                includeChildColumns: boolean
+            ): RuntimeColumnDefinition => {
+                const setConstantConfig =
+                    attribute.data_type === 'REF' && attribute.target_object_kind === 'set'
+                        ? getSetConstantConfig(attribute.ui_config)
+                        : null
+                const setConstantOption = buildSetConstantOption(setConstantConfig)
+                const refOptions = resolveRefOptions(attribute, setConstantOption)
+                const enumOptions =
+                    attribute.data_type === 'REF' &&
+                    attribute.target_object_kind === 'enumeration' &&
+                    attribute.target_object_id &&
+                    enumOptionsMap.has(attribute.target_object_id)
+                        ? enumOptionsMap.get(attribute.target_object_id)
+                        : undefined
+
+                return {
+                    id: attribute.id,
+                    codename: attribute.codename,
+                    field: attribute.column_name,
+                    dataType: attribute.data_type,
+                    isRequired: attribute.is_required ?? false,
+                    isDisplayAttribute: attribute.is_display_attribute === true,
+                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
+                    validationRules: attribute.validation_rules ?? {},
+                    uiConfig: {
+                        ...(attribute.ui_config ?? {}),
+                        ...(setConstantConfig?.dataType ? { setConstantDataType: setConstantConfig.dataType } : {})
+                    },
+                    refTargetEntityId: attribute.target_object_id ?? null,
+                    refTargetEntityKind: attribute.target_object_kind ?? null,
+                    refTargetConstantId: setConstantConfig?.id ?? null,
+                    refOptions,
+                    enumOptions,
+                    ...(includeChildColumns && attribute.data_type === 'TABLE'
+                        ? {
+                              // Include child column definitions for TABLE attributes.
+                              childColumns: (childAttrsByTableId.get(attribute.id) ?? []).map((child) =>
+                                  mapAttributeToColumnDefinition(child, false)
+                              )
+                          }
+                        : {})
+                }
             }
 
             return res.json({
@@ -1078,66 +1192,7 @@ export function createApplicationsRoutes(
                 },
                 catalogs: catalogsForRuntime,
                 activeCatalogId: activeCatalog.id,
-                columns: safeAttributes.map((attribute) => ({
-                    id: attribute.id,
-                    codename: attribute.codename,
-                    field: attribute.column_name,
-                    dataType: attribute.data_type,
-                    isRequired: attribute.is_required ?? false,
-                    isDisplayAttribute: attribute.is_display_attribute === true,
-                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
-                    validationRules: attribute.validation_rules ?? {},
-                    uiConfig: attribute.ui_config ?? {},
-                    refTargetEntityId: attribute.target_object_id ?? null,
-                    refTargetEntityKind: attribute.target_object_kind ?? null,
-                    refOptions:
-                        attribute.data_type === 'REF' &&
-                        typeof attribute.target_object_id === 'string' &&
-                        (attribute.target_object_kind === 'enumeration' || attribute.target_object_kind === 'catalog')
-                            ? attribute.target_object_kind === 'enumeration'
-                                ? enumOptionsMap.get(attribute.target_object_id) ?? []
-                                : catalogRefOptionsMap.get(attribute.target_object_id) ?? []
-                            : undefined,
-                    enumOptions:
-                        attribute.data_type === 'REF' &&
-                        attribute.target_object_kind === 'enumeration' &&
-                        attribute.target_object_id &&
-                        enumOptionsMap.has(attribute.target_object_id)
-                            ? enumOptionsMap.get(attribute.target_object_id)
-                            : undefined,
-                    // Include child column definitions for TABLE attributes
-                    childColumns:
-                        attribute.data_type === 'TABLE'
-                            ? (childAttrsByTableId.get(attribute.id) ?? []).map((child) => ({
-                                  id: child.id,
-                                  codename: child.codename,
-                                  field: child.column_name,
-                                  dataType: child.data_type,
-                                  headerName: resolvePresentationName(child.presentation, requestedLocale, child.codename),
-                                  isRequired: child.is_required ?? false,
-                                  isDisplayAttribute: child.is_display_attribute === true,
-                                  validationRules: child.validation_rules ?? {},
-                                  uiConfig: child.ui_config ?? {},
-                                  refTargetEntityId: child.target_object_id ?? null,
-                                  refTargetEntityKind: child.target_object_kind ?? null,
-                                  refOptions:
-                                      child.data_type === 'REF' &&
-                                      typeof child.target_object_id === 'string' &&
-                                      (child.target_object_kind === 'enumeration' || child.target_object_kind === 'catalog')
-                                          ? child.target_object_kind === 'enumeration'
-                                              ? enumOptionsMap.get(child.target_object_id) ?? []
-                                              : catalogRefOptionsMap.get(child.target_object_id) ?? []
-                                          : undefined,
-                                  enumOptions:
-                                      child.data_type === 'REF' &&
-                                      child.target_object_kind === 'enumeration' &&
-                                      child.target_object_id &&
-                                      enumOptionsMap.has(child.target_object_id)
-                                          ? enumOptionsMap.get(child.target_object_id)
-                                          : undefined
-                              }))
-                            : undefined
-                })),
+                columns: safeAttributes.map((attribute) => mapAttributeToColumnDefinition(attribute, true)),
                 rows,
                 pagination: {
                     total: typeof total === 'number' ? total : Number(total) || 0,
@@ -1376,6 +1431,79 @@ export function createApplicationsRoutes(
         return null
     }
 
+    type SetConstantUiConfig = {
+        id: string
+        codename?: string
+        dataType?: string
+        value?: unknown
+        name?: unknown
+    }
+
+    const getSetConstantConfig = (uiConfig?: Record<string, unknown>): SetConstantUiConfig | null => {
+        if (!uiConfig || typeof uiConfig !== 'object') return null
+        const candidate = uiConfig.setConstantRef
+        if (!candidate || typeof candidate !== 'object') return null
+        const typed = candidate as Record<string, unknown>
+        if (typeof typed.id !== 'string' || !UUID_REGEX.test(typed.id)) return null
+        return {
+            id: typed.id,
+            codename: typeof typed.codename === 'string' ? typed.codename : undefined,
+            dataType: typeof typed.dataType === 'string' ? typed.dataType : undefined,
+            value: typed.value,
+            name: typed.name
+        }
+    }
+
+    const resolveSetConstantLabel = (config: SetConstantUiConfig, locale: string): string => {
+        if (config.value === null || config.value === undefined) {
+            return config.codename ?? config.id
+        }
+
+        if (config.dataType === 'STRING' && typeof config.value === 'object') {
+            const localized = resolveLocalizedContent(config.value, locale, '')
+            if (localized.trim().length > 0) return localized
+        }
+
+        if (config.dataType === 'DATE' && typeof config.value === 'string') {
+            const parsed = new Date(config.value)
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed.toLocaleString(locale)
+            }
+        }
+
+        if (typeof config.value === 'string' || typeof config.value === 'number' || typeof config.value === 'boolean') {
+            return String(config.value)
+        }
+
+        const localizedName = resolveLocalizedContent(config.name, locale, '')
+        if (localizedName.trim().length > 0) return localizedName
+
+        if (config.value && typeof config.value === 'object') {
+            try {
+                return JSON.stringify(config.value)
+            } catch {
+                return config.codename ?? config.id
+            }
+        }
+
+        return config.codename ?? config.id
+    }
+
+    const resolveRefId = (value: unknown): string | null => {
+        if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+        if (!value || typeof value !== 'object') return null
+        const typed = value as Record<string, unknown>
+        const direct = typed.id
+        if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim()
+        const nested = typed.value
+        if (typeof nested === 'string' && nested.trim().length > 0) return nested.trim()
+        if (nested && typeof nested === 'object') {
+            const nestedId = (nested as Record<string, unknown>).id
+            if (typeof nestedId === 'string' && nestedId.trim().length > 0) return nestedId.trim()
+        }
+        return null
+    }
+
     const ensureEnumerationValueBelongsToTarget = async (
         manager: ReturnType<typeof getRequestManager>,
         schemaIdent: string,
@@ -1441,9 +1569,23 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
             }
 
+            const setConstantConfig =
+                attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+            let rawValue = value
+            if (setConstantConfig) {
+                const providedRefId = resolveRefId(rawValue)
+                if (!providedRefId) {
+                    rawValue = setConstantConfig.id
+                } else if (providedRefId !== setConstantConfig.id) {
+                    return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                } else {
+                    rawValue = setConstantConfig.id
+                }
+            }
+
             let coerced: unknown
             try {
-                coerced = coerceRuntimeValue(value, attr.data_type, attr.validation_rules)
+                coerced = coerceRuntimeValue(rawValue, attr.data_type, attr.validation_rules)
             } catch (e) {
                 return res.status(400).json({ error: (e as Error).message })
             }
@@ -1548,6 +1690,7 @@ export function createApplicationsRoutes(
             for (const attr of nonTableAttrs) {
                 const raw = data[attr.column_name] ?? data[attr.codename]
                 if (raw === undefined) continue
+                let normalizedRaw = raw
 
                 if (
                     attr.data_type === 'REF' &&
@@ -1557,8 +1700,21 @@ export function createApplicationsRoutes(
                     return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
                 }
 
+                const setConstantConfig =
+                    attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+                if (setConstantConfig) {
+                    const providedRefId = resolveRefId(raw)
+                    if (!providedRefId) {
+                        normalizedRaw = setConstantConfig.id
+                    } else if (providedRefId !== setConstantConfig.id) {
+                        return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                    } else {
+                        normalizedRaw = setConstantConfig.id
+                    }
+                }
+
                 try {
-                    const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
+                    const coerced = coerceRuntimeValue(normalizedRaw, attr.data_type, attr.validation_rules)
                     // M1: Prevent required fields from being set to null
                     if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
                         return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
@@ -1676,6 +1832,19 @@ export function createApplicationsRoutes(
                                         throw error
                                     }
                                 }
+                            }
+                        }
+
+                        const childSetConstantConfig =
+                            cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
+                        if (childSetConstantConfig) {
+                            const providedRefId = resolveRefId(cRaw)
+                            if (!providedRefId) {
+                                cRaw = childSetConstantConfig.id
+                            } else if (providedRefId !== childSetConstantConfig.id) {
+                                return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                            } else {
+                                cRaw = childSetConstantConfig.id
                             }
                         }
 
@@ -1940,6 +2109,19 @@ export function createApplicationsRoutes(
                     }
                 }
 
+                const setConstantConfig =
+                    attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+                if (setConstantConfig) {
+                    const providedRefId = resolveRefId(raw)
+                    if (!providedRefId) {
+                        raw = setConstantConfig.id
+                    } else if (providedRefId !== setConstantConfig.id) {
+                        return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                    } else {
+                        raw = setConstantConfig.id
+                    }
+                }
+
                 if (raw === undefined) {
                     if (attr.is_required && attr.data_type !== 'BOOLEAN') {
                         return res.status(400).json({ error: `Required field missing: ${attr.codename}` })
@@ -2072,6 +2254,21 @@ export function createApplicationsRoutes(
                                 }
                             }
 
+                            const childSetConstantConfig =
+                                cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set'
+                                    ? getSetConstantConfig(cAttr.ui_config)
+                                    : null
+                            if (childSetConstantConfig) {
+                                const providedRefId = resolveRefId(cRaw)
+                                if (!providedRefId) {
+                                    cRaw = childSetConstantConfig.id
+                                } else if (providedRefId !== childSetConstantConfig.id) {
+                                    return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                                } else {
+                                    cRaw = childSetConstantConfig.id
+                                }
+                            }
+
                             if (cRaw === undefined || cRaw === null) {
                                 if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
                                     return res.status(400).json({ error: `Required field missing: ${tAttr.codename}.${cAttr.codename}` })
@@ -2183,11 +2380,11 @@ export function createApplicationsRoutes(
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
 
-            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
-                ctx.manager,
-                ctx.schemaIdent,
-                parsedBody.data.catalogId
-            )
+            const {
+                catalog,
+                attrs,
+                error: catalogError
+            } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, parsedBody.data.catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
@@ -2213,7 +2410,7 @@ export function createApplicationsRoutes(
             )) as Array<Record<string, unknown>>
 
             if (sourceRows.length === 0) return res.status(404).json({ error: 'Row not found' })
-            if (Boolean(sourceRows[0]._upl_locked)) return res.status(423).json({ error: 'Record is locked' })
+            if (sourceRows[0]._upl_locked) return res.status(423).json({ error: 'Record is locked' })
             const sourceRow = sourceRows[0]
 
             const insertColumns = nonTableAttrs.map((attr) => quoteIdentifier(attr.column_name))
@@ -2254,10 +2451,16 @@ export function createApplicationsRoutes(
                             [tableAttr.id]
                         )) as Array<{ codename: string; column_name: string }>
 
-                        const validChildColumns = childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                        const validChildColumns = childAttrs
+                            .map((attr) => attr.column_name)
+                            .filter((column) => IDENTIFIER_REGEX.test(column))
                         const sourceChildRows = (await mgr.query(
                             `
-                                SELECT ${validChildColumns.length > 0 ? validChildColumns.map((column) => quoteIdentifier(column)).join(', ') + ',' : ''}
+                                SELECT ${
+                                    validChildColumns.length > 0
+                                        ? validChildColumns.map((column) => quoteIdentifier(column)).join(', ') + ','
+                                        : ''
+                                }
                                        _tp_sort_order
                                 FROM ${tabTableIdent}
                                 WHERE _tp_parent_id = $1
@@ -2306,7 +2509,8 @@ export function createApplicationsRoutes(
             }
 
             try {
-                const copiedId = tableAttrs.length > 0 ? await ctx.manager.transaction((tx) => performCopy(tx)) : await performCopy(ctx.manager)
+                const copiedId =
+                    tableAttrs.length > 0 ? await ctx.manager.transaction((tx) => performCopy(tx)) : await performCopy(ctx.manager)
                 return res.status(201).json({
                     id: copiedId,
                     status: 'created',
@@ -2682,6 +2886,19 @@ export function createApplicationsRoutes(
                     }
                 }
 
+                const setConstantConfig =
+                    cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
+                if (setConstantConfig) {
+                    const providedRefId = resolveRefId(raw)
+                    if (!providedRefId) {
+                        raw = setConstantConfig.id
+                    } else if (providedRefId !== setConstantConfig.id) {
+                        return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                    } else {
+                        raw = setConstantConfig.id
+                    }
+                }
+
                 if (raw === undefined || raw === null) {
                     // Inline editing: user adds an empty row, then fills fields.
                     // For required (NOT NULL) columns, insert a type-appropriate default
@@ -2840,6 +3057,7 @@ export function createApplicationsRoutes(
                 if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
                 const raw = data[cAttr.column_name] ?? data[cAttr.codename]
                 if (raw === undefined) continue
+                let normalizedRaw = raw
                 if (
                     cAttr.data_type === 'REF' &&
                     cAttr.target_object_kind === 'enumeration' &&
@@ -2847,13 +3065,25 @@ export function createApplicationsRoutes(
                 ) {
                     return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
                 }
-                if (raw === null && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                const setConstantConfig =
+                    cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
+                if (setConstantConfig) {
+                    const providedRefId = resolveRefId(raw)
+                    if (!providedRefId) {
+                        normalizedRaw = setConstantConfig.id
+                    } else if (providedRefId !== setConstantConfig.id) {
+                        return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                    } else {
+                        normalizedRaw = setConstantConfig.id
+                    }
+                }
+                if (normalizedRaw === null && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
                     return res
                         .status(400)
                         .json({ error: `Required field cannot be set to null: ${tc.tableAttr.codename}.${cAttr.codename}` })
                 }
                 try {
-                    const coerced = coerceRuntimeValue(raw, cAttr.data_type, cAttr.validation_rules)
+                    const coerced = coerceRuntimeValue(normalizedRaw, cAttr.data_type, cAttr.validation_rules)
                     if (
                         cAttr.data_type === 'REF' &&
                         cAttr.target_object_kind === 'enumeration' &&

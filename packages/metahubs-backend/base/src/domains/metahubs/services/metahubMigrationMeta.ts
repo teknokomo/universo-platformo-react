@@ -45,6 +45,7 @@ const migrationCountsSchema = z.object({
     zoneWidgetsAdded: z.number().int().nonnegative(),
     settingsAdded: z.number().int().nonnegative(),
     entitiesAdded: z.number().int().nonnegative(),
+    constantsAdded: z.number().int().nonnegative().optional().default(0),
     attributesAdded: z.number().int().nonnegative(),
     enumValuesAdded: z.number().int().nonnegative().optional().default(0),
     elementsAdded: z.number().int().nonnegative()

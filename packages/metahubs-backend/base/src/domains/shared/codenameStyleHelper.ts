@@ -238,6 +238,89 @@ export async function getAllowAttributeMoveBetweenChildLists(
     }
 }
 
+/**
+ * Read constant codename uniqueness scope setting.
+ * Current constants model supports only global scope within a set.
+ */
+export async function getConstantCodenameScope(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<'global'> {
+    try {
+        const row = await settingsService.findByKey(metahubId, 'sets.constantCodenameScope', userId)
+        const scope = row?.value?._value
+        if (scope === 'global') return scope
+    } catch {
+        return 'global'
+    }
+    return 'global'
+}
+
+/**
+ * Read allowed constant types setting.
+ * Returns basic scalar/date types if not set.
+ */
+export async function getAllowedConstantTypes(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<string[]> {
+    try {
+        const row = await settingsService.findByKey(metahubId, 'sets.allowedConstantTypes', userId)
+        const types = row?.value?._value
+        if (Array.isArray(types) && types.length > 0) return types
+    } catch {
+        return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
+    }
+    return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
+}
+
+export async function getAllowConstantCopy(settingsService: MetahubSettingsService, metahubId: string, userId?: string): Promise<boolean> {
+    try {
+        const row = await settingsService.findByKey(metahubId, 'sets.allowConstantCopy', userId)
+        const value = row?.value?._value
+        return value !== false
+    } catch {
+        return true
+    }
+}
+
+export async function getAllowConstantDelete(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<boolean> {
+    try {
+        const row = await settingsService.findByKey(metahubId, 'sets.allowConstantDelete', userId)
+        const value = row?.value?._value
+        return value !== false
+    } catch {
+        return true
+    }
+}
+
+/**
+ * Constants do not have display-attribute semantics; always allow.
+ */
+export async function getAllowDeleteLastDisplayConstant(): Promise<boolean> {
+    return true
+}
+
+/**
+ * Constants are single-list only (no root/child moves).
+ */
+export async function getAllowConstantMoveBetweenRootAndChildren(): Promise<boolean> {
+    return false
+}
+
+/**
+ * Constants are single-list only (no cross-child moves).
+ */
+export async function getAllowConstantMoveBetweenChildLists(): Promise<boolean> {
+    return false
+}
+
 // ─── Codename attempt builder ────────────────────────────────────────────────
 
 /**
@@ -307,4 +390,18 @@ export function extractAllowedAttributeTypes(settings: SettingsRow[]): string[] 
     const types = extractValue(settings, 'catalogs.allowedAttributeTypes')
     if (Array.isArray(types) && types.length > 0) return types
     return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE']
+}
+
+/** Extract constant codename scope from pre-loaded settings. */
+export function extractConstantCodenameScope(settings: SettingsRow[]): 'global' {
+    const scope = extractValue(settings, 'sets.constantCodenameScope')
+    if (scope === 'global') return scope
+    return 'global'
+}
+
+/** Extract allowed constant types from pre-loaded settings. */
+export function extractAllowedConstantTypes(settings: SettingsRow[]): string[] {
+    const types = extractValue(settings, 'sets.allowedConstantTypes')
+    if (Array.isArray(types) && types.length > 0) return types
+    return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 }

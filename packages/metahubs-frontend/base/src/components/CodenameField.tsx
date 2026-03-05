@@ -28,8 +28,9 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({ editingEntityId, o
     })
 
     // Merge duplicate error with existing error (form validation takes precedence)
+    const duplicateCheckEnabled = !props.disabled
     const duplicateErrorMessage =
-        !props.error && duplicateError
+        duplicateCheckEnabled && !props.error && duplicateError
             ? localizedEnabled && duplicateValue
                 ? t('validation.codenameDuplicateVlc', {
                       value: duplicateValue,
@@ -40,7 +41,7 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({ editingEntityId, o
     const mergedError = props.error || duplicateErrorMessage
 
     // Notify parent when duplicate status changes (for disabling submit buttons)
-    const hasDuplicate = !!duplicateError
+    const hasDuplicate = duplicateCheckEnabled && !!duplicateError
     const prevHasDuplicate = useRef(hasDuplicate)
     useEffect(() => {
         if (prevHasDuplicate.current !== hasDuplicate) {

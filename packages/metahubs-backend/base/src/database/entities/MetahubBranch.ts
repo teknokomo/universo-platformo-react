@@ -32,8 +32,8 @@ export class MetahubBranch {
     schemaName!: string
 
     /** DDL structure version used when this branch schema was created */
-    @Column({ name: 'structure_version', type: 'integer', default: 1 })
-    structureVersion!: number
+    @Column({ name: 'structure_version', type: 'varchar', length: 20, default: '0.1.0' })
+    structureVersion!: string
 
     /** Last template version synchronized into this branch schema (seed sync provenance). */
     @Column({ name: 'last_template_version_id', type: 'uuid', nullable: true })

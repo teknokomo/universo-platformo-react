@@ -4,6 +4,7 @@ import {
     IconUsersGroup,
     IconDatabase,
     IconFiles,
+    IconFileText,
     IconApps,
     IconGitBranch,
     IconLayoutDashboard,
@@ -31,6 +32,7 @@ const icons = {
     IconGitBranch,
     IconLayoutDashboard,
     IconFiles,
+    IconFileText,
     IconHistory,
     IconSettings
 }
@@ -77,6 +79,14 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/catalogs',
             icon: icons.IconDatabase,
+            breadcrumbs: true
+        },
+        {
+            id: 'sets',
+            title: 'menu:sets',
+            type: 'item',
+            url: '/sets',
+            icon: icons.IconFileText,
             breadcrumbs: true
         },
         {

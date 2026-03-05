@@ -10,6 +10,7 @@ export const getBranchCopyOptions = (values: Record<string, unknown>): BranchCop
         copyLayouts: values.copyLayouts as boolean | undefined,
         copyHubs: values.copyHubs as boolean | undefined,
         copyCatalogs: values.copyCatalogs as boolean | undefined,
+        copySets: values.copySets as boolean | undefined,
         copyEnumerations: values.copyEnumerations as boolean | undefined
     })
 }

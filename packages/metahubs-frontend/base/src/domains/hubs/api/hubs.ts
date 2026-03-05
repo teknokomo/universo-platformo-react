@@ -18,6 +18,7 @@ export interface BlockingHubObject {
 export interface BlockingCatalogsResponse {
     hubId: string
     blockingCatalogs: BlockingHubObject[]
+    blockingSets: BlockingHubObject[]
     blockingEnumerations: BlockingHubObject[]
     totalBlocking: number
     canDelete: boolean
@@ -68,6 +69,7 @@ export const createHub = (metahubId: string, data: HubLocalizedPayload & { sortO
 export type HubCopyInput = HubLocalizedPayload & {
     copyAllRelations?: HubCopyOptions['copyAllRelations']
     copyCatalogRelations?: HubCopyOptions['copyCatalogRelations']
+    copySetRelations?: HubCopyOptions['copySetRelations']
     copyEnumerationRelations?: HubCopyOptions['copyEnumerationRelations']
 }
 

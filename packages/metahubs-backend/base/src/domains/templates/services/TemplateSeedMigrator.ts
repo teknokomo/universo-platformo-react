@@ -8,9 +8,11 @@ import type {
     DashboardLayoutZone
 } from '@universo/types'
 import { buildDashboardLayoutConfig } from '../../shared'
+import { toJsonbValue } from '../../shared/jsonb'
 import { resolveWidgetTableName } from './widgetTableResolver'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
+const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
 
 const resolveEntityIdByCodename = (entityIdMap: Map<string, string>, codename: string, preferredKind?: string): string | null => {
     if (preferredKind) {
@@ -41,6 +43,7 @@ export interface SeedMigrationResult {
     zoneWidgetsAdded: number
     settingsAdded: number
     entitiesAdded: number
+    constantsAdded: number
     attributesAdded: number
     enumValuesAdded: number
     elementsAdded: number
@@ -75,6 +78,7 @@ export class TemplateSeedMigrator {
             zoneWidgetsAdded: 0,
             settingsAdded: 0,
             entitiesAdded: 0,
+            constantsAdded: 0,
             attributesAdded: 0,
             enumValuesAdded: 0,
             elementsAdded: 0,
@@ -440,13 +444,115 @@ export class TemplateSeedMigrator {
             result.entitiesAdded++
         }
 
-        // ── Pass 2: Insert attributes using the complete entity map ──
+        const constantIdMap = new Map<string, string>()
+
+        // ── Pass 2: Insert/resolve constants for sets ──
+        for (const entity of entities) {
+            if (entity.kind !== 'set' || !entity.constants?.length) continue
+
+            const setId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
+            if (!setId) continue
+
+            for (let constantIndex = 0; constantIndex < entity.constants.length; constantIndex++) {
+                const constant = entity.constants[constantIndex]
+
+                if (dryRun && setId.startsWith('dry-run:')) {
+                    constantIdMap.set(
+                        buildConstantMapKey(entity.codename, constant.codename),
+                        `dry-run:constant:${entity.codename}:${constant.codename}`
+                    )
+                    result.constantsAdded++
+                    continue
+                }
+
+                const existing = await trx
+                    .withSchema(this.schemaName)
+                    .from('_mhb_constants')
+                    .where({
+                        object_id: setId,
+                        codename: constant.codename,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (existing) {
+                    constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), existing.id)
+                    result.skipped.push(`constant:${entity.codename}.${constant.codename} (already exists)`)
+                    continue
+                }
+
+                if (dryRun) {
+                    constantIdMap.set(
+                        buildConstantMapKey(entity.codename, constant.codename),
+                        `dry-run:constant:${entity.codename}:${constant.codename}`
+                    )
+                } else {
+                    const [inserted] = await trx
+                        .withSchema(this.schemaName)
+                        .into('_mhb_constants')
+                        .insert({
+                            object_id: setId,
+                            codename: constant.codename,
+                            data_type: constant.dataType,
+                            presentation: {
+                                codename: null,
+                                name: constant.name,
+                                description: constant.description ?? null
+                            },
+                            validation_rules: constant.validationRules ?? {},
+                            ui_config: constant.uiConfig ?? {},
+                            value_json: toJsonbValue(constant.value),
+                            sort_order: constant.sortOrder ?? constantIndex + 1,
+                            _upl_created_at: now,
+                            _upl_created_by: null,
+                            _upl_updated_at: now,
+                            _upl_updated_by: null,
+                            _upl_version: 1,
+                            _upl_archived: false,
+                            _upl_deleted: false,
+                            _upl_locked: false,
+                            _mhb_published: true,
+                            _mhb_archived: false,
+                            _mhb_deleted: false
+                        })
+                        .returning('id')
+
+                    constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), inserted.id)
+                }
+
+                result.constantsAdded++
+            }
+        }
+
+        const resolveTargetConstantId = (
+            targetEntityKind: string | null | undefined,
+            targetEntityCodename: string | undefined,
+            targetConstantCodename: string | undefined
+        ): string | null => {
+            if (targetEntityKind !== 'set' || !targetEntityCodename || !targetConstantCodename) return null
+            return constantIdMap.get(buildConstantMapKey(targetEntityCodename, targetConstantCodename)) ?? null
+        }
+
+        // ── Pass 3: Insert attributes using the complete entity+constants maps ──
         for (const entity of entities) {
             const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
             if (!entityId || !entity.attributes?.length) continue
 
             for (let i = 0; i < entity.attributes.length; i++) {
                 const attr = entity.attributes[i]
+                const childAttributes = (attr as unknown as Record<string, unknown>).childAttributes as
+                    | Array<Record<string, unknown>>
+                    | undefined
+
+                if (dryRun && entityId.startsWith('dry-run:')) {
+                    result.attributesAdded++
+                    if (attr.dataType === 'TABLE' && childAttributes?.length) {
+                        result.attributesAdded += childAttributes.length
+                    }
+                    continue
+                }
+
                 const attrExists = await trx
                     .withSchema(this.schemaName)
                     .from('_mhb_attributes')
@@ -487,6 +593,11 @@ export class TemplateSeedMigrator {
                                     ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
                                     : null,
                                 target_object_kind: attr.targetEntityKind ?? null,
+                                target_constant_id: resolveTargetConstantId(
+                                    attr.targetEntityKind,
+                                    attr.targetEntityCodename,
+                                    attr.targetConstantCodename
+                                ),
                                 _upl_created_at: now,
                                 _upl_created_by: null,
                                 _upl_updated_at: now,
@@ -505,9 +616,6 @@ export class TemplateSeedMigrator {
                 }
 
                 if (!dryRun) {
-                    const childAttributes = (attr as unknown as Record<string, unknown>).childAttributes as
-                        | Array<Record<string, unknown>>
-                        | undefined
                     if (attr.dataType === 'TABLE' && childAttributes?.length && parentAttributeId) {
                         for (let ci = 0; ci < childAttributes.length; ci++) {
                             const child = childAttributes[ci]
@@ -555,6 +663,11 @@ export class TemplateSeedMigrator {
                                               )
                                             : null,
                                     target_object_kind: (child.targetEntityKind as string | null | undefined) ?? null,
+                                    target_constant_id: resolveTargetConstantId(
+                                        (child.targetEntityKind as string | null | undefined) ?? null,
+                                        (child.targetEntityCodename as string | undefined) ?? undefined,
+                                        (child.targetConstantCodename as string | undefined) ?? undefined
+                                    ),
                                     _upl_created_at: now,
                                     _upl_created_by: null,
                                     _upl_updated_at: now,

@@ -22,8 +22,8 @@ export interface MetahubMigrationItem {
     id: string
     name: string
     appliedAt: string
-    fromVersion: number
-    toVersion: number
+    fromVersion: string
+    toVersion: string
     meta: Record<string, unknown> | null
 }
 
@@ -39,13 +39,13 @@ export interface MetahubMigrationsListResponse {
 export interface MetahubMigrationsPlanResponse {
     branchId: string
     schemaName: string
-    currentStructureVersion: number
-    targetStructureVersion: number
+    currentStructureVersion: string
+    targetStructureVersion: string
     structureUpgradeRequired: boolean
     structurePlan: {
         steps: {
-            fromVersion: number
-            toVersion: number
+            fromVersion: string
+            toVersion: string
             summary: string
             additive: string[]
             destructive: string[]
@@ -61,13 +61,14 @@ export interface MetahubMigrationsPlanResponse {
     targetTemplateVersionLabel: string | null
     templateUpgradeRequired: boolean
     templatePlan: {
-        minStructureVersion: number | null
+        minStructureVersion: string | null
         structureCompatible: boolean
         seedDryRun: {
             layoutsAdded: number
             zoneWidgetsAdded: number
             settingsAdded: number
             entitiesAdded: number
+            constantsAdded: number
             attributesAdded: number
             elementsAdded: number
             skipped: string[]
@@ -86,7 +87,7 @@ export interface ApplyMetahubMigrationsResponse {
     plan?: MetahubMigrationsPlanResponse
     branchId?: string
     schemaName?: string
-    structureVersion?: number
+    structureVersion?: string
     templateVersionId?: string | null
     cleanupMode?: TemplateCleanupMode
     cleanup?: TemplateCleanupResult | null

@@ -18,7 +18,9 @@ import {
     truncateHubName,
     useCatalogName,
     useCatalogNameStandalone,
+    useSetNameStandalone,
     truncateCatalogName,
+    truncateSetName,
     useEnumerationName,
     truncateEnumerationName,
     useAttributeName,
@@ -99,6 +101,13 @@ export default function NavbarBreadcrumbs() {
     const standaloneCatalogMetahubId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[1] : null
     const standaloneCatalogId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[2] : null
     const standaloneCatalogName = useCatalogNameStandalone(standaloneCatalogMetahubId, standaloneCatalogId)
+
+    // Extract setId from global and hub-scoped metahub routes
+    const standaloneSetIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/set\/([^/]+)/)
+    const hubSetIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/set\/([^/]+)/)
+    const setParentMetahubId = standaloneSetIdMatch ? standaloneSetIdMatch[1] : hubSetIdMatch ? hubSetIdMatch[1] : null
+    const setId = standaloneSetIdMatch ? standaloneSetIdMatch[2] : hubSetIdMatch ? hubSetIdMatch[3] : null
+    const setName = useSetNameStandalone(setParentMetahubId, setId)
 
     // Extract enumerationId from global and hub-scoped metahub routes
     const standaloneEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/enumeration\/([^/]+)/)
@@ -200,6 +209,29 @@ export default function NavbarBreadcrumbs() {
                             items.push({ label: t('elements'), to: location.pathname })
                         }
                     }
+                } else if (segments[2] === 'sets') {
+                    items.push({ label: t('sets'), to: `/metahub/${segments[1]}/sets` })
+                } else if (segments[2] === 'set') {
+                    items.push({ label: t('sets'), to: `/metahub/${segments[1]}/sets` })
+
+                    if (segments[3] && setName) {
+                        items.push({
+                            label: truncateSetName(setName),
+                            to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
+                        })
+                    } else if (segments[3]) {
+                        items.push({
+                            label: segments[3],
+                            to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
+                        })
+                    }
+
+                    if (segments[4] === 'constants' && segments[3]) {
+                        items.push({
+                            label: t('constants'),
+                            to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
+                        })
+                    }
                 } else if (segments[2] === 'enumerations') {
                     items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
                 } else if (segments[2] === 'enumeration') {
@@ -297,6 +329,37 @@ export default function NavbarBreadcrumbs() {
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
                             })
                             items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
+                        } else if (segments[4] === 'sets') {
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
+                            items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
+                        } else if (segments[4] === 'set') {
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
+                            items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
+
+                            if (segments[5] && setName) {
+                                items.push({
+                                    label: truncateSetName(setName),
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
+                                })
+                            } else if (segments[5]) {
+                                items.push({
+                                    label: segments[5],
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
+                                })
+                            }
+
+                            if (segments[6] === 'constants' && segments[5]) {
+                                items.push({
+                                    label: t('constants'),
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
+                                })
+                            }
                         } else if (segments[4] === 'enumeration') {
                             items.push({
                                 label: truncateHubName(hubName),

@@ -147,6 +147,7 @@ const copyHubSchema = z.object({
     descriptionPrimaryLocale: z.string().optional(),
     copyAllRelations: z.boolean().optional(),
     copyCatalogRelations: z.boolean().optional(),
+    copySetRelations: z.boolean().optional(),
     copyEnumerationRelations: z.boolean().optional()
 })
 
@@ -201,7 +202,7 @@ export function createHubsRoutes(
         const objects = await knex
             .withSchema(schemaName)
             .from('_mhb_objects')
-            .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.ENUMERATION])
+            .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION])
             .whereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
             .whereRaw(`jsonb_typeof(config->'hubs') = 'array'`)
             .whereRaw(`COALESCE((config->>'isRequiredHub')::boolean, false) = true`)
@@ -209,6 +210,7 @@ export function createHubsRoutes(
             .select('id', 'kind', 'codename', 'presentation')
 
         const blockingCatalogs: BlockingHubObject[] = []
+        const blockingSets: BlockingHubObject[] = []
         const blockingEnumerations: BlockingHubObject[] = []
 
         for (const objectRow of objects as Array<{
@@ -227,6 +229,10 @@ export function createHubsRoutes(
                 blockingCatalogs.push(mapped)
                 continue
             }
+            if (objectRow.kind === MetaEntityKind.SET) {
+                blockingSets.push(mapped)
+                continue
+            }
             if (objectRow.kind === MetaEntityKind.ENUMERATION) {
                 blockingEnumerations.push(mapped)
             }
@@ -234,6 +240,7 @@ export function createHubsRoutes(
 
         return {
             blockingCatalogs,
+            blockingSets,
             blockingEnumerations
         }
     }
@@ -251,7 +258,7 @@ export function createHubsRoutes(
             const linkedObjects = (await trx
                 .withSchema(schemaName)
                 .from('_mhb_objects')
-                .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.ENUMERATION])
+                .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION])
                 .andWhere('_upl_deleted', false)
                 .andWhere('_mhb_deleted', false)
                 .andWhereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
@@ -322,9 +329,10 @@ export function createHubsRoutes(
                 userId
             )
 
-            // Calculate aggregated items per hub (currently: catalogs + enumerations)
-            const [catalogs, enumerations] = await Promise.all([
+            // Calculate aggregated items per hub (catalogs + sets + enumerations)
+            const [catalogs, sets, enumerations] = await Promise.all([
                 objectsService.findAllByKind(metahubId, MetaEntityKind.CATALOG, userId),
+                objectsService.findAllByKind(metahubId, MetaEntityKind.SET, userId),
                 objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION, userId)
             ])
 
@@ -346,6 +354,7 @@ export function createHubsRoutes(
             }
 
             registerCounts(catalogs, catalogsCountByHub)
+            registerCounts(sets)
             registerCounts(enumerations)
 
             const items = hubs.map((h) => {
@@ -610,6 +619,7 @@ export function createHubsRoutes(
             const copyOptions: HubCopyOptions = normalizeHubCopyOptions({
                 copyAllRelations: parsed.data.copyAllRelations,
                 copyCatalogRelations: parsed.data.copyCatalogRelations,
+                copySetRelations: parsed.data.copySetRelations,
                 copyEnumerationRelations: parsed.data.copyEnumerationRelations
             })
 
@@ -654,6 +664,7 @@ export function createHubsRoutes(
 
                     const relationKinds: MetaEntityKind[] = []
                     if (copyOptions.copyCatalogRelations) relationKinds.push(MetaEntityKind.CATALOG)
+                    if (copyOptions.copySetRelations) relationKinds.push(MetaEntityKind.SET)
                     if (copyOptions.copyEnumerationRelations) relationKinds.push(MetaEntityKind.ENUMERATION)
 
                     if (relationKinds.length > 0) {
@@ -918,12 +929,18 @@ export function createHubsRoutes(
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            const { blockingCatalogs, blockingEnumerations } = await findBlockingHubObjects(metahubId, hubId, schemaService, userId)
-            const totalBlocking = blockingCatalogs.length + blockingEnumerations.length
+            const { blockingCatalogs, blockingSets, blockingEnumerations } = await findBlockingHubObjects(
+                metahubId,
+                hubId,
+                schemaService,
+                userId
+            )
+            const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length
 
             res.json({
                 hubId,
                 blockingCatalogs,
+                blockingSets,
                 blockingEnumerations,
                 totalBlocking,
                 canDelete: totalBlocking === 0
@@ -955,13 +972,19 @@ export function createHubsRoutes(
                 return res.status(403).json({ error: 'Deleting hubs is disabled by metahub settings' })
             }
 
-            const { blockingCatalogs, blockingEnumerations } = await findBlockingHubObjects(metahubId, hubId, schemaService, userId)
-            const totalBlocking = blockingCatalogs.length + blockingEnumerations.length
+            const { blockingCatalogs, blockingSets, blockingEnumerations } = await findBlockingHubObjects(
+                metahubId,
+                hubId,
+                schemaService,
+                userId
+            )
+            const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length
 
             if (totalBlocking > 0) {
                 return res.status(409).json({
                     error: 'Cannot delete hub: required objects would become orphaned',
                     blockingCatalogs,
+                    blockingSets,
                     blockingEnumerations,
                     totalBlocking
                 })

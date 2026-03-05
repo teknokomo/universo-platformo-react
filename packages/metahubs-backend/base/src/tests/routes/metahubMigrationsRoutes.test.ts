@@ -123,7 +123,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createMetahubMigrationsRoutes } from '../../domains/metahubs/routes/metahubMigrationsRoutes'
-import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
+import { CURRENT_STRUCTURE_VERSION, CURRENT_STRUCTURE_VERSION_SEMVER } from '../../domains/metahubs/services/structureVersions'
 import { basicTemplate } from '../../domains/templates/data/basic.template'
 
 describe('Metahub Migrations Routes', () => {
@@ -253,8 +253,8 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body.items[0]).toMatchObject({
             id: 'mig-1',
             name: 'baseline_structure_v1',
-            fromVersion: 1,
-            toVersion: 1,
+            fromVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
+            toVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
             meta: null
         })
         expect(mockEnsureMetahubAccess).toHaveBeenCalled()
@@ -320,8 +320,8 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body).toMatchObject({
             branchId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
-            currentStructureVersion: 1,
-            targetStructureVersion: CURRENT_STRUCTURE_VERSION,
+            currentStructureVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
+            targetStructureVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
             structureUpgradeRequired: false,
             templateId: null,
             currentTemplateVersionId: null,
@@ -365,7 +365,7 @@ describe('Metahub Migrations Routes', () => {
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_tpl_source',
             structureVersion: CURRENT_STRUCTURE_VERSION,
             lastTemplateVersionId: branchTemplateVersionId,
-            lastTemplateVersionLabel: '1.0.0'
+            lastTemplateVersionLabel: '0.1.0'
         })
         templateRepo.findOneBy.mockResolvedValue({
             id: templateId,
@@ -373,10 +373,10 @@ describe('Metahub Migrations Routes', () => {
         })
         templateVersionRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
             if (id === branchTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.0.0', manifestJson: null }
+                return { id, templateId, versionLabel: '0.1.0', manifestJson: null }
             }
             if (id === targetTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.0.0', manifestJson: basicTemplate }
+                return { id, templateId, versionLabel: '0.1.0', manifestJson: basicTemplate }
             }
             return null
         })
@@ -450,7 +450,7 @@ describe('Metahub Migrations Routes', () => {
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_status_light',
             structureVersion: CURRENT_STRUCTURE_VERSION,
             lastTemplateVersionId: branchTemplateVersionId,
-            lastTemplateVersionLabel: '1.0.0'
+            lastTemplateVersionLabel: '0.1.0'
         })
         templateRepo.findOneBy.mockResolvedValue({
             id: templateId,
@@ -458,10 +458,10 @@ describe('Metahub Migrations Routes', () => {
         })
         templateVersionRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
             if (id === branchTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.0.0', manifestJson: null }
+                return { id, templateId, versionLabel: '0.1.0', manifestJson: null }
             }
             if (id === targetTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.0.0', manifestJson: basicTemplate }
+                return { id, templateId, versionLabel: '0.1.0', manifestJson: basicTemplate }
             }
             return null
         })
@@ -612,7 +612,7 @@ describe('Metahub Migrations Routes', () => {
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_tpl_sync_check',
             structureVersion: 1,
             lastTemplateVersionId: branchTemplateVersionId,
-            lastTemplateVersionLabel: '1.0.0'
+            lastTemplateVersionLabel: '0.1.0'
         })
         templateRepo.findOneBy.mockResolvedValue({
             id: templateId,
@@ -620,10 +620,10 @@ describe('Metahub Migrations Routes', () => {
         })
         templateVersionRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
             if (id === branchTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.0.0', manifestJson: null }
+                return { id, templateId, versionLabel: '0.1.0', manifestJson: null }
             }
             if (id === targetTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.0.0', manifestJson: basicTemplate }
+                return { id, templateId, versionLabel: '0.1.0', manifestJson: basicTemplate }
             }
             return null
         })

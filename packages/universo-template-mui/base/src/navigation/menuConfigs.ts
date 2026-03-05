@@ -102,6 +102,13 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'item'
     },
     {
+        id: 'metahub-sets',
+        titleKey: 'sets',
+        url: `/metahub/${metahubId}/sets`,
+        icon: IconFileText,
+        type: 'item'
+    },
+    {
         id: 'metahub-enumerations',
         titleKey: 'enumerations',
         url: `/metahub/${metahubId}/enumerations`,

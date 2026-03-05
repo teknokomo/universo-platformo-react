@@ -19,6 +19,9 @@ export type { BranchDeleteDialogProps } from './BranchDeleteDialog'
 export { CatalogDeleteDialog } from './CatalogDeleteDialog'
 export type { CatalogDeleteDialogProps } from './CatalogDeleteDialog'
 
+export { SetDeleteDialog } from './SetDeleteDialog'
+export type { SetDeleteDialogProps } from './SetDeleteDialog'
+
 export { EnumerationDeleteDialog } from './EnumerationDeleteDialog'
 export type { EnumerationDeleteDialogProps } from './EnumerationDeleteDialog'
 

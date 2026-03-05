@@ -59,9 +59,9 @@ export const createAttribute = (
     hubId: string,
     catalogId: string,
     data: AttributeLocalizedPayload & {
-        targetCatalogId?: string
         targetEntityId?: string | null
         targetEntityKind?: string | null
+        targetConstantId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -79,9 +79,9 @@ export const updateAttribute = (
     catalogId: string,
     attributeId: string,
     data: AttributeLocalizedPayload & {
-        targetCatalogId?: string | null
         targetEntityId?: string | null
         targetEntityKind?: string | null
+        targetConstantId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -156,9 +156,9 @@ export const createAttributeDirect = (
     metahubId: string,
     catalogId: string,
     data: AttributeLocalizedPayload & {
-        targetCatalogId?: string
         targetEntityId?: string | null
         targetEntityKind?: string | null
+        targetConstantId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -175,9 +175,9 @@ export const updateAttributeDirect = (
     catalogId: string,
     attributeId: string,
     data: AttributeLocalizedPayload & {
-        targetCatalogId?: string | null
         targetEntityId?: string | null
         targetEntityKind?: string | null
+        targetConstantId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -327,6 +327,7 @@ export const createChildAttribute = (
         isRequired?: boolean
         targetEntityId?: string | null
         targetEntityKind?: string | null
+        targetConstantId?: string | null
     }
 ) => apiClient.post<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`, data)
 
@@ -343,6 +344,7 @@ export const createChildAttributeDirect = (
         isRequired?: boolean
         targetEntityId?: string | null
         targetEntityKind?: string | null
+        targetConstantId?: string | null
     }
 ) => apiClient.post<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`, data)
 

@@ -134,6 +134,30 @@ describe('DDL Diff Utilities', () => {
                 expect(diff.additive[0].fieldCodename).toBe('new_field')
             })
 
+            it('does not generate physical FK changes for REF fields targeting set', () => {
+                const snapshot = createTestSnapshot()
+                const entities: EntityDefinition[] = [
+                    createTestEntity({
+                        fields: [
+                            {
+                                id: 'field-ref-set-1111-2222-333344445555',
+                                codename: 'version',
+                                dataType: 'REF',
+                                isRequired: false,
+                                targetEntityId: 'set-1111-2222-333344445555',
+                                targetEntityKind: 'set'
+                            }
+                        ]
+                    })
+                ]
+
+                const diff = calculateSchemaDiff(snapshot, entities)
+
+                expect(diff.hasChanges).toBe(true)
+                expect(diff.additive.some((change) => change.type === ChangeType.ADD_COLUMN)).toBe(true)
+                expect(diff.additive.some((change) => change.type === ChangeType.ADD_FK)).toBe(false)
+            })
+
             it('should detect dropped columns (destructive)', () => {
                 const snapshotWithField = createTestSnapshot()
                 snapshotWithField.entities['entity-1111-2222-3333-444455556666'].fields = {

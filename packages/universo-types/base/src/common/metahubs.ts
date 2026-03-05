@@ -17,6 +17,19 @@ export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce((acc, value) => {
     return acc
 }, {} as Record<AttributeDataType, AttributeDataType>)
 
+/**
+ * Supported constant data types.
+ * Constants use a strict subset of attribute types (no REF/JSON/TABLE at this stage).
+ */
+export const CONSTANT_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'] as const
+export type ConstantDataType = (typeof CONSTANT_DATA_TYPES)[number]
+
+// eslint-disable-next-line no-redeclare
+export const ConstantDataType = CONSTANT_DATA_TYPES.reduce((acc, value) => {
+    acc[value] = value
+    return acc
+}, {} as Record<ConstantDataType, ConstantDataType>)
+
 // ═══════════════════════════════════════
 // Metahub Settings Types
 // ═══════════════════════════════════════
@@ -28,7 +41,7 @@ export type CodenameStyle = 'kebab-case' | 'pascal-case'
 export type CodenameAlphabet = 'en' | 'ru' | 'en-ru'
 
 /** Tab groups for the Settings UI. */
-export type SettingsTab = 'general' | 'common' | 'hubs' | 'catalogs' | 'enumerations'
+export type SettingsTab = 'general' | 'common' | 'hubs' | 'catalogs' | 'sets' | 'enumerations'
 
 /** Value type discriminator for settings. */
 export type SettingValueType = 'string' | 'boolean' | 'select' | 'multiselect' | 'number'
@@ -245,6 +258,52 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 11
+    },
+
+    // ── Sets ──
+    {
+        key: 'sets.allowCopy',
+        tab: 'sets',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 1
+    },
+    {
+        key: 'sets.allowDelete',
+        tab: 'sets',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
+    },
+    {
+        key: 'sets.constantCodenameScope',
+        tab: 'sets',
+        valueType: 'select',
+        defaultValue: 'global',
+        options: ['global'] as const,
+        sortOrder: 3
+    },
+    {
+        key: 'sets.allowedConstantTypes',
+        tab: 'sets',
+        valueType: 'multiselect',
+        defaultValue: [...CONSTANT_DATA_TYPES],
+        options: CONSTANT_DATA_TYPES,
+        sortOrder: 4
+    },
+    {
+        key: 'sets.allowConstantCopy',
+        tab: 'sets',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 5
+    },
+    {
+        key: 'sets.allowConstantDelete',
+        tab: 'sets',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 6
     },
 
     // ── Enumerations ──
@@ -472,6 +531,7 @@ export function formatPhysicalType(info: PhysicalTypeInfo): string {
 
 const _META_ENTITY_KIND_MAP = {
     CATALOG: 'catalog',
+    SET: 'set',
     ENUMERATION: 'enumeration',
     HUB: 'hub',
     DOCUMENT: 'document'
@@ -501,6 +561,8 @@ export interface MetaFieldDefinition {
     targetEntityId?: string | null
     /** Kind of the target entity for REF field type (polymorphic discriminator) */
     targetEntityKind?: MetaEntityKind | null
+    /** Target constant id for REF fields that point to `set` entities. */
+    targetConstantId?: string | null
     presentation: MetaPresentation
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
@@ -684,7 +746,7 @@ export type MetahubSnapshotFormatVersion = 1
  * - snapshot format version
  */
 export interface MetahubSnapshotVersionEnvelope {
-    structureVersion: number
+    structureVersion: string
     templateVersion: string | null
     snapshotFormatVersion: MetahubSnapshotFormatVersion
 }
@@ -736,10 +798,23 @@ export interface TemplateSeedAttribute {
     sortOrder?: number
     targetEntityCodename?: string
     targetEntityKind?: MetaEntityKind
+    targetConstantCodename?: string
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
     /** Child attributes for TABLE data type (no nesting allowed) */
     childAttributes?: TemplateSeedAttribute[]
+}
+
+/** Seed set constant definition (uses codename identity inside a set). */
+export interface TemplateSeedConstant {
+    codename: string
+    dataType: ConstantDataType
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    sortOrder?: number
+    validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
+    value?: unknown
 }
 
 /** Seed entity definition (catalog, hub, document). */
@@ -750,6 +825,8 @@ export interface TemplateSeedEntity {
     description?: VersionedLocalizedContent<string>
     config?: Record<string, unknown>
     attributes?: TemplateSeedAttribute[]
+    /** Constants are supported only for entities with kind = set. */
+    constants?: TemplateSeedConstant[]
     hubs?: string[]
 }
 
@@ -790,7 +867,7 @@ export interface MetahubTemplateManifest {
     $schema: MetahubTemplateSchemaVersion
     codename: string
     version: string
-    minStructureVersion: number
+    minStructureVersion: string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     meta?: MetahubTemplateMeta
@@ -890,8 +967,8 @@ export interface ApplicationMigrationStatusResponse {
 export interface MetahubMigrationStatusResponse {
     branchId: string
     schemaName: string
-    currentStructureVersion: number
-    targetStructureVersion: number
+    currentStructureVersion: string
+    targetStructureVersion: string
     structureUpgradeRequired: boolean
     templateUpgradeRequired: boolean
     migrationRequired: boolean

@@ -7,7 +7,8 @@ import { MetahubAttributesService } from '../../metahubs/services/MetahubAttribu
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
-import { CURRENT_STRUCTURE_VERSION } from '../../metahubs/services/structureVersions'
+import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
+import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
 
 export interface MetahubSnapshot {
@@ -18,6 +19,7 @@ export interface MetahubSnapshot {
     entities: Record<string, MetaEntitySnapshot>
     elements?: Record<string, MetaElementSnapshot[]>
     enumerationValues?: Record<string, EnumerationValueDefinition[]>
+    constants?: Record<string, MetaConstantSnapshot[]>
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -82,13 +84,26 @@ export interface MetaElementSnapshot {
     sortOrder: number
 }
 
+export interface MetaConstantSnapshot {
+    id: string
+    objectId: string
+    codename: string
+    dataType: string
+    presentation: Record<string, unknown>
+    validationRules: Record<string, unknown>
+    uiConfig: Record<string, unknown>
+    value: unknown
+    sortOrder: number
+}
+
 export class SnapshotSerializer {
     constructor(
         private readonly objectsService: MetahubObjectsService,
         private readonly attributesService: MetahubAttributesService,
         private readonly elementsService?: MetahubElementsService,
         private readonly hubsService?: MetahubHubsService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
-        private readonly enumerationValuesService?: MetahubEnumerationValuesService
+        private readonly enumerationValuesService?: MetahubEnumerationValuesService,
+        private readonly constantsService?: MetahubConstantsService
     ) {}
 
     /**
@@ -102,6 +117,7 @@ export class SnapshotSerializer {
     async serializeMetahub(metahubId: string, versionEnvelope?: Partial<MetahubSnapshotVersionEnvelope>): Promise<MetahubSnapshot> {
         // Fetch entities from dynamic schema
         const catalogs = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.CATALOG)
+        const sets = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.SET)
         const enumerations = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION)
         // Note: findAll already orders by created_at, but we might want sortOrder if we add it to _mhb_objects
         // Currently _mhb_objects doesn't have sort_order in standard schema, using order by name or created_at
@@ -109,6 +125,7 @@ export class SnapshotSerializer {
         const entities: Record<string, MetaEntitySnapshot> = {}
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
         const enumerationValuesByObject: Record<string, EnumerationValueDefinition[]> = {}
+        const constantsByObject: Record<string, MetaConstantSnapshot[]> = {}
 
         const objectIds = catalogs.map((catalog) => catalog.id)
         const allElements =
@@ -179,9 +196,8 @@ export class SnapshotSerializer {
                     isRequiredHub: catalog.config?.isRequiredHub ?? false
                 },
                 fields: rootAttributes.map((attr) => {
-                    const resolvedTargetEntityId = attr.targetEntityId ?? attr.targetCatalogId ?? undefined
-                    const resolvedTargetEntityKind: MetaEntityKind | undefined =
-                        attr.targetEntityKind ?? (attr.targetCatalogId ? MetaEntityKind.CATALOG : undefined)
+                    const resolvedTargetEntityId = attr.targetEntityId ?? undefined
+                    const resolvedTargetEntityKind: MetaEntityKind | undefined = attr.targetEntityKind ?? undefined
 
                     const fieldDef: MetaFieldSnapshot = {
                         id: attr.id,
@@ -191,6 +207,7 @@ export class SnapshotSerializer {
                         isDisplayAttribute: attr.isDisplayAttribute ?? false,
                         targetEntityId: resolvedTargetEntityId,
                         targetEntityKind: resolvedTargetEntityKind,
+                        targetConstantId: attr.targetConstantId ?? null,
                         presentation: {
                             name: attr.name || {},
                             description: attr.description || {}
@@ -211,6 +228,7 @@ export class SnapshotSerializer {
                             isDisplayAttribute: child.isDisplayAttribute ?? false,
                             targetEntityId: child.targetEntityId ?? undefined,
                             targetEntityKind: child.targetEntityKind ?? undefined,
+                            targetConstantId: child.targetConstantId ?? null,
                             presentation: {
                                 name: child.name || {},
                                 description: child.description || {}
@@ -225,6 +243,27 @@ export class SnapshotSerializer {
                     return fieldDef
                 }),
                 hubs: hubIds
+            }
+        }
+
+        if (this.constantsService && sets.length > 0) {
+            for (const set of sets) {
+                const constants = await this.constantsService.findAll(metahubId, set.id)
+                if (!constants.length) continue
+                constantsByObject[set.id] = constants.map((constant: any) => ({
+                    id: constant.id,
+                    objectId: constant.setId ?? set.id,
+                    codename: constant.codename,
+                    dataType: constant.dataType,
+                    presentation: {
+                        codename: constant.codenameLocalized ?? null,
+                        name: constant.name ?? {}
+                    },
+                    validationRules: (constant.validationRules ?? {}) as Record<string, unknown>,
+                    uiConfig: (constant.uiConfig ?? {}) as Record<string, unknown>,
+                    value: constant.value ?? null,
+                    sortOrder: constant.sortOrder ?? 0
+                }))
             }
         }
 
@@ -277,18 +316,40 @@ export class SnapshotSerializer {
             }
         }
 
+        for (const set of sets) {
+            const hubIds: string[] = set.config?.hubs || []
+            entities[set.id] = {
+                id: set.id,
+                kind: MetaEntityKind.SET,
+                codename: set.codename,
+                tableName: generateTableName(set.id, MetaEntityKind.SET),
+                presentation: {
+                    name: set.presentation?.name || {},
+                    description: set.presentation?.description || {}
+                },
+                config: {
+                    ...(set.config ?? {}),
+                    isSingleHub: set.config?.isSingleHub ?? false,
+                    isRequiredHub: set.config?.isRequiredHub ?? false
+                },
+                fields: [],
+                hubs: hubIds
+            }
+        }
+
         return {
             metahubId,
             generatedAt: new Date().toISOString(),
             version: 1,
             versionEnvelope: {
-                structureVersion: versionEnvelope?.structureVersion ?? CURRENT_STRUCTURE_VERSION,
+                structureVersion: versionEnvelope?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: versionEnvelope?.templateVersion ?? null,
                 snapshotFormatVersion: 1
             },
             entities,
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
-            enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined
+            enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined,
+            constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined
         }
     }
 
@@ -359,10 +420,12 @@ export class SnapshotSerializer {
                     ...field,
                     targetEntityId: field.targetEntityId,
                     targetEntityKind: field.targetEntityKind,
+                    targetConstantId: field.targetConstantId,
                     childFields: field.childFields?.map((child) => ({
                         ...child,
                         targetEntityId: child.targetEntityId,
-                        targetEntityKind: child.targetEntityKind
+                        targetEntityKind: child.targetEntityKind,
+                        targetConstantId: child.targetConstantId
                     })),
                     parentAttributeId: field.parentAttributeId
                 }
@@ -372,6 +435,7 @@ export class SnapshotSerializer {
                     ...child,
                     targetEntityId: child.targetEntityId,
                     targetEntityKind: child.targetEntityKind,
+                    targetConstantId: child.targetConstantId,
                     parentAttributeId: field.id
                 }))
 
@@ -399,6 +463,7 @@ export class SnapshotSerializer {
                         isDisplayAttribute: field.isDisplayAttribute ?? false,
                         targetEntityId: field.targetEntityId ?? null,
                         targetEntityKind: field.targetEntityKind ?? null,
+                        targetConstantId: field.targetConstantId ?? null,
                         presentation: field.presentation ?? {},
                         validationRules: field.validationRules ?? {},
                         uiConfig: field.uiConfig ?? {},
@@ -417,6 +482,7 @@ export class SnapshotSerializer {
                                           isDisplayAttribute: child.isDisplayAttribute ?? false,
                                           targetEntityId: child.targetEntityId ?? null,
                                           targetEntityKind: child.targetEntityKind ?? null,
+                                          targetConstantId: child.targetConstantId ?? null,
                                           presentation: child.presentation ?? {},
                                           validationRules: child.validationRules ?? {},
                                           uiConfig: child.uiConfig ?? {},
@@ -481,6 +547,30 @@ export class SnapshotSerializer {
                   .sort((a, b) => a.objectId.localeCompare(b.objectId))
             : []
 
+        const constants = snapshot.constants
+            ? Object.entries(snapshot.constants)
+                  .map(([objectId, list]) => ({
+                      objectId,
+                      constants: list
+                          .map((constant) => ({
+                              id: constant.id,
+                              codename: constant.codename,
+                              dataType: constant.dataType,
+                              presentation: constant.presentation ?? {},
+                              validationRules: constant.validationRules ?? {},
+                              uiConfig: constant.uiConfig ?? {},
+                              value: constant.value ?? null,
+                              sortOrder: constant.sortOrder ?? 0
+                          }))
+                          .sort((a, b) => {
+                              if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                              if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
+                              return a.id.localeCompare(b.id)
+                          })
+                  }))
+                  .sort((a, b) => a.objectId.localeCompare(b.objectId))
+            : []
+
         const layouts = snapshot.layouts
             ? snapshot.layouts
                   .map((layout) => ({
@@ -522,7 +612,7 @@ export class SnapshotSerializer {
         return {
             version: snapshot.version,
             versionEnvelope: snapshot.versionEnvelope ?? {
-                structureVersion: 1,
+                structureVersion: structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: null,
                 snapshotFormatVersion: 1
             },
@@ -530,6 +620,7 @@ export class SnapshotSerializer {
             entities,
             elements,
             enumerationValues,
+            constants,
             layouts,
             layoutZoneWidgets,
             defaultLayoutId: snapshot.defaultLayoutId ?? null,

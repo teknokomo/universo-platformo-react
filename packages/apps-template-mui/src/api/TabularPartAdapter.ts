@@ -57,6 +57,9 @@ export interface TabularPartAdapterParams {
         validationRules?: FieldValidationRules
         refTargetEntityId?: string | null
         refTargetEntityKind?: string | null
+        refTargetConstantId?: string | null
+        refSetConstantLabel?: string | null
+        refSetConstantDataType?: string | null
         refOptions?: Array<{
             id: string
             label: string
@@ -134,10 +137,12 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
                     ...(f.enumPresentationMode ? { enumPresentationMode: f.enumPresentationMode } : {}),
                     ...(typeof f.defaultEnumValueId === 'string' ? { defaultEnumValueId: f.defaultEnumValueId } : {}),
                     ...(typeof f.enumAllowEmpty === 'boolean' ? { enumAllowEmpty: f.enumAllowEmpty } : {}),
-                    ...(f.enumLabelEmptyDisplay ? { enumLabelEmptyDisplay: f.enumLabelEmptyDisplay } : {})
+                    ...(f.enumLabelEmptyDisplay ? { enumLabelEmptyDisplay: f.enumLabelEmptyDisplay } : {}),
+                    ...(typeof f.refSetConstantDataType === 'string' ? { setConstantDataType: f.refSetConstantDataType } : {})
                 },
                 refTargetEntityId: f.refTargetEntityId ?? null,
                 refTargetEntityKind: f.refTargetEntityKind ?? null,
+                refTargetConstantId: f.refTargetConstantId ?? null,
                 refOptions: f.refOptions,
                 enumOptions: f.enumOptions
             }))

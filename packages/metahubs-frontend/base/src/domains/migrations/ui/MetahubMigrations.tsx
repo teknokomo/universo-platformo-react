@@ -19,8 +19,8 @@ import { getVLCString } from '../../../types'
 type MigrationDisplayRow = {
     id: string
     name: string
-    fromVersion: number
-    toVersion: number
+    fromVersion: string
+    toVersion: string
     schemaDisplay: string
     templateDisplay: string
     appliedAtText: string
@@ -128,8 +128,8 @@ const MetahubMigrations = () => {
             const meta = item.meta as Record<string, unknown> | undefined
             const kind = typeof meta?.kind === 'string' ? meta.kind : null
 
-            // Schema column: for baseline show "0 → N" (from nothing), otherwise "N → M"
-            const schemaFrom = kind === 'baseline' ? 0 : item.fromVersion
+            // Schema column: for baseline show "— → N" (from empty schema), otherwise "N → M"
+            const schemaFrom = kind === 'baseline' ? '—' : item.fromVersion
             const schemaDisplay = `${schemaFrom} → ${item.toVersion}`
 
             // Template column: for baseline/template_seed show "0/— → version", otherwise "—"

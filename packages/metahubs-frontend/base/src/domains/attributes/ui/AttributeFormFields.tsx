@@ -339,11 +339,14 @@ const AttributeFormFields = ({
                         metahubId={metahubId}
                         targetEntityKind={values.targetEntityKind as MetaEntityKind | null | undefined}
                         targetEntityId={values.targetEntityId as string | null | undefined}
+                        targetConstantId={values.targetConstantId as string | null | undefined}
                         onEntityKindChange={(kind) => setValue('targetEntityKind', kind)}
                         onEntityIdChange={(id) => setValue('targetEntityId', id)}
+                        onTargetConstantIdChange={(id) => setValue('targetConstantId', id)}
                         excludeCatalogId={currentCatalogId}
                         disabled={isLoading}
                         error={fieldErrors.targetEntityKind || fieldErrors.targetEntityId || null}
+                        targetConstantError={fieldErrors.targetConstantId || null}
                         uiLocale={uiLocale}
                     />
                 )

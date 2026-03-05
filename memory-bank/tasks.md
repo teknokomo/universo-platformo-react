@@ -4,6 +4,206 @@
 
 ---
 
+## In Progress: Constants Value Tab + Localization + Table Layout + App REF Display — 2026-03-05
+
+> **Goal**: Close remaining runtime/UI defects in Sets/Constants flow and application element REF rendering with zero legacy fallback debt.
+
+### Phase 1. Constants Form Behavior Parity
+- [ ] Reuse catalog element value-handling rules in constants "Value" tab so type settings are enforced at input-time and submit-time (STRING/NUMBER/BOOLEAN/DATE).
+- [ ] Enforce NUMBER value constraints in constants value field (`nonNegative`, `scale`, min/max, precision) and prevent invalid negative/fraction states.
+- [ ] Enforce STRING value constraints in constants value field (`maxLength`, localized/non-localized behavior parity).
+
+### Phase 2. Localization Parity
+- [ ] Fix DATE type settings labels/options in constants form to use i18n keys (RU/EN) instead of hardcoded English text.
+
+### Phase 3. Constants Table Layout Parity
+- [ ] Align constants table horizontal paddings/margins with sets/attributes list pattern (including full-width table and pagination panel spacing).
+
+### Phase 4. REF->Set Constant Display in Applications Runtime
+- [ ] Fix application element create/edit form so REF to Set+Constant shows resolved constant value (typed display), not constant UUID.
+
+### Phase 5. Verification & Memory Bank
+- [ ] Run targeted checks for touched scope:
+- [ ] `pnpm --filter @universo/metahubs-frontend lint -- <touched-files>`
+- [ ] `pnpm --filter @universo/apps-template-mui lint -- <touched-files-if-any>`
+- [ ] `pnpm --filter @universo/metahubs-frontend build`
+- [ ] `pnpm --filter @universo/apps-template-mui build` (if touched)
+- [ ] Update `memory-bank/progress.md` with implementation and verification notes.
+
+---
+
+## Completed: Sets/Constants Final Debt Closure + Build Fix — 2026-03-05 ✅
+
+> **Goal**: Remove remaining QA debt and fix full build failure in metahubs-backend without introducing regressions.
+
+### Phase 1. Build Stability
+- [x] Fix TypeScript type-safety error in `applicationSyncRoutes.ts` (`MetaConstantSnapshot` cast).
+
+### Phase 2. Constants UX/Data Consistency
+- [x] Make constants mutations await cache invalidation/refetch to eliminate delayed list updates after create/update/delete/copy/move.
+- [x] Remove hardcoded constants fetch cap in REF->set value resolution flow (load exact constants instead of `limit=1000` list fetch).
+
+### Phase 3. Backend Validation/Deletion Consistency
+- [x] Align constants NUMBER value validation with shared `@universo/utils` number validation helpers.
+- [x] Harmonize constants delete lifecycle with metahub soft-delete model and keep active sort order stable.
+
+### Phase 4. Verification
+- [x] Run targeted checks for touched scope:
+- [x] `pnpm --filter @universo/metahubs-backend build`
+- [x] `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/constantsRoutes.test.ts src/tests/routes/setsRoutes.test.ts`
+- [x] `pnpm --filter @universo/metahubs-frontend lint -- src/domains/constants/hooks/mutations.ts src/domains/elements/ui/ElementList.tsx`
+- [x] `pnpm --filter @universo/metahubs-frontend test -- src/components/__tests__/TargetEntitySelector.test.tsx src/components/__tests__/SetDeleteDialog.test.tsx`
+- [x] Unplanned infra fix for test environment: `pnpm --filter @universo/applications-frontend build` (restore `dist/i18n` exports required by template-mui imports in vitest).
+
+### Phase 5. Memory Bank
+- [x] Update `memory-bank/progress.md` with implementation outcome after successful verification.
+
+---
+
+## Completed: Sets/Constants Stabilization + Schema SemVer Alignment — 2026-03-04 ✅
+
+> **Goal**: Fully fix post-QA/runtime issues for Sets/Constants and remove migration/versioning regressions for fresh metahubs (no legacy compatibility path).
+
+### Phase 1. Mandatory QA Remediation (Backend + Frontend)
+- [x] Enforce constants limits and copy/delete permissions in constants routes/services (same safety level as attributes).
+- [x] Wire constants copy UI to dedicated copy API/mutation flow; forbid pseudo-copy through create.
+- [x] Invalidate all affected React Query caches for constants mutations (`constants list`, `set details`, `allConstantCodenames`).
+- [x] Ensure constant delete keeps stable sort order (no gaps after removal).
+- [x] Replace any residual catalog storage keys in sets list state with dedicated sets keys.
+
+### Phase 2. Fresh Metahub Versioning and Migration Guard Fix
+- [x] Eliminate forced migration on newly created metahub/branch (fresh branch must start at current schema/template state).
+- [x] Remove accidental structure V2 drift and keep active schema generation baseline aligned with one current structure line.
+- [x] Keep template baseline at `0.1.0` for new metahubs and synchronization flows.
+
+### Phase 3. Structure Version SemVer Refactor (`0.1.0`)
+- [x] Convert metahub structure version from numeric value to SemVer string (`0.1.0`) across backend entities/contracts and migration status endpoints.
+- [x] Update version comparison/check logic to SemVer-safe behavior and preserve deterministic guards/status.
+- [x] Adjust related tests and typed contracts in `@universo/types` + frontend migration API hooks.
+
+### Phase 4. Sets/Constants UI/UX Corrections
+- [x] Replace duplicated Sets icon in metahub sidebar with a distinct icon from existing icon library.
+- [x] Fix Sets/Constants i18n leakage (raw keys/English fallbacks in RU UI) in list pages and create/edit/copy dialogs.
+- [x] Fix breadcrumbs for sets root and constants-in-set pages to match catalogs behavior.
+- [x] Fix layout spacing regression in constants list header/table controls.
+- [x] Restore pagination/footer in constants table view (same behavior as attributes list).
+- [x] Improve created constant visibility latency (immediate list update behavior parity with attributes).
+
+### Phase 5. Final Verification and Memory Bank
+- [x] Run scoped verification:
+- [x] `pnpm --filter @universo/metahubs-backend lint`
+- [x] `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/constantsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/metahubMigrationsRoutes.test.ts src/tests/services/metahubSchemaService.test.ts src/tests/services/structureVersions.test.ts`
+- [x] `pnpm --filter @universo/metahubs-backend build`
+- [x] `pnpm --filter @universo/metahubs-frontend lint`
+- [x] `pnpm --filter @universo/metahubs-frontend test`
+- [x] `pnpm --filter @universo/metahubs-frontend build`
+- [x] `pnpm --filter @universo/template-mui build` (refresh `dist` for route/i18n dependency graph used by metahubs frontend tests)
+- [x] `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with implementation results and decisions.
+
+---
+
+## Completed: Sets/Constants QA Final Closure (Transactional + Concurrency) — 2026-03-04 ✅
+
+> **Goal**: Close all remaining QA findings for Sets/Constants implementation without introducing regressions or new technical debt.
+
+### Phase 1. Backend Data Consistency
+- [x] Make set copy with optional constants copy fully transactional (single DB transaction, atomic rollback on failure).
+- [x] Add optimistic locking (`expectedVersion`) for set unlink-from-hub flow to prevent lost updates under concurrency.
+
+### Phase 2. Contract and Naming Debt Removal
+- [x] Remove remaining legacy aliases from attributes payload/service where backward compatibility is no longer required.
+- [x] Clean stale naming residues (e.g., constants route limits named as attributes).
+
+### Phase 3. Test Hardening
+- [x] Add/adjust backend route tests for transactional set copy behavior and optimistic lock errors in unlink flow.
+- [x] Update tests for removed legacy alias fields and strict payload handling.
+
+### Phase 4. Verification and Memory Bank
+- [x] Run verification for touched scope:
+- [x] `pnpm --filter @universo/metahubs-backend lint`
+- [x] `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/setsRoutes.test.ts src/tests/routes/constantsRoutes.test.ts`
+- [x] `pnpm --filter @universo/metahubs-backend build`
+- [x] `pnpm --filter @universo/metahubs-frontend lint`
+- [x] `pnpm --filter @universo/metahubs-frontend test`
+- [x] `pnpm --filter @universo/metahubs-frontend build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md`, then mark this section complete.
+
+---
+
+## Completed: Sets/Constants QA Closure & Final Hardening — 2026-03-05 ✅
+
+> **Goal**: Fully close QA findings for Sets/Constants implementation and remove remaining technical debt in this scope.
+
+### Phase 1. Backend Safety & Correctness
+- [x] Handle invalid regex patterns in constants value validation with safe 400 response (no unhandled 500).
+- [x] Harden sets/constants codename conflict handling to avoid unhandled unique-constraint errors (create/update/copy paths).
+- [x] Ensure set copy with `copyConstants=true` uses deterministic unique constant codename resolution.
+- [x] Remove legacy reorder payload fields in constants API contract (`newParentConstantId`, `autoRenameCodename`) and enforce strict schema.
+
+### Phase 2. Blocking References Semantics
+- [x] Fix set deletion blockers payload semantics (attribute/source catalog naming instead of misleading constant/source set naming).
+- [x] Align frontend delete dialog and types with corrected blocker payload contract.
+
+### Phase 3. Frontend Technical Debt Cleanup
+- [x] Remove unused cloned constants DnD legacy files if not used by runtime flow.
+
+### Phase 4. Test Coverage Hardening
+- [x] Extend backend route tests for new safety scenarios (invalid regex, codename conflict edges, strict reorder payload).
+- [x] Add frontend tests for corrected blocker mapping and set/constant reference selector behavior.
+
+### Phase 5. Verification & Memory Bank
+- [x] Run verification for touched scope:
+- [x] `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/constantsRoutes.test.ts src/tests/routes/setsRoutes.test.ts`
+- [x] `pnpm --filter @universo/metahubs-frontend test`
+- [x] `pnpm --filter @universo/metahubs-backend lint`
+- [x] `pnpm --filter @universo/metahubs-frontend lint`
+- [x] `pnpm --filter @universo/metahubs-backend build`
+- [x] `pnpm --filter @universo/metahubs-frontend build`
+- [x] Update `memory-bank/progress.md` and mark this section complete.
+
+---
+
+## Completed: Metahub Sets & Constants Full Implementation — 2026-03-04 ✅
+
+> **Goal**: Deliver full Sets/Constants implementation with mandatory clone-first refactor parity, strict safety checks, and zero unfinished migration/template debt.
+
+### Phase A. Clone-First Compliance and Naming Residue Audit
+- [x] Confirm cloned domains are the implementation baseline (`domains/sets`, `domains/constants`) and no alternative implementation path is introduced.
+- [x] Perform full residue scan in cloned domains and remove stale `catalog/attribute/element` naming where it violates Sets/Constants semantics.
+- [x] Verify exported symbols, route registration, and package index wiring for cloned domains.
+
+### Phase B. Backend Completion (Templates/Publications/Sync)
+- [x] Finalize `TemplateSeedExecutor` support for `set` entities, constants seeding, and `target_constant_id` resolution for attributes and child attributes.
+- [x] Finalize `TemplateSeedMigrator` support for additive constants migration, counters, and dry-run parity.
+- [x] Finalize `SnapshotSerializer` + publication route integration for constants metadata/value hashing and REF->set target constant linkage.
+- [x] Re-check application sync/schema-diff impact for constants-related metadata and align with current structure version behavior.
+
+### Phase C. Frontend Completion (REF->Set/Constant and UX parity)
+- [x] Verify REF selector flow end-to-end: `entityKind=set`, set picker, constant picker, and payload normalization in create/edit/copy flows.
+- [x] Verify constants form contract: allowed types only (`STRING`, `NUMBER`, `BOOLEAN`, `DATE`), no presentation tab, value tab with VLC string support.
+- [x] Verify list operations parity for constants ordering (up/down + drag-and-drop) with optimistic updates and proper query invalidation.
+
+### Phase D. Tests and Quality Gates
+- [x] Add/adjust backend tests for Sets/Constants routes, template seed execution/migration paths, and REF->set invariant checks.
+- [x] Add/adjust frontend tests for target selector and constants value form behavior where coverage exists.
+- [x] Stabilize workspace React runtime for tests (`react/react-dom` alignment to `18.3.1`, root + package-level dependency resolution fix).
+- [x] Run strict verification for touched packages:
+- [x] `pnpm --filter @universo/metahubs-frontend lint`
+- [x] `pnpm --filter @universo/metahubs-frontend build`
+- [x] `pnpm --filter @universo/metahubs-backend lint`
+- [x] `pnpm --filter @universo/metahubs-backend build`
+- [x] `pnpm --filter @universo/metahubs-backend test`
+- [x] `pnpm --filter @universo/metahubs-frontend test`
+- [x] `pnpm build`
+
+### Phase E. Memory Bank Closure
+- [x] Update `memory-bank/activeContext.md` with implemented decisions and deviations (if any).
+- [x] Update `memory-bank/progress.md` with final implementation and verification outcomes.
+- [x] Mark this section complete in `memory-bank/tasks.md` only after all checks pass.
+
+---
+
 ## In Progress: PR #706 Review Feedback Fixes — 2026-03-05
 
 > **Goal**: Address valid bot review comments on PR #706 (cleanup/remove-legacy-packages → main).
@@ -12,8 +212,8 @@
 - [x] Remove stale `flowise-components` reference from `.kiro/steering/pnpm-not-npm.md` and `.gemini/rules/pnpm-not-npm.md`
 - [x] Compress `activeContext.md` — remove historical "Previous Focus" sections (653 → 62 lines)
 - [x] Reject CI `working-directory` change (same pattern as main; Cypress needs backend CWD)
-- [ ] Build verification (`pnpm build`)
-- [ ] Commit and push fixes to PR branch
+- [x] Build verification (`pnpm build`)
+- [x] Commit and push fixes to PR branch
 
 ---
 
