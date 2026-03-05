@@ -1017,23 +1017,45 @@ export function createApplicationsRoutes(
 
             // Build menus from menuWidget config stored in zone widgets.
             // Menu data is now embedded inside widget config (JSONB) rather than separate _app_menus/_app_menu_items tables.
-            let menus: Array<{
+            type RuntimeMenuItem = {
+                id: string
+                kind: string
+                title: string
+                icon: string | null
+                href: string | null
+                catalogId: string | null
+                sortOrder: number
+                isActive: boolean
+            }
+
+            type RuntimeMenuEntry = {
                 id: string
                 widgetId: string
                 showTitle: boolean
                 title: string
                 autoShowAllCatalogs: boolean
-                items: Array<{
-                    id: string
-                    kind: string
-                    title: string
-                    icon: string | null
-                    href: string | null
-                    catalogId: string | null
-                    sortOrder: number
-                    isActive: boolean
-                }>
-            }> = []
+                items: RuntimeMenuItem[]
+            }
+
+            const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
+                if (!item || typeof item !== 'object') return null
+                const typed = item as Record<string, unknown>
+                if (typed.isActive === false) return null
+
+                const kind = typeof typed.kind === 'string' && typed.kind.trim().length > 0 ? typed.kind : 'link'
+                return {
+                    id: String(typed.id ?? ''),
+                    kind,
+                    title: resolveLocalizedContent(typed.title, requestedLocale, kind),
+                    icon: typeof typed.icon === 'string' ? typed.icon : null,
+                    href: typeof typed.href === 'string' ? typed.href : null,
+                    catalogId: typeof typed.catalogId === 'string' ? typed.catalogId : null,
+                    sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
+                    isActive: true
+                }
+            }
+
+            let menus: RuntimeMenuEntry[] = []
             let activeMenuId: string | null = null
 
             try {
@@ -1048,25 +1070,117 @@ export function createApplicationsRoutes(
                         title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
                         autoShowAllCatalogs: Boolean(cfg.autoShowAllCatalogs),
                         items: rawItems
-                            .filter((item: any) => item && Boolean(item.isActive !== false))
-                            .map((item: any) => ({
-                                id: String(item.id ?? ''),
-                                kind: String(item.kind ?? 'link'),
-                                title: resolveLocalizedContent(item.title, requestedLocale, String(item.kind ?? 'link')),
-                                icon: typeof item.icon === 'string' ? item.icon : null,
-                                href: typeof item.href === 'string' ? item.href : null,
-                                catalogId: typeof item.catalogId === 'string' ? item.catalogId : null,
-                                sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
-                                isActive: Boolean(item.isActive !== false)
-                            }))
-                            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
-                    }
+                            .map((item) => normalizeMenuItem(item))
+                            .filter((item): item is RuntimeMenuItem => item !== null)
+                            .sort((a, b) => a.sortOrder - b.sortOrder)
+                    } satisfies RuntimeMenuEntry
                     menus.push(menuEntry)
                 }
                 activeMenuId = menus[0]?.id ?? null
             } catch (e) {
                 // eslint-disable-next-line no-console
                 console.warn('[ApplicationsRuntime] Failed to build menus from widget config (ignored)', e)
+            }
+
+            type RuntimeColumnDefinition = {
+                id: string
+                codename: string
+                field: string
+                dataType: RuntimeDataType
+                isRequired: boolean
+                isDisplayAttribute: boolean
+                headerName: string
+                validationRules: Record<string, unknown>
+                uiConfig: Record<string, unknown>
+                refTargetEntityId: string | null
+                refTargetEntityKind: string | null
+                refTargetConstantId: string | null
+                refOptions?: RuntimeRefOption[]
+                enumOptions?: RuntimeRefOption[]
+                childColumns?: RuntimeColumnDefinition[]
+            }
+
+            const buildSetConstantOption = (setConstantConfig: SetConstantUiConfig | null): RuntimeRefOption[] | undefined => {
+                if (!setConstantConfig) return undefined
+                return [
+                    {
+                        id: setConstantConfig.id,
+                        label: resolveSetConstantLabel(setConstantConfig, requestedLocale),
+                        codename: setConstantConfig.codename ?? 'setConstant',
+                        isDefault: true,
+                        sortOrder: 0
+                    }
+                ]
+            }
+
+            const resolveRefOptions = (
+                attribute: (typeof safeAttributes)[number],
+                setConstantOption: RuntimeRefOption[] | undefined
+            ): RuntimeRefOption[] | undefined => {
+                if (
+                    attribute.data_type !== 'REF' ||
+                    typeof attribute.target_object_id !== 'string' ||
+                    (attribute.target_object_kind !== 'enumeration' &&
+                        attribute.target_object_kind !== 'catalog' &&
+                        attribute.target_object_kind !== 'set')
+                ) {
+                    return undefined
+                }
+
+                if (attribute.target_object_kind === 'enumeration') {
+                    return enumOptionsMap.get(attribute.target_object_id) ?? []
+                }
+                if (attribute.target_object_kind === 'catalog') {
+                    return catalogRefOptionsMap.get(attribute.target_object_id) ?? []
+                }
+                return setConstantOption ?? []
+            }
+
+            const mapAttributeToColumnDefinition = (
+                attribute: (typeof safeAttributes)[number],
+                includeChildColumns: boolean
+            ): RuntimeColumnDefinition => {
+                const setConstantConfig =
+                    attribute.data_type === 'REF' && attribute.target_object_kind === 'set'
+                        ? getSetConstantConfig(attribute.ui_config)
+                        : null
+                const setConstantOption = buildSetConstantOption(setConstantConfig)
+                const refOptions = resolveRefOptions(attribute, setConstantOption)
+                const enumOptions =
+                    attribute.data_type === 'REF' &&
+                    attribute.target_object_kind === 'enumeration' &&
+                    attribute.target_object_id &&
+                    enumOptionsMap.has(attribute.target_object_id)
+                        ? enumOptionsMap.get(attribute.target_object_id)
+                        : undefined
+
+                return {
+                    id: attribute.id,
+                    codename: attribute.codename,
+                    field: attribute.column_name,
+                    dataType: attribute.data_type,
+                    isRequired: attribute.is_required ?? false,
+                    isDisplayAttribute: attribute.is_display_attribute === true,
+                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
+                    validationRules: attribute.validation_rules ?? {},
+                    uiConfig: {
+                        ...(attribute.ui_config ?? {}),
+                        ...(setConstantConfig?.dataType ? { setConstantDataType: setConstantConfig.dataType } : {})
+                    },
+                    refTargetEntityId: attribute.target_object_id ?? null,
+                    refTargetEntityKind: attribute.target_object_kind ?? null,
+                    refTargetConstantId: setConstantConfig?.id ?? null,
+                    refOptions,
+                    enumOptions,
+                    ...(includeChildColumns && attribute.data_type === 'TABLE'
+                        ? {
+                              // Include child column definitions for TABLE attributes.
+                              childColumns: (childAttrsByTableId.get(attribute.id) ?? []).map((child) =>
+                                  mapAttributeToColumnDefinition(child, false)
+                              )
+                          }
+                        : {})
+                }
             }
 
             return res.json({
@@ -1078,122 +1192,7 @@ export function createApplicationsRoutes(
                 },
                 catalogs: catalogsForRuntime,
                 activeCatalogId: activeCatalog.id,
-                columns: safeAttributes.map((attribute) => {
-                    const setConstantConfig =
-                        attribute.data_type === 'REF' && attribute.target_object_kind === 'set'
-                            ? getSetConstantConfig(attribute.ui_config)
-                            : null
-                    const setConstantOption =
-                        setConstantConfig !== null
-                            ? [
-                                  {
-                                      id: setConstantConfig.id,
-                                      label: resolveSetConstantLabel(setConstantConfig, requestedLocale),
-                                      codename: setConstantConfig.codename ?? 'setConstant',
-                                      isDefault: true,
-                                      sortOrder: 0
-                                  }
-                              ]
-                            : undefined
-
-                    return {
-                        id: attribute.id,
-                        codename: attribute.codename,
-                        field: attribute.column_name,
-                        dataType: attribute.data_type,
-                        isRequired: attribute.is_required ?? false,
-                        isDisplayAttribute: attribute.is_display_attribute === true,
-                        headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
-                        validationRules: attribute.validation_rules ?? {},
-                        uiConfig: {
-                            ...(attribute.ui_config ?? {}),
-                            ...(setConstantConfig?.dataType ? { setConstantDataType: setConstantConfig.dataType } : {})
-                        },
-                        refTargetEntityId: attribute.target_object_id ?? null,
-                        refTargetEntityKind: attribute.target_object_kind ?? null,
-                        refTargetConstantId: setConstantConfig?.id ?? null,
-                        refOptions:
-                            attribute.data_type === 'REF' &&
-                            typeof attribute.target_object_id === 'string' &&
-                            (attribute.target_object_kind === 'enumeration' ||
-                                attribute.target_object_kind === 'catalog' ||
-                                attribute.target_object_kind === 'set')
-                                ? attribute.target_object_kind === 'enumeration'
-                                    ? enumOptionsMap.get(attribute.target_object_id) ?? []
-                                    : attribute.target_object_kind === 'catalog'
-                                    ? catalogRefOptionsMap.get(attribute.target_object_id) ?? []
-                                    : setConstantOption ?? []
-                                : undefined,
-                        enumOptions:
-                            attribute.data_type === 'REF' &&
-                            attribute.target_object_kind === 'enumeration' &&
-                            attribute.target_object_id &&
-                            enumOptionsMap.has(attribute.target_object_id)
-                                ? enumOptionsMap.get(attribute.target_object_id)
-                                : undefined,
-                        // Include child column definitions for TABLE attributes
-                        childColumns:
-                            attribute.data_type === 'TABLE'
-                                ? (childAttrsByTableId.get(attribute.id) ?? []).map((child) => {
-                                      const childSetConstantConfig =
-                                          child.data_type === 'REF' && child.target_object_kind === 'set'
-                                              ? getSetConstantConfig(child.ui_config)
-                                              : null
-                                      const childSetConstantOption =
-                                          childSetConstantConfig !== null
-                                              ? [
-                                                    {
-                                                        id: childSetConstantConfig.id,
-                                                        label: resolveSetConstantLabel(childSetConstantConfig, requestedLocale),
-                                                        codename: childSetConstantConfig.codename ?? 'setConstant',
-                                                        isDefault: true,
-                                                        sortOrder: 0
-                                                    }
-                                                ]
-                                              : undefined
-
-                                      return {
-                                          id: child.id,
-                                          codename: child.codename,
-                                          field: child.column_name,
-                                          dataType: child.data_type,
-                                          headerName: resolvePresentationName(child.presentation, requestedLocale, child.codename),
-                                          isRequired: child.is_required ?? false,
-                                          isDisplayAttribute: child.is_display_attribute === true,
-                                          validationRules: child.validation_rules ?? {},
-                                          uiConfig: {
-                                              ...(child.ui_config ?? {}),
-                                              ...(childSetConstantConfig?.dataType
-                                                  ? { setConstantDataType: childSetConstantConfig.dataType }
-                                                  : {})
-                                          },
-                                          refTargetEntityId: child.target_object_id ?? null,
-                                          refTargetEntityKind: child.target_object_kind ?? null,
-                                          refTargetConstantId: childSetConstantConfig?.id ?? null,
-                                          refOptions:
-                                              child.data_type === 'REF' &&
-                                              typeof child.target_object_id === 'string' &&
-                                              (child.target_object_kind === 'enumeration' ||
-                                                  child.target_object_kind === 'catalog' ||
-                                                  child.target_object_kind === 'set')
-                                                  ? child.target_object_kind === 'enumeration'
-                                                      ? enumOptionsMap.get(child.target_object_id) ?? []
-                                                      : child.target_object_kind === 'catalog'
-                                                      ? catalogRefOptionsMap.get(child.target_object_id) ?? []
-                                                      : childSetConstantOption ?? []
-                                                  : undefined,
-                                          enumOptions:
-                                              child.data_type === 'REF' &&
-                                              child.target_object_kind === 'enumeration' &&
-                                              child.target_object_id &&
-                                              enumOptionsMap.has(child.target_object_id)
-                                                  ? enumOptionsMap.get(child.target_object_id)
-                                                  : undefined
-                                      }
-                                  })
-                                : undefined
-                    }
-                }),
+                columns: safeAttributes.map((attribute) => mapAttributeToColumnDefinition(attribute, true)),
                 rows,
                 pagination: {
                     total: typeof total === 'number' ? total : Number(total) || 0,
