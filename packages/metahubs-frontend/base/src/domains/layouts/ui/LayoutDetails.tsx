@@ -270,6 +270,33 @@ export default function LayoutDetails() {
         await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId) })
     }
 
+    const upsertZoneWidgetInCache = (nextWidget: MetahubLayoutZoneWidget) => {
+        if (!metahubId || !layoutId) return
+        const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
+        const zoneOrder: Record<DashboardLayoutZone, number> = {
+            left: 0,
+            top: 1,
+            center: 2,
+            right: 3,
+            bottom: 4
+        }
+
+        queryClient.setQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey, (prev) => {
+            const current = Array.isArray(prev) ? [...prev] : []
+            const existingIndex = current.findIndex((item) => item.id === nextWidget.id)
+            if (existingIndex >= 0) {
+                current[existingIndex] = nextWidget
+            } else {
+                current.push(nextWidget)
+            }
+            current.sort((a, b) => {
+                if (a.zone !== b.zone) return zoneOrder[a.zone] - zoneOrder[b.zone]
+                return a.sortOrder - b.sortOrder
+            })
+            return current
+        })
+    }
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
         if (!metahubId || !layoutId) return
@@ -568,21 +595,30 @@ export default function LayoutDetails() {
                 onSave={async (config) => {
                     const zone = menuEditor.zone
                     const widgetId = menuEditor.widgetId
-                    setMenuEditor({ open: false, zone: null, widgetId: null, config: null })
                     if (!zone || !metahubId || !layoutId) return
                     try {
+                        let savedWidget: MetahubLayoutZoneWidget
                         if (widgetId) {
                             // Editing existing menuWidget config
-                            await layoutsApi.updateLayoutZoneWidgetConfig(metahubId, layoutId, widgetId, config as Record<string, unknown>)
+                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
+                                metahubId,
+                                layoutId,
+                                widgetId,
+                                config as Record<string, unknown>
+                            )
+                            savedWidget = response.data.item
                         } else {
                             // Creating new menuWidget
-                            await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
+                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
                                 zone,
                                 widgetKey: 'menuWidget',
                                 config: config as Record<string, unknown>
                             })
+                            savedWidget = response.data
                         }
+                        upsertZoneWidgetInCache(savedWidget)
                         await persistAndRefresh()
+                        setMenuEditor({ open: false, zone: null, widgetId: null, config: null })
                     } catch (e: unknown) {
                         notifyError(t, enqueueSnackbar, e)
                     }
@@ -597,19 +633,28 @@ export default function LayoutDetails() {
                 onSave={async (config) => {
                     const zone = columnsEditor.zone
                     const widgetId = columnsEditor.widgetId
-                    setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })
                     if (!zone || !metahubId || !layoutId) return
                     try {
+                        let savedWidget: MetahubLayoutZoneWidget
                         if (widgetId) {
-                            await layoutsApi.updateLayoutZoneWidgetConfig(metahubId, layoutId, widgetId, config as Record<string, unknown>)
+                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
+                                metahubId,
+                                layoutId,
+                                widgetId,
+                                config as Record<string, unknown>
+                            )
+                            savedWidget = response.data.item
                         } else {
-                            await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
+                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
                                 zone,
                                 widgetKey: 'columnsContainer',
                                 config: config as Record<string, unknown>
                             })
+                            savedWidget = response.data
                         }
+                        upsertZoneWidgetInCache(savedWidget)
                         await persistAndRefresh()
+                        setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })
                     } catch (e: unknown) {
                         notifyError(t, enqueueSnackbar, e)
                     }

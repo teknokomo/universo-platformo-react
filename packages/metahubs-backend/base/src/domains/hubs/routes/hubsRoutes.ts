@@ -1,6 +1,7 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import type { Knex } from 'knex'
 import { Metahub } from '../../../database/entities/Metahub'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
@@ -21,7 +22,7 @@ import {
     CODENAME_RETRY_MAX_ATTEMPTS,
     CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT
 } from '../../shared/codenameStyleHelper'
-import { KnexClient, generateTableName } from '../../ddl'
+import { KnexClient } from '../../ddl'
 
 type RequestUser = {
     id?: string
@@ -39,6 +40,7 @@ type HubListItemRow = {
     name?: unknown
     description?: unknown
     sort_order?: number
+    parent_hub_id?: string | null
     _upl_version?: number
     created_at?: unknown
     updated_at?: unknown
@@ -61,6 +63,7 @@ type CopiedHubRow = {
     }
     config?: {
         sortOrder?: number
+        parentHubId?: unknown
     }
     _upl_version?: number
     _upl_created_at?: unknown
@@ -105,6 +108,22 @@ class HubCopyConcurrentUpdateError extends Error {
     }
 }
 
+class HubParentRelationValidationError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'HubParentRelationValidationError'
+    }
+}
+
+const resolveParentHubId = (hub: Record<string, unknown> | null | undefined): string | null => {
+    if (!hub || typeof hub !== 'object') return null
+    const direct = (hub as { parent_hub_id?: unknown }).parent_hub_id
+    if (typeof direct === 'string' && direct.length > 0) return direct
+    const configParent = (hub as { config?: { parentHubId?: unknown } }).config?.parentHubId
+    if (typeof configParent === 'string' && configParent.length > 0) return configParent
+    return null
+}
+
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 const optionalLocalizedInputSchema = z
@@ -122,7 +141,8 @@ const createHubSchema = z.object({
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    parentHubId: z.string().uuid().nullable().optional()
 })
 
 const updateHubSchema = z.object({
@@ -134,6 +154,7 @@ const updateHubSchema = z.object({
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
     sortOrder: z.number().int().optional(),
+    parentHubId: z.string().uuid().nullable().optional(),
     expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
@@ -145,6 +166,7 @@ const copyHubSchema = z.object({
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
+    parentHubId: z.string().uuid().nullable().optional(),
     copyAllRelations: z.boolean().optional(),
     copyCatalogRelations: z.boolean().optional(),
     copySetRelations: z.boolean().optional(),
@@ -218,6 +240,7 @@ export function createHubsRoutes(
         const blockingCatalogs: BlockingHubObject[] = []
         const blockingSets: BlockingHubObject[] = []
         const blockingEnumerations: BlockingHubObject[] = []
+        const blockingChildHubs: BlockingHubObject[] = []
 
         for (const objectRow of objects as Array<{
             id: string
@@ -244,10 +267,32 @@ export function createHubsRoutes(
             }
         }
 
+        const childHubs = (await knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: MetaEntityKind.HUB })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .andWhereRaw(`config->>'parentHubId' = ?`, [hubId])
+            .select('id', 'codename', 'presentation')) as Array<{
+            id: string
+            codename: string
+            presentation?: { name?: unknown }
+        }>
+
+        for (const childHub of childHubs) {
+            blockingChildHubs.push({
+                id: childHub.id,
+                name: childHub.presentation?.name,
+                codename: childHub.codename
+            })
+        }
+
         return {
             blockingCatalogs,
             blockingSets,
-            blockingEnumerations
+            blockingEnumerations,
+            blockingChildHubs
         }
     }
 
@@ -297,6 +342,87 @@ export function createHubsRoutes(
                     })
             }
         })
+    }
+
+    const getAllowHubNesting = async (metahubId: string, settingsService: MetahubSettingsService, userId?: string): Promise<boolean> => {
+        const row = await settingsService.findByKey(metahubId, 'hubs.allowNesting', userId)
+        if (!row) return true
+        return (row.value as { _value?: unknown })._value !== false
+    }
+
+    const loadHubParentMap = async (
+        metahubId: string,
+        schemaService: MetahubSchemaService,
+        userId?: string,
+        runner?: Knex.Transaction,
+        lockForUpdate = false
+    ): Promise<Map<string, string | null>> => {
+        const schemaName = await schemaService.ensureSchema(metahubId, userId)
+        const db = runner ?? KnexClient.getInstance()
+
+        let query = db
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: MetaEntityKind.HUB })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .select('id', 'config')
+
+        if (lockForUpdate && runner) {
+            query = query.forUpdate()
+        }
+
+        const rows = (await query) as Array<{ id: string; config?: { parentHubId?: unknown } }>
+
+        const map = new Map<string, string | null>()
+        for (const row of rows) {
+            const parentHubId = typeof row.config?.parentHubId === 'string' ? row.config.parentHubId : null
+            map.set(row.id, parentHubId)
+        }
+        return map
+    }
+
+    const validateHubParentRelation = async ({
+        metahubId,
+        hubId,
+        parentHubId,
+        schemaService,
+        userId,
+        runner,
+        lockForUpdate
+    }: {
+        metahubId: string
+        hubId: string
+        parentHubId: string | null
+        schemaService: MetahubSchemaService
+        userId?: string
+        runner?: Knex.Transaction
+        lockForUpdate?: boolean
+    }): Promise<{ ok: true } | { ok: false; message: string }> => {
+        if (!parentHubId) return { ok: true }
+        if (parentHubId === hubId) {
+            return { ok: false, message: 'Hub cannot be a parent of itself' }
+        }
+
+        const parentMap = await loadHubParentMap(metahubId, schemaService, userId, runner, lockForUpdate ?? false)
+        if (!parentMap.has(parentHubId)) {
+            return { ok: false, message: 'Parent hub not found' }
+        }
+
+        let current: string | null = parentHubId
+        const visited = new Set<string>()
+        while (current) {
+            if (current === hubId) {
+                return { ok: false, message: 'Hub nesting cycle is not allowed' }
+            }
+            if (visited.has(current)) {
+                return { ok: false, message: 'Hub nesting cycle is not allowed' }
+            }
+            visited.add(current)
+            current = parentMap.get(current) ?? null
+        }
+
+        return { ok: true }
     }
 
     /**
@@ -371,6 +497,7 @@ export function createHubsRoutes(
                     name: hub.name,
                     description: hub.description,
                     sortOrder: hub.sort_order,
+                    parentHubId: hub.parent_hub_id ?? null,
                     version: hub._upl_version || 1,
                     createdAt: hub.created_at,
                     updatedAt: hub.updated_at,
@@ -380,6 +507,89 @@ export function createHubsRoutes(
             })
 
             res.json({ items, pagination: { total, limit, offset } })
+        })
+    )
+
+    /**
+     * GET /metahub/:metahubId/hub/:hubId/hubs
+     * List direct child hubs for a parent hub.
+     */
+    router.get(
+        '/metahub/:metahubId/hub/:hubId/hubs',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, hubId } = req.params
+            const { schemaService, hubsService } = services(req)
+            const userId = resolveUserId(req)
+
+            const parentHub = await hubsService.findById(metahubId, hubId, userId)
+            if (!parentHub) {
+                return res.status(404).json({ error: 'Hub not found' })
+            }
+
+            let parsed
+            try {
+                parsed = validateListQuery(req.query)
+            } catch (error) {
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+                }
+                throw error
+            }
+            const schemaName = await schemaService.ensureSchema(metahubId, userId)
+            const knex = KnexClient.getInstance()
+
+            const baseQuery = knex
+                .withSchema(schemaName)
+                .from('_mhb_objects')
+                .where({ kind: MetaEntityKind.HUB })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .andWhereRaw(`config->>'parentHubId' = ?`, [hubId])
+
+            if (parsed.search) {
+                const escapedSearch = `%${parsed.search.replace(/[%_]/g, '\\$&')}%`
+                baseQuery.andWhere((qb) => {
+                    qb.where('codename', 'ilike', escapedSearch).orWhereRaw(`presentation::text ILIKE ?`, [escapedSearch])
+                })
+            }
+
+            const countResult = await baseQuery.clone().count('* as total').first<{ total: string | number }>()
+
+            const rows = (await baseQuery
+                .clone()
+                .orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ASC`)
+                .orderBy('_upl_created_at', 'asc')
+                .offset(parsed.offset)
+                .limit(parsed.limit)
+                .select('*')) as Array<Record<string, unknown>>
+
+            const items = rows.map((row) => {
+                const mapped = row as Record<string, unknown>
+                const presentation = (mapped.presentation as Record<string, unknown>) ?? {}
+                const config = (mapped.config as Record<string, unknown>) ?? {}
+                return {
+                    id: mapped.id,
+                    codename: mapped.codename,
+                    name: presentation.name ?? {},
+                    description: presentation.description ?? null,
+                    sortOrder: config.sortOrder ?? 0,
+                    parentHubId: typeof config.parentHubId === 'string' ? config.parentHubId : null,
+                    version: mapped._upl_version ?? 1,
+                    createdAt: mapped._upl_created_at ?? null,
+                    updatedAt: mapped._upl_updated_at ?? null
+                }
+            })
+
+            const total = Number(countResult?.total ?? 0)
+            return res.json({
+                items,
+                pagination: {
+                    total,
+                    limit: parsed.limit,
+                    offset: parsed.offset
+                }
+            })
         })
     )
 
@@ -449,6 +659,7 @@ export function createHubsRoutes(
                 name: hub.name,
                 description: hub.description,
                 sortOrder: hub.sort_order,
+                parentHubId: (hub as HubListItemRow).parent_hub_id ?? resolveParentHubId(hub as Record<string, unknown>),
                 version: hub._upl_version || 1,
                 createdAt: hub.created_at,
                 updatedAt: hub.updated_at
@@ -465,7 +676,7 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { metahubRepo, hubsService, settingsService } = services(req)
+            const { metahubRepo, hubsService, settingsService, schemaService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify metahub exists
@@ -486,9 +697,15 @@ export function createHubsRoutes(
                 name,
                 description,
                 sortOrder,
+                parentHubId,
                 namePrimaryLocale,
                 descriptionPrimaryLocale
             } = parsed.data
+
+            const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
+            if (!allowHubNesting && parentHubId) {
+                return res.status(400).json({ error: 'Hub nesting is disabled by metahub settings' })
+            }
 
             const {
                 style: codenameStyle,
@@ -533,6 +750,17 @@ export function createHubsRoutes(
                     ? buildLocalizedContent(sanitizedCodenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
                     : null
 
+            const parentValidation = await validateHubParentRelation({
+                metahubId,
+                hubId: 'new-hub',
+                parentHubId: parentHubId ?? null,
+                schemaService,
+                userId
+            })
+            if (!parentValidation.ok) {
+                return res.status(400).json({ error: parentValidation.message })
+            }
+
             let saved
             try {
                 saved = await hubsService.create(
@@ -543,6 +771,7 @@ export function createHubsRoutes(
                         name: nameVlc as unknown as Record<string, unknown>,
                         description: descriptionVlc as unknown as Record<string, unknown> | undefined,
                         sortOrder,
+                        parentHubId: parentHubId ?? null,
                         createdBy: userId
                     },
                     userId
@@ -561,6 +790,7 @@ export function createHubsRoutes(
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
+                parentHubId: (saved as HubListItemRow).parent_hub_id ?? resolveParentHubId(saved as Record<string, unknown>),
                 version: saved._upl_version || 1,
                 createdAt: saved.created_at,
                 updatedAt: saved.updated_at
@@ -671,6 +901,26 @@ export function createHubsRoutes(
                 copyEnumerationRelations: parsed.data.copyEnumerationRelations
             })
 
+            const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
+            const sourceParentHubId = resolveParentHubId(sourceHub as Record<string, unknown>)
+            const requestedParentHubId = parsed.data.parentHubId
+            const targetParentHubId = allowHubNesting
+                ? requestedParentHubId !== undefined
+                    ? requestedParentHubId
+                    : sourceParentHubId
+                : null
+
+            if (!allowHubNesting && requestedParentHubId) {
+                return res.status(400).json({ error: 'Hub nesting is disabled by metahub settings' })
+            }
+
+            if (targetParentHubId) {
+                const parentMap = await loadHubParentMap(metahubId, schemaService, userId)
+                if (!parentMap.has(targetParentHubId)) {
+                    return res.status(400).json({ error: 'Parent hub not found' })
+                }
+            }
+
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const knex = KnexClient.getInstance()
 
@@ -678,7 +928,7 @@ export function createHubsRoutes(
                 return knex.transaction(async (trx) => {
                     const now = new Date()
 
-                    const [created] = await trx
+                    const [copiedHub] = await trx
                         .withSchema(schemaName)
                         .into('_mhb_objects')
                         .insert({
@@ -691,22 +941,13 @@ export function createHubsRoutes(
                                 description: descriptionVlc ?? null
                             },
                             config: {
-                                sortOrder: undefined
+                                sortOrder: undefined,
+                                parentHubId: targetParentHubId ?? null
                             },
                             _upl_created_at: now,
                             _upl_created_by: userId ?? null,
                             _upl_updated_at: now,
                             _upl_updated_by: userId ?? null
-                        })
-                        .returning('*')
-
-                    const tableName = generateTableName(created.id, 'hub')
-                    const [copiedHub] = await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_objects')
-                        .where({ id: created.id })
-                        .update({
-                            table_name: tableName
                         })
                         .returning('*')
 
@@ -822,6 +1063,7 @@ export function createHubsRoutes(
                 name: copiedHub.presentation?.name ?? {},
                 description: copiedHub.presentation?.description ?? null,
                 sortOrder: copiedHub.config?.sortOrder ?? 0,
+                parentHubId: typeof copiedHub.config?.parentHubId === 'string' ? copiedHub.config.parentHubId : null,
                 version: copiedHub._upl_version || 1,
                 createdAt: copiedHub._upl_created_at,
                 updatedAt: copiedHub._upl_updated_at
@@ -838,7 +1080,7 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubsService, settingsService } = services(req)
+            const { hubsService, settingsService, schemaService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -858,12 +1100,14 @@ export function createHubsRoutes(
                 name,
                 description,
                 sortOrder,
+                parentHubId,
                 namePrimaryLocale,
                 descriptionPrimaryLocale,
                 expectedVersion
             } = parsed.data
 
             const updateData: Record<string, unknown> = {}
+            const currentParentHubId = resolveParentHubId(hub as Record<string, unknown>)
 
             if (codename !== undefined) {
                 const {
@@ -936,13 +1180,53 @@ export function createHubsRoutes(
                 updateData.sortOrder = sortOrder
             }
 
+            if (parentHubId !== undefined) {
+                const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
+                if (!allowHubNesting) {
+                    const canUnsetExistingParent = currentParentHubId !== null && parentHubId === null
+                    const isSameValue = currentParentHubId === parentHubId
+                    if (!canUnsetExistingParent && !isSameValue) {
+                        return res.status(400).json({ error: 'Hub nesting is disabled by metahub settings' })
+                    }
+                }
+
+                updateData.parentHubId = parentHubId
+            }
+
             if (expectedVersion !== undefined) {
                 updateData.expectedVersion = expectedVersion
             }
 
             updateData.updatedBy = userId
 
-            const saved = await hubsService.update(metahubId, hubId, updateData, userId)
+            let saved: Record<string, unknown>
+            if (parentHubId !== undefined) {
+                const knex = KnexClient.getInstance()
+                try {
+                    saved = await knex.transaction(async (trx) => {
+                        const relationValidation = await validateHubParentRelation({
+                            metahubId,
+                            hubId,
+                            parentHubId,
+                            schemaService,
+                            userId,
+                            runner: trx,
+                            lockForUpdate: true
+                        })
+                        if (!relationValidation.ok) {
+                            throw new HubParentRelationValidationError(relationValidation.message)
+                        }
+                        return hubsService.update(metahubId, hubId, updateData, userId, trx)
+                    })
+                } catch (error) {
+                    if (error instanceof HubParentRelationValidationError) {
+                        return res.status(400).json({ error: error.message })
+                    }
+                    throw error
+                }
+            } else {
+                saved = await hubsService.update(metahubId, hubId, updateData, userId)
+            }
 
             res.json({
                 id: saved.id,
@@ -951,6 +1235,7 @@ export function createHubsRoutes(
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
+                parentHubId: (saved as HubListItemRow).parent_hub_id ?? resolveParentHubId(saved as Record<string, unknown>),
                 version: saved._upl_version || 1,
                 createdAt: saved.created_at,
                 updatedAt: saved.updated_at
@@ -977,19 +1262,20 @@ export function createHubsRoutes(
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            const { blockingCatalogs, blockingSets, blockingEnumerations } = await findBlockingHubObjects(
+            const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects(
                 metahubId,
                 hubId,
                 schemaService,
                 userId
             )
-            const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length
+            const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
 
             res.json({
                 hubId,
                 blockingCatalogs,
                 blockingSets,
                 blockingEnumerations,
+                blockingChildHubs,
                 totalBlocking,
                 canDelete: totalBlocking === 0
             })
@@ -1020,13 +1306,13 @@ export function createHubsRoutes(
                 return res.status(403).json({ error: 'Deleting hubs is disabled by metahub settings' })
             }
 
-            const { blockingCatalogs, blockingSets, blockingEnumerations } = await findBlockingHubObjects(
+            const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects(
                 metahubId,
                 hubId,
                 schemaService,
                 userId
             )
-            const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length
+            const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
 
             if (totalBlocking > 0) {
                 return res.status(409).json({
@@ -1034,6 +1320,7 @@ export function createHubsRoutes(
                     blockingCatalogs,
                     blockingSets,
                     blockingEnumerations,
+                    blockingChildHubs,
                     totalBlocking
                 })
             }

@@ -5,6 +5,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, notifyError } from '@universo/template-mui'
+import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { HUB_COPY_OPTION_KEYS, type HubCopyOptionKey, type VersionedLocalizedContent } from '@universo/types'
 import { normalizeHubCopyOptions } from '@universo/utils'
 import type { Hub, HubDisplay, HubLocalizedPayload } from '../../../types'
@@ -23,9 +24,10 @@ const DEFAULT_CC: CodenameConfig = {
     localizedEnabled: false
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField } from '../../../components'
+import { CodenameField, HubParentSelectionPanel } from '../../../components'
 
 type HubFormValues = Record<string, unknown>
 type HubFormSetValue = (name: string, value: unknown) => void
@@ -34,6 +36,12 @@ type HubDialogTabArgs = {
     setValue: HubFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
+}
+
+type HubActionContext = ActionContext<HubDisplay, HubLocalizedPayload> & {
+    hubs?: Hub[]
+    currentHubId?: string | null
+    allowHubNesting?: boolean
 }
 
 const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
@@ -48,7 +56,8 @@ const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>)
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
-        codenameTouched: true
+        codenameTouched: true,
+        parentHubId: raw?.parentHubId ?? null
     }
 }
 
@@ -99,6 +108,7 @@ const appendLocalizedCopySuffix = (
 const buildCopyInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
     const initial = buildInitialValues(ctx)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+    const allowHubNesting = (ctx as HubActionContext).allowHubNesting !== false
 
     return {
         ...initial,
@@ -108,6 +118,7 @@ const buildCopyInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPaylo
             ctx.entity?.name || ctx.entity?.codename || ''
         ),
         codenameTouched: false,
+        parentHubId: allowHubNesting ? initial.parentHubId ?? null : null,
         ...normalizeHubCopyOptions()
     }
 }
@@ -182,6 +193,7 @@ const toPayload = (values: HubFormValues): HubLocalizedPayload => {
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
     const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
+    const parentHubId = typeof values.parentHubId === 'string' ? values.parentHubId : null
 
     return {
         codename,
@@ -190,8 +202,34 @@ const toPayload = (values: HubFormValues): HubLocalizedPayload => {
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
-        descriptionPrimaryLocale
+        descriptionPrimaryLocale,
+        parentHubId
     }
+}
+
+const collectDescendantHubIds = (hubs: Hub[], rootHubId: string): Set<string> => {
+    const childrenByParent = new Map<string, string[]>()
+    for (const hub of hubs) {
+        const parentId = typeof hub.parentHubId === 'string' ? hub.parentHubId : null
+        if (!parentId) continue
+        const siblings = childrenByParent.get(parentId) ?? []
+        siblings.push(hub.id)
+        childrenByParent.set(parentId, siblings)
+    }
+
+    const visited = new Set<string>()
+    const stack = [...(childrenByParent.get(rootHubId) ?? [])]
+    while (stack.length > 0) {
+        const nextId = stack.pop()
+        if (!nextId || visited.has(nextId)) continue
+        visited.add(nextId)
+        const children = childrenByParent.get(nextId)
+        if (children?.length) {
+            stack.push(...children)
+        }
+    }
+
+    return visited
 }
 
 const HubEditFields = ({
@@ -366,6 +404,77 @@ const HubCopyOptionsTab = ({
     )
 }
 
+const buildFormTabs = (
+    ctx: ActionContext<HubDisplay, HubLocalizedPayload>,
+    hubs: Hub[],
+    options?: {
+        editingEntityId?: string | null
+        allowHubNesting?: boolean
+        mode?: 'create' | 'edit' | 'copy'
+    }
+) => {
+    return ({ values, setValue, isLoading, errors }: HubDialogTabArgs): TabConfig[] => {
+        const editingEntityId = options?.editingEntityId
+        const allowHubNesting = options?.allowHubNesting !== false
+        const mode = options?.mode ?? 'edit'
+        const parentHubId = typeof values.parentHubId === 'string' ? values.parentHubId : null
+        const currentParentHub = parentHubId ? hubs.find((hub) => hub.id === parentHubId) : undefined
+        const excludedParentHubIds = (() => {
+            if (!allowHubNesting || !editingEntityId) return new Set<string>()
+            const descendants = collectDescendantHubIds(hubs, editingEntityId)
+            descendants.add(editingEntityId)
+            return descendants
+        })()
+        const availableParentHubs = allowHubNesting
+            ? hubs.filter((hub) => !excludedParentHubIds.has(hub.id))
+            : currentParentHub
+            ? [currentParentHub]
+            : []
+        const currentHubId = (ctx as HubActionContext).currentHubId ?? null
+        const baseTabs: TabConfig[] = [
+            {
+                id: 'general',
+                label: ctx.t('hubs.tabs.general', 'General'),
+                content: (
+                    <HubEditFields
+                        values={values}
+                        setValue={setValue}
+                        isLoading={isLoading}
+                        errors={errors}
+                        t={ctx.t}
+                        uiLocale={ctx.uiLocale as string}
+                        editingEntityId={editingEntityId}
+                    />
+                )
+            }
+        ]
+
+        const canShowHubsTab = allowHubNesting || (mode === 'edit' && parentHubId !== null)
+        if (!canShowHubsTab) {
+            return baseTabs
+        }
+
+        baseTabs.push({
+            id: 'hubs',
+            label: ctx.t('hubs.tabs.hubs', 'Hubs'),
+            content: (
+                <HubParentSelectionPanel
+                    availableHubs={availableParentHubs}
+                    parentHubId={parentHubId}
+                    onParentHubChange={(nextParentHubId) => setValue('parentHubId', nextParentHubId)}
+                    disabled={isLoading}
+                    error={errors?.parentHubId}
+                    uiLocale={ctx.uiLocale as string}
+                    currentHubId={allowHubNesting ? currentHubId : null}
+                    excludedHubIds={excludedParentHubIds}
+                />
+            )
+        })
+
+        return baseTabs
+    }
+}
+
 const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] = [
     {
         id: 'edit',
@@ -379,6 +488,8 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
             },
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
+                const hubs = (ctx as HubActionContext).hubs ?? []
+                const allowHubNesting = (ctx as HubActionContext).allowHubNesting !== false
                 return {
                     open: true,
                     mode: 'edit' as const,
@@ -390,17 +501,7 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: HubDialogTabArgs) => (
-                        <HubEditFields
-                            values={values}
-                            setValue={setValue}
-                            isLoading={isLoading}
-                            errors={errors}
-                            t={ctx.t}
-                            uiLocale={ctx.uiLocale as string}
-                            editingEntityId={ctx.entity.id}
-                        />
-                    ),
+                    tabs: buildFormTabs(ctx, hubs, { editingEntityId: ctx.entity.id, allowHubNesting, mode: 'edit' }),
                     validate: (values: HubFormValues) => validateHubForm(ctx, values),
                     canSave: canSaveHubForm,
                     showDeleteButton: true,
@@ -422,9 +523,34 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                     onSave: async (data: HubFormValues) => {
                         try {
                             const payload = toPayload(data)
+                            const currentHubId = (ctx as HubActionContext).currentHubId
+                            const detachedFromCurrentHub =
+                                typeof currentHubId === 'string' && currentHubId.length > 0 && payload.parentHubId !== currentHubId
+                            if (detachedFromCurrentHub && ctx.helpers?.confirm) {
+                                const confirmed = await ctx.helpers.confirm({
+                                    title: ctx.t('hubs.detachedConfirm.editTitle', 'Save hub outside current hub?'),
+                                    description: ctx.t(
+                                        'hubs.detachedConfirm.description',
+                                        'This hub is not linked as a child of the current hub and will not appear in this hub after saving.'
+                                    ),
+                                    confirmButtonName: ctx.t('common:actions.save', 'Save'),
+                                    cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
+                                })
+                                if (!confirmed) {
+                                    throw DIALOG_SAVE_CANCEL
+                                }
+                            }
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
+                            if (
+                                error &&
+                                typeof error === 'object' &&
+                                '__dialogCancelled' in error &&
+                                (error as { __dialogCancelled?: unknown }).__dialogCancelled === true
+                            ) {
+                                throw error
+                            }
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
                         }
@@ -445,6 +571,8 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
             },
             buildProps: (ctx) => {
                 const initial = buildCopyInitialValues(ctx)
+                const hubs = (ctx as HubActionContext).hubs ?? []
+                const allowHubNesting = (ctx as HubActionContext).allowHubNesting !== false
                 return {
                     open: true,
                     mode: 'create' as const,
@@ -457,21 +585,12 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                     hideDefaultFields: true,
                     initialExtraValues: initial,
                     tabs: ({ values, setValue, isLoading, errors }: HubDialogTabArgs) => [
-                        {
-                            id: 'general',
-                            label: ctx.t('hubs.tabs.general', 'General'),
-                            content: (
-                                <HubEditFields
-                                    values={values}
-                                    setValue={setValue}
-                                    isLoading={isLoading}
-                                    errors={errors}
-                                    t={ctx.t}
-                                    uiLocale={ctx.uiLocale as string}
-                                    editingEntityId={null}
-                                />
-                            )
-                        },
+                        ...buildFormTabs(ctx, hubs, { editingEntityId: null, allowHubNesting, mode: 'copy' })({
+                            values,
+                            setValue,
+                            isLoading,
+                            errors
+                        }),
                         {
                             id: 'options',
                             label: ctx.t('hubs.tabs.options', 'Options'),
@@ -495,12 +614,37 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                         try {
                             const payload = toPayload(data)
                             const copyOptions = getHubCopyOptions(data)
+                            const currentHubId = (ctx as HubActionContext).currentHubId
+                            const detachedFromCurrentHub =
+                                typeof currentHubId === 'string' && currentHubId.length > 0 && payload.parentHubId !== currentHubId
+                            if (detachedFromCurrentHub && ctx.helpers?.confirm) {
+                                const confirmed = await ctx.helpers.confirm({
+                                    title: ctx.t('hubs.detachedConfirm.copyTitle', 'Create hub copy outside current hub?'),
+                                    description: ctx.t(
+                                        'hubs.detachedConfirm.description',
+                                        'This hub is not linked as a child of the current hub and will not appear in this hub after saving.'
+                                    ),
+                                    confirmButtonName: ctx.t('common:actions.create', 'Create'),
+                                    cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
+                                })
+                                if (!confirmed) {
+                                    throw DIALOG_SAVE_CANCEL
+                                }
+                            }
                             await ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
                                 ...copyOptions
                             })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
+                            if (
+                                error &&
+                                typeof error === 'object' &&
+                                '__dialogCancelled' in error &&
+                                (error as { __dialogCancelled?: unknown }).__dialogCancelled === true
+                            ) {
+                                throw error
+                            }
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
                         }

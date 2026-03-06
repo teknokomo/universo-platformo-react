@@ -480,8 +480,12 @@ describe('Catalogs Routes', () => {
     })
 
     describe('POST /metahub/:metahubId/hub/:hubId/catalogs', () => {
-        it('rejects single-hub catalog when merged hub list contains multiple hubs', async () => {
+        it('rejects single-hub catalog when explicit hub list contains multiple hubs', async () => {
             mockHubsService.findById.mockResolvedValue({ id: 'hub-1' })
+            mockHubsService.findByIds.mockResolvedValue([
+                { id: '00000000-0000-0000-0000-000000000001' },
+                { id: '00000000-0000-0000-0000-000000000002' }
+            ])
 
             const app = buildApp()
             const response = await request(app)
@@ -490,7 +494,7 @@ describe('Catalogs Routes', () => {
                     codename: 'Products',
                     name: { en: 'Products' },
                     isSingleHub: true,
-                    hubIds: ['00000000-0000-0000-0000-000000000002']
+                    hubIds: ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
                 })
                 .expect(400)
 

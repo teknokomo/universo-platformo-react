@@ -721,10 +721,8 @@ export function createSetsRoutes(
 
         const currentHubIds = currentSet ? getSetHubIds(currentSet) : []
         let nextHubIds = parsed.data.hubIds ?? currentHubIds
-        if (hubScoped && hubId) {
-            if (!nextHubIds.includes(hubId)) {
-                nextHubIds = [...nextHubIds, hubId]
-            }
+        if (mode === 'create' && hubScoped && hubId && parsed.data.hubIds === undefined) {
+            nextHubIds = [hubId]
         }
 
         const isSingleHub = parsed.data.isSingleHub ?? currentSet?.config?.isSingleHub ?? false

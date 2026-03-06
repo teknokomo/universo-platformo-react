@@ -229,8 +229,14 @@
             "editTitle": "Edit menu",
             "titleLabel": "Menu title",
             "showTitle": "Show title",
+            "bindToHub": "Bind menu to hub",
+            "boundHubLabel": "Bound hub",
+            "boundHubPlaceholder": "Select a hub",
+            "boundHubInfo": "When menu-to-hub binding is enabled, only catalogs directly linked to the selected hub are shown right now. Other entity types are not shown yet.",
+            "boundHubNoCatalogs": "No directly linked catalogs found for the selected hub.",
             "autoShowAllCatalogs": "Automatically show all catalogs",
             "autoShowAllCatalogsHint": "When enabled, all existing catalogs will be automatically added to the menu at runtime.",
+            "autoShowAllCatalogsDisabledByBinding": "This option is disabled while direct menu-to-hub binding is enabled.",
             "items": "Menu items",
             "itemsEmpty": "No menu items yet. Add the first item.",
             "addItem": "Add item",
@@ -242,12 +248,22 @@
             "itemIcon": "Icon",
             "itemHref": "Link URL",
             "itemCatalog": "Catalog",
+            "itemHub": "Hub",
             "itemActive": "Active",
             "selectCatalog": "Select catalog",
             "noCatalogs": "No catalogs available",
+            "noHubs": "No hubs available",
             "kindCatalog": "Catalog",
             "kindCatalogsAll": "All catalogs",
+            "kindHub": "Hub",
             "kindLink": "Link",
+            "validation": {
+                "titleRequired": "Name is required.",
+                "catalogRequired": "Select a catalog for this menu item.",
+                "hubRequired": "Select a hub for this menu item.",
+                "boundHubRequired": "Select a hub to bind this menu to.",
+                "hrefRequired": "Link URL is required for link items."
+            },
             "saveSuccess": "Menu configuration saved",
             "saveError": "Failed to save menu configuration"
         },
@@ -429,11 +445,12 @@
             "fetchError": "Failed to check for blocking entities",
             "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
             "hasBlockingObjects": "Cannot delete hub. The following entities require at least one hub and are only linked to this one:",
-            "resolutionHint": "To delete this hub, first add another hub to these catalogs, sets, and enumerations or disable the \"Hub required\" option.",
+            "resolutionHint": "To delete this hub, first re-link child hubs and add another hub to these catalogs, sets, and enumerations, or disable the \"Hub required\" option.",
             "sections": {
                 "catalogs": "Catalogs",
                 "sets": "Sets",
-                "enumerations": "Enumerations"
+                "enumerations": "Enumerations",
+                "hubs": "Hubs"
             }
         },
         "codename": "Codename",
@@ -457,7 +474,27 @@
         "copyError": "Failed to copy hub",
         "tabs": {
             "general": "General",
+            "hubs": "Hubs",
             "options": "Options"
+        },
+        "linkCurrentHubShort": "Current hub",
+        "nestingDisabledHint": "Hub nesting is disabled in settings. You can still edit and unlink existing parent relations.",
+        "detachedConfirm": {
+            "title": "Create hub outside current hub?",
+            "editTitle": "Save hub outside current hub?",
+            "copyTitle": "Create hub copy outside current hub?",
+            "description": "This hub is not linked as a child of the current hub and will not appear in this hub after saving."
+        },
+        "attachExisting": {
+            "dialogTitle": "Add Existing Hubs",
+            "selectionTitle": "Hubs",
+            "selectDialogTitle": "Select hubs",
+            "emptySelection": "No hubs selected",
+            "noAvailable": "No hubs available to add",
+            "requiredSelection": "Select at least one hub to add.",
+            "success": "Added {{count}} hub(s).",
+            "partialSuccess": "Added {{successCount}} hub(s). {{failCount}} hub(s) could not be linked.",
+            "failedAll": "Selected hubs could not be linked to this hub. Please review parent/child constraints and try again."
         },
         "copy": {
             "action": "Copy",
@@ -574,6 +611,23 @@
         "reorderError": "Failed to reorder catalog",
         "dnd": {
             "dragHandle": "Drag to reorder"
+        },
+        "detachedConfirm": {
+            "title": "Create set without current hub?",
+            "editTitle": "Save set without current hub?",
+            "copyTitle": "Create set copy without current hub?",
+            "description": "This set is not linked to the current hub and will not appear in this hub after saving."
+        },
+        "attachExisting": {
+            "dialogTitle": "Add Existing Sets",
+            "selectionTitle": "Sets",
+            "selectDialogTitle": "Select sets",
+            "emptySelection": "No sets selected",
+            "noAvailable": "No sets available to add",
+            "requiredSelection": "Select at least one set to add.",
+            "success": "Added {{count}} set(s).",
+            "partialSuccess": "Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.",
+            "failedAll": "Selected sets could not be linked to this hub. Please review restrictions and try again."
         }
     },
     "sets": {
@@ -642,6 +696,23 @@
         "reorderError": "Failed to reorder set",
         "dnd": {
             "dragHandle": "Drag to reorder"
+        },
+        "detachedConfirm": {
+            "title": "Create enumeration without current hub?",
+            "editTitle": "Save enumeration without current hub?",
+            "copyTitle": "Create enumeration copy without current hub?",
+            "description": "This enumeration is not linked to the current hub and will not appear in this hub after saving."
+        },
+        "attachExisting": {
+            "dialogTitle": "Add Existing Enumerations",
+            "selectionTitle": "Enumerations",
+            "selectDialogTitle": "Select enumerations",
+            "emptySelection": "No enumerations selected",
+            "noAvailable": "No enumerations available to add",
+            "requiredSelection": "Select at least one enumeration to add.",
+            "success": "Added {{count}} enumeration(s).",
+            "partialSuccess": "Added {{successCount}} enumeration(s). {{failCount}} enumeration(s) could not be linked.",
+            "failedAll": "Selected enumerations could not be linked to this hub. Please review restrictions and try again."
         }
     },
     "constants": {
@@ -1435,6 +1506,7 @@
             "common": "Common",
             "hubs": "Hubs",
             "catalogs": "Catalogs",
+            "sets": "Sets",
             "enumerations": "Enumerations"
         },
         "search": "Search settings...",
@@ -1468,6 +1540,12 @@
             "hubs.allowCopy.description": "Allow copying hubs within this metahub",
             "hubs.allowDelete": "Allow Delete",
             "hubs.allowDelete.description": "Allow deleting hubs from this metahub",
+            "hubs.allowNesting": "Allow Hub Nesting",
+            "hubs.allowNesting.description": "Allow parent-child hub relations and creating child hubs inside hubs.",
+            "hubs.resetNestingOnce": "Remove Existing Hub Nesting",
+            "hubs.resetNestingOnce.description": "One-time action: after saving, removes all parent-child relations between hubs and resets back to Off.",
+            "hubs.allowAttachExistingEntities": "Allow Adding Existing Entities",
+            "hubs.allowAttachExistingEntities.description": "Allow using the Add action in hub-scoped tabs to link already created entities to the current hub.",
             "catalogs.allowCopy": "Allow Copy",
             "catalogs.allowCopy.description": "Allow copying catalogs within this metahub",
             "catalogs.allowDelete": "Allow Delete",

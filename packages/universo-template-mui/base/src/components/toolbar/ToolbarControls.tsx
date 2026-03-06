@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { Box, ToggleButton, ToggleButtonGroup, Button, IconButton, Tooltip } from '@mui/material'
+import { Box, ToggleButton, ToggleButtonGroup, Button, IconButton, Tooltip, ButtonGroup, Menu, MenuItem, ListItemIcon } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useTheme } from '@mui/material/styles'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import { IconLayoutGrid, IconList, IconSettings } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { SettingsDialog } from '../dialogs/SettingsDialog'
@@ -16,6 +17,8 @@ export interface ToolbarControlsProps {
     /** Show settings button (only visible for superuser) */
     settingsEnabled?: boolean
     primaryAction?: { label: string; onClick: () => void; disabled?: boolean; startIcon?: React.ReactNode }
+    primaryActionMenuItems?: Array<{ label: string; onClick: () => void; disabled?: boolean; startIcon?: React.ReactNode }>
+    primaryActionMenuAriaLabel?: string
     cardViewTitle?: string
     listViewTitle?: string
     sx?: SxProps<Theme>
@@ -35,6 +38,8 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
     onViewModeChange,
     settingsEnabled,
     primaryAction,
+    primaryActionMenuItems,
+    primaryActionMenuAriaLabel = 'action menu',
     cardViewTitle = 'Card View',
     listViewTitle = 'List View',
     sx,
@@ -46,9 +51,22 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
     // hasAnyGlobalRole = user has any global role (metaeditor, etc.)
     const { isSuperuser, hasAnyGlobalRole } = useHasGlobalAccess()
     const [settingsOpen, setSettingsOpen] = useState(false)
+    const [primaryActionMenuAnchor, setPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null)
 
     // Show settings button if enabled AND (user is superuser OR has any global role)
     const showSettingsButton = settingsEnabled && (isSuperuser || hasAnyGlobalRole)
+    const hasPrimaryActionMenuItems = Array.isArray(primaryActionMenuItems) && primaryActionMenuItems.length > 0
+    const isPrimaryActionMenuOpen = Boolean(primaryActionMenuAnchor)
+    const handleOpenPrimaryActionMenu = (event: React.MouseEvent<HTMLElement>) => {
+        setPrimaryActionMenuAnchor(event.currentTarget)
+    }
+    const handleClosePrimaryActionMenu = () => {
+        setPrimaryActionMenuAnchor(null)
+    }
+    const handlePrimaryActionMenuItemClick = (onClick: () => void) => {
+        handleClosePrimaryActionMenu()
+        onClick()
+    }
 
     return (
         <>
@@ -102,17 +120,81 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
                     </Tooltip>
                 )}
 
-                {primaryAction && (
-                    <Button
-                        variant='contained'
-                        onClick={primaryAction.onClick}
-                        disabled={primaryAction.disabled}
-                        startIcon={primaryAction.startIcon}
-                        sx={{ borderRadius: 1, height: 40 }}
-                    >
-                        {primaryAction.label}
-                    </Button>
-                )}
+                {primaryAction &&
+                    (hasPrimaryActionMenuItems ? (
+                        <>
+                            <ButtonGroup
+                                variant='contained'
+                                sx={{
+                                    borderRadius: 1,
+                                    height: 40,
+                                    overflow: 'hidden',
+                                    '& .MuiButton-root': {
+                                        height: '100%',
+                                        minHeight: 40,
+                                        '&:focus-visible': {
+                                            outline: 'none'
+                                        }
+                                    },
+                                    '& .MuiButtonGroup-grouped': {
+                                        borderColor: 'transparent'
+                                    }
+                                }}
+                            >
+                                <Button
+                                    onClick={primaryAction.onClick}
+                                    disabled={primaryAction.disabled}
+                                    startIcon={primaryAction.startIcon}
+                                    sx={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                                >
+                                    {primaryAction.label}
+                                </Button>
+                                <Button
+                                    aria-label={primaryActionMenuAriaLabel}
+                                    aria-controls={isPrimaryActionMenuOpen ? 'toolbar-primary-action-menu' : undefined}
+                                    aria-haspopup='menu'
+                                    aria-expanded={isPrimaryActionMenuOpen ? 'true' : undefined}
+                                    onClick={handleOpenPrimaryActionMenu}
+                                    disabled={primaryAction.disabled}
+                                    sx={{
+                                        minWidth: 40,
+                                        px: 0.5,
+                                        borderTopLeftRadius: 0,
+                                        borderBottomLeftRadius: 0
+                                    }}
+                                >
+                                    <ArrowDropDownIcon fontSize='small' />
+                                </Button>
+                            </ButtonGroup>
+                            <Menu
+                                id='toolbar-primary-action-menu'
+                                anchorEl={primaryActionMenuAnchor}
+                                open={isPrimaryActionMenuOpen}
+                                onClose={handleClosePrimaryActionMenu}
+                            >
+                                {primaryActionMenuItems.map((item) => (
+                                    <MenuItem
+                                        key={item.label}
+                                        disabled={item.disabled}
+                                        onClick={() => handlePrimaryActionMenuItemClick(item.onClick)}
+                                    >
+                                        {item.startIcon ? <ListItemIcon sx={{ minWidth: 28 }}>{item.startIcon}</ListItemIcon> : null}
+                                        {item.label}
+                                    </MenuItem>
+                                ))}
+                            </Menu>
+                        </>
+                    ) : (
+                        <Button
+                            variant='contained'
+                            onClick={primaryAction.onClick}
+                            disabled={primaryAction.disabled}
+                            startIcon={primaryAction.startIcon}
+                            sx={{ borderRadius: 1, height: 40 }}
+                        >
+                            {primaryAction.label}
+                        </Button>
+                    ))}
             </Box>
 
             {showSettingsButton && <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />}

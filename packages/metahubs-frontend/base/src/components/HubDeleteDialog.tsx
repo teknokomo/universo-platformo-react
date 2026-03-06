@@ -32,7 +32,7 @@ interface BlockingHubObjectRow extends BlockingHubObject {
 
 /**
  * Dialog for confirming hub deletion.
- * Shows grouped blocking entities (catalogs + sets + enumerations) and disables delete when blockers exist.
+ * Shows grouped blocking entities and disables delete when blockers exist.
  */
 export const HubDeleteDialog = ({
     open,
@@ -106,7 +106,15 @@ export const HubDeleteDialog = ({
         }))
     }, [blockingQuery.data?.blockingSets, uiLocale])
 
-    const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length
+    const blockingChildHubs: BlockingHubObjectRow[] = useMemo(() => {
+        const source = blockingQuery.data?.blockingChildHubs ?? []
+        return source.map((entity) => ({
+            ...entity,
+            displayName: getVLCString(entity.name, uiLocale) || getVLCString(entity.name, 'en') || entity.codename || '—'
+        }))
+    }, [blockingQuery.data?.blockingChildHubs, uiLocale])
+
+    const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
     const isLoading = blockingQuery.isLoading || blockingQuery.isFetching
     const error = blockingQuery.isError ? t('hubs.deleteDialog.fetchError', 'Failed to check for blocking entities') : null
     const canDelete = !isLoading && !error && totalBlocking === 0
@@ -120,6 +128,7 @@ export const HubDeleteDialog = ({
     const getCatalogLink = (catalog: BlockingHubObjectRow) => `/metahub/${metahubId}/catalog/${catalog.id}/attributes`
     const getSetLink = (set: BlockingHubObjectRow) => `/metahub/${metahubId}/set/${set.id}/constants`
     const getEnumerationLink = (enumeration: BlockingHubObjectRow) => `/metahub/${metahubId}/enumeration/${enumeration.id}/values`
+    const getHubLink = (childHub: BlockingHubObjectRow) => `/metahub/${metahubId}/hub/${childHub.id}/hubs`
 
     if (!hub) return null
 
@@ -189,10 +198,25 @@ export const HubDeleteDialog = ({
                             </Box>
                         )}
 
+                        {blockingChildHubs.length > 0 && (
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant='subtitle2' sx={{ mb: 1, fontWeight: 600 }}>
+                                    {t('hubs.deleteDialog.sections.hubs', 'Хабы')}
+                                </Typography>
+                                <CompactListTable<BlockingHubObjectRow>
+                                    data={blockingChildHubs}
+                                    maxHeight={180}
+                                    getRowLink={getHubLink}
+                                    linkMode='all-cells'
+                                    columns={columns}
+                                />
+                            </Box>
+                        )}
+
                         <Typography variant='body2' color='text.secondary'>
                             {t(
                                 'hubs.deleteDialog.resolutionHint',
-                                'Чтобы удалить этот хаб, сначала добавьте другой хаб к этим каталогам и перечислениям или отключите опцию "Должен быть хаб".'
+                                'Чтобы удалить этот хаб, сначала перепривяжите дочерние хабы и добавьте другой хаб к этим каталогам, наборам и перечислениям или отключите опцию "Должен быть хаб".'
                             )}
                         </Typography>
                     </>

@@ -58,24 +58,28 @@ export default function MenuContent({ menu }: MenuContentProps) {
                     {menu.title}
                 </Typography>
             ) : null}
-            {items.map((item) => (
-                <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                    <ListItemButton
-                        selected={Boolean(item.selected)}
-                        {...(item.kind === 'link' && item.href
-                            ? { component: 'a' as const, href: item.href, target: '_self', rel: 'noreferrer' }
-                            : {})}
-                        onClick={() => {
-                            if (item.kind === 'catalog' && item.catalogId && menu?.onSelectCatalog) {
-                                menu.onSelectCatalog(item.catalogId)
-                            }
-                        }}
-                    >
-                        <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
-                        <ListItemText primary={item.label} />
-                    </ListItemButton>
-                </ListItem>
-            ))}
+            {items.map((item) => {
+                const isHubLabel = item.kind === 'hub'
+                return (
+                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                        <ListItemButton
+                            disabled={isHubLabel}
+                            selected={Boolean(item.selected)}
+                            {...(item.kind === 'link' && item.href
+                                ? { component: 'a' as const, href: item.href, target: '_self', rel: 'noreferrer' }
+                                : {})}
+                            onClick={() => {
+                                if (item.kind === 'catalog' && item.catalogId && menu?.onSelectCatalog) {
+                                    menu.onSelectCatalog(item.catalogId)
+                                }
+                            }}
+                        >
+                            <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
+                            <ListItemText primary={item.label} />
+                        </ListItemButton>
+                    </ListItem>
+                )
+            })}
         </List>
     )
 }

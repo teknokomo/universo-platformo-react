@@ -9,6 +9,8 @@ export type { ExistingCodenameEntity } from './ExistingCodenamesContext'
 
 export { HubSelectionPanel } from './HubSelectionPanel'
 export type { HubSelectionPanelProps } from './HubSelectionPanel'
+export { HubParentSelectionPanel } from './HubParentSelectionPanel'
+export type { HubParentSelectionPanelProps } from './HubParentSelectionPanel'
 
 export { HubDeleteDialog } from './HubDeleteDialog'
 export type { HubDeleteDialogProps } from './HubDeleteDialog'

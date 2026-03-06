@@ -31,7 +31,7 @@ import CodenameStylePreview from './CodenameStylePreview'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SETTING_TABS = ['general', 'common', 'hubs', 'catalogs', 'enumerations'] as const
+const SETTING_TABS = ['general', 'common', 'hubs', 'catalogs', 'sets', 'enumerations'] as const
 type SettingTab = (typeof SETTING_TABS)[number]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -45,6 +45,15 @@ function extractValue(setting: SettingResponse): unknown {
 /** Build a `{ _value: ... }` envelope for the backend. */
 function wrapValue(val: unknown): Record<string, unknown> {
     return { _value: val }
+}
+
+/** Compare values against default to avoid showing "reset" for already-default persisted values. */
+function isSameAsDefault(value: unknown, defaultValue: unknown): boolean {
+    try {
+        return JSON.stringify(value) === JSON.stringify(defaultValue)
+    } catch {
+        return Object.is(value, defaultValue)
+    }
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -108,6 +117,8 @@ const SettingsPage = () => {
         const effectiveAllowMixed = effectiveVal('general.codenameAllowMixedAlphabets', false)
         const effectiveAutoReformat = effectiveVal('general.codenameAutoReformat', true)
         const effectiveAllowAttributeDelete = effectiveVal('catalogs.allowAttributeDelete', true)
+        const effectiveAllowHubNesting = effectiveVal('hubs.allowNesting', true)
+        const hasHubNesting = data?.meta?.hasHubNesting === true
 
         let entries = tabRegistry
 
@@ -133,6 +144,13 @@ const SettingsPage = () => {
             entries = entries.filter((entry) => entry.key !== 'catalogs.allowDeleteLastDisplayAttribute')
         }
 
+        // Show one-shot reset nesting action while nesting is disabled OR any nesting still exists.
+        const shouldShowResetNesting =
+            effectiveAllowHubNesting !== true || hasHubNesting || effectiveVal('hubs.resetNestingOnce', false) === true
+        if (!shouldShowResetNesting) {
+            entries = entries.filter((entry) => entry.key !== 'hubs.resetNestingOnce')
+        }
+
         if (!searchFilter) return entries
         const lower = searchFilter.toLowerCase()
         return entries.filter((entry) => {
@@ -140,7 +158,7 @@ const SettingsPage = () => {
             const description = t(`settings.keys.${entry.key}.description`, { defaultValue: '' }).toLowerCase()
             return label.includes(lower) || description.includes(lower) || entry.key.toLowerCase().includes(lower)
         })
-    }, [tabRegistry, searchFilter, t, localChanges, settingsMap])
+    }, [tabRegistry, searchFilter, t, localChanges, settingsMap, data?.meta?.hasHubNesting])
 
     /** Effective value for a setting (local change → DB value → default) */
     const getEffectiveValue = useCallback(
@@ -262,6 +280,8 @@ const SettingsPage = () => {
                             const setting = settingsMap.get(entry.key)
                             const isDefault = setting ? setting.isDefault : true
                             const effectiveValue = getEffectiveValue(entry)
+                            const isAtDefaultValue = isSameAsDefault(effectiveValue, entry.defaultValue)
+                            const canResetToDefault = !isDefault && !isAtDefaultValue
                             const isLocallyModified = entry.key in localChanges
 
                             return (
@@ -318,7 +338,7 @@ const SettingsPage = () => {
                                     </Box>
 
                                     {/* Reset button */}
-                                    {!isDefault && (
+                                    {canResetToDefault && (
                                         <Tooltip title={t('settings.resetToDefault')}>
                                             <IconButton
                                                 size='small'

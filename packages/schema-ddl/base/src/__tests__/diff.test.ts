@@ -37,10 +37,9 @@ describe('DDL Diff Utilities', () => {
                 const diff = calculateSchemaDiff(null, entities)
 
                 expect(diff.hasChanges).toBe(true)
-                expect(diff.additive).toHaveLength(2)
+                expect(diff.additive).toHaveLength(1)
                 expect(diff.destructive).toHaveLength(0)
                 expect(diff.additive[0].type).toBe(ChangeType.ADD_TABLE)
-                expect(diff.additive[1].type).toBe(ChangeType.ADD_TABLE)
             })
 
             it('should return no changes for empty entities array', () => {
@@ -85,11 +84,9 @@ describe('DDL Diff Utilities', () => {
 
                 const diff = calculateSchemaDiff(snapshot, entities)
 
-                expect(diff.hasChanges).toBe(true)
-                expect(diff.additive).toHaveLength(1)
-                expect(diff.additive[0].type).toBe(ChangeType.ADD_TABLE)
-                expect(diff.additive[0].entityCodename).toBe('new_entity')
-                expect(diff.additive[0].isDestructive).toBe(false)
+                expect(diff.hasChanges).toBe(false)
+                expect(diff.additive).toHaveLength(0)
+                expect(diff.destructive).toHaveLength(0)
             })
 
             it('should detect dropped tables (destructive)', () => {
@@ -179,7 +176,7 @@ describe('DDL Diff Utilities', () => {
                 expect(diff.destructive[0].isDestructive).toBe(true)
             })
 
-            it('should handle entity kind change (destructive drop + additive create)', () => {
+            it('should handle entity kind change from physical to non-physical (destructive drop only)', () => {
                 const snapshot = createTestSnapshot()
                 const entities: EntityDefinition[] = [
                     createTestEntity({ kind: 'hub' }) // changed from 'catalog' to 'hub'
@@ -188,9 +185,9 @@ describe('DDL Diff Utilities', () => {
                 const diff = calculateSchemaDiff(snapshot, entities)
 
                 expect(diff.hasChanges).toBe(true)
-                // Kind change results in drop + create
+                // Kind change results only in drop because hub has no physical table
                 expect(diff.destructive.some((c) => c.type === ChangeType.DROP_TABLE)).toBe(true)
-                expect(diff.additive.some((c) => c.type === ChangeType.ADD_TABLE)).toBe(true)
+                expect(diff.additive.some((c) => c.type === ChangeType.ADD_TABLE)).toBe(false)
             })
 
             it('should detect no changes when entities are identical', () => {

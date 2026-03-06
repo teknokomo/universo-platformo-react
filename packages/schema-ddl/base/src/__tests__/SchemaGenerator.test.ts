@@ -304,5 +304,51 @@ describe('SchemaGenerator', () => {
             expect(operations.indexOf('_app_attributes.insert')).toBeGreaterThanOrEqual(0)
             expect(operations.indexOf('_app_attributes.del')).toBeLessThan(operations.indexOf('_app_attributes.insert'))
         })
+
+        it('stores generated table_name for hub metadata rows', async () => {
+            const operations: string[] = []
+            const objectsTable = createTableMock('_app_objects', operations)
+            const attributesTable = createTableMock('_app_attributes', operations)
+
+            const localKnex = {
+                fn: { now: jest.fn(() => 'NOW()') },
+                withSchema: jest.fn((_schemaName: string) => ({
+                    table: jest.fn((tableName: string) => {
+                        if (tableName === '_app_objects') return objectsTable
+                        if (tableName === '_app_attributes') return attributesTable
+                        throw new Error(`Unexpected table: ${tableName}`)
+                    })
+                }))
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
+            const emptyVlc = {
+                _schema: '1',
+                _primary: 'en',
+                locales: {}
+            } as unknown as import('@universo/types').VersionedLocalizedContent<string>
+
+            await localGenerator.syncSystemMetadata(
+                'app_test123',
+                [
+                    {
+                        id: 'hub-1',
+                        kind: 'hub',
+                        codename: 'main_hub',
+                        presentation: { name: emptyVlc },
+                        fields: []
+                    } as unknown as import('../types').EntityDefinition
+                ],
+                { removeMissing: false }
+            )
+
+            expect(objectsTable.insert).toHaveBeenCalledTimes(1)
+            const insertedRows = objectsTable.insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
+            expect(Array.isArray(insertedRows)).toBe(true)
+            expect(insertedRows).toHaveLength(1)
+            expect(insertedRows[0]?.kind).toBe('hub')
+            expect(insertedRows[0]?.table_name).toBe(generateTableName('hub-1', 'hub'))
+        })
     })
 })

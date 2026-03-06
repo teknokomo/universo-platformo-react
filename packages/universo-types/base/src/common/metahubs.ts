@@ -178,6 +178,27 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         defaultValue: true,
         sortOrder: 2
     },
+    {
+        key: 'hubs.allowNesting',
+        tab: 'hubs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 3
+    },
+    {
+        key: 'hubs.resetNestingOnce',
+        tab: 'hubs',
+        valueType: 'boolean',
+        defaultValue: false,
+        sortOrder: 4
+    },
+    {
+        key: 'hubs.allowAttachExistingEntities',
+        tab: 'hubs',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 5
+    },
 
     // ── Catalogs ──
     {
@@ -678,6 +699,10 @@ export interface MenuWidgetConfig {
     title: VersionedLocalizedContent<string>
     /** When true, runtime automatically includes all catalogs as menu items. */
     autoShowAllCatalogs: boolean
+    /** Enables direct binding of this menu widget to a specific hub. */
+    bindToHub?: boolean
+    /** Hub ID used when direct binding is enabled. */
+    boundHubId?: string | null
     items: MenuWidgetConfigItem[]
 }
 
@@ -690,6 +715,7 @@ export interface MenuWidgetConfigItem {
     icon?: string | null
     href?: string | null
     catalogId?: string | null
+    hubId?: string | null
     sortOrder: number
     isActive: boolean
 }
@@ -730,7 +756,7 @@ export interface ColumnsContainerConfig {
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
 
-export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'link'] as const
+export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'hub', 'link'] as const
 export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 
 // ========= Template Manifest Types =========

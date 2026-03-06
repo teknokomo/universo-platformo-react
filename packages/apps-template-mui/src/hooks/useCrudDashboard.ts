@@ -210,6 +210,21 @@ function mapMenuItems(
             ]
         }
 
+        if (item.kind === 'hub') {
+            return [
+                {
+                    id: item.id,
+                    label: item.title,
+                    icon: item.icon ?? null,
+                    kind: 'hub' as const,
+                    catalogId: null,
+                    hubId: item.hubId ?? null,
+                    href: null,
+                    selected: false
+                }
+            ]
+        }
+
         if (item.kind === 'catalogs_all') {
             return catalogs.map((catalog) => ({
                 id: `${item.id}:${catalog.id}`,
@@ -395,7 +410,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     })
 
     const appData = listQuery.data
-    const activeCatalogId = appData?.activeCatalogId ?? appData?.catalog.id
+    const backendActiveCatalogId = appData?.activeCatalogId ?? appData?.catalog.id
+    const activeCatalogId = selectedCatalogId ?? backendActiveCatalogId
     const tableColumnRefs = useMemo(
         () =>
             (appData?.columns ?? [])
@@ -428,11 +444,19 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     }, [appData?.columns])
     const fieldConfigs = useMemo(() => (appData ? toFieldConfigs(appData) : []), [appData])
 
-    // Initialize catalog from backend response
+    const initialMenuCatalogId = useMemo(() => {
+        if (!appData?.menus?.length) return undefined
+        const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
+        const firstCatalogItem = menu?.items?.find((item) => item.isActive !== false && item.kind === 'catalog' && Boolean(item.catalogId))
+        return firstCatalogItem?.catalogId ?? undefined
+    }, [appData])
+
+    // Initialize catalog from the menu (fallback: backend active catalog)
     useEffect(() => {
         if (!appData || selectedCatalogId) return
-        if (activeCatalogId) setSelectedCatalogId(activeCatalogId)
-    }, [appData, selectedCatalogId, activeCatalogId])
+        const initialCatalogId = initialMenuCatalogId ?? backendActiveCatalogId
+        if (initialCatalogId) setSelectedCatalogId(initialCatalogId)
+    }, [appData, selectedCatalogId, initialMenuCatalogId, backendActiveCatalogId])
 
     // ----- Row query (for edit) -----
     const rowQuery = useQuery({

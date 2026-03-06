@@ -273,6 +273,7 @@ export interface Hub {
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
+    parentHubId?: string | null
     createdAt: string
     updatedAt: string
     version?: number
@@ -290,6 +291,7 @@ export interface HubDisplay {
     name: string
     description: string
     sortOrder: number
+    parentHubId?: string | null
     createdAt: string
     updatedAt: string
     catalogsCount?: number
@@ -601,6 +603,7 @@ export interface HubLocalizedPayload {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
+    parentHubId?: string | null
 }
 
 /** Payload for creating/updating Branch */

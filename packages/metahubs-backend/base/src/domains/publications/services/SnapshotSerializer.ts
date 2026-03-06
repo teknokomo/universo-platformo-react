@@ -148,12 +148,14 @@ export class SnapshotSerializer {
                 id: hubId,
                 kind: 'hub',
                 codename: hub.codename as string,
-                tableName: generateTableName(hubId, 'hub'),
                 presentation: {
                     name: hubName,
                     description: hubDescription
                 },
-                config: { sortOrder: (hub.sort_order as number) ?? 0 },
+                config: {
+                    sortOrder: (hub.sort_order as number) ?? 0,
+                    parentHubId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
+                },
                 fields: [],
                 hubs: []
             }

@@ -4,6 +4,96 @@
 
 ---
 
+## Completed: Nested Hubs + Hub-Scoped Linking + Runtime Menu Hierarchy (IMPLEMENT) — 2026-03-06 ✅
+
+> **Goal**: Deliver full implementation from approved plan and QA refinements, with safe backend guards, reusable UI patterns, i18n coverage, and verification without legacy debt.
+
+### Phase 1. Contracts and Shared Foundations
+- [x] Add hub settings keys and defaults in shared contracts (`hubs.allowNesting`, `hubs.resetNestingOnce`, `hubs.allowAttachExistingEntities`).
+- [x] Extend layout/menu widget types for hub-bound menu mode.
+- [x] Align Settings UI tabs and permissions typing (`sets` coverage and parity checks).
+
+### Phase 2. Backend Hub Hierarchy Core
+- [x] Implement hub parent link lifecycle (`config.parentHubId`) for create/update/copy.
+- [x] Add cycle-safe validation for parent assignment (self-parent + recursive ancestry guard).
+- [x] Add deterministic delete guard: block parent hub deletion while children exist.
+- [x] Add hub-scoped hubs list endpoint and wire route/guards consistently.
+
+### Phase 3. Backend Hub-Scoped Association Semantics
+- [x] Remove forced current-hub merge in scoped upserts for catalogs/sets/enumerations.
+- [x] Keep strict validation for final submitted hub associations (`isRequiredHub`, `isSingleHub`).
+- [x] Keep security parity (`ensureMetahubAccess` and request-scoped transaction access) for all new/changed routes.
+
+### Phase 4. Settings Runtime Behavior
+- [x] Implement one-shot `hubs.resetNestingOnce` execution in settings save flow.
+- [x] Auto-reset `hubs.resetNestingOnce` after successful execution.
+- [x] Enforce `hubs.allowNesting` behavior in create/edit/copy backend constraints.
+
+### Phase 5. Frontend Hub UX Consistency
+- [x] Normalize hub-internal tabs order to `Hubs`, `Catalogs`, `Sets`, `Enumerations`.
+- [x] Ensure `Hubs` tab is present in create/edit/copy dialogs where required by scope rules.
+- [x] Add fast relink-to-current-hub action (visible only when current hub is detached).
+- [x] Add detached-from-current-hub confirmation before create/save; cancel returns to dialog.
+
+### Phase 6. Create/Add Existing Entity Flows
+- [x] Implement MUI split action (`Create` + dropdown `Add`) in hub-scoped tabs.
+- [x] Reuse existing shared dialog/selection components before introducing wrappers.
+- [x] Implement add-existing link flows for hubs/catalogs/sets/enumerations.
+- [x] Gate add-existing flows with `hubs.allowAttachExistingEntities`.
+
+### Phase 7. Menu Widget Hub Binding + Runtime Mapping
+- [x] Add hub-binding support in menu widget editor and persistence model.
+- [x] Render hub hierarchy and linked entities in runtime menu with deterministic ordering.
+- [x] Keep strict runtime payload validation and fallback-safe parsing.
+
+### Phase 8. DDL/Publication/Connector Strategy for Hubs
+- [x] Stop physical `hub_*` table creation in application schema generation.
+- [x] Preserve metadata invariants (`_app_objects.table_name` and publication snapshot `tableName`).
+- [x] Verify application runtime/publication flows no longer depend on physical hub tables.
+
+### Phase 9. Branch Copy/Sanitization and Integrity
+- [x] Update branch prune/sanitize/copy logic for `parentHubId`.
+- [x] Ensure no dangling parent references in branch copy scenarios.
+
+### Phase 10. Tests, Linters, Build, Memory Bank
+- [x] Add/update backend tests for hierarchy, guards, settings one-shot, and association semantics.
+- [x] Add/update frontend tests for tabs, warnings, relink action, split create/add, and i18n keys.
+- [x] Add/update runtime/connector tests for menu hub mapping and no-`hub_*` table generation behavior.
+- [x] Run scoped lint/test/build on touched packages and fix all issues.
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with implementation outcomes.
+- [x] Mark this task block as fully completed after final verification.
+
+---
+
+## Completed: QA Debt Closure for Hub Nesting and Hub-Scoped UX — 2026-03-06 ✅
+
+> **Goal**: Close all issues from the latest QA audit without introducing regressions.
+
+### Phase 1. i18n Integrity and Localization Consistency
+- [x] Remove duplicate translation keys in `metahubs` EN locale for `hubs.detachedConfirm` and `hubs.attachExisting`.
+- [x] Add missing common field translation `common.fields.codename` in shared EN/RU locales.
+- [x] Verify all new hub-scoped dialogs and tables resolve `codename` label from shared i18n keys.
+
+### Phase 2. Parent Hub Selection Safety
+- [x] Ensure hub parent selection in HubList form tabs excludes invalid cycle candidates when editing existing hubs.
+- [x] Keep create/copy/edit behavior aligned with settings gates (`hubs.allowNesting`) and existing UI contracts.
+
+### Phase 3. Codename Prevalidation Scalability
+- [x] Replace fixed `limit: 500` codename-source queries with safe all-pages fetch logic for hubs/catalogs/sets/enumerations.
+- [x] Reuse shared paginated fetch helper to avoid code duplication and preserve deterministic sorting.
+
+### Phase 4. Console Noise and UX Stability
+- [x] Remove residual debug `console.log` traces from shared pagination hook.
+- [x] Keep confirm dialog flow behavior intact for detached hub association scenarios.
+
+### Phase 5. Verification and Documentation
+- [x] Run scoped lint for touched packages/files and ensure no new lint errors.
+- [x] Run scoped tests for touched backend/frontend packages.
+- [x] Run builds for touched packages to confirm type/runtime integrity.
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with implemented fixes and verification evidence.
+
+---
+
 ## Completed: PR #710 QA Fixes — 2026-03-06 ✅
 
 > **Goal**: Fix failing tests and prettier errors discovered during comprehensive QA analysis of PR #710.

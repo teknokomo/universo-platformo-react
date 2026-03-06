@@ -20,13 +20,16 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
+    ConfirmContextProvider,
     ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
     useCodenameAutoFill,
-    useCodenameVlcSync
+    useCodenameVlcSync,
+    EntitySelectionPanel
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
+import type { EntitySelectionLabels } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -45,7 +48,7 @@ import { STORAGE_KEYS } from '../../../constants/storage'
 import * as setsApi from '../api'
 import type { SetWithHubs } from '../api'
 import * as hubsApi from '../../hubs'
-import { invalidateSetsQueries, metahubsQueryKeys } from '../../shared'
+import { fetchAllPaginatedItems, invalidateSetsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { MetahubSetDisplay, SetLocalizedPayload, Hub, PaginatedResponse, getVLCString, toSetDisplay } from '../../../types'
@@ -116,6 +119,8 @@ type ConfirmSpec = {
     confirmButtonName?: string
     cancelButtonName?: string
 }
+
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 const extractResponseStatus = (error: unknown): number | undefined => {
     if (!error || typeof error !== 'object' || !('response' in error)) return undefined
@@ -277,7 +282,7 @@ const toSetWithHubsDisplay = (set: SetWithHubs, locale: string): SetWithHubsDisp
     }
 }
 
-const SetList = () => {
+const SetListContent = () => {
     const navigate = useNavigate()
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
@@ -302,6 +307,7 @@ const SetList = () => {
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('sets')
 
     // Fetch hubs for the create dialog (N:M relationship)
     const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
@@ -320,6 +326,28 @@ const SetList = () => {
         retry: false
     })
     const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
+
+    const { data: allSetsResponse } = useQuery<PaginatedResponse<SetWithHubs>>({
+        queryKey: metahubId
+            ? metahubsQueryKeys.allSetsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
+            : ['metahubs', 'sets', 'all', 'empty'],
+        queryFn: async () => {
+            if (!metahubId) {
+                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
+            }
+            return fetchAllPaginatedItems((params) => setsApi.listAllSets(metahubId, params), {
+                limit: 1000,
+                sortBy: 'sortOrder',
+                sortOrder: 'asc'
+            })
+        },
+        enabled: Boolean(metahubId),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        retryOnMount: false,
+        staleTime: 5 * 60 * 1000,
+        retry: false
+    })
 
     // Use paginated hook for sets list - conditional API based on isHubScoped
     const paginationResult = usePaginated<SetWithHubs, 'codename' | 'created' | 'updated' | 'sortOrder'>({
@@ -367,11 +395,13 @@ const SetList = () => {
         pendingData: SetPendingData | null
         setId: string | null
     }>({ open: false, conflict: null, pendingData: null, setId: null })
+    const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
+    const [isAttachingExisting, setAttachingExisting] = useState(false)
+    const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
 
     const { confirm } = useConfirm()
 
     // Filter entity actions based on settings (allowCopy / allowDelete)
-    const { allowCopy, allowDelete } = useEntityPermissions('sets')
     const filteredSetActions = useMemo(
         () =>
             setActions.filter((a) => {
@@ -418,6 +448,42 @@ const SetList = () => {
         if (!Array.isArray(sortedSets)) return new Map<string, SetWithHubs>()
         return new Map(sortedSets.map((set) => [set.id, set]))
     }, [sortedSets])
+
+    const allSetsById = useMemo(() => {
+        const map = new Map<string, SetWithHubs>()
+        const items = allSetsResponse?.items ?? []
+        items.forEach((set) => map.set(set.id, set))
+        return map
+    }, [allSetsResponse?.items])
+
+    const existingSetCodenames = useMemo(() => allSetsResponse?.items ?? sets ?? [], [allSetsResponse?.items, sets])
+
+    const attachableExistingSets = useMemo(() => {
+        if (!isHubScoped || !hubId) return []
+        return (allSetsResponse?.items ?? []).filter((set) => {
+            const linkedHubIds = Array.isArray(set.hubs) ? set.hubs.map((hub) => hub.id) : []
+            if (linkedHubIds.includes(hubId)) return false
+            if (set.isSingleHub && linkedHubIds.length > 0) return false
+            return true
+        })
+    }, [allSetsResponse?.items, hubId, isHubScoped])
+
+    const attachExistingSetSelectionLabels = useMemo<EntitySelectionLabels>(
+        () => ({
+            title: t('sets.attachExisting.selectionTitle', 'Sets'),
+            addButton: t('common:actions.add', 'Add'),
+            dialogTitle: t('sets.attachExisting.selectDialogTitle', 'Select sets'),
+            emptyMessage: t('sets.attachExisting.emptySelection', 'No sets selected'),
+            noAvailableMessage: t('sets.attachExisting.noAvailable', 'No sets available to add'),
+            searchPlaceholder: t('common:search', 'Search...'),
+            cancelButton: t('common:actions.cancel', 'Cancel'),
+            confirmButton: t('common:actions.add', 'Add'),
+            removeTitle: t('common:actions.remove', 'Remove'),
+            nameHeader: t('table.name', 'Name'),
+            codenameHeader: t('common:fields.codename', 'Codename')
+        }),
+        [t]
+    )
 
     // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<SetFormValues>(
@@ -535,12 +601,13 @@ const SetList = () => {
                             disabled={isFormLoading}
                             error={errors.hubIds}
                             uiLocale={preferredVlcLocale}
+                            currentHubId={hubId ?? null}
                         />
                     )
                 }
             ]
         },
-        [hubs, preferredVlcLocale, t, tc]
+        [hubs, preferredVlcLocale, t, tc, hubId]
     )
 
     const setColumns = useMemo(() => {
@@ -716,6 +783,7 @@ const SetList = () => {
             setMap,
             uiLocale: preferredVlcLocale,
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
+            currentHubId: isHubScoped ? hubId ?? null : null,
             api: {
                 updateEntity: async (id: string, patch: SetLocalizedPayload & { expectedVersion?: number }) => {
                     if (!metahubId) return
@@ -888,6 +956,85 @@ const SetList = () => {
         setDialogOpen(false)
     }
 
+    const handleOpenAttachExistingDialog = () => {
+        setAttachDialogError(null)
+        setAttachDialogOpen(true)
+    }
+
+    const handleCloseAttachExistingDialog = () => {
+        if (isAttachingExisting) return
+        setAttachDialogError(null)
+        setAttachDialogOpen(false)
+    }
+
+    const handleAttachExistingSets = async (data: GenericFormValues) => {
+        if (!metahubId || !hubId) return
+
+        const selectedSetIds = Array.isArray(data.selectedSetIds)
+            ? data.selectedSetIds.filter((id): id is string => typeof id === 'string')
+            : []
+        if (selectedSetIds.length === 0) {
+            return
+        }
+
+        setAttachDialogError(null)
+        setAttachingExisting(true)
+        try {
+            const selectedSets = selectedSetIds.map((setId) => allSetsById.get(setId)).filter((set): set is SetWithHubs => Boolean(set))
+            const failed: string[] = []
+
+            for (const set of selectedSets) {
+                try {
+                    const currentHubIds = Array.isArray(set.hubs) ? set.hubs.map((hub) => hub.id) : []
+                    const nextHubIds = Array.from(new Set([...currentHubIds, hubId]))
+                    await setsApi.updateSetAtMetahub(metahubId, set.id, {
+                        hubIds: nextHubIds,
+                        expectedVersion: set.version
+                    })
+                } catch (error) {
+                    failed.push(getVLCString(set.name, preferredVlcLocale) || getVLCString(set.name, 'en') || set.codename)
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to attach existing set to current hub', error)
+                }
+            }
+
+            await Promise.all([
+                invalidateSetsQueries.all(queryClient, metahubId, hubId),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(metahubId) })
+            ])
+
+            if (failed.length === 0) {
+                enqueueSnackbar(t('sets.attachExisting.success', { count: selectedSets.length, defaultValue: 'Added {{count}} set(s).' }), {
+                    variant: 'success'
+                })
+                setAttachDialogOpen(false)
+                return
+            }
+
+            const successCount = selectedSets.length - failed.length
+            if (successCount > 0) {
+                enqueueSnackbar(
+                    t('sets.attachExisting.partialSuccess', {
+                        successCount,
+                        failCount: failed.length,
+                        defaultValue: 'Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.'
+                    }),
+                    { variant: 'warning' }
+                )
+                setAttachDialogOpen(false)
+                return
+            }
+
+            setAttachDialogError(
+                t('sets.attachExisting.failedAll', {
+                    defaultValue: 'Selected sets could not be linked to this hub. Please review restrictions and try again.'
+                })
+            )
+        } finally {
+            setAttachingExisting(false)
+        }
+    }
+
     const handleCreateSet = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
@@ -923,6 +1070,21 @@ const SetList = () => {
 
             const isSingleHub = Boolean(data.isSingleHub)
 
+            if (isHubScoped && hubId && !hubIds.includes(hubId)) {
+                const confirmed = await confirm({
+                    title: t('sets.detachedConfirm.title', 'Create set without current hub?'),
+                    description: t(
+                        'sets.detachedConfirm.description',
+                        'This set is not linked to the current hub and will not appear in this hub after creation.'
+                    ),
+                    confirmButtonName: t('common:actions.create', 'Create'),
+                    cancelButtonName: t('common:actions.cancel', 'Cancel')
+                })
+                if (!confirmed) {
+                    throw DIALOG_SAVE_CANCEL
+                }
+            }
+
             // Choose API endpoint based on whether we have hubs
             if (hubIds.length > 0) {
                 // Use hub-scoped endpoint with first hub
@@ -943,14 +1105,6 @@ const SetList = () => {
                         isRequiredHub
                     }
                 })
-
-                // Handle navigation after creation
-                if (isHubScoped) {
-                    // In hub-scoped mode: if primary hub differs from current, redirect
-                    if (primaryHubId !== hubId) {
-                        navigate(`/metahub/${metahubId}/hub/${primaryHubId}/sets`)
-                    }
-                }
             } else {
                 // No hubs selected - use metahub-level endpoint
                 await createSetAtMetahubMutation.mutateAsync({
@@ -971,6 +1125,14 @@ const SetList = () => {
             }
             handleDialogSave()
         } catch (e: unknown) {
+            if (
+                e &&
+                typeof e === 'object' &&
+                '__dialogCancelled' in e &&
+                (e as { __dialogCancelled?: unknown }).__dialogCancelled === true
+            ) {
+                throw e
+            }
             const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
@@ -1001,8 +1163,16 @@ const SetList = () => {
         setView(nextView as 'card' | 'table')
     }
 
-    const handleHubTabChange = (_event: unknown, tabValue: 'sets' | 'enumerations') => {
+    const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations') => {
         if (!metahubId || !hubId) return
+        if (tabValue === 'hubs') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
+            return
+        }
+        if (tabValue === 'catalogs') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
+            return
+        }
         if (tabValue === 'enumerations') {
             navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
             return
@@ -1012,6 +1182,8 @@ const SetList = () => {
 
     // Transform Set data for display - use hub-aware version for global mode
     const getSetCardData = (set: SetWithHubs): SetWithHubsDisplay => toSetWithHubsDisplay(set, i18n.language)
+    const showAttachExistingAction = isHubScoped && allowAttachExistingEntities
+    const hasAttachableExistingSets = attachableExistingSets.length > 0
 
     const handleSortableDragEnd = async (event: DragEndEvent) => {
         if (!metahubId) return
@@ -1074,7 +1246,7 @@ const SetList = () => {
             border={false}
             shadow={false}
         >
-            <ExistingCodenamesProvider entities={sets ?? []}>
+            <ExistingCodenamesProvider entities={existingSetCodenames}>
                 {error ? (
                     <EmptyListState
                         image={APIEmptySVG}
@@ -1105,6 +1277,16 @@ const SetList = () => {
                                     onClick: handleAddNew,
                                     startIcon: <AddRoundedIcon />
                                 }}
+                                primaryActionMenuItems={
+                                    showAttachExistingAction && hasAttachableExistingSets
+                                        ? [
+                                              {
+                                                  label: t('common:actions.add', 'Add'),
+                                                  onClick: handleOpenAttachExistingDialog
+                                              }
+                                          ]
+                                        : undefined
+                                }
                             />
                         </ViewHeader>
 
@@ -1124,135 +1306,139 @@ const SetList = () => {
                                         }
                                     }}
                                 >
+                                    <Tab value='hubs' label={t('hubs.title')} />
+                                    <Tab value='catalogs' label={t('catalogs.title')} />
                                     <Tab value='sets' label={t('sets.title')} />
                                     <Tab value='enumerations' label={t('enumerations.title')} />
                                 </Tabs>
                             </Box>
                         )}
 
-                        {isLoading && sortedSets.length === 0 ? (
-                            view === 'card' ? (
-                                <SkeletonGrid />
-                            ) : (
-                                <Skeleton variant='rectangular' height={120} />
-                            )
-                        ) : !isLoading && sortedSets.length === 0 ? (
-                            <EmptyListState
-                                image={APIEmptySVG}
-                                imageAlt='No sets'
-                                title={searchValue ? t('sets.noSearchResults') : t('sets.empty')}
-                                description={searchValue ? t('sets.noSearchResultsHint') : t('sets.emptyDescription')}
-                            />
-                        ) : (
-                            <>
-                                {view === 'card' ? (
-                                    <Box
-                                        sx={{
-                                            display: 'grid',
-                                            gap: gridSpacing,
-                                            mx: { xs: -1.5, md: -2 },
-                                            gridTemplateColumns: {
-                                                xs: '1fr',
-                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                            },
-                                            justifyContent: 'start',
-                                            alignContent: 'start'
-                                        }}
-                                    >
-                                        {sortedSets.map((set: SetWithHubs) => {
-                                            const descriptors = [...filteredSetActions]
-                                            const displayData = getSetCardData(set)
-
-                                            return (
-                                                <ItemCard
-                                                    key={set.id}
-                                                    data={displayData}
-                                                    images={images[set.id] || []}
-                                                    onClick={() => goToSet(set)}
-                                                    footerEndContent={
-                                                        <Stack direction='row' spacing={1} alignItems='center'>
-                                                            {/* Show hub chip only in global mode */}
-                                                            {!isHubScoped && displayData.hubName && (
-                                                                <>
-                                                                    <Chip label={displayData.hubName} size='small' variant='outlined' />
-                                                                    {displayData.hubsCount > 1 && (
-                                                                        <Typography variant='caption' color='text.secondary'>
-                                                                            +{displayData.hubsCount - 1}
-                                                                        </Typography>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                            {typeof set.constantsCount === 'number' && (
-                                                                <Typography variant='caption' color='text.secondary'>
-                                                                    {t('sets.constantsCount', { count: set.constantsCount })}
-                                                                </Typography>
-                                                            )}
-                                                        </Stack>
-                                                    }
-                                                    headerAction={
-                                                        descriptors.length > 0 ? (
-                                                            <Box onClick={(e) => e.stopPropagation()}>
-                                                                <BaseEntityMenu<SetDisplayWithHub, SetLocalizedPayload>
-                                                                    entity={displayData}
-                                                                    entityKind='set'
-                                                                    descriptors={descriptors}
-                                                                    namespace='metahubs'
-                                                                    i18nInstance={i18n}
-                                                                    createContext={createSetContext}
-                                                                />
-                                                            </Box>
-                                                        ) : null
-                                                    }
-                                                />
-                                            )
-                                        })}
-                                    </Box>
+                        <Box sx={{ mt: isHubScoped ? 2 : 0 }}>
+                            {isLoading && sortedSets.length === 0 ? (
+                                view === 'card' ? (
+                                    <SkeletonGrid />
                                 ) : (
-                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                        <FlowListTable
-                                            data={sortedSets.map(getSetCardData)}
-                                            images={images}
-                                            isLoading={isLoading}
-                                            sortableRows
-                                            sortableItemIds={sortedSets.map((set) => set.id)}
-                                            dragHandleAriaLabel={t('sets.dnd.dragHandle', 'Drag to reorder')}
-                                            dragDisabled={reorderSetMutation.isPending || isLoading}
-                                            onSortableDragEnd={handleSortableDragEnd}
-                                            renderDragOverlay={renderDragOverlay}
-                                            getRowLink={(row: SetWithHubsDisplay) =>
-                                                row?.id
-                                                    ? isHubScoped
-                                                        ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
-                                                        : `/metahub/${metahubId}/set/${row.id}/constants`
-                                                    : undefined
-                                            }
-                                            customColumns={setColumns}
-                                            i18nNamespace='flowList'
-                                            renderActions={(row: SetWithHubsDisplay) => {
-                                                const originalSet = setMap.get(row.id)
-                                                if (!originalSet) return null
-
+                                    <Skeleton variant='rectangular' height={120} />
+                                )
+                            ) : !isLoading && sortedSets.length === 0 ? (
+                                <EmptyListState
+                                    image={APIEmptySVG}
+                                    imageAlt='No sets'
+                                    title={searchValue ? t('sets.noSearchResults') : t('sets.empty')}
+                                    description={searchValue ? t('sets.noSearchResultsHint') : t('sets.emptyDescription')}
+                                />
+                            ) : (
+                                <>
+                                    {view === 'card' ? (
+                                        <Box
+                                            sx={{
+                                                display: 'grid',
+                                                gap: gridSpacing,
+                                                mx: { xs: -1.5, md: -2 },
+                                                gridTemplateColumns: {
+                                                    xs: '1fr',
+                                                    sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                    lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                                },
+                                                justifyContent: 'start',
+                                                alignContent: 'start'
+                                            }}
+                                        >
+                                            {sortedSets.map((set: SetWithHubs) => {
                                                 const descriptors = [...filteredSetActions]
-                                                if (!descriptors.length) return null
+                                                const displayData = getSetCardData(set)
 
                                                 return (
-                                                    <BaseEntityMenu<SetDisplayWithHub, SetLocalizedPayload>
-                                                        entity={getSetCardData(originalSet)}
-                                                        entityKind='set'
-                                                        descriptors={descriptors}
-                                                        namespace='metahubs'
-                                                        menuButtonLabelKey='flowList:menu.button'
-                                                        i18nInstance={i18n}
-                                                        createContext={createSetContext}
+                                                    <ItemCard
+                                                        key={set.id}
+                                                        data={displayData}
+                                                        images={images[set.id] || []}
+                                                        onClick={() => goToSet(set)}
+                                                        footerEndContent={
+                                                            <Stack direction='row' spacing={1} alignItems='center'>
+                                                                {/* Show hub chip only in global mode */}
+                                                                {!isHubScoped && displayData.hubName && (
+                                                                    <>
+                                                                        <Chip label={displayData.hubName} size='small' variant='outlined' />
+                                                                        {displayData.hubsCount > 1 && (
+                                                                            <Typography variant='caption' color='text.secondary'>
+                                                                                +{displayData.hubsCount - 1}
+                                                                            </Typography>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                                {typeof set.constantsCount === 'number' && (
+                                                                    <Typography variant='caption' color='text.secondary'>
+                                                                        {t('sets.constantsCount', { count: set.constantsCount })}
+                                                                    </Typography>
+                                                                )}
+                                                            </Stack>
+                                                        }
+                                                        headerAction={
+                                                            descriptors.length > 0 ? (
+                                                                <Box onClick={(e) => e.stopPropagation()}>
+                                                                    <BaseEntityMenu<SetDisplayWithHub, SetLocalizedPayload>
+                                                                        entity={displayData}
+                                                                        entityKind='set'
+                                                                        descriptors={descriptors}
+                                                                        namespace='metahubs'
+                                                                        i18nInstance={i18n}
+                                                                        createContext={createSetContext}
+                                                                    />
+                                                                </Box>
+                                                            ) : null
+                                                        }
                                                     />
                                                 )
-                                            }}
-                                        />
-                                    </Box>
-                                )}
-                            </>
-                        )}
+                                            })}
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                            <FlowListTable
+                                                data={sortedSets.map(getSetCardData)}
+                                                images={images}
+                                                isLoading={isLoading}
+                                                sortableRows
+                                                sortableItemIds={sortedSets.map((set) => set.id)}
+                                                dragHandleAriaLabel={t('sets.dnd.dragHandle', 'Drag to reorder')}
+                                                dragDisabled={reorderSetMutation.isPending || isLoading}
+                                                onSortableDragEnd={handleSortableDragEnd}
+                                                renderDragOverlay={renderDragOverlay}
+                                                getRowLink={(row: SetWithHubsDisplay) =>
+                                                    row?.id
+                                                        ? isHubScoped
+                                                            ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
+                                                            : `/metahub/${metahubId}/set/${row.id}/constants`
+                                                        : undefined
+                                                }
+                                                customColumns={setColumns}
+                                                i18nNamespace='flowList'
+                                                renderActions={(row: SetWithHubsDisplay) => {
+                                                    const originalSet = setMap.get(row.id)
+                                                    if (!originalSet) return null
+
+                                                    const descriptors = [...filteredSetActions]
+                                                    if (!descriptors.length) return null
+
+                                                    return (
+                                                        <BaseEntityMenu<SetDisplayWithHub, SetLocalizedPayload>
+                                                            entity={getSetCardData(originalSet)}
+                                                            entityKind='set'
+                                                            descriptors={descriptors}
+                                                            namespace='metahubs'
+                                                            menuButtonLabelKey='flowList:menu.button'
+                                                            i18nInstance={i18n}
+                                                            createContext={createSetContext}
+                                                        />
+                                                    )
+                                                }}
+                                            />
+                                        </Box>
+                                    )}
+                                </>
+                            )}
+                        </Box>
 
                         {/* Table Pagination at bottom */}
                         {!isLoading && sortedSets.length > 0 && (
@@ -1286,6 +1472,65 @@ const SetList = () => {
                     tabs={buildFormTabs}
                     validate={validateSetForm}
                     canSave={canSaveSetForm}
+                />
+
+                <EntityFormDialog
+                    open={isAttachDialogOpen}
+                    title={t('sets.attachExisting.dialogTitle', 'Add Existing Sets')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={t('common:actions.add', 'Add')}
+                    savingButtonText={t('common:actions.saving', 'Saving...')}
+                    cancelButtonText={t('common:actions.cancel', 'Cancel')}
+                    loading={isAttachingExisting}
+                    error={attachDialogError || undefined}
+                    onClose={handleCloseAttachExistingDialog}
+                    onSave={handleAttachExistingSets}
+                    hideDefaultFields
+                    initialExtraValues={{ selectedSetIds: [] }}
+                    tabs={({ values, setValue, isLoading, errors }) => {
+                        const selectedSetIds = Array.isArray(values.selectedSetIds)
+                            ? values.selectedSetIds.filter((id): id is string => typeof id === 'string')
+                            : []
+                        return [
+                            {
+                                id: 'sets',
+                                label: t('sets.title', 'Sets'),
+                                content: (
+                                    <EntitySelectionPanel<SetWithHubs>
+                                        availableEntities={attachableExistingSets}
+                                        selectedIds={selectedSetIds}
+                                        onSelectionChange={(ids) => setValue('selectedSetIds', ids)}
+                                        getDisplayName={(set) =>
+                                            getVLCString(set.name, preferredVlcLocale) ||
+                                            getVLCString(set.name, 'en') ||
+                                            set.codename ||
+                                            '—'
+                                        }
+                                        getCodename={(set) => set.codename}
+                                        labels={attachExistingSetSelectionLabels}
+                                        disabled={isLoading}
+                                        error={errors.selectedSetIds}
+                                    />
+                                )
+                            }
+                        ]
+                    }}
+                    validate={(values) => {
+                        const selectedSetIds = Array.isArray(values.selectedSetIds)
+                            ? values.selectedSetIds.filter((id): id is string => typeof id === 'string')
+                            : []
+                        if (selectedSetIds.length > 0) return null
+                        return {
+                            selectedSetIds: t('sets.attachExisting.requiredSelection', 'Select at least one set to add.')
+                        }
+                    }}
+                    canSave={(values) => {
+                        const selectedSetIds = Array.isArray(values.selectedSetIds)
+                            ? values.selectedSetIds.filter((id): id is string => typeof id === 'string')
+                            : []
+                        return !isAttachingExisting && selectedSetIds.length > 0
+                    }}
                 />
 
                 {/* Independent ConfirmDeleteDialog */}
@@ -1414,6 +1659,14 @@ const SetList = () => {
                 <ConfirmDialog />
             </ExistingCodenamesProvider>
         </MainCard>
+    )
+}
+
+const SetList = () => {
+    return (
+        <ConfirmContextProvider>
+            <SetListContent />
+        </ConfirmContextProvider>
     )
 }
 

@@ -203,4 +203,63 @@ export class MetahubSettingsService {
                 _upl_updated_by: userId ?? null
             })
     }
+
+    /**
+     * Clears all parent-child hub nesting links by setting `config.parentHubId = null`
+     * for every non-deleted hub object in `_mhb_objects`.
+     */
+    async clearHubNesting(metahubId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const now = new Date()
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: 'hub' })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .andWhereRaw(`COALESCE(config->>'parentHubId', '') <> ''`)
+            .select('id', 'config')
+
+        if (!rows.length) return 0
+
+        await this.knex.transaction(async (trx) => {
+            for (const row of rows as Array<{ id: string; config?: Record<string, unknown> }>) {
+                const nextConfig = {
+                    ...((row.config as Record<string, unknown> | undefined) ?? {}),
+                    parentHubId: null
+                }
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_objects')
+                    .where({ id: row.id })
+                    .update({
+                        config: nextConfig,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+            }
+        })
+
+        return rows.length
+    }
+
+    /**
+     * Returns true when at least one active hub has a non-null parentHubId.
+     */
+    async hasHubNesting(metahubId: string, userId?: string): Promise<boolean> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const row = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: 'hub' })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .andWhereRaw(`COALESCE(config->>'parentHubId', '') <> ''`)
+            .count<{ total: string | number }[]>('* as total')
+            .first()
+
+        const total = Number(row?.total ?? 0)
+        return Number.isFinite(total) && total > 0
+    }
 }

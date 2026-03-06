@@ -46,7 +46,8 @@
       "email": "Email",
       "password": "Пароль",
       "title": "Название",
-      "id": "ID"
+      "id": "ID",
+      "codename": "Кодовое имя"
     },
     "expand": "Развернуть",
     "close": "Закрыть",

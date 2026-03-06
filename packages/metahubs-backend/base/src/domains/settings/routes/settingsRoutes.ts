@@ -149,8 +149,9 @@ export function createSettingsRoutes(
             const languageOptions = await getContentLocaleCodes(ds)
             const registry = withDynamicLanguageOptions(languageOptions)
             const merged = mergeSettingsWithDefaults(dbRows, registry)
+            const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
 
-            res.json({ settings: merged, registry })
+            res.json({ settings: merged, registry, meta: { hasHubNesting } })
         })
     )
 
@@ -190,11 +191,20 @@ export function createSettingsRoutes(
             const { settingsService } = services(req)
             await settingsService.bulkUpsert(metahubId, parsed.data.settings, userId)
 
+            // One-shot action: clear hub nesting links and immediately reset trigger flag.
+            const requestedResetNesting =
+                parsed.data.settings.find((entry) => entry.key === 'hubs.resetNestingOnce')?.value?._value === true
+            if (requestedResetNesting) {
+                await settingsService.clearHubNesting(metahubId, userId)
+                await settingsService.resetToDefault(metahubId, 'hubs.resetNestingOnce', userId)
+            }
+
             // Re-load all settings for a complete merged response (consistent with GET)
             const dbRows = await settingsService.findAll(metahubId, userId)
             const registry = withDynamicLanguageOptions(languageOptions)
             const merged = mergeSettingsWithDefaults(dbRows, registry)
-            res.json({ settings: merged, registry })
+            const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
+            res.json({ settings: merged, registry, meta: { hasHubNesting } })
         })
     )
 

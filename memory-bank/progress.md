@@ -44,6 +44,80 @@
 
 ---
 
+## QA Debt Closure for Hub Nesting and Hub-Scoped UX (2026-03-06)
+
+Completed the follow-up implementation pass for QA debt in hub nesting and hub-scoped entity flows.
+
+### Delivered fixes
+
+| Area | Delivered |
+| --- | --- |
+| i18n integrity | Removed duplicate EN keys in `metahubs` locale (`hubs.detachedConfirm`, `hubs.attachExisting`) |
+| Shared labels | Added missing `common.fields.codename` to shared EN/RU locales in `@universo/i18n` |
+| Codename prevalidation scalability | Added shared helper `fetchAllPaginatedItems` and replaced fixed `limit: 500` full-list queries with all-pages deterministic fetches (`sortOrder asc`) in hubs/catalogs/sets/enumerations list screens |
+| Menu editor parity | Updated menu widget editor full-list data loads (hubs + catalogs) to all-pages fetch pattern |
+| Console noise cleanup | Removed residual debug `console.log` traces from `@universo/template-mui` `usePaginated` hook |
+| Parent safety QA check | Revalidated edit/copy parent selection safety path (cycle exclusions remain enforced by `HubActions` + `HubParentSelectionPanel`) |
+
+### Verification
+
+- Lint (warnings only, no errors):
+  - `pnpm --filter @universo/metahubs-frontend lint`
+  - `pnpm --filter @universo/template-mui lint`
+- Tests:
+  - `pnpm --filter @universo/metahubs-frontend test` (25 files, 102 tests passed)
+  - `pnpm --filter @universo/template-mui test` (11 suites, 171 tests passed)
+- Build:
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `pnpm --filter @universo/template-mui build`
+
+### Notes
+
+- `@universo/i18n` package has no `build` script in workspace; locale changes are consumed directly by dependent package builds.
+
+## Nested Hubs + Hub-Scoped Linking + Runtime Menu Hierarchy (2026-03-06)
+
+Completed end-to-end implementation of the approved Nested Hubs plan with backend safety guards, frontend UX parity, runtime menu hierarchy rendering, and DDL connector alignment.
+
+### Key Delivered Changes
+
+| Area | Delivered |
+|------|-----------|
+| Shared contracts | Added settings keys `hubs.allowNesting`, `hubs.resetNestingOnce`, `hubs.allowAttachExistingEntities`; added menu item kind `hub` and `hubId` support in shared types |
+| Backend hubs | Added `parentHubId` lifecycle for create/update/copy, cycle-safe validation, child hubs listing route, parent-delete blocking with child hubs |
+| Backend scoped associations | Removed forced current-hub merge in hub-scoped create/update semantics for catalogs/sets/enumerations while preserving strict hub association validation |
+| Backend settings runtime | Implemented one-shot `hubs.resetNestingOnce` execution + auto-reset and runtime enforcement of `hubs.allowNesting` constraints |
+| Frontend hub UX | Added `Hubs` tab and parent hub selector in create/edit/copy flows (scope-aware), detached confirmation modals, and quick re-link to current hub action |
+| Frontend add-existing flows | Implemented split action (`Create` + `Add`) and add-existing dialogs for hubs/catalogs/sets/enumerations with shared UI components |
+| Menu widget + runtime app | Added hub item binding in menu widget editor; runtime menu now expands hub hierarchy with nested catalogs in deterministic order |
+| DDL/publication/connector | Stopped physical `hub_*` table creation; preserved metadata behavior (`table_name`) and publication/runtime compatibility |
+| Branch integrity | Added post-prune branch sanitization for dangling/self `parentHubId` references and extended branch service test coverage |
+| i18n | Added RU/EN keys for settings, tabs, detached warnings, attach-existing dialogs, and menu hub labels |
+
+### Verification
+
+- Lint (warnings only, no errors):
+  - `pnpm --filter @universo/template-mui lint`
+  - `pnpm --filter @universo/metahubs-frontend lint`
+  - `pnpm --filter @universo/apps-template-mui lint`
+  - `pnpm --filter @universo/metahubs-backend lint`
+  - `pnpm --filter @universo/applications-backend lint`
+  - `pnpm --filter @universo/schema-ddl lint`
+- Build:
+  - `pnpm --filter @universo/types build`
+  - `pnpm --filter @universo/template-mui build`
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `pnpm --filter @universo/apps-template-mui build`
+  - `pnpm --filter @universo/schema-ddl build`
+  - `pnpm --filter @universo/applications-backend build`
+  - `pnpm --filter @universo/metahubs-backend build`
+- Tests:
+  - `pnpm --filter @universo/metahubs-backend test -- src/tests/services/metahubBranchesService.test.ts src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/elementsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts`
+  - `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts src/tests/routes/connectorsRoutes.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend test -- src/domains/shared/__tests__/queryKeys.test.ts src/domains/shared/__tests__/apiClient.test.ts` (Vitest resolved to full suite run; all tests passed)
+
+---
+
 ## PR #710 QA Fixes (2026-03-06)
 
 Comprehensive QA analysis of all 66 files in PR #710 found 4 failing tests and 2 prettier errors. Both issues fixed and verified.

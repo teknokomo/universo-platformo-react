@@ -30,6 +30,9 @@ export interface SettingsRegistryEntry {
 export interface SettingsResponse {
     settings: SettingResponse[]
     registry: SettingsRegistryEntry[]
+    meta?: {
+        hasHubNesting?: boolean
+    }
 }
 
 export interface ResetSettingResponse {

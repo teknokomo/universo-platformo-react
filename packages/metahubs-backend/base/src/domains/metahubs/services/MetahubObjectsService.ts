@@ -167,8 +167,8 @@ export class MetahubObjectsService {
 
             const createdId = created.id as string
 
-            // Only catalogs/documents/hubs may need physical runtime tables.
-            if (kind !== 'enumeration' && kind !== 'set') {
+            // Physical runtime tables are only required for catalog/document kinds.
+            if (kind === 'catalog' || kind === 'document') {
                 const tableName = generateTableName(created.id, kind)
                 await runner.withSchema(schemaName).from('_mhb_objects').where({ id: created.id }).update({ table_name: tableName })
             }

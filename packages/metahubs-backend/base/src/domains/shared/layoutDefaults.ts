@@ -32,23 +32,9 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
                 locales: { en: { content: 'Main', version: 1, isActive: true }, ru: { content: 'Главное', version: 1, isActive: true } }
             },
             autoShowAllCatalogs: true,
-            items: [
-                {
-                    id: 'default-catalogs-all',
-                    kind: 'catalogs_all',
-                    title: {
-                        _schema: '1',
-                        _primary: 'en',
-                        locales: {
-                            en: { content: 'Catalogs', version: 1, isActive: true },
-                            ru: { content: 'Каталоги', version: 1, isActive: true }
-                        }
-                    },
-                    icon: 'database',
-                    sortOrder: 1,
-                    isActive: true
-                }
-            ]
+            bindToHub: false,
+            boundHubId: null,
+            items: []
         }
     },
     { zone: 'left', widgetKey: 'spacer', sortOrder: 4, isActive: false },

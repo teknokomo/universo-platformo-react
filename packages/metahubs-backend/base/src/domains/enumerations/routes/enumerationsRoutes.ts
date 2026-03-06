@@ -1301,10 +1301,7 @@ export function createEnumerationsRoutes(
             const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
 
             const effectiveIsRequired = isRequiredHub ?? false
-            let targetHubIds = [hubId]
-            if (hubIds && Array.isArray(hubIds)) {
-                targetHubIds = Array.from(new Set([...hubIds, hubId]))
-            }
+            const targetHubIds = hubIds && Array.isArray(hubIds) ? hubIds : [hubId]
             if ((isSingleHub ?? false) && targetHubIds.length > 1) {
                 return res.status(400).json({ error: 'This enumeration is restricted to a single hub' })
             }

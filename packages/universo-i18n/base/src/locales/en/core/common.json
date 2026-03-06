@@ -46,7 +46,8 @@
       "email": "Email",
       "password": "Password",
       "title": "Title",
-      "id": "ID"
+      "id": "ID",
+      "codename": "Codename"
     },
     "expand": "Expand",
     "close": "Close",

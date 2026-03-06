@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import { KnexClient, generateTableName } from '../../ddl'
+import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
@@ -43,13 +43,16 @@ export class MetahubHubsService {
      * Maps a raw _mhb_objects row to Hub response format.
      */
     private mapHubFromObject(row: Record<string, unknown>): Record<string, unknown> {
+        const config = (row.config as Record<string, unknown>) ?? {}
         return {
             id: row.id,
             codename: row.codename,
             codenameLocalized: (row.presentation as Record<string, unknown>)?.codename ?? null,
             name: (row.presentation as Record<string, unknown>)?.name ?? {},
             description: (row.presentation as Record<string, unknown>)?.description ?? null,
-            sort_order: (row.config as Record<string, unknown>)?.sortOrder ?? 0,
+            sort_order: config.sortOrder ?? 0,
+            parent_hub_id: typeof config.parentHubId === 'string' ? config.parentHubId : null,
+            _upl_version: row._upl_version,
             created_at: row._upl_created_at,
             updated_at: row._upl_updated_at
         }
@@ -160,6 +163,7 @@ export class MetahubHubsService {
             name: Record<string, unknown>
             description?: Record<string, unknown>
             sortOrder?: number
+            parentHubId?: string | null
             createdBy?: string | null
         },
         userId?: string
@@ -184,7 +188,8 @@ export class MetahubHubsService {
                         description: input.description ?? null
                     },
                     config: {
-                        sortOrder
+                        sortOrder,
+                        parentHubId: input.parentHubId ?? null
                     },
                     _upl_created_at: new Date(),
                     _upl_created_by: input.createdBy ?? null,
@@ -192,16 +197,7 @@ export class MetahubHubsService {
                     _upl_updated_by: input.createdBy ?? null
                 })
                 .returning('*')
-
-            const tableName = generateTableName(created.id, 'hub')
-            const [updated] = await trx
-                .withSchema(schemaName)
-                .from('_mhb_objects')
-                .where({ id: created.id })
-                .update({ table_name: tableName })
-                .returning('*')
-
-            return this.mapHubFromObject(updated)
+            return this.mapHubFromObject(created)
         })
     }
 
@@ -217,14 +213,17 @@ export class MetahubHubsService {
             name?: Record<string, unknown>
             description?: Record<string, unknown>
             sortOrder?: number
+            parentHubId?: string | null
             updatedBy?: string | null
             expectedVersion?: number
         },
-        userId?: string
+        userId?: string,
+        trx?: Knex.Transaction
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const runner = trx ?? this.knex
 
-        const existing = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).first()
+        const existing = await runner.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).first()
 
         if (!existing) throw new Error('Hub not found')
 
@@ -251,17 +250,18 @@ export class MetahubHubsService {
         }
 
         // Update config (merge with existing)
-        if (input.sortOrder !== undefined) {
+        if (input.sortOrder !== undefined || input.parentHubId !== undefined) {
             updateData.config = {
                 ...currentConfig,
-                sortOrder: input.sortOrder
+                ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+                ...(input.parentHubId !== undefined ? { parentHubId: input.parentHubId } : {})
             }
         }
 
         // If expectedVersion is provided, use version-checked update
         if (input.expectedVersion !== undefined) {
             const updated = await updateWithVersionCheck({
-                knex: this.knex,
+                knex: runner as unknown as Knex,
                 schemaName,
                 tableName: '_mhb_objects',
                 entityId: hubId,
@@ -273,7 +273,7 @@ export class MetahubHubsService {
         }
 
         // Fallback: increment version without check (backwards compatibility)
-        const updated = await incrementVersion(this.knex, schemaName, '_mhb_objects', hubId, updateData)
+        const updated = await incrementVersion(runner as unknown as Knex, schemaName, '_mhb_objects', hubId, updateData)
         return this.mapHubFromObject(updated)
     }
 
