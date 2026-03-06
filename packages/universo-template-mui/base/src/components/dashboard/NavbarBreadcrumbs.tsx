@@ -299,7 +299,7 @@ export default function NavbarBreadcrumbs() {
                         if (segments[4] === 'catalogs') {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
 
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
@@ -326,19 +326,25 @@ export default function NavbarBreadcrumbs() {
                         } else if (segments[4] === 'enumerations') {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
                         } else if (segments[4] === 'sets') {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
+                        } else if (segments[4] === 'hubs') {
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
+                            })
+                            items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs` })
                         } else if (segments[4] === 'set') {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
 
@@ -363,7 +369,7 @@ export default function NavbarBreadcrumbs() {
                         } else if (segments[4] === 'enumeration') {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
 
@@ -388,7 +394,7 @@ export default function NavbarBreadcrumbs() {
                         } else if (segments[4] === 'catalog') {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
 
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
@@ -415,7 +421,7 @@ export default function NavbarBreadcrumbs() {
                         } else {
                             items.push({
                                 label: truncateHubName(hubName),
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
 
                             if (segments[4] === 'attributes') {

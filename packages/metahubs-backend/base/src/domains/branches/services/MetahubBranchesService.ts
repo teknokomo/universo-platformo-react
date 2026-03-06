@@ -162,6 +162,28 @@ export class MetahubBranchesService {
         )
     }
 
+    private async sanitizeHubParentReferences(manager: EntityManager, schemaIdent: string): Promise<void> {
+        await manager.query(`
+            UPDATE ${schemaIdent}._mhb_objects AS child
+            SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true)
+            WHERE child.kind = 'hub'
+              AND COALESCE(child._upl_deleted, false) = false
+              AND COALESCE(child._mhb_deleted, false) = false
+              AND COALESCE(child.config->>'parentHubId', '') <> ''
+              AND (
+                  child.config->>'parentHubId' = child.id
+                  OR NOT EXISTS (
+                      SELECT 1
+                      FROM ${schemaIdent}._mhb_objects AS parent
+                      WHERE parent.kind = 'hub'
+                        AND COALESCE(parent._upl_deleted, false) = false
+                        AND COALESCE(parent._mhb_deleted, false) = false
+                        AND parent.id = child.config->>'parentHubId'
+                  )
+              )
+        `)
+    }
+
     private async pruneClonedSchema(manager: EntityManager, schemaName: string, options: BranchCopyOptions): Promise<void> {
         this.assertSafeSchemaName(schemaName)
         const schemaIdent = this.quoteIdent(schemaName)
@@ -181,6 +203,9 @@ export class MetahubBranchesService {
         if (kindsToDelete.length > 0) {
             await manager.query(`DELETE FROM ${schemaIdent}._mhb_objects WHERE kind = ANY($1::text[])`, [kindsToDelete])
         }
+
+        // Ensure hubs never keep dangling/self parent links after prune.
+        await this.sanitizeHubParentReferences(manager, schemaIdent)
     }
 
     /**

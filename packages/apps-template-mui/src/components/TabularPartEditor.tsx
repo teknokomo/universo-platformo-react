@@ -245,7 +245,13 @@ export function TabularPartEditor({
                                         cellValue = null
                                     }
                                     // Validate NUMBER fields — revert to old value if invalid
-                                    if (field.type === 'NUMBER' && cellValue != null && typeof cellValue === 'number' && !Number.isNaN(cellValue) && field.validationRules) {
+                                    if (
+                                        field.type === 'NUMBER' &&
+                                        cellValue != null &&
+                                        typeof cellValue === 'number' &&
+                                        !Number.isNaN(cellValue) &&
+                                        field.validationRules
+                                    ) {
                                         const result = validateNumber(cellValue, toNumberRules(field.validationRules))
                                         if (!result.valid) {
                                             cellValue = oldRow[field.id] ?? null
@@ -325,10 +331,7 @@ export function TabularPartEditor({
                     {t('app.edit', 'Edit')}
                 </MenuItem>
                 <Divider />
-                <MenuItem
-                    onClick={handleDeleteRowFromMenu}
-                    sx={{ color: 'error.main' }}
-                >
+                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('tabular.delete', 'Delete')}
                 </MenuItem>

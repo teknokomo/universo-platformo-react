@@ -1,4 +1,3 @@
-import { createPortal } from 'react-dom'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -34,14 +33,13 @@ export const ConfirmDialog = () => {
     const { onConfirm, onCancel, confirmState } = useConfirm()
     const { t } = useTranslation()
 
-    // Get portal element (must exist in index.html)
     const portalElement = typeof document !== 'undefined' ? document.getElementById('portal') : null
 
-    if (!portalElement || !confirmState.show) {
+    if (!confirmState.show) {
         return null
     }
 
-    return createPortal(
+    return (
         <Dialog
             fullWidth
             maxWidth='sm'
@@ -49,6 +47,21 @@ export const ConfirmDialog = () => {
             onClose={onCancel}
             aria-labelledby='confirm-dialog-title'
             aria-describedby='confirm-dialog-description'
+            container={portalElement ?? undefined}
+            disablePortal={!portalElement}
+            PaperProps={{
+                'data-confirm-dialog-request-id': confirmState.requestId || undefined
+            }}
+            sx={{
+                zIndex: (theme) => theme.zIndex.modal + 20,
+                '& .MuiBackdrop-root': {
+                    zIndex: (theme) => theme.zIndex.modal + 19
+                },
+                '& .MuiDialog-paper': {
+                    position: 'relative',
+                    zIndex: (theme) => theme.zIndex.modal + 21
+                }
+            }}
         >
             <DialogTitle id='confirm-dialog-title' sx={{ fontSize: '1rem' }}>
                 {confirmState.title || t('common:confirm.title')}
@@ -64,8 +77,7 @@ export const ConfirmDialog = () => {
                     {confirmState.confirmButtonName || t('common:confirm.confirmButtonText')}
                 </Button>
             </DialogActions>
-        </Dialog>,
-        portalElement
+        </Dialog>
     )
 }
 

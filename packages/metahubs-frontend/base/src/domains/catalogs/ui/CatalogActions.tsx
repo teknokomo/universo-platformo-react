@@ -25,6 +25,7 @@ const DEFAULT_CC: CodenameConfig = {
     localizedEnabled: false
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
@@ -38,7 +39,10 @@ export interface CatalogDisplayWithHub extends CatalogDisplay {
 
 type CatalogFormValues = Record<string, unknown>
 type CatalogFormSetValue = (name: string, value: unknown) => void
-type CatalogActionContext = ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload> & { hubs?: Hub[] }
+type CatalogActionContext = ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload> & {
+    hubs?: Hub[]
+    currentHubId?: string | null
+}
 type CatalogDialogTabArgs = {
     values: CatalogFormValues
     setValue: CatalogFormSetValue
@@ -419,6 +423,7 @@ const buildFormTabs = (
             const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
             const isSingleHub = Boolean(values.isSingleHub)
             const isRequiredHub = Boolean(values.isRequiredHub)
+            const currentHubId = (ctx as CatalogActionContext).currentHubId ?? null
 
             tabs.push({
                 id: 'hubs',
@@ -435,6 +440,7 @@ const buildFormTabs = (
                         disabled={isFormLoading}
                         error={errors.hubIds}
                         uiLocale={ctx.uiLocale as string}
+                        currentHubId={currentHubId}
                     />
                 )
             })
@@ -492,9 +498,37 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                     onSave: async (data: CatalogFormValues) => {
                         try {
                             const payload = toPayload(data)
+                            const currentHubId = (ctx as CatalogActionContext).currentHubId
+                            const detachedFromCurrentHub =
+                                typeof currentHubId === 'string' &&
+                                currentHubId.length > 0 &&
+                                Array.isArray(payload.hubIds) &&
+                                !payload.hubIds.includes(currentHubId)
+                            if (detachedFromCurrentHub && ctx.helpers?.confirm) {
+                                const confirmed = await ctx.helpers.confirm({
+                                    title: ctx.t('catalogs.detachedConfirm.editTitle', 'Save catalog without current hub?'),
+                                    description: ctx.t(
+                                        'catalogs.detachedConfirm.description',
+                                        'This catalog is not linked to the current hub and will not appear in this hub after saving.'
+                                    ),
+                                    confirmButtonName: ctx.t('common:actions.save', 'Save'),
+                                    cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
+                                })
+                                if (!confirmed) {
+                                    throw DIALOG_SAVE_CANCEL
+                                }
+                            }
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
+                            if (
+                                error &&
+                                typeof error === 'object' &&
+                                '__dialogCancelled' in error &&
+                                (error as { __dialogCancelled?: unknown }).__dialogCancelled === true
+                            ) {
+                                throw error
+                            }
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
                         }
@@ -564,12 +598,40 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                         try {
                             const payload = toPayload(data)
                             const copyOptions = getCatalogCopyOptions(data)
+                            const currentHubId = (ctx as CatalogActionContext).currentHubId
+                            const detachedFromCurrentHub =
+                                typeof currentHubId === 'string' &&
+                                currentHubId.length > 0 &&
+                                Array.isArray(payload.hubIds) &&
+                                !payload.hubIds.includes(currentHubId)
+                            if (detachedFromCurrentHub && ctx.helpers?.confirm) {
+                                const confirmed = await ctx.helpers.confirm({
+                                    title: ctx.t('catalogs.detachedConfirm.copyTitle', 'Create catalog copy without current hub?'),
+                                    description: ctx.t(
+                                        'catalogs.detachedConfirm.description',
+                                        'This catalog is not linked to the current hub and will not appear in this hub after saving.'
+                                    ),
+                                    confirmButtonName: ctx.t('common:actions.create', 'Create'),
+                                    cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
+                                })
+                                if (!confirmed) {
+                                    throw DIALOG_SAVE_CANCEL
+                                }
+                            }
                             await ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
                                 ...copyOptions
                             })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
+                            if (
+                                error &&
+                                typeof error === 'object' &&
+                                '__dialogCancelled' in error &&
+                                (error as { __dialogCancelled?: unknown }).__dialogCancelled === true
+                            ) {
+                                throw error
+                            }
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
                         }

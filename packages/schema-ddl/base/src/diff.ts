@@ -5,6 +5,7 @@ import { generateColumnName, generateTableName, generateChildTableName } from '.
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
+const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -77,10 +78,12 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
-    const newPhysicalEntities = newEntities.filter((entity) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND)
+    const newPhysicalEntities = newEntities.filter(
+        (entity) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND && entity.kind !== HUB_KIND
+    )
     const oldPhysicalEntities = oldSnapshot?.entities
         ? Object.entries(oldSnapshot.entities)
-              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND)
+              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND && entity.kind !== HUB_KIND)
               .map(([entityId, entity]) => ({
                   ...entity,
                   id: entityId

@@ -20,6 +20,7 @@ export interface BlockingCatalogsResponse {
     blockingCatalogs: BlockingHubObject[]
     blockingSets: BlockingHubObject[]
     blockingEnumerations: BlockingHubObject[]
+    blockingChildHubs: BlockingHubObject[]
     totalBlocking: number
     canDelete: boolean
 }
@@ -42,6 +43,36 @@ export const listHubs = async (metahubId: string, params?: PaginationParams): Pr
     )
 
     // Backend returns { items, pagination } object
+    const backendPagination = response.data.pagination
+    return {
+        items: response.data.items || [],
+        pagination: {
+            limit: backendPagination?.limit ?? 100,
+            offset: backendPagination?.offset ?? 0,
+            count: response.data.items?.length ?? 0,
+            total: backendPagination?.total ?? 0,
+            hasMore: (backendPagination?.offset ?? 0) + (response.data.items?.length ?? 0) < (backendPagination?.total ?? 0)
+        }
+    }
+}
+
+/**
+ * List direct child hubs of a parent hub.
+ */
+export const listChildHubs = async (metahubId: string, hubId: string, params?: PaginationParams): Promise<PaginatedResponse<Hub>> => {
+    const response = await apiClient.get<{ items: Hub[]; pagination: { total: number; limit: number; offset: number } }>(
+        `/metahub/${metahubId}/hub/${hubId}/hubs`,
+        {
+            params: {
+                limit: params?.limit,
+                offset: params?.offset,
+                sortBy: params?.sortBy,
+                sortOrder: params?.sortOrder,
+                search: params?.search
+            }
+        }
+    )
+
     const backendPagination = response.data.pagination
     return {
         items: response.data.items || [],
@@ -83,8 +114,11 @@ export const reorderHub = (metahubId: string, hubId: string, newSortOrder: numbe
  * Update a hub
  * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
-export const updateHub = (metahubId: string, hubId: string, data: HubLocalizedPayload & { sortOrder?: number; expectedVersion?: number }) =>
-    apiClient.patch<Hub>(`/metahub/${metahubId}/hub/${hubId}`, data)
+export const updateHub = (
+    metahubId: string,
+    hubId: string,
+    data: Partial<HubLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
+) => apiClient.patch<Hub>(`/metahub/${metahubId}/hub/${hubId}`, data)
 
 /**
  * Delete a hub

@@ -1,4 +1,4 @@
-import { useQuery, UseQueryResult, QueryKey, keepPreviousData } from '@tanstack/react-query'
+import { useQuery, UseQueryResult, QueryKey, keepPreviousData as keepPreviousDataPlaceholder } from '@tanstack/react-query'
 import { useMemo, useState, useCallback } from 'react'
 import type { PaginationParams, PaginatedResponse, PaginationState, PaginationActions } from '../types/pagination'
 
@@ -47,6 +47,12 @@ export interface UsePaginatedParams<TSortBy extends string = string> {
      * Cache time in milliseconds
      */
     staleTime?: number
+
+    /**
+     * Keep previous page data while query key is changing.
+     * Disable for scoped views to avoid showing stale entities during navigation.
+     */
+    keepPreviousDataOnQueryKeyChange?: boolean
 }
 
 export interface UsePaginatedReturn<TData> {
@@ -88,7 +94,8 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         sortOrder = 'desc',
         search: initialSearch = '',
         enabled = true,
-        staleTime = 5 * 60 * 1000 // 5 minutes default
+        staleTime = 5 * 60 * 1000, // 5 minutes default
+        keepPreviousDataOnQueryKeyChange = true
     } = params
 
     // Local state for pagination
@@ -118,7 +125,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         queryFn: () => queryFn(queryParams),
         enabled,
         staleTime,
-        placeholderData: keepPreviousData,
+        placeholderData: keepPreviousDataOnQueryKeyChange ? keepPreviousDataPlaceholder : undefined,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         retryOnMount: false,
@@ -145,13 +152,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         (page: number) => {
             setCurrentPage((prevPage) => {
                 const clampedPage = Math.max(1, Math.min(page, totalPages || 1))
-                // eslint-disable-next-line no-console
-                console.log('[usePaginated] goToPage called', {
-                    requestedPage: page,
-                    clampedPage,
-                    prevPage,
-                    totalPages
-                })
+                if (clampedPage === prevPage) return prevPage
                 return clampedPage
             })
         },
@@ -171,11 +172,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     }, [hasPreviousPage])
 
     const setSearch = useCallback((search: string) => {
-        setSearchQuery((prevSearch) => {
-            // eslint-disable-next-line no-console
-            console.log('[usePaginated] setSearch called', { search, oldSearch: prevSearch })
-            return search
-        })
+        setSearchQuery((prevSearch) => (prevSearch === search ? prevSearch : search))
         setCurrentPage(1) // Reset to first page on search
     }, [])
 
@@ -185,11 +182,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     }, [])
 
     const setPageSize = useCallback((newPageSize: number) => {
-        setPageSizeState((prevSize) => {
-            // eslint-disable-next-line no-console
-            console.log('[usePaginated] setPageSize called', { newPageSize, oldPageSize: prevSize })
-            return newPageSize
-        })
+        setPageSizeState((prevSize) => (prevSize === newPageSize ? prevSize : newPageSize))
         setCurrentPage(1) // Reset to first page when changing page size
     }, [])
 

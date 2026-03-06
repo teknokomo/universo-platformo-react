@@ -110,6 +110,8 @@ export interface EntitySelectionPanelProps<T extends SelectableEntity> {
     togglesDisabled?: boolean
     /** Optional filter function for search */
     filterEntity?: (entity: T, query: string) => boolean
+    /** Optional extra actions rendered in header before the Add button */
+    headerActions?: React.ReactNode
 }
 
 /**
@@ -143,7 +145,8 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
     isSingle,
     onSingleChange,
     togglesDisabled = false,
-    filterEntity
+    filterEntity,
+    headerActions
 }: EntitySelectionPanelProps<T>) => {
     const [pickerOpen, setPickerOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -252,14 +255,17 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 <Typography variant='subtitle1' fontWeight={500}>
                     {labels.title}
                 </Typography>
-                <Button
-                    size='small'
-                    startIcon={<AddIcon />}
-                    onClick={handleOpenPicker}
-                    disabled={disabled || !canAddMore || availableForSelection.length === 0}
-                >
-                    {labels.addButton}
-                </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {headerActions}
+                    <Button
+                        size='small'
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenPicker}
+                        disabled={disabled || !canAddMore || availableForSelection.length === 0}
+                    >
+                        {labels.addButton}
+                    </Button>
+                </Box>
             </Box>
 
             {/* Error display */}

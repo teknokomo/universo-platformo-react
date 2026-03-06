@@ -18,7 +18,14 @@ import { validateNumber, toNumberRules } from '@universo/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
-import { fetchTabularRows, createTabularRow, updateTabularRow, deleteTabularRow, copyTabularRow, type TabularRowsResponse } from '../api/api'
+import {
+    fetchTabularRows,
+    createTabularRow,
+    updateTabularRow,
+    deleteTabularRow,
+    copyTabularRow,
+    type TabularRowsResponse
+} from '../api/api'
 import { buildTabularColumns } from '../utils/tabularColumns'
 
 /**
@@ -419,7 +426,13 @@ export function RuntimeInlineTabularEditor({
                 // Validate NUMBER fields — revert invalid values
                 const validatedRow = { ...newRow }
                 for (const field of childFields) {
-                    if (field.type === 'NUMBER' && validatedRow[field.id] != null && typeof validatedRow[field.id] === 'number' && !Number.isNaN(validatedRow[field.id] as number) && field.validationRules) {
+                    if (
+                        field.type === 'NUMBER' &&
+                        validatedRow[field.id] != null &&
+                        typeof validatedRow[field.id] === 'number' &&
+                        !Number.isNaN(validatedRow[field.id] as number) &&
+                        field.validationRules
+                    ) {
                         const result = validateNumber(validatedRow[field.id] as number, toNumberRules(field.validationRules))
                         if (!result.valid) {
                             validatedRow[field.id] = oldRow[field.id] ?? null
@@ -444,7 +457,13 @@ export function RuntimeInlineTabularEditor({
                         value = null
                     }
                     // Validate NUMBER fields — revert to old value if invalid
-                    if (field.type === 'NUMBER' && value != null && typeof value === 'number' && !Number.isNaN(value) && field.validationRules) {
+                    if (
+                        field.type === 'NUMBER' &&
+                        value != null &&
+                        typeof value === 'number' &&
+                        !Number.isNaN(value) &&
+                        field.validationRules
+                    ) {
                         const result = validateNumber(value, toNumberRules(field.validationRules))
                         if (!result.valid) {
                             value = oldRow[field.id] ?? null
@@ -701,10 +720,7 @@ export function RuntimeInlineTabularEditor({
                     {t('app.copy', 'Copy')}
                 </MenuItem>
                 <Divider />
-                <MenuItem
-                    onClick={handleDeleteRowFromMenu}
-                    sx={{ color: 'error.main' }}
-                >
+                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('tabular.delete', 'Delete')}
                 </MenuItem>

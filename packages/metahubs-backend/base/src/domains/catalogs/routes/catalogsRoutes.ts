@@ -1443,13 +1443,11 @@ export function createCatalogsRoutes(
 
             const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
 
-            // Determine target hubs - Must include current hubId
+            // Determine target hubs.
+            // Hub-scoped create defaults to current hub only when hubIds are not provided.
+            // If caller provides explicit hubIds (including []), keep them as-is.
             const effectiveIsRequired = isRequiredHub ?? false
-            let targetHubIds = [hubId]
-            if (hubIds && Array.isArray(hubIds)) {
-                // Merge provided hubIds with current hubId
-                targetHubIds = Array.from(new Set([...hubIds, hubId]))
-            }
+            const targetHubIds = hubIds && Array.isArray(hubIds) ? hubIds : [hubId]
 
             if ((isSingleHub ?? false) && targetHubIds.length > 1) {
                 return res.status(400).json({ error: 'This catalog is restricted to a single hub' })

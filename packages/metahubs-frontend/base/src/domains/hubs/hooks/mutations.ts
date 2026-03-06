@@ -14,7 +14,7 @@ interface CreateHubParams {
 interface UpdateHubParams {
     metahubId: string
     hubId: string
-    data: HubLocalizedPayload & { sortOrder?: number }
+    data: Partial<HubLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
 }
 
 interface DeleteHubParams {

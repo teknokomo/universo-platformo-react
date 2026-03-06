@@ -6,27 +6,49 @@
 
 ---
 
-## Current Focus: PR #710 QA Fixes Pushed
+## Current Focus: Constants Value Tab + Localization + Table Layout + App REF Display
 
-**Status**: ✅ Completed  
+**Status**: 🔄 In Progress  
 **Date**: 2026-03-06  
-**Branch**: `feature/dnd-ordering-entity-lists`  
-**PR**: [#710](https://github.com/teknokomo/universo-platformo-react/pull/710)
+**Branch**: `feature/dnd-ordering-entity-lists`
 
 ### Recently Completed
 
-1. **Comprehensive QA analysis** of all 66 files in PR #710 — reviewed backend services, frontend components, library versions, SQL injection safety, auth patterns, null-safety, ID uniqueness.
-2. **Test fix**: Added missing `ensureMetahubAccess` mock to `elementsRoutes.test.ts` — 4 tests were failing (500 instead of expected 200/404/400) after security fix added the guard to `/move` and `/reorder` endpoints without updating tests.
-3. **Prettier fix**: Fixed 2 formatting errors in `useAttributeDnd.ts` — expanded arrow function body (line 96), inlined multi-line condition (line 179).
-4. **Verification**: All 168 tests pass (22/22 suites), lint passes (0 errors, 147 pre-existing warnings).
+1. Closed QA debt for hub nesting and hub-scoped UX:
+   - removed duplicate EN locale keys in `metahubs` translations,
+   - added missing shared `common.fields.codename` in EN/RU,
+   - removed debug `console.log` traces from shared `usePaginated` hook.
+2. Replaced fixed `limit: 500` full-list fetches with all-pages helper logic in hub/catalog/set/enumeration list flows and menu widget editor using deterministic `sortOrder` ordering.
+3. Validated parent hub selection safety path for edit/copy flows (cycle exclusions remain enforced via `HubActions` + `HubParentSelectionPanel`).
+4. Verified scoped quality gates for touched packages:
+   - lint: `@universo/metahubs-frontend`, `@universo/template-mui` (warnings only),
+   - tests: `@universo/metahubs-frontend`, `@universo/template-mui` passed,
+   - builds: `@universo/metahubs-frontend`, `@universo/template-mui` passed.
 
-### Architecture Note
+### Prior Completed (Same Sprint)
 
-The `ensureMetahubAccess` guard is now consistently applied across ALL write endpoints in metahubs-backend domains: hubs, catalogs, sets, constants, enumerations, elements (move/reorder), attributes. All corresponding test files mock this guard.
+1. Implemented hub nesting (`parentHubId`) end-to-end: backend validation (self/cycle checks), create/edit/copy support, child hubs endpoint, and delete blocking for parent hubs with children.
+2. Added metahub hub settings runtime behavior: `hubs.allowNesting`, one-shot `hubs.resetNestingOnce` execution and reset, `hubs.allowAttachExistingEntities`.
+3. Completed hub-scoped UX parity in frontend:
+   - tabs order `Hubs / Catalogs / Sets / Enumerations`,
+   - `Hubs` tab in create/edit/copy flows according to scope rules,
+   - fast re-link to current hub action,
+   - detached-from-current-hub confirmation flow for save/create/copy.
+4. Implemented split action (`Create` + `Add`) and add-existing flows in hub-scoped lists for hubs/catalogs/sets/enumerations using shared `ToolbarControls`, `EntityFormDialog`, and `EntitySelectionPanel`.
+5. Added menu widget hub binding and runtime hierarchy rendering in application runtime menu.
+6. Removed physical `hub_*` table generation in schema DDL path while preserving runtime metadata behavior.
+7. Added branch copy safety sanitization for dangling/self `parentHubId` references after clone prune.
+8. Updated RU/EN i18n keys for new settings, dialogs, tabs, and menu labels.
 
-### Deferred Items (Future PRs)
+### Verification Snapshot
 
-- `reorderElement` increment/decrement + unique partial index — potential constraint violation under concurrent load (medium risk, advisory locks mitigate).
-- `ObjectsService.delete()/restore()` and `AttributesService.delete()` don't resequence sortOrder — self-healing, low priority.
-- Missing try/catch in useEffect async `execute()` — low risk.
-2. Continue with Constants Value Tab + Localization tasks (see tasks.md).
+- Lint (scoped packages): pass with warnings only, no errors.
+- Build (scoped packages): pass for `@universo/types`, `@universo/template-mui`, `@universo/metahubs-frontend`, `@universo/apps-template-mui`, `@universo/schema-ddl`, `@universo/applications-backend`, `@universo/metahubs-backend`.
+- Tests:
+  - `@universo/metahubs-backend`: hubs/catalogs/sets/enumerations/elements/layouts routes + `metahubBranchesService` passed.
+  - `@universo/applications-backend`: applications/connectors routes passed.
+  - `@universo/metahubs-frontend`: full vitest run passed (25 test files, 102 tests).
+
+### Next Active Work
+
+- Continue with `Constants Value Tab + Localization + Table Layout + App REF Display` task block from `memory-bank/tasks.md`.

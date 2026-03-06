@@ -310,6 +310,10 @@ const MainRoutesMUI = {
                 },
                 // Hub-scoped catalog routes
                 {
+                    path: 'hub/:hubId/hubs',
+                    element: <HubList />
+                },
+                {
                     path: 'hub/:hubId/catalogs',
                     element: <CatalogList />
                 },

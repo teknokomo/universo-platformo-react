@@ -278,93 +278,97 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
             >
                 {/* Hide table header when showing empty state placeholder */}
                 {!(emptyStateMessage && !isLoading && (sortedData ?? []).length === 0) && (
-                <TableHead
-                    sx={{
-                        backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
-                        height: compact ? 36 : 56
-                    }}
-                >
-                    <TableRow>
-                        {/* Drag handle column header (when DnD enabled) */}
-                        {sortableRows && <StyledTableCell align='center' sx={{ width: 40 }} />}
-                        {columnsToRender ? (
-                            <>
-                                {columnsToRender.map((column) => (
-                                    <StyledTableCell
-                                        key={column.id}
-                                        style={{ width: column.width || '25%' }}
-                                        align={column.align || 'left'}
-                                    >
-                                        {column.sortable && !sortableRows ? (
-                                            <TableSortLabel
-                                                active={orderBy === column.id}
-                                                direction={order}
-                                                onClick={() => handleRequestSort(column.id)}
-                                                sx={
-                                                    column.align === 'center'
-                                                        ? {
-                                                              display: 'inline-flex',
-                                                              alignItems: 'center',
-                                                              justifyContent: 'center',
-                                                              width: '100%',
-                                                              '& .MuiTableSortLabel-icon': {
-                                                                  marginLeft: 0.5,
-                                                                  marginRight: 0
+                    <TableHead
+                        sx={{
+                            backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
+                            height: compact ? 36 : 56
+                        }}
+                    >
+                        <TableRow>
+                            {/* Drag handle column header (when DnD enabled) */}
+                            {sortableRows && <StyledTableCell align='center' sx={{ width: 40 }} />}
+                            {columnsToRender ? (
+                                <>
+                                    {columnsToRender.map((column) => (
+                                        <StyledTableCell
+                                            key={column.id}
+                                            style={{ width: column.width || '25%' }}
+                                            align={column.align || 'left'}
+                                        >
+                                            {column.sortable && !sortableRows ? (
+                                                <TableSortLabel
+                                                    active={orderBy === column.id}
+                                                    direction={order}
+                                                    onClick={() => handleRequestSort(column.id)}
+                                                    sx={
+                                                        column.align === 'center'
+                                                            ? {
+                                                                  display: 'inline-flex',
+                                                                  alignItems: 'center',
+                                                                  justifyContent: 'center',
+                                                                  width: '100%',
+                                                                  '& .MuiTableSortLabel-icon': {
+                                                                      marginLeft: 0.5,
+                                                                      marginRight: 0
+                                                                  }
                                                               }
-                                                          }
-                                                        : undefined
-                                                }
-                                            >
-                                                {column.label}
-                                            </TableSortLabel>
-                                        ) : (
-                                            column.label
-                                        )}
+                                                            : undefined
+                                                    }
+                                                >
+                                                    {column.label}
+                                                </TableSortLabel>
+                                            ) : (
+                                                column.label
+                                            )}
+                                        </StyledTableCell>
+                                    ))}
+                                    {renderActions && (
+                                        <StyledTableCell style={{ width: '10%' }} key='actions' align='center'>
+                                            {t('common:columns.actions')}
+                                        </StyledTableCell>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
+                                        <TableSortLabel
+                                            active={orderBy === 'name'}
+                                            direction={order}
+                                            onClick={() => handleRequestSort('name')}
+                                        >
+                                            {t('common:columns.name')}
+                                        </TableSortLabel>
                                     </StyledTableCell>
-                                ))}
-                                {renderActions && (
-                                    <StyledTableCell style={{ width: '10%' }} key='actions' align='center'>
+                                    {isUnikTable ? (
+                                        <StyledTableCell style={{ width: '55%' }} key='1'>
+                                            {t('common:columns.spaces')}
+                                        </StyledTableCell>
+                                    ) : (
+                                        <>
+                                            <StyledTableCell style={{ width: '25%' }} key='1'>
+                                                {t('common:columns.category')}
+                                            </StyledTableCell>
+                                            <StyledTableCell style={{ width: '30%' }} key='2'>
+                                                {t('common:columns.nodes')}
+                                            </StyledTableCell>
+                                        </>
+                                    )}
+                                    <StyledTableCell style={{ width: '14%' }} key='3'>
+                                        <TableSortLabel
+                                            active={orderBy === 'updatedDate'}
+                                            direction={order}
+                                            onClick={() => handleRequestSort('updatedDate')}
+                                        >
+                                            {t('common:columns.lastModified')}
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell style={{ width: '10%' }} key='4'>
                                         {t('common:columns.actions')}
                                     </StyledTableCell>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
-                                    <TableSortLabel active={orderBy === 'name'} direction={order} onClick={() => handleRequestSort('name')}>
-                                        {t('common:columns.name')}
-                                    </TableSortLabel>
-                                </StyledTableCell>
-                                {isUnikTable ? (
-                                    <StyledTableCell style={{ width: '55%' }} key='1'>
-                                        {t('common:columns.spaces')}
-                                    </StyledTableCell>
-                                ) : (
-                                    <>
-                                        <StyledTableCell style={{ width: '25%' }} key='1'>
-                                            {t('common:columns.category')}
-                                        </StyledTableCell>
-                                        <StyledTableCell style={{ width: '30%' }} key='2'>
-                                            {t('common:columns.nodes')}
-                                        </StyledTableCell>
-                                    </>
-                                )}
-                                <StyledTableCell style={{ width: '14%' }} key='3'>
-                                    <TableSortLabel
-                                        active={orderBy === 'updatedDate'}
-                                        direction={order}
-                                        onClick={() => handleRequestSort('updatedDate')}
-                                    >
-                                        {t('common:columns.lastModified')}
-                                    </TableSortLabel>
-                                </StyledTableCell>
-                                <StyledTableCell style={{ width: '10%' }} key='4'>
-                                    {t('common:columns.actions')}
-                                </StyledTableCell>
-                            </>
-                        )}
-                    </TableRow>
-                </TableHead>
+                                </>
+                            )}
+                        </TableRow>
+                    </TableHead>
                 )}
                 {/* ── Table Body ─────────────────────────────────────── */}
                 {(() => {
@@ -600,18 +604,16 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                     })
 
                     // Empty state row — maintains droppable zone height when no data rows
-                    const emptyRow = !isLoading && displayData.length === 0 && emptyStateMessage ? (
-                        <TableRow>
-                            <TableCell
-                                colSpan={totalCols}
-                                sx={{ textAlign: 'center', py: 3, borderBottom: 'none' }}
-                            >
-                                <Typography variant='body2' color='text.secondary'>
-                                    {emptyStateMessage}
-                                </Typography>
-                            </TableCell>
-                        </TableRow>
-                    ) : null
+                    const emptyRow =
+                        !isLoading && displayData.length === 0 && emptyStateMessage ? (
+                            <TableRow>
+                                <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 3, borderBottom: 'none' }}>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {emptyStateMessage}
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        ) : null
 
                     const bodyContent = isLoading ? skeletonContent : dataRows.length > 0 ? dataRows : emptyRow
 

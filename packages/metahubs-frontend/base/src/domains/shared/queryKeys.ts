@@ -80,6 +80,20 @@ export const metahubsQueryKeys = {
 
     hubDetail: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubs(metahubId), 'detail', hubId] as const,
 
+    // Child hubs for a specific parent hub
+    childHubs: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'hubs'] as const,
+
+    childHubsList: (metahubId: string, hubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.childHubs(metahubId, hubId), 'list', normalized] as const
+    },
+
     // Layouts scoped to a specific metahub
     layouts: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'layouts'] as const,
 
@@ -396,6 +410,9 @@ export const invalidateHubsQueries = {
 
     lists: (queryClient: QueryClient, metahubId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubsList(metahubId) }),
+
+    childLists: (queryClient: QueryClient, metahubId: string, hubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.childHubsList(metahubId, hubId) }),
 
     detail: (queryClient: QueryClient, metahubId: string, hubId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubDetail(metahubId, hubId) })

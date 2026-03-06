@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
+    Alert,
     Box,
     Button,
     Chip,
@@ -30,8 +31,10 @@ import { METAHUB_MENU_ITEM_KINDS } from '@universo/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
 import { createLocalizedContent, generateUuidV7, buildVLC as utilsBuildVLC, ensureVLC as utilsEnsureVLC } from '@universo/utils'
 
-import { metahubsQueryKeys } from '../../shared'
+import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import * as catalogsApi from '../../catalogs/api'
+import * as hubsApi from '../../hubs/api'
+import type { Hub, PaginatedResponse } from '../../../types'
 import { getVLCString, normalizeLocale } from '../../../types'
 
 // ---------------------------------------------------------------------------
@@ -60,7 +63,26 @@ function makeDefaultConfig(): MenuWidgetConfig {
         showTitle: true,
         title: buildVLC('', ''),
         autoShowAllCatalogs: false,
+        bindToHub: false,
+        boundHubId: null,
         items: []
+    }
+}
+
+function normalizeMenuConfig(
+    config: MenuWidgetConfig | null | undefined,
+    uiLocale: string,
+    defaultTitle: VersionedLocalizedContent<string>
+): MenuWidgetConfig {
+    if (!config) return makeDefaultConfig()
+    return {
+        ...makeDefaultConfig(),
+        ...config,
+        title: ensureVLC(config.title, uiLocale) ?? defaultTitle,
+        autoShowAllCatalogs: Boolean(config.autoShowAllCatalogs) && !config.bindToHub,
+        bindToHub: Boolean(config.bindToHub),
+        boundHubId: typeof config.boundHubId === 'string' ? config.boundHubId : null,
+        items: Array.isArray(config.items) ? config.items.filter((item) => item.kind !== 'catalogs_all') : []
     }
 }
 
@@ -134,6 +156,7 @@ function ItemFormDialog({
 }) {
     const { t } = useTranslation(['metahubs', 'common'])
     const isEdit = Boolean(item)
+    const [submitError, setSubmitError] = useState<string | null>(null)
     const [kind, setKind] = useState<MetahubMenuItemKind>(item?.kind ?? 'link')
     const [titleVlc, setTitleVlc] = useState<VersionedLocalizedContent<string> | null>(
         () => ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), '')
@@ -141,6 +164,7 @@ function ItemFormDialog({
     const [icon, setIcon] = useState(item?.icon ?? '')
     const [href, setHref] = useState(item?.href ?? '')
     const [catalogId, setCatalogId] = useState(item?.catalogId ?? '')
+    const [hubId, setHubId] = useState(item?.hubId ?? '')
     const [isActive, setIsActive] = useState(item?.isActive ?? true)
 
     // BUG-1 fix: Reset local state when the edited item changes
@@ -148,11 +172,13 @@ function ItemFormDialog({
     useEffect(() => {
         if (prevItemRef.current === item) return
         prevItemRef.current = item
+        setSubmitError(null)
         setKind(item?.kind ?? 'link')
         setTitleVlc(ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), ''))
         setIcon(item?.icon ?? '')
         setHref(item?.href ?? '')
         setCatalogId(item?.catalogId ?? '')
+        setHubId(item?.hubId ?? '')
         setIsActive(item?.isActive ?? true)
     }, [item, uiLocale])
 
@@ -161,8 +187,39 @@ function ItemFormDialog({
         enabled: open,
         queryFn: () => catalogsApi.listAllCatalogs(metahubId, { limit: 200 })
     })
+    const hubsQuery = useQuery({
+        queryKey: metahubsQueryKeys.hubsList(metahubId, { limit: 200, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' }),
+        enabled: open,
+        queryFn: () => hubsApi.listHubs(metahubId, { limit: 200, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
+    })
+
+    const hasTitleContent = useMemo(() => {
+        if (!titleVlc?.locales || typeof titleVlc.locales !== 'object') return false
+        return Object.values(titleVlc.locales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    }, [titleVlc])
 
     const handleSave = () => {
+        if (!hasTitleContent) {
+            setSubmitError(t('layouts.menuEditor.validation.titleRequired', 'Name is required.'))
+            return
+        }
+
+        if (kind === 'catalog' && !catalogId) {
+            setSubmitError(t('layouts.menuEditor.validation.catalogRequired', 'Select a catalog for this menu item.'))
+            return
+        }
+
+        if (kind === 'hub' && !hubId) {
+            setSubmitError(t('layouts.menuEditor.validation.hubRequired', 'Select a hub for this menu item.'))
+            return
+        }
+
+        if (kind === 'link' && href.trim().length === 0) {
+            setSubmitError(t('layouts.menuEditor.validation.hrefRequired', 'Link URL is required for link items.'))
+            return
+        }
+
+        setSubmitError(null)
         onSave({
             id: item?.id ?? generateUuidV7(),
             kind,
@@ -170,12 +227,14 @@ function ItemFormDialog({
             icon: icon.trim() || null,
             href: kind === 'link' ? href.trim() || null : null,
             catalogId: kind === 'catalog' ? catalogId || null : null,
+            hubId: kind === 'hub' ? hubId || null : null,
             sortOrder: item?.sortOrder ?? 0,
             isActive
         })
     }
 
     const catalogs = catalogsQuery.data?.items ?? []
+    const hubs = hubsQuery.data?.items ?? []
 
     return (
         <EntityFormDialog
@@ -189,13 +248,17 @@ function ItemFormDialog({
             onSave={() => handleSave()}
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
+            error={submitError ?? undefined}
             extraFields={() => (
                 <Stack spacing={2.5}>
                     <LocalizedInlineField
                         mode='localized'
                         label={t('common:fields.name', 'Name')}
                         value={titleVlc}
-                        onChange={(next: VersionedLocalizedContent<string>) => setTitleVlc(next)}
+                        onChange={(next: VersionedLocalizedContent<string>) => {
+                            setSubmitError(null)
+                            setTitleVlc(next)
+                        }}
                         uiLocale={uiLocale}
                     />
 
@@ -204,7 +267,10 @@ function ItemFormDialog({
                         <Select
                             value={kind}
                             label={t('layouts.menuEditor.itemKind')}
-                            onChange={(e) => setKind(e.target.value as MetahubMenuItemKind)}
+                            onChange={(e) => {
+                                setSubmitError(null)
+                                setKind(e.target.value as MetahubMenuItemKind)
+                            }}
                         >
                             {METAHUB_MENU_ITEM_KINDS.map((k: MetahubMenuItemKind) => {
                                 const kindKey = `layouts.menuEditor.kind${
@@ -222,7 +288,10 @@ function ItemFormDialog({
                     <TextField
                         label={t('layouts.menuEditor.itemIcon')}
                         value={icon}
-                        onChange={(e) => setIcon(e.target.value)}
+                        onChange={(e) => {
+                            setSubmitError(null)
+                            setIcon(e.target.value)
+                        }}
                         fullWidth
                         placeholder={t('layouts.menuEditor.itemIconPlaceholder', 'database, link, shopping_cart...')}
                     />
@@ -231,7 +300,10 @@ function ItemFormDialog({
                         <TextField
                             label={t('layouts.menuEditor.itemHref')}
                             value={href}
-                            onChange={(e) => setHref(e.target.value)}
+                            onChange={(e) => {
+                                setSubmitError(null)
+                                setHref(e.target.value)
+                            }}
                             fullWidth
                             placeholder={t('layouts.menuEditor.itemHrefPlaceholder', 'https://...')}
                         />
@@ -243,7 +315,10 @@ function ItemFormDialog({
                             <Select
                                 value={catalogId}
                                 label={t('layouts.menuEditor.itemCatalog')}
-                                onChange={(e) => setCatalogId(e.target.value)}
+                                onChange={(e) => {
+                                    setSubmitError(null)
+                                    setCatalogId(e.target.value)
+                                }}
                             >
                                 {catalogs.length === 0 ? (
                                     <MenuItem disabled>{t('layouts.menuEditor.noCatalogs')}</MenuItem>
@@ -260,10 +335,44 @@ function ItemFormDialog({
                             </Select>
                         </FormControl>
                     )}
+                    {kind === 'hub' && (
+                        <FormControl fullWidth>
+                            <InputLabel>{t('layouts.menuEditor.itemHub')}</InputLabel>
+                            <Select
+                                value={hubId}
+                                label={t('layouts.menuEditor.itemHub')}
+                                onChange={(e) => {
+                                    setSubmitError(null)
+                                    setHubId(e.target.value)
+                                }}
+                            >
+                                {hubs.length === 0 ? (
+                                    <MenuItem disabled>{t('layouts.menuEditor.noHubs')}</MenuItem>
+                                ) : (
+                                    hubs.map((hub) => {
+                                        const name = getVLCString(hub.name, uiLocale) || getVLCString(hub.name, 'en') || hub.codename
+                                        return (
+                                            <MenuItem key={hub.id} value={hub.id}>
+                                                {name}
+                                            </MenuItem>
+                                        )
+                                    })
+                                )}
+                            </Select>
+                        </FormControl>
+                    )}
 
                     <FormControlLabel
                         sx={{ ml: 0 }}
-                        control={<Switch checked={isActive} onChange={(_, checked) => setIsActive(checked)} />}
+                        control={
+                            <Switch
+                                checked={isActive}
+                                onChange={(_, checked) => {
+                                    setSubmitError(null)
+                                    setIsActive(checked)
+                                }}
+                            />
+                        }
                         label={t('layouts.menuEditor.itemActive', 'Active')}
                     />
                 </Stack>
@@ -288,22 +397,31 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
     )
 
     const [draft, setDraft] = useState<MenuWidgetConfig>(() => {
-        if (!config) return makeDefaultConfig()
-        // Ensure VLC format for title (migrates legacy data)
-        return { ...config, title: ensureVLC(config.title, uiLocale) ?? defaultTitle }
+        return normalizeMenuConfig(config, uiLocale, defaultTitle)
     })
     const [itemDialog, setItemDialog] = useState<{ open: boolean; item: MenuWidgetConfigItem | null }>({ open: false, item: null })
+    const [dialogError, setDialogError] = useState<string | null>(null)
+
+    const hubsQuery = useQuery<PaginatedResponse<Hub>>({
+        queryKey: metahubsQueryKeys.hubsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' }),
+        enabled: open && Boolean(metahubId),
+        queryFn: () =>
+            fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
+                limit: 1000,
+                sortBy: 'sortOrder',
+                sortOrder: 'asc'
+            })
+    })
+
+    const availableHubs = useMemo(() => hubsQuery.data?.items ?? [], [hubsQuery.data?.items])
 
     // WARN-1 fix: Reset draft when dialog opens with new config (moved from render to effect)
     const prevOpenRef = useRef(false)
     useEffect(() => {
         if (open && !prevOpenRef.current) {
             prevOpenRef.current = true
-            if (config) {
-                setDraft({ ...config, title: ensureVLC(config.title, uiLocale) ?? defaultTitle })
-            } else {
-                setDraft(makeDefaultConfig())
-            }
+            setDraft(normalizeMenuConfig(config, uiLocale, defaultTitle))
+            setDialogError(null)
         }
         if (!open && prevOpenRef.current) {
             prevOpenRef.current = false
@@ -353,12 +471,22 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
     }
 
     const handleSave = () => {
-        onSave(draft)
+        if (draft.bindToHub && !draft.boundHubId) {
+            setDialogError(t('layouts.menuEditor.validation.boundHubRequired', 'Select a hub to bind this menu to.'))
+            return
+        }
+        setDialogError(null)
+        onSave({
+            ...draft,
+            autoShowAllCatalogs: draft.bindToHub ? false : Boolean(draft.autoShowAllCatalogs),
+            items: draft.items.filter((item) => item.kind !== 'catalogs_all')
+        })
     }
 
     const kindLabels: Record<MetahubMenuItemKind, string> = {
         catalog: t('layouts.menuEditor.kindCatalog'),
         catalogs_all: t('layouts.menuEditor.kindCatalogsAll'),
+        hub: t('layouts.menuEditor.kindHub'),
         link: t('layouts.menuEditor.kindLink')
     }
 
@@ -379,6 +507,7 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
                 onSave={() => handleSave()}
                 saveButtonText={t('common:save', 'Save')}
                 cancelButtonText={t('common:cancel', 'Cancel')}
+                error={dialogError ?? undefined}
                 extraFields={() => (
                     <Stack spacing={3}>
                         {/* --- Title settings --- */}
@@ -406,14 +535,72 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
                                         sx={{ ml: 0 }}
                                         control={
                                             <Switch
+                                                checked={Boolean(draft.bindToHub)}
+                                                onChange={(_, checked) => {
+                                                    setDialogError(null)
+                                                    setDraft((p) => ({
+                                                        ...p,
+                                                        bindToHub: checked,
+                                                        autoShowAllCatalogs: checked ? false : p.autoShowAllCatalogs,
+                                                        boundHubId: checked ? p.boundHubId ?? null : null
+                                                    }))
+                                                }}
+                                            />
+                                        }
+                                        label={t('layouts.menuEditor.bindToHub')}
+                                    />
+                                    {draft.bindToHub && (
+                                        <Stack spacing={1} sx={{ mt: 1, ml: 7 }}>
+                                            <FormControl fullWidth size='small'>
+                                                <InputLabel>{t('layouts.menuEditor.boundHubLabel')}</InputLabel>
+                                                <Select
+                                                    value={draft.boundHubId ?? ''}
+                                                    label={t('layouts.menuEditor.boundHubLabel')}
+                                                    onChange={(event) => {
+                                                        setDialogError(null)
+                                                        setDraft((p) => ({
+                                                            ...p,
+                                                            boundHubId: typeof event.target.value === 'string' ? event.target.value : null
+                                                        }))
+                                                    }}
+                                                >
+                                                    <MenuItem value=''>{t('layouts.menuEditor.boundHubPlaceholder')}</MenuItem>
+                                                    {availableHubs.map((hub) => {
+                                                        const name =
+                                                            getVLCString(hub.name, uiLocale) || getVLCString(hub.name, 'en') || hub.codename
+                                                        return (
+                                                            <MenuItem key={hub.id} value={hub.id}>
+                                                                {name}
+                                                            </MenuItem>
+                                                        )
+                                                    })}
+                                                </Select>
+                                            </FormControl>
+                                            {draft.boundHubId && (
+                                                <Alert severity='info' sx={{ borderRadius: 1.5 }}>
+                                                    {t('layouts.menuEditor.boundHubInfo')}
+                                                </Alert>
+                                            )}
+                                        </Stack>
+                                    )}
+                                    <FormControlLabel
+                                        sx={{ ml: 0 }}
+                                        control={
+                                            <Switch
                                                 checked={draft.autoShowAllCatalogs}
-                                                onChange={(_, checked) => setDraft((p) => ({ ...p, autoShowAllCatalogs: checked }))}
+                                                onChange={(_, checked) => {
+                                                    setDialogError(null)
+                                                    setDraft((p) => ({ ...p, autoShowAllCatalogs: checked }))
+                                                }}
+                                                disabled={Boolean(draft.bindToHub)}
                                             />
                                         }
                                         label={t('layouts.menuEditor.autoShowAllCatalogs')}
                                     />
                                     <FormHelperText sx={{ mt: -0.5, ml: 7 }}>
-                                        {t('layouts.menuEditor.autoShowAllCatalogsHint')}
+                                        {draft.bindToHub
+                                            ? t('layouts.menuEditor.autoShowAllCatalogsDisabledByBinding')
+                                            : t('layouts.menuEditor.autoShowAllCatalogsHint')}
                                     </FormHelperText>
                                 </Box>
                             </Stack>

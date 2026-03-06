@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Divider } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, Divider, Tabs, Tab, Chip } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -20,28 +20,32 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
+    ConfirmContextProvider,
     ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
     useCodenameAutoFill,
-    useCodenameVlcSync
+    useCodenameVlcSync,
+    EntitySelectionPanel
 } from '@universo/template-mui'
+import type { EntitySelectionLabels } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
+import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateHub, useUpdateHub, useDeleteHub, useCopyHub, useReorderHub } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as hubsApi from '../api'
-import { metahubsQueryKeys, invalidateHubsQueries } from '../../shared'
+import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateHubsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { Hub, HubDisplay, HubLocalizedPayload, getVLCString, toHubDisplay } from '../../../types'
+import { Hub, HubDisplay, HubLocalizedPayload, PaginatedResponse, getVLCString, toHubDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField, HubDeleteDialog, ExistingCodenamesProvider } from '../../../components'
+import { CodenameField, HubDeleteDialog, ExistingCodenamesProvider, HubParentSelectionPanel } from '../../../components'
 import hubActions from './HubActions'
 import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
@@ -52,6 +56,7 @@ type HubFormValues = {
     codenameVlc?: VersionedLocalizedContent<string> | null
     codename: string
     codenameTouched?: boolean
+    parentHubId?: string | null
 }
 
 type GenericFormValues = Record<string, unknown>
@@ -71,6 +76,8 @@ type ConfirmSpec = {
     confirmButtonName?: string
     cancelButtonName?: string
 }
+
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 const extractResponseStatus = (error: unknown): number | undefined => {
     if (!error || typeof error !== 'object' || !('response' in error)) return undefined
@@ -155,7 +162,7 @@ const HubFormFields = ({
     })
 
     return (
-        <>
+        <Stack spacing={2}>
             <LocalizedInlineField
                 mode='localized'
                 label={nameLabel}
@@ -194,20 +201,21 @@ const HubFormFields = ({
                 disabled={isLoading}
                 required
             />
-        </>
+        </Stack>
     )
 }
 
-const HubList = () => {
+const HubListContent = () => {
     const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
-    const { metahubId } = useParams<{ metahubId: string }>()
+    const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const preferredVlcLocale = useMetahubPrimaryLocale()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
+    const isHubScoped = Boolean(hubId)
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.HUB_DISPLAY_STYLE)
 
@@ -217,18 +225,38 @@ const HubList = () => {
 
     // Use paginated hook for hubs list
     const paginationResult = usePaginated<Hub, 'codename' | 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.hubsList(metahubId, params) : () => ['empty'],
+        queryKeyFn: metahubId
+            ? (params) =>
+                  isHubScoped && hubId
+                      ? metahubsQueryKeys.childHubsList(metahubId, hubId, params)
+                      : metahubsQueryKeys.hubsList(metahubId, params)
+            : () => ['empty'],
         queryFn: metahubId
-            ? (params) => hubsApi.listHubs(metahubId, params)
+            ? (params) => (isHubScoped && hubId ? hubsApi.listChildHubs(metahubId, hubId, params) : hubsApi.listHubs(metahubId, params))
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
         sortOrder: 'asc',
-        enabled: !!metahubId
+        enabled: !!metahubId,
+        keepPreviousDataOnQueryKeyChange: !isHubScoped
     })
 
     const { data: hubs, isLoading, error } = paginationResult
     // usePaginated already extracts items array, so data IS the array
+
+    const { data: allHubsResponse } = useQuery<PaginatedResponse<Hub>>({
+        queryKey: metahubId
+            ? metahubsQueryKeys.hubsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
+            : ['hubs-all'],
+        enabled: Boolean(metahubId),
+        queryFn: () =>
+            fetchAllPaginatedItems((params) => hubsApi.listHubs(String(metahubId), params), {
+                limit: 1000,
+                sortBy: 'sortOrder',
+                sortOrder: 'asc'
+            })
+    })
+    const allHubs = useMemo(() => allHubsResponse?.items ?? [], [allHubsResponse?.items])
 
     // Instant search for better UX
     const { handleSearchChange } = useDebouncedSearch({
@@ -247,11 +275,14 @@ const HubList = () => {
         conflict: ConflictInfo | null
         pendingUpdate: { id: string; patch: HubLocalizedPayload } | null
     }>({ open: false, conflict: null, pendingUpdate: null })
+    const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
+    const [isAttachingExisting, setAttachingExisting] = useState(false)
+    const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
 
     const { confirm } = useConfirm()
 
     // Filter entity actions based on settings (allowCopy / allowDelete)
-    const { allowCopy, allowDelete } = useEntityPermissions('hubs')
+    const { allowCopy, allowDelete, allowAttachExistingEntities, allowHubNesting } = useEntityPermissions('hubs')
     const filteredHubActions = useMemo(
         () =>
             hubActions.filter((a) => {
@@ -297,9 +328,66 @@ const HubList = () => {
         return new Map(sortedHubs.map((hub) => [hub.id, hub]))
     }, [sortedHubs])
 
+    const allHubsById = useMemo(() => {
+        const map = new Map<string, Hub>()
+        allHubs.forEach((hub) => map.set(hub.id, hub))
+        return map
+    }, [allHubs])
+
+    const currentHubAncestorIds = useMemo(() => {
+        const ancestors = new Set<string>()
+        if (!isHubScoped || !hubId) return ancestors
+
+        let current: string | null | undefined = hubId
+        const visited = new Set<string>()
+        while (current && !visited.has(current)) {
+            visited.add(current)
+            const parentHubId = allHubsById.get(current)?.parentHubId
+            if (!parentHubId) break
+            ancestors.add(parentHubId)
+            current = parentHubId
+        }
+
+        return ancestors
+    }, [allHubsById, hubId, isHubScoped])
+
+    const attachableExistingHubs = useMemo(() => {
+        if (!isHubScoped || !hubId) return []
+        return allHubs.filter((hub) => {
+            if (hub.id === hubId) return false
+            if (hub.parentHubId === hubId) return false
+            if (currentHubAncestorIds.has(hub.id)) return false
+            return true
+        })
+    }, [allHubs, currentHubAncestorIds, hubId, isHubScoped])
+
+    const attachExistingHubSelectionLabels = useMemo<EntitySelectionLabels>(
+        () => ({
+            title: t('hubs.attachExisting.selectionTitle', 'Hubs'),
+            addButton: t('common:actions.add', 'Add'),
+            dialogTitle: t('hubs.attachExisting.selectDialogTitle', 'Select hubs'),
+            emptyMessage: t('hubs.attachExisting.emptySelection', 'No hubs selected'),
+            noAvailableMessage: t('hubs.attachExisting.noAvailable', 'No hubs available to add'),
+            searchPlaceholder: t('common:search', 'Search...'),
+            cancelButton: t('common:actions.cancel', 'Cancel'),
+            confirmButton: t('common:actions.add', 'Add'),
+            removeTitle: t('common:actions.remove', 'Remove'),
+            nameHeader: t('table.name', 'Name'),
+            codenameHeader: t('common:fields.codename', 'Codename')
+        }),
+        [t]
+    )
+
     const localizedFormDefaults = useMemo<HubFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, codenameVlc: null, codename: '', codenameTouched: false }),
-        []
+        () => ({
+            nameVlc: null,
+            descriptionVlc: null,
+            codenameVlc: null,
+            codename: '',
+            codenameTouched: false,
+            parentHubId: allowHubNesting && isHubScoped ? hubId ?? null : null
+        }),
+        [allowHubNesting, hubId, isHubScoped]
     )
 
     const validateHubForm = useCallback(
@@ -338,7 +426,7 @@ const HubList = () => {
         [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
     )
 
-    const renderLocalizedFields = useCallback(
+    const buildFormTabs = useCallback(
         ({
             values,
             setValue,
@@ -349,27 +437,71 @@ const HubList = () => {
             setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors?: Record<string, string>
-        }) => {
+        }): TabConfig[] => {
             const fieldErrors = errors ?? {}
-            return (
-                <HubFormFields
-                    values={values}
-                    setValue={setValue}
-                    isLoading={isLoading}
-                    errors={fieldErrors}
-                    uiLocale={preferredVlcLocale}
-                    nameLabel={tc('fields.name', 'Name')}
-                    descriptionLabel={tc('fields.description', 'Description')}
-                    codenameLabel={t('hubs.codename', 'Codename')}
-                    codenameHelper={t('hubs.codenameHelper', 'Unique identifier')}
-                />
-            )
+            const parentHubId = typeof values.parentHubId === 'string' ? values.parentHubId : null
+
+            const tabs: TabConfig[] = [
+                {
+                    id: 'general',
+                    label: t('hubs.tabs.general', 'General'),
+                    content: (
+                        <HubFormFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            errors={fieldErrors}
+                            uiLocale={preferredVlcLocale}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            codenameLabel={t('hubs.codename', 'Codename')}
+                            codenameHelper={t('hubs.codenameHelper', 'Unique identifier')}
+                        />
+                    )
+                }
+            ]
+            if (!allowHubNesting) {
+                return tabs
+            }
+
+            tabs.push({
+                id: 'hubs',
+                label: t('hubs.tabs.hubs', 'Hubs'),
+                content: (
+                    <HubParentSelectionPanel
+                        availableHubs={allHubs}
+                        parentHubId={parentHubId}
+                        onParentHubChange={(nextParentHubId) => setValue('parentHubId', nextParentHubId)}
+                        disabled={isLoading}
+                        error={fieldErrors.parentHubId}
+                        uiLocale={preferredVlcLocale}
+                        currentHubId={hubId ?? null}
+                    />
+                )
+            })
+
+            return tabs
         },
-        [preferredVlcLocale, t, tc]
+        [allowHubNesting, preferredVlcLocale, t, tc, allHubs, hubId]
     )
 
-    const hubColumns = useMemo(
-        () => [
+    const getDirectParentHub = useCallback(
+        (hubLike: Hub | HubDisplay): { id: string; name: string; codename: string } | null => {
+            const parentId = typeof hubLike.parentHubId === 'string' ? hubLike.parentHubId : null
+            if (!parentId) return null
+            const parent = allHubsById.get(parentId)
+            if (!parent) return null
+            return {
+                id: parent.id,
+                name: getVLCString(parent.name, i18n.language) || getVLCString(parent.name, 'en') || parent.codename || '—',
+                codename: parent.codename || ''
+            }
+        },
+        [allHubsById, i18n.language]
+    )
+
+    const hubColumns = useMemo(() => {
+        const columns = [
             {
                 id: 'sortOrder',
                 label: t('attributes.table.order', '#'),
@@ -386,12 +518,12 @@ const HubList = () => {
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '25%',
+                width: isHubScoped ? '25%' : '22%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: HubDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: HubDisplay) => (
-                    <Link to={`/metahub/${metahubId}/hub/${row.id}/catalogs`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <Link to={`/metahub/${metahubId}/hub/${row.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,
@@ -411,7 +543,7 @@ const HubList = () => {
             {
                 id: 'description',
                 label: tc('table.description', 'Description'),
-                width: '30%',
+                width: isHubScoped ? '30%' : '24%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: HubDisplay) => row.description?.toLowerCase() ?? '',
@@ -429,7 +561,7 @@ const HubList = () => {
             {
                 id: 'codename',
                 label: t('hubs.codename', 'Codename'),
-                width: '15%',
+                width: isHubScoped ? '15%' : '14%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: HubDisplay) => row.codename?.toLowerCase() ?? '',
@@ -445,25 +577,65 @@ const HubList = () => {
                         {row.codename || '—'}
                     </Typography>
                 )
-            },
-            {
-                id: 'itemsCount',
-                label: t('hubs.itemsTitle', 'Items'),
-                width: '10%',
-                align: 'center' as const,
-                render: (row: HubDisplay) => {
-                    const itemsCount = typeof row.itemsCount === 'number' ? row.itemsCount : row.catalogsCount
-                    return typeof itemsCount === 'number' ? itemsCount : '—'
-                }
             }
-        ],
-        [t, tc, metahubId]
-    )
+        ]
+
+        if (!isHubScoped) {
+            columns.push({
+                id: 'hubs',
+                label: t('hubs.title', 'Hubs'),
+                width: '18%',
+                align: 'left' as const,
+                render: (row: HubDisplay) => {
+                    const parentHub = getDirectParentHub(row)
+                    if (!parentHub) {
+                        return (
+                            <Typography variant='body2' color='text.secondary'>
+                                —
+                            </Typography>
+                        )
+                    }
+
+                    return (
+                        <Link to={`/metahub/${metahubId}/hub/${parentHub.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Chip
+                                label={parentHub.name}
+                                size='small'
+                                variant='outlined'
+                                sx={{
+                                    maxWidth: '100%',
+                                    '&:hover': {
+                                        backgroundColor: 'action.hover'
+                                    }
+                                }}
+                            />
+                        </Link>
+                    )
+                }
+            })
+        }
+
+        columns.push({
+            id: 'itemsCount',
+            label: t('hubs.itemsTitle', 'Items'),
+            width: '10%',
+            align: 'center' as const,
+            render: (row: HubDisplay) => {
+                const itemsCount = typeof row.itemsCount === 'number' ? row.itemsCount : row.catalogsCount
+                return typeof itemsCount === 'number' ? itemsCount : '—'
+            }
+        })
+
+        return columns
+    }, [getDirectParentHub, isHubScoped, metahubId, t, tc])
 
     const createHubContext = useCallback(
         (baseContext: HubMenuBaseContext) => ({
             ...baseContext,
             hubMap,
+            hubs: allHubs,
+            currentHubId: isHubScoped ? hubId ?? null : null,
+            allowHubNesting,
             uiLocale: preferredVlcLocale,
             api: {
                 updateEntity: async (id: string, patch: HubLocalizedPayload) => {
@@ -552,9 +724,13 @@ const HubList = () => {
             deleteHubMutation,
             enqueueSnackbar,
             hubMap,
+            hubId,
             metahubId,
             preferredVlcLocale,
             queryClient,
+            allHubs,
+            allowHubNesting,
+            isHubScoped,
             t,
             updateHubMutation
         ]
@@ -573,6 +749,7 @@ const HubList = () => {
     }
 
     const handleAddNew = () => {
+        if (!canCreateInCurrentHub) return
         setDialogOpen(true)
     }
 
@@ -582,6 +759,82 @@ const HubList = () => {
 
     const handleDialogSave = () => {
         setDialogOpen(false)
+    }
+
+    const handleOpenAttachExistingDialog = () => {
+        setAttachDialogError(null)
+        setAttachDialogOpen(true)
+    }
+
+    const handleCloseAttachExistingDialog = () => {
+        if (isAttachingExisting) return
+        setAttachDialogError(null)
+        setAttachDialogOpen(false)
+    }
+
+    const handleAttachExistingHubs = async (data: GenericFormValues) => {
+        if (!metahubId || !hubId) return
+
+        const selectedHubIds = Array.isArray(data.selectedHubIds)
+            ? data.selectedHubIds.filter((id): id is string => typeof id === 'string')
+            : []
+        if (selectedHubIds.length === 0) {
+            return
+        }
+
+        setAttachDialogError(null)
+        setAttachingExisting(true)
+        try {
+            const selectedHubs = selectedHubIds.map((id) => allHubsById.get(id)).filter((hub): hub is Hub => Boolean(hub))
+            const failed: string[] = []
+
+            for (const targetHub of selectedHubs) {
+                try {
+                    await hubsApi.updateHub(metahubId, targetHub.id, {
+                        parentHubId: hubId,
+                        expectedVersion: targetHub.version
+                    })
+                } catch (error) {
+                    failed.push(
+                        getVLCString(targetHub.name, preferredVlcLocale) || getVLCString(targetHub.name, 'en') || targetHub.codename
+                    )
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to attach existing hub to current hub', error)
+                }
+            }
+
+            await invalidateHubsQueries.all(queryClient, metahubId)
+
+            if (failed.length === 0) {
+                enqueueSnackbar(t('hubs.attachExisting.success', { count: selectedHubs.length, defaultValue: 'Added {{count}} hub(s).' }), {
+                    variant: 'success'
+                })
+                setAttachDialogOpen(false)
+                return
+            }
+
+            const successCount = selectedHubs.length - failed.length
+            if (successCount > 0) {
+                enqueueSnackbar(
+                    t('hubs.attachExisting.partialSuccess', {
+                        successCount,
+                        failCount: failed.length,
+                        defaultValue: 'Added {{successCount}} hub(s). {{failCount}} hub(s) could not be linked.'
+                    }),
+                    { variant: 'warning' }
+                )
+                setAttachDialogOpen(false)
+                return
+            }
+
+            setAttachDialogError(
+                t('hubs.attachExisting.failedAll', {
+                    defaultValue: 'Selected hubs could not be linked to this hub. Please review parent/child constraints and try again.'
+                })
+            )
+        } finally {
+            setAttachingExisting(false)
+        }
     }
 
     const handleCreateHub = async (data: GenericFormValues) => {
@@ -599,9 +852,25 @@ const HubList = () => {
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
             const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
             const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+            const parentHubId = typeof data.parentHubId === 'string' ? data.parentHubId : null
             if (!normalizedCodename) {
                 setDialogError(t('hubs.validation.codenameRequired', 'Codename is required'))
                 return
+            }
+
+            if (isHubScoped && hubId && parentHubId !== hubId) {
+                const confirmed = await confirm({
+                    title: t('hubs.detachedConfirm.title', 'Create hub outside current hub?'),
+                    description: t(
+                        'hubs.detachedConfirm.description',
+                        'This hub is not linked as a child of the current hub and will not appear in this hub after creation.'
+                    ),
+                    confirmButtonName: t('common:actions.create', 'Create'),
+                    cancelButtonName: t('common:actions.cancel', 'Cancel')
+                })
+                if (!confirmed) {
+                    throw DIALOG_SAVE_CANCEL
+                }
             }
 
             await createHubMutation.mutateAsync({
@@ -613,13 +882,22 @@ const HubList = () => {
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
-                    descriptionPrimaryLocale
+                    descriptionPrimaryLocale,
+                    parentHubId
                 }
             })
 
             await invalidateHubsQueries.all(queryClient, metahubId)
             handleDialogSave()
         } catch (e: unknown) {
+            if (
+                e &&
+                typeof e === 'object' &&
+                '__dialogCancelled' in e &&
+                (e as { __dialogCancelled?: unknown }).__dialogCancelled === true
+            ) {
+                throw e
+            }
             const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
@@ -637,12 +915,29 @@ const HubList = () => {
     }
 
     const goToHub = (hub: Hub) => {
-        navigate(`/metahub/${metahubId}/hub/${hub.id}/catalogs`)
+        navigate(`/metahub/${metahubId}/hub/${hub.id}/hubs`)
     }
 
     const handleChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
+    }
+
+    const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations') => {
+        if (!metahubId || !hubId) return
+        if (tabValue === 'catalogs') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
+            return
+        }
+        if (tabValue === 'sets') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/sets`)
+            return
+        }
+        if (tabValue === 'enumerations') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
+            return
+        }
+        navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
     }
 
     const handleSortableDragEnd = async (event: DragEndEvent) => {
@@ -698,6 +993,9 @@ const HubList = () => {
 
     // Transform Hub data for display (ItemCard and FlowListTable expect string name)
     const getHubCardData = (hub: Hub): HubDisplay => toHubDisplay(hub, i18n.language)
+    const canCreateInCurrentHub = !isHubScoped || allowHubNesting
+    const showAttachExistingAction = isHubScoped && allowHubNesting && allowAttachExistingEntities
+    const hasAttachableExistingHubs = attachableExistingHubs.length > 0
 
     return (
         <MainCard
@@ -708,7 +1006,7 @@ const HubList = () => {
             border={false}
             shadow={false}
         >
-            <ExistingCodenamesProvider entities={hubs ?? []}>
+            <ExistingCodenamesProvider entities={allHubs}>
                 {error ? (
                     <EmptyListState
                         image={APIEmptySVG}
@@ -737,117 +1035,178 @@ const HubList = () => {
                                 primaryAction={{
                                     label: tc('create'),
                                     onClick: handleAddNew,
-                                    startIcon: <AddRoundedIcon />
+                                    startIcon: <AddRoundedIcon />,
+                                    disabled: !canCreateInCurrentHub
                                 }}
+                                primaryActionMenuItems={
+                                    showAttachExistingAction && hasAttachableExistingHubs
+                                        ? [
+                                              {
+                                                  label: t('common:actions.add', 'Add'),
+                                                  onClick: handleOpenAttachExistingDialog
+                                              }
+                                          ]
+                                        : undefined
+                                }
                             />
                         </ViewHeader>
 
-                        {isLoading && sortedHubs.length === 0 ? (
-                            view === 'card' ? (
-                                <SkeletonGrid />
-                            ) : (
-                                <Skeleton variant='rectangular' height={120} />
-                            )
-                        ) : !isLoading && sortedHubs.length === 0 ? (
-                            <EmptyListState
-                                image={APIEmptySVG}
-                                imageAlt='No hubs'
-                                title={t('hubs.empty')}
-                                description={t('hubs.emptyDescription')}
-                            />
-                        ) : (
+                        {isHubScoped && (
                             <>
-                                {view === 'card' ? (
-                                    <Box
+                                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                    <Tabs
+                                        value='hubs'
+                                        onChange={handleHubTabChange}
+                                        aria-label={t('hubs.title', 'Hubs')}
+                                        textColor='primary'
+                                        indicatorColor='primary'
                                         sx={{
-                                            display: 'grid',
-                                            gap: gridSpacing,
-                                            mx: { xs: -1.5, md: -2 },
-                                            gridTemplateColumns: {
-                                                xs: '1fr',
-                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                            },
-                                            justifyContent: 'start',
-                                            alignContent: 'start'
+                                            minHeight: 40,
+                                            '& .MuiTab-root': {
+                                                minHeight: 40,
+                                                textTransform: 'none'
+                                            }
                                         }}
                                     >
-                                        {sortedHubs.map((hub: Hub) => {
-                                            const descriptors = [...filteredHubActions]
-                                            const itemsCount = typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.catalogsCount ?? 0
-
-                                            return (
-                                                <ItemCard
-                                                    key={hub.id}
-                                                    data={getHubCardData(hub)}
-                                                    images={images[hub.id] || []}
-                                                    onClick={() => goToHub(hub)}
-                                                    footerEndContent={
-                                                        typeof hub.itemsCount === 'number' || typeof hub.catalogsCount === 'number' ? (
-                                                            <Typography variant='caption' color='text.secondary'>
-                                                                {t('hubs.itemsCount', { count: itemsCount })}
-                                                            </Typography>
-                                                        ) : null
-                                                    }
-                                                    headerAction={
-                                                        descriptors.length > 0 ? (
-                                                            <Box onClick={(e) => e.stopPropagation()}>
-                                                                <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
-                                                                    entity={toHubDisplay(hub, i18n.language)}
-                                                                    entityKind='hub'
-                                                                    descriptors={descriptors}
-                                                                    namespace='metahubs'
-                                                                    i18nInstance={i18n}
-                                                                    createContext={createHubContext}
-                                                                />
-                                                            </Box>
-                                                        ) : null
-                                                    }
-                                                />
-                                            )
-                                        })}
-                                    </Box>
-                                ) : (
-                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                        <FlowListTable
-                                            data={sortedHubs.map(getHubCardData)}
-                                            images={images}
-                                            isLoading={isLoading}
-                                            sortableRows
-                                            sortableItemIds={sortedHubs.map((hub) => hub.id)}
-                                            dragHandleAriaLabel={t('hubs.dnd.dragHandle', 'Drag to reorder')}
-                                            dragDisabled={reorderHubMutation.isPending || isLoading}
-                                            onSortableDragEnd={handleSortableDragEnd}
-                                            renderDragOverlay={renderDragOverlay}
-                                            getRowLink={(row: HubDisplay) =>
-                                                row?.id ? `/metahub/${metahubId}/hub/${row.id}/catalogs` : undefined
-                                            }
-                                            customColumns={hubColumns}
-                                            i18nNamespace='flowList'
-                                            renderActions={(row: HubDisplay) => {
-                                                const originalHub = hubMap.get(row.id)
-                                                if (!originalHub) return null
-
-                                                const descriptors = [...filteredHubActions]
-                                                if (!descriptors.length) return null
-
-                                                return (
-                                                    <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
-                                                        entity={toHubDisplay(originalHub, i18n.language)}
-                                                        entityKind='hub'
-                                                        descriptors={descriptors}
-                                                        namespace='metahubs'
-                                                        menuButtonLabelKey='flowList:menu.button'
-                                                        i18nInstance={i18n}
-                                                        createContext={createHubContext}
-                                                    />
-                                                )
-                                            }}
-                                        />
+                                        <Tab value='hubs' label={t('hubs.title')} />
+                                        <Tab value='catalogs' label={t('catalogs.title')} />
+                                        <Tab value='sets' label={t('sets.title')} />
+                                        <Tab value='enumerations' label={t('enumerations.title')} />
+                                    </Tabs>
+                                </Box>
+                                {!allowHubNesting && (
+                                    <Box sx={{ px: 2, pt: 1 }}>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'hubs.nestingDisabledHint',
+                                                'Hub nesting is disabled in settings. You can still edit and unlink existing parent relations.'
+                                            )}
+                                        </Typography>
                                     </Box>
                                 )}
                             </>
                         )}
+
+                        <Box sx={{ mt: isHubScoped ? 2 : 0 }}>
+                            {isLoading && sortedHubs.length === 0 ? (
+                                view === 'card' ? (
+                                    <SkeletonGrid />
+                                ) : (
+                                    <Skeleton variant='rectangular' height={120} />
+                                )
+                            ) : !isLoading && sortedHubs.length === 0 ? (
+                                <EmptyListState
+                                    image={APIEmptySVG}
+                                    imageAlt='No hubs'
+                                    title={t('hubs.empty')}
+                                    description={t('hubs.emptyDescription')}
+                                />
+                            ) : (
+                                <>
+                                    {view === 'card' ? (
+                                        <Box
+                                            sx={{
+                                                display: 'grid',
+                                                gap: gridSpacing,
+                                                mx: { xs: -1.5, md: -2 },
+                                                gridTemplateColumns: {
+                                                    xs: '1fr',
+                                                    sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                    lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                                },
+                                                justifyContent: 'start',
+                                                alignContent: 'start'
+                                            }}
+                                        >
+                                            {sortedHubs.map((hub: Hub) => {
+                                                const descriptors = [...filteredHubActions]
+                                                const parentHub = getDirectParentHub(hub)
+                                                const itemsCount =
+                                                    typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.catalogsCount ?? 0
+                                                const showItemsCount =
+                                                    typeof hub.itemsCount === 'number' || typeof hub.catalogsCount === 'number'
+                                                const showParentHubInfo = !isHubScoped && Boolean(parentHub)
+
+                                                return (
+                                                    <ItemCard
+                                                        key={hub.id}
+                                                        data={getHubCardData(hub)}
+                                                        images={images[hub.id] || []}
+                                                        onClick={() => goToHub(hub)}
+                                                        footerEndContent={
+                                                            showParentHubInfo || showItemsCount ? (
+                                                                <Stack direction='row' spacing={1} alignItems='center'>
+                                                                    {showParentHubInfo && (
+                                                                        <Chip label={parentHub?.name} size='small' variant='outlined' />
+                                                                    )}
+                                                                    {showItemsCount && (
+                                                                        <Typography variant='caption' color='text.secondary'>
+                                                                            {t('hubs.itemsCount', { count: itemsCount })}
+                                                                        </Typography>
+                                                                    )}
+                                                                </Stack>
+                                                            ) : null
+                                                        }
+                                                        headerAction={
+                                                            descriptors.length > 0 ? (
+                                                                <Box onClick={(e) => e.stopPropagation()}>
+                                                                    <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
+                                                                        entity={toHubDisplay(hub, i18n.language)}
+                                                                        entityKind='hub'
+                                                                        descriptors={descriptors}
+                                                                        namespace='metahubs'
+                                                                        i18nInstance={i18n}
+                                                                        createContext={createHubContext}
+                                                                    />
+                                                                </Box>
+                                                            ) : null
+                                                        }
+                                                    />
+                                                )
+                                            })}
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                            <FlowListTable
+                                                data={sortedHubs.map(getHubCardData)}
+                                                images={images}
+                                                isLoading={isLoading}
+                                                sortableRows
+                                                sortableItemIds={sortedHubs.map((hub) => hub.id)}
+                                                dragHandleAriaLabel={t('hubs.dnd.dragHandle', 'Drag to reorder')}
+                                                dragDisabled={reorderHubMutation.isPending || isLoading}
+                                                onSortableDragEnd={handleSortableDragEnd}
+                                                renderDragOverlay={renderDragOverlay}
+                                                getRowLink={(row: HubDisplay) =>
+                                                    row?.id ? `/metahub/${metahubId}/hub/${row.id}/hubs` : undefined
+                                                }
+                                                customColumns={hubColumns}
+                                                i18nNamespace='flowList'
+                                                renderActions={(row: HubDisplay) => {
+                                                    const originalHub = hubMap.get(row.id)
+                                                    if (!originalHub) return null
+
+                                                    const descriptors = [...filteredHubActions]
+                                                    if (!descriptors.length) return null
+
+                                                    return (
+                                                        <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
+                                                            entity={toHubDisplay(originalHub, i18n.language)}
+                                                            entityKind='hub'
+                                                            descriptors={descriptors}
+                                                            namespace='metahubs'
+                                                            menuButtonLabelKey='flowList:menu.button'
+                                                            i18nInstance={i18n}
+                                                            createContext={createHubContext}
+                                                        />
+                                                    )
+                                                }}
+                                            />
+                                        </Box>
+                                    )}
+                                </>
+                            )}
+                        </Box>
 
                         {/* Table Pagination at bottom */}
                         {!isLoading && sortedHubs.length > 0 && (
@@ -878,9 +1237,68 @@ const HubList = () => {
                     onSave={handleCreateHub}
                     hideDefaultFields
                     initialExtraValues={localizedFormDefaults}
-                    extraFields={renderLocalizedFields}
+                    tabs={buildFormTabs}
                     validate={validateHubForm}
                     canSave={canSaveHubForm}
+                />
+
+                <EntityFormDialog
+                    open={isAttachDialogOpen}
+                    title={t('hubs.attachExisting.dialogTitle', 'Add Existing Hubs')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={t('common:actions.add', 'Add')}
+                    savingButtonText={t('common:actions.saving', 'Saving...')}
+                    cancelButtonText={t('common:actions.cancel', 'Cancel')}
+                    loading={isAttachingExisting}
+                    error={attachDialogError || undefined}
+                    onClose={handleCloseAttachExistingDialog}
+                    onSave={handleAttachExistingHubs}
+                    hideDefaultFields
+                    initialExtraValues={{ selectedHubIds: [] }}
+                    tabs={({ values, setValue, isLoading, errors }) => {
+                        const selectedHubIds = Array.isArray(values.selectedHubIds)
+                            ? values.selectedHubIds.filter((id): id is string => typeof id === 'string')
+                            : []
+                        return [
+                            {
+                                id: 'hubs',
+                                label: t('hubs.tabs.hubs', 'Hubs'),
+                                content: (
+                                    <EntitySelectionPanel<Hub>
+                                        availableEntities={attachableExistingHubs}
+                                        selectedIds={selectedHubIds}
+                                        onSelectionChange={(ids) => setValue('selectedHubIds', ids)}
+                                        getDisplayName={(hub) =>
+                                            getVLCString(hub.name, preferredVlcLocale) ||
+                                            getVLCString(hub.name, 'en') ||
+                                            hub.codename ||
+                                            '—'
+                                        }
+                                        getCodename={(hub) => hub.codename}
+                                        labels={attachExistingHubSelectionLabels}
+                                        disabled={isLoading}
+                                        error={errors.selectedHubIds}
+                                    />
+                                )
+                            }
+                        ]
+                    }}
+                    validate={(values) => {
+                        const selectedHubIds = Array.isArray(values.selectedHubIds)
+                            ? values.selectedHubIds.filter((id): id is string => typeof id === 'string')
+                            : []
+                        if (selectedHubIds.length > 0) return null
+                        return {
+                            selectedHubIds: t('hubs.attachExisting.requiredSelection', 'Select at least one hub to add.')
+                        }
+                    }}
+                    canSave={(values) => {
+                        const selectedHubIds = Array.isArray(values.selectedHubIds)
+                            ? values.selectedHubIds.filter((id): id is string => typeof id === 'string')
+                            : []
+                        return !isAttachingExisting && selectedHubIds.length > 0
+                    }}
                 />
 
                 {/* Hub delete dialog with blocking catalogs check */}
@@ -940,6 +1358,14 @@ const HubList = () => {
                 />
             </ExistingCodenamesProvider>
         </MainCard>
+    )
+}
+
+const HubList = () => {
+    return (
+        <ConfirmContextProvider>
+            <HubListContent />
+        </ConfirmContextProvider>
     )
 }
 

@@ -203,4 +203,47 @@ export class MetahubSettingsService {
                 _upl_updated_by: userId ?? null
             })
     }
+
+    /**
+     * Clears all parent-child hub nesting links by setting `config.parentHubId = null`
+     * for every non-deleted hub object in `_mhb_objects`.
+     */
+    async clearHubNesting(metahubId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const now = new Date()
+        const updatedCount = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: 'hub' })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .andWhereRaw(`COALESCE(config->>'parentHubId', '') <> ''`)
+            .update({
+                config: this.knex.raw(`jsonb_set(COALESCE(config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true)`),
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null,
+                _upl_version: this.knex.raw('_upl_version + 1')
+            })
+
+        return typeof updatedCount === 'number' ? updatedCount : 0
+    }
+
+    /**
+     * Returns true when at least one active hub has a non-null parentHubId.
+     */
+    async hasHubNesting(metahubId: string, userId?: string): Promise<boolean> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const row = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: 'hub' })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .andWhereRaw(`COALESCE(config->>'parentHubId', '') <> ''`)
+            .count<{ total: string | number }[]>('* as total')
+            .first()
+
+        const total = Number(row?.total ?? 0)
+        return Number.isFinite(total) && total > 0
+    }
 }

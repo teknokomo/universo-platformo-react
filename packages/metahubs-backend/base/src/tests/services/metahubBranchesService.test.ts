@@ -347,6 +347,9 @@ describe('MetahubBranchesService', () => {
             expect.stringContaining('DELETE FROM "mhb_metahub1_b2"._mhb_objects WHERE kind = ANY($1::text[])'),
             [['hub', 'enumeration']]
         )
+        expect(queryMock).toHaveBeenCalledWith(
+            expect.stringContaining("SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}'")
+        )
     })
 
     it('findByCodename checks only active branches', async () => {

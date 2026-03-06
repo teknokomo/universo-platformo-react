@@ -1836,7 +1836,7 @@ const ElementList = () => {
                         />
                     </ViewHeader>
 
-                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                         <Tabs
                             value='elements'
                             onChange={handleCatalogTabChange}

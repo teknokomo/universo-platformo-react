@@ -572,8 +572,90 @@ export function createApplicationsRoutes(
                 table_name: string
                 presentation?: unknown
             }>
+
+            let preferredCatalogIdFromMenu: string | null = null
+            if (!requestedCatalogId) {
+                try {
+                    const [{ layoutsExists, widgetsExists }] = (await manager.query(
+                        `
+                            SELECT
+                                EXISTS (
+                                    SELECT 1 FROM information_schema.tables
+                                    WHERE table_schema = $1 AND table_name = '_app_layouts'
+                                ) AS "layoutsExists",
+                                EXISTS (
+                                    SELECT 1 FROM information_schema.tables
+                                    WHERE table_schema = $1 AND table_name = '_app_widgets'
+                                ) AS "widgetsExists"
+                        `,
+                        [schemaName]
+                    )) as Array<{ layoutsExists: boolean; widgetsExists: boolean }>
+
+                    if (layoutsExists && widgetsExists) {
+                        const defaultLayoutRows = (await manager.query(
+                            `
+                                SELECT id
+                                FROM ${schemaIdent}._app_layouts
+                                WHERE (is_default = true OR is_active = true)
+                                  AND COALESCE(_upl_deleted, false) = false
+                                  AND COALESCE(_app_deleted, false) = false
+                                ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
+                                LIMIT 1
+                            `
+                        )) as Array<{ id: string }>
+                        const activeLayoutId = defaultLayoutRows[0]?.id
+
+                        if (activeLayoutId) {
+                            const menuWidgets = (await manager.query(
+                                `
+                                    SELECT config
+                                    FROM ${schemaIdent}._app_widgets
+                                    WHERE layout_id = $1
+                                      AND zone = 'left'
+                                      AND widget_key = 'menuWidget'
+                                      AND COALESCE(_upl_deleted, false) = false
+                                      AND COALESCE(_app_deleted, false) = false
+                                    ORDER BY sort_order ASC, _upl_created_at ASC
+                                `,
+                                [activeLayoutId]
+                            )) as Array<{ config?: unknown }>
+
+                            const boundMenuConfig = menuWidgets
+                                .map((row) =>
+                                    row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : null
+                                )
+                                .find((cfg) => Boolean(cfg?.bindToHub) && typeof cfg?.boundHubId === 'string')
+
+                            const boundHubId = typeof boundMenuConfig?.boundHubId === 'string' ? boundMenuConfig.boundHubId : null
+                            if (boundHubId) {
+                                const preferredCatalogRows = (await manager.query(
+                                    `
+                                        SELECT id
+                                        FROM ${schemaIdent}._app_objects
+                                        WHERE kind = 'catalog'
+                                          AND COALESCE(_upl_deleted, false) = false
+                                          AND COALESCE(_app_deleted, false) = false
+                                          AND config->'hubs' @> $1::jsonb
+                                        ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC, codename ASC
+                                        LIMIT 1
+                                    `,
+                                    [JSON.stringify([boundHubId])]
+                                )) as Array<{ id: string }>
+                                preferredCatalogIdFromMenu = preferredCatalogRows[0]?.id ?? null
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.warn('[ApplicationsRuntime] Failed to resolve preferred startup catalog from menu binding (ignored)', e)
+                }
+            }
+
             const activeCatalog =
                 (requestedCatalogId ? typedCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
+                (preferredCatalogIdFromMenu
+                    ? typedCatalogs.find((catalogRow) => catalogRow.id === preferredCatalogIdFromMenu)
+                    : undefined) ??
                 typedCatalogs[0]
             if (!activeCatalog) {
                 return res
@@ -1024,6 +1106,7 @@ export function createApplicationsRoutes(
                 icon: string | null
                 href: string | null
                 catalogId: string | null
+                hubId: string | null
                 sortOrder: number
                 isActive: boolean
             }
@@ -1035,6 +1118,107 @@ export function createApplicationsRoutes(
                 title: string
                 autoShowAllCatalogs: boolean
                 items: RuntimeMenuItem[]
+            }
+
+            type RuntimeHubMeta = {
+                id: string
+                codename: string
+                title: string
+                parentHubId: string | null
+                sortOrder: number
+            }
+
+            type RuntimeCatalogMeta = {
+                id: string
+                codename: string
+                title: string
+                sortOrder: number
+                hubIds: string[]
+            }
+
+            let hubMetaById = new Map<string, RuntimeHubMeta>()
+            let childHubIdsByParent = new Map<string, string[]>()
+            let catalogsByHub = new Map<string, RuntimeCatalogMeta[]>()
+
+            try {
+                const objectRows = (await manager.query(
+                    `
+                        SELECT id, kind, codename, presentation, config
+                        FROM ${schemaIdent}._app_objects
+                        WHERE kind IN ('hub', 'catalog')
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                    `
+                )) as Array<{
+                    id: string
+                    kind: 'hub' | 'catalog'
+                    codename: string
+                    presentation?: unknown
+                    config?: unknown
+                }>
+
+                for (const row of objectRows) {
+                    const config = row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : {}
+                    const rawSortOrder = config.sortOrder
+                    const sortOrder = typeof rawSortOrder === 'number' ? rawSortOrder : 0
+                    const title = resolvePresentationName(row.presentation, requestedLocale, row.codename)
+
+                    if (row.kind === 'hub') {
+                        const parentHubId = typeof config.parentHubId === 'string' ? config.parentHubId : null
+                        hubMetaById.set(row.id, {
+                            id: row.id,
+                            codename: row.codename,
+                            title,
+                            parentHubId,
+                            sortOrder
+                        })
+                        continue
+                    }
+
+                    const hubIds = Array.isArray(config.hubs)
+                        ? config.hubs.filter((value): value is string => typeof value === 'string')
+                        : []
+                    const catalogMeta: RuntimeCatalogMeta = {
+                        id: row.id,
+                        codename: row.codename,
+                        title,
+                        sortOrder,
+                        hubIds
+                    }
+                    for (const hubId of hubIds) {
+                        const list = catalogsByHub.get(hubId) ?? []
+                        list.push(catalogMeta)
+                        catalogsByHub.set(hubId, list)
+                    }
+                }
+
+                const hubSortComparator = (a: RuntimeHubMeta, b: RuntimeHubMeta) => {
+                    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                    return a.codename.localeCompare(b.codename)
+                }
+                const catalogSortComparator = (a: RuntimeCatalogMeta, b: RuntimeCatalogMeta) => {
+                    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                    return a.codename.localeCompare(b.codename)
+                }
+
+                const hubs = Array.from(hubMetaById.values()).sort(hubSortComparator)
+                childHubIdsByParent = new Map<string, string[]>()
+                for (const hub of hubs) {
+                    if (!hub.parentHubId) continue
+                    const childIds = childHubIdsByParent.get(hub.parentHubId) ?? []
+                    childIds.push(hub.id)
+                    childHubIdsByParent.set(hub.parentHubId, childIds)
+                }
+
+                for (const [hubId, hubCatalogs] of catalogsByHub.entries()) {
+                    catalogsByHub.set(hubId, [...hubCatalogs].sort(catalogSortComparator))
+                }
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[ApplicationsRuntime] Failed to build hub/catalog runtime map for menuWidget (ignored)', e)
+                hubMetaById = new Map()
+                childHubIdsByParent = new Map()
+                catalogsByHub = new Map()
             }
 
             const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
@@ -1050,9 +1234,99 @@ export function createApplicationsRoutes(
                     icon: typeof typed.icon === 'string' ? typed.icon : null,
                     href: typeof typed.href === 'string' ? typed.href : null,
                     catalogId: typeof typed.catalogId === 'string' ? typed.catalogId : null,
+                    hubId: typeof typed.hubId === 'string' ? typed.hubId : null,
                     sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
                     isActive: true
                 }
+            }
+
+            const buildHubMenuItems = (baseItem: RuntimeMenuItem): RuntimeMenuItem[] => {
+                if (!baseItem.hubId) return []
+                if (!hubMetaById.has(baseItem.hubId)) return []
+
+                const items: RuntimeMenuItem[] = []
+                const visited = new Set<string>()
+                const hubSortComparator = (aId: string, bId: string) => {
+                    const a = hubMetaById.get(aId)
+                    const b = hubMetaById.get(bId)
+                    if (!a || !b) return aId.localeCompare(bId)
+                    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                    return a.codename.localeCompare(b.codename)
+                }
+
+                const walkHub = (hubId: string, depth: number) => {
+                    if (visited.has(hubId)) return
+                    visited.add(hubId)
+
+                    const hubMeta = hubMetaById.get(hubId)
+                    if (!hubMeta) return
+                    const indent = depth > 0 ? `${'\u00A0\u00A0'.repeat(depth)}• ` : ''
+
+                    items.push({
+                        id: `${baseItem.id}:hub:${hubMeta.id}`,
+                        kind: 'hub',
+                        title: `${indent}${hubMeta.title}`,
+                        icon: baseItem.icon,
+                        href: null,
+                        catalogId: null,
+                        hubId: hubMeta.id,
+                        sortOrder: baseItem.sortOrder,
+                        isActive: true
+                    })
+
+                    const hubCatalogs = catalogsByHub.get(hubMeta.id) ?? []
+                    for (const catalog of hubCatalogs) {
+                        items.push({
+                            id: `${baseItem.id}:hub:${hubMeta.id}:catalog:${catalog.id}`,
+                            kind: 'catalog',
+                            title: `${'\u00A0\u00A0'.repeat(depth + 1)}${catalog.title}`,
+                            icon: baseItem.icon,
+                            href: null,
+                            catalogId: catalog.id,
+                            hubId: hubMeta.id,
+                            sortOrder: baseItem.sortOrder,
+                            isActive: true
+                        })
+                    }
+
+                    const childIds = [...(childHubIdsByParent.get(hubMeta.id) ?? [])].sort(hubSortComparator)
+                    for (const childId of childIds) {
+                        walkHub(childId, depth + 1)
+                    }
+                }
+
+                walkHub(baseItem.hubId, 0)
+                return items
+            }
+
+            const buildBoundHubCatalogItems = (widgetId: string, boundHubId: string): RuntimeMenuItem[] => {
+                if (!hubMetaById.has(boundHubId)) return []
+                const directCatalogs = catalogsByHub.get(boundHubId) ?? []
+                return directCatalogs.map((catalog, index) => ({
+                    id: `${widgetId}:bound-hub:${boundHubId}:catalog:${catalog.id}`,
+                    kind: 'catalog',
+                    title: catalog.title,
+                    icon: 'database',
+                    href: null,
+                    catalogId: catalog.id,
+                    hubId: boundHubId,
+                    sortOrder: index + 1,
+                    isActive: true
+                }))
+            }
+
+            const buildAllCatalogMenuItems = (widgetId: string): RuntimeMenuItem[] => {
+                return catalogsForRuntime.map((catalog, index) => ({
+                    id: `${widgetId}:all-catalogs:${catalog.id}`,
+                    kind: 'catalog',
+                    title: catalog.name,
+                    icon: 'database',
+                    href: null,
+                    catalogId: catalog.id,
+                    hubId: null,
+                    sortOrder: index + 1,
+                    isActive: true
+                }))
             }
 
             let menus: RuntimeMenuEntry[] = []
@@ -1062,17 +1336,42 @@ export function createApplicationsRoutes(
                 for (const widget of zoneWidgets.left) {
                     if (widget.widgetKey !== 'menuWidget') continue
                     const cfg = widget.config as Record<string, unknown>
-                    const rawItems = Array.isArray(cfg.items) ? cfg.items : []
+                    const bindToHub = Boolean(cfg.bindToHub)
+                    const boundHubId = typeof cfg.boundHubId === 'string' ? cfg.boundHubId : null
+                    const autoShowAllCatalogs = Boolean(cfg.autoShowAllCatalogs) && !bindToHub
+
+                    let resolvedItems: RuntimeMenuItem[] = []
+                    if (bindToHub && boundHubId) {
+                        resolvedItems = buildBoundHubCatalogItems(widget.id, boundHubId)
+                    } else if (autoShowAllCatalogs) {
+                        resolvedItems = buildAllCatalogMenuItems(widget.id)
+                    } else {
+                        const rawItems = Array.isArray(cfg.items) ? cfg.items : []
+                        const normalizedItems = rawItems
+                            .map((item) => normalizeMenuItem(item))
+                            .filter((item): item is RuntimeMenuItem => item !== null)
+                            .filter((item) => item.kind !== 'catalogs_all')
+                            .sort((a, b) => a.sortOrder - b.sortOrder)
+
+                        for (const item of normalizedItems) {
+                            if (item.kind === 'hub') {
+                                const expanded = buildHubMenuItems(item)
+                                if (expanded.length > 0) {
+                                    resolvedItems.push(...expanded)
+                                }
+                                continue
+                            }
+                            resolvedItems.push(item)
+                        }
+                    }
+
                     const menuEntry = {
                         id: widget.id,
                         widgetId: widget.id,
                         showTitle: Boolean(cfg.showTitle),
                         title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
-                        autoShowAllCatalogs: Boolean(cfg.autoShowAllCatalogs),
-                        items: rawItems
-                            .map((item) => normalizeMenuItem(item))
-                            .filter((item): item is RuntimeMenuItem => item !== null)
-                            .sort((a, b) => a.sortOrder - b.sortOrder)
+                        autoShowAllCatalogs,
+                        items: resolvedItems
                     } satisfies RuntimeMenuEntry
                     menus.push(menuEntry)
                 }

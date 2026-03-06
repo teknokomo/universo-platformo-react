@@ -135,9 +135,7 @@ function NumberEditCell({ id, field, value, api, nonNegative, scale, maxIntegerD
         }
 
         const normalized = raw.replace(/,/g, '.')
-        const pattern = allowNegative
-            ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/)
-            : (scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/)
+        const pattern = allowNegative ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/) : scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/
 
         if (!pattern.test(normalized)) return
 
@@ -201,7 +199,10 @@ function NumberEditCell({ id, field, value, api, nonNegative, scale, maxIntegerD
 
         // Minus
         if (key === '-') {
-            if (!allowNegative) { event.preventDefault(); return }
+            if (!allowNegative) {
+                event.preventDefault()
+                return
+            }
             if (selectionStart !== 0 || currentValue.includes('-')) event.preventDefault()
             return
         }
@@ -279,27 +280,16 @@ function NumberEditCell({ id, field, value, api, nonNegative, scale, maxIntegerD
             onFocus={handleFocus}
             onClick={handleClick}
             onBlur={handleBlur}
-            autoFocus
             fullWidth
             sx={{ fontSize: 'inherit', '& input': { textAlign: 'right', px: 0.5, py: 0 } }}
             inputProps={{ inputMode: scale > 0 ? 'decimal' : 'numeric' }}
             endAdornment={
                 <InputAdornment position='end' sx={{ ml: 0 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <IconButton
-                            size='small'
-                            tabIndex={-1}
-                            onClick={() => doStep(1)}
-                            sx={{ width: 18, height: 14, p: 0 }}
-                        >
+                        <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 18, height: 14, p: 0 }}>
                             <ArrowDropUpIcon sx={{ fontSize: 16 }} />
                         </IconButton>
-                        <IconButton
-                            size='small'
-                            tabIndex={-1}
-                            onClick={() => doStep(-1)}
-                            sx={{ width: 18, height: 14, p: 0 }}
-                        >
+                        <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 18, height: 14, p: 0 }}>
                             <ArrowDropDownIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                     </Box>
@@ -534,7 +524,14 @@ export function buildTabularColumns({
                 colDef.align = 'right'
                 colDef.headerAlign = 'right'
                 colDef.renderEditCell = (params) => (
-                    <NumberEditCell {...params} nonNegative={nonNeg} scale={sc} maxIntegerDigits={maxInt} locale={locale} validationRules={rules} />
+                    <NumberEditCell
+                        {...params}
+                        nonNegative={nonNeg}
+                        scale={sc}
+                        maxIntegerDigits={maxInt}
+                        locale={locale}
+                        validationRules={rules}
+                    />
                 )
                 // Display formatted value with locale-aware decimal separator
                 const sep = getDecimalSeparator(locale, sc)

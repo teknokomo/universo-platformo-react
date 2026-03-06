@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Button } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { EntitySelectionPanel, type EntitySelectionLabels } from '@universo/template-mui'
 import type { Hub } from '../types'
@@ -25,6 +26,8 @@ export interface HubSelectionPanelProps {
     error?: string
     /** Current UI locale for hub name display */
     uiLocale?: string
+    /** Current hub context for quick re-link action */
+    currentHubId?: string | null
 }
 
 /**
@@ -44,9 +47,10 @@ export const HubSelectionPanel = ({
     onSingleHubChange,
     disabled = false,
     error,
-    uiLocale = 'en'
+    uiLocale = 'en',
+    currentHubId = null
 }: HubSelectionPanelProps) => {
-    const { t } = useTranslation('metahubs')
+    const { t } = useTranslation(['metahubs', 'common'])
 
     const labels: EntitySelectionLabels = useMemo(
         () => ({
@@ -56,8 +60,8 @@ export const HubSelectionPanel = ({
             emptyMessage: t('catalogs.noHubsSelected', 'Хабы не выбраны'),
             requiredWarningMessage: t('catalogs.requiredHubWarning', 'Необходимо выбрать хотя бы один хаб'),
             noAvailableMessage: t('catalogs.noHubsAvailable', 'Нет доступных хабов'),
-            searchPlaceholder: t('common.search', 'Поиск...'),
-            cancelButton: t('common.cancel', 'Отмена'),
+            searchPlaceholder: t('common:search', 'Поиск...'),
+            cancelButton: t('common:actions.cancel', 'Отмена'),
             confirmButton: t('catalogs.addSelected', 'Добавить'),
             removeTitle: t('catalogs.removeHub', 'Удалить'),
             nameHeader: t('table.name', 'Название'),
@@ -81,6 +85,17 @@ export const HubSelectionPanel = ({
         return hub.codename
     }
 
+    const showRelinkCurrentHub =
+        typeof currentHubId === 'string' &&
+        currentHubId.length > 0 &&
+        !selectedHubIds.includes(currentHubId) &&
+        availableHubs.some((hub) => hub.id === currentHubId)
+
+    const handleRelinkCurrentHub = () => {
+        if (!showRelinkCurrentHub || !currentHubId) return
+        onSelectionChange([...selectedHubIds, currentHubId])
+    }
+
     return (
         <EntitySelectionPanel<Hub>
             availableEntities={availableHubs}
@@ -95,6 +110,13 @@ export const HubSelectionPanel = ({
             onRequiredChange={onRequiredHubChange}
             isSingle={isSingleHub}
             onSingleChange={onSingleHubChange}
+            headerActions={
+                showRelinkCurrentHub ? (
+                    <Button size='small' variant='outlined' onClick={handleRelinkCurrentHub} disabled={disabled}>
+                        {t('hubs.linkCurrentHubShort', 'Текущий хаб')}
+                    </Button>
+                ) : undefined
+            }
         />
     )
 }

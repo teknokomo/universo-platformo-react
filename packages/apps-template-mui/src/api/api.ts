@@ -201,11 +201,12 @@ export const appDataResponseSchema = z.object({
                 items: z.array(
                     z.object({
                         id: z.string(),
-                        kind: z.enum(['catalog', 'catalogs_all', 'link']),
+                        kind: z.enum(['catalog', 'catalogs_all', 'hub', 'link']),
                         title: z.string(),
                         icon: z.string().nullable().optional(),
                         href: z.string().nullable().optional(),
                         catalogId: z.string().nullable().optional(),
+                        hubId: z.string().nullable().optional(),
                         sortOrder: z.number().optional().default(0),
                         isActive: z.boolean().optional().default(true)
                     })

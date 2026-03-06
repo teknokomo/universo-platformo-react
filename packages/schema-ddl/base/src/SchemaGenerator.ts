@@ -11,6 +11,7 @@ import type { SchemaDiff } from './diff'
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
+const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
 
 /**
  * Options for generateFullSchema method
@@ -99,7 +100,7 @@ export class SchemaGenerator {
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {
-                    if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND) {
+                    if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND || entity.kind === HUB_KIND) {
                         continue
                     }
                     await this.createEntityTable(schemaName, entity, trx)
@@ -190,7 +191,7 @@ export class SchemaGenerator {
     }
 
     public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
-        if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND) {
+        if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND || entity.kind === HUB_KIND) {
             console.log(`[SchemaGenerator] Skipping physical table for ${entity.kind} entity: ${entity.codename}`)
             return
         }

@@ -212,6 +212,11 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                 onClose()
             }
         } catch (e) {
+            const cancelled =
+                e && typeof e === 'object' && '__dialogCancelled' in e && (e as { __dialogCancelled?: unknown }).__dialogCancelled === true
+            if (cancelled) {
+                return
+            }
             // error is shown via `error` prop from parent
             // eslint-disable-next-line no-console
             console.error('EntityFormDialog save error:', e)

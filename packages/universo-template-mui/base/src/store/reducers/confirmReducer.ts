@@ -11,6 +11,7 @@ export const initialState: ConfirmState = {
     confirmButtonName: 'OK',
     cancelButtonName: 'Cancel',
     customBtnId: '',
+    requestId: '',
     hideCancelButton: false
 }
 
@@ -24,6 +25,7 @@ const confirmReducer = (state: ConfirmState = initialState, action: ConfirmActio
                 confirmButtonName: action.payload.confirmButtonName,
                 cancelButtonName: action.payload.cancelButtonName,
                 customBtnId: action.payload.customBtnId || 'btn_confirm',
+                requestId: action.payload.requestId || '',
                 hideCancelButton: action.payload.hideCancelButton
             }
         case HIDE_CONFIRM:

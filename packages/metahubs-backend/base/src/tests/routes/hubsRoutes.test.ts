@@ -43,8 +43,7 @@ import { createHubsRoutes } from '../../domains/hubs/routes/hubsRoutes'
 const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
 
-const mockGenerateTableName = jest.fn((id: string, kind: string) => `${kind}_${id}`)
-const mockKnex = {
+const mockKnex: Record<string, any> = {
     transaction: jest.fn()
 }
 
@@ -57,8 +56,7 @@ jest.mock('../../domains/ddl', () => ({
     __esModule: true,
     KnexClient: {
         getInstance: () => mockKnex
-    },
-    generateTableName: (...args: unknown[]) => mockGenerateTableName(...(args as [string, string]))
+    }
 }))
 
 const mockHubsService = {
@@ -127,8 +125,7 @@ const createTransactionStub = (params?: {
             _upl_updated_at: '2026-02-26T00:00:00.000Z'
         } as Record<string, unknown>)
 
-    const insertReturning = jest.fn().mockResolvedValue([{ id: copiedHub.id }])
-    const updateReturning = jest.fn().mockResolvedValue([copiedHub])
+    const insertReturning = jest.fn().mockResolvedValue([copiedHub])
     const relationSelect = jest.fn().mockResolvedValue(params?.relationRows ?? [])
     const relationUpdateReturning = jest.fn().mockResolvedValue(params?.relationUpdateRows ?? [{ id: 'related-1' }])
 
@@ -141,10 +138,9 @@ const createTransactionStub = (params?: {
                 }))
             })),
             from: jest.fn(() => ({
-                where: jest.fn((criteria: Record<string, unknown>) => ({
+                where: jest.fn((_criteria: Record<string, unknown>) => ({
                     update: jest.fn(() => ({
-                        returning: (...args: unknown[]) =>
-                            '_upl_version' in criteria ? relationUpdateReturning(...args) : updateReturning(...args)
+                        returning: (...args: unknown[]) => relationUpdateReturning(...args)
                     }))
                 })),
                 whereIn: jest.fn(() => ({
@@ -162,7 +158,40 @@ const createTransactionStub = (params?: {
         }))
     }
 
-    return { trx, insertReturning, updateReturning, relationSelect, relationUpdateReturning }
+    return { trx, insertReturning, relationSelect, relationUpdateReturning }
+}
+
+const mockKnexForBlockingChildHubs = (options?: {
+    blockingObjects?: Array<Record<string, unknown>>
+    blockingChildHubs?: Array<Record<string, unknown>>
+}) => {
+    const blockingObjects = options?.blockingObjects ?? []
+    const blockingChildHubs = options?.blockingChildHubs ?? []
+
+    const objectsChain = {
+        whereIn: jest.fn(() => objectsChain),
+        whereRaw: jest.fn(() => objectsChain),
+        select: jest.fn(async () => blockingObjects)
+    }
+
+    const childHubsChain = {
+        where: jest.fn(() => childHubsChain),
+        andWhere: jest.fn(() => childHubsChain),
+        andWhereRaw: jest.fn(() => childHubsChain),
+        select: jest.fn(async () => blockingChildHubs)
+    }
+
+    const schemaChain = {
+        from: jest.fn((tableName: string) => {
+            if (tableName !== '_mhb_objects') throw new Error(`Unexpected table: ${tableName}`)
+            return {
+                whereIn: objectsChain.whereIn,
+                where: childHubsChain.where
+            }
+        })
+    }
+
+    mockKnex.withSchema = jest.fn(() => schemaChain)
 }
 
 describe('Hubs Routes', () => {
@@ -207,7 +236,6 @@ describe('Hubs Routes', () => {
             config: { sortOrder: 2 }
         })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
-        mockGenerateTableName.mockImplementation((id: string, kind: string) => `${kind}_${id}`)
     })
 
     describe('PATCH /metahub/:metahubId/hubs/reorder', () => {
@@ -330,7 +358,6 @@ describe('Hubs Routes', () => {
                 .expect(201)
 
             expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
-            expect(mockGenerateTableName).toHaveBeenCalledWith('hub-copy-id', 'hub')
             expect(response.body.id).toBe('hub-copy-id')
             expect(response.body.codename).toBe('MainHubCopy')
             expect(response.body.sortOrder).toBe(3)
@@ -360,6 +387,58 @@ describe('Hubs Routes', () => {
 
             expect(response.body.id).toBe('hub-copy-id')
             expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    describe('blocking child hubs', () => {
+        it('returns child hubs in GET blocking-catalogs response', async () => {
+            mockHubsService.findById.mockResolvedValueOnce({
+                id: 'hub-1',
+                codename: 'main-hub'
+            })
+            mockKnexForBlockingChildHubs({
+                blockingObjects: [],
+                blockingChildHubs: [
+                    {
+                        id: 'child-hub-1',
+                        codename: 'child-hub',
+                        presentation: { name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Child Hub' } } } }
+                    }
+                ]
+            })
+
+            const app = buildApp()
+            const response = await request(app).get('/metahub/metahub-1/hub/hub-1/blocking-catalogs').expect(200)
+
+            expect(response.body.canDelete).toBe(false)
+            expect(response.body.totalBlocking).toBe(1)
+            expect(response.body.blockingChildHubs).toHaveLength(1)
+            expect(response.body.blockingChildHubs[0].id).toBe('child-hub-1')
+        })
+
+        it('blocks DELETE when child hubs are linked to parent', async () => {
+            mockHubsService.findById.mockResolvedValueOnce({
+                id: 'hub-1',
+                codename: 'main-hub'
+            })
+            mockKnexForBlockingChildHubs({
+                blockingObjects: [],
+                blockingChildHubs: [
+                    {
+                        id: 'child-hub-1',
+                        codename: 'child-hub',
+                        presentation: { name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Child Hub' } } } }
+                    }
+                ]
+            })
+
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/metahub-1/hub/hub-1').expect(409)
+
+            expect(response.body.error).toBe('Cannot delete hub: required objects would become orphaned')
+            expect(response.body.totalBlocking).toBe(1)
+            expect(response.body.blockingChildHubs).toHaveLength(1)
+            expect(mockHubsService.delete).not.toHaveBeenCalled()
         })
     })
 })

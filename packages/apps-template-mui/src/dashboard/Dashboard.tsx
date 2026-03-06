@@ -51,8 +51,9 @@ export interface DashboardMenuItem {
     id: string
     label: string
     icon?: string | null
-    kind: 'catalog' | 'link'
+    kind: 'catalog' | 'hub' | 'link'
     catalogId?: string | null
+    hubId?: string | null
     href?: string | null
     selected?: boolean
 }
