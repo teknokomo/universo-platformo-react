@@ -354,23 +354,18 @@ export function createHubsRoutes(
         metahubId: string,
         schemaService: MetahubSchemaService,
         userId?: string,
-        runner?: Knex.Transaction,
-        lockForUpdate = false
+        runner?: Knex.Transaction
     ): Promise<Map<string, string | null>> => {
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
         const db = runner ?? KnexClient.getInstance()
 
-        let query = db
+        const query = db
             .withSchema(schemaName)
             .from('_mhb_objects')
             .where({ kind: MetaEntityKind.HUB })
             .andWhere('_upl_deleted', false)
             .andWhere('_mhb_deleted', false)
             .select('id', 'config')
-
-        if (lockForUpdate && runner) {
-            query = query.forUpdate()
-        }
 
         const rows = (await query) as Array<{ id: string; config?: { parentHubId?: unknown } }>
 
@@ -388,8 +383,7 @@ export function createHubsRoutes(
         parentHubId,
         schemaService,
         userId,
-        runner,
-        lockForUpdate
+        runner
     }: {
         metahubId: string
         hubId: string
@@ -397,14 +391,13 @@ export function createHubsRoutes(
         schemaService: MetahubSchemaService
         userId?: string
         runner?: Knex.Transaction
-        lockForUpdate?: boolean
     }): Promise<{ ok: true } | { ok: false; message: string }> => {
         if (!parentHubId) return { ok: true }
         if (parentHubId === hubId) {
             return { ok: false, message: 'Hub cannot be a parent of itself' }
         }
 
-        const parentMap = await loadHubParentMap(metahubId, schemaService, userId, runner, lockForUpdate ?? false)
+        const parentMap = await loadHubParentMap(metahubId, schemaService, userId, runner)
         if (!parentMap.has(parentHubId)) {
             return { ok: false, message: 'Parent hub not found' }
         }
@@ -555,11 +548,25 @@ export function createHubsRoutes(
             }
 
             const countResult = await baseQuery.clone().count('* as total').first<{ total: string | number }>()
+            const sortOrder = parsed.sortOrder === 'asc' ? 'asc' : 'desc'
+            const applySorting = (query: Knex.QueryBuilder) => {
+                if (parsed.sortBy === 'name') {
+                    return query.orderByRaw(`presentation->'name'->>'en' ${sortOrder}`)
+                }
+                if (parsed.sortBy === 'codename') {
+                    return query.orderBy('codename', sortOrder)
+                }
+                if (parsed.sortBy === 'sortOrder') {
+                    return query.orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ${sortOrder}`)
+                }
+                if (parsed.sortBy === 'created') {
+                    return query.orderBy('_upl_created_at', sortOrder)
+                }
+                return query.orderBy('_upl_updated_at', sortOrder)
+            }
 
-            const rows = (await baseQuery
-                .clone()
-                .orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ASC`)
-                .orderBy('_upl_created_at', 'asc')
+            const rows = (await applySorting(baseQuery.clone())
+                .orderBy('id', 'asc')
                 .offset(parsed.offset)
                 .limit(parsed.limit)
                 .select('*')) as Array<Record<string, unknown>>
@@ -1210,8 +1217,7 @@ export function createHubsRoutes(
                             parentHubId,
                             schemaService,
                             userId,
-                            runner: trx,
-                            lockForUpdate: true
+                            runner: trx
                         })
                         if (!relationValidation.ok) {
                             throw new HubParentRelationValidationError(relationValidation.message)

@@ -4,7 +4,6 @@ import { HIDE_CONFIRM, SHOW_CONFIRM, ConfirmPayload } from '../store/actions'
 
 const pendingResolvers = new Map<string, (value: boolean) => void>()
 const pendingFallbackTimers = new Map<string, number>()
-let resolverFallback: ((value: boolean) => void) | null = null
 let requestCounter = 0
 
 const nextRequestId = () => {
@@ -40,23 +39,39 @@ export const useConfirm = () => {
         dispatch({ type: HIDE_CONFIRM })
     }
 
-    const resolveCurrentRequest = (value: boolean) => {
-        const requestId = typeof confirmState.requestId === 'string' ? confirmState.requestId : ''
-        const resolver = (requestId ? pendingResolvers.get(requestId) : undefined) ?? resolverFallback
-
-        const fallbackTimerId = requestId ? pendingFallbackTimers.get(requestId) : undefined
+    const clearPendingRequest = (requestId: string): ((value: boolean) => void) | undefined => {
+        const fallbackTimerId = pendingFallbackTimers.get(requestId)
         if (typeof fallbackTimerId === 'number' && typeof window !== 'undefined') {
             window.clearTimeout(fallbackTimerId)
-            pendingFallbackTimers.delete(requestId)
+        }
+        pendingFallbackTimers.delete(requestId)
+        const resolver = pendingResolvers.get(requestId)
+        pendingResolvers.delete(requestId)
+        return resolver
+    }
+
+    const cancelPendingRequest = (requestId: string, value: boolean) => {
+        const resolver = clearPendingRequest(requestId)
+        if (resolver) {
+            resolver(value)
+        }
+    }
+
+    const cancelAllPendingRequests = (value: boolean) => {
+        for (const requestId of Array.from(pendingResolvers.keys())) {
+            cancelPendingRequest(requestId, value)
+        }
+    }
+
+    const resolveCurrentRequest = (value: boolean) => {
+        const requestId = typeof confirmState.requestId === 'string' ? confirmState.requestId : ''
+        if (!requestId) {
+            // eslint-disable-next-line no-console
+            console.warn('[useConfirm] confirm resolved without requestId', { value })
+            return
         }
 
-        if (requestId) {
-            pendingResolvers.delete(requestId)
-        }
-        if (resolverFallback === resolver) {
-            resolverFallback = null
-        }
-
+        const resolver = clearPendingRequest(requestId)
         if (resolver) {
             resolver(value)
             return
@@ -77,6 +92,9 @@ export const useConfirm = () => {
     }
 
     const confirm = (confirmPayload: ConfirmPayload): Promise<boolean> => {
+        // Keep confirmation logic single-flight to avoid cross-request interference.
+        cancelAllPendingRequests(false)
+
         const requestId = nextRequestId()
         dispatch({
             type: SHOW_CONFIRM,
@@ -87,12 +105,10 @@ export const useConfirm = () => {
         })
         return new Promise((resolve) => {
             pendingResolvers.set(requestId, resolve)
-            resolverFallback = resolve
 
             if (typeof window !== 'undefined') {
                 const fallbackTimerId = window.setTimeout(() => {
-                    const pendingResolver = pendingResolvers.get(requestId)
-                    if (!pendingResolver) {
+                    if (!pendingResolvers.has(requestId)) {
                         return
                     }
 
@@ -105,20 +121,21 @@ export const useConfirm = () => {
                         return
                     }
 
+                    const activeDialogRequestId =
+                        typeof document !== 'undefined'
+                            ? document.querySelector<HTMLElement>('[data-confirm-dialog-request-id]')?.dataset.confirmDialogRequestId ?? ''
+                            : ''
+
                     // eslint-disable-next-line no-console
                     console.error('[useConfirm] custom confirm dialog did not render, auto-cancel confirmation', {
                         requestId,
                         title: confirmPayload.title
                     })
 
-                    dispatch({ type: HIDE_CONFIRM })
-
-                    pendingResolvers.delete(requestId)
-                    pendingFallbackTimers.delete(requestId)
-                    if (resolverFallback === pendingResolver) {
-                        resolverFallback = null
+                    if (activeDialogRequestId === requestId) {
+                        dispatch({ type: HIDE_CONFIRM })
                     }
-                    pendingResolver(false)
+                    cancelPendingRequest(requestId, false)
                 }, 2000)
 
                 pendingFallbackTimers.set(requestId, fallbackTimerId)

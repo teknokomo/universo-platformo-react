@@ -57,6 +57,13 @@ export async function fetchAllPaginatedItems<TItem>(
         iterations += 1
     }
 
+    if (hasMore && iterations >= MAX_PAGES_GUARD) {
+        throw new Error(
+            `[fetchAllPaginatedItems] Reached max pages guard (${MAX_PAGES_GUARD}). ` +
+                `The source pagination may be inconsistent (hasMore=true for too long).`
+        )
+    }
+
     if (total < allItems.length) {
         total = allItems.length
     }
