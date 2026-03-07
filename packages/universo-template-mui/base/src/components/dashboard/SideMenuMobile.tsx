@@ -38,13 +38,15 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
                 zIndex: (theme) => theme.zIndex.drawer + 1,
                 [`& .${drawerClasses.paper}`]: {
                     backgroundImage: 'none',
-                    backgroundColor: 'background.paper'
+                    backgroundColor: 'background.paper',
+                    width: 'min(24rem, 92dvw)',
+                    maxWidth: '92dvw'
                 }
             }}
         >
             <Stack
                 sx={{
-                    maxWidth: '90dvw',
+                    width: '100%',
                     height: '100%'
                 }}
             >

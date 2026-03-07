@@ -2,7 +2,7 @@
 
 > **Date**: 2026-03-07  
 > **Plan file**: `memory-bank/plan/metahub-create-options-entity-settings-mobile-plan-2026-03-07.md`  
-> **Scope**: Comprehensive plan review — architecture, patterns, codebase alignment, ТЗ coverage  
+> **Scope**: Comprehensive plan review — architecture, patterns, codebase alignment, specification coverage  
 > **Previous QA**: `metahub-create-options-entity-settings-mobile-plan-2026-03-07-QA.md` (10 issues, all addressed in revision)
 
 ---
@@ -65,11 +65,11 @@
 | `SetActions.tsx` | copy-options (line 351) | `<Checkbox>` |
 | `EnumerationActions.tsx` | copy-options (line 357) | `<Checkbox>` |
 
-**ТЗ quote**: "переключатели (switches)... по умолчанию все включено" — ТЗ explicitly says "switches".
+**Specification quote**: "switches... enabled by default" — the specification explicitly says "switches".
 
 **Recommendation**: Choose one of:
-- **(A) Honor ТЗ, use `Switch`**: Accept visual difference between create-options (Switch) and copy-options (Checkbox). This is valid if the semantics differ (create = toggle on/off, copy = select/deselect).
-- **(B) Use `Checkbox` for consistency**: Match the existing codebase pattern. Argue back to ТЗ that `Checkbox` achieves the same UX with visual consistency.
+- **(A) Honor the specification, use `Switch`**: Accept visual difference between create-options (Switch) and copy-options (Checkbox). This is valid if the semantics differ (create = toggle on/off, copy = select/deselect).
+- **(B) Use `Checkbox` for consistency**: Match the existing codebase pattern. Argue back to the specification that `Checkbox` achieves the same UX with visual consistency.
 - **(C) Migrate ALL copy-options to `Switch`**: Most thorough, but scope creep.
 
 ### H2: Phase 4 — ActionContext construction not detailed
@@ -138,7 +138,7 @@ Step 7.2 says "Verify that `t('settings.title')` is used consistently" but doesn
 **Recommendation**: Add an explicit i18n key to Phase 7 for entity detail page tab labels. Example:
 ```json
 "entitySettings": {
-  "tabLabel": "Settings" / "Настройки"
+  "tabLabel": "Settings" / "RU locale Settings label"
 }
 ```
 Or reuse `common:settings` if available.
@@ -196,9 +196,9 @@ Verified that `buildInitialValues`, `buildFormTabs`, `validateXxxForm`, `canSave
 
 ---
 
-## ТЗ Coverage Verification
+## Specification Coverage Verification
 
-| # | ТЗ Requirement | Plan Coverage | Status |
+| # | Specification Requirement | Plan Coverage | Status |
 |---|---------------|---------------|--------|
 | 1 | "Options" tab in create dialog with entity toggles | Phase 3, Steps 3.1–3.4 | ⚠️ **Targets wrong function** (C1) |
 | 2 | Branch/Layout locked ON; Hub/Catalog/Set/Enum togglable (default ON) | Step 3.1 MetahubCreateOptionsFields | ✅ Correct |
@@ -209,7 +209,7 @@ Verified that `buildInitialValues`, `buildFormTabs`, `validateXxxForm`, `canSave
 | 7 | Mobile responsiveness (AppNavbar, ViewHeader, Drawer) | Phase 5, Steps 5.1–5.5 | ✅ Covered |
 | 8 | Desktop logout with confirmation | Phase 6, Steps 6.1–6.2 | ✅ Covered |
 
-**Overall ТЗ coverage**: All 8 points are addressed. Two have implementation issues (C1 and H2) that need plan corrections.
+**Overall specification coverage**: All 8 points are addressed. Two have implementation issues (C1 and H2) that need plan corrections.
 
 ---
 
@@ -235,7 +235,7 @@ Verified that `buildInitialValues`, `buildFormTabs`, `validateXxxForm`, `canSave
 
 2. **MUST FIX (H2)**: Add explicit code examples in Phase 4 showing how to construct `ActionContext` in each detail page, including ALL required fields (`entity`, `t`, `uiLocale`, `api.updateEntity`, `helpers.refreshList`).
 
-3. **SHOULD FIX (H1)**: Decide Switch vs Checkbox and document the decision. The ТЗ says "переключатели (switches)" but the codebase consistently uses Checkbox. Either way is fine, but the choice should be explicit.
+3. **SHOULD FIX (H1)**: Decide Switch vs Checkbox and document the decision. The specification says "switches" but the codebase consistently uses Checkbox. Either way is fine, but the choice should be explicit.
 
 4. **SHOULD FIX (H3)**: Note that `GeneralTabFields` (with template selector) is used in create dialog, NOT `MetahubEditFields`. The plan should preserve this distinction.
 

@@ -8,7 +8,7 @@
 
 ## Summary
 
-The plan is well-structured and covers all 8 ТЗ requirements at a high level, but contains **2 CRITICAL**, **4 HIGH**, and **4 MEDIUM** issues discovered during deep codebase verification. The most severe problem is in Phase 4 (Settings tab) where the proposed architecture directly contradicts the ТЗ specification.
+The plan is well-structured and covers all 8 specification requirements at a high level, but contains **2 CRITICAL**, **4 HIGH**, and **4 MEDIUM** issues discovered during deep codebase verification. The most severe problem is in Phase 4 (Settings tab) where the proposed architecture directly contradicts the specification.
 
 ---
 
@@ -16,11 +16,11 @@ The plan is well-structured and covers all 8 ТЗ requirements at a high level, 
 
 ### C1. Phase 4: Settings Tab Architecture is WRONG
 
-**Severity**: 🔴 CRITICAL — Contradicts explicit ТЗ requirement
+**Severity**: 🔴 CRITICAL — Contradicts an explicit specification requirement
 
 **Plan proposes**: Navigate to `/metahub/:id/settings?tab=X` (page redirect away from current view).
 
-**ТЗ requires**: "Эта вкладка не будет открывать страницу, а поверх той страницы где был пользователь открывать окно 'Редактировать', такое же как если бы пользователь в списке хабов у этого хаба нажал бы на кнопку 'три точки' и там нажал на пункт 'Редактировать'."
+**Specification requires**: "This tab must not open a separate page. It must open the same Edit dialog as the three-dots menu → Edit action, layered above the page where the user already is."
 
 **Translation**: The Settings tab must open an **edit dialog overlay** on top of the current page — the SAME dialog as the three-dots menu → Edit action. It must NOT navigate away.
 
@@ -128,39 +128,39 @@ const handleLogout = async () => {
 
 ### H2. Entity Names Use Wrong Russian Translation
 
-**Severity**: 🟠 HIGH — Naming doesn't match ТЗ
+**Severity**: 🟠 HIGH — Naming doesn't match the specification
 
 **Plan** (Step 2.7):
 ```typescript
-vlc('Main Hub', 'Главный хаб')
-vlc('Main Catalog', 'Главный каталог')
-vlc('Main Set', 'Главный набор')
-vlc('Main Enumeration', 'Главное перечисление')
+vlc('Main Hub', 'use the generic RU label for Main Hub')
+vlc('Main Catalog', 'use the generic RU label for Main Catalog')
+vlc('Main Set', 'use the generic RU label for Main Set')
+vlc('Main Enumeration', 'use the neuter RU label for Main Enumeration')
 ```
 
-**ТЗ**: "Основной (Основная / Основное в зависимости от рода)"
+**Specification**: the Russian naming must use the gender-correct adjective family for “Main” (masculine / feminine / neuter depending on the noun).
 
 **Issues**:
-1. "Главный" → should be "Основной" (masculine) / "Основное" (neuter)
-2. Gender correctness needed per Russian gram rules
+1. The current Russian adjective family is wrong for the requested wording.
+2. Gender correctness is required by Russian grammar rules.
 
-**Correct names**:
+**Correct naming rule**:
 ```typescript
-vlc('Main', 'Основной')         // Hub (хаб — masculine)
-vlc('Main', 'Основной')         // Catalog (каталог — masculine)
-vlc('Main', 'Основной')         // Set (набор — masculine)
-vlc('Main', 'Основное')         // Enumeration (перечисление — neuter)
+vlc('Main', 'use the masculine RU form of Main')      // Hub
+vlc('Main', 'use the masculine RU form of Main')      // Catalog
+vlc('Main', 'use the masculine RU form of Main')      // Set
+vlc('Main', 'use the neuter RU form of Main')         // Enumeration
 ```
 
 Or with entity suffixes if desired:
 ```typescript
-vlc('Main Hub', 'Основной хаб')
-vlc('Main Catalog', 'Основной каталог')
-vlc('Main Set', 'Основной набор')
-vlc('Main Enumeration', 'Основное перечисление')
+vlc('Main Hub', 'use the masculine RU Main + hub label')
+vlc('Main Catalog', 'use the masculine RU Main + catalog label')
+vlc('Main Set', 'use the masculine RU Main + set label')
+vlc('Main Enumeration', 'use the neuter RU Main + enumeration label')
 ```
 
-**Note**: Also apply to Branch and Layout names. Branch ("ветка" — feminine): `vlc('Main', 'Основная')`. Layout ("макет" — masculine): `vlc('Main', 'Основной')` — plan already has this correct for the layout.
+**Note**: Also apply the same rule to Branch and Layout names. Branch requires the feminine RU form of “Main”; Layout requires the masculine RU form.
 
 ---
 
@@ -213,7 +213,7 @@ Update the "Key Files" table and all references in the plan.
 
 **Severity**: 🟡 MEDIUM — Missing implementation detail
 
-**ТЗ specifies precise behavior**: "Поле поиска на одном ряду с ними слева становится тоже кнопкой-иконкой, при нажатии на которую это поле раскрывается вправо на всю ширину, в том числе поверх тех кнопок которые справа; если тыкнуть в сторону, то снова схлопывается."
+**Specification defines precise behavior**: the search field stays on the same row on the left as an icon button; when pressed it expands to the right across the full width, including above the buttons on the right; clicking away collapses it again.
 
 **Current ViewHeader**: Search is `display: { xs: 'none', sm: 'flex' }` — completely hidden on mobile.
 
@@ -256,7 +256,7 @@ Since Phase 4 should use dialog overlays (not navigation to SettingsPage), Step 
 
 The plan adds `requiredEntityKinds?: MetaEntityKind[]` to `MetahubTemplateSeed`, but:
 - No existing template uses it
-- No ТЗ requirement explicitly asks for it
+- No specification requirement explicitly asks for it
 - All entity kinds are already togglable (none "required" by any template seed)
 
 **Recommendation**: Defer `requiredEntityKinds` to a future iteration. The `filterSeedByCreateOptions` logic is sufficient with just the `MetahubCreateOptions` toggles. If templates need to enforce certain entities, add this later.
@@ -295,19 +295,19 @@ As noted in H1, `<ConfirmDialog />` must be added to `MainLayoutMUI.tsx` (inside
 
 Section 3 ("Settings Tab UX Consistency") describes the navigation approach, which is now obsolete. Update to describe the dialog overlay approach.
 
-Section 4 ("Mobile Search Collapsibility") says "this is optional and can be deferred" — but the ТЗ explicitly requires it.
+Section 4 ("Mobile Search Collapsibility") says "this is optional and can be deferred" — but the specification explicitly requires it.
 
 ### L2. i18n Keys for "Settings" Tab
 
-The plan assumes `t('settings.title')` works everywhere. Verify that the `settings.title` key in metahubs i18n namespace is suitable as a tab label (it is — "Settings" / "Настройки" already exist).
+The plan assumes `t('settings.title')` works everywhere. Verify that the `settings.title` key in the metahubs i18n namespace is suitable as a tab label (it is — both EN and RU locale values already exist).
 
 ### L3. Template Split File Strategy is Acceptable
 
-The plan creates a new `basic-demo.template.ts` and modifies the existing `basic.template.ts` to be minimal. The ТЗ says "rename current to basic-demo and create new basic," but the end result is identical (you get codename `basic` = minimal, codename `basic-demo` = full widgets). The file-level strategy is implementation detail and is fine.
+The plan creates a new `basic-demo.template.ts` and modifies the existing `basic.template.ts` to be minimal. The specification says "rename current to basic-demo and create new basic," but the end result is identical (you get codename `basic` = minimal, codename `basic-demo` = full widgets). The file-level strategy is implementation detail and is fine.
 
 ### L4. Demo Template Entity Names
 
-For `basic-demo.template.ts`, the plan uses "Demo Hub / Демо Хаб" etc. Verify this matches ТЗ expectations. Consider using the same "Main" / "Основной" pattern for demo template entities too, since the template name already communicates "demo".
+For `basic-demo.template.ts`, the plan uses separate demo-oriented entity labels. Verify that this still matches specification expectations. Consider using the same "Main" naming pattern for demo template entities too, since the template name already communicates "demo".
 
 ### L5. Publication Settings Tab Scope
 
@@ -339,7 +339,7 @@ Step 4.5 says navigate to `settings?tab=common` for publications. Since Phase 4 
 | C1 | 🔴 CRITICAL | Rewrite Phase 4: Settings tab → EntityFormDialog overlay, NOT navigation |
 | C2 | 🔴 CRITICAL | Fix target files: AttributeList, ConstantList, EnumerationValueList |
 | H1 | 🟠 HIGH | Fix ConfirmDialog usage: no props, singleton pattern |
-| H2 | 🟠 HIGH | Fix entity names: "Основной"/"Основное" not "Главный"/"Главное" |
+| H2 | 🟠 HIGH | Fix entity names: use the requested gender-correct Russian “Main” naming family, not the current alternate adjective family |
 | H3 | 🟠 HIGH | Describe new tab container creation for ConstantList/EnumerationValueList |
 | H4 | 🟠 HIGH | Update Key Files section to list correct files |
 | M1 | 🟡 MEDIUM | Detail CollapsibleSearch implementation for mobile |

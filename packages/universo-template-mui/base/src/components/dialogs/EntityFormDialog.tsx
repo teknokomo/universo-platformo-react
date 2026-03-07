@@ -357,6 +357,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                                     onClick={deleteButtonDisabled ? undefined : onDelete}
                                     disabled={isLoading || deleteButtonDisabled}
                                     color='error'
+                                    aria-label={deleteButtonText}
+                                    title={deleteButtonText}
                                     sx={{ mr: 'auto' }}
                                 >
                                     <DeleteIcon />

@@ -151,7 +151,14 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
     const keyboardShortcut = isMac ? '[ ⌘ + F ]' : '[ Ctrl + F ]'
 
     return (
-        <Box sx={{ flexGrow: 1, py: 0, width: '100%' }}>
+        <Box
+            sx={{
+                flexGrow: 1,
+                width: '100%',
+                pt: { xs: 2, sm: 0 },
+                pb: { xs: 2, sm: 0 }
+            }}
+        >
             <Toolbar
                 disableGutters
                 sx={{
@@ -229,12 +236,13 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                         gap: 1,
                         mr: { xs: 0, md: -2 },
                         ml: 0,
-                        mt: { xs: 0.5, sm: 0 },
+                        mt: { xs: 2, sm: 0 },
+                        width: { xs: '100%', sm: 'auto' },
                         position: 'relative'
                     }}
                 >
                     {search && (
-                        <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                             {/* Desktop: normal search field */}
                             <OutlinedInput
                                 inputRef={desktopSearchRef}
@@ -273,10 +281,14 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                                     onSearchChange={handleSearchInputChange}
                                 />
                             </Box>
-                        </>
+                        </Box>
                     )}
-                    {filters}
-                    {children}
+                    {(filters || children) && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', flexShrink: 0 }}>
+                            {filters}
+                            {children}
+                        </Box>
+                    )}
                 </Box>
             </Toolbar>
         </Box>

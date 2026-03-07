@@ -7,6 +7,27 @@
 
 ## Active Open Tasks (Canonical)
 
+### PR #714 Review Feedback + Mobile Layout Polish — 2026-03-07
+
+> **Status**: ✅ COMPLETE — reviewed PR #714 bot feedback against the live codebase and MUI docs, applied only the validated fixes, and re-verified the touched scope on 2026-03-07.
+
+- [x] Fetch and analyze PR #714 review comments / issue comments / review summaries
+- [x] Validate each suggested fix against current code and relevant documentation before changing behavior
+  - [x] Accepted the `EntityFormDialog` mobile delete-button accessibility fix (`aria-label` / `title`)
+  - [x] Accepted the memory-bank English-only cleanup for the QA plan files added in PR #714
+  - [x] Accepted the real pagination consistency gap in `MenuWidgetEditorDialog` and switched catalogs loading to `fetchAllPaginatedItems()`
+  - [x] Rejected non-specific / non-actionable bot summary text that did not map to a reproducible code defect
+- [x] Fix the mobile list action bar so the search button stays left and the three action buttons stay right on small screens
+- [x] Normalize vertical spacing around the mobile page header/action area so top, middle, and bottom gaps match the pagination/content rhythm
+- [x] Widen the right mobile drawer further so it is visibly wider than the current implementation without breaking layout
+- [x] Re-run targeted lint/tests/build checks for touched packages
+  - [x] `pnpm --filter @universo/template-mui lint`
+  - [x] `pnpm --filter @universo/metahubs-frontend lint`
+  - [x] `pnpm --filter @universo/template-mui test`
+  - [x] `pnpm --filter @universo/metahubs-frontend test`
+  - [x] `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified outcome
+
 ### Manual QA Bug Fixes (7 Issues) + QA Follow-up — 2026-03-07
 
 > **Status**: ✅ COMPLETE — remaining QA UX, regression-coverage, and documentation debt was closed and re-verified on 2026-03-07. Only pre-existing lint warnings remain in the touched packages.

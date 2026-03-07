@@ -2,7 +2,7 @@
 
 > **Date**: 2026-03-07  
 > **Plan file**: `memory-bank/plan/metahub-create-options-entity-settings-mobile-plan-2026-03-07.md`  
-> **Scope**: Comprehensive architecture, codebase alignment, patterns, ТЗ completeness  
+> **Scope**: Comprehensive architecture, codebase alignment, patterns, specification completeness  
 > **Previous QAs**: QA #1 (10 issues, all fixed), QA #2 (6 issues, all fixed)
 
 ---
@@ -176,7 +176,7 @@ Step 4.1 uses `satisfies Partial<ActionContext<...>> & Record<string, unknown>`.
 - Current basic template has NO entities in seed — plan correctly adds them (Step 2.7)
 - `enrichConfigWithVlcTimestamps` function exists locally in `basic.template.ts` — can be reused/copied to basic-demo
 - `DEFAULT_DASHBOARD_ZONE_WIDGETS` provides the source data for both templates
-- Widget changes match ТЗ: `detailsTable` removed standalone, `columnsContainer` activated with detailsTable+productTree columns
+- Widget changes match the specification: `detailsTable` removed standalone, `columnsContainer` activated with detailsTable+productTree columns
 
 ### I2: Seed filtering approach is architecturally sound ✅
 - `filterSeedByCreateOptions` correctly targets `entities`, `elements`, and `enumerationValues` (keyed by entity codename)
@@ -213,7 +213,7 @@ Step 4.1 uses `satisfies Partial<ActionContext<...>> & Record<string, unknown>`.
 
 ### I8: `settings.title` i18n key confirmed in both locales ✅
 - EN `metahubs.json` L1503: `"title": "Settings"`
-- RU `metahubs.json` L1555: `"title": "Настройки"`
+- RU `metahubs.json` L1555: `"title": "Settings"` in the Russian locale entry
 
 ### I9: `useAuth().logout()` available in template-mui ✅
 - `@universo/template-mui` has `@universo/auth-frontend` as dependency (package.json)
@@ -225,17 +225,17 @@ Step 4.1 uses `satisfies Partial<ActionContext<...>> & Record<string, unknown>`.
 
 ---
 
-## ТЗ Coverage Verification
+## Specification Coverage Verification
 
-| # | ТЗ Requirement | Plan Coverage | Status |
+| # | Specification Requirement | Plan Coverage | Status |
 |---|---------------|---------------|--------|
 | 1 | "Options" tab in create dialog with entity toggles | Phase 3 (MetahubList.tsx local `buildFormTabs` + `MetahubCreateOptionsTab`) | ✅ Correct |
 | 2 | Branch/Layout locked ON; Hub/Catalog/Set/Enum togglable (default ON) | Step 3.1 — disabled checked Checkbox for Branch/Layout, active Checkbox for others | ✅ Correct |
 | 3 | Server-side validation + seed entity filtering | Steps 2.4 (Zod schema), 2.5 (threading), 2.6 (filterSeedByCreateOptions) | ✅ Correct |
 | 4 | Documentation updates (MIGRATIONS.md/-RU.md, AGENTS.md) | Phase 8 Steps 8.1–8.4 | ✅ Covered |
 | 5 | Template split: basic (minimal) + basic-demo (full) | Steps 2.1 (basic-demo), 2.2 (basic minimal), 2.3 (registry), 2.7 (entities) | ✅ Correct |
-| 5a | "Таблица деталей" → "Контейнер колонок: Таблица деталей, Дерево продуктов" | Steps 2.1–2.2: remove standalone `detailsTable`, activate `columnsContainer` | ✅ Correct |
-| 5b | Gender-correct Russian names: Основной/Основная/Основное | Step 2.7: Hub=Основной, Branch=Основная, Enumeration=Основное | ✅ Correct |
+| 5a | Replace standalone details table with a columns container that includes details table + product tree | Steps 2.1–2.2: remove standalone `detailsTable`, activate `columnsContainer` | ✅ Correct |
+| 5b | Use the gender-correct Russian “Main” naming family | Step 2.7: Hub=masculine form, Branch=feminine form, Enumeration=neuter form | ✅ Correct |
 | 6 | "Settings" tab in 5 entity detail views → edit dialog overlay | Phase 4 Steps 4.1–4.6 with EntityFormDialog | ✅ Correct (H1 prop name fix needed) |
 | 7a | Mobile: remove Kiberplano + icon from AppNavbar | Step 5.1 | ✅ Covered |
 | 7b | Mobile: responsive collapsible search | Step 5.2 — CollapsibleMobileSearch component | ✅ Covered |
@@ -244,7 +244,7 @@ Step 4.1 uses `satisfies Partial<ActionContext<...>> & Record<string, unknown>`.
 | 8 | Desktop logout in SideMenu with confirmation | Phase 6 Steps 6.1 (SideMenu logout), 6.2 (i18n keys) | ✅ Covered |
 | — | "No legacy preservation needed, DB recreated" | Plan header note, no version bumps, no migrations | ✅ Acknowledged |
 
-**All 8 ТЗ points are fully covered.** No missing requirements.
+**All 8 specification points are fully covered.** No missing requirements.
 
 ---
 

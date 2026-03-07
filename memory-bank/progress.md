@@ -62,6 +62,21 @@ Fixed 7 bugs discovered during manual testing of the Create Options + Entity Set
 
 Verification: touched-package lint reruns produced warnings only, and the full workspace build passed (23/23 tasks).
 
+## PR #714 Review Feedback + Mobile Layout Polish (2026-03-07)
+
+Completed a focused follow-up pass after bot comments/reviews landed on PR #714 and after another manual mobile screenshot review.
+
+| Area | Completion |
+|---|---|
+| PR review triage | Reviewed the full PR discussion (Copilot inline comments, review summaries, and Gemini summary), then applied only the findings that were reproducible and safe. |
+| Accessibility | Added `aria-label` / `title` to the mobile icon-only delete button in `EntityFormDialog`, aligning the implementation with MUI `IconButton` accessibility guidance. |
+| Memory-bank compliance | Translated the QA plan documents in `memory-bank/plan/metahub-create-options-entity-settings-mobile-plan-2026-03-07-QA*.md` to English-only content so the memory-bank no longer violates repository rules. |
+| Mobile header polish | Reworked `ViewHeader` mobile action-row grouping so the search trigger stays left, the remaining controls stay right, and the header gets consistent top/bottom spacing on small screens. |
+| Mobile drawer width | Widened `SideMenuMobile` by setting width on the drawer paper itself (`min(24rem, 92dvw)`) instead of only constraining the inner container. |
+| Large-metahub consistency | Switched `MenuWidgetEditorDialog` from `listAllCatalogs(... limit: 200)` to `fetchAllPaginatedItems()` so menu-widget catalog selection follows the same safe all-pages pattern as the other hardened selectors. |
+
+Verification: `pnpm --filter @universo/template-mui lint`, `pnpm --filter @universo/metahubs-frontend lint`, `pnpm --filter @universo/template-mui test`, `pnpm --filter @universo/metahubs-frontend test`, and `pnpm build` all completed successfully; lint still reports only pre-existing warnings, and the full build finished 23/23 successful.
+
 ### QA Follow-up Closure (2026-03-07)
 
 A final QA pass found remaining UX, regression-coverage, and documentation debt. All items were closed without widening scope.

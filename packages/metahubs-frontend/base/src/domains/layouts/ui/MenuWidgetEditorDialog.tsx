@@ -185,7 +185,11 @@ function ItemFormDialog({
     const catalogsQuery = useQuery({
         queryKey: metahubsQueryKeys.allCatalogsList(metahubId),
         enabled: open,
-        queryFn: () => catalogsApi.listAllCatalogs(metahubId, { limit: 200, offset: 0, sortOrder: 'asc' })
+        queryFn: () =>
+            fetchAllPaginatedItems((params) => catalogsApi.listAllCatalogs(metahubId, params), {
+                limit: 1000,
+                sortOrder: 'asc'
+            })
     })
     const hubsQuery = useQuery({
         queryKey: metahubsQueryKeys.hubsList(metahubId, { limit: 200, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' }),
