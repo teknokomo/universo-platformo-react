@@ -1022,6 +1022,41 @@ describe('Metahubs Routes', () => {
     })
 
     describe('Unique conflict handling', () => {
+        it('threads createOptions into initial branch creation when creating a metahub', async () => {
+            const { dataSource, metahubRepo } = buildDataSource()
+
+            metahubRepo.findOne.mockResolvedValueOnce(null)
+
+            const app = buildApp(dataSource)
+
+            await request(app)
+                .post('/metahubs')
+                .send({
+                    name: 'New Hub',
+                    codename: 'NewHub',
+                    createOptions: {
+                        createHub: false,
+                        createCatalog: true,
+                        createSet: false,
+                        createEnumeration: true
+                    }
+                })
+                .expect(201)
+
+            expect(mockCreateInitialBranch).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    metahubId: 'mock-id',
+                    createdBy: 'test-user-id',
+                    createOptions: {
+                        createHub: false,
+                        createCatalog: true,
+                        createSet: false,
+                        createEnumeration: true
+                    }
+                })
+            )
+        })
+
         it('returns 409 on create when database reports codename unique violation', async () => {
             const { dataSource, metahubRepo } = buildDataSource()
 

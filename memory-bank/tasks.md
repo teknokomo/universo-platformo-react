@@ -7,18 +7,98 @@
 
 ## Active Open Tasks (Canonical)
 
+### PR #714 Review Feedback + Mobile Layout Polish — 2026-03-07
+
+> **Status**: ✅ COMPLETE — reviewed PR #714 bot feedback against the live codebase and MUI docs, applied only the validated fixes, and re-verified the touched scope on 2026-03-07.
+
+- [x] Fetch and analyze PR #714 review comments / issue comments / review summaries
+- [x] Validate each suggested fix against current code and relevant documentation before changing behavior
+  - [x] Accepted the `EntityFormDialog` mobile delete-button accessibility fix (`aria-label` / `title`)
+  - [x] Accepted the memory-bank English-only cleanup for the QA plan files added in PR #714
+  - [x] Accepted the real pagination consistency gap in `MenuWidgetEditorDialog` and switched catalogs loading to `fetchAllPaginatedItems()`
+  - [x] Rejected non-specific / non-actionable bot summary text that did not map to a reproducible code defect
+- [x] Fix the mobile list action bar so the search button stays left and the three action buttons stay right on small screens
+- [x] Normalize vertical spacing around the mobile page header/action area so top, middle, and bottom gaps match the pagination/content rhythm
+- [x] Widen the right mobile drawer further so it is visibly wider than the current implementation without breaking layout
+- [x] Re-run targeted lint/tests/build checks for touched packages
+  - [x] `pnpm --filter @universo/template-mui lint`
+  - [x] `pnpm --filter @universo/metahubs-frontend lint`
+  - [x] `pnpm --filter @universo/template-mui test`
+  - [x] `pnpm --filter @universo/metahubs-frontend test`
+  - [x] `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified outcome
+
+### Manual QA Bug Fixes (7 Issues) + QA Follow-up — 2026-03-07
+
+> **Status**: ✅ COMPLETE — remaining QA UX, regression-coverage, and documentation debt was closed and re-verified on 2026-03-07. Only pre-existing lint warnings remain in the touched packages.
+
+- [x] #1 Fix i18n `createOptions` keys not translated (consolidateMetahubsNamespace missing key)
+- [x] #2 Fix inconsistent mobile spacing in ViewHeader
+- [x] #3 Fix mobile search button size mismatch and alignment
+- [x] #4 Widen mobile drawer (SideMenuMobile) by ~30%
+- [x] #5 Make Delete button icon-only on mobile in EntityFormDialog
+- [x] #6 Fix Hub Settings tab (hubMap → allHubsById lookup)
+- [x] #7 Invalidate breadcrumb queries after entity settings save
+- [x] Lint + build verification
+- [x] QA follow-up: Add missing breadcrumb invalidation in PublicationVersionList settings dialog
+- [x] QA follow-up: Rework CollapsibleMobileSearch so collapse preserves active search and keeps input state synchronized with parent search value
+- [x] QA follow-up: Remove redundant `ml: { xs: 0, sm: 0 }` → `ml: 0` in ViewHeader
+- [x] QA follow-up: Add focused regression coverage for mobile search sync and settings-dialog breadcrumb invalidation
+- [x] QA follow-up: Correct memory-bank dates/status after final verification
+- [x] Final lint + test + full build verification
+  - [x] `pnpm --filter @universo/template-mui test`
+  - [x] Focused `publicationSettingsQueries` Vitest regression test
+  - [x] Full `pnpm --filter @universo/metahubs-frontend test`
+  - [x] Touched-package lint rerun completed with warnings only and no new errors
+  - [x] `pnpm build`
+
+### Metahub Create Options + Entity Settings + Mobile UX + Logout
+
+> Plan: `memory-bank/plan/metahub-create-options-entity-settings-mobile-plan-2026-03-07.md`  
+> **Status**: ✅ COMPLETE — follow-up QA debt closed with targeted regression coverage, type cleanup, and fresh verification.
+
+- [x] Re-open the feature after QA and replace the stale “complete” status with a real remediation plan
+- [x] Fix blocking frontend source issues so the workspace can build again
+  - [x] Repair broken comment/interface boundaries in `CatalogList.tsx` and `EnumerationList.tsx`
+  - [x] Fix template file formatting errors reported by ESLint/Prettier
+- [x] Restore green package quality gates for the feature scope
+  - [x] Make `pnpm --filter @universo/metahubs-frontend build` pass
+  - [x] Make `pnpm --filter @universo/metahubs-frontend test` pass
+  - [x] Keep `pnpm --filter @universo/metahubs-backend test` passing
+- [x] Remove first-round implementation debt discovered by QA
+  - [x] Replace hub fetches capped at `limit: 100` in new settings dialogs with safe all-pages loading so large metahubs are handled correctly
+  - [x] Review template-mui / metahubs-frontend test-time import resolution and remove the regression causing `@universo/applications-frontend/i18n` failures
+  - [x] Add or update focused tests for the broken coverage paths that were blocking the previous remediation
+- [x] Close remaining QA debt from the latest audit
+  - [x] Add backend assertions for `POST /metahubs` → `createInitialBranch(createOptions)` threading
+  - [x] Add backend coverage for `filterSeedByCreateOptions()` / schema initialization behavior
+  - [x] Add frontend tests for the create-options tab and submitted payload in `MetahubList`
+  - [x] Add focused tests for representative logout/mobile UX flows in template-mui (`SideMenu`, `SideMenuMobile`)
+  - [x] Remove type-safety debt in `MetahubList` form values for create options
+- [x] Re-run final verification and only then mark the feature complete
+  - [x] `pnpm --filter @universo/types lint`
+  - [x] `pnpm --filter @universo/metahubs-backend lint`
+  - [x] `pnpm --filter @universo/metahubs-frontend lint`
+  - [x] `pnpm --filter @universo/template-mui lint`
+  - [x] `pnpm --filter @universo/metahubs-frontend test`
+  - [x] `pnpm --filter @universo/metahubs-backend test`
+  - [x] `pnpm --filter @universo/template-mui test`
+  - [x] `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the actual final state after verification
+
+### Constants / REF Display Debt
+
 - [ ] Reuse catalog element value-handling rules in constants "Value" tab so type settings are enforced at input-time and submit-time (STRING/NUMBER/BOOLEAN/DATE).
 - [ ] Enforce NUMBER value constraints in constants value field (`nonNegative`, `scale`, min/max, precision) and prevent invalid negative/fraction states.
 - [ ] Enforce STRING value constraints in constants value field (`maxLength`, localized/non-localized behavior parity).
 - [ ] Fix DATE type settings labels/options in constants form to use i18n keys (RU/EN) instead of hardcoded English text.
 - [ ] Align constants table horizontal paddings/margins with sets/attributes list pattern (including full-width table and pagination panel spacing).
 - [ ] Fix application element create/edit form so REF to Set+Constant shows resolved constant value (typed display), not constant UUID.
-- [ ] Run targeted checks for touched scope:
-- [ ] `pnpm --filter @universo/metahubs-frontend lint -- <touched-files>`
-- [ ] `pnpm --filter @universo/apps-template-mui lint -- <touched-files-if-any>`
-- [ ] `pnpm --filter @universo/metahubs-frontend build`
-- [ ] `pnpm --filter @universo/apps-template-mui build` (if touched)
-- [ ] Update `memory-bank/progress.md` with implementation and verification notes.
+
+### Quality Checks (pending)
+
+- [ ] Run targeted checks for touched scope
+- [ ] Update `memory-bank/progress.md` with implementation and verification notes
 - [ ] Add backend route tests for admin settings CRUD and permission/error scenarios
 - [ ] Test API + UI (incl. multiselect, attributeCodenameScope, allowedAttributeTypes)
 - [ ] Push fixes commit

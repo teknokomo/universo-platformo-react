@@ -902,6 +902,22 @@ export interface MetahubTemplateManifest {
     seed: MetahubTemplateSeed
 }
 
+/**
+ * Entity creation toggles passed at metahub creation time.
+ * Determines which default entities from the template seed are created.
+ * Branch and Layout are always required (no toggle).
+ */
+export interface MetahubCreateOptions {
+    /** Create default Hub entity. Default: true */
+    createHub?: boolean
+    /** Create default Catalog entity. Default: true */
+    createCatalog?: boolean
+    /** Create default Set entity. Default: true */
+    createSet?: boolean
+    /** Create default Enumeration entity. Default: true */
+    createEnumeration?: boolean
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Template API DTOs — shared response types for template catalog endpoints
 // ═══════════════════════════════════════════════════════════════════════════

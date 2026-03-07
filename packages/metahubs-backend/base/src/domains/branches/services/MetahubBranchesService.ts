@@ -1,5 +1,5 @@
 import type { DataSource, EntityManager } from 'typeorm'
-import type { BranchCopyOptions, MetahubTemplateManifest, VersionedLocalizedContent } from '@universo/types'
+import type { BranchCopyOptions, MetahubCreateOptions, MetahubTemplateManifest, VersionedLocalizedContent } from '@universo/types'
 import { normalizeBranchCopyOptions } from '@universo/utils'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
@@ -346,8 +346,9 @@ export class MetahubBranchesService {
         description?: VersionedLocalizedContent<string> | null
         codename?: string
         createdBy?: string | null
+        createOptions?: MetahubCreateOptions
     }): Promise<MetahubBranch> {
-        const { metahubId, name, description, codename = 'main', createdBy } = params
+        const { metahubId, name, description, codename = 'main', createdBy, createOptions } = params
         const metahubRepo = this.repoManager.getRepository(Metahub)
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
         const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
@@ -371,7 +372,7 @@ export class MetahubBranchesService {
             // Load template manifest from the metahub's assigned template (if any)
             const manifest = await this.loadManifestForMetahub(metahub)
             const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null)
-            await schemaService.initializeSchema(schemaName, manifest)
+            await schemaService.initializeSchema(schemaName, manifest, createOptions)
 
             const structureVersion = structureVersionToSemver(
                 manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION

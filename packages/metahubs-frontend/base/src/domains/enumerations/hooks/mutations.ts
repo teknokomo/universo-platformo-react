@@ -22,13 +22,13 @@ interface UpdateEnumerationParams {
     metahubId: string
     hubId: string
     enumerationId: string
-    data: EnumerationLocalizedPayload & { sortOrder?: number }
+    data: EnumerationLocalizedPayload & { sortOrder?: number; expectedVersion?: number }
 }
 
 interface UpdateEnumerationAtMetahubParams {
     metahubId: string
     enumerationId: string
-    data: EnumerationLocalizedPayload & { sortOrder?: number }
+    data: EnumerationLocalizedPayload & { sortOrder?: number; expectedVersion?: number }
 }
 
 interface DeleteEnumerationParams {

@@ -8,6 +8,10 @@ import { loadTsconfigAliases } from '../../../tools/testing/frontend/loadTsconfi
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
 const coreFrontendSrcDir = path.resolve(__dirname, '../../flowise-core-frontend/base/src')
+const templateMuiSrcDir = path.resolve(__dirname, '../../universo-template-mui/base/src')
+const adminFrontendI18nDir = path.resolve(__dirname, '../../admin-frontend/base/src/i18n/index.ts')
+const startFrontendI18nDir = path.resolve(__dirname, '../../start-frontend/base/src/i18n/index.ts')
+const applicationsFrontendI18nDir = path.resolve(__dirname, '../../applications-frontend/base/src/i18n/index.ts')
 const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 const isCI = process.env.CI === 'true'
@@ -20,6 +24,26 @@ export default mergeConfig(
   defineConfig({
     resolve: {
       alias: [
+        {
+          find: '@universo/template-mui/components/dialogs',
+          replacement: path.resolve(templateMuiSrcDir, 'components/dialogs/index.ts'),
+        },
+        {
+          find: '@universo/template-mui',
+          replacement: path.resolve(templateMuiSrcDir, 'index.ts'),
+        },
+        {
+          find: '@universo/admin-frontend/i18n',
+          replacement: adminFrontendI18nDir,
+        },
+        {
+          find: '@universo/start-frontend/i18n',
+          replacement: startFrontendI18nDir,
+        },
+        {
+          find: '@universo/applications-frontend/i18n',
+          replacement: applicationsFrontendI18nDir,
+        },
         {
           find: '@universo/metahubs-frontend',
           replacement: path.resolve(__dirname, 'src/index.ts'),

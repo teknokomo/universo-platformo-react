@@ -1,5 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, Tabs, Tab, Tooltip } from '@mui/material'
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Button,
+    IconButton,
+    Box,
+    Typography,
+    Tabs,
+    Tab,
+    Tooltip,
+    useMediaQuery,
+    useTheme
+} from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 
 /**
@@ -141,6 +156,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     initialTabIndex = 0
 }) => {
     const normalizedInitialExtraValues = useMemo(() => initialExtraValues || {}, [initialExtraValues])
+    const theme = useTheme()
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
     const [name, setName] = useState(initialName)
     const [description, setDescription] = useState(initialDescription)
     const [extraValues, setExtraValues] = useState<Record<string, any>>(normalizedInitialExtraValues)
@@ -324,18 +341,40 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'space-between' }}>
                 {/* Delete button - shown in edit/copy mode when showDeleteButton is true */}
                 {(mode === 'edit' || mode === 'copy') && showDeleteButton ? (
-                    <Tooltip title={deleteButtonDisabled && deleteButtonDisabledReason ? deleteButtonDisabledReason : ''} arrow>
+                    <Tooltip
+                        title={
+                            deleteButtonDisabled && deleteButtonDisabledReason
+                                ? deleteButtonDisabledReason
+                                : isMobile
+                                ? deleteButtonText || ''
+                                : ''
+                        }
+                        arrow
+                    >
                         <span>
-                            <Button
-                                onClick={deleteButtonDisabled ? undefined : onDelete}
-                                disabled={isLoading || deleteButtonDisabled}
-                                variant='outlined'
-                                color='error'
-                                startIcon={<DeleteIcon />}
-                                sx={{ borderRadius: 1, mr: 'auto' }}
-                            >
-                                {deleteButtonText}
-                            </Button>
+                            {isMobile ? (
+                                <IconButton
+                                    onClick={deleteButtonDisabled ? undefined : onDelete}
+                                    disabled={isLoading || deleteButtonDisabled}
+                                    color='error'
+                                    aria-label={deleteButtonText}
+                                    title={deleteButtonText}
+                                    sx={{ mr: 'auto' }}
+                                >
+                                    <DeleteIcon />
+                                </IconButton>
+                            ) : (
+                                <Button
+                                    onClick={deleteButtonDisabled ? undefined : onDelete}
+                                    disabled={isLoading || deleteButtonDisabled}
+                                    variant='outlined'
+                                    color='error'
+                                    startIcon={<DeleteIcon />}
+                                    sx={{ borderRadius: 1, mr: 'auto' }}
+                                >
+                                    {deleteButtonText}
+                                </Button>
+                            )}
                         </span>
                     </Tooltip>
                 ) : (

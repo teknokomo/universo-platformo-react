@@ -61,6 +61,8 @@
     "update": "Обновить",
     "remove": "Удалить",
     "logout": "Выйти",
+    "logoutConfirmTitle": "Выйти из системы?",
+    "logoutConfirmMessage": "Вы уверены, что хотите выйти?",
     "sort": "Сортировка",
     "download": "Скачать",
     "upload": "Загрузить",

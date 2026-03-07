@@ -67,3 +67,17 @@ t(`migrations.blockers.${blocker.code}`, {
 - `useMetahubMigrationsStatus` — хук TanStack Query использующий `MIGRATION_STATUS_QUERY_OPTIONS` из общего пакета
 - `useMetahubMigrationsList` — загружает историю миграций
 - `useMetahubMigrationsPlan` — загружает детали плана миграций
+
+## Вкладка настроек сущностей (диалог редактирования)
+
+Пять детальных представлений сущностей теперь включают вкладку «Настройки», которая открывает диалог редактирования (та же форма, что и действие «три точки → Редактировать»). Вкладка использует `EntityFormDialog` с экспортированными функциями-билдерами из соответствующего файла `*Actions.tsx`:
+
+- **HubList.tsx** — Настройки хаба через `HubActions` (buildInitialValues, buildFormTabs, validateHubForm, canSaveHubForm, toPayload)
+- **AttributeList.tsx** — Настройки каталога через `CatalogActions` (контекст родительского каталога)
+- **ConstantList.tsx** — Настройки набора через `SetActions` (контекст родительского набора)
+- **EnumerationValueList.tsx** — Настройки перечисления через `EnumerationActions` (контекст родительского перечисления)
+- **PublicationVersionList.tsx** — Настройки публикации через `PublicationActions` (использует сигнатуру `buildFormTabs(ctx, metahubId)`)
+
+## Вкладка опций создания
+
+Диалог создания метахаба теперь содержит третью вкладку «Опции» (`MetahubCreateOptionsTab`) с переключателями для опциональных сущностей по умолчанию (Хаб, Каталог, Набор, Перечисление). Переключатели Ветки и Макета отображаются как всегда включённые (отключены).

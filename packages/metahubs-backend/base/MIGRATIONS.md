@@ -88,3 +88,19 @@ Application schema sync is handled in `applicationSyncRoutes.ts`:
 - Sets `schema_status = SYNCED` on success, `ERROR` on failure
 - Uses `persistPublishedWidgets()` and `persistPublishedLayouts()` to sync widget/layout data
 - Releases the advisory lock in a `finally` block
+
+## Template Registry
+
+Two built-in templates are shipped:
+- **basic** — Minimal template with essential widgets (menu, header, details title, columns container). Default entities created based on `createOptions`.
+- **basic-demo** — Full demo template with ALL widgets active and sample entities (hub, catalog, set, enumeration with attributes and data).
+
+## Entity Creation Options
+
+When creating a metahub via `POST /metahubs`, an optional `createOptions` object controls which default entities are seeded:
+- `createHub` (default: true) — Create default hub entity
+- `createCatalog` (default: true) — Create default catalog entity
+- `createSet` (default: true) — Create default set entity
+- `createEnumeration` (default: true) — Create default enumeration entity
+
+Branch and Layout are always created regardless of options.

@@ -9,12 +9,110 @@ vi.mock('@universo/template-mui', async () => {
     const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
     return {
         ...actual,
-        LocalizedInlineField: () => <div data-testid='localized-inline-field' />
+        LocalizedInlineField: ({ label, value, onChange }: any) => {
+            const currentValue = value?._primary ? value?.locales?.[value._primary]?.content ?? '' : ''
+
+            return (
+                <label>
+                    {label}
+                    <input
+                        aria-label={label}
+                        value={currentValue}
+                        onChange={(event) => {
+                            const nextValue = event.target.value
+                            onChange(
+                                nextValue
+                                    ? {
+                                          _schema: '1',
+                                          _primary: 'en',
+                                          locales: { en: { content: nextValue } }
+                                      }
+                                    : null
+                            )
+                        }}
+                    />
+                </label>
+            )
+        }
     }
 })
 
+vi.mock('@universo/template-mui/components/dialogs', async () => {
+    const React = await vi.importActual<typeof import('react')>('react')
+
+    return {
+        EntityFormDialog: ({ open, title, saveButtonText, onClose, onSave, initialExtraValues, tabs, canSave, validate }: any) => {
+            const [values, setValues] = React.useState<Record<string, unknown>>(initialExtraValues ?? {})
+            const [activeTab, setActiveTab] = React.useState(0)
+
+            React.useEffect(() => {
+                if (open) {
+                    setValues(initialExtraValues ?? {})
+                    setActiveTab(0)
+                }
+            }, [initialExtraValues, open])
+
+            if (!open) return null
+
+            const setValue = (name: string, value: unknown) => {
+                setValues((prev) => ({ ...prev, [name]: value }))
+            }
+
+            const errors = validate?.(values) ?? {}
+            const tabConfigs = tabs?.({ values, setValue, isLoading: false, errors }) ?? []
+
+            return (
+                <div role='dialog' aria-label={title}>
+                    <h2>{title}</h2>
+                    <div>
+                        {tabConfigs.map((tab: any, index: number) => (
+                            <button key={tab.id} role='tab' aria-selected={activeTab === index} onClick={() => setActiveTab(index)}>
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div>{tabConfigs[activeTab]?.content}</div>
+                    <button onClick={onClose}>Cancel</button>
+                    <button onClick={() => onSave(values)} disabled={Boolean(validate?.(values)) || (canSave ? !canSave(values) : false)}>
+                        {saveButtonText}
+                    </button>
+                </div>
+            )
+        },
+        ConfirmDeleteDialog: () => null,
+        ConflictResolutionDialog: () => null
+    }
+})
+
+vi.mock('../../../../components', () => ({
+    ExistingCodenamesProvider: ({ children }: any) => <>{children}</>,
+    CodenameField: ({ label, value, onChange, onTouchedChange }: any) => (
+        <label>
+            {label}
+            <input
+                aria-label={label}
+                value={value ?? ''}
+                onChange={(event) => onChange(event.target.value)}
+                onBlur={() => onTouchedChange?.(true)}
+            />
+        </label>
+    )
+}))
+
+vi.mock('../../../templates/ui/TemplateSelector', () => ({
+    TemplateSelector: ({ value, onChange }: any) => (
+        <label>
+            Template
+            <select aria-label='Template' value={value ?? ''} onChange={(event) => onChange(event.target.value || undefined)}>
+                <option value=''>Default</option>
+                <option value='template-1'>Template 1</option>
+            </select>
+        </label>
+    )
+}))
+
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -132,6 +230,22 @@ const renderWithProviders = (ui: React.ReactElement) => {
             </QueryClientProvider>
         )
     }
+}
+
+const openCreateDialog = async (user: ReturnType<typeof userEvent.setup>) => {
+    await waitFor(() => {
+        expect(screen.getByText(/no metahubs/i) || screen.getByText(/get started/i)).toBeInTheDocument()
+    })
+
+    const addButtons = screen.getAllByRole('button')
+    const addButton = addButtons.find((btn) => btn.querySelector('[data-testid="AddRoundedIcon"]') || btn.textContent?.includes('Add'))
+
+    expect(addButton).toBeTruthy()
+    await user.click(addButton!)
+
+    await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
 }
 
 describe('MetahubList', () => {
@@ -376,25 +490,43 @@ describe('MetahubList', () => {
         it('should open create dialog when add button clicked', async () => {
             const { user } = renderWithProviders(<MetahubList />)
 
+            await openCreateDialog(user)
+        })
+
+        it('submits createOptions from the options tab in the create payload', async () => {
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await openCreateDialog(user)
+
+            await user.type(screen.getByLabelText('Name'), 'Sample Hub')
+            await user.type(screen.getByLabelText('Codename'), 'SampleHub')
+
+            const optionsTab = screen.queryByRole('tab', { name: 'Options' }) ?? screen.getByRole('tab', { name: 'createOptions.tab' })
+            await user.click(optionsTab)
+
+            await user.click(screen.getByRole('checkbox', { name: 'createOptions.hub' }))
+            await user.click(screen.getByRole('checkbox', { name: 'createOptions.set' }))
+
+            const createButton = within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' })
             await waitFor(() => {
-                expect(screen.getByText(/no metahubs/i) || screen.getByText(/get started/i)).toBeInTheDocument()
+                expect(createButton).toBeEnabled()
             })
+            await user.click(createButton)
 
-            // Find Add button
-            const addButtons = screen.getAllByRole('button')
-            const addButton = addButtons.find(
-                (btn) => btn.querySelector('[data-testid="AddRoundedIcon"]') || btn.textContent?.includes('Add')
-            )
-
-            if (addButton) {
-                await user.click(addButton)
-
-                // Dialog should open
-                await waitFor(() => {
-                    const dialog = screen.queryByRole('dialog') || document.querySelector('[role="dialog"]')
-                    expect(dialog).toBeTruthy()
-                })
-            }
+            await waitFor(() => {
+                expect(metahubsApi.createMetahub).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        codename: 'SampleHub',
+                        name: { en: 'Sample Hub' },
+                        createOptions: {
+                            createHub: false,
+                            createCatalog: true,
+                            createSet: false,
+                            createEnumeration: true
+                        }
+                    })
+                )
+            })
         })
     })
 

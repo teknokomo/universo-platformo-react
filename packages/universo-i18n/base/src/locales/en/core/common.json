@@ -61,6 +61,8 @@
     "update": "Update",
     "remove": "Remove",
     "logout": "Logout",
+    "logoutConfirmTitle": "Log out?",
+    "logoutConfirmMessage": "Are you sure you want to log out?",
     "sort": "Sort",
     "download": "Download",
     "upload": "Upload",

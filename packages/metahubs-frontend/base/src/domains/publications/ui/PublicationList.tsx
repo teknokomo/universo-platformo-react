@@ -34,7 +34,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
     CollapsibleSection
@@ -63,9 +62,6 @@ type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
     versionBranchId?: string | null
-}
-
-type PublicationFormFieldsProps = {
     values: Record<string, any>
     setValue: (name: string, value: any) => void
     isLoading: boolean
@@ -1004,9 +1000,6 @@ const PublicationList = () => {
                     }
                 }}
             />
-
-            <ConfirmDialog />
-
             <ConflictResolutionDialog
                 open={conflictState.open}
                 conflict={conflictState.conflict}

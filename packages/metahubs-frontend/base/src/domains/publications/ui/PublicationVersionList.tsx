@@ -33,7 +33,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { CheckCircle as ActiveIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSnackbar } from 'notistack'
 
 // project imports
 import {
@@ -48,8 +49,11 @@ import {
 } from '@universo/template-mui'
 import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
+import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
 import { usePublicationVersions } from '../hooks/usePublicationVersions'
+import { usePublicationDetails } from '../hooks/usePublicationDetails'
+import { useUpdatePublication } from '../hooks/mutations'
 import {
     useCreatePublicationVersion,
     useUpdatePublicationVersion,
@@ -61,6 +65,17 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
 import type { PublicationVersion } from '../api'
+import type { Publication } from '../api'
+import {
+    buildInitialValues as buildPubInitialValues,
+    buildFormTabs as buildPubFormTabs,
+    validatePublicationForm,
+    canSavePublicationForm,
+    toPayload as pubToPayload
+} from './PublicationActions'
+import type { PublicationLocalizedPayload } from './PublicationActions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import { invalidatePublicationSettingsQueries } from './publicationSettingsQueries'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -85,12 +100,24 @@ export const PublicationVersionList: React.FC = () => {
     const { metahubId, publicationId } = useParams<{ metahubId: string; publicationId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { t: tc } = useCommonTranslations()
+    const { enqueueSnackbar } = useSnackbar()
+    const queryClient = useQueryClient()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
+    const updatePublicationMutation = useUpdatePublication()
+
+    // ── Parent publication query for Settings dialog ───────────────────
+    const { data: publicationData } = usePublicationDetails(metahubId!, publicationId!)
+
+    // ── Settings dialog state ──────────────────────────────────────────
+    const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
 
     // ── Tab navigation ─────────────────────────────────────────────────
     const handlePublicationTabChange = useCallback(
         (_event: unknown, nextTab: string) => {
             if (nextTab === 'applications' && metahubId && publicationId) {
                 navigate(`/metahub/${metahubId}/publication/${publicationId}/applications`)
+            } else if (nextTab === 'settings') {
+                setSettingsDialogOpen(true)
             }
         },
         [navigate, metahubId, publicationId]
@@ -199,7 +226,7 @@ export const PublicationVersionList: React.FC = () => {
 
     // ── Search ─────────────────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('')
-    const { handleSearchChange } = useDebouncedSearch({ onSearchChange: setSearchQuery, delay: 0 })
+    const { searchValue, handleSearchChange } = useDebouncedSearch({ onSearchChange: setSearchQuery, delay: 0 })
 
     const filteredVersions = useMemo(() => {
         const query = searchQuery.trim().toLowerCase()
@@ -384,6 +411,7 @@ export const PublicationVersionList: React.FC = () => {
                     <ViewHeader
                         title={t('metahubs:publications.versions.title', 'Versions')}
                         search={true}
+                        searchValue={searchValue}
                         onSearchChange={handleSearchChange}
                         searchPlaceholder={t('metahubs:publications.versions.searchPlaceholder', 'Search versions...')}
                     >
@@ -409,6 +437,7 @@ export const PublicationVersionList: React.FC = () => {
                         >
                             <Tab value='versions' label={t('metahubs:publications.versions.title', 'Versions')} />
                             <Tab value='applications' label={t('metahubs:publications.applications.title', 'Applications')} />
+                            <Tab value='settings' label={t('settings.title')} />
                         </Tabs>
                     </Box>
 
@@ -633,6 +662,73 @@ export const PublicationVersionList: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* ── Publication Settings edit dialog ────────────────────── */}
+            {publicationData &&
+                metahubId &&
+                publicationId &&
+                (() => {
+                    const pubDisplay = {
+                        id: publicationData.id,
+                        name: getVLCString(publicationData.name, preferredVlcLocale) || '',
+                        description: getVLCString(publicationData.description, preferredVlcLocale) || '',
+                        accessMode: publicationData.accessMode ?? ('full' as const)
+                    }
+                    const publicationMap = new Map<string, Publication>([[publicationData.id, publicationData]])
+                    const settingsCtx = {
+                        entity: pubDisplay,
+                        entityKind: 'publication' as const,
+                        t,
+                        publicationMap,
+                        uiLocale: preferredVlcLocale,
+                        api: {
+                            updateEntity: async (id: string, patch: PublicationLocalizedPayload) => {
+                                if (!metahubId) return
+                                await updatePublicationMutation.mutateAsync({
+                                    metahubId,
+                                    publicationId: id,
+                                    data: { ...patch, expectedVersion: publicationData.version }
+                                })
+                            }
+                        },
+                        helpers: {
+                            refreshList: async () => {
+                                if (metahubId && publicationId) {
+                                    await invalidatePublicationSettingsQueries(queryClient, metahubId, publicationId)
+                                }
+                            },
+                            enqueueSnackbar: (payload: {
+                                message: string
+                                options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                            }) => {
+                                if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                            }
+                        }
+                    }
+                    return (
+                        <EntityFormDialog
+                            open={settingsDialogOpen}
+                            mode='edit'
+                            title={t('publications.editTitle', 'Edit Publication')}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            saveButtonText={tc('actions.save', 'Save')}
+                            savingButtonText={tc('actions.saving', 'Saving...')}
+                            cancelButtonText={tc('actions.cancel', 'Cancel')}
+                            hideDefaultFields
+                            initialExtraValues={buildPubInitialValues(settingsCtx)}
+                            tabs={buildPubFormTabs(settingsCtx, metahubId!)}
+                            validate={(values: Record<string, any>) => validatePublicationForm(settingsCtx, values)}
+                            canSave={canSavePublicationForm}
+                            onSave={async (data: Record<string, any>) => {
+                                const payload = pubToPayload(data)
+                                await settingsCtx.api.updateEntity(publicationData.id, payload)
+                                await settingsCtx.helpers.refreshList()
+                            }}
+                            onClose={() => setSettingsDialogOpen(false)}
+                        />
+                    )
+                })()}
         </MainCard>
     )
 }

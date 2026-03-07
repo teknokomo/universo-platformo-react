@@ -24,6 +24,7 @@ interface MetahubsBundle {
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
+    createOptions?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
     actions?: Record<string, unknown>
@@ -62,6 +63,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         publications: bundle?.publications ?? {},
         migrations: bundle?.migrations ?? {},
         settings: bundle?.settings ?? {},
+        createOptions: bundle?.createOptions ?? {},
         ref: bundle?.ref ?? {},
         common: bundle?.common ?? {},
         errors: bundle?.errors ?? {}

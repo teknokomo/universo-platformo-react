@@ -146,6 +146,27 @@ vi.mock('@universo/template-mui', () => {
     }
 })
 
+vi.mock('@universo/template-mui/components/dialogs', () => ({
+    MemberFormDialog: ({ open, onSave, title }: any) => {
+        if (!open) return null
+        return (
+            <div role='dialog'>
+                <div>{title}</div>
+                <input aria-label='email' />
+                <button onClick={() => onSave?.({ email: 'new@b.c', role: 'member', comment: '' })}>save</button>
+            </div>
+        )
+    },
+    ConfirmDeleteDialog: ({ open, onConfirm }: any) => {
+        if (!open) return null
+        return (
+            <div role='dialog'>
+                <button onClick={() => void onConfirm?.()}>confirm-delete</button>
+            </div>
+        )
+    }
+}))
+
 vi.mock('../../hooks/mutations', () => ({
     useInviteMember: () => ({ mutateAsync: inviteMutateAsync, isPending: false }),
     useUpdateMemberRole: () => ({ mutateAsync: updateMutateAsync, isPending: false }),

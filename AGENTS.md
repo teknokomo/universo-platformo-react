@@ -25,6 +25,9 @@ All these Custom Modes use the rules that are in `.gemini/rules/`
   - Each app contains a `base/` directory for the default implementation.
 - Front-end apps include `i18n/` with default locales `en/` and `ru/`.
 - Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
+- **Template system**: Two built-in metahub templates — `basic` (minimal widgets) and `basic-demo` (full demo with sample entities). Template data lives in `packages/metahubs-backend/base/src/domains/templates/data/`.
+- **Create options**: `POST /metahubs` accepts optional `createOptions` (`createHub`, `createCatalog`, `createSet`, `createEnumeration` — all default true) to control which default entities are seeded.
+- **Entity settings**: Five entity detail views (Hub, Catalog, Set, Enumeration, Publication) include a "Settings" tab that opens an edit dialog overlay via `EntityFormDialog`.
 
 ## Build, Test, and Development Commands
 - `pnpm install`: Install workspace dependencies.

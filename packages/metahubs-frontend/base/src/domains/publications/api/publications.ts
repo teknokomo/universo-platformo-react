@@ -18,6 +18,7 @@ export interface Publication {
     id: string
     metahubId: string
     connectorId?: string // Legacy field, kept for backwards compatibility
+    activeVersionId?: string | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     accessMode?: PublicationAccessMode
@@ -29,6 +30,7 @@ export interface Publication {
     autoCreateApplication?: boolean
     createdAt: string
     updatedAt: string
+    version?: number
 }
 
 /**

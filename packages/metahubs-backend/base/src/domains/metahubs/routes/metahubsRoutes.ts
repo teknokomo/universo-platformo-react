@@ -720,7 +720,15 @@ export function createMetahubsRoutes(
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .optional(),
                 isPublic: z.boolean().optional(),
-                templateId: z.string().uuid().optional()
+                templateId: z.string().uuid().optional(),
+                createOptions: z
+                    .object({
+                        createHub: z.boolean().optional().default(true),
+                        createCatalog: z.boolean().optional().default(true),
+                        createSet: z.boolean().optional().default(true),
+                        createEnumeration: z.boolean().optional().default(true)
+                    })
+                    .optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -822,7 +830,7 @@ export function createMetahubsRoutes(
                 // MetahubSchemaService will fall back to built-in manifest
             }
 
-            const branchName = buildLocalizedContent({ en: 'Main', ru: 'Главная' }, 'en', 'en')
+            const branchName = buildLocalizedContent({ en: 'Main', ru: 'Основная' }, 'en', 'en')
             const branchDescription = buildLocalizedContent({ en: 'Your first branch', ru: 'Ваша первая ветка' }, 'en', 'en')
             if (!branchName) {
                 return res.status(500).json({ error: 'Failed to build default branch name' })
@@ -877,7 +885,8 @@ export function createMetahubsRoutes(
                     metahubId: metahub.id,
                     name: branchName,
                     description: branchDescription ?? null,
-                    createdBy: userId
+                    createdBy: userId,
+                    createOptions: result.data.createOptions
                 })
             } catch (error) {
                 // Cleanup: remove the metahub + membership created above (CASCADE deletes membership)

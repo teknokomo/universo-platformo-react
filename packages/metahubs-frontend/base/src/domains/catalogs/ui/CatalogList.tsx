@@ -21,7 +21,6 @@ import {
     FlowListTable,
     gridSpacing,
     ConfirmContextProvider,
-    ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
     useCodenameAutoFill,
@@ -308,15 +307,20 @@ const CatalogListContent = () => {
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
     const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('catalogs')
+    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
 
     // Fetch hubs for the create dialog (N:M relationship)
     const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, { limit: 100 }) : ['metahubs', 'hubs', 'list', 'empty'],
+        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
         queryFn: async () => {
             if (!metahubId) {
-                return { items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }
+                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
             }
-            return hubsApi.listHubs(metahubId, { limit: 100 })
+            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
+                limit: hubsListParams.limit,
+                sortBy: hubsListParams.sortBy,
+                sortOrder: hubsListParams.sortOrder
+            })
         },
         enabled: !!metahubId,
         refetchOnWindowFocus: false,
@@ -565,6 +569,7 @@ const CatalogListContent = () => {
             errors: Record<string, string>
         }): TabConfig[] => {
             const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
+
             const isSingleHub = Boolean(values.isSingleHub)
             const isRequiredHub = Boolean(values.isRequiredHub)
 
@@ -1665,8 +1670,6 @@ const CatalogListContent = () => {
                         setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
                     }}
                 />
-
-                <ConfirmDialog />
             </ExistingCodenamesProvider>
         </MainCard>
     )

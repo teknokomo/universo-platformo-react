@@ -2,7 +2,7 @@
  * Universo Platformo | Metahub Settings Page
  *
  * Tabbed UI for managing metahub settings.
- * Reuses TemplateMainCard, ViewHeaderMUI, ConfirmDialog, useDebouncedSearch
+ * Reuses TemplateMainCard, ViewHeaderMUI, useDebouncedSearch
  * from @universo/template-mui.
  */
 
@@ -14,14 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 
 // project imports
-import {
-    TemplateMainCard as MainCard,
-    EmptyListState,
-    APIEmptySVG,
-    useDebouncedSearch,
-    useConfirm,
-    ConfirmDialog
-} from '@universo/template-mui'
+import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { useSettings, useUpdateSettings, useResetSetting } from '../hooks/useSettings'
@@ -364,8 +357,6 @@ const SettingsPage = () => {
                     </Box>
                 )}
             </Box>
-
-            <ConfirmDialog />
         </MainCard>
     )
 }

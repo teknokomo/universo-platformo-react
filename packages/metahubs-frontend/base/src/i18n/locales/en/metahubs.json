@@ -1499,6 +1499,17 @@
             "icon": "Icon"
         }
     },
+    "createOptions": {
+        "tab": "Options",
+        "alwaysCreated": "Always created",
+        "branch": "Branch (Main)",
+        "layout": "Layout (Main)",
+        "optionalEntities": "Default entities",
+        "hub": "Hub",
+        "catalog": "Catalog",
+        "set": "Set",
+        "enumeration": "Enumeration"
+    },
     "settings": {
         "title": "Settings",
         "tabs": {

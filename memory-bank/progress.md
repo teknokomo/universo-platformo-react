@@ -45,6 +45,142 @@
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪 | Handler refactoring, PlayCanvas stabilization |
 
 ---
+
+## Manual QA Bug Fixes — 7 Issues (2026-03-07)
+
+Fixed 7 bugs discovered during manual testing of the Create Options + Entity Settings + Mobile UX feature.
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | i18n keys shown as raw text on Create Options tabs | Added `createOptions` to `consolidateMetahubsNamespace()` |
+| 2 | Inconsistent mobile spacing in ViewHeader | Removed negative margins on xs breakpoint, reduced gap to 0.5 |
+| 3 | Mobile search button too small and right-aligned | Changed IconButton from `size='small'` to `size='medium'`, left-aligned action bar |
+| 4 | Mobile drawer too narrow | Changed `maxWidth` from `70dvw` to `90dvw` in SideMenuMobile |
+| 5 | Delete button text shown on mobile | Responsive delete button: icon-only (`IconButton`) on mobile, full `Button` on desktop |
+| 6 | Hub Settings tab click did nothing | Changed `hubMap.get(hubId)` to `allHubsById.get(hubId)` — parent hub not in children map |
+| 7 | Breadcrumbs not updating after settings save | Added breadcrumb query invalidation in 4 settings dialogs (catalogs, sets, enumerations, hubs) |
+
+Verification: touched-package lint reruns produced warnings only, and the full workspace build passed (23/23 tasks).
+
+## PR #714 Review Feedback + Mobile Layout Polish (2026-03-07)
+
+Completed a focused follow-up pass after bot comments/reviews landed on PR #714 and after another manual mobile screenshot review.
+
+| Area | Completion |
+|---|---|
+| PR review triage | Reviewed the full PR discussion (Copilot inline comments, review summaries, and Gemini summary), then applied only the findings that were reproducible and safe. |
+| Accessibility | Added `aria-label` / `title` to the mobile icon-only delete button in `EntityFormDialog`, aligning the implementation with MUI `IconButton` accessibility guidance. |
+| Memory-bank compliance | Translated the QA plan documents in `memory-bank/plan/metahub-create-options-entity-settings-mobile-plan-2026-03-07-QA*.md` to English-only content so the memory-bank no longer violates repository rules. |
+| Mobile header polish | Reworked `ViewHeader` mobile action-row grouping so the search trigger stays left, the remaining controls stay right, and the header gets consistent top/bottom spacing on small screens. |
+| Mobile drawer width | Widened `SideMenuMobile` by setting width on the drawer paper itself (`min(24rem, 92dvw)`) instead of only constraining the inner container. |
+| Large-metahub consistency | Switched `MenuWidgetEditorDialog` from `listAllCatalogs(... limit: 200)` to `fetchAllPaginatedItems()` so menu-widget catalog selection follows the same safe all-pages pattern as the other hardened selectors. |
+
+Verification: `pnpm --filter @universo/template-mui lint`, `pnpm --filter @universo/metahubs-frontend lint`, `pnpm --filter @universo/template-mui test`, `pnpm --filter @universo/metahubs-frontend test`, and `pnpm build` all completed successfully; lint still reports only pre-existing warnings, and the full build finished 23/23 successful.
+
+### QA Follow-up Closure (2026-03-07)
+
+A final QA pass found remaining UX, regression-coverage, and documentation debt. All items were closed without widening scope.
+
+| Area | Completion |
+|---|---|
+| Publication settings invalidation | Kept the publication breadcrumb invalidation fix and extracted `invalidatePublicationSettingsQueries()` so publication detail, publications list, and breadcrumb refresh stay in one reusable path. |
+| Mobile search UX | Reworked `ViewHeader` so collapsing the mobile overlay preserves the active search value; added controlled `searchValue` support plus internal fallback state for older callers. |
+| Caller synchronization | Updated `PublicationVersionList` to pass `searchValue` into `ViewHeader`, ensuring the shared header stays aligned with parent-managed search state. |
+| Regression coverage | Added `ViewHeader.test.tsx` for mobile search persistence + parent-sync behavior and `publicationSettingsQueries.test.ts` for publication detail/list/breadcrumb invalidation. |
+| Memory-bank accuracy | Corrected stale 2026-03-09 status/date references and aligned `tasks.md`, `activeContext.md`, and `progress.md` with the actual 2026-03-07 verification state. |
+
+Verification: `pnpm --filter @universo/template-mui test` passed (13 suites / 175 tests), the focused `publicationSettingsQueries` Vitest passed, the full `@universo/metahubs-frontend` suite re-ran successfully, touched-package lint reruns produced warnings only, and `pnpm build` finished 23/23 successful.
+
+## Metahub Create Options + Entity Settings + Mobile UX + Logout (2026-03-06)
+
+Implemented the full 9-phase plan covering 8 ТЗ points. Plan went through 3 QA rounds before implementation.
+
+### Delivered Changes
+
+| Area | Delivered |
+|------|-----------|
+| **Types** | `MetahubCreateOptions` interface in `@universo/types` (4 optional booleans) |
+| **Backend templates** | Split into `basic` (minimal) + `basic-demo` (full demo); template registry updated |
+| **Backend API** | `createOptions` Zod schema in POST /metahubs; `filterSeedByCreateOptions()` in MetahubSchemaService |
+| **Create dialog** | 3rd "Options" tab with Checkbox toggles (Hub, Catalog, Set, Enumeration default on; Branch+Layout locked) |
+| **Entity settings** | "Settings" tab in HubList, AttributeList, ConstantList, EnumerationValueList, PublicationVersionList — EntityFormDialog overlay |
+| **Builder exports** | All *Actions.tsx files export builder functions + types for reuse |
+| **Mobile UX** | AppNavbar: removed Kiberplano/CustomIcon; ViewHeader: CollapsibleMobileSearch; SideMenuMobile: functional logout |
+| **CardAlert** | Returns null (placeholder for future subscription feature) |
+| **Desktop logout** | SideMenu logout button with useConfirm confirmation + useAuth().logout() |
+| **ConfirmDialog** | Added at MainLayoutMUI level inside ConfirmContextProvider |
+| **i18n** | EN+RU keys for createOptions tab + logout confirmation (flat common:xxx keys) |
+| **Documentation** | MIGRATIONS.md EN+RU (backend + frontend), AGENTS.md updated |
+| **Build** | Full project build: 23/23 tasks, 0 errors |
+
+### QA Fixes Applied (2026-03-06)
+
+Comprehensive QA analysis found 12 issues (1 CRITICAL, 3 HIGH, 4 MEDIUM, 4 LOW). All resolved:
+
+| Severity | Issue | Fix |
+|----------|-------|-----|
+| CRITICAL | HubList `validateHubForm` shadow — Settings validation broken | Renamed local → `validateCreateHubForm`/`canSaveCreateHubForm` |
+| HIGH | ViewHeader mobile layout — no flexWrap | Added `flexWrap: { xs: 'wrap', sm: 'nowrap' }`, title full-width on xs |
+| HIGH | CollapsibleMobileSearch setTimeout without cleanup | Replaced with `ClickAwayListener` from MUI |
+| HIGH | Race condition onBlur vs mousedown | Eliminated by ClickAwayListener refactor |
+| MEDIUM | Publication Settings missing expectedVersion | Added `expectedVersion: publicationData.version` |
+| MEDIUM | Shared searchInputRef corruption | Separate `desktopSearchRef` + internal `mobileInputRef` |
+| MEDIUM | Package-level AGENTS.md not updated | Added Template System + createOptions sections |
+| MEDIUM | Manual mousedown instead of ClickAwayListener | Replaced in CollapsibleMobileSearch refactor |
+| LOW | Missing currentHubId in 3 settingsCtx | Added to AttributeList, ConstantList, EnumerationValueList |
+| LOW | metahubId type mismatch in buildPubFormTabs | Changed to `metahubId!` (guarded above) |
+| LOW | No touchstart handling in mobile search | Resolved by ClickAwayListener (handles all events) |
+| LOW | getOS() called every render | Memoized with `useMemo` |
+
+Data safety audit (copy flow, IDs, edge cases) confirmed safe — no issues found.
+
+### Lint Cleanup (2026-03-06)
+
+Second QA pass verified all fixes (89 PASS / 0 FAIL). Additional lint cleanup:
+
+| Issue | Fix |
+|-------|-----|
+| prettier/prettier formatting in touched frontend/backend files | Fixed the specific formatting regressions in template seeds, list pages, test utilities, and settings imports; reran lint successfully with warnings only |
+| `react/prop-types` for `MetahubCreateOptionsTab` in MetahubList.tsx | Converted from `React.FC<inline>` to named interface + function declaration |
+| `jsx-a11y/no-autofocus` in ViewHeader.tsx CollapsibleMobileSearch | Replaced `autoFocus` prop with imperative `useEffect(() => ref.current?.focus(), [])` |
+
+Build after cleanup: 23/23 tasks, 0 errors.
+
+### Final QA Remediation (2026-03-06)
+
+The follow-up QA audit found several real gaps between the implemented code and the original ТЗ. A final remediation pass closed them without widening scope.
+
+| Area | Final remediation |
+|------|-------------------|
+| **Template parity** | Reverted `basic` template version to `0.1.0`, aligned default RU names to `Основная` / `Основное`, and added default descriptions for the seeded hub/catalog/set/enumeration entities in both `basic` and `basic-demo` |
+| **Settings overlays** | Fixed `EnumerationValueList.tsx` settings/value typing issues (query params, action-context typing, copy dialog labels, optimistic locking) and aligned publication settings data typing with backend `version` |
+| **Mobile UX** | Restored focus-on-expand in `ViewHeader.tsx` using `requestAnimationFrame` without bringing back `autoFocus` |
+| **Confirm dialog ownership** | Removed duplicate page-level `ConfirmDialog` renders from metahubs pages after centralizing the dialog in `MainLayoutMUI` |
+| **Build/test truthfulness** | Restored broken `CatalogList.tsx` / `EnumerationList.tsx` syntax, fixed seed template formatting, repaired Vitest import resolution for `template-mui` + frontend i18n, and updated the failing `MetahubMembers` coverage test to use isolated dialog mocks |
+| **Large-metahub safety** | Replaced `limit: 100` hub-loading shortcuts in Catalog/Set/Enumeration create dialogs and Attribute/Constant/Enumeration Value settings flows with `fetchAllPaginatedItems()` so all hubs are available even when pagination spans multiple pages |
+| **Validation** | Re-ran `pnpm --filter @universo/types lint`, `pnpm --filter @universo/metahubs-backend lint`, `pnpm --filter @universo/metahubs-frontend lint`, `pnpm --filter @universo/template-mui lint`, `pnpm build`, `pnpm --filter @universo/metahubs-frontend test`, and `pnpm --filter @universo/metahubs-backend test`; all required commands finished successfully (lint with warnings only) |
+
+### QA Debt Closure Addendum (2026-03-07)
+
+The final follow-up pass removed the last remaining debt from the fresh audit without changing runtime behavior.
+
+| Area | Completion |
+|------|------------|
+| **Backend regression coverage** | Added route coverage proving `POST /metahubs` threads `createOptions` into `createInitialBranch()` and service coverage for `initializeSchema(..., createOptions)` plus `filterSeedByCreateOptions()` filtering of entities/elements/enumeration values |
+| **Frontend regression coverage** | Added a focused `MetahubList` test that opens the create dialog, switches to the create-options tab, toggles entity defaults, and asserts the submitted `createOptions` payload |
+| **Template MUI regression coverage** | Added desktop/mobile logout confirmation tests for `SideMenu` and `SideMenuMobile` so the new logout UX is now guarded on both layouts |
+| **Type safety** | Declared `createHub`, `createCatalog`, `createSet`, and `createEnumeration` on `MetahubFormValues`, removing the last runtime/type mismatch in the metahub create form |
+| **Verification** | Re-ran `pnpm --filter @universo/types lint`, `pnpm --filter @universo/metahubs-backend lint`, `pnpm --filter @universo/metahubs-frontend lint`, `pnpm --filter @universo/template-mui lint`, `pnpm --filter @universo/metahubs-backend test`, `pnpm --filter @universo/metahubs-frontend test`, `pnpm --filter @universo/template-mui test`, and `pnpm build`; all completed successfully, with only pre-existing lint warnings remaining |
+
+### Files Modified (11 packages touched)
+
+- `packages/universo-types` — MetahubCreateOptions type
+- `packages/metahubs-backend` — basic.template.ts (rewritten), basic-demo.template.ts (new), index.ts, metahubsRoutes.ts, MetahubBranchesService.ts, MetahubSchemaService.ts, MIGRATIONS.md/RU
+- `packages/metahubs-frontend` — MetahubList.tsx (Options tab), HubList.tsx, AttributeList.tsx, ConstantList.tsx, EnumerationValueList.tsx, PublicationVersionList.tsx (Settings tabs), 5 *Actions.tsx (exports), metahubs.ts API, MIGRATIONS.md/RU
+- `packages/universo-template-mui` — AppNavbar.tsx, ViewHeader.tsx, SideMenuMobile.tsx, SideMenu.tsx, CardAlert.tsx, MainLayoutMUI.tsx
+- `packages/universo-i18n` — common.json EN+RU (logout keys), metahubs.json EN+RU (createOptions keys)
+- `AGENTS.md` — template registry + createOptions documentation
+
 ## QA Debt Closure for Hub Nesting and Hub-Scoped UX (2026-03-06)
 
 Completed the follow-up implementation pass for QA debt in hub nesting and hub-scoped entity flows.

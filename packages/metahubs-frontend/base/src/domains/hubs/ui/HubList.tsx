@@ -21,7 +21,6 @@ import {
     FlowListTable,
     gridSpacing,
     ConfirmContextProvider,
-    ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
     useCodenameAutoFill,
@@ -46,7 +45,13 @@ import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameFor
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubDeleteDialog, ExistingCodenamesProvider, HubParentSelectionPanel } from '../../../components'
-import hubActions from './HubActions'
+import hubActions, {
+    buildInitialValues as buildHubInitialValues,
+    buildFormTabs as buildHubFormTabs,
+    validateHubForm,
+    canSaveHubForm,
+    toPayload as hubToPayload
+} from './HubActions'
 import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 
@@ -217,6 +222,7 @@ const HubListContent = () => {
     const queryClient = useQueryClient()
     const isHubScoped = Boolean(hubId)
     const [isDialogOpen, setDialogOpen] = useState(false)
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.HUB_DISPLAY_STYLE)
 
     // State management for dialog
@@ -390,7 +396,7 @@ const HubListContent = () => {
         [allowHubNesting, hubId, isHubScoped]
     )
 
-    const validateHubForm = useCallback(
+    const validateCreateHubForm = useCallback(
         (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -411,7 +417,7 @@ const HubListContent = () => {
         [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSaveHubForm = useCallback(
+    const canSaveCreateHubForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const rawCodename = typeof values.codename === 'string' ? values.codename : ''
@@ -923,8 +929,12 @@ const HubListContent = () => {
         setView(nextView as 'card' | 'table')
     }
 
-    const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations') => {
+    const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations' | 'settings') => {
         if (!metahubId || !hubId) return
+        if (tabValue === 'settings') {
+            setEditDialogOpen(true)
+            return
+        }
         if (tabValue === 'catalogs') {
             navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
             return
@@ -1072,6 +1082,7 @@ const HubListContent = () => {
                                         <Tab value='catalogs' label={t('catalogs.title')} />
                                         <Tab value='sets' label={t('sets.title')} />
                                         <Tab value='enumerations' label={t('enumerations.title')} />
+                                        <Tab value='settings' label={t('settings.title')} />
                                     </Tabs>
                                 </Box>
                                 {!allowHubNesting && (
@@ -1238,8 +1249,8 @@ const HubListContent = () => {
                     hideDefaultFields
                     initialExtraValues={localizedFormDefaults}
                     tabs={buildFormTabs}
-                    validate={validateHubForm}
-                    canSave={canSaveHubForm}
+                    validate={validateCreateHubForm}
+                    canSave={canSaveCreateHubForm}
                 />
 
                 <EntityFormDialog
@@ -1331,9 +1342,6 @@ const HubListContent = () => {
                     isDeleting={deleteHubMutation.isPending}
                     uiLocale={i18n.language}
                 />
-
-                <ConfirmDialog />
-
                 <ConflictResolutionDialog
                     open={conflictState.open}
                     conflict={conflictState.conflict}
@@ -1356,6 +1364,53 @@ const HubListContent = () => {
                     }}
                     isLoading={updateHubMutation.isPending}
                 />
+
+                {/* Settings edit dialog overlay for hub-scoped view */}
+                {isHubScoped &&
+                    hubId &&
+                    (() => {
+                        const currentHub = allHubsById.get(hubId)
+                        if (!currentHub) return null
+                        const currentHubDisplay = toHubDisplay(currentHub, i18n.language)
+                        const settingsCtx = createHubContext({
+                            entity: currentHubDisplay,
+                            entityKind: 'hub',
+                            t
+                        })
+                        return (
+                            <EntityFormDialog
+                                open={editDialogOpen}
+                                mode='edit'
+                                title={t('hubs.editTitle', 'Edit Hub')}
+                                nameLabel={tc('fields.name', 'Name')}
+                                descriptionLabel={tc('fields.description', 'Description')}
+                                saveButtonText={tc('actions.save', 'Save')}
+                                savingButtonText={tc('actions.saving', 'Saving...')}
+                                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                                hideDefaultFields
+                                initialExtraValues={buildHubInitialValues(settingsCtx)}
+                                tabs={buildHubFormTabs(settingsCtx, allHubs, {
+                                    editingEntityId: currentHub.id,
+                                    allowHubNesting,
+                                    mode: 'edit'
+                                })}
+                                validate={(values) => validateHubForm(settingsCtx, values)}
+                                canSave={canSaveHubForm}
+                                onSave={async (data) => {
+                                    const payload = hubToPayload(data)
+                                    await settingsCtx.api!.updateEntity!(currentHub.id, payload)
+                                    await settingsCtx.helpers!.refreshList!()
+                                    // Invalidate breadcrumb queries so page title refreshes immediately
+                                    if (metahubId && hubId) {
+                                        await queryClient.invalidateQueries({
+                                            queryKey: ['breadcrumb', 'hub', metahubId, hubId]
+                                        })
+                                    }
+                                }}
+                                onClose={() => setEditDialogOpen(false)}
+                            />
+                        )
+                    })()}
             </ExistingCodenamesProvider>
         </MainCard>
     )

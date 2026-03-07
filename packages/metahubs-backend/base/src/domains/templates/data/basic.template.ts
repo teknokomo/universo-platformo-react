@@ -1,5 +1,4 @@
 import type { MetahubTemplateManifest, VersionedLocalizedContent, TemplateSeedZoneWidget } from '@universo/types'
-import { DEFAULT_DASHBOARD_ZONE_WIDGETS } from '../../shared/layoutDefaults'
 
 /** ISO timestamp for seed data (epoch zero — marks as factory default). */
 const T0 = '1970-01-01T00:00:00.000Z'
@@ -15,31 +14,10 @@ const vlc = (en: string, ru: string): VersionedLocalizedContent<string> => ({
 })
 
 /**
- * Convert DEFAULT_DASHBOARD_ZONE_WIDGETS into TemplateSeedZoneWidget[],
- * enriching menuWidget config with VLC timestamps for seed data consistency.
- */
-function buildSeedZoneWidgets(): TemplateSeedZoneWidget[] {
-    return DEFAULT_DASHBOARD_ZONE_WIDGETS.map((item) => {
-        const widget: TemplateSeedZoneWidget = {
-            zone: item.zone,
-            widgetKey: item.widgetKey,
-            sortOrder: item.sortOrder
-        }
-        if (item.isActive === false) {
-            widget.isActive = false
-        }
-        if (item.config) {
-            widget.config = enrichConfigWithVlcTimestamps(item.config)
-        }
-        return widget
-    })
-}
-
-/**
  * Deep-clone config and add VLC createdAt/updatedAt to locale entries
  * that are missing them (factory-default seed data).
  */
-function enrichConfigWithVlcTimestamps(config: Record<string, unknown>): Record<string, unknown> {
+export function enrichConfigWithVlcTimestamps(config: Record<string, unknown>): Record<string, unknown> {
     return JSON.parse(JSON.stringify(config), (_key, value) => {
         // Detect VLC locale entry: object with `content` and `version` but no `createdAt`
         if (
@@ -56,9 +34,57 @@ function enrichConfigWithVlcTimestamps(config: Record<string, unknown>): Record<
     })
 }
 
+/** Shared vlc helper re-exported for basic-demo template. */
+export { vlc }
+
+/** Shared T0 re-exported for basic-demo template. */
+export { T0 }
+
 /**
- * "Basic" starter template — default dashboard layout with standard widgets,
- * starter catalog entity with attributes, and predefined settings.
+ * Build minimal seed zone widgets for the basic template.
+ * Only essential widgets: menuWidget (left), header (top), detailsTitle (center), columnsContainer (center).
+ */
+function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'left',
+            widgetKey: 'menuWidget',
+            sortOrder: 3,
+            config: enrichConfigWithVlcTimestamps({
+                showTitle: true,
+                title: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Main', version: 1, isActive: true },
+                        ru: { content: 'Основное', version: 1, isActive: true }
+                    }
+                },
+                autoShowAllCatalogs: true,
+                bindToHub: false,
+                boundHubId: null,
+                items: []
+            })
+        },
+        { zone: 'top', widgetKey: 'header', sortOrder: 2 },
+        { zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 },
+        {
+            zone: 'center',
+            widgetKey: 'columnsContainer',
+            sortOrder: 7,
+            config: {
+                columns: [
+                    { id: 'seed-col-details-table', width: 9, widgets: [{ widgetKey: 'detailsTable' }] },
+                    { id: 'seed-col-sidebar', width: 3, widgets: [{ widgetKey: 'productTree' }] }
+                ]
+            }
+        }
+    ]
+}
+
+/**
+ * "Basic" minimal starter template — essential widgets only.
+ * Default entities (hub, catalog, set, enumeration) can be toggled via createOptions.
  */
 export const basicTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
@@ -67,28 +93,28 @@ export const basicTemplate: MetahubTemplateManifest = {
     minStructureVersion: '0.1.0',
     name: vlc('Basic', 'Базовый'),
     description: vlc(
-        'Default template with dashboard layout and standard widgets',
-        'Шаблон по умолчанию с макетом дашборда и стандартными виджетами'
+        'Minimal template with essential widgets and default entities',
+        'Минимальный шаблон с основными виджетами и стандартными сущностями'
     ),
     meta: {
         author: 'universo-platformo',
-        tags: ['starter', 'dashboard'],
+        tags: ['starter', 'minimal'],
         icon: 'Dashboard'
     },
     seed: {
         layouts: [
             {
-                codename: 'dashboard',
+                codename: 'main',
                 templateKey: 'dashboard',
-                name: vlc('Dashboard', 'Дашборд'),
-                description: vlc('Default layout for published applications', 'Макет по умолчанию для опубликованных приложений'),
+                name: vlc('Main', 'Основной'),
+                description: vlc('Main layout for published applications', 'Основной макет для опубликованных приложений'),
                 isDefault: true,
                 isActive: true,
                 sortOrder: 0
             }
         ],
         layoutZoneWidgets: {
-            dashboard: buildSeedZoneWidgets()
+            main: buildBasicMinimalSeedZoneWidgets()
         },
         settings: [
             { key: 'general.language', value: { _value: 'system' } },
@@ -103,6 +129,35 @@ export const basicTemplate: MetahubTemplateManifest = {
             { key: 'catalogs.allowAttributeCopy', value: { _value: true } },
             { key: 'catalogs.allowAttributeDelete', value: { _value: true } },
             { key: 'catalogs.allowDeleteLastDisplayAttribute', value: { _value: true } }
+        ],
+        entities: [
+            {
+                codename: 'MainHub',
+                kind: 'hub',
+                name: vlc('Main', 'Основной'),
+                description: vlc('Main hub for organizing metahub content', 'Основной хаб для организации контента метахаба')
+            },
+            {
+                codename: 'MainCatalog',
+                kind: 'catalog',
+                name: vlc('Main', 'Основной'),
+                description: vlc('Main catalog for storing records', 'Основной каталог для хранения записей')
+            },
+            {
+                codename: 'MainSet',
+                kind: 'set',
+                name: vlc('Main', 'Основной'),
+                description: vlc(
+                    'Main set for storing constants and typed values',
+                    'Основной набор для хранения констант и типизированных значений'
+                )
+            },
+            {
+                codename: 'MainEnumeration',
+                kind: 'enumeration',
+                name: vlc('Main', 'Основное'),
+                description: vlc('Main enumeration for fixed values', 'Основное перечисление для фиксированных значений')
+            }
         ]
     }
 }
