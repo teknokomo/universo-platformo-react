@@ -1,3 +1,4 @@
+import type { MetahubCreateOptions } from '@universo/types'
 import { apiClient } from '../../shared'
 import {
     Metahub,
@@ -15,6 +16,7 @@ export interface MetahubInput extends MetahubLocalizedPayload {
     isPublic?: boolean
     expectedVersion?: number
     templateId?: string
+    createOptions?: MetahubCreateOptions
 }
 
 export interface MetahubCopyInput extends Partial<MetahubInput> {

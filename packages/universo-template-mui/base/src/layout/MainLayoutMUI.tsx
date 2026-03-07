@@ -14,6 +14,7 @@ import Header from '../components/dashboard/Header'
 import AppTheme from '../components/shared/AppTheme'
 import { chartsCustomizations, dataGridCustomizations, datePickersCustomizations, treeViewCustomizations } from '../themes/mui-custom'
 import { ConfirmContextProvider } from '../contexts'
+import { ConfirmDialog } from '../components/dialogs/ConfirmDialog'
 
 const xThemeComponents = {
     ...chartsCustomizations,
@@ -62,6 +63,7 @@ export default function MainLayoutMUI({ disableCustomTheme, children }: MainLayo
                         </Stack>
                     </Box>
                 </Box>
+                <ConfirmDialog />
             </ConfirmContextProvider>
         </AppTheme>
     )

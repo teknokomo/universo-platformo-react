@@ -1,14 +1,12 @@
-import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Drawer, { drawerClasses } from '@mui/material/Drawer'
 import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
-import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
-import MenuButton from './MenuButton'
+import { useTranslation } from 'react-i18next'
+import { useAuth } from '@universo/auth-frontend'
+import useConfirm from '../../hooks/useConfirm'
 import MenuContent from './MenuContent'
-import CardAlert from './CardAlert'
 
 interface SideMenuMobileProps {
     open: boolean | undefined
@@ -16,6 +14,21 @@ interface SideMenuMobileProps {
 }
 
 export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobileProps) {
+    const { logout } = useAuth()
+    const { t } = useTranslation()
+    const { confirm } = useConfirm()
+
+    const handleLogout = async () => {
+        const confirmed = await confirm({
+            title: t('common:logoutConfirmTitle'),
+            description: t('common:logoutConfirmMessage'),
+            confirmButtonName: t('common:logout')
+        })
+        if (confirmed) {
+            await logout()
+        }
+    }
+
     return (
         <Drawer
             anchor='right'
@@ -31,32 +44,19 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
         >
             <Stack
                 sx={{
-                    maxWidth: '70dvw',
+                    maxWidth: '90dvw',
                     height: '100%'
                 }}
             >
-                <Stack direction='row' sx={{ p: 2, pb: 0, gap: 1 }}>
-                    {/* Placeholder for user info (will be replaced with real name later) */}
-                    <Stack direction='row' sx={{ gap: 1, alignItems: 'center', flexGrow: 1, p: 1 }}>
-                        <Avatar sizes='small' alt='Riley Carter' src='/static/images/avatar/7.jpg' sx={{ width: 24, height: 24 }} />
-                        <Typography component='p' variant='h6'>
-                            Riley Carter
-                        </Typography>
-                    </Stack>
-                    <MenuButton showBadge sx={{ ml: 'auto' }}>
-                        <NotificationsRoundedIcon />
-                    </MenuButton>
-                </Stack>
+                {/* TODO: Restore Avatar/Name/notification bell once real user data is wired */}
                 <Divider />
                 <Stack sx={{ flexGrow: 1 }}>
                     <MenuContent />
                     <Divider />
                 </Stack>
-                {/* Reserved for future promo/info and logout actions */}
-                <CardAlert />
                 <Stack sx={{ p: 2 }}>
-                    <Button variant='outlined' fullWidth startIcon={<LogoutRoundedIcon />}>
-                        Logout
+                    <Button variant='outlined' fullWidth startIcon={<LogoutRoundedIcon />} onClick={handleLogout}>
+                        {t('common:logout')}
                     </Button>
                 </Stack>
             </Stack>

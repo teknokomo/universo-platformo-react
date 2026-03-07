@@ -29,7 +29,7 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
             title: {
                 _schema: '1',
                 _primary: 'en',
-                locales: { en: { content: 'Main', version: 1, isActive: true }, ru: { content: 'Главное', version: 1, isActive: true } }
+                locales: { en: { content: 'Main', version: 1, isActive: true }, ru: { content: 'Основное', version: 1, isActive: true } }
             },
             autoShowAllCatalogs: true,
             bindToHub: false,

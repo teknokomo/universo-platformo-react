@@ -14,7 +14,7 @@ import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 /**
  * Payload for updating publication via API
  */
-interface PublicationLocalizedPayload {
+export interface PublicationLocalizedPayload {
     name?: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -24,7 +24,7 @@ interface PublicationLocalizedPayload {
 /**
  * Build initial values for edit form from raw Publication data
  */
-const buildInitialValues = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>) => {
+export const buildInitialValues = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>) => {
     const publicationMap = ctx.publicationMap as Map<string, Publication> | undefined
     const raw = publicationMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -41,7 +41,10 @@ const buildInitialValues = (ctx: ActionContext<PublicationDisplay, PublicationLo
 /**
  * Validate publication edit form
  */
-const validatePublicationForm = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>, values: Record<string, any>) => {
+export const validatePublicationForm = (
+    ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>,
+    values: Record<string, any>
+) => {
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
@@ -53,7 +56,7 @@ const validatePublicationForm = (ctx: ActionContext<PublicationDisplay, Publicat
 /**
  * Check if form can be saved
  */
-const canSavePublicationForm = (values: Record<string, any>) => {
+export const canSavePublicationForm = (values: Record<string, any>) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     return hasPrimaryContent(nameVlc)
 }
@@ -61,7 +64,7 @@ const canSavePublicationForm = (values: Record<string, any>) => {
 /**
  * Convert form values to API payload
  */
-const toPayload = (values: Record<string, any>): PublicationLocalizedPayload => {
+export const toPayload = (values: Record<string, any>): PublicationLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
@@ -129,7 +132,7 @@ const PublicationEditFields = ({
  *
  * Note: Versions and Applications now have their own dedicated pages.
  */
-const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>, metahubId: string) => {
+export const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>, _metahubId: string) => {
     return ({
         values,
         setValue,

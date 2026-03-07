@@ -24,7 +24,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     RoleChip
 } from '@universo/template-mui'
@@ -553,8 +552,6 @@ export const MetahubMembers = () => {
                     }
                 }}
             />
-
-            <ConfirmDialog />
         </MainCard>
     )
 }

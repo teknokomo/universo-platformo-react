@@ -37,20 +37,20 @@ export interface SetDisplayWithHub extends MetahubSetDisplay {
     hubId?: string
 }
 
-type SetFormValues = Record<string, unknown>
-type SetFormSetValue = (name: string, value: unknown) => void
-type SetActionContext = ActionContext<SetDisplayWithHub, SetLocalizedPayload> & {
+export type SetFormValues = Record<string, unknown>
+export type SetFormSetValue = (name: string, value: unknown) => void
+export type SetActionContext = ActionContext<SetDisplayWithHub, SetLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
 }
-type SetDialogTabArgs = {
+export type SetDialogTabArgs = {
     values: SetFormValues
     setValue: SetFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
 }
 
-const buildInitialValues = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPayload>) => {
+export const buildInitialValues = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPayload>) => {
     const setMap = ctx.setMap as Map<string, MetahubSet | SetWithHubs> | undefined
     const raw = setMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -148,7 +148,7 @@ const getSetCopyOptions = (values: Record<string, unknown>) =>
         copyConstants: values.copyConstants as boolean | undefined
     })
 
-const validateSetForm = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPayload>, values: SetFormValues) => {
+export const validateSetForm = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPayload>, values: SetFormValues) => {
     const cc = _cc(values)
     const errors: Record<string, string> = {}
 
@@ -175,7 +175,7 @@ const validateSetForm = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPaylo
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveSetForm = (values: SetFormValues) => {
+export const canSaveSetForm = (values: SetFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
@@ -194,7 +194,9 @@ const canSaveSetForm = (values: SetFormValues) => {
     return baseValid
 }
 
-const toPayload = (values: SetFormValues): SetLocalizedPayload & { hubIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
+export const toPayload = (
+    values: SetFormValues
+): SetLocalizedPayload & { hubIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -365,7 +367,7 @@ const SetCopyOptionsTab = ({
  * Tab 1: General (name, description, codename)
  * Tab 2: Hubs (hub selection panel with isSingleHub toggle)
  */
-const buildFormTabs = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPayload>, hubs: Hub[], editingEntityId?: string | null) => {
+export const buildFormTabs = (ctx: ActionContext<SetDisplayWithHub, SetLocalizedPayload>, hubs: Hub[], editingEntityId?: string | null) => {
     return ({
         values,
         setValue,

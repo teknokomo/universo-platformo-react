@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, Divider, Stack, Switch, FormControlLabel, Tooltip, Typography } from '@mui/material'
+import { Box, Divider, Stack, Switch, FormControlLabel, Tabs, Tab, Tooltip, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
@@ -10,7 +10,7 @@ import StarOutlineRoundedIcon from '@mui/icons-material/StarOutlineRounded'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import StarIcon from '@mui/icons-material/Star'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -29,13 +29,31 @@ import {
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { ActionDescriptor, ActionContext, DragEndEvent } from '@universo/template-mui'
-import type { EnumerationValue, EnumerationValueDisplay } from '../../../types'
+import {
+    buildInitialValues as buildEnumInitialValues,
+    buildFormTabs as buildEnumFormTabs,
+    validateEnumerationForm,
+    canSaveEnumerationForm,
+    toPayload as enumToPayload
+} from './EnumerationActions'
+import type { EnumerationDisplayWithHub } from './EnumerationActions'
+import { useUpdateEnumerationAtMetahub } from '../hooks'
+import * as hubsApi from '../../hubs'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import type {
+    EnumerationValue,
+    EnumerationValueDisplay,
+    Enumeration,
+    EnumerationLocalizedPayload,
+    Hub,
+    PaginatedResponse
+} from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
 import { normalizeLocale, extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { CodenameField, ExistingCodenamesProvider } from '../../../components'
-import { getEnumerationValueBlockingReferences, listEnumerationValues } from '../api'
+import { getEnumerationValueBlockingReferences, getEnumerationById, listEnumerationValues } from '../api'
 import {
     useCopyEnumerationValue,
     useCreateEnumerationValue,
@@ -44,7 +62,7 @@ import {
     useReorderEnumerationValue,
     useUpdateEnumerationValue
 } from '../hooks'
-import { metahubsQueryKeys } from '../../shared'
+import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import { DragOverlayValueRow } from './dnd'
 
 type ValueFormValues = {
@@ -66,6 +84,17 @@ type CopyValueFormValues = {
 }
 
 type GenericFormValues = Record<string, unknown>
+
+type ValueActionContext = ActionContext<EnumerationValueDisplay, never> & {
+    valueMap: Map<string, EnumerationValue>
+    valueOrderMap: Map<string, number>
+    valueCount: number
+    openEditDialog: (value: EnumerationValue) => void
+    openDeleteDialog: (value: EnumerationValue) => void
+    setDefaultValue: (value: EnumerationValue) => Promise<void>
+    clearDefaultValue: (value: EnumerationValue) => Promise<void>
+    moveValue: (value: EnumerationValue, direction: 'up' | 'down') => Promise<void>
+}
 
 const extractResponseMessage = (error: unknown): string | undefined => {
     if (!error || typeof error !== 'object' || !('response' in error)) return undefined
@@ -245,6 +274,12 @@ const EnumerationValueList = () => {
     const copyMutation = useCopyEnumerationValue()
     const reorderMutation = useReorderEnumerationValue()
 
+    const preferredVlcLocale = useMetahubPrimaryLocale()
+    const updateEnumMutation = useUpdateEnumerationAtMetahub()
+    const queryClient = useQueryClient()
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
+    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
+
     // DnD: Handle value reorder
     const handleValueReorder = useCallback(
         async (valueId: string, newSortOrder: number) => {
@@ -276,6 +311,36 @@ const EnumerationValueList = () => {
     })
 
     const values = useMemo(() => valuesResponse?.items ?? [], [valuesResponse?.items])
+
+    // Fetch parent enumeration for Settings edit dialog
+    const { data: enumerationForHubResolution } = useQuery({
+        queryKey:
+            metahubId && enumerationId
+                ? metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
+                : ['metahubs', 'enumerations', 'detail', 'empty'],
+        queryFn: async () => {
+            if (!metahubId || !enumerationId) throw new Error('metahubId and enumerationId are required')
+            return getEnumerationById(metahubId, enumerationId)
+        },
+        enabled: !!metahubId && !!enumerationId
+    })
+
+    // Fetch hubs for the Settings edit dialog (EnumerationActions.buildFormTabs needs hubs)
+    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
+        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
+        queryFn: async () => {
+            if (!metahubId) {
+                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
+            }
+            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
+                limit: hubsListParams.limit,
+                sortBy: hubsListParams.sortBy,
+                sortOrder: hubsListParams.sortOrder
+            })
+        },
+        enabled: !!metahubId
+    })
+    const allHubs = useMemo<Hub[]>(() => hubsData?.items ?? [], [hubsData?.items])
 
     const [copyState, setCopyState] = useState<{ open: boolean; value: EnumerationValue | null }>({ open: false, value: null })
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
@@ -348,8 +413,8 @@ const EnumerationValueList = () => {
         return new Map(sortedIds.map((id, index) => [id, index]))
     }, [values])
     const createValueActionContext = useCallback(
-        (base: Record<string, unknown>) => ({
-            ...base,
+        (base: Partial<ActionContext<EnumerationValueDisplay, never>>): ValueActionContext => ({
+            ...(base as ActionContext<EnumerationValueDisplay, never>),
             valueMap,
             valueOrderMap,
             valueCount: values.length,
@@ -399,20 +464,20 @@ const EnumerationValueList = () => {
         }),
         [valueMap, valueOrderMap, values.length, metahubId, enumerationId, updateMutation, moveMutation]
     )
+    const toValueActionContext = useCallback((ctx: ActionContext<EnumerationValueDisplay, never>) => ctx as ValueActionContext, [])
 
-    type ValueActionCtx = ActionContext<EnumerationValueDisplay, never>
-
-    const valueActions = useMemo<readonly ActionDescriptor<EnumerationValueDisplay, never>[]>(
+    const valueActions = useMemo<ActionDescriptor<EnumerationValueDisplay, never>[]>(
         () => [
             {
                 id: 'edit',
                 labelKey: 'common:actions.edit',
                 order: 10,
                 icon: <EditRoundedIcon fontSize='small' />,
-                onSelect: (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
-                        ;(ctx.openEditDialog as ((value: EnumerationValue) => void) | undefined)?.(source)
+                        valueCtx.openEditDialog(source)
                     }
                 }
             },
@@ -421,8 +486,9 @@ const EnumerationValueList = () => {
                 labelKey: 'common:actions.copy',
                 order: 11,
                 icon: <ContentCopyRoundedIcon fontSize='small' />,
-                onSelect: (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
                         setCopyDialogError(null)
                         setCopyState({ open: true, value: source })
@@ -434,14 +500,16 @@ const EnumerationValueList = () => {
                 labelKey: 'enumerationValues.actions.setDefault',
                 order: 20,
                 icon: <StarRoundedIcon fontSize='small' />,
-                visible: (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                visible: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     return !source?.isDefault
                 },
-                onSelect: async (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: async (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
-                        await (ctx.setDefaultValue as ((value: EnumerationValue) => Promise<void>) | undefined)?.(source)
+                        await valueCtx.setDefaultValue(source)
                     }
                 }
             },
@@ -450,14 +518,16 @@ const EnumerationValueList = () => {
                 labelKey: 'enumerationValues.actions.clearDefault',
                 order: 21,
                 icon: <StarOutlineRoundedIcon fontSize='small' />,
-                visible: (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                visible: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     return Boolean(source?.isDefault)
                 },
-                onSelect: async (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: async (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
-                        await (ctx.clearDefaultValue as ((value: EnumerationValue) => Promise<void>) | undefined)?.(source)
+                        await valueCtx.clearDefaultValue(source)
                     }
                 }
             },
@@ -467,19 +537,18 @@ const EnumerationValueList = () => {
                 order: 30,
                 dividerBefore: true,
                 icon: <ArrowUpwardRoundedIcon fontSize='small' />,
-                enabled: (ctx: ValueActionCtx) => {
-                    const orderMap = ctx.valueOrderMap as Map<string, number> | undefined
+                enabled: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const orderMap = valueCtx.valueOrderMap
                     if (!orderMap || orderMap.size <= 1) return false
-                    const index = orderMap.get(ctx.entity.id)
+                    const index = orderMap.get(valueCtx.entity.id)
                     return typeof index === 'number' && index > 0
                 },
-                onSelect: async (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: async (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
-                        await (ctx.moveValue as ((value: EnumerationValue, direction: 'up' | 'down') => Promise<void>) | undefined)?.(
-                            source,
-                            'up'
-                        )
+                        await valueCtx.moveValue(source, 'up')
                     }
                 }
             },
@@ -488,20 +557,19 @@ const EnumerationValueList = () => {
                 labelKey: 'attributes.actions.moveDown',
                 order: 40,
                 icon: <ArrowDownwardRoundedIcon fontSize='small' />,
-                enabled: (ctx: ValueActionCtx) => {
-                    const orderMap = ctx.valueOrderMap as Map<string, number> | undefined
+                enabled: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const orderMap = valueCtx.valueOrderMap
                     if (!orderMap || orderMap.size <= 1) return false
-                    const index = orderMap.get(ctx.entity.id)
+                    const index = orderMap.get(valueCtx.entity.id)
                     if (typeof index !== 'number') return false
                     return index < orderMap.size - 1
                 },
-                onSelect: async (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: async (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
-                        await (ctx.moveValue as ((value: EnumerationValue, direction: 'up' | 'down') => Promise<void>) | undefined)?.(
-                            source,
-                            'down'
-                        )
+                        await valueCtx.moveValue(source, 'down')
                     }
                 }
             },
@@ -512,15 +580,16 @@ const EnumerationValueList = () => {
                 dividerBefore: true,
                 icon: <DeleteRoundedIcon fontSize='small' />,
                 tone: 'danger',
-                onSelect: (ctx: ValueActionCtx) => {
-                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                onSelect: (ctx) => {
+                    const valueCtx = toValueActionContext(ctx)
+                    const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
-                        ;(ctx.openDeleteDialog as ((value: EnumerationValue) => void) | undefined)?.(source)
+                        valueCtx.openDeleteDialog(source)
                     }
                 }
             }
         ],
-        []
+        [toValueActionContext]
     )
 
     const valueColumns = useMemo(
@@ -773,6 +842,26 @@ const EnumerationValueList = () => {
                             />
                         </ViewHeader>
 
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                            <Tabs
+                                value='values'
+                                onChange={(_event: unknown, nextTab: string) => {
+                                    if (nextTab === 'settings') {
+                                        setEditDialogOpen(true)
+                                    }
+                                }}
+                                textColor='primary'
+                                indicatorColor='primary'
+                                sx={{
+                                    minHeight: 40,
+                                    '& .MuiTab-root': { minHeight: 40, textTransform: 'none' }
+                                }}
+                            >
+                                <Tab value='values' label={t('enumerationValues.title', 'Values')} />
+                                <Tab value='settings' label={t('settings.title')} />
+                            </Tabs>
+                        </Box>
+
                         {!isBusy && tableData.length === 0 ? (
                             <EmptyListState
                                 image={APIEmptySVG}
@@ -882,6 +971,8 @@ const EnumerationValueList = () => {
                     open={copyState.open}
                     mode='copy'
                     title={t('enumerationValues.copyTitle', 'Copy Value')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={t('enumerationValues.copy.action', 'Copy')}
                     savingButtonText={t('enumerationValues.copy.actionLoading', 'Copying...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1007,6 +1098,95 @@ const EnumerationValueList = () => {
                     }}
                     loading={deleteMutation.isPending}
                 />
+
+                {/* Settings edit dialog overlay for parent enumeration */}
+                {enumerationForHubResolution &&
+                    enumerationId &&
+                    (() => {
+                        const enumDisplay: EnumerationDisplayWithHub = {
+                            id: enumerationForHubResolution.id,
+                            metahubId: enumerationForHubResolution.metahubId,
+                            codename: enumerationForHubResolution.codename,
+                            name:
+                                getVLCString(enumerationForHubResolution.name, preferredVlcLocale) || enumerationForHubResolution.codename,
+                            description: getVLCString(enumerationForHubResolution.description, preferredVlcLocale) || '',
+                            isSingleHub: enumerationForHubResolution.isSingleHub,
+                            isRequiredHub: enumerationForHubResolution.isRequiredHub,
+                            sortOrder: enumerationForHubResolution.sortOrder,
+                            createdAt: enumerationForHubResolution.createdAt,
+                            updatedAt: enumerationForHubResolution.updatedAt,
+                            hubId: enumerationForHubResolution.hubs?.[0]?.id,
+                            hubs: enumerationForHubResolution.hubs?.map((h) => ({
+                                id: h.id,
+                                name: typeof h.name === 'string' ? h.name : h.codename || '',
+                                codename: h.codename || ''
+                            }))
+                        }
+                        const enumerationMap = new Map<string, Enumeration>([[enumerationForHubResolution.id, enumerationForHubResolution]])
+                        const settingsCtx = {
+                            entity: enumDisplay,
+                            entityKind: 'enumeration' as const,
+                            t,
+                            enumerationMap,
+                            currentHubId: enumerationForHubResolution.hubs?.[0]?.id ?? null,
+                            uiLocale: preferredVlcLocale,
+                            api: {
+                                updateEntity: async (id: string, patch: EnumerationLocalizedPayload) => {
+                                    if (!metahubId) return
+                                    await updateEnumMutation.mutateAsync({
+                                        metahubId,
+                                        enumerationId: id,
+                                        data: { ...patch, expectedVersion: enumerationForHubResolution.version }
+                                    })
+                                }
+                            },
+                            helpers: {
+                                refreshList: async () => {
+                                    if (metahubId && enumerationId) {
+                                        await queryClient.invalidateQueries({
+                                            queryKey: metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
+                                        })
+                                        await queryClient.invalidateQueries({
+                                            queryKey: metahubsQueryKeys.allEnumerations(metahubId)
+                                        })
+                                        // Invalidate breadcrumb queries so page title refreshes immediately
+                                        await queryClient.invalidateQueries({
+                                            queryKey: ['breadcrumb', 'enumeration', metahubId, enumerationId]
+                                        })
+                                    }
+                                },
+                                enqueueSnackbar: (payload: {
+                                    message: string
+                                    options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                                }) => {
+                                    if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                                }
+                            }
+                        }
+                        return (
+                            <EntityFormDialog
+                                open={editDialogOpen}
+                                mode='edit'
+                                title={t('enumerations.editTitle', 'Edit Enumeration')}
+                                nameLabel={tc('fields.name', 'Name')}
+                                descriptionLabel={tc('fields.description', 'Description')}
+                                saveButtonText={tc('actions.save', 'Save')}
+                                savingButtonText={tc('actions.saving', 'Saving...')}
+                                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                                hideDefaultFields
+                                initialExtraValues={buildEnumInitialValues(settingsCtx)}
+                                tabs={buildEnumFormTabs(settingsCtx, allHubs, enumerationId)}
+                                validate={(values) => validateEnumerationForm(settingsCtx, values)}
+                                canSave={canSaveEnumerationForm}
+                                onSave={async (data) => {
+                                    const payload = enumToPayload(data)
+                                    await settingsCtx.api.updateEntity(enumerationForHubResolution.id, payload)
+                                    await settingsCtx.helpers.refreshList()
+                                }}
+                                onClose={() => setEditDialogOpen(false)}
+                            />
+                        )
+                    })()}
             </ExistingCodenamesProvider>
         </MainCard>
     )

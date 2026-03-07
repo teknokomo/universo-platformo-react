@@ -29,22 +29,22 @@ const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubParentSelectionPanel } from '../../../components'
 
-type HubFormValues = Record<string, unknown>
-type HubFormSetValue = (name: string, value: unknown) => void
-type HubDialogTabArgs = {
+export type HubFormValues = Record<string, unknown>
+export type HubFormSetValue = (name: string, value: unknown) => void
+export type HubDialogTabArgs = {
     values: HubFormValues
     setValue: HubFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
 }
 
-type HubActionContext = ActionContext<HubDisplay, HubLocalizedPayload> & {
+export type HubActionContext = ActionContext<HubDisplay, HubLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
     allowHubNesting?: boolean
 }
 
-const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
+export const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
     const hubMap = ctx.hubMap as Map<string, Hub> | undefined
     const raw = hubMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -154,7 +154,7 @@ const toggleHubCopyChild = (
     setValue('copyAllRelations', nextOptions.copyAllRelations)
 }
 
-const validateHubForm = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>, values: HubFormValues) => {
+export const validateHubForm = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>, values: HubFormValues) => {
     const cc = _cc(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -171,7 +171,7 @@ const validateHubForm = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>, va
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveHubForm = (values: HubFormValues) => {
+export const canSaveHubForm = (values: HubFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
@@ -184,7 +184,7 @@ const canSaveHubForm = (values: HubFormValues) => {
     )
 }
 
-const toPayload = (values: HubFormValues): HubLocalizedPayload => {
+export const toPayload = (values: HubFormValues): HubLocalizedPayload => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -404,7 +404,7 @@ const HubCopyOptionsTab = ({
     )
 }
 
-const buildFormTabs = (
+export const buildFormTabs = (
     ctx: ActionContext<HubDisplay, HubLocalizedPayload>,
     hubs: Hub[],
     options?: {

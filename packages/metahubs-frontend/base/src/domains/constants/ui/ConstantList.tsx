@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, Chip, Stack, Typography } from '@mui/material'
+import { Box, Chip, Stack, Tabs, Tab, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
@@ -30,18 +30,37 @@ import {
     type ConflictInfo
 } from '@universo/utils'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { useSettingValue } from '../../settings/hooks/useSettings'
-import { metahubsQueryKeys } from '../../shared'
+import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import { getSetById } from '../../sets'
 import * as constantsApi from '../api'
 import { useCopyConstant, useCreateConstant, useDeleteConstant, useMoveConstant, useReorderConstant, useUpdateConstant } from '../hooks'
 import constantActions from './ConstantActions'
 import { ConstantGeneralFields, ConstantValueFields, ensureConstantValidationRules } from './ConstantFormFields'
 import { ExistingCodenamesProvider } from '../../../components'
-import type { Constant, ConstantDisplay, ConstantLocalizedPayload } from '../../../types'
+import type {
+    Constant,
+    ConstantDisplay,
+    ConstantLocalizedPayload,
+    MetahubSet,
+    SetLocalizedPayload,
+    Hub,
+    PaginatedResponse
+} from '../../../types'
 import { getVLCString, toConstantDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../utils/codename'
+import {
+    buildInitialValues as buildSetInitialValues,
+    buildFormTabs as buildSetFormTabs,
+    validateSetForm,
+    canSaveSetForm,
+    toPayload as setToPayload
+} from '../../sets/ui/SetActions'
+import type { SetDisplayWithHub } from '../../sets/ui/SetActions'
+import { useUpdateSetAtMetahub } from '../../sets/hooks/mutations'
+import * as hubsApi from '../../hubs'
 
 type GenericFormValues = Record<string, unknown>
 
@@ -249,12 +268,15 @@ const ConstantList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const codenameConfig = useCodenameConfig()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
     const constantCodenameScope = useSettingValue<string>('sets.constantCodenameScope') ?? 'per-level'
+    const updateSetMutation = useUpdateSetAtMetahub()
 
     const [editingConstant, setEditingConstant] = useState<Constant | null>(null)
     const [copySource, setCopySource] = useState<Constant | null>(null)
     const [dialogError, setDialogError] = useState<string | null>(null)
     const [isDialogOpen, setDialogOpen] = useState(false)
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [deleteState, setDeleteState] = useState<{ open: boolean; constant: Constant | null }>({ open: false, constant: null })
     const [conflictState, setConflictState] = useState<{
         open: boolean
@@ -276,6 +298,28 @@ const ConstantList = () => {
     })
 
     const effectiveHubId = hubIdParam || setForHubResolution?.hubs?.[0]?.id
+    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
+
+    // Fetch hubs for the Settings edit dialog (SetActions.buildFormTabs needs hubs)
+    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
+        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
+        queryFn: async () => {
+            if (!metahubId) {
+                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
+            }
+            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
+                limit: hubsListParams.limit,
+                sortBy: hubsListParams.sortBy,
+                sortOrder: hubsListParams.sortOrder
+            })
+        },
+        enabled: !!metahubId,
+        refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
+        retry: false
+    })
+    const allHubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
+
     const canLoadConstants = !!metahubId && !!setId && (!hubIdParam || !isSetResolutionLoading)
 
     const paginationResult = usePaginated<Constant, 'codename' | 'created' | 'updated' | 'sortOrder'>({
@@ -845,6 +889,26 @@ const ConstantList = () => {
                             />
                         </ViewHeader>
 
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                            <Tabs
+                                value='constants'
+                                onChange={(_event: unknown, nextTab: string) => {
+                                    if (nextTab === 'settings') {
+                                        setEditDialogOpen(true)
+                                    }
+                                }}
+                                textColor='primary'
+                                indicatorColor='primary'
+                                sx={{
+                                    minHeight: 40,
+                                    '& .MuiTab-root': { minHeight: 40, textTransform: 'none' }
+                                }}
+                            >
+                                <Tab value='constants' label={t('constants.title')} />
+                                <Tab value='settings' label={t('settings.title')} />
+                            </Tabs>
+                        </Box>
+
                         {!isBusy && tableData.length === 0 ? (
                             <EmptyListState
                                 image={APIEmptySVG}
@@ -1061,6 +1125,94 @@ const ConstantList = () => {
                     }}
                     isLoading={updateConstantMutation.isPending}
                 />
+
+                {/* Settings edit dialog overlay for parent set */}
+                {setForHubResolution &&
+                    setId &&
+                    (() => {
+                        const setDisplay: SetDisplayWithHub = {
+                            id: setForHubResolution.id,
+                            metahubId: setForHubResolution.metahubId,
+                            codename: setForHubResolution.codename,
+                            name: getVLCString(setForHubResolution.name, preferredVlcLocale) || setForHubResolution.codename,
+                            description: getVLCString(setForHubResolution.description, preferredVlcLocale) || '',
+                            isSingleHub: setForHubResolution.isSingleHub,
+                            isRequiredHub: setForHubResolution.isRequiredHub,
+                            sortOrder: setForHubResolution.sortOrder,
+                            createdAt: setForHubResolution.createdAt,
+                            updatedAt: setForHubResolution.updatedAt,
+                            hubId: effectiveHubId || undefined,
+                            hubs: setForHubResolution.hubs?.map((h) => ({
+                                id: h.id,
+                                name: typeof h.name === 'string' ? h.name : h.codename || '',
+                                codename: h.codename || ''
+                            }))
+                        }
+                        const setMap = new Map<string, MetahubSet>([[setForHubResolution.id, setForHubResolution]])
+                        const settingsCtx = {
+                            entity: setDisplay,
+                            entityKind: 'set' as const,
+                            t,
+                            setMap,
+                            currentHubId: effectiveHubId || null,
+                            uiLocale: preferredVlcLocale,
+                            api: {
+                                updateEntity: async (id: string, patch: SetLocalizedPayload) => {
+                                    if (!metahubId) return
+                                    await updateSetMutation.mutateAsync({
+                                        metahubId,
+                                        setId: id,
+                                        data: { ...patch, expectedVersion: setForHubResolution.version }
+                                    })
+                                }
+                            },
+                            helpers: {
+                                refreshList: async () => {
+                                    if (metahubId && setId) {
+                                        await queryClient.invalidateQueries({
+                                            queryKey: metahubsQueryKeys.setDetail(metahubId, setId)
+                                        })
+                                        await queryClient.invalidateQueries({
+                                            queryKey: metahubsQueryKeys.allSets(metahubId)
+                                        })
+                                        // Invalidate breadcrumb queries so page title refreshes immediately
+                                        await queryClient.invalidateQueries({
+                                            queryKey: ['breadcrumb', 'set-standalone', metahubId, setId]
+                                        })
+                                    }
+                                },
+                                enqueueSnackbar: (payload: {
+                                    message: string
+                                    options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                                }) => {
+                                    if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                                }
+                            }
+                        }
+                        return (
+                            <EntityFormDialog
+                                open={editDialogOpen}
+                                mode='edit'
+                                title={t('sets.editTitle', 'Edit Set')}
+                                nameLabel={tc('fields.name', 'Name')}
+                                descriptionLabel={tc('fields.description', 'Description')}
+                                saveButtonText={tc('actions.save', 'Save')}
+                                savingButtonText={tc('actions.saving', 'Saving...')}
+                                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                                hideDefaultFields
+                                initialExtraValues={buildSetInitialValues(settingsCtx)}
+                                tabs={buildSetFormTabs(settingsCtx, allHubs, setId)}
+                                validate={(values) => validateSetForm(settingsCtx, values)}
+                                canSave={canSaveSetForm}
+                                onSave={async (data) => {
+                                    const payload = setToPayload(data)
+                                    await settingsCtx.api.updateEntity(setForHubResolution.id, payload)
+                                    await settingsCtx.helpers.refreshList()
+                                }}
+                                onClose={() => setEditDialogOpen(false)}
+                            />
+                        )
+                    })()}
             </ExistingCodenamesProvider>
         </MainCard>
     )

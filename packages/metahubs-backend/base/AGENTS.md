@@ -51,3 +51,25 @@ The `src/domains/ddl/` directory contains the schema generation and migration en
 - `SchemaGenerator` — generates/diffs PostgreSQL schemas from catalog definitions
 - `MigrationManager` — records and manages migration history
 - `KnexClient` — Knex-based query builder for DDL operations
+
+## Template System (`src/domains/templates/`)
+
+### Template Registry (`data/index.ts`)
+
+- Two built-in templates: `basic` (minimal) and `basic-demo` (full demo with sample data)
+- `DEFAULT_TEMPLATE_CODENAME = 'basic'` — used when no template is specified at creation time
+- Templates define seed data: entities (hubs, catalogs, sets, enumerations), attributes, constants, enumeration values, layouts, zone widgets, element configs, and entity settings
+
+### Template Seed Executor (`services/TemplateSeedExecutor.ts`)
+
+- `apply()` inserts seed data into a metahub branch schema
+- All UUIDs are database-generated (no hardcoded IDs in templates)
+- Builds `entityIdMap` and `layoutIdMap` to resolve codename → UUID references
+
+### Entity Creation Options (`createOptions`)
+
+- `MetahubCreateOptions` type in `@universo/types`: 4 optional booleans (`createHub`, `createCatalog`, `createSet`, `createEnumeration`), all default to `true`
+- Validated via Zod schema in `POST /metahubs` route (`metahubsRoutes.ts`)
+- `MetahubSchemaService.filterSeedByCreateOptions()` filters template seed entities by kind before execution
+- Branch and Layout entities are always created regardless of options
+- Copy flow (`POST /metahub/:id/copy`) uses DDL schema cloning — `createOptions` is not involved

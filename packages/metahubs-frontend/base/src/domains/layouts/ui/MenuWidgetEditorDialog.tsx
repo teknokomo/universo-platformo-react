@@ -185,7 +185,7 @@ function ItemFormDialog({
     const catalogsQuery = useQuery({
         queryKey: metahubsQueryKeys.allCatalogsList(metahubId),
         enabled: open,
-        queryFn: () => catalogsApi.listAllCatalogs(metahubId, { limit: 200 })
+        queryFn: () => catalogsApi.listAllCatalogs(metahubId, { limit: 200, offset: 0, sortOrder: 'asc' })
     })
     const hubsQuery = useQuery({
         queryKey: metahubsQueryKeys.hubsList(metahubId, { limit: 200, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' }),
@@ -392,7 +392,7 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
     const dialogTitle = isEdit ? t('layouts.menuEditor.editTitle') : t('layouts.menuEditor.createTitle')
 
     const defaultTitle = useMemo(
-        () => buildVLC(t('layouts.menuEditor.defaultTitle', 'Main'), t('layouts.menuEditor.defaultTitleRu', 'Главное')),
+        () => buildVLC(t('layouts.menuEditor.defaultTitle', 'Main'), t('layouts.menuEditor.defaultTitleRu', 'Основное')),
         [t]
     )
 

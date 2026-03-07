@@ -35,7 +35,6 @@ import {
     useDebouncedSearch,
     PaginationControls,
     FlowListTable,
-    ConfirmDialog,
     useConfirm
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
@@ -2019,9 +2018,6 @@ const ElementList = () => {
                     }
                 }}
             />
-
-            <ConfirmDialog />
-
             <ConflictResolutionDialog
                 open={conflictState.open}
                 conflict={conflictState.conflict}

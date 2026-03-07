@@ -195,3 +195,79 @@ describe('MetahubSchemaService migration sequencing', () => {
         syncSpy.mockRestore()
     })
 })
+
+describe('MetahubSchemaService create options', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        tablePresence.clear()
+        MetahubSchemaService.clearAllCaches()
+    })
+
+    it('passes createOptions through initializeSchema into system table initialization', async () => {
+        const dataSource = createMockDataSource({}) as any
+        const service = new MetahubSchemaService(dataSource)
+        const manifest = {
+            version: '0.1.0',
+            minStructureVersion: '0.1.0',
+            seed: {}
+        } as any
+        const createOptions = {
+            createHub: false,
+            createCatalog: true,
+            createSet: false,
+            createEnumeration: true
+        }
+
+        jest.spyOn(service as any, 'inspectSchemaState').mockResolvedValue({
+            initialized: false,
+            hasAnyExpectedTables: false,
+            expectedTables: [],
+            missingTables: []
+        })
+        jest.spyOn(service as any, 'createEmptySchemaIfNeeded').mockResolvedValue(undefined)
+        const initSystemTablesSpy = jest.spyOn(service as any, 'initSystemTables').mockResolvedValue(undefined)
+
+        await service.initializeSchema('mhb_test_schema', manifest, createOptions)
+
+        expect(initSystemTablesSpy).toHaveBeenCalledWith('mhb_test_schema', manifest, createOptions)
+    })
+
+    it('filters template seed entities, elements, and enum values by create options', () => {
+        const seed = {
+            entities: [
+                { kind: 'hub', codename: 'hub_root' },
+                { kind: 'catalog', codename: 'catalog_products' },
+                { kind: 'set', codename: 'set_tags' },
+                { kind: 'enumeration', codename: 'enum_status' }
+            ],
+            elements: {
+                catalog_products: [{ codename: 'product-1' }],
+                set_tags: [{ codename: 'tag-1' }],
+                enum_status: [{ codename: 'status-1' }]
+            },
+            enumerationValues: {
+                enum_status: [{ codename: 'draft' }],
+                set_tags: [{ codename: 'should-be-removed' }]
+            }
+        } as any
+
+        const filtered = (MetahubSchemaService as any).filterSeedByCreateOptions(seed, {
+            createHub: false,
+            createCatalog: true,
+            createSet: false,
+            createEnumeration: true
+        })
+
+        expect(filtered.entities).toEqual([
+            { kind: 'catalog', codename: 'catalog_products' },
+            { kind: 'enumeration', codename: 'enum_status' }
+        ])
+        expect(filtered.elements).toEqual({
+            catalog_products: [{ codename: 'product-1' }],
+            enum_status: [{ codename: 'status-1' }]
+        })
+        expect(filtered.enumerationValues).toEqual({
+            enum_status: [{ codename: 'draft' }]
+        })
+    })
+})

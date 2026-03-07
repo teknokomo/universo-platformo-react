@@ -37,20 +37,20 @@ export interface CatalogDisplayWithHub extends CatalogDisplay {
     hubId?: string
 }
 
-type CatalogFormValues = Record<string, unknown>
-type CatalogFormSetValue = (name: string, value: unknown) => void
-type CatalogActionContext = ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload> & {
+export type CatalogFormValues = Record<string, unknown>
+export type CatalogFormSetValue = (name: string, value: unknown) => void
+export type CatalogActionContext = ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
 }
-type CatalogDialogTabArgs = {
+export type CatalogDialogTabArgs = {
     values: CatalogFormValues
     setValue: CatalogFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
 }
 
-const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>) => {
+export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>) => {
     const catalogMap = ctx.catalogMap as Map<string, Catalog | CatalogWithHubs> | undefined
     const raw = catalogMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -150,7 +150,7 @@ const getCatalogCopyOptions = (values: Record<string, unknown>) => {
     })
 }
 
-const validateCatalogForm = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>, values: CatalogFormValues) => {
+export const validateCatalogForm = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>, values: CatalogFormValues) => {
     const cc = _cc(values)
     const errors: Record<string, string> = {}
 
@@ -177,7 +177,7 @@ const validateCatalogForm = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLo
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveCatalogForm = (values: CatalogFormValues) => {
+export const canSaveCatalogForm = (values: CatalogFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
@@ -196,7 +196,7 @@ const canSaveCatalogForm = (values: CatalogFormValues) => {
     return baseValid
 }
 
-const toPayload = (
+export const toPayload = (
     values: CatalogFormValues
 ): CatalogLocalizedPayload & { hubIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
     const cc = _cc(values)
@@ -384,7 +384,7 @@ const CatalogCopyOptionsTab = ({
  * Tab 1: General (name, description, codename)
  * Tab 2: Hubs (hub selection panel with isSingleHub toggle)
  */
-const buildFormTabs = (
+export const buildFormTabs = (
     ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>,
     hubs: Hub[],
     editingEntityId?: string | null

@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react'
-import { Box, IconButton, OutlinedInput, Toolbar, Typography, Fab } from '@mui/material'
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
+import { Box, ClickAwayListener, IconButton, OutlinedInput, Toolbar, Typography, Fab } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { IconSearch, IconArrowLeft, IconEdit } from '@tabler/icons-react'
 
@@ -33,6 +33,7 @@ export interface ViewHeaderProps {
     filters?: React.ReactNode
     onSearchChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
     search?: boolean
+    searchValue?: string
     searchPlaceholder?: string
     title?: string
     description?: string
@@ -42,11 +43,79 @@ export interface ViewHeaderProps {
     onEdit?: () => void
 }
 
+/**
+ * CollapsibleMobileSearch — icon button that expands into full-width search overlay on mobile.
+ * Uses ClickAwayListener for reliable close-on-outside-click (incl. touch + Portals).
+ */
+const CollapsibleMobileSearch: React.FC<{
+    searchPlaceholder: string
+    searchValue: string
+    onSearchChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+}> = ({ searchPlaceholder, searchValue, onSearchChange }) => {
+    const [expanded, setExpanded] = useState(false)
+    const mobileInputRef = useRef<HTMLInputElement>(null)
+
+    const handleClose = useCallback(() => {
+        setExpanded(false)
+    }, [])
+
+    // Focus the input when mobile search expands (imperative instead of autoFocus for a11y)
+    useEffect(() => {
+        if (!expanded) return undefined
+        const frameId = window.requestAnimationFrame(() => {
+            mobileInputRef.current?.focus()
+        })
+        return () => window.cancelAnimationFrame(frameId)
+    }, [expanded])
+
+    if (!expanded) {
+        return (
+            <IconButton aria-label='Open search' title='Open search' onClick={() => setExpanded(true)} size='medium'>
+                <IconSearch style={{ width: 20, height: 20 }} />
+            </IconButton>
+        )
+    }
+
+    return (
+        <ClickAwayListener onClickAway={handleClose}>
+            <Box
+                sx={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    zIndex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    bgcolor: 'background.paper'
+                }}
+            >
+                <OutlinedInput
+                    inputRef={mobileInputRef}
+                    fullWidth
+                    size='small'
+                    placeholder={searchPlaceholder}
+                    value={searchValue}
+                    onChange={onSearchChange}
+                    startAdornment={
+                        <Box sx={{ color: 'grey.400', display: 'flex', mr: 1 }}>
+                            <IconSearch style={{ color: 'inherit', width: 16, height: 16 }} />
+                        </Box>
+                    }
+                    type='search'
+                />
+            </Box>
+        </ClickAwayListener>
+    )
+}
+
 const ViewHeader: React.FC<ViewHeaderProps> = ({
     children,
     filters = null,
     onSearchChange,
     search,
+    searchValue,
     searchPlaceholder = 'Search',
     title,
     description,
@@ -56,10 +125,27 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
     onEdit
 }) => {
     const theme = useTheme()
-    const searchInputRef = useRef<HTMLInputElement | null>(null)
-    useSearchShortcut(searchInputRef)
+    const desktopSearchRef = useRef<HTMLInputElement | null>(null)
+    const [internalSearchValue, setInternalSearchValue] = useState(searchValue ?? '')
+    useSearchShortcut(desktopSearchRef)
 
-    const os = getOS()
+    useEffect(() => {
+        if (typeof searchValue === 'string') {
+            setInternalSearchValue(searchValue)
+        }
+    }, [searchValue])
+
+    const resolvedSearchValue = searchValue ?? internalSearchValue
+
+    const handleSearchInputChange = useCallback(
+        (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            setInternalSearchValue(event.target.value)
+            onSearchChange?.(event)
+        },
+        [onSearchChange]
+    )
+
+    const os = useMemo(() => getOS(), [])
     const isMac = os === 'macos'
     const isDesktop = isMac || os === 'windows' || os === 'linux'
     const keyboardShortcut = isMac ? '[ ⌘ + F ]' : '[ Ctrl + F ]'
@@ -68,9 +154,26 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
         <Box sx={{ flexGrow: 1, py: 0, width: '100%' }}>
             <Toolbar
                 disableGutters
-                sx={{ p: 0, minHeight: 'auto', alignItems: 'flex-start', display: 'flex', justifyContent: 'space-between', width: '100%' }}
+                sx={{
+                    p: 0,
+                    minHeight: 'auto',
+                    alignItems: { xs: 'stretch', sm: 'flex-start' },
+                    display: 'flex',
+                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                    justifyContent: 'space-between',
+                    width: '100%'
+                }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', flexDirection: 'row', ml: { xs: -1.5, md: -2 }, mt: 0 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        flexDirection: 'row',
+                        ml: { xs: 0, md: -2 },
+                        mt: 0,
+                        width: { xs: '100%', sm: 'auto' }
+                    }}
+                >
                     {isBackButton && (
                         <Fab sx={{ mr: 3 }} size='small' color='secondary' aria-label='back' title='Back' onClick={onBack}>
                             <IconArrowLeft />
@@ -118,35 +221,59 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                         </IconButton>
                     )}
                 </Box>
-                <Box sx={{ height: 40, display: 'flex', alignItems: 'center', gap: 1, mr: { xs: -1.5, md: -2 } }}>
+                <Box
+                    sx={{
+                        height: 40,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mr: { xs: 0, md: -2 },
+                        ml: 0,
+                        mt: { xs: 0.5, sm: 0 },
+                        position: 'relative'
+                    }}
+                >
                     {search && (
-                        <OutlinedInput
-                            inputRef={searchInputRef}
-                            size='small'
-                            sx={{
-                                width: '325px',
-                                height: '100%',
-                                display: { xs: 'none', sm: 'flex' },
-                                borderRadius: 1,
-                                '& .MuiOutlinedInput-notchedOutline': { borderRadius: 1 }
-                            }}
-                            placeholder={`${searchPlaceholder} ${isDesktop ? keyboardShortcut : ''}`}
-                            onChange={onSearchChange}
-                            startAdornment={
-                                <Box
-                                    sx={{
-                                        color: theme.palette.grey[400],
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        mr: 1
-                                    }}
-                                >
-                                    <IconSearch style={{ color: 'inherit', width: 16, height: 16 }} />
-                                </Box>
-                            }
-                            type='search'
-                        />
+                        <>
+                            {/* Desktop: normal search field */}
+                            <OutlinedInput
+                                inputRef={desktopSearchRef}
+                                size='small'
+                                sx={{
+                                    width: '325px',
+                                    height: '100%',
+                                    display: { xs: 'none', sm: 'flex' },
+                                    borderRadius: 1,
+                                    '& .MuiOutlinedInput-notchedOutline': { borderRadius: 1 }
+                                }}
+                                placeholder={`${searchPlaceholder} ${isDesktop ? keyboardShortcut : ''}`}
+                                value={resolvedSearchValue}
+                                onChange={handleSearchInputChange}
+                                startAdornment={
+                                    <Box
+                                        sx={{
+                                            color: theme.palette.grey[400],
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            mr: 1
+                                        }}
+                                    >
+                                        <IconSearch style={{ color: 'inherit', width: 16, height: 16 }} />
+                                    </Box>
+                                }
+                                type='search'
+                            />
+
+                            {/* Mobile: collapsible search icon → full-width overlay */}
+                            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                                <CollapsibleMobileSearch
+                                    searchPlaceholder={searchPlaceholder}
+                                    searchValue={resolvedSearchValue}
+                                    onSearchChange={handleSearchInputChange}
+                                />
+                            </Box>
+                        </>
                     )}
                     {filters}
                     {children}

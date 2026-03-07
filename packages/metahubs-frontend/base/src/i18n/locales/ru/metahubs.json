@@ -1551,6 +1551,17 @@
             "icon": "Иконка"
         }
     },
+    "createOptions": {
+        "tab": "Параметры",
+        "alwaysCreated": "Создаются всегда",
+        "branch": "Ветка (Основная)",
+        "layout": "Макет (Основной)",
+        "optionalEntities": "Стандартные сущности",
+        "hub": "Хаб",
+        "catalog": "Каталог",
+        "set": "Набор",
+        "enumeration": "Перечисление"
+    },
     "settings": {
         "title": "Настройки",
         "tabs": {

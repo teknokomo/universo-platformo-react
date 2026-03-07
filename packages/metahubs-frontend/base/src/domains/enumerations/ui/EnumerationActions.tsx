@@ -37,20 +37,20 @@ export interface EnumerationDisplayWithHub extends EnumerationDisplay {
     hubId?: string
 }
 
-type EnumerationFormValues = Record<string, unknown>
-type EnumerationFormSetValue = (name: string, value: unknown) => void
-type EnumerationActionContext = ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload> & {
+export type EnumerationFormValues = Record<string, unknown>
+export type EnumerationFormSetValue = (name: string, value: unknown) => void
+export type EnumerationActionContext = ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
 }
-type EnumerationDialogTabArgs = {
+export type EnumerationDialogTabArgs = {
     values: EnumerationFormValues
     setValue: EnumerationFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
 }
 
-const buildInitialValues = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>) => {
+export const buildInitialValues = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>) => {
     const enumerationMap = ctx.enumerationMap as Map<string, Enumeration | EnumerationWithHubs> | undefined
     const raw = enumerationMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -149,7 +149,7 @@ const getEnumerationCopyOptions = (values: Record<string, unknown>) => {
     })
 }
 
-const validateEnumerationForm = (
+export const validateEnumerationForm = (
     ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>,
     values: EnumerationFormValues
 ) => {
@@ -179,7 +179,7 @@ const validateEnumerationForm = (
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveEnumerationForm = (values: EnumerationFormValues) => {
+export const canSaveEnumerationForm = (values: EnumerationFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
@@ -198,7 +198,7 @@ const canSaveEnumerationForm = (values: EnumerationFormValues) => {
     return baseValid
 }
 
-const toPayload = (
+export const toPayload = (
     values: EnumerationFormValues
 ): EnumerationLocalizedPayload & { hubIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
     const cc = _cc(values)
@@ -371,7 +371,7 @@ const EnumerationCopyOptionsTab = ({
  * Tab 1: General (name, description, codename)
  * Tab 2: Hubs (hub selection panel with isSingleHub toggle)
  */
-const buildFormTabs = (
+export const buildFormTabs = (
     ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>,
     hubs: Hub[],
     editingEntityId?: string | null

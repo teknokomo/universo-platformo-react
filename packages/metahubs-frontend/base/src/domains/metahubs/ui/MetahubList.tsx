@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, RadioGroup, Radio, FormControlLabel, Divider } from '@mui/material'
+import { Box, Checkbox, Skeleton, Stack, Typography, RadioGroup, Radio, FormControlLabel, Divider } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -23,7 +23,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     RoleChip,
     useUserSettings,
@@ -55,6 +54,10 @@ type MetahubFormValues = {
     codename?: string
     codenameTouched?: boolean
     storageMode?: 'main_db' | 'external_db'
+    createHub?: boolean
+    createCatalog?: boolean
+    createSet?: boolean
+    createEnumeration?: boolean
 }
 
 type GenericFormValues = Record<string, unknown>
@@ -232,6 +235,51 @@ const GeneralTabFields = ({
     )
 }
 
+/**
+ * Create options tab content — checkboxes for toggling which entities
+ * should be created when bootstrapping a new metahub from a template.
+ */
+interface MetahubCreateOptionsTabProps {
+    values: GenericFormValues
+    setValue: (key: string, value: unknown) => void
+    isLoading: boolean
+    t: TranslationFn
+}
+
+function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCreateOptionsTabProps) {
+    const entityKinds = [
+        { key: 'createHub', label: t('createOptions.hub') },
+        { key: 'createCatalog', label: t('createOptions.catalog') },
+        { key: 'createSet', label: t('createOptions.set') },
+        { key: 'createEnumeration', label: t('createOptions.enumeration') }
+    ]
+
+    return (
+        <Stack spacing={1} sx={{ mt: 1 }}>
+            <Typography variant='subtitle2' color='text.secondary'>
+                {t('createOptions.alwaysCreated')}
+            </Typography>
+            <FormControlLabel control={<Checkbox checked disabled />} label={t('createOptions.branch')} />
+            <FormControlLabel control={<Checkbox checked disabled />} label={t('createOptions.layout')} />
+
+            <Divider />
+
+            <Typography variant='subtitle2' color='text.secondary'>
+                {t('createOptions.optionalEntities')}
+            </Typography>
+            {entityKinds.map(({ key, label }) => (
+                <FormControlLabel
+                    key={key}
+                    control={
+                        <Checkbox checked={values[key] !== false} onChange={(e) => setValue(key, e.target.checked)} disabled={isLoading} />
+                    }
+                    label={label}
+                />
+            ))}
+        </Stack>
+    )
+}
+
 const MetahubList = () => {
     const codenameConfig = useCodenameConfig()
     // Use metahubs namespace for view-specific keys, roles and access for role/permission labels
@@ -313,7 +361,18 @@ const MetahubList = () => {
     }, [metahubsDisplay])
 
     const localizedFormDefaults = useMemo<MetahubFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, codenameVlc: null, codename: '', codenameTouched: false, storageMode: 'main_db' }),
+        () => ({
+            nameVlc: null,
+            descriptionVlc: null,
+            codenameVlc: null,
+            codename: '',
+            codenameTouched: false,
+            storageMode: 'main_db',
+            createHub: true,
+            createCatalog: true,
+            createSet: true,
+            createEnumeration: true
+        }),
         []
     )
 
@@ -374,6 +433,11 @@ const MetahubList = () => {
                             </RadioGroup>
                         </Box>
                     )
+                },
+                {
+                    id: 'create-options',
+                    label: t('createOptions.tab'),
+                    content: <MetahubCreateOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={t} />
                 }
             ]
         },
@@ -453,6 +517,13 @@ const MetahubList = () => {
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
             const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
 
+            const createOptions = {
+                createHub: data.createHub !== false,
+                createCatalog: data.createCatalog !== false,
+                createSet: data.createSet !== false,
+                createEnumeration: data.createEnumeration !== false
+            }
+
             await metahubsApi.createMetahub({
                 codename: normalizedCodename,
                 codenameInput,
@@ -461,7 +532,8 @@ const MetahubList = () => {
                 description: descriptionInput,
                 namePrimaryLocale,
                 descriptionPrimaryLocale,
-                templateId: data.templateId || undefined
+                templateId: data.templateId || undefined,
+                createOptions
             })
 
             // Invalidate cache to refetch metahubs list
@@ -910,8 +982,6 @@ const MetahubList = () => {
                         }
                     }}
                 />
-
-                <ConfirmDialog />
             </ExistingCodenamesProvider>
         </MainCard>
     )

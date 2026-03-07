@@ -1,6 +1,6 @@
 import type { DataSource, EntityManager } from 'typeorm'
 import { randomBytes } from 'crypto'
-import type { MetahubTemplateManifest } from '@universo/types'
+import type { MetahubCreateOptions, MetahubTemplateManifest, MetahubTemplateSeed } from '@universo/types'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
@@ -366,7 +366,7 @@ export class MetahubSchemaService {
      * Does not resolve branches or cache keys.
      * Optionally accepts a template manifest; falls back to default built-in template.
      */
-    async initializeSchema(schemaName: string, manifest?: MetahubTemplateManifest): Promise<void> {
+    async initializeSchema(schemaName: string, manifest?: MetahubTemplateManifest, createOptions?: MetahubCreateOptions): Promise<void> {
         const targetStructureVersion = manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
         const schemaState = await this.inspectSchemaState(schemaName, targetStructureVersion)
         const schemaInitializedInDb = schemaState.initialized
@@ -377,7 +377,7 @@ export class MetahubSchemaService {
         await this.createEmptySchemaIfNeeded(schemaName)
         if (!tablesInitCache.has(schemaName)) {
             const resolvedManifest = manifest ?? this.getDefaultManifest()
-            await this.initSystemTables(schemaName, resolvedManifest)
+            await this.initSystemTables(schemaName, resolvedManifest, createOptions)
             tablesInitCache.add(schemaName)
         }
     }
@@ -484,18 +484,70 @@ export class MetahubSchemaService {
      * Delegates DDL creation to structure version registry and
      * seed data population to TemplateSeedExecutor.
      */
-    private async initSystemTables(schemaName: string, manifest: MetahubTemplateManifest): Promise<void> {
+    private async initSystemTables(
+        schemaName: string,
+        manifest: MetahubTemplateManifest,
+        createOptions?: MetahubCreateOptions
+    ): Promise<void> {
         // 1. Create DDL structure (tables + indexes) based on structure version
         const structureVersion = semverToStructureVersion(manifest.minStructureVersion)
         const versionHandler = getStructureVersion(structureVersion)
         await versionHandler.init(this.knex, schemaName)
 
-        // 2. Seed data from template manifest
+        // 2. Filter seed entities based on createOptions, then apply seed data
+        const filteredSeed = MetahubSchemaService.filterSeedByCreateOptions(manifest.seed, createOptions)
         const executor = new TemplateSeedExecutor(this.knex, schemaName)
-        await executor.apply(manifest.seed)
+        await executor.apply(filteredSeed)
 
         // 3. Record baseline migration for fresh schemas
         await this.recordBaselineMigration(schemaName, structureVersion, manifest.version)
+    }
+
+    /**
+     * Filter seed entities based on MetahubCreateOptions.
+     * Removes entities (and their associated elements/enumerationValues) that the user
+     * toggled off during metahub creation. Branch and Layout are never filtered.
+     */
+    private static filterSeedByCreateOptions(seed: MetahubTemplateSeed, options?: MetahubCreateOptions): MetahubTemplateSeed {
+        if (!seed.entities || !options) return seed
+
+        const filteredEntities = seed.entities.filter((entity) => {
+            switch (entity.kind) {
+                case 'hub':
+                    return options.createHub !== false
+                case 'catalog':
+                    return options.createCatalog !== false
+                case 'set':
+                    return options.createSet !== false
+                case 'enumeration':
+                    return options.createEnumeration !== false
+                default:
+                    return true
+            }
+        })
+
+        const includedCodenames = new Set(filteredEntities.map((e) => e.codename))
+
+        const filteredElements: Record<string, NonNullable<MetahubTemplateSeed['elements']>[string]> = {}
+        if (seed.elements) {
+            for (const [key, value] of Object.entries(seed.elements)) {
+                if (includedCodenames.has(key)) filteredElements[key] = value
+            }
+        }
+
+        const filteredEnumValues: Record<string, NonNullable<MetahubTemplateSeed['enumerationValues']>[string]> = {}
+        if (seed.enumerationValues) {
+            for (const [key, value] of Object.entries(seed.enumerationValues)) {
+                if (includedCodenames.has(key)) filteredEnumValues[key] = value
+            }
+        }
+
+        return {
+            ...seed,
+            entities: filteredEntities,
+            elements: filteredElements,
+            enumerationValues: filteredEnumValues
+        }
     }
 
     /**

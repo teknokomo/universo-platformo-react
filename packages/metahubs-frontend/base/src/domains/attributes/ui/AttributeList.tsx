@@ -21,7 +21,6 @@ import {
     useDebouncedSearch,
     PaginationControls,
     FlowListTable,
-    ConfirmDialog,
     ConfirmContextProvider,
     useConfirm
 } from '@universo/template-mui'
@@ -42,7 +41,7 @@ import {
 } from '../hooks/mutations'
 import * as attributesApi from '../api'
 import { getCatalogById } from '../../catalogs'
-import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
+import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import {
     Attribute,
@@ -53,7 +52,12 @@ import {
     AttributeValidationRules,
     getDefaultValidationRules,
     getPhysicalDataType,
-    formatPhysicalType
+    formatPhysicalType,
+    Hub,
+    Catalog,
+    CatalogLocalizedPayload,
+    getVLCString,
+    PaginatedResponse
 } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
@@ -63,8 +67,19 @@ import AttributeFormFields, { PresentationTabFields } from './AttributeFormField
 import ChildAttributeList from './ChildAttributeList'
 import { AttributeDndProvider, AttributeDndContainerRegistryProvider, useAttributeDndState } from './dnd'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import { ExistingCodenamesProvider } from '../../../components'
+import {
+    buildInitialValues as buildCatalogInitialValues,
+    buildFormTabs as buildCatalogFormTabs,
+    validateCatalogForm,
+    canSaveCatalogForm,
+    toPayload as catalogToPayload
+} from '../../catalogs/ui/CatalogActions'
+import type { CatalogDisplayWithHub } from '../../catalogs/ui/CatalogActions'
+import { useUpdateCatalogAtMetahub } from '../../catalogs/hooks/mutations'
+import * as hubsApi from '../../hubs'
 
 type GenericFormValues = Record<string, unknown>
 
@@ -224,9 +239,12 @@ const AttributeListContent = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const codenameConfig = useCodenameConfig()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
     const attributeCodenameScope = useSettingValue<string>('catalogs.attributeCodenameScope') ?? 'per-level'
     const [isDialogOpen, setDialogOpen] = useState(false)
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [expandedTableIds, setExpandedTableIds] = useState<Set<string>>(new Set())
+    const updateCatalogMutation = useUpdateCatalogAtMetahub()
 
     // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
     // Resolve a stable hubId from the catalog's hub associations.
@@ -249,6 +267,27 @@ const AttributeListContent = () => {
     // Hub ID from URL param, or resolved from catalog (for hub-scoped views)
     // Note: empty string means no hub - catalog exists without hub association, which is valid
     const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
+    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
+
+    // Fetch hubs for the Settings edit dialog (CatalogActions.buildFormTabs needs hubs)
+    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
+        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
+        queryFn: async () => {
+            if (!metahubId) {
+                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
+            }
+            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
+                limit: hubsListParams.limit,
+                sortBy: hubsListParams.sortBy,
+                sortOrder: hubsListParams.sortOrder
+            })
+        },
+        enabled: !!metahubId,
+        refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
+        retry: false
+    })
+    const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -1088,8 +1127,13 @@ const AttributeListContent = () => {
         setDialogOpen(false)
     }
 
-    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements') => {
-        if (!metahubId || !catalogId || nextTab === 'attributes') return
+    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements' | 'settings') => {
+        if (!metahubId || !catalogId) return
+        if (nextTab === 'settings') {
+            setEditDialogOpen(true)
+            return
+        }
+        if (nextTab === 'attributes') return
         if (hubIdParam) {
             navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/elements`)
             return
@@ -1246,6 +1290,7 @@ const AttributeListContent = () => {
                                 >
                                     <Tab value='attributes' label={t('attributes.title')} />
                                     <Tab value='elements' label={t('elements.title')} />
+                                    <Tab value='settings' label={t('settings.title')} />
                                 </Tabs>
                             </Box>
 
@@ -1513,9 +1558,6 @@ const AttributeListContent = () => {
                             }
                         }}
                     />
-
-                    <ConfirmDialog />
-
                     <ConflictResolutionDialog
                         open={conflictState.open}
                         conflict={conflictState.conflict}
@@ -1546,6 +1588,97 @@ const AttributeListContent = () => {
                         }}
                         isLoading={updateAttributeMutation.isPending}
                     />
+
+                    {/* Settings edit dialog overlay for parent catalog */}
+                    {catalogForHubResolution &&
+                        catalogId &&
+                        (() => {
+                            const catalogDisplay: CatalogDisplayWithHub = {
+                                id: catalogForHubResolution.id,
+                                metahubId: catalogForHubResolution.metahubId,
+                                codename: catalogForHubResolution.codename,
+                                name: getVLCString(catalogForHubResolution.name, preferredVlcLocale) || catalogForHubResolution.codename,
+                                description: getVLCString(catalogForHubResolution.description, preferredVlcLocale) || '',
+                                isSingleHub: catalogForHubResolution.isSingleHub,
+                                isRequiredHub: catalogForHubResolution.isRequiredHub,
+                                sortOrder: catalogForHubResolution.sortOrder,
+                                createdAt: catalogForHubResolution.createdAt,
+                                updatedAt: catalogForHubResolution.updatedAt,
+                                hubId: effectiveHubId || undefined,
+                                hubs: catalogForHubResolution.hubs?.map((h) => ({
+                                    id: h.id,
+                                    name: typeof h.name === 'string' ? h.name : h.codename || '',
+                                    codename: h.codename || ''
+                                }))
+                            }
+                            const catalogMap = new Map<string, Catalog>([[catalogForHubResolution.id, catalogForHubResolution]])
+                            const settingsCtx = {
+                                entity: catalogDisplay,
+                                entityKind: 'catalog' as const,
+                                t,
+                                catalogMap,
+                                currentHubId: effectiveHubId || null,
+                                uiLocale: preferredVlcLocale,
+                                api: {
+                                    updateEntity: async (id: string, patch: CatalogLocalizedPayload) => {
+                                        if (!metahubId) return
+                                        await updateCatalogMutation.mutateAsync({
+                                            metahubId,
+                                            catalogId: id,
+                                            data: { ...patch, expectedVersion: catalogForHubResolution.version }
+                                        })
+                                    }
+                                },
+                                helpers: {
+                                    refreshList: async () => {
+                                        if (metahubId && catalogId) {
+                                            await queryClient.invalidateQueries({
+                                                queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId)
+                                            })
+                                            await queryClient.invalidateQueries({
+                                                queryKey: metahubsQueryKeys.allCatalogs(metahubId)
+                                            })
+                                            // Invalidate breadcrumb queries so page title refreshes immediately
+                                            await queryClient.invalidateQueries({
+                                                queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId]
+                                            })
+                                            await queryClient.invalidateQueries({
+                                                queryKey: ['breadcrumb', 'catalog', metahubId]
+                                            })
+                                        }
+                                    },
+                                    enqueueSnackbar: (payload: {
+                                        message: string
+                                        options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                                    }) => {
+                                        if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                                    }
+                                }
+                            }
+                            return (
+                                <EntityFormDialog
+                                    open={editDialogOpen}
+                                    mode='edit'
+                                    title={t('catalogs.editTitle', 'Edit Catalog')}
+                                    nameLabel={tc('fields.name', 'Name')}
+                                    descriptionLabel={tc('fields.description', 'Description')}
+                                    saveButtonText={tc('actions.save', 'Save')}
+                                    savingButtonText={tc('actions.saving', 'Saving...')}
+                                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                                    hideDefaultFields
+                                    initialExtraValues={buildCatalogInitialValues(settingsCtx)}
+                                    tabs={buildCatalogFormTabs(settingsCtx, hubs, catalogId)}
+                                    validate={(values) => validateCatalogForm(settingsCtx, values)}
+                                    canSave={canSaveCatalogForm}
+                                    onSave={async (data) => {
+                                        const payload = catalogToPayload(data)
+                                        await settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
+                                        await settingsCtx.helpers.refreshList()
+                                    }}
+                                    onClose={() => setEditDialogOpen(false)}
+                                />
+                            )
+                        })()}
                 </MainCard>
             </ExistingCodenamesProvider>
         </AttributeDndContainerRegistryProvider>
