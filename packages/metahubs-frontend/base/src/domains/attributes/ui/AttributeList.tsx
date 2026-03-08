@@ -22,7 +22,8 @@ import {
     PaginationControls,
     FlowListTable,
     ConfirmContextProvider,
-    useConfirm
+    useConfirm,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
@@ -289,10 +290,6 @@ const AttributeListContent = () => {
     })
     const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
-    const [dialogError, setDialogError] = useState<string | null>(null)
-
     // Can load attributes when we have metahubId and catalogId
     // hubId is optional - attributes belong to catalog directly
     const canLoadAttributes = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
@@ -400,6 +397,7 @@ const AttributeListContent = () => {
     const toggleRequiredMutation = useToggleAttributeRequired()
     const setDisplayAttributeMutation = useSetDisplayAttribute()
     const clearDisplayAttributeMutation = useClearDisplayAttribute()
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     // DnD cross-list permission settings
     const allowCrossListRootChildren = useSettingValue<boolean>('catalogs.allowAttributeMoveBetweenRootAndChildren') ?? true
@@ -409,6 +407,21 @@ const AttributeListContent = () => {
         if (!Array.isArray(attributes)) return new Map<string, Attribute>()
         return new Map(attributes.map((attr) => [attr.id, attr]))
     }, [attributes])
+
+    const handlePendingAttributeInteraction = useCallback(
+        (attributeId: string) => {
+            if (!metahubId || !catalogId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: effectiveHubId
+                    ? metahubsQueryKeys.attributes(metahubId, effectiveHubId, catalogId)
+                    : metahubsQueryKeys.attributesDirect(metahubId, catalogId),
+                entityId: attributeId
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [catalogId, effectiveHubId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+    )
 
     // DnD: Handle reorder (same-list + cross-list transfer)
     const handleReorder = useCallback(
@@ -884,8 +897,8 @@ const AttributeListContent = () => {
             metahubId,
             catalogId,
             api: {
-                updateEntity: async (id: string, patch: AttributeLocalizedPayload) => {
-                    if (!metahubId || !catalogId) return
+                updateEntity: (id: string, patch: AttributeLocalizedPayload) => {
+                    if (!metahubId || !catalogId) return Promise.resolve()
                     const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('attributes.validation.codenameRequired', 'Codename is required'))
@@ -903,50 +916,55 @@ const AttributeListContent = () => {
                     const dataType = patch.dataType ?? 'STRING'
                     const attribute = attributeMap.get(id)
                     const expectedVersion = attribute?.version
-                    try {
-                        await updateAttributeMutation.mutateAsync({
+                    updateAttributeMutation.mutate(
+                        {
                             metahubId,
-                            hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
+                            hubId: effectiveHubId,
                             catalogId,
                             attributeId: id,
                             data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired, expectedVersion }
-                        })
-                    } catch (error: unknown) {
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({
-                                    open: true,
-                                    conflict,
-                                    pendingUpdate: {
-                                        id,
-                                        patch: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
+                        },
+                        {
+                            onError: (error: unknown) => {
+                                if (isOptimisticLockConflict(error)) {
+                                    const conflict = extractConflictInfo(error)
+                                    if (conflict) {
+                                        setConflictState({
+                                            open: true,
+                                            conflict,
+                                            pendingUpdate: {
+                                                id,
+                                                patch: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
+                                            }
+                                        })
                                     }
-                                })
-                                return
+                                }
                             }
                         }
-                        throw error
-                    }
+                    )
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId || !catalogId) return
-                    await deleteAttributeMutation.mutateAsync({
+                    return deleteAttributeMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
                         catalogId,
                         attributeId: id
                     })
                 },
-                copyEntity: async (id: string, payload: AttributeLocalizedPayload & Record<string, unknown>) => {
-                    if (!metahubId || !catalogId) return
-                    await copyAttributeMutation.mutateAsync({
+                copyEntity: (id: string, payload: AttributeLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId || !catalogId) return Promise.resolve()
+                    copyAttributeMutation.mutate({
                         metahubId,
                         hubId: effectiveHubId,
                         catalogId,
                         attributeId: id,
                         data: payload
                     })
+
+                    return Promise.resolve()
                 }
             },
             moveAttribute: async (id: string, direction: 'up' | 'down') => {
@@ -1005,15 +1023,15 @@ const AttributeListContent = () => {
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId && catalogId) {
                         // Always invalidate global codenames cache (for global scope duplicate checking)
                         invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
                         if (effectiveHubId) {
-                            await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                            void invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
                         } else {
                             // Invalidate direct queries for hub-less catalogs
-                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
                         }
                     }
                 },
@@ -1123,10 +1141,6 @@ const AttributeListContent = () => {
         setDialogOpen(false)
     }
 
-    const handleDialogSave = () => {
-        setDialogOpen(false)
-    }
-
     const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements' | 'settings') => {
         if (!metahubId || !catalogId) return
         if (nextTab === 'settings') {
@@ -1141,93 +1155,45 @@ const AttributeListContent = () => {
         navigate(`/metahub/${metahubId}/catalog/${catalogId}/elements`)
     }
 
-    const handleCreateAttribute = async (data: GenericFormValues) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
+    const handleCreateAttribute = (data: GenericFormValues) => {
+        // Validation is handled by EntityFormDialog's validate/canSave props.
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+
+        const dataType = (data.dataType as AttributeDataType | undefined) ?? 'STRING'
+        const isRequired = Boolean(data.isRequired)
+        const validationRules = data.validationRules as AttributeValidationRules | undefined
+        const isDisplayAttribute = Boolean(data.isDisplayAttribute)
+        const uiConfig = (data.uiConfig as Record<string, unknown>) ?? {}
+
+        // REF type: extract target entity info
+        const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null) : undefined
+        const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null) : undefined
+        const targetConstantId =
+            dataType === 'REF' && targetEntityKind === 'set' ? (data.targetConstantId as string | null) ?? null : undefined
+        const normalizedUiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, uiConfig)
+
+        // Fire-and-forget: optimistic card via onMutate, errors via onError snackbar,
+        // cache invalidation via onSettled. Dialog closes immediately.
+        createAttributeMutation.mutate({
+            metahubId,
+            hubId: effectiveHubId,
+            catalogId,
+            data: {
+                codename: normalizedCodename || '',
+                dataType,
+                isRequired,
+                name: nameInput ?? {},
+                namePrimaryLocale: namePrimaryLocale ?? '',
+                validationRules,
+                isDisplayAttribute,
+                targetEntityId,
+                targetEntityKind,
+                targetConstantId,
+                uiConfig: normalizedUiConfig
             }
-            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
-            if (!normalizedCodename) {
-                setDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
-                return
-            }
-            if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
-                setDialogError(t('attributes.validation.codenameInvalid', 'Codename contains invalid characters'))
-                return
-            }
-
-            const dataType = (data.dataType as AttributeDataType | undefined) ?? 'STRING'
-            const isRequired = Boolean(data.isRequired)
-            const validationRules = data.validationRules as AttributeValidationRules | undefined
-            const isDisplayAttribute = Boolean(data.isDisplayAttribute)
-            const uiConfig = (data.uiConfig as Record<string, unknown>) ?? {}
-
-            // REF type: extract target entity info
-            const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null) : undefined
-            const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null) : undefined
-            const targetConstantId =
-                dataType === 'REF' && targetEntityKind === 'set' ? (data.targetConstantId as string | null) ?? null : undefined
-            const normalizedUiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, uiConfig)
-
-            await createAttributeMutation.mutateAsync({
-                metahubId,
-                hubId: effectiveHubId,
-                catalogId,
-                data: {
-                    codename: normalizedCodename,
-                    dataType,
-                    isRequired,
-                    name: nameInput,
-                    namePrimaryLocale,
-                    validationRules,
-                    isDisplayAttribute,
-                    targetEntityId,
-                    targetEntityKind,
-                    targetConstantId,
-                    uiConfig: normalizedUiConfig
-                }
-            })
-
-            await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
-            // Invalidate global codenames cache (for global scope duplicate checking)
-            invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
-            handleDialogSave()
-        } catch (e: unknown) {
-            const responseData = extractResponseData(e)
-            const responseCode = typeof responseData?.code === 'string' ? responseData.code : null
-            const responseMessage = extractResponseMessage(e)
-            const message =
-                responseData?.code === 'ATTRIBUTE_LIMIT_REACHED'
-                    ? t('attributes.limitReached', { limit: responseData?.limit ?? limitValue })
-                    : responseCode === 'TABLE_CHILD_LIMIT_REACHED'
-                    ? t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
-                          max: responseData?.maxChildAttributes ?? '—'
-                      })
-                    : responseCode === 'TABLE_ATTRIBUTE_LIMIT_REACHED'
-                    ? t('attributes.tableValidation.maxTableAttributes', 'Maximum {{max}} TABLE attributes per catalog', {
-                          max: responseData?.maxTableAttributes ?? '—'
-                      })
-                    : responseCode === 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
-                    ? t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute')
-                    : responseCode === 'NESTED_TABLE_FORBIDDEN'
-                    ? t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed')
-                    : typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('attributes.createError')
-            setDialogError(message)
-            console.error('Failed to create attribute', e)
-        } finally {
-            setCreating(false)
-        }
+        })
     }
 
     // Transform Attribute data for table display
@@ -1357,6 +1323,9 @@ const AttributeListContent = () => {
                                                     <FlowListTable<AttributeDisplay>
                                                         data={effectiveData}
                                                         customColumns={attributeColumns}
+                                                        onPendingInteractionAttempt={(row: AttributeDisplay) =>
+                                                            handlePendingAttributeInteraction(row.id)
+                                                        }
                                                         sortableRows
                                                         externalDndContext
                                                         droppableContainerId='root'
@@ -1500,8 +1469,6 @@ const AttributeListContent = () => {
                         saveButtonText={tc('actions.create', 'Create')}
                         savingButtonText={tc('actions.creating', 'Creating...')}
                         cancelButtonText={tc('actions.cancel', 'Cancel')}
-                        loading={isCreating}
-                        error={dialogError || undefined}
                         onClose={handleDialogClose}
                         onSave={handleCreateAttribute}
                         hideDefaultFields
@@ -1520,42 +1487,43 @@ const AttributeListContent = () => {
                         deletingButtonText={tc('actions.deleting', 'Deleting...')}
                         cancelButtonText={tc('actions.cancel', 'Cancel')}
                         onCancel={() => setDeleteDialogState({ open: false, attribute: null })}
-                        onConfirm={async () => {
-                            if (deleteDialogState.attribute) {
-                                const actualAttribute = attributeMap.get(deleteDialogState.attribute.id) ?? deleteDialogState.attribute
-                                if (actualAttribute?.isDisplayAttribute) {
-                                    enqueueSnackbar(
-                                        t(
-                                            'attributes.deleteDisplayAttributeBlocked',
-                                            'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
-                                        ),
-                                        { variant: 'warning' }
-                                    )
-                                    setDeleteDialogState({ open: false, attribute: null })
-                                    return
-                                }
-                                try {
-                                    await deleteAttributeMutation.mutateAsync({
-                                        metahubId,
-                                        hubId: effectiveHubId,
-                                        catalogId,
-                                        attributeId: deleteDialogState.attribute.id
-                                    })
-                                    setDeleteDialogState({ open: false, attribute: null })
-                                } catch (err: unknown) {
-                                    const responseMessage = extractResponseMessage(err)
-                                    const message =
-                                        typeof responseMessage === 'string'
-                                            ? responseMessage
-                                            : err instanceof Error
-                                            ? err.message
-                                            : typeof err === 'string'
-                                            ? err
-                                            : t('attributes.deleteError')
-                                    enqueueSnackbar(message, { variant: 'error' })
-                                    setDeleteDialogState({ open: false, attribute: null })
-                                }
+                        onConfirm={() => {
+                            if (!deleteDialogState.attribute) return
+                            const actualAttribute = attributeMap.get(deleteDialogState.attribute.id) ?? deleteDialogState.attribute
+                            if (actualAttribute?.isDisplayAttribute) {
+                                enqueueSnackbar(
+                                    t(
+                                        'attributes.deleteDisplayAttributeBlocked',
+                                        'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
+                                    ),
+                                    { variant: 'warning' }
+                                )
+                                setDeleteDialogState({ open: false, attribute: null })
+                                return
                             }
+
+                            deleteAttributeMutation.mutate(
+                                {
+                                    metahubId,
+                                    hubId: effectiveHubId,
+                                    catalogId,
+                                    attributeId: deleteDialogState.attribute.id
+                                },
+                                {
+                                    onError: (err: unknown) => {
+                                        const responseMessage = extractResponseMessage(err)
+                                        const message =
+                                            typeof responseMessage === 'string'
+                                                ? responseMessage
+                                                : err instanceof Error
+                                                ? err.message
+                                                : typeof err === 'string'
+                                                ? err
+                                                : t('attributes.deleteError')
+                                        enqueueSnackbar(message, { variant: 'error' })
+                                    }
+                                }
+                            )
                         }}
                     />
                     <ConflictResolutionDialog
@@ -1620,9 +1588,9 @@ const AttributeListContent = () => {
                                 currentHubId: effectiveHubId || null,
                                 uiLocale: preferredVlcLocale,
                                 api: {
-                                    updateEntity: async (id: string, patch: CatalogLocalizedPayload) => {
+                                    updateEntity: (id: string, patch: CatalogLocalizedPayload) => {
                                         if (!metahubId) return
-                                        await updateCatalogMutation.mutateAsync({
+                                        updateCatalogMutation.mutate({
                                             metahubId,
                                             catalogId: id,
                                             data: { ...patch, expectedVersion: catalogForHubResolution.version }
@@ -1630,19 +1598,19 @@ const AttributeListContent = () => {
                                     }
                                 },
                                 helpers: {
-                                    refreshList: async () => {
+                                    refreshList: () => {
                                         if (metahubId && catalogId) {
-                                            await queryClient.invalidateQueries({
+                                            void queryClient.invalidateQueries({
                                                 queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId)
                                             })
-                                            await queryClient.invalidateQueries({
+                                            void queryClient.invalidateQueries({
                                                 queryKey: metahubsQueryKeys.allCatalogs(metahubId)
                                             })
                                             // Invalidate breadcrumb queries so page title refreshes immediately
-                                            await queryClient.invalidateQueries({
+                                            void queryClient.invalidateQueries({
                                                 queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId]
                                             })
-                                            await queryClient.invalidateQueries({
+                                            void queryClient.invalidateQueries({
                                                 queryKey: ['breadcrumb', 'catalog', metahubId]
                                             })
                                         }
@@ -1670,10 +1638,9 @@ const AttributeListContent = () => {
                                     tabs={buildCatalogFormTabs(settingsCtx, hubs, catalogId)}
                                     validate={(values) => validateCatalogForm(settingsCtx, values)}
                                     canSave={canSaveCatalogForm}
-                                    onSave={async (data) => {
+                                    onSave={(data) => {
                                         const payload = catalogToPayload(data)
-                                        await settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
-                                        await settingsCtx.helpers.refreshList()
+                                        settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
                                     }}
                                     onClose={() => setEditDialogOpen(false)}
                                 />

@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Chip, Divider, Tabs, Tab } from '@mui/material'
+import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -25,7 +25,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill,
     useCodenameVlcSync,
-    EntitySelectionPanel
+    EntitySelectionPanel,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
 import type { EntitySelectionLabels } from '@universo/template-mui'
@@ -49,7 +50,7 @@ import type { CatalogWithHubs } from '../api'
 import * as hubsApi from '../../hubs'
 import { fetchAllPaginatedItems, invalidateCatalogsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { CatalogDisplay, CatalogLocalizedPayload, Hub, PaginatedResponse, getVLCString, toCatalogDisplay } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -303,9 +304,6 @@ const CatalogListContent = () => {
     // Use different storage keys for different views
     const [view, setView] = useViewPreference(isHubScoped ? STORAGE_KEYS.CATALOG_DISPLAY_STYLE : STORAGE_KEYS.ALL_CATALOGS_DISPLAY_STYLE)
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
-    const [dialogError, setDialogError] = useState<string | null>(null)
     const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('catalogs')
     const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
 
@@ -402,6 +400,8 @@ const CatalogListContent = () => {
     const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
     const [isAttachingExisting, setAttachingExisting] = useState(false)
     const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
+    const [pendingCatalogNavigation, setPendingCatalogNavigation] = useState<{ pendingId: string; codename: string } | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     const { confirm } = useConfirm()
 
@@ -452,6 +452,50 @@ const CatalogListContent = () => {
         if (!Array.isArray(sortedCatalogs)) return new Map<string, CatalogWithHubs>()
         return new Map(sortedCatalogs.map((catalog) => [catalog.id, catalog]))
     }, [sortedCatalogs])
+
+    useEffect(() => {
+        if (!pendingCatalogNavigation || !metahubId) return
+
+        if (sortedCatalogs.some((catalog) => catalog.id === pendingCatalogNavigation.pendingId)) {
+            return
+        }
+
+        const resolvedCatalog = sortedCatalogs.find(
+            (catalog) => !isPendingEntity(catalog) && catalog.codename === pendingCatalogNavigation.codename
+        )
+
+        if (!resolvedCatalog) return
+
+        setPendingCatalogNavigation(null)
+        navigate(
+            isHubScoped && hubId
+                ? `/metahub/${metahubId}/hub/${hubId}/catalog/${resolvedCatalog.id}/attributes`
+                : `/metahub/${metahubId}/catalog/${resolvedCatalog.id}/attributes`
+        )
+    }, [hubId, isHubScoped, metahubId, navigate, pendingCatalogNavigation, sortedCatalogs])
+
+    const handlePendingCatalogInteraction = useCallback(
+        (pendingCatalogId: string) => {
+            if (!metahubId) return
+            const pendingCatalog = catalogMap.get(pendingCatalogId)
+            if (pendingCatalog?.codename) {
+                setPendingCatalogNavigation({ pendingId: pendingCatalog.id, codename: pendingCatalog.codename })
+            }
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix:
+                    isHubScoped && hubId ? metahubsQueryKeys.catalogs(metahubId, hubId) : metahubsQueryKeys.allCatalogs(metahubId),
+                entityId: pendingCatalogId,
+                extraQueryKeys: [
+                    isHubScoped && hubId
+                        ? metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, pendingCatalogId)
+                        : metahubsQueryKeys.catalogDetail(metahubId, pendingCatalogId)
+                ]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [catalogMap, enqueueSnackbar, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient]
+    )
 
     const allCatalogsById = useMemo(() => {
         const map = new Map<string, CatalogWithHubs>()
@@ -638,30 +682,47 @@ const CatalogListContent = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: CatalogWithHubsDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: CatalogWithHubsDisplay) => (
-                    <Link
-                        to={
-                            isHubScoped
-                                ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
-                                : `/metahub/${metahubId}/catalog/${row.id}/attributes`
-                        }
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
+                render: (row: CatalogWithHubsDisplay) => {
+                    const href = isHubScoped
+                        ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
+                        : `/metahub/${metahubId}/catalog/${row.id}/attributes`
+                    return isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingCatalogInteraction(row.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
+                }
             },
             {
                 id: 'description',
@@ -711,16 +772,15 @@ const CatalogListContent = () => {
             align: 'left' as const,
             render: (row: CatalogWithHubsDisplay) => (
                 <Stack direction='column' spacing={0.5}>
-                    {row.allHubs.map((hub) => (
-                        <Link
-                            key={hub.id}
-                            to={`/metahub/${metahubId}/hub/${hub.id}/catalogs`}
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                        >
+                    {row.allHubs.map((hub) =>
+                        isPendingEntity(row) ? (
                             <Chip
+                                key={hub.id}
                                 label={hub.name}
                                 size='small'
                                 variant='outlined'
+                                clickable
+                                onClick={() => handlePendingCatalogInteraction(row.id)}
                                 sx={{
                                     maxWidth: '100%',
                                     '&:hover': {
@@ -728,8 +788,26 @@ const CatalogListContent = () => {
                                     }
                                 }}
                             />
-                        </Link>
-                    ))}
+                        ) : (
+                            <Link
+                                key={hub.id}
+                                to={`/metahub/${metahubId}/hub/${hub.id}/catalogs`}
+                                style={{ textDecoration: 'none', color: 'inherit' }}
+                            >
+                                <Chip
+                                    label={hub.name}
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{
+                                        maxWidth: '100%',
+                                        '&:hover': {
+                                            backgroundColor: 'action.hover'
+                                        }
+                                    }}
+                                />
+                            </Link>
+                        )
+                    )}
                     {row.allHubs.length === 0 && (
                         <Typography variant='body2' color='text.secondary'>
                             —
@@ -748,26 +826,42 @@ const CatalogListContent = () => {
                 align: 'center' as const,
                 render: (row: CatalogWithHubsDisplay) =>
                     typeof row.attributesCount === 'number' ? (
-                        <Link
-                            to={
-                                isHubScoped
-                                    ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
-                                    : `/metahub/${metahubId}/catalog/${row.id}/attributes`
-                            }
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                        >
-                            <Typography
-                                sx={{
-                                    fontSize: 14,
-                                    '&:hover': {
-                                        textDecoration: 'underline',
-                                        color: 'primary.main'
-                                    }
-                                }}
+                        isPendingEntity(row) ? (
+                            <ButtonBase onClick={() => handlePendingCatalogInteraction(row.id)}>
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        '&:hover': {
+                                            textDecoration: 'underline',
+                                            color: 'primary.main'
+                                        }
+                                    }}
+                                >
+                                    {row.attributesCount}
+                                </Typography>
+                            </ButtonBase>
+                        ) : (
+                            <Link
+                                to={
+                                    isHubScoped
+                                        ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
+                                        : `/metahub/${metahubId}/catalog/${row.id}/attributes`
+                                }
+                                style={{ textDecoration: 'none', color: 'inherit' }}
                             >
-                                {row.attributesCount}
-                            </Typography>
-                        </Link>
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        '&:hover': {
+                                            textDecoration: 'underline',
+                                            color: 'primary.main'
+                                        }
+                                    }}
+                                >
+                                    {row.attributesCount}
+                                </Typography>
+                            </Link>
+                        )
                     ) : (
                         '—'
                     )
@@ -787,7 +881,7 @@ const CatalogListContent = () => {
         } else {
             return [...baseColumns, hubColumn, ...countColumns]
         }
-    }, [t, tc, metahubId, hubId, isHubScoped])
+    }, [handlePendingCatalogInteraction, hubId, isHubScoped, metahubId, t, tc])
 
     const createCatalogContext = useCallback(
         (baseContext: CatalogMenuBaseContext) => ({
@@ -797,8 +891,8 @@ const CatalogListContent = () => {
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             currentHubId: isHubScoped ? hubId ?? null : null,
             api: {
-                updateEntity: async (id: string, patch: CatalogLocalizedPayload & { expectedVersion?: number }) => {
-                    if (!metahubId) return
+                updateEntity: (id: string, patch: CatalogLocalizedPayload & { expectedVersion?: number }) => {
+                    if (!metahubId) return Promise.resolve()
                     const catalog = catalogMap.get(id)
                     const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
@@ -808,49 +902,52 @@ const CatalogListContent = () => {
                     const expectedVersion = catalog?.version
                     const dataWithVersion = { ...patch, codename: normalizedCodename, expectedVersion }
 
-                    try {
-                        // In hub-scoped mode, use hubId from URL; in global mode, check if catalog has hubs
-                        const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
-                        if (targetHubId) {
-                            // Use hub-scoped endpoint
-                            await updateCatalogMutation.mutateAsync({
+                    // In hub-scoped mode, use hubId from URL; in global mode, check if catalog has hubs
+                    const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
+                    const mutationOptions = {
+                        onError: (error: unknown) => {
+                            if (!isOptimisticLockConflict(error)) return
+                            const conflict = extractConflictInfo(error)
+                            if (!conflict) return
+                            setConflictState({
+                                open: true,
+                                conflict,
+                                pendingData: { ...patch, codename: normalizedCodename },
+                                catalogId: id
+                            })
+                        }
+                    }
+
+                    if (targetHubId) {
+                        updateCatalogMutation.mutate(
+                            {
                                 metahubId,
                                 hubId: targetHubId,
                                 catalogId: id,
                                 data: dataWithVersion
-                            })
-                        } else {
-                            // Use metahub-level endpoint for catalogs without hubs
-                            await updateCatalogAtMetahubMutation.mutateAsync({
+                            },
+                            { onError: mutationOptions.onError }
+                        )
+                    } else {
+                        updateCatalogAtMetahubMutation.mutate(
+                            {
                                 metahubId,
                                 catalogId: id,
                                 data: dataWithVersion
-                            })
-                        }
-                    } catch (error: unknown) {
-                        // Check for optimistic lock conflict
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({
-                                    open: true,
-                                    conflict,
-                                    pendingData: { ...patch, codename: normalizedCodename },
-                                    catalogId: id
-                                })
-                                return // Don't rethrow - dialog will handle
-                            }
-                        }
-                        throw error
+                            },
+                            { onError: mutationOptions.onError }
+                        )
                     }
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId) return
                     const catalog = catalogMap.get(id)
 
                     if (isHubScoped && hubId) {
                         // Hub-scoped mode: use hubId from URL
-                        await deleteCatalogMutation.mutateAsync({
+                        return deleteCatalogMutation.mutateAsync({
                             metahubId,
                             hubId,
                             catalogId: id,
@@ -859,7 +956,7 @@ const CatalogListContent = () => {
                     } else {
                         // Global mode: check if catalog has hubs
                         const targetHubId = catalog?.hubs?.[0]?.id
-                        await deleteCatalogMutation.mutateAsync({
+                        return deleteCatalogMutation.mutateAsync({
                             metahubId,
                             hubId: targetHubId, // undefined for catalogs without hubs
                             catalogId: id,
@@ -867,23 +964,25 @@ const CatalogListContent = () => {
                         })
                     }
                 },
-                copyEntity: async (id: string, payload: CatalogLocalizedPayload & Record<string, unknown>) => {
-                    if (!metahubId) return
-                    await copyCatalogMutation.mutateAsync({
+                copyEntity: (id: string, payload: CatalogLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId) return Promise.resolve()
+                    copyCatalogMutation.mutate({
                         metahubId,
                         catalogId: id,
                         data: payload
                     })
+
+                    return Promise.resolve()
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId) {
                         if (isHubScoped && hubId) {
-                            await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
+                            void invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
                         } else {
                             // In global mode, invalidate all catalogs cache
-                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
+                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
                         }
                     }
                 },
@@ -961,10 +1060,6 @@ const CatalogListContent = () => {
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
-    }
-
-    const handleDialogSave = () => {
         setDialogOpen(false)
     }
 
@@ -1051,116 +1146,62 @@ const CatalogListContent = () => {
     }
 
     const handleCreateCatalog = async (data: GenericFormValues) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            const hubIds = Array.isArray(data.hubIds) ? data.hubIds : []
-            const isRequiredHub = Boolean(data.isRequiredHub)
+        // Validation is handled by EntityFormDialog's validate/canSave props.
+        const hubIds = Array.isArray(data.hubIds) ? data.hubIds : []
+        const isRequiredHub = Boolean(data.isRequiredHub)
 
-            // Only require hubs if isRequiredHub is true
-            if (isRequiredHub && hubIds.length === 0) {
-                setDialogError(t('catalogs.validation.hubRequired', 'At least one hub is required'))
-                return
-            }
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const isSingleHub = Boolean(data.isSingleHub)
 
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
+        // Confirm dialog for detached catalog (async — throws DIALOG_SAVE_CANCEL if cancelled)
+        if (isHubScoped && hubId && !hubIds.includes(hubId)) {
+            const confirmed = await confirm({
+                title: t('catalogs.detachedConfirm.title', 'Create catalog without current hub?'),
+                description: t(
+                    'catalogs.detachedConfirm.description',
+                    'This catalog is not linked to the current hub and will not appear in this hub after creation.'
+                ),
+                confirmButtonName: t('common:actions.create', 'Create'),
+                cancelButtonName: t('common:actions.cancel', 'Cancel')
+            })
+            if (!confirmed) {
+                throw DIALOG_SAVE_CANCEL
             }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
-            if (!normalizedCodename) {
-                setDialogError(t('catalogs.validation.codenameRequired', 'Codename is required'))
-                return
-            }
-            if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
-                setDialogError(t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters'))
-                return
-            }
+        }
 
-            const isSingleHub = Boolean(data.isSingleHub)
+        // Fire-and-forget: optimistic card via onMutate, errors via onError snackbar,
+        // cache invalidation via onSettled. Dialog closes immediately.
+        const catalogPayload = {
+            codename: normalizedCodename || '',
+            codenameInput,
+            codenamePrimaryLocale,
+            name: nameInput ?? {},
+            description: descriptionInput,
+            namePrimaryLocale: namePrimaryLocale ?? '',
+            descriptionPrimaryLocale,
+            hubIds,
+            isSingleHub,
+            isRequiredHub
+        }
 
-            if (isHubScoped && hubId && !hubIds.includes(hubId)) {
-                const confirmed = await confirm({
-                    title: t('catalogs.detachedConfirm.title', 'Create catalog without current hub?'),
-                    description: t(
-                        'catalogs.detachedConfirm.description',
-                        'This catalog is not linked to the current hub and will not appear in this hub after creation.'
-                    ),
-                    confirmButtonName: t('common:actions.create', 'Create'),
-                    cancelButtonName: t('common:actions.cancel', 'Cancel')
-                })
-                if (!confirmed) {
-                    throw DIALOG_SAVE_CANCEL
-                }
-            }
-
-            // Choose API endpoint based on whether we have hubs
-            if (hubIds.length > 0) {
-                // Use hub-scoped endpoint with first hub
-                const primaryHubId = hubIds[0]
-                await createCatalogMutation.mutateAsync({
-                    metahubId: metahubId!,
-                    hubId: primaryHubId,
-                    data: {
-                        codename: normalizedCodename,
-                        codenameInput,
-                        codenamePrimaryLocale,
-                        name: nameInput,
-                        description: descriptionInput,
-                        namePrimaryLocale,
-                        descriptionPrimaryLocale,
-                        hubIds, // Pass all hubIds for N:M association
-                        isSingleHub,
-                        isRequiredHub
-                    }
-                })
-            } else {
-                // No hubs selected - use metahub-level endpoint
-                await createCatalogAtMetahubMutation.mutateAsync({
-                    metahubId: metahubId!,
-                    data: {
-                        codename: normalizedCodename,
-                        codenameInput,
-                        codenamePrimaryLocale,
-                        name: nameInput,
-                        description: descriptionInput,
-                        namePrimaryLocale,
-                        descriptionPrimaryLocale,
-                        hubIds: [], // Empty array
-                        isSingleHub,
-                        isRequiredHub
-                    }
-                })
-            }
-            handleDialogSave()
-        } catch (e: unknown) {
-            if (
-                e &&
-                typeof e === 'object' &&
-                '__dialogCancelled' in e &&
-                (e as { __dialogCancelled?: unknown }).__dialogCancelled === true
-            ) {
-                throw e
-            }
-            const responseMessage = extractResponseMessage(e)
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('catalogs.createError')
-            setDialogError(message)
-            console.error('Failed to create catalog', e)
-        } finally {
-            setCreating(false)
+        if (hubIds.length > 0) {
+            const primaryHubId = hubIds[0]
+            createCatalogMutation.mutate({
+                metahubId: metahubId!,
+                hubId: primaryHubId,
+                data: catalogPayload
+            })
+        } else {
+            createCatalogAtMetahubMutation.mutate({
+                metahubId: metahubId!,
+                data: catalogPayload
+            })
         }
     }
 
@@ -1370,6 +1411,9 @@ const CatalogListContent = () => {
                                                         data={displayData}
                                                         images={images[catalog.id] || []}
                                                         onClick={() => goToCatalog(catalog)}
+                                                        pending={isPendingEntity(catalog)}
+                                                        pendingAction={getPendingAction(catalog)}
+                                                        onPendingInteractionAttempt={() => handlePendingCatalogInteraction(catalog.id)}
                                                         footerEndContent={
                                                             <Stack direction='row' spacing={1} alignItems='center'>
                                                                 {/* Show hub chip only in global mode */}
@@ -1427,6 +1471,9 @@ const CatalogListContent = () => {
                                                             : `/metahub/${metahubId}/catalog/${row.id}/attributes`
                                                         : undefined
                                                 }
+                                                onPendingInteractionAttempt={(row: CatalogWithHubsDisplay) =>
+                                                    handlePendingCatalogInteraction(row.id)
+                                                }
                                                 customColumns={catalogColumns}
                                                 i18nNamespace='flowList'
                                                 renderActions={(row: CatalogWithHubsDisplay) => {
@@ -1478,8 +1525,6 @@ const CatalogListContent = () => {
                     saveButtonText={tc('actions.create', 'Create')}
                     savingButtonText={tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
-                    error={dialogError || undefined}
                     onClose={handleDialogClose}
                     onSave={handleCreateCatalog}
                     hideDefaultFields
@@ -1557,36 +1602,38 @@ const CatalogListContent = () => {
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onCancel={() => setConfirmDeleteDialogState({ open: false, catalog: null })}
-                    onConfirm={async () => {
-                        if (confirmDeleteDialogState.catalog && metahubId) {
-                            try {
-                                const deletingCatalogId = confirmDeleteDialogState.catalog.id
-                                // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
-                                const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.catalog.hubs?.[0]?.id || ''
-                                await deleteCatalogMutation.mutateAsync({
-                                    metahubId,
-                                    hubId: targetHubId,
-                                    catalogId: deletingCatalogId,
-                                    force: !isHubScoped // Force delete in global mode
-                                })
-                                setConfirmDeleteDialogState({ open: false, catalog: null })
-                                queryClient.removeQueries({
-                                    queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, deletingCatalogId)
-                                })
-                            } catch (err: unknown) {
-                                const responseMessage = extractResponseMessage(err)
-                                const message =
-                                    typeof responseMessage === 'string'
-                                        ? responseMessage
-                                        : err instanceof Error
-                                        ? err.message
-                                        : typeof err === 'string'
-                                        ? err
-                                        : t('catalogs.deleteError')
-                                enqueueSnackbar(message, { variant: 'error' })
-                                setConfirmDeleteDialogState({ open: false, catalog: null })
+                    onConfirm={() => {
+                        if (!confirmDeleteDialogState.catalog || !metahubId) return
+
+                        const deletingCatalogId = confirmDeleteDialogState.catalog.id
+                        const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.catalog.hubs?.[0]?.id || ''
+                        deleteCatalogMutation.mutate(
+                            {
+                                metahubId,
+                                hubId: targetHubId,
+                                catalogId: deletingCatalogId,
+                                force: !isHubScoped
+                            },
+                            {
+                                onSuccess: () => {
+                                    queryClient.removeQueries({
+                                        queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, deletingCatalogId)
+                                    })
+                                },
+                                onError: (err: unknown) => {
+                                    const responseMessage = extractResponseMessage(err)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : err instanceof Error
+                                            ? err.message
+                                            : typeof err === 'string'
+                                            ? err
+                                            : t('catalogs.deleteError')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
                             }
-                        }
+                        )
                     }}
                 />
 
@@ -1595,30 +1642,35 @@ const CatalogListContent = () => {
                     catalog={blockingDeleteDialogState.catalog}
                     metahubId={metahubId}
                     onClose={() => setBlockingDeleteDialogState({ open: false, catalog: null })}
-                    onConfirm={async (catalog) => {
-                        try {
-                            const targetHubId = isHubScoped ? hubId : catalog.hubs?.[0]?.id
-                            await deleteCatalogMutation.mutateAsync({
+                    onConfirm={(catalog) => {
+                        const targetHubId = isHubScoped ? hubId : catalog.hubs?.[0]?.id
+                        deleteCatalogMutation.mutate(
+                            {
                                 metahubId,
                                 hubId: targetHubId,
                                 catalogId: catalog.id,
                                 force: !isHubScoped
-                            })
-                            setBlockingDeleteDialogState({ open: false, catalog: null })
-                            queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, catalog.id) })
-                        } catch (err: unknown) {
-                            const responseMessage = extractResponseMessage(err)
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('catalogs.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setBlockingDeleteDialogState({ open: false, catalog: null })
-                        }
+                            },
+                            {
+                                onSuccess: () => {
+                                    queryClient.removeQueries({
+                                        queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, catalog.id)
+                                    })
+                                },
+                                onError: (err: unknown) => {
+                                    const responseMessage = extractResponseMessage(err)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : err instanceof Error
+                                            ? err.message
+                                            : typeof err === 'string'
+                                            ? err
+                                            : t('catalogs.deleteError')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
+                            }
+                        )
                     }}
                     isDeleting={deleteCatalogMutation.isPending}
                     uiLocale={i18n.language}

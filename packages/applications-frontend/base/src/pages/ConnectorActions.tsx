@@ -2,7 +2,7 @@ import { Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
-import { LocalizedInlineField, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Connector, ConnectorDisplay, ConnectorLocalizedPayload } from '../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
@@ -194,23 +194,9 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh connectors list after edit', e)
-                        }
-                    },
-                    onSave: async (data: Record<string, any>) => {
-                        try {
-                            const payload = toPayload(data)
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
-                        } catch (error: unknown) {
-                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                            throw error
-                        }
+                    onSave: (data: Record<string, any>) => {
+                        const payload = toPayload(data)
+                        return ctx.api?.updateEntity?.(ctx.entity.id, payload)
                     }
                 }
             }

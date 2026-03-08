@@ -12,7 +12,7 @@ import StarIcon from '@mui/icons-material/Star'
 import StarOutlineIcon from '@mui/icons-material/StarOutline'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { EntityFormDialog, ConfirmDeleteDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import { BaseEntityMenu, notifyError, FlowListTable } from '@universo/template-mui'
@@ -38,7 +38,10 @@ import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, norma
 import * as attributesApi from '../api'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import {
-    useCopyAttribute,
+    useCreateChildAttribute,
+    useUpdateChildAttribute,
+    useDeleteChildAttribute,
+    useCopyChildAttribute,
     useMoveAttribute,
     useToggleAttributeRequired,
     useSetDisplayAttribute,
@@ -248,19 +251,16 @@ const ChildAttributeList = ({
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
     const [editState, setEditState] = useState<{ open: boolean; attribute: Attribute | null }>({
         open: false,
         attribute: null
     })
-    const [isUpdating, setUpdating] = useState(false)
     const [editDialogError, setEditDialogError] = useState<string | null>(null)
     const [copyState, setCopyState] = useState<{ open: boolean; attribute: Attribute | null }>({
         open: false,
         attribute: null
     })
-    const [isCopying, setCopying] = useState(false)
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
     const [deleteState, setDeleteState] = useState<{ open: boolean; attribute: Attribute | null }>({
         open: false,
@@ -268,8 +268,11 @@ const ChildAttributeList = ({
     })
 
     // Mutation hooks for child attribute actions
+    const createChildAttributeMutation = useCreateChildAttribute()
+    const updateChildAttributeMutation = useUpdateChildAttribute()
+    const deleteChildAttributeMutation = useDeleteChildAttribute()
+    const copyChildAttributeMutation = useCopyChildAttribute()
     const moveAttributeMutation = useMoveAttribute()
-    const copyAttributeMutation = useCopyAttribute()
     const toggleRequiredMutation = useToggleAttributeRequired()
     const setDisplayAttributeMutation = useSetDisplayAttribute()
     const clearDisplayAttributeMutation = useClearDisplayAttribute()
@@ -342,22 +345,6 @@ const ChildAttributeList = ({
         }
         onRefresh?.()
     }, [queryClient, queryKey, hubId, metahubId, catalogId, onRefresh])
-
-    const deleteMutation = useMutation({
-        mutationFn: async (attributeId: string) => {
-            if (hubId) {
-                return attributesApi.deleteAttribute(metahubId, hubId, catalogId, attributeId)
-            }
-            return attributesApi.deleteAttributeDirect(metahubId, catalogId, attributeId)
-        },
-        onSuccess: async () => {
-            await invalidateChildQueries()
-            enqueueSnackbar(t('attributes.deleteSuccess', 'Attribute deleted'), { variant: 'success' })
-        },
-        onError: (err: Error) => {
-            enqueueSnackbar(err.message || t('attributes.deleteError', 'Failed to delete attribute'), { variant: 'error' })
-        }
-    })
 
     const allowedChildDataTypes = useMemo(() => {
         const baseChildTypes = TABLE_CHILD_DATA_TYPES as unknown as AttributeDataType[]
@@ -937,7 +924,6 @@ const ChildAttributeList = ({
 
     const handleCreate = async (data: GenericFormValues) => {
         setDialogError(null)
-        setCreating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -979,15 +965,37 @@ const ChildAttributeList = ({
                 targetEntityKind
             }
 
-            if (hubId) {
-                await attributesApi.createChildAttribute(metahubId, hubId, catalogId, parentAttributeId, payload)
-            } else {
-                await attributesApi.createChildAttributeDirect(metahubId, catalogId, parentAttributeId, payload)
-            }
-
-            await invalidateChildQueries()
             setDialogOpen(false)
-            enqueueSnackbar(t('attributes.createSuccess', 'Attribute created'), { variant: 'success' })
+            createChildAttributeMutation.mutate(
+                {
+                    metahubId,
+                    hubId,
+                    catalogId,
+                    parentAttributeId,
+                    data: payload
+                },
+                {
+                    onError: (e: unknown) => {
+                        if (extractResponseCode(e) === 'TABLE_CHILD_LIMIT_REACHED') {
+                            const max = extractResponseMaxChildAttributes(e)
+                            setDialogError(
+                                t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
+                                    max: max ?? maxChildAttributesLimit ?? '—'
+                                })
+                            )
+                        } else {
+                            const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
+                            const localizedMsg =
+                                localizeTableValidationError(e, t, maxChildAttributesLimit) || msg || t('attributes.createError')
+                            setDialogError(localizedMsg)
+                        }
+                        setDialogOpen(true)
+                    },
+                    onSettled: () => {
+                        void onRefresh?.()
+                    }
+                }
+            )
         } catch (e: unknown) {
             if (extractResponseCode(e) === 'TABLE_CHILD_LIMIT_REACHED') {
                 const max = extractResponseMaxChildAttributes(e)
@@ -1001,15 +1009,13 @@ const ChildAttributeList = ({
             const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
             const localizedMsg = localizeTableValidationError(e, t, maxChildAttributesLimit) || msg || t('attributes.createError')
             setDialogError(localizedMsg)
-        } finally {
-            setCreating(false)
         }
     }
 
     const handleUpdate = async (data: GenericFormValues) => {
         if (!editState.attribute) return
+        const currentAttribute = editState.attribute
         setEditDialogError(null)
-        setUpdating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -1051,15 +1057,31 @@ const ChildAttributeList = ({
                 expectedVersion: editState.attribute.version
             }
 
-            if (hubId) {
-                await attributesApi.updateAttribute(metahubId, hubId, catalogId, editState.attribute.id, payload)
-            } else {
-                await attributesApi.updateAttributeDirect(metahubId, catalogId, editState.attribute.id, payload)
-            }
-
-            await invalidateChildQueries()
             setEditState({ open: false, attribute: null })
-            enqueueSnackbar(t('attributes.updateSuccess', 'Attribute updated'), { variant: 'success' })
+            updateChildAttributeMutation.mutate(
+                {
+                    metahubId,
+                    hubId,
+                    catalogId,
+                    parentAttributeId,
+                    attributeId: currentAttribute.id,
+                    data: payload
+                },
+                {
+                    onError: (e: unknown) => {
+                        const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
+                        setEditDialogError(
+                            localizeTableValidationError(e, t, maxChildAttributesLimit) ||
+                                msg ||
+                                t('attributes.updateError', 'Failed to update attribute')
+                        )
+                        setEditState({ open: true, attribute: currentAttribute })
+                    },
+                    onSettled: () => {
+                        void onRefresh?.()
+                    }
+                }
+            )
         } catch (e: unknown) {
             const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
             setEditDialogError(
@@ -1067,66 +1089,58 @@ const ChildAttributeList = ({
                     msg ||
                     t('attributes.updateError', 'Failed to update attribute')
             )
-        } finally {
-            setUpdating(false)
         }
     }
 
-    const handleCopy = async (data: GenericFormValues) => {
+    const handleCopy = (data: GenericFormValues) => {
         if (!copyState.attribute) return
+        const currentAttribute = copyState.attribute
         setCopyDialogError(null)
-        setCopying(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+        if (!nameInput || !namePrimaryLocale) {
+            setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
+            return
+        }
 
-            const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
-            if (!codename) {
-                setCopyDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
-                return
-            }
+        const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
+        if (!codename) {
+            setCopyDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
+            return
+        }
 
-            await copyAttributeMutation.mutateAsync({
+        setCopyState({ open: false, attribute: null })
+        copyChildAttributeMutation.mutate(
+            {
                 metahubId,
                 hubId,
                 catalogId,
-                attributeId: copyState.attribute.id,
+                parentAttributeId,
+                attributeId: currentAttribute.id,
                 data: {
                     codename,
                     codenameInput,
                     codenamePrimaryLocale,
                     name: nameInput,
                     namePrimaryLocale,
-                    validationRules: data.validationRules ?? copyState.attribute.validationRules ?? {},
-                    uiConfig: data.uiConfig ?? copyState.attribute.uiConfig ?? {},
-                    isRequired: typeof data.isRequired === 'boolean' ? data.isRequired : Boolean(copyState.attribute.isRequired)
+                    validationRules: data.validationRules ?? currentAttribute.validationRules ?? {},
+                    uiConfig: data.uiConfig ?? currentAttribute.uiConfig ?? {},
+                    isRequired: typeof data.isRequired === 'boolean' ? data.isRequired : Boolean(currentAttribute.isRequired)
                 }
-            })
-
-            await invalidateChildQueries()
-            setCopyState({ open: false, attribute: null })
-            enqueueSnackbar(t('attributes.copy.success', 'Attribute copied'), { variant: 'success' })
-        } catch (error: unknown) {
-            if (extractResponseCode(error) === 'TABLE_CHILD_LIMIT_REACHED') {
-                const max = extractResponseMaxChildAttributes(error)
-                setCopyDialogError(
-                    t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
-                        max: max ?? maxChildAttributesLimit ?? '—'
-                    })
-                )
-                return
+            },
+            {
+                onError: (e: unknown) => {
+                    const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
+                    setCopyDialogError(msg || t('attributes.copyError', 'Failed to copy attribute'))
+                    setCopyState({ open: true, attribute: currentAttribute })
+                },
+                onSettled: () => {
+                    void onRefresh?.()
+                }
             }
-            const message = error instanceof Error ? error.message : t('attributes.copy.error', 'Failed to copy attribute')
-            setCopyDialogError(message)
-        } finally {
-            setCopying(false)
-        }
+        )
     }
 
     /** Build initial values for edit dialog from the existing attribute. */
@@ -1309,7 +1323,7 @@ const ChildAttributeList = ({
                     saveButtonText={tc('actions.create', 'Create')}
                     savingButtonText={tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
+                    loading={createChildAttributeMutation.isPending}
                     error={dialogError || undefined}
                     onClose={() => setDialogOpen(false)}
                     onSave={handleCreate}
@@ -1330,7 +1344,7 @@ const ChildAttributeList = ({
                     saveButtonText={tc('actions.save', 'Save')}
                     savingButtonText={tc('actions.saving', 'Saving...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isUpdating}
+                    loading={updateChildAttributeMutation.isPending}
                     error={editDialogError || undefined}
                     onClose={() => setEditState({ open: false, attribute: null })}
                     onSave={handleUpdate}
@@ -1367,7 +1381,7 @@ const ChildAttributeList = ({
                     saveButtonText={t('attributes.copy.action', 'Copy')}
                     savingButtonText={t('attributes.copy.actionLoading', 'Copying...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCopying}
+                    loading={copyChildAttributeMutation.isPending}
                     error={copyDialogError || undefined}
                     onClose={() => setCopyState({ open: false, attribute: null })}
                     onSave={handleCopy}
@@ -1386,12 +1400,26 @@ const ChildAttributeList = ({
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onCancel={() => setDeleteState({ open: false, attribute: null })}
-                    onConfirm={async () => {
-                        if (deleteState.attribute) {
-                            await deleteMutation.mutateAsync(deleteState.attribute.id)
-                            setDeleteState({ open: false, attribute: null })
-                        }
+                    onConfirm={() => {
+                        if (!deleteState.attribute) return
+                        const attributeId = deleteState.attribute.id
+                        setDeleteState({ open: false, attribute: null })
+                        deleteChildAttributeMutation.mutate(
+                            {
+                                metahubId,
+                                hubId,
+                                catalogId,
+                                parentAttributeId,
+                                attributeId
+                            },
+                            {
+                                onSettled: () => {
+                                    void onRefresh?.()
+                                }
+                            }
+                        )
                     }}
+                    loading={deleteChildAttributeMutation.isPending}
                 />
             </Box>
         </ExistingCodenamesProvider>

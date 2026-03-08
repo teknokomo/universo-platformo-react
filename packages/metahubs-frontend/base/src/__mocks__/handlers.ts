@@ -121,10 +121,23 @@ const mockTemplatesList = [
     }
 ]
 
+const mockContentLocales = {
+    locales: [
+        { code: 'en', label: 'English', isDefault: true },
+        { code: 'ru', label: 'Русский', isDefault: false }
+    ],
+    defaultLocale: 'en'
+}
+
 /**
  * MSW request handlers
  */
 export const handlers = [
+    http.get(`${API_BASE_URL}/locales/content`, async () => {
+        await delay(10)
+        return HttpResponse.json(mockContentLocales)
+    }),
+
     // Platform-level codename defaults (used when creating a metahub without metahubId context)
     http.get(`${API_BASE_URL}/metahubs/codename-defaults`, async () => {
         await delay(10)

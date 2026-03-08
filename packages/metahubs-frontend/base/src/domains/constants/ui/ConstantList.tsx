@@ -16,7 +16,8 @@ import {
     ToolbarControls,
     useDebouncedSearch,
     usePaginated,
-    ViewHeaderMUI as ViewHeader
+    ViewHeaderMUI as ViewHeader,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import type { DragEndEvent } from '@universo/template-mui'
@@ -275,6 +276,7 @@ const ConstantList = () => {
     const [editingConstant, setEditingConstant] = useState<Constant | null>(null)
     const [copySource, setCopySource] = useState<Constant | null>(null)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [deleteState, setDeleteState] = useState<{ open: boolean; constant: Constant | null }>({ open: false, constant: null })
@@ -362,6 +364,21 @@ const ConstantList = () => {
     }, [constants, globalCodenamesData?.items, isGlobalScope])
 
     const constantsMap = useMemo(() => new Map((constants ?? []).map((constant) => [constant.id, constant])), [constants])
+
+    const handlePendingConstantInteraction = useCallback(
+        (constantId: string) => {
+            if (!metahubId || !setId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: effectiveHubId
+                    ? metahubsQueryKeys.constants(metahubId, effectiveHubId, setId)
+                    : metahubsQueryKeys.constantsDirect(metahubId, setId),
+                entityId: constantId
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [effectiveHubId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient, setId]
+    )
     const sortedConstants = useMemo(
         () => [...(constants ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id)),
         [constants]
@@ -597,7 +614,7 @@ const ConstantList = () => {
             try {
                 const payload = buildPayload(values)
                 if (editingConstant) {
-                    await updateConstantMutation.mutateAsync({
+                    updateConstantMutation.mutate({
                         metahubId,
                         hubId: effectiveHubId,
                         setId,
@@ -608,7 +625,7 @@ const ConstantList = () => {
                         }
                     })
                 } else if (copySource) {
-                    await copyConstantMutation.mutateAsync({
+                    copyConstantMutation.mutate({
                         metahubId,
                         hubId: effectiveHubId,
                         setId,
@@ -616,7 +633,7 @@ const ConstantList = () => {
                         data: payload
                     })
                 } else {
-                    await createConstantMutation.mutateAsync({
+                    createConstantMutation.mutate({
                         metahubId,
                         hubId: effectiveHubId,
                         setId,
@@ -921,6 +938,7 @@ const ConstantList = () => {
                                 <FlowListTable<ConstantDisplay>
                                     data={tableData}
                                     customColumns={columns}
+                                    onPendingInteractionAttempt={(row: ConstantDisplay) => handlePendingConstantInteraction(row.id)}
                                     sortableRows
                                     sortableItemIds={sortedConstants.map((constant) => constant.id)}
                                     dragHandleAriaLabel={t('constants.dnd.dragHandle', 'Drag to reorder')}
@@ -1078,22 +1096,24 @@ const ConstantList = () => {
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onCancel={() => setDeleteState({ open: false, constant: null })}
-                    onConfirm={async () => {
+                    onConfirm={() => {
                         if (!deleteState.constant || !metahubId || !setId) return
-                        try {
-                            await deleteConstantMutation.mutateAsync({
+                        deleteConstantMutation.mutate(
+                            {
                                 metahubId,
                                 hubId: effectiveHubId,
                                 setId,
                                 constantId: deleteState.constant.id
-                            })
-                            setDeleteState({ open: false, constant: null })
-                        } catch (error: unknown) {
-                            const message =
-                                extractResponseMessage(error) ||
-                                (error instanceof Error ? error.message : t('constants.deleteError', 'Failed to delete constant'))
-                            enqueueSnackbar(message, { variant: 'error' })
-                        }
+                            },
+                            {
+                                onError: (error: unknown) => {
+                                    const message =
+                                        extractResponseMessage(error) ||
+                                        (error instanceof Error ? error.message : t('constants.deleteError', 'Failed to delete constant'))
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
+                            }
+                        )
                     }}
                     loading={deleteConstantMutation.isPending}
                 />
@@ -1157,9 +1177,9 @@ const ConstantList = () => {
                             currentHubId: effectiveHubId || null,
                             uiLocale: preferredVlcLocale,
                             api: {
-                                updateEntity: async (id: string, patch: SetLocalizedPayload) => {
+                                updateEntity: (id: string, patch: SetLocalizedPayload) => {
                                     if (!metahubId) return
-                                    await updateSetMutation.mutateAsync({
+                                    updateSetMutation.mutate({
                                         metahubId,
                                         setId: id,
                                         data: { ...patch, expectedVersion: setForHubResolution.version }
@@ -1167,16 +1187,16 @@ const ConstantList = () => {
                                 }
                             },
                             helpers: {
-                                refreshList: async () => {
+                                refreshList: () => {
                                     if (metahubId && setId) {
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: metahubsQueryKeys.setDetail(metahubId, setId)
                                         })
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: metahubsQueryKeys.allSets(metahubId)
                                         })
                                         // Invalidate breadcrumb queries so page title refreshes immediately
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: ['breadcrumb', 'set-standalone', metahubId, setId]
                                         })
                                     }
@@ -1204,10 +1224,9 @@ const ConstantList = () => {
                                 tabs={buildSetFormTabs(settingsCtx, allHubs, setId)}
                                 validate={(values) => validateSetForm(settingsCtx, values)}
                                 canSave={canSaveSetForm}
-                                onSave={async (data) => {
+                                onSave={(data) => {
                                     const payload = setToPayload(data)
-                                    await settingsCtx.api.updateEntity(setForHubResolution.id, payload)
-                                    await settingsCtx.helpers.refreshList()
+                                    settingsCtx.api.updateEntity(setForHubResolution.id, payload)
                                 }}
                                 onClose={() => setEditDialogOpen(false)}
                             />

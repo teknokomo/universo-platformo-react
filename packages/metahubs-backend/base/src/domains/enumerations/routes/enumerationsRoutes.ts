@@ -749,6 +749,7 @@ export function createEnumerationsRoutes(
                     parsed.data.namePrimaryLocale ?? sourceNamePrimary
                 )
             }
+            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary)
 
             const {
                 style: codenameStyle,
@@ -778,33 +779,30 @@ export function createEnumerationsRoutes(
             const createEnumerationCopy = async (codename: string) => {
                 return knex.transaction(async (trx) => {
                     const now = new Date()
+                    const codenameLocalizedForCopy =
+                        parsed.data.codenameInput === undefined
+                            ? buildCodenameLocalizedVlc({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
+                            : codenameLocalizedVlc
                     const sourceHubIds = Array.isArray(sourceConfig.hubs)
                         ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
                         : []
 
-                    const [createdEnumeration] = await trx
-                        .withSchema(schemaName)
-                        .into('_mhb_objects')
-                        .insert({
-                            kind: MetaEntityKind.ENUMERATION,
+                    const createdEnumeration = (await objectsService.createEnumeration(
+                        metahubId,
+                        {
                             codename,
-                            table_name: null,
-                            presentation: {
-                                codename: codenameLocalizedVlc,
-                                name: nameVlc,
-                                description: descriptionVlc ?? null
-                            },
+                            codenameLocalized: codenameLocalizedForCopy,
+                            name: nameVlc,
+                            description: descriptionVlc ?? null,
                             config: {
                                 ...sourceConfig,
-                                sortOrder: undefined,
                                 hubs: sourceHubIds
                             },
-                            _upl_created_at: now,
-                            _upl_created_by: userId ?? null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: userId ?? null
-                        })
-                        .returning('*')
+                            createdBy: userId
+                        },
+                        userId,
+                        trx
+                    )) as CopiedEnumerationRow
 
                     let copiedValuesCount = 0
                     if (copyOptions.copyValues) {

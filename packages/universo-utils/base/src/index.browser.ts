@@ -40,7 +40,9 @@ export {
     filterLocalizedContent,
     isLocalizedContent,
     buildVLC,
-    ensureVLC
+    ensureVLC,
+    getVLCString,
+    getVLCStringWithFallback
 } from './vlc'
 
 // Number validation utilities for precision/scale constraints
@@ -101,3 +103,46 @@ export const net = {
 }
 
 export { createTimeSyncEstimator, updateSeqState, reconcileAck }
+
+// Optimistic update utilities (pure TypeScript, no React deps)
+export {
+    isPendingEntity,
+    getPendingAction,
+    isPendingInteractionBlocked,
+    shouldShowPendingFeedback,
+    makePendingMarkers,
+    revealPendingFeedback,
+    getNextOptimisticSortOrder,
+    stripPendingMarkers
+} from './optimistic'
+export type { PendingAction, PendingMarkers, MaybePending, SortOrderLike } from './optimistic'
+
+// Optimistic CRUD cache helpers for React Query consumers
+export {
+    generateOptimisticId,
+    applyOptimisticCreate,
+    applyOptimisticUpdate,
+    applyOptimisticDelete,
+    rollbackOptimisticSnapshots,
+    cleanupBreadcrumbCache,
+    revealPendingEntityFeedback,
+    getNextOptimisticSortOrderFromQueries,
+    safeInvalidateQueries,
+    safeInvalidateQueriesInactive,
+    confirmOptimisticUpdate,
+    confirmOptimisticCreate
+} from './optimisticCrud'
+export type {
+    ListCache,
+    RowsListCache,
+    OptimisticSnapshot,
+    OptimisticCreateContext,
+    OptimisticUpdateContext,
+    OptimisticDeleteContext,
+    ApplyOptimisticCreateOptions,
+    ApplyOptimisticUpdateOptions,
+    ApplyOptimisticDeleteOptions,
+    RevealPendingEntityFeedbackOptions,
+    ConfirmOptimisticCreateOptions,
+    ConfirmOptimisticUpdateOptions
+} from './optimisticCrud'

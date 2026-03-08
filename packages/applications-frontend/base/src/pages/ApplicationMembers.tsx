@@ -5,11 +5,10 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frontend'
 import { canManageRole } from '@universo/types'
 import type { ApplicationRole } from '@universo/types'
-import { extractAxiosError, isApiError, isHttpStatus } from '@universo/utils'
+import { isPendingEntity, getPendingAction } from '@universo/utils'
 
 // project imports
 import {
@@ -79,11 +78,9 @@ export const ApplicationMembers = () => {
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
-    const queryClient = useQueryClient()
 
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)
-    const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     const paginationResult = usePaginated<ApplicationMember, 'email' | 'role' | 'created'>({
         queryKeyFn: (params) => applicationsQueryKeys.membersList(applicationId!, params),
@@ -132,13 +129,12 @@ export const ApplicationMembers = () => {
         setInviteDialogOpen(false)
     }
 
-    const handleInviteMember = async (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
-        if (!applicationId) return
+    const handleInviteMember = (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
+        if (!applicationId) return Promise.resolve()
 
-        setInviteDialogError(null)
-        try {
-            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
-            await inviteMember.mutateAsync({
+        const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+        void inviteMember
+            .mutateAsync({
                 applicationId,
                 data: {
                     email: data.email,
@@ -147,23 +143,10 @@ export const ApplicationMembers = () => {
                     commentPrimaryLocale
                 }
             })
-            handleInviteDialogSave()
-        } catch (error: unknown) {
-            let message = tc('members.inviteError')
+            .catch(() => undefined)
+        handleInviteDialogSave()
 
-            if (isHttpStatus(error, 404)) {
-                message = tc('members.userNotFound', { email: data.email })
-            } else if (isHttpStatus(error, 409) && isApiError(error, 'APPLICATION_MEMBER_EXISTS')) {
-                message = tc('members.userAlreadyMember', { email: data.email })
-            } else {
-                const apiError = extractAxiosError(error)
-                message = apiError.message || message
-            }
-
-            setInviteDialogError(message)
-            // eslint-disable-next-line no-console
-            console.error('Failed to invite member', error)
-        }
+        return Promise.resolve()
     }
 
     const resolveMemberComment = useCallback(
@@ -247,36 +230,36 @@ export const ApplicationMembers = () => {
             entityKind: 'member',
             t: baseContext.t!,
             api: {
-                updateEntity: async (id: string, data: MemberData) => {
-                    if (!applicationId) return
+                updateEntity: (id: string, data: MemberData) => {
+                    if (!applicationId) return Promise.resolve()
                     if (!isMemberFormData(data)) {
                         throw new Error('Invalid member data format')
                     }
-                    await updateMemberRoleMutation.mutateAsync({
-                        applicationId,
-                        memberId: id,
-                        data: (() => {
-                            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
-                            return {
-                                role: data.role as AssignableRole,
-                                comment: commentInput ?? null,
-                                commentPrimaryLocale
-                            }
-                        })()
-                    })
+                    void updateMemberRoleMutation
+                        .mutateAsync({
+                            applicationId,
+                            memberId: id,
+                            data: (() => {
+                                const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+                                return {
+                                    role: data.role as AssignableRole,
+                                    comment: commentInput ?? null,
+                                    commentPrimaryLocale
+                                }
+                            })()
+                        })
+                        .catch(() => undefined)
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
-                    if (!applicationId) return
-                    await removeMemberMutation.mutateAsync({ applicationId, memberId: id })
+                deleteEntity: (id: string) => {
+                    if (!applicationId) return Promise.resolve()
+                    removeMemberMutation.mutate({ applicationId, memberId: id })
+                    return Promise.resolve()
                 }
             },
             helpers: {
-                refreshList: async () => {
-                    if (!applicationId) return
-                    await queryClient.invalidateQueries({
-                        queryKey: applicationsQueryKeys.members(applicationId)
-                    })
-                },
+                refreshList: async () => Promise.resolve(),
                 confirm: async (spec: ConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey && baseContext.t ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title || '',
@@ -308,7 +291,7 @@ export const ApplicationMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, applicationId, queryClient, removeMemberMutation, updateMemberRoleMutation]
+        [confirm, enqueueSnackbar, applicationId, removeMemberMutation, updateMemberRoleMutation]
     )
 
     if (!applicationId) {
@@ -417,6 +400,8 @@ export const ApplicationMembers = () => {
                                                 }}
                                                 images={images[member.id] || []}
                                                 onClick={undefined}
+                                                pending={isPendingEntity(member)}
+                                                pendingAction={getPendingAction(member)}
                                                 footerEndContent={<RoleChip role={member.role} size='small' />}
                                                 headerAction={
                                                     descriptors.length > 0 ? (
@@ -507,7 +492,6 @@ export const ApplicationMembers = () => {
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={inviteMember.isPending}
-                error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
                 autoCloseOnSuccess={false}
@@ -531,26 +515,12 @@ export const ApplicationMembers = () => {
                 deletingButtonText={tc('actions.deleting', 'Removing...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 onCancel={() => setRemoveDialogState({ open: false, member: null })}
-                onConfirm={async () => {
+                onConfirm={() => {
                     if (removeDialogState.member && applicationId) {
-                        try {
-                            await removeMemberMutation.mutateAsync({ applicationId, memberId: removeDialogState.member.id })
-                            setRemoveDialogState({ open: false, member: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : tc('members.removeError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setRemoveDialogState({ open: false, member: null })
-                        }
+                        removeMemberMutation.mutate({ applicationId, memberId: removeDialogState.member.id })
+                        setRemoveDialogState({ open: false, member: null })
                     }
+                    return Promise.resolve()
                 }}
             />
 

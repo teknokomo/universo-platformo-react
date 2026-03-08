@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-03-07: Optimistic create UX redesign audit
+
+- Existing optimistic create/copy behavior is intentionally immediate in cache **and** immediate in presentation: `ItemCard`, `FlowListTable`, and `CustomizedDataGrid` all react to `__pending` right away instead of deferring visual feedback until user interaction.
+- The current shared model has no dedicated concept of “optimistically created but visually normal until touched”; that distinction will need to be introduced at the helper/renderer level without changing backend schemas.
+- Metahubs and Applications optimistic create hooks still contain temporary `sortOrder ?? 999` placeholders, while many list renderers still display `sortOrder ?? 0`; this combination is the strongest current explanation for the observed temporary `999` / `0` ordinal artifacts.
+- `ElementList` still awaits `createElementMutation.mutateAsync(...)`, confirming that at least one create dialog remains blocking after the earlier fire-and-forget pass.
+- `MetahubList` and `ApplicationList` table name cells use direct `Link` rendering, so pending entities in those views do not inherit the shared pending-navigation guard behavior.
+
 ## 2026-03-04: Codename QA closure follow-up
 
 - Research outcome implemented: codename retry policy standardized across backend domains using shared constants.

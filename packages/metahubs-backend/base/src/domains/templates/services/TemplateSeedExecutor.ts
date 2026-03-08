@@ -246,6 +246,9 @@ export class TemplateSeedExecutor {
         const constantIdMap = new Map<string, string>()
         const now = new Date()
 
+        // Track per-kind sort order counters (1-based)
+        const kindSortCounters = new Map<string, number>()
+
         // ── Pass 1: Insert all entities and build complete codename→id map ──
         for (const entity of entities) {
             // Check if entity already exists by codename + kind
@@ -260,6 +263,13 @@ export class TemplateSeedExecutor {
                 continue
             }
 
+            // Compute the next sortOrder for this kind (1-based), stored in config JSONB
+            const nextSortOrder = (kindSortCounters.get(entity.kind) ?? 0) + 1
+            kindSortCounters.set(entity.kind, nextSortOrder)
+
+            const entityConfig = entity.config && typeof entity.config === 'object' ? { ...entity.config } : {}
+            entityConfig.sortOrder = nextSortOrder
+
             const [inserted] = await qb
                 .withSchema(this.schemaName)
                 .into('_mhb_objects')
@@ -268,7 +278,7 @@ export class TemplateSeedExecutor {
                     codename: entity.codename,
                     table_name: null,
                     presentation: { name: entity.name, description: entity.description },
-                    config: entity.config ?? {},
+                    config: entityConfig,
                     _upl_created_at: now,
                     _upl_created_by: null,
                     _upl_updated_at: now,

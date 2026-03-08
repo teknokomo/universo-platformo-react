@@ -81,7 +81,51 @@ vi.mock('@universo/utils', async () => {
         extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
         isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
         isApiError: vi.fn((error: any) => !!error?.response),
-        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000'),
+        isPendingEntity: actual.isPendingEntity ?? ((item: any) => Boolean(item?.__pending)),
+        getPendingAction: actual.getPendingAction ?? ((item: any) => (item?.__pending ? item?.__pendingAction : undefined)),
+        makePendingMarkers:
+            actual.makePendingMarkers ??
+            ((action: string, options?: { feedbackVisible?: boolean }) => ({
+                __pending: true,
+                __pendingAction: action,
+                ...(options?.feedbackVisible ? { __pendingFeedbackVisible: true } : {})
+            })),
+        isPendingInteractionBlocked:
+            actual.isPendingInteractionBlocked ?? ((item: any) => item?.__pendingAction === 'create' || item?.__pendingAction === 'copy'),
+        shouldShowPendingFeedback:
+            actual.shouldShowPendingFeedback ??
+            ((item: any) => {
+                if (!item?.__pending) return false
+                if (item.__pendingAction === 'create' || item.__pendingAction === 'copy') {
+                    return Boolean(item.__pendingFeedbackVisible)
+                }
+                return true
+            }),
+        revealPendingFeedback:
+            actual.revealPendingFeedback ??
+            ((item: any) => {
+                if (item?.__pendingAction !== 'create' && item?.__pendingAction !== 'copy') return item
+                if (item?.__pendingFeedbackVisible) return item
+                return { ...item, __pendingFeedbackVisible: true }
+            }),
+        getNextOptimisticSortOrder:
+            actual.getNextOptimisticSortOrder ??
+            ((items: any[] | null | undefined, startAt = 1) => {
+                const source = Array.isArray(items) ? items : []
+                const maxSortOrder = source.reduce((max, entry) => {
+                    const sortOrder = entry?.sortOrder
+                    return typeof sortOrder === 'number' && Number.isFinite(sortOrder) ? Math.max(max, sortOrder) : max
+                }, startAt - 1)
+                return maxSortOrder + 1
+            }),
+        stripPendingMarkers:
+            actual.stripPendingMarkers ??
+            ((item: any) => {
+                if (!item || typeof item !== 'object') return item
+                const { __pending, __pendingAction, __pendingFeedbackVisible, ...rest } = item
+                return rest
+            })
     }
 })
 
@@ -89,6 +133,27 @@ vi.mock('@universo/template-mui', async () => {
     const actual = await vi.importActual<any>('@universo/template-mui')
     return {
         ...actual,
+        FlowListTable: (props: any) => {
+            const rows = Array.isArray(props?.data) ? props.data : []
+            const firstRow = rows[0]
+            const cols = Array.isArray(props?.customColumns) ? props.customColumns : []
+            const renderedCells = firstRow ? cols.map((c: any) => (typeof c?.render === 'function' ? c.render(firstRow) : null)) : []
+            const actions = firstRow && typeof props?.renderActions === 'function' ? props.renderActions(firstRow) : null
+
+            return (
+                <div data-testid='flow-list-table'>
+                    <div data-testid='flow-list-table-cells'>
+                        {renderedCells.map((cell: any, idx: number) => (
+                            <div key={idx}>{cell}</div>
+                        ))}
+                    </div>
+                    <div data-testid='flow-list-table-actions'>{actions}</div>
+                    {rows.map((r: any) => (
+                        <div key={r.id || r.email}>{r.email}</div>
+                    ))}
+                </div>
+            )
+        },
         InputHintDialog: vi.fn(() => null)
     }
 })
@@ -465,7 +530,7 @@ describe('ApplicationMembers', () => {
 
             await waitFor(() => {
                 expect(vi.mocked(applicationsApi.inviteApplicationMember)).toHaveBeenCalled()
-                expect(within(dialog).getByRole('alert')).toHaveTextContent(/missing@example.com/i)
+                expect(screen.getByText(/missing@example.com/i)).toBeInTheDocument()
             })
         })
 
@@ -488,7 +553,7 @@ describe('ApplicationMembers', () => {
 
             await waitFor(() => {
                 expect(vi.mocked(applicationsApi.inviteApplicationMember)).toHaveBeenCalled()
-                expect(within(dialog).getByRole('alert')).toHaveTextContent(/exists@example.com/i)
+                expect(screen.getByText(/exists@example.com/i)).toBeInTheDocument()
             })
         })
     })

@@ -13,6 +13,7 @@ export * as localizedContent from './vlc'
 export * as routes from './routes'
 export * as auth from './auth'
 export * as database from './database'
+export * as optimistic from './optimistic'
 
 // Rate limiting utilities (server-side only)
 // Note: Import from '@universo/utils/rate-limiting' for direct access
@@ -155,3 +156,46 @@ export {
     type TableConstraintParams,
     type TableConstraintResult
 } from './validation/tableConstraints'
+
+// Optimistic update utilities (pure TypeScript, no React deps)
+export {
+    isPendingEntity,
+    getPendingAction,
+    isPendingInteractionBlocked,
+    shouldShowPendingFeedback,
+    makePendingMarkers,
+    revealPendingFeedback,
+    getNextOptimisticSortOrder,
+    stripPendingMarkers
+} from './optimistic'
+export type { PendingAction, PendingMarkers, MaybePending, SortOrderLike } from './optimistic'
+
+// Optimistic CRUD cache helpers for React Query consumers
+export {
+    generateOptimisticId,
+    applyOptimisticCreate,
+    applyOptimisticUpdate,
+    applyOptimisticDelete,
+    rollbackOptimisticSnapshots,
+    cleanupBreadcrumbCache,
+    revealPendingEntityFeedback,
+    getNextOptimisticSortOrderFromQueries,
+    safeInvalidateQueries,
+    safeInvalidateQueriesInactive,
+    confirmOptimisticUpdate,
+    confirmOptimisticCreate
+} from './optimisticCrud'
+export type {
+    ListCache,
+    RowsListCache,
+    OptimisticSnapshot,
+    OptimisticCreateContext,
+    OptimisticUpdateContext,
+    OptimisticDeleteContext,
+    ApplyOptimisticCreateOptions,
+    ApplyOptimisticUpdateOptions,
+    ApplyOptimisticDeleteOptions,
+    RevealPendingEntityFeedbackOptions,
+    ConfirmOptimisticCreateOptions,
+    ConfirmOptimisticUpdateOptions
+} from './optimisticCrud'

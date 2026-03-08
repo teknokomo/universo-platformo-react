@@ -570,19 +570,10 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh branches list after edit', e)
-                        }
-                    },
                     onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
@@ -645,24 +636,15 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh branches list after copy', e)
-                        }
-                    },
                     onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
                             const copyOptions = getBranchCopyOptions(data)
-                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                            void ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
                                 sourceBranchId: ctx.entity.id,
                                 ...copyOptions
                             })
-                            await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error

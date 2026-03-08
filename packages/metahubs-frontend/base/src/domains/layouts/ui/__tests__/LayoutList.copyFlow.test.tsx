@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
+const updateLayoutMutate = vi.fn()
+const updateLayoutMutateAsync = vi.fn()
+
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string, defaultValue?: string) => defaultValue ?? key,
@@ -24,7 +27,7 @@ vi.mock('../../../../hooks/useViewPreference', () => ({
 
 vi.mock('../../hooks/mutations', () => ({
     useCreateLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useUpdateLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useUpdateLayout: () => ({ mutate: updateLayoutMutate, mutateAsync: updateLayoutMutateAsync, isPending: false }),
     useDeleteLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useCopyLayout: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
@@ -88,7 +91,34 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
     FlowListTable: () => null,
     gridSpacing: 2,
     notifyError: vi.fn(),
-    EntityFormDialog: ({ open, title }: { open: boolean; title: string }) => (open ? <div>{title}</div> : null),
+    EntityFormDialog: ({
+        open,
+        title,
+        onSave,
+        initialExtraValues
+    }: {
+        open: boolean
+        title: string
+        onSave?: (data: Record<string, unknown>) => Promise<void>
+        initialExtraValues?: Record<string, unknown>
+    }) => {
+        if (!open) return null
+
+        const values = {
+            ...(initialExtraValues ?? {})
+        }
+
+        return (
+            <div>
+                <div>{title}</div>
+                {title === 'Edit layout' ? (
+                    <button onClick={() => void onSave?.(values)} type='button'>
+                        submit-layout-edit
+                    </button>
+                ) : null}
+            </div>
+        )
+    },
     ConfirmDeleteDialog: () => null,
     useConfirm: () => ({ confirm: vi.fn(async () => true) }),
     ConfirmDialog: () => null
@@ -169,5 +199,39 @@ describe('LayoutList copy flow entry', () => {
         await waitFor(() => {
             expect(screen.getByText('Copying layout')).toBeInTheDocument()
         })
+    })
+
+    it('uses fire-and-forget mutate for edit instead of mutateAsync', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/layouts']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/layouts' element={<LayoutList />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        const menuButton = screen.getByTestId('layout-more-icon').closest('button')
+        expect(menuButton).not.toBeNull()
+        await user.click(menuButton as HTMLButtonElement)
+        await user.click(await screen.findByText('Edit'))
+
+        expect(screen.getByText('Edit layout')).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'submit-layout-edit' }))
+
+        await waitFor(() => {
+            expect(updateLayoutMutate).toHaveBeenCalledTimes(1)
+        })
+
+        expect(updateLayoutMutateAsync).not.toHaveBeenCalled()
     })
 })

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-const createBranchMutateAsync = vi.fn(async () => undefined)
+const createBranchMutate = vi.fn()
 const invalidateBranchesAll = vi.fn(async () => undefined)
 
 vi.mock('react-router-dom', async () => {
@@ -50,7 +50,7 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 
 vi.mock('../../hooks/mutations', () => ({
-    useCreateBranch: () => ({ mutateAsync: createBranchMutateAsync, isPending: false }),
+    useCreateBranch: () => ({ mutate: createBranchMutate, mutateAsync: vi.fn(), isPending: false }),
     useCopyBranch: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useUpdateBranch: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useDeleteBranch: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -180,7 +180,7 @@ describe('BranchList create flow copy options', () => {
         fireEvent.click(screen.getByRole('button', { name: 'submit-create-branch' }))
 
         await waitFor(() => {
-            expect(createBranchMutateAsync).toHaveBeenCalledWith(
+            expect(createBranchMutate).toHaveBeenCalledWith(
                 expect.objectContaining({
                     metahubId: 'metahub-1',
                     data: expect.objectContaining({
@@ -196,17 +196,7 @@ describe('BranchList create flow copy options', () => {
         })
     })
 
-    it('maps BRANCH_COPY_ENUM_REFERENCES to localized dialog error', async () => {
-        createBranchMutateAsync.mockRejectedValueOnce({
-            response: {
-                status: 400,
-                data: {
-                    code: 'BRANCH_COPY_ENUM_REFERENCES',
-                    error: 'raw backend message'
-                }
-            }
-        })
-
+    it('uses the fire-and-forget mutate handler instead of mutateAsync', async () => {
         const mod = await import('../BranchList')
         const BranchList = mod.default
 
@@ -216,35 +206,7 @@ describe('BranchList create flow copy options', () => {
         fireEvent.click(screen.getByRole('button', { name: 'submit-create-branch' }))
 
         await waitFor(() => {
-            expect(screen.getByTestId('dialog-error')).toHaveTextContent(
-                'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
-            )
-        })
-    })
-
-    it('maps BRANCH_COPY_DANGLING_REFERENCES to localized dialog error', async () => {
-        createBranchMutateAsync.mockRejectedValueOnce({
-            response: {
-                status: 400,
-                data: {
-                    code: 'BRANCH_COPY_DANGLING_REFERENCES',
-                    error: 'raw backend message'
-                }
-            }
-        })
-
-        const mod = await import('../BranchList')
-        const BranchList = mod.default
-
-        render(<BranchList />)
-
-        fireEvent.click(screen.getByRole('button', { name: 'open-create-dialog' }))
-        fireEvent.click(screen.getByRole('button', { name: 'submit-create-branch' }))
-
-        await waitFor(() => {
-            expect(screen.getByTestId('dialog-error')).toHaveTextContent(
-                'Copy options would create invalid references. Keep all referenced entity groups enabled.'
-            )
+            expect(createBranchMutate).toHaveBeenCalledTimes(1)
         })
     })
 })

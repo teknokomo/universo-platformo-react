@@ -231,6 +231,18 @@ describe('Hubs Routes', () => {
         mockMetahubRepo.findOne.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockHubsService.findById.mockResolvedValue(null)
+        mockHubsService.create.mockResolvedValue({
+            id: 'hub-copy-id',
+            codename: 'MainHubCopy',
+            codenameLocalized: null,
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub (copy)' } } },
+            description: null,
+            sort_order: 4,
+            parent_hub_id: null,
+            _upl_version: 1,
+            created_at: '2026-02-26T00:00:00.000Z',
+            updated_at: '2026-02-26T00:00:00.000Z'
+        })
         mockObjectsService.reorderByKind.mockResolvedValue({
             id: '11111111-1111-4111-8111-111111111111',
             config: { sortOrder: 2 }
@@ -360,7 +372,8 @@ describe('Hubs Routes', () => {
             expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
             expect(response.body.id).toBe('hub-copy-id')
             expect(response.body.codename).toBe('MainHubCopy')
-            expect(response.body.sortOrder).toBe(3)
+            expect(response.body.sortOrder).toBe(4)
+            expect(mockHubsService.create).toHaveBeenCalled()
         })
 
         it('retries hub copy after concurrent relation update conflict and succeeds', async () => {

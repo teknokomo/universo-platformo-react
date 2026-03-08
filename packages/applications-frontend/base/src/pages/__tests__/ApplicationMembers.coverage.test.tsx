@@ -7,6 +7,7 @@ const confirm = vi.fn().mockResolvedValue(true)
 
 const inviteMutateAsync = vi.fn().mockResolvedValue(undefined)
 const updateMutateAsync = vi.fn().mockResolvedValue(undefined)
+const removeMutate = vi.fn()
 const removeMutateAsync = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('react-router-dom', async () => {
@@ -147,9 +148,9 @@ vi.mock('@universo/template-mui', () => {
 })
 
 vi.mock('../../hooks/mutations', () => ({
-    useInviteMember: () => ({ mutateAsync: inviteMutateAsync, isPending: false }),
-    useUpdateMemberRole: () => ({ mutateAsync: updateMutateAsync, isPending: false }),
-    useRemoveMember: () => ({ mutateAsync: removeMutateAsync, isPending: false })
+    useInviteMember: () => ({ mutate: vi.fn(), mutateAsync: inviteMutateAsync, isPending: false }),
+    useUpdateMemberRole: () => ({ mutate: vi.fn(), mutateAsync: updateMutateAsync, isPending: false }),
+    useRemoveMember: () => ({ mutate: removeMutate, mutateAsync: removeMutateAsync, isPending: false })
 }))
 
 beforeEach(() => {
@@ -195,10 +196,10 @@ describe('ApplicationMembers (coverage)', () => {
             expect(updateMutateAsync).toHaveBeenCalledWith({
                 applicationId: 'm1',
                 memberId: 'u1',
-                data: expect.objectContaining({ role: 'editor', comment: 'c' })
+                data: expect.objectContaining({ role: 'editor', comment: null, commentPrimaryLocale: undefined })
             })
             expect(enqueueSnackbar).toHaveBeenCalledWith('members.updateSuccess', { variant: 'success' })
-            expect(invalidateQueries).toHaveBeenCalled()
+            expect(invalidateQueries).not.toHaveBeenCalled()
         })
 
         // Remove flow
@@ -206,7 +207,7 @@ describe('ApplicationMembers (coverage)', () => {
         fireEvent.click(screen.getByText('confirm-delete'))
 
         await waitFor(() => {
-            expect(removeMutateAsync).toHaveBeenCalledWith({ applicationId: 'm1', memberId: 'u1' })
+            expect(removeMutate).toHaveBeenCalledWith({ applicationId: 'm1', memberId: 'u1' })
         })
     }, 20000)
 })

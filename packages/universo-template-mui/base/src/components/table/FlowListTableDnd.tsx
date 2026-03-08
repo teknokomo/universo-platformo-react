@@ -22,6 +22,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { TableBody } from '@mui/material'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { StyledTableCell, StyledTableRow } from './FlowListTable'
+import type { SxProps, Theme } from '@mui/material/styles'
 
 // ---------------------------------------------------------------------------
 // SortableTableRow — wraps a single table row with useSortable
@@ -35,6 +36,7 @@ interface SortableTableRowProps {
     hasExpansion?: boolean
     /** Accessible label for the drag handle */
     dragHandleAriaLabel?: string
+    sx?: SxProps<Theme>
 }
 
 export const SortableTableRow: React.FC<SortableTableRowProps> = ({
@@ -42,7 +44,8 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
     disabled = false,
     children,
     hasExpansion = false,
-    dragHandleAriaLabel
+    dragHandleAriaLabel,
+    sx
 }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled })
 
@@ -55,8 +58,16 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
         zIndex: isDragging ? 1 : 'auto'
     }
 
+    const rowSx: SxProps<Theme> = hasExpansion
+        ? Array.isArray(sx)
+            ? [{ '& td, & th': { borderBottom: 0 } }, ...sx]
+            : sx
+            ? [{ '& td, & th': { borderBottom: 0 } }, sx]
+            : { '& td, & th': { borderBottom: 0 } }
+        : sx ?? {}
+
     return (
-        <StyledTableRow ref={setNodeRef} style={style} sx={hasExpansion ? { '& td, & th': { borderBottom: 0 } } : undefined}>
+        <StyledTableRow ref={setNodeRef} style={style} sx={rowSx}>
             {/* Drag handle column — attributes + listeners must be on the same focusable element for keyboard DnD */}
             <StyledTableCell
                 align='center'

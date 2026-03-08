@@ -60,7 +60,51 @@ vi.mock('@universo/utils', async () => {
         extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
         isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
         isApiError: vi.fn((error: any) => !!error?.response),
-        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000'),
+        isPendingEntity: actual.isPendingEntity ?? ((item: any) => Boolean(item?.__pending)),
+        getPendingAction: actual.getPendingAction ?? ((item: any) => (item?.__pending ? item?.__pendingAction : undefined)),
+        makePendingMarkers:
+            actual.makePendingMarkers ??
+            ((action: string, options?: { feedbackVisible?: boolean }) => ({
+                __pending: true,
+                __pendingAction: action,
+                ...(options?.feedbackVisible ? { __pendingFeedbackVisible: true } : {})
+            })),
+        isPendingInteractionBlocked:
+            actual.isPendingInteractionBlocked ?? ((item: any) => item?.__pendingAction === 'create' || item?.__pendingAction === 'copy'),
+        shouldShowPendingFeedback:
+            actual.shouldShowPendingFeedback ??
+            ((item: any) => {
+                if (!item?.__pending) return false
+                if (item.__pendingAction === 'create' || item.__pendingAction === 'copy') {
+                    return Boolean(item.__pendingFeedbackVisible)
+                }
+                return true
+            }),
+        revealPendingFeedback:
+            actual.revealPendingFeedback ??
+            ((item: any) => {
+                if (item?.__pendingAction !== 'create' && item?.__pendingAction !== 'copy') return item
+                if (item?.__pendingFeedbackVisible) return item
+                return { ...item, __pendingFeedbackVisible: true }
+            }),
+        getNextOptimisticSortOrder:
+            actual.getNextOptimisticSortOrder ??
+            ((items: any[] | null | undefined, startAt = 1) => {
+                const source = Array.isArray(items) ? items : []
+                const maxSortOrder = source.reduce((max, entry) => {
+                    const sortOrder = entry?.sortOrder
+                    return typeof sortOrder === 'number' && Number.isFinite(sortOrder) ? Math.max(max, sortOrder) : max
+                }, startAt - 1)
+                return maxSortOrder + 1
+            }),
+        stripPendingMarkers:
+            actual.stripPendingMarkers ??
+            ((item: any) => {
+                if (!item || typeof item !== 'object') return item
+                const { __pending, __pendingAction, __pendingFeedbackVisible, ...rest } = item
+                return rest
+            })
     }
 })
 

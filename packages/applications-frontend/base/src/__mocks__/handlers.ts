@@ -79,10 +79,33 @@ export const mockMembersList = [
     }
 ]
 
+const mockContentLocales = {
+    locales: [
+        { code: 'en', label: 'English', isDefault: true },
+        { code: 'ru', label: 'Русский', isDefault: false }
+    ],
+    defaultLocale: 'en'
+}
+
+const mockAvailablePublications = [
+    {
+        id: 'publication-1',
+        metahubId: 'metahub-1',
+        name: { en: 'Publication 1' },
+        schemaName: 'publication_1',
+        schemaStatus: 'ready'
+    }
+]
+
 /**
  * MSW request handlers
  */
 export const handlers = [
+    http.get(`${API_BASE_URL}/locales/content`, async () => {
+        await delay(10)
+        return HttpResponse.json(mockContentLocales)
+    }),
+
     // Profile settings endpoint (required by many components)
     http.get(`${API_BASE_URL}/profile/settings`, async () => {
         await delay(10)
@@ -92,6 +115,14 @@ export const handlers = [
                 theme: 'light',
                 timezone: 'UTC'
             }
+        })
+    }),
+
+    http.get(`${API_BASE_URL}/publications/available`, async () => {
+        await delay(20)
+        return HttpResponse.json({
+            items: mockAvailablePublications,
+            total: mockAvailablePublications.length
         })
     }),
 

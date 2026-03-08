@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography } from '@mui/material'
+import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import { useTranslation } from 'react-i18next'
@@ -27,19 +27,20 @@ import {
     useConfirm,
     RoleChip,
     useUserSettings,
-    LocalizedInlineField
+    LocalizedInlineField,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
 
-import { useUpdateApplication, useDeleteApplication, useCopyApplication } from '../hooks/mutations'
+import { useCreateApplication, useUpdateApplication, useDeleteApplication, useCopyApplication } from '../hooks/mutations'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as applicationsApi from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import { Application, ApplicationDisplay, ApplicationLocalizedPayload, toApplicationDisplay } from '../types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import applicationActions from './ApplicationActions'
 import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 
@@ -67,9 +68,21 @@ const ApplicationList = () => {
     const { settings } = useUserSettings()
     const showAll = settings.admin?.showAllItems ?? false
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
+
+    const handlePendingApplicationInteraction = useCallback(
+        (applicationId: string) => {
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: applicationsQueryKeys.lists(),
+                entityId: applicationId,
+                extraQueryKeys: [applicationsQueryKeys.detail(applicationId)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, pendingInteractionMessage, queryClient]
+    )
 
     // Create query function that includes showAll parameter
     const queryFnWithShowAll = useCallback((params: any) => applicationsApi.listApplications({ ...params, showAll }), [showAll])
@@ -105,6 +118,7 @@ const ApplicationList = () => {
 
     const { confirm } = useConfirm()
 
+    const createApplicationMutation = useCreateApplication()
     const updateApplicationMutation = useUpdateApplication()
     const deleteApplicationMutation = useDeleteApplication()
     const copyApplicationMutation = useCopyApplication()
@@ -209,48 +223,25 @@ const ApplicationList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateApplication = async (data: Record<string, any>) => {
+    const handleCreateApplication = (data: Record<string, any>) => {
         setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-
-            await applicationsApi.createApplication({
-                name: nameInput,
-                description: descriptionInput,
-                namePrimaryLocale,
-                descriptionPrimaryLocale
-            })
-
-            // Invalidate cache to refetch applications list
-            await queryClient.invalidateQueries({
-                queryKey: applicationsQueryKeys.lists()
-            })
-
-            handleDialogSave()
-        } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('errors.saveFailed')
-            setDialogError(message)
-            // eslint-disable-next-line no-console
-            console.error('Failed to create application', e)
-        } finally {
-            setCreating(false)
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        if (!nameInput || !namePrimaryLocale) {
+            setDialogError(tc('crud.nameRequired', 'Name is required'))
+            return
         }
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+
+        createApplicationMutation.mutate({
+            name: nameInput,
+            description: descriptionInput,
+            namePrimaryLocale,
+            descriptionPrimaryLocale
+        })
+
+        handleDialogSave()
     }
 
     const handleChange = (_event: any, nextView: string | null) => {
@@ -267,24 +258,45 @@ const ApplicationList = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: ApplicationDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: ApplicationDisplay) => (
-                    <Link to={`/a/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                overflowWrap: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
+                render: (row: ApplicationDisplay) =>
+                    isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingApplicationInteraction(row.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={`/a/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
             },
             {
                 id: 'description',
@@ -320,7 +332,7 @@ const ApplicationList = () => {
                 render: (row: ApplicationDisplay) => (typeof row.connectorsCount === 'number' ? row.connectorsCount : '—')
             }
         ],
-        [t, tc]
+        [handlePendingApplicationInteraction, t, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -332,26 +344,25 @@ const ApplicationList = () => {
             applicationMap,
             uiLocale: i18n.language,
             api: {
-                updateEntity: async (id: string, patch: ApplicationLocalizedPayload) => {
+                updateEntity: (id: string, patch: ApplicationLocalizedPayload) => {
                     const application = applicationMap.get(id)
                     const expectedVersion = application?.version
-                    try {
-                        await updateApplicationMutation.mutateAsync({ id, data: { ...patch, expectedVersion } })
-                    } catch (error: unknown) {
+                    void updateApplicationMutation.mutateAsync({ id, data: { ...patch, expectedVersion } }).catch((error: unknown) => {
                         if (isOptimisticLockConflict(error)) {
                             const conflict = extractConflictInfo(error)
                             if (conflict) {
                                 setConflictState({ open: true, conflict, pendingUpdate: { id, patch } })
-                                return
                             }
                         }
-                        throw error
-                    }
+                    })
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
-                    await deleteApplicationMutation.mutateAsync(id)
+                deleteEntity: (id: string) => {
+                    deleteApplicationMutation.mutate(id)
+                    return Promise.resolve()
                 },
-                copyEntity: async (
+                copyEntity: (
                     id: string,
                     payload: {
                         name?: Record<string, string>
@@ -363,13 +374,15 @@ const ApplicationList = () => {
                         copyAccess?: boolean
                     }
                 ) => {
-                    await copyApplicationMutation.mutateAsync({ id, data: payload })
+                    void copyApplicationMutation.mutateAsync({ id, data: payload }).catch(() => undefined)
+
+                    return Promise.resolve()
                 }
             },
             helpers: {
                 refreshList: async () => {
                     // Explicit cache invalidation
-                    await queryClient.invalidateQueries({
+                    void queryClient.invalidateQueries({
                         queryKey: applicationsQueryKeys.lists()
                     })
                 },
@@ -547,6 +560,9 @@ const ApplicationList = () => {
                                                 data={application}
                                                 images={images[application.id] || []}
                                                 href={`/a/${application.id}`}
+                                                pending={isPendingEntity(application)}
+                                                pendingAction={getPendingAction(application)}
+                                                onPendingInteractionAttempt={() => handlePendingApplicationInteraction(application.id)}
                                                 footerEndContent={
                                                     application.role ? (
                                                         <RoleChip role={application.role} accessType={application.accessType} />
@@ -577,6 +593,9 @@ const ApplicationList = () => {
                                         images={images}
                                         isLoading={isLoading}
                                         getRowLink={(row: ApplicationDisplay) => (row?.id ? `/a/${row.id}` : undefined)}
+                                        onPendingInteractionAttempt={(row: ApplicationDisplay) =>
+                                            handlePendingApplicationInteraction(row.id)
+                                        }
                                         customColumns={applicationColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: ApplicationDisplay) => {
@@ -627,7 +646,7 @@ const ApplicationList = () => {
                 saveButtonText={tc('actions.create', 'Create')}
                 savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
+                loading={createApplicationMutation.isPending}
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
                 onSave={handleCreateApplication}
@@ -649,23 +668,8 @@ const ApplicationList = () => {
                 onCancel={() => setDeleteDialogState({ open: false, application: null })}
                 onConfirm={async () => {
                     if (deleteDialogState.application) {
-                        try {
-                            await deleteApplicationMutation.mutateAsync(deleteDialogState.application.id)
-                            setDeleteDialogState({ open: false, application: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, application: null })
-                        }
+                        deleteApplicationMutation.mutate(deleteDialogState.application.id)
+                        setDeleteDialogState({ open: false, application: null })
                     }
                 }}
             />
@@ -677,12 +681,12 @@ const ApplicationList = () => {
                 conflict={conflictState.conflict}
                 onCancel={() => {
                     setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                    queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
+                    void queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
                 }}
                 onOverwrite={async () => {
                     if (conflictState.pendingUpdate) {
                         const { id, patch } = conflictState.pendingUpdate
-                        await updateApplicationMutation.mutateAsync({ id, data: patch })
+                        void updateApplicationMutation.mutateAsync({ id, data: patch })
                         setConflictState({ open: false, conflict: null, pendingUpdate: null })
                     }
                 }}

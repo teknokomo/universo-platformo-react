@@ -682,13 +682,15 @@ export const PublicationVersionList: React.FC = () => {
                         publicationMap,
                         uiLocale: preferredVlcLocale,
                         api: {
-                            updateEntity: async (id: string, patch: PublicationLocalizedPayload) => {
-                                if (!metahubId) return
-                                await updatePublicationMutation.mutateAsync({
+                            updateEntity: (id: string, patch: PublicationLocalizedPayload) => {
+                                if (!metahubId) return Promise.resolve()
+                                updatePublicationMutation.mutate({
                                     metahubId,
                                     publicationId: id,
                                     data: { ...patch, expectedVersion: publicationData.version }
                                 })
+
+                                return Promise.resolve()
                             }
                         },
                         helpers: {
@@ -720,10 +722,9 @@ export const PublicationVersionList: React.FC = () => {
                             tabs={buildPubFormTabs(settingsCtx, metahubId!)}
                             validate={(values: Record<string, any>) => validatePublicationForm(settingsCtx, values)}
                             canSave={canSavePublicationForm}
-                            onSave={async (data: Record<string, any>) => {
+                            onSave={(data: Record<string, any>) => {
                                 const payload = pubToPayload(data)
-                                await settingsCtx.api.updateEntity(publicationData.id, payload)
-                                await settingsCtx.helpers.refreshList()
+                                void settingsCtx.api.updateEntity(publicationData.id, payload)
                             }}
                             onClose={() => setSettingsDialogOpen(false)}
                         />

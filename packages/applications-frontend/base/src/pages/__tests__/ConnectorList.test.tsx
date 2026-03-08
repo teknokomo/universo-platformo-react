@@ -9,9 +9,9 @@ vi.mock('remark-math', () => ({ default: () => () => {} }))
 
 let mockUsePaginatedResult: any = null
 
-const createConnectorMutateAsync = vi.fn(async () => ({}))
+const createConnectorMutate = vi.fn()
 const updateConnectorMutateAsync = vi.fn(async () => ({}))
-const deleteConnectorMutateAsync = vi.fn(async () => ({}))
+const deleteConnectorMutate = vi.fn()
 
 vi.mock('react-i18next', async (importOriginal) => {
     const actual = await importOriginal<any>()
@@ -198,9 +198,9 @@ vi.mock('@universo/template-mui', async () => {
 })
 
 vi.mock('../../hooks/mutations', () => ({
-    useCreateConnector: () => ({ mutateAsync: createConnectorMutateAsync, isPending: false }),
+    useCreateConnector: () => ({ mutate: createConnectorMutate, mutateAsync: vi.fn(), isPending: false }),
     useUpdateConnector: () => ({ mutateAsync: updateConnectorMutateAsync, isPending: false }),
-    useDeleteConnector: () => ({ mutateAsync: deleteConnectorMutateAsync, isPending: false })
+    useDeleteConnector: () => ({ mutate: deleteConnectorMutate, mutateAsync: vi.fn(), isPending: false })
 }))
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -275,14 +275,14 @@ describe('ConnectorList page', () => {
         expect(screen.getByTestId('item-conn-1')).toBeInTheDocument()
 
         // Trigger create dialog
-        await user.click(screen.getByRole('button', { name: 'addNew' }))
+        await user.click(screen.getByRole('button', { name: 'create' }))
         expect(await screen.findByTestId('entity-form-dialog')).toBeInTheDocument()
         expect(screen.getByTestId('entity-form-title')).toHaveTextContent('Create Connector')
 
         // Execute create flow (covers ConnectorList.handleCreateConnector)
-        await user.click(screen.getByRole('button', { name: 'Save' }))
+        await user.click(screen.getByRole('button', { name: 'Create' }))
         await waitFor(() => {
-            expect(createConnectorMutateAsync).toHaveBeenCalled()
+            expect(createConnectorMutate).toHaveBeenCalled()
         })
         await waitFor(() => {
             expect(screen.queryByTestId('entity-form-dialog')).not.toBeInTheDocument()
@@ -307,7 +307,7 @@ describe('ConnectorList page', () => {
         // Confirm delete (covers ConnectorDeleteDialog.handleConfirm + onConfirm)
         await user.click(screen.getByRole('button', { name: 'connectors.deleteDialog.confirm' }))
         await waitFor(() => {
-            expect(deleteConnectorMutateAsync).toHaveBeenCalledWith({ applicationId: 'app-1', connectorId: 'conn-1' })
+            expect(deleteConnectorMutate).toHaveBeenCalledWith({ applicationId: 'app-1', connectorId: 'conn-1' })
         })
     })
 

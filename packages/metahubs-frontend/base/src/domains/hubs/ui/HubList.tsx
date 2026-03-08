@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Divider, Tabs, Tab, Chip } from '@mui/material'
+import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -25,7 +25,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill,
     useCodenameVlcSync,
-    EntitySelectionPanel
+    EntitySelectionPanel,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import type { EntitySelectionLabels } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
@@ -40,7 +41,7 @@ import * as hubsApi from '../api'
 import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateHubsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Hub, HubDisplay, HubLocalizedPayload, PaginatedResponse, getVLCString, toHubDisplay } from '../../../types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -225,10 +226,6 @@ const HubListContent = () => {
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.HUB_DISPLAY_STYLE)
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
-    const [dialogError, setDialogError] = useState<string | null>(null)
-
     // Use paginated hook for hubs list
     const paginationResult = usePaginated<Hub, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn: metahubId
@@ -284,6 +281,26 @@ const HubListContent = () => {
     const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
     const [isAttachingExisting, setAttachingExisting] = useState(false)
     const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
+    const [pendingHubNavigation, setPendingHubNavigation] = useState<{ pendingId: string; codename: string } | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
+
+    const handlePendingHubInteraction = useCallback(
+        (pendingHubId: string) => {
+            if (!metahubId) return
+            const pendingHub = hubs.find((hub) => hub.id === pendingHubId)
+            if (pendingHub?.codename) {
+                setPendingHubNavigation({ pendingId: pendingHub.id, codename: pendingHub.codename })
+            }
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: isHubScoped && hubId ? metahubsQueryKeys.childHubs(metahubId, hubId) : metahubsQueryKeys.hubs(metahubId),
+                entityId: pendingHubId,
+                extraQueryKeys: [metahubsQueryKeys.hubDetail(metahubId, pendingHubId)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, hubId, hubs, isHubScoped, metahubId, pendingInteractionMessage, queryClient]
+    )
 
     const { confirm } = useConfirm()
 
@@ -333,6 +350,21 @@ const HubListContent = () => {
         if (!Array.isArray(sortedHubs)) return new Map<string, Hub>()
         return new Map(sortedHubs.map((hub) => [hub.id, hub]))
     }, [sortedHubs])
+
+    useEffect(() => {
+        if (!pendingHubNavigation || !metahubId) return
+
+        if (sortedHubs.some((hub) => hub.id === pendingHubNavigation.pendingId)) {
+            return
+        }
+
+        const resolvedHub = sortedHubs.find((hub) => !isPendingEntity(hub) && hub.codename === pendingHubNavigation.codename)
+
+        if (!resolvedHub) return
+
+        setPendingHubNavigation(null)
+        navigate(`/metahub/${metahubId}/hub/${resolvedHub.id}/hubs`)
+    }, [metahubId, navigate, pendingHubNavigation, sortedHubs])
 
     const allHubsById = useMemo(() => {
         const map = new Map<string, Hub>()
@@ -528,23 +560,43 @@ const HubListContent = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: HubDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: HubDisplay) => (
-                    <Link to={`/metahub/${metahubId}/hub/${row.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
+                render: (row: HubDisplay) =>
+                    isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingHubInteraction(row.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={`/metahub/${metahubId}/hub/${row.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
             },
             {
                 id: 'description',
@@ -602,7 +654,21 @@ const HubListContent = () => {
                         )
                     }
 
-                    return (
+                    return isPendingEntity(row) ? (
+                        <Chip
+                            label={parentHub.name}
+                            size='small'
+                            variant='outlined'
+                            clickable
+                            onClick={() => handlePendingHubInteraction(row.id)}
+                            sx={{
+                                maxWidth: '100%',
+                                '&:hover': {
+                                    backgroundColor: 'action.hover'
+                                }
+                            }}
+                        />
+                    ) : (
                         <Link to={`/metahub/${metahubId}/hub/${parentHub.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
                             <Chip
                                 label={parentHub.name}
@@ -633,7 +699,7 @@ const HubListContent = () => {
         })
 
         return columns
-    }, [getDirectParentHub, isHubScoped, metahubId, t, tc])
+    }, [getDirectParentHub, handlePendingHubInteraction, isHubScoped, metahubId, t, tc])
 
     const createHubContext = useCallback(
         (baseContext: HubMenuBaseContext) => ({
@@ -644,52 +710,57 @@ const HubListContent = () => {
             allowHubNesting,
             uiLocale: preferredVlcLocale,
             api: {
-                updateEntity: async (id: string, patch: HubLocalizedPayload) => {
-                    if (!metahubId) return
+                updateEntity: (id: string, patch: HubLocalizedPayload) => {
+                    if (!metahubId) return Promise.resolve()
                     const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('hubs.validation.codenameRequired', 'Codename is required'))
                     }
                     const hub = hubMap.get(id)
                     const expectedVersion = hub?.version
-                    try {
-                        await updateHubMutation.mutateAsync({
+                    updateHubMutation.mutate(
+                        {
                             metahubId,
                             hubId: id,
                             data: { ...patch, codename: normalizedCodename, expectedVersion }
-                        })
-                    } catch (error: unknown) {
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({
-                                    open: true,
-                                    conflict,
-                                    pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
-                                })
-                                return
+                        },
+                        {
+                            onError: (error: unknown) => {
+                                if (isOptimisticLockConflict(error)) {
+                                    const conflict = extractConflictInfo(error)
+                                    if (conflict) {
+                                        setConflictState({
+                                            open: true,
+                                            conflict,
+                                            pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
+                                        })
+                                    }
+                                }
                             }
                         }
-                        throw error
-                    }
+                    )
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId) return
-                    await deleteHubMutation.mutateAsync({ metahubId, hubId: id })
+                    return deleteHubMutation.mutateAsync({ metahubId, hubId: id })
                 },
-                copyEntity: async (id: string, payload: HubLocalizedPayload & Record<string, unknown>) => {
-                    if (!metahubId) return
-                    await copyHubMutation.mutateAsync({
+                copyEntity: (id: string, payload: HubLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId) return Promise.resolve()
+                    copyHubMutation.mutate({
                         metahubId,
                         hubId: id,
                         data: payload
                     })
+
+                    return Promise.resolve()
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId) {
-                        await invalidateHubsQueries.all(queryClient, metahubId)
+                        void invalidateHubsQueries.all(queryClient, metahubId)
                     }
                 },
                 confirm: async (spec: ConfirmSpec) => {
@@ -760,10 +831,6 @@ const HubListContent = () => {
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
-    }
-
-    const handleDialogSave = () => {
         setDialogOpen(false)
     }
 
@@ -844,80 +911,47 @@ const HubListContent = () => {
     }
 
     const handleCreateHub = async (data: GenericFormValues) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
-            const parentHubId = typeof data.parentHubId === 'string' ? data.parentHubId : null
-            if (!normalizedCodename) {
-                setDialogError(t('hubs.validation.codenameRequired', 'Codename is required'))
-                return
-            }
+        // Validation is handled by EntityFormDialog's validate/canSave props.
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const parentHubId = typeof data.parentHubId === 'string' ? data.parentHubId : null
 
-            if (isHubScoped && hubId && parentHubId !== hubId) {
-                const confirmed = await confirm({
-                    title: t('hubs.detachedConfirm.title', 'Create hub outside current hub?'),
-                    description: t(
-                        'hubs.detachedConfirm.description',
-                        'This hub is not linked as a child of the current hub and will not appear in this hub after creation.'
-                    ),
-                    confirmButtonName: t('common:actions.create', 'Create'),
-                    cancelButtonName: t('common:actions.cancel', 'Cancel')
-                })
-                if (!confirmed) {
-                    throw DIALOG_SAVE_CANCEL
-                }
-            }
-
-            await createHubMutation.mutateAsync({
-                metahubId,
-                data: {
-                    codename: normalizedCodename,
-                    codenameInput,
-                    codenamePrimaryLocale,
-                    name: nameInput,
-                    description: descriptionInput,
-                    namePrimaryLocale,
-                    descriptionPrimaryLocale,
-                    parentHubId
-                }
+        // Confirm dialog for detached hub (async — throws DIALOG_SAVE_CANCEL if cancelled)
+        if (isHubScoped && hubId && parentHubId !== hubId) {
+            const confirmed = await confirm({
+                title: t('hubs.detachedConfirm.title', 'Create hub outside current hub?'),
+                description: t(
+                    'hubs.detachedConfirm.description',
+                    'This hub is not linked as a child of the current hub and will not appear in this hub after creation.'
+                ),
+                confirmButtonName: t('common:actions.create', 'Create'),
+                cancelButtonName: t('common:actions.cancel', 'Cancel')
             })
-
-            await invalidateHubsQueries.all(queryClient, metahubId)
-            handleDialogSave()
-        } catch (e: unknown) {
-            if (
-                e &&
-                typeof e === 'object' &&
-                '__dialogCancelled' in e &&
-                (e as { __dialogCancelled?: unknown }).__dialogCancelled === true
-            ) {
-                throw e
+            if (!confirmed) {
+                throw DIALOG_SAVE_CANCEL
             }
-            const responseMessage = extractResponseMessage(e)
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('hubs.createError')
-            setDialogError(message)
-            console.error('Failed to create hub', e)
-        } finally {
-            setCreating(false)
         }
+
+        // Fire-and-forget: optimistic card via onMutate, errors via onError snackbar,
+        // cache invalidation via onSettled. Dialog closes immediately.
+        createHubMutation.mutate({
+            metahubId,
+            data: {
+                codename: normalizedCodename || '',
+                codenameInput,
+                codenamePrimaryLocale,
+                name: nameInput ?? {},
+                description: descriptionInput,
+                namePrimaryLocale: namePrimaryLocale ?? '',
+                descriptionPrimaryLocale,
+                parentHubId
+            }
+        })
     }
 
     const goToHub = (hub: Hub) => {
@@ -1144,6 +1178,9 @@ const HubListContent = () => {
                                                         data={getHubCardData(hub)}
                                                         images={images[hub.id] || []}
                                                         onClick={() => goToHub(hub)}
+                                                        pending={isPendingEntity(hub)}
+                                                        pendingAction={getPendingAction(hub)}
+                                                        onPendingInteractionAttempt={() => handlePendingHubInteraction(hub.id)}
                                                         footerEndContent={
                                                             showParentHubInfo || showItemsCount ? (
                                                                 <Stack direction='row' spacing={1} alignItems='center'>
@@ -1191,6 +1228,7 @@ const HubListContent = () => {
                                                 getRowLink={(row: HubDisplay) =>
                                                     row?.id ? `/metahub/${metahubId}/hub/${row.id}/hubs` : undefined
                                                 }
+                                                onPendingInteractionAttempt={(row: HubDisplay) => handlePendingHubInteraction(row.id)}
                                                 customColumns={hubColumns}
                                                 i18nNamespace='flowList'
                                                 renderActions={(row: HubDisplay) => {
@@ -1242,8 +1280,6 @@ const HubListContent = () => {
                     saveButtonText={tc('actions.create', 'Create')}
                     savingButtonText={tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
-                    error={dialogError || undefined}
                     onClose={handleDialogClose}
                     onSave={handleCreateHub}
                     hideDefaultFields
@@ -1318,26 +1354,27 @@ const HubListContent = () => {
                     hub={deleteDialogState.hub}
                     metahubId={metahubId}
                     onClose={() => setDeleteDialogState({ open: false, hub: null })}
-                    onConfirm={async (hub) => {
-                        try {
-                            await deleteHubMutation.mutateAsync({
+                    onConfirm={(hub) => {
+                        deleteHubMutation.mutate(
+                            {
                                 metahubId,
                                 hubId: hub.id
-                            })
-                            setDeleteDialogState({ open: false, hub: null })
-                        } catch (err: unknown) {
-                            const responseMessage = extractResponseMessage(err)
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('hubs.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, hub: null })
-                        }
+                            },
+                            {
+                                onError: (err: unknown) => {
+                                    const responseMessage = extractResponseMessage(err)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : err instanceof Error
+                                            ? err.message
+                                            : typeof err === 'string'
+                                            ? err
+                                            : t('hubs.deleteError')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
+                            }
+                        )
                     }}
                     isDeleting={deleteHubMutation.isPending}
                     uiLocale={i18n.language}
@@ -1396,13 +1433,12 @@ const HubListContent = () => {
                                 })}
                                 validate={(values) => validateHubForm(settingsCtx, values)}
                                 canSave={canSaveHubForm}
-                                onSave={async (data) => {
+                                onSave={(data) => {
                                     const payload = hubToPayload(data)
-                                    await settingsCtx.api!.updateEntity!(currentHub.id, payload)
-                                    await settingsCtx.helpers!.refreshList!()
+                                    void settingsCtx.api!.updateEntity!(currentHub.id, payload)
                                     // Invalidate breadcrumb queries so page title refreshes immediately
                                     if (metahubId && hubId) {
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: ['breadcrumb', 'hub', metahubId, hubId]
                                         })
                                     }

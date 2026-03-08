@@ -6,6 +6,7 @@ vi.mock('@universo/template-mui', () => ({
     createMemberActions: vi.fn((config: unknown) => config),
     LocalizedInlineField: () => null,
     useCodenameAutoFill: () => undefined,
+    useCodenameVlcSync: () => undefined,
     notifyError: vi.fn()
 }))
 
@@ -15,8 +16,23 @@ const makeVlc = (content: string): VersionedLocalizedContent<string> => ({
     locales: { en: { content } }
 })
 
+const expectImmediateSettlement = async (result: void | Promise<void> | undefined) => {
+    let settled = false
+
+    if (result && typeof (result as Promise<void>).finally === 'function') {
+        void (result as Promise<void>).finally(() => {
+            settled = true
+        })
+    } else {
+        settled = true
+    }
+
+    await Promise.resolve()
+    expect(settled).toBe(true)
+}
+
 const createCopyContext = () => {
-    const copyEntity = vi.fn().mockResolvedValue(undefined)
+    const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
     const refreshList = vi.fn().mockResolvedValue(undefined)
 
     const ctx = {
@@ -75,7 +91,7 @@ describe('BranchActions copy options', () => {
         const { ctx, copyEntity, refreshList } = createCopyContext()
         const props = copy.dialog.buildProps(ctx)
 
-        await props.onSave({
+        const result = props.onSave({
             nameVlc: makeVlc('Main (copy)'),
             descriptionVlc: null,
             codename: 'main-copy',
@@ -97,6 +113,7 @@ describe('BranchActions copy options', () => {
                 copyEnumerations: true
             })
         )
-        expect(refreshList).toHaveBeenCalled()
+        await expectImmediateSettlement(result)
+        expect(refreshList).not.toHaveBeenCalled()
     })
 })

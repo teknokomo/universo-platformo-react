@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
+import { metahubsQueryKeys } from '../../../shared'
 
 const mocks = vi.hoisted(() => ({
     enqueueSnackbar: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('notistack', () => ({
 }))
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: () => {} },
     useTranslation: () => ({
         t: mocks.t,
         i18n: { language: 'en' }
@@ -28,6 +30,10 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@universo/i18n', () => ({
+    default: {
+        resolvedLanguage: 'en',
+        language: 'en'
+    },
     useCommonTranslations: () => ({
         t: mocks.t
     })
@@ -66,7 +72,7 @@ describe('metahubs mutation hooks', () => {
         mocks.metahubsApi.updateMetahub.mockResolvedValue({ data: { id: 'm1' } })
         mocks.metahubsApi.deleteMetahub.mockResolvedValue({ data: {} })
         mocks.metahubsApi.copyMetahub.mockResolvedValue({ data: { id: 'm2' } })
-        mocks.metahubsApi.inviteMetahubMember.mockResolvedValue({ data: {} })
+        mocks.metahubsApi.inviteMetahubMember.mockResolvedValue({ data: { id: 'u2' } })
         mocks.metahubsApi.updateMetahubMemberRole.mockResolvedValue({ data: {} })
         mocks.metahubsApi.removeMetahubMember.mockResolvedValue({ data: {} })
 
@@ -163,5 +169,61 @@ describe('metahubs mutation hooks', () => {
         const firstCall = mocks.enqueueSnackbar.mock.calls[0]
         expect(firstCall[0]).toContain('boom')
         expect(firstCall[1]).toMatchObject({ variant: 'error' })
+    })
+
+    it('replaces optimistic member ids with server ids after invite success', async () => {
+        let resolveInvite!: (value: { data: { id: string; email: string; role: string } }) => void
+        mocks.metahubsApi.inviteMetahubMember.mockReturnValue(
+            new Promise((resolve) => {
+                resolveInvite = resolve
+            })
+        )
+
+        const queryClient = createTestQueryClient()
+        const membersKey = metahubsQueryKeys.members('m1')
+        queryClient.setQueryData(membersKey, {
+            items: [],
+            pagination: { total: 0 }
+        })
+
+        let inviteMember: ReturnType<typeof hooks.useInviteMember> | undefined
+
+        function Probe() {
+            inviteMember = hooks.useInviteMember()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        act(() => {
+            inviteMember!.mutate({ metahubId: 'm1', data: { email: 'new@user.dev', role: 'viewer' } })
+        })
+
+        let optimisticId = ''
+
+        await waitFor(() => {
+            const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(membersKey)
+            expect(data?.items).toHaveLength(1)
+            optimisticId = String(data?.items[0]?.id ?? '')
+            expect(optimisticId).toBeTruthy()
+            expect(data?.items[0]?.__pendingAction).toBe('create')
+        })
+
+        act(() => {
+            resolveInvite({ data: { id: 'member-1', email: 'new@user.dev', role: 'viewer' } })
+        })
+
+        await waitFor(() => {
+            const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(membersKey)
+            expect(data?.items).toHaveLength(1)
+            expect(data?.items[0]?.id).toBe('member-1')
+            expect(data?.items[0]?.id).not.toBe(optimisticId)
+            expect(data?.items[0]?.__pending).toBeUndefined()
+            expect(data?.items[0]?.__pendingAction).toBeUndefined()
+        })
     })
 })

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     getApplicationRuntimeRow,
     createApplicationRuntimeRow,
@@ -7,6 +7,45 @@ import {
     updateApplicationRuntimeCell
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
+import { safeInvalidateQueries } from '@universo/template-mui'
+
+export interface RuntimeCellMutationVariables {
+    rowId: string
+    field: string
+    value: boolean | null
+    catalogId?: string
+}
+
+export interface PendingRuntimeCellMutation extends RuntimeCellMutationVariables {
+    submittedAt: number
+}
+
+export const getRuntimeCellMutationKey = (applicationId: string | undefined) =>
+    ['applications', 'updateCell', applicationId ?? 'unknown'] as const
+
+export const getRuntimeCellPendingKey = (rowId: string, field: string) => `${rowId}::${field}`
+
+export function buildPendingRuntimeCellMap(pendingMutations: PendingRuntimeCellMutation[]): Map<string, boolean | null> {
+    const pendingByCell = new Map<string, { value: boolean | null; submittedAt: number }>()
+
+    for (const mutation of pendingMutations) {
+        const key = getRuntimeCellPendingKey(mutation.rowId, mutation.field)
+        const previous = pendingByCell.get(key)
+
+        if (!previous || mutation.submittedAt >= previous.submittedAt) {
+            pendingByCell.set(key, {
+                value: mutation.value,
+                submittedAt: mutation.submittedAt
+            })
+        }
+    }
+
+    return new Map(Array.from(pendingByCell.entries()).map(([key, entry]) => [key, entry.value]))
+}
+
+function isPendingRuntimeCellMutation(value: RuntimeCellMutationVariables | undefined): value is RuntimeCellMutationVariables {
+    return Boolean(value?.rowId && value?.field)
+}
 
 /**
  * Fetch a single row (raw data for edit forms).
@@ -78,13 +117,19 @@ export function useDeleteRuntimeRow(options: { applicationId: string | undefined
     })
 }
 
-/** Inline cell mutation (e.g. checkbox toggle). */
+/**
+ * Inline cell mutation (e.g. checkbox toggle).
+ * Uses "via UI" optimistic approach: component reads mutation.variables + isPending
+ * to show the optimistic checked state directly in render — no cache manipulation.
+ */
 export function useUpdateRuntimeCell(options: { applicationId: string | undefined; catalogId?: string }) {
     const { applicationId, catalogId } = options
     const queryClient = useQueryClient()
+    const mutationKey = getRuntimeCellMutationKey(applicationId)
 
     return useMutation({
-        mutationFn: async (params: { rowId: string; field: string; value: boolean | null; catalogId?: string }) => {
+        mutationKey,
+        mutationFn: async (params: RuntimeCellMutationVariables) => {
             if (!applicationId) throw new Error('Application ID is missing')
             await updateApplicationRuntimeCell({
                 applicationId,
@@ -94,9 +139,31 @@ export function useUpdateRuntimeCell(options: { applicationId: string | undefine
                 catalogId: params.catalogId ?? catalogId
             })
         },
-        onSuccess: async () => {
+        onSettled: () => {
             if (!applicationId) return
-            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
+            safeInvalidateQueries(queryClient, mutationKey, applicationsQueryKeys.runtimeAll(applicationId))
         }
     })
+}
+
+export function usePendingRuntimeCellMutations(options: { applicationId: string | undefined }): PendingRuntimeCellMutation[] {
+    const { applicationId } = options
+
+    return useMutationState({
+        filters: {
+            mutationKey: getRuntimeCellMutationKey(applicationId),
+            status: 'pending'
+        },
+        select: (mutation): PendingRuntimeCellMutation | undefined => {
+            const variables = mutation.state.variables as RuntimeCellMutationVariables | undefined
+            if (!isPendingRuntimeCellMutation(variables)) {
+                return undefined
+            }
+
+            return {
+                ...variables,
+                submittedAt: mutation.state.submittedAt ?? 0
+            }
+        }
+    }).filter((mutation): mutation is PendingRuntimeCellMutation => mutation !== undefined)
 }

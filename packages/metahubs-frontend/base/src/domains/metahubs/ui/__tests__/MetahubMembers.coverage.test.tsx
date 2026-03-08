@@ -7,6 +7,7 @@ const confirm = vi.fn().mockResolvedValue(true)
 
 const inviteMutateAsync = vi.fn().mockResolvedValue(undefined)
 const updateMutateAsync = vi.fn().mockResolvedValue(undefined)
+const removeMutate = vi.fn()
 const removeMutateAsync = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('react-router-dom', async () => {
@@ -168,9 +169,9 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
 }))
 
 vi.mock('../../hooks/mutations', () => ({
-    useInviteMember: () => ({ mutateAsync: inviteMutateAsync, isPending: false }),
-    useUpdateMemberRole: () => ({ mutateAsync: updateMutateAsync, isPending: false }),
-    useRemoveMember: () => ({ mutateAsync: removeMutateAsync, isPending: false })
+    useInviteMember: () => ({ mutate: vi.fn(), mutateAsync: inviteMutateAsync, isPending: false }),
+    useUpdateMemberRole: () => ({ mutate: vi.fn(), mutateAsync: updateMutateAsync, isPending: false }),
+    useRemoveMember: () => ({ mutate: removeMutate, mutateAsync: removeMutateAsync, isPending: false })
 }))
 
 beforeEach(() => {
@@ -218,7 +219,7 @@ describe('MetahubMembers (coverage)', () => {
             data: expect.objectContaining({ role: 'editor' })
         })
         expect(enqueueSnackbar).toHaveBeenCalledWith('members.updateSuccess', { variant: 'success' })
-        expect(invalidateQueries).toHaveBeenCalled()
+        expect(invalidateQueries).not.toHaveBeenCalled()
 
         // Remove flow
         await act(async () => {
@@ -230,6 +231,6 @@ describe('MetahubMembers (coverage)', () => {
             fireEvent.click(confirmDeleteButton)
         })
 
-        expect(removeMutateAsync).toHaveBeenCalledWith({ metahubId: 'm1', memberId: 'u1' })
+        expect(removeMutate).toHaveBeenCalledWith({ metahubId: 'm1', memberId: 'u1' })
     }, 20000)
 })

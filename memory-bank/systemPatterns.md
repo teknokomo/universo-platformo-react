@@ -76,6 +76,26 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - PNPM hoist conflicts.
 **Fix**: Move runtime deps to `peerDependencies`.
 
+## Stable Subpath Export Pattern For tsdown Packages (IMPORTANT)
+
+**Rule**: Every package subpath export that points to `dist/...` must have its own explicit tsdown entry.
+
+**Required**:
+- If `package.json` exports `./some-subpath`, tsdown must emit stable files for that subpath (for example `dist/someSubpath.js`, `dist/someSubpath.mjs`, `dist/someSubpath.d.ts`).
+- Do not rely on hash-only shared chunks to satisfy exported subpaths.
+- Test-only source aliases must stay in Vitest/Vite config, not in package tsconfig files that participate in production builds.
+
+**Symptoms**:
+- Workspace package builds fail with `TS2307` for a valid exported subpath.
+- Package exports point at files that do not exist in `dist/`.
+- Production builds start importing source files outside `rootDir` because a temporary source alias leaked into build-time tsconfig.
+
+**Fix**:
+- Add a dedicated tsdown entry for the exported subpath.
+- Keep source-resolution overrides local to test config when source-based tests need them.
+
+**Why**: Workspace consumers resolve exported package subpaths during package builds; stable dist outputs are required for TypeScript and bundlers to agree on the same module surface.
+
 ## RLS Integration Pattern (CRITICAL)
 
 **Rule**: All DB access via TypeORM Repository with user context for RLS.
@@ -149,6 +169,44 @@ return repo.find({ where: { ... } })
 - `CellRendererOverrides` type: per-dataType custom rendering injected via `cellRenderers` option (e.g., inline BOOLEAN checkbox toggle).
 **Why**: Eliminates ~80% code duplication between DashboardApp and ApplicationRuntime while preserving full customization via adapters and cell renderer overrides.
 **Detection**: `rg "useCrudDashboard" packages`.
+
+## Optimistic Create Confirmation + Dedupe Pattern (IMPORTANT)
+
+**Rule**: Every optimistic create/invite/copy hook must call `confirmOptimisticCreate()` in `onSuccess` when the server returns a real entity ID.
+
+**Required**:
+- Create hooks seed `optimisticId` via `applyOptimisticCreate()`.
+- Success handlers replace that ID with the real server ID.
+- `confirmOptimisticCreate()` must also drop the stale optimistic placeholder if the real entity already entered cache via another refetch or mutation path.
+
+**Where implemented**:
+- Shared admin/template helper: `packages/universo-template-mui/base/src/hooks/optimisticCrud.ts`
+- Published runtime helper: `packages/apps-template-mui/src/hooks/optimisticCrud.ts`
+
+**Why**: Prevents duplicate rows/cards during the refetch window and guarantees pending markers are removed as soon as the server confirms the entity.
+**Detection**: `rg "applyOptimisticCreate|confirmOptimisticCreate" packages`.
+
+## Nested Optimistic Query Scope Pattern (IMPORTANT)
+
+**Rule**: Nested Metahub CRUD screens must mutate the exact query scope they render, not a broader root entity list.
+
+**Required**:
+- Child TABLE attribute screens use child-specific hooks/query prefixes (`childAttributes`, child element caches, child enum caches) instead of reusing root attribute hooks.
+- Page-level UI code must not dispatch an optimistic mutation and then immediately call manual list invalidation for the same screen.
+- Nested screen regressions should assert the actual UI contract (`mutate(...)` + immediate dialog close), not only helper-level cache behavior.
+- If a copy flow can be rendered from both a broad metahub list and a hub-scoped list, optimistic create/confirm must target every currently visible matching list family, not only the broad `all*` cache.
+
+**Symptoms**:
+- A nested dialog still waits for network completion even though shared optimistic helpers exist.
+- Child TABLE rows flicker, disappear, or fail to update because the wrong query family was mutated.
+- Page-level `invalidateQueries()` reintroduces refetch flicker right after an optimistic update.
+
+**Fix**:
+- Create a dedicated nested hook if the screen renders a different list/query shape than the root entity list.
+- Keep invalidation in the mutation lifecycle (`onSettled` / shared invalidators), not as an unconditional page-level follow-up.
+- For hub-scoped copy flows, collect the broad metahub query prefix plus any matching hub query prefixes from current cache state, then apply optimistic create/confirm across all of them.
+
+**Why**: Query-scope mismatches were the main reason nested optimistic parity remained incomplete after the shared helper rollout looked green at the top level.
 
 ## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 

@@ -23,7 +23,7 @@ import {
     buildCodenameAttempt,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
-import { KnexClient, generateTableName } from '../../ddl'
+import { KnexClient } from '../../ddl'
 
 type RequestUser = {
     id?: string
@@ -1145,6 +1145,7 @@ export function createCatalogsRoutes(
                     parsed.data.namePrimaryLocale ?? sourceNamePrimary
                 )
             }
+            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary)
 
             const {
                 style: codenameStyle,
@@ -1175,43 +1176,30 @@ export function createCatalogsRoutes(
             const createCatalogCopy = async (codename: string) => {
                 return knex.transaction(async (trx) => {
                     const now = new Date()
+                    const codenameLocalizedForCopy =
+                        parsed.data.codenameInput === undefined
+                            ? buildCodenameLocalizedVlc({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
+                            : codenameLocalizedVlc
                     const sourceHubIds = Array.isArray(sourceConfig.hubs)
                         ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
                         : []
 
-                    const [createdCatalog] = await trx
-                        .withSchema(schemaName)
-                        .into('_mhb_objects')
-                        .insert({
-                            kind: MetaEntityKind.CATALOG,
+                    const updatedCatalog = (await objectsService.createCatalog(
+                        metahubId,
+                        {
                             codename,
-                            table_name: null,
-                            presentation: {
-                                codename: codenameLocalizedVlc,
-                                name: nameVlc,
-                                description: descriptionVlc ?? null
-                            },
+                            codenameLocalized: codenameLocalizedForCopy,
+                            name: nameVlc,
+                            description: descriptionVlc ?? null,
                             config: {
                                 ...sourceConfig,
-                                sortOrder: undefined,
                                 hubs: sourceHubIds
                             },
-                            _upl_created_at: now,
-                            _upl_created_by: userId ?? null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: userId ?? null
-                        })
-                        .returning('*')
-
-                    const tableName = generateTableName(createdCatalog.id, 'catalog')
-                    const [updatedCatalog] = await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_objects')
-                        .where({ id: createdCatalog.id })
-                        .update({
-                            table_name: tableName
-                        })
-                        .returning('*')
+                            createdBy: userId
+                        },
+                        userId,
+                        trx
+                    )) as CopiedCatalogRow
 
                     let copiedAttributesCount = 0
                     if (copyOptions.copyAttributes) {

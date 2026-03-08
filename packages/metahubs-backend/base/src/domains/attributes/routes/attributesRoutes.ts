@@ -872,6 +872,10 @@ export function createAttributesRoutes(
                           parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en'
                       )
                     : source.codenameLocalized
+            const codenamePrimaryLocale = (parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en')
+                .split('-')[0]
+                .split('_')[0]
+                .toLowerCase()
 
             // Apply overrides from request body if provided, otherwise use source values
             const copyValidationRules: Record<string, unknown> =
@@ -950,7 +954,14 @@ export function createAttributesRoutes(
                                 {
                                     catalogId,
                                     codename: codenameCandidate,
-                                    codenameLocalized: copyCodenameLocalized,
+                                    codenameLocalized:
+                                        parsed.data.codenameInput === undefined
+                                            ? buildCodenameLocalizedVlc(
+                                                  { [codenamePrimaryLocale]: codenameCandidate },
+                                                  codenamePrimaryLocale,
+                                                  codenamePrimaryLocale
+                                              )
+                                            : copyCodenameLocalized,
                                     dataType: source.dataType,
                                     name: copyName,
                                     validationRules: copyValidationRules,

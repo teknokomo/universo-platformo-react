@@ -474,14 +474,6 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh enumerations list after edit', e)
-                        }
-                    },
                     onSave: async (data: EnumerationFormValues) => {
                         try {
                             const payload = toPayload(data)
@@ -505,8 +497,7 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                                     throw DIALOG_SAVE_CANCEL
                                 }
                             }
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             if (
                                 error &&
@@ -578,14 +569,6 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh enumerations list after copy', e)
-                        }
-                    },
                     onSave: async (data: EnumerationFormValues) => {
                         try {
                             const payload = toPayload(data)
@@ -610,11 +593,10 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                                     throw DIALOG_SAVE_CANCEL
                                 }
                             }
-                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                            void ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
                                 ...copyOptions
                             })
-                            await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             if (
                                 error &&
@@ -655,7 +637,6 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
 
             try {
                 await ctx.api?.deleteEntity?.(ctx.entity.id)
-                await ctx.helpers?.refreshList?.()
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                 throw error

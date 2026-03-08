@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { Box, Checkbox, Skeleton, Stack, Typography, RadioGroup, Radio, FormControlLabel, Divider } from '@mui/material'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Box, ButtonBase, Checkbox, Divider, FormControlLabel, Radio, RadioGroup, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -8,6 +8,7 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { ConflictInfo } from '@universo/utils'
+import { isPendingEntity, getPendingAction } from '@universo/utils'
 
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
@@ -28,12 +29,13 @@ import {
     useUserSettings,
     LocalizedInlineField,
     useCodenameAutoFill,
-    useCodenameVlcSync
+    useCodenameVlcSync,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useUpdateMetahub, useDeleteMetahub, useCopyMetahub } from '../hooks/mutations'
+import { useCreateMetahub, useUpdateMetahub, useDeleteMetahub, useCopyMetahub } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as metahubsApi from '../api'
@@ -85,6 +87,11 @@ type ConflictState = {
     open: boolean
     conflict: ConflictInfo | null
     pendingUpdate: { id: string; patch: MetahubLocalizedPayload } | null
+}
+
+type PendingMetahubNavigation = {
+    pendingId: string
+    codename: string
 }
 
 const extractResponseStatus = (error: unknown): number | undefined => {
@@ -286,19 +293,21 @@ const MetahubList = () => {
     const { t, i18n } = useTranslation(['metahubs', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
     const { t: tc } = useCommonTranslations()
+    const navigate = useNavigate()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.METAHUB_DISPLAY_STYLE)
+    const [pendingMetahubNavigation, setPendingMetahubNavigation] = useState<PendingMetahubNavigation | null>(null)
 
     // Get user settings for showAll preference
     const { settings } = useUserSettings()
     const showAll = settings.admin?.showAllItems ?? false
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
-    const [dialogError, setDialogError] = useState<string | null>(null)
+    // Mutation hook for create (fire-and-forget with optimistic UI)
+    const createMetahubMutation = useCreateMetahub()
 
     // Create query function that includes showAll parameter
     const queryFnWithShowAll = useCallback((params: ListMetahubsParams) => metahubsApi.listMetahubs({ ...params, showAll }), [showAll])
@@ -346,6 +355,48 @@ const MetahubList = () => {
         if (!Array.isArray(metahubs)) return new Map<string, Metahub>()
         return new Map(metahubs.map((metahub) => [metahub.id, metahub]))
     }, [metahubs])
+
+    useEffect(() => {
+        if (!pendingMetahubNavigation) return
+
+        if (metahubsDisplay.some((metahub) => metahub.id === pendingMetahubNavigation.pendingId)) {
+            return
+        }
+
+        const resolvedMetahub = metahubsDisplay.find(
+            (metahub) => !isPendingEntity(metahub) && metahub.codename === pendingMetahubNavigation.codename
+        )
+
+        if (!resolvedMetahub) return
+
+        setPendingMetahubNavigation(null)
+        navigate(`/metahub/${resolvedMetahub.id}`)
+    }, [metahubsDisplay, navigate, pendingMetahubNavigation])
+
+    const queuePendingMetahubNavigation = useCallback(
+        (pendingMetahub: MetahubDisplay) => {
+            if (!pendingMetahub.codename) return
+            setPendingMetahubNavigation({
+                pendingId: pendingMetahub.id,
+                codename: pendingMetahub.codename
+            })
+        },
+        [setPendingMetahubNavigation]
+    )
+
+    const handlePendingMetahubInteraction = useCallback(
+        (pendingMetahub: MetahubDisplay) => {
+            queuePendingMetahubNavigation(pendingMetahub)
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: metahubsQueryKeys.lists(),
+                entityId: pendingMetahub.id,
+                extraQueryKeys: [metahubsQueryKeys.detail(pendingMetahub.id)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, pendingInteractionMessage, queryClient, queuePendingMetahubNavigation]
+    )
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -481,7 +532,6 @@ const MetahubList = () => {
     )
 
     const handleAddNew = () => {
-        setDialogError(null)
         setDialogOpen(true)
     }
 
@@ -489,75 +539,37 @@ const MetahubList = () => {
         setDialogOpen(false)
     }
 
-    const handleDialogSave = () => {
-        setDialogOpen(false)
-    }
+    const handleCreateMetahub = (data: GenericFormValues) => {
+        // Validation is handled by EntityFormDialog's validate/canSave props.
+        // This handler only prepares the payload and calls mutate() fire-and-forget.
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
 
-    const handleCreateMetahub = async (data: GenericFormValues) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
-            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
-            if (!normalizedCodename) {
-                setDialogError(t('validation.codenameRequired', 'Codename is required'))
-                return
-            }
-            if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
-                setDialogError(t('validation.codenameInvalid', 'Codename contains invalid characters'))
-                return
-            }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-
-            const createOptions = {
-                createHub: data.createHub !== false,
-                createCatalog: data.createCatalog !== false,
-                createSet: data.createSet !== false,
-                createEnumeration: data.createEnumeration !== false
-            }
-
-            await metahubsApi.createMetahub({
-                codename: normalizedCodename,
-                codenameInput,
-                codenamePrimaryLocale,
-                name: nameInput,
-                description: descriptionInput,
-                namePrimaryLocale,
-                descriptionPrimaryLocale,
-                templateId: data.templateId || undefined,
-                createOptions
-            })
-
-            // Invalidate cache to refetch metahubs list
-            await queryClient.invalidateQueries({
-                queryKey: metahubsQueryKeys.lists()
-            })
-
-            handleDialogSave()
-        } catch (e: unknown) {
-            const responseMessage = extractResponseMessage(e)
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('errors.saveFailed')
-            setDialogError(message)
-            // eslint-disable-next-line no-console
-            console.error('Failed to create metahub', e)
-        } finally {
-            setCreating(false)
+        const createOptions = {
+            createHub: data.createHub !== false,
+            createCatalog: data.createCatalog !== false,
+            createSet: data.createSet !== false,
+            createEnumeration: data.createEnumeration !== false
         }
+
+        // Fire-and-forget: optimistic card appears via onMutate, errors via onError snackbar,
+        // cache invalidation via onSettled. Dialog closes immediately after mutate() returns.
+        createMetahubMutation.mutate({
+            codename: normalizedCodename || '',
+            codenameInput,
+            codenamePrimaryLocale,
+            name: nameInput ?? {},
+            description: descriptionInput,
+            namePrimaryLocale: namePrimaryLocale ?? '',
+            descriptionPrimaryLocale,
+            templateId: (data.templateId as string) || undefined,
+            createOptions
+        })
     }
 
     const handleChange = (_event: unknown, nextView: string | null) => {
@@ -574,24 +586,45 @@ const MetahubList = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: MetahubDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: MetahubDisplay) => (
-                    <Link to={`/metahub/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                overflowWrap: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
+                render: (row: MetahubDisplay) =>
+                    isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingMetahubInteraction(row)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={`/metahub/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
             },
             {
                 id: 'description',
@@ -647,7 +680,7 @@ const MetahubList = () => {
                 render: (row: MetahubDisplay) => (typeof row.hubsCount === 'number' ? row.hubsCount : '—')
             }
         ],
-        [t, tc]
+        [handlePendingMetahubInteraction, t, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -658,32 +691,28 @@ const MetahubList = () => {
             metahubMap,
             uiLocale: i18n.language,
             api: {
-                updateEntity: async (id: string, patch: MetahubLocalizedPayload) => {
+                updateEntity: (id: string, patch: MetahubLocalizedPayload) => {
                     const metahub = metahubMap.get(id)
                     const expectedVersion = metahub?.version
-                    try {
-                        await updateMetahubMutation.mutateAsync({ id, data: patch, expectedVersion })
-                    } catch (error: unknown) {
-                        // Check for 409 Conflict (optimistic lock)
+                    void updateMetahubMutation.mutateAsync({ id, data: patch, expectedVersion }).catch((error: unknown) => {
                         if (extractResponseStatus(error) === 409) {
                             const conflict = extractConflict(error)
-                            if (!conflict) {
-                                throw error
+                            if (conflict) {
+                                setConflictState({
+                                    open: true,
+                                    conflict,
+                                    pendingUpdate: { id, patch }
+                                })
                             }
-                            setConflictState({
-                                open: true,
-                                conflict,
-                                pendingUpdate: { id, patch }
-                            })
-                            return // Don't re-throw, dialog will handle it
                         }
-                        throw error
-                    }
+                    })
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
-                    await deleteMetahubMutation.mutateAsync(id)
+                deleteEntity: (id: string) => {
+                    deleteMetahubMutation.mutate(id)
                 },
-                copyEntity: async (
+                copyEntity: (
                     id: string,
                     payload: {
                         name?: Record<string, string>
@@ -695,13 +724,16 @@ const MetahubList = () => {
                         copyAccess?: boolean
                     }
                 ) => {
-                    await copyMetahubMutation.mutateAsync({ id, data: payload })
+                    void copyMetahubMutation.mutateAsync({ id, data: payload }).catch(() => undefined)
+
+                    return Promise.resolve()
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
+                    console.info('[metahub:list] explicit refreshList requested')
                     // Explicit cache invalidation
-                    await queryClient.invalidateQueries({
+                    void queryClient.invalidateQueries({
                         queryKey: metahubsQueryKeys.lists()
                     })
                 },
@@ -829,6 +861,9 @@ const MetahubList = () => {
                                                     data={metahub}
                                                     images={images[metahub.id] || []}
                                                     href={`/metahub/${metahub.id}`}
+                                                    pending={isPendingEntity(metahub)}
+                                                    pendingAction={getPendingAction(metahub)}
+                                                    onPendingInteractionAttempt={() => handlePendingMetahubInteraction(metahub)}
                                                     footerEndContent={
                                                         metahub.role ? (
                                                             <RoleChip role={metahub.role} accessType={metahub.accessType} />
@@ -859,6 +894,7 @@ const MetahubList = () => {
                                             images={images}
                                             isLoading={isLoading}
                                             getRowLink={(row: MetahubDisplay) => (row?.id ? `/metahub/${row.id}` : undefined)}
+                                            onPendingInteractionAttempt={(row: MetahubDisplay) => handlePendingMetahubInteraction(row)}
                                             customColumns={metahubColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: MetahubDisplay) => {
@@ -918,8 +954,6 @@ const MetahubList = () => {
                     saveButtonText={tc('actions.create', 'Create')}
                     savingButtonText={tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
-                    error={dialogError || undefined}
                     onClose={handleDialogClose}
                     onSave={handleCreateMetahub}
                     hideDefaultFields
@@ -938,12 +972,11 @@ const MetahubList = () => {
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onCancel={() => setDeleteDialogState({ open: false, metahub: null })}
-                    onConfirm={async () => {
-                        if (deleteDialogState.metahub) {
-                            try {
-                                await deleteMetahubMutation.mutateAsync(deleteDialogState.metahub.id)
-                                setDeleteDialogState({ open: false, metahub: null })
-                            } catch (err: unknown) {
+                    onConfirm={() => {
+                        if (!deleteDialogState.metahub) return
+
+                        deleteMetahubMutation.mutate(deleteDialogState.metahub.id, {
+                            onError: (err: unknown) => {
                                 const responseMessage = extractResponseMessage(err)
                                 const message =
                                     typeof responseMessage === 'string'
@@ -954,9 +987,8 @@ const MetahubList = () => {
                                         ? err
                                         : t('deleteError')
                                 enqueueSnackbar(message, { variant: 'error' })
-                                setDeleteDialogState({ open: false, metahub: null })
                             }
-                        }
+                        })
                     }}
                 />
 

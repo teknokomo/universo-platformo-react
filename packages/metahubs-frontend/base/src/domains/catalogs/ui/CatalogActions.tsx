@@ -487,14 +487,6 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh catalogs list after edit', e)
-                        }
-                    },
                     onSave: async (data: CatalogFormValues) => {
                         try {
                             const payload = toPayload(data)
@@ -518,8 +510,7 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                                     throw DIALOG_SAVE_CANCEL
                                 }
                             }
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             if (
                                 error &&
@@ -586,14 +577,6 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh catalogs list after copy', e)
-                        }
-                    },
                     onSave: async (data: CatalogFormValues) => {
                         try {
                             const payload = toPayload(data)
@@ -618,11 +601,10 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                                     throw DIALOG_SAVE_CANCEL
                                 }
                             }
-                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                            void ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
                                 ...copyOptions
                             })
-                            await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             if (
                                 error &&
@@ -663,7 +645,6 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
 
             try {
                 await ctx.api?.deleteEntity?.(ctx.entity.id)
-                await ctx.helpers?.refreshList?.()
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                 throw error
