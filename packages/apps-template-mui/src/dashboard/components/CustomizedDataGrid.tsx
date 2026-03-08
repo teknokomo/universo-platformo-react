@@ -1,4 +1,5 @@
 import { DataGrid, type GridColDef, type GridPaginationModel, type GridLocaleText } from '@mui/x-data-grid'
+import { getPendingAction, shouldShowPendingFeedback } from '@universo/utils'
 
 export interface CustomizedDataGridRow {
     id: string
@@ -16,6 +17,21 @@ export interface CustomizedDataGridProps {
     pageSizeOptions?: number[]
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
+}
+
+export function getCustomizedDataGridRowClassName(row: Record<string, unknown> | undefined, index: number): string {
+    const classes = [index % 2 === 0 ? 'even' : 'odd']
+    const action = getPendingAction(row)
+
+    if (action === 'delete' && shouldShowPendingFeedback(row)) {
+        classes.push('pending-delete')
+    }
+
+    if ((action === 'create' || action === 'copy') && shouldShowPendingFeedback(row)) {
+        classes.push('pending-create')
+    }
+
+    return classes.join(' ')
 }
 
 export default function CustomizedDataGrid({
@@ -42,7 +58,7 @@ export default function CustomizedDataGrid({
             rowCount={rowCount}
             paginationModel={paginationModel}
             onPaginationModelChange={onPaginationModelChange}
-            getRowClassName={(params) => (params.indexRelativeToCurrentPage % 2 === 0 ? 'even' : 'odd')}
+            getRowClassName={(params) => getCustomizedDataGridRowClassName(params.row, params.indexRelativeToCurrentPage)}
             initialState={
                 paginationModel
                     ? undefined
@@ -84,7 +100,32 @@ export default function CustomizedDataGrid({
                               backgroundColor: 'grey.100'
                           }
                       }
-                    : {})
+                    : {}),
+                // Pending row styles for optimistic delete
+                '& .pending-delete': {
+                    textDecoration: 'line-through',
+                    opacity: 0.4,
+                    pointerEvents: 'none'
+                },
+                '& .pending-create': {
+                    opacity: 0.7,
+                    pointerEvents: 'none',
+                    backgroundImage: 'linear-gradient(90deg, transparent, #1976d2, transparent)',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '200% 2px',
+                    backgroundPosition: '0 100%',
+                    animation: 'pending-row-shimmer 1.5s infinite'
+                },
+                '& .pending-create:hover': {
+                    backgroundImage: 'linear-gradient(90deg, transparent, #1976d2, transparent)',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '200% 2px',
+                    backgroundPosition: '0 100%'
+                },
+                '@keyframes pending-row-shimmer': {
+                    '0%': { backgroundPosition: '200% 100%' },
+                    '100%': { backgroundPosition: '-200% 100%' }
+                }
             }}
             slotProps={{
                 filterPanel: {

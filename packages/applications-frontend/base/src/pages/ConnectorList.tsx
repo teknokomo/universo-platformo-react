@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Alert, Chip } from '@mui/material'
+import { Alert, Box, ButtonBase, Chip, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
@@ -23,7 +23,8 @@ import {
     gridSpacing,
     ConfirmDialog,
     useConfirm,
-    LocalizedInlineField
+    LocalizedInlineField,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -37,7 +38,7 @@ import * as connectorsApi from '../api/connectors'
 import { applicationsQueryKeys, invalidateConnectorsQueries } from '../api/queryKeys'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Connector, ConnectorDisplay, ConnectorLocalizedPayload, toConnectorDisplay } from '../types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 import { ConnectorDeleteDialog, PublicationSelectionPanel } from '../components'
 import connectorActions from './ConnectorActions'
@@ -100,9 +101,8 @@ const ConnectorList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.CONNECTOR_DISPLAY_STYLE)
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     // Use paginated hook for connectors list
     const paginationResult = usePaginated<Connector, 'created' | 'updated'>({
@@ -146,6 +146,20 @@ const ConnectorList = () => {
     // Fetch available publications for selection in create dialog
     const { data: availablePublications = [] } = useAvailablePublications()
 
+    const handlePendingConnectorInteraction = useCallback(
+        (connectorId: string) => {
+            if (!applicationId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: applicationsQueryKeys.connectors(applicationId),
+                entityId: connectorId,
+                extraQueryKeys: [applicationsQueryKeys.connectorDetail(applicationId, connectorId)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [applicationId, enqueueSnackbar, pendingInteractionMessage, queryClient]
+    )
+
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
@@ -188,34 +202,6 @@ const ConnectorList = () => {
         const publicationIds = values.publicationIds as string[] | undefined
         return hasPrimaryContent(nameVlc) && publicationIds && publicationIds.length > 0
     }, [])
-
-    const renderLocalizedFields = useCallback(
-        ({
-            values,
-            setValue,
-            isLoading,
-            errors
-        }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
-            isLoading: boolean
-            errors?: Record<string, string>
-        }) => {
-            const fieldErrors = errors ?? {}
-            return (
-                <ConnectorFormFields
-                    values={values}
-                    setValue={setValue}
-                    isLoading={isLoading}
-                    errors={fieldErrors}
-                    uiLocale={i18n.language}
-                    nameLabel={tc('fields.name', 'Name')}
-                    descriptionLabel={tc('fields.description', 'Description')}
-                />
-            )
-        },
-        [i18n.language, tc]
-    )
 
     // Build tabs for create dialog
     const buildCreateTabs = useCallback(
@@ -280,6 +266,29 @@ const ConnectorList = () => {
                 sortAccessor: (row: ConnectorDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: ConnectorDisplay) => {
                     const href = applicationId ? `/a/${applicationId}/admin/connector/${row.id}` : undefined
+                    if (href && isPendingEntity(row)) {
+                        return (
+                            <ButtonBase
+                                onClick={() => handlePendingConnectorInteraction(row.id)}
+                                sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
+                            >
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                        wordBreak: 'break-word',
+                                        overflowWrap: 'break-word',
+                                        '&:hover': {
+                                            textDecoration: 'underline',
+                                            color: 'primary.main'
+                                        }
+                                    }}
+                                >
+                                    {row.name || '—'}
+                                </Typography>
+                            </ButtonBase>
+                        )
+                    }
                     return href ? (
                         <Link to={href} style={{ textDecoration: 'none', color: 'inherit' }} onClick={(event) => event.stopPropagation()}>
                             <Typography
@@ -336,7 +345,7 @@ const ConnectorList = () => {
                 render: () => <Chip label={t('connectors.relation.metahub', 'Metahub')} color='primary' size='small' variant='outlined' />
             }
         ],
-        [t, tc, applicationId]
+        [applicationId, handlePendingConnectorInteraction, t, tc]
     )
 
     const createConnectorContext = useCallback(
@@ -346,36 +355,37 @@ const ConnectorList = () => {
             applicationId, // Pass applicationId for metahub loading in edit dialog
             uiLocale: i18n.language,
             api: {
-                updateEntity: async (id: string, patch: ConnectorLocalizedPayload) => {
-                    if (!applicationId) return
+                updateEntity: (id: string, patch: ConnectorLocalizedPayload) => {
+                    if (!applicationId) return Promise.resolve()
                     const connector = connectorMap.get(id)
                     const expectedVersion = connector?.version
-                    try {
-                        await updateConnectorMutation.mutateAsync({
+                    void updateConnectorMutation
+                        .mutateAsync({
                             applicationId,
                             connectorId: id,
                             data: { ...patch, expectedVersion }
                         })
-                    } catch (error: unknown) {
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch } })
-                                return
+                        .catch((error: unknown) => {
+                            if (isOptimisticLockConflict(error)) {
+                                const conflict = extractConflictInfo(error)
+                                if (conflict) {
+                                    setConflictState({ open: true, conflict, pendingUpdate: { id, patch } })
+                                }
                             }
-                        }
-                        throw error
-                    }
+                        })
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
-                    if (!applicationId) return
-                    await deleteConnectorMutation.mutateAsync({ applicationId, connectorId: id })
+                deleteEntity: (id: string) => {
+                    if (!applicationId) return Promise.resolve()
+                    deleteConnectorMutation.mutate({ applicationId, connectorId: id })
+                    return Promise.resolve()
                 }
             },
             helpers: {
                 refreshList: async () => {
                     if (applicationId) {
-                        await invalidateConnectorsQueries.all(queryClient, applicationId)
+                        void invalidateConnectorsQueries.all(queryClient, applicationId)
                     }
                 },
                 confirm: async (spec: any) => {
@@ -416,7 +426,6 @@ const ConnectorList = () => {
             i18n.language,
             applicationId,
             queryClient,
-            t,
             updateConnectorMutation
         ]
     )
@@ -445,55 +454,37 @@ const ConnectorList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateConnector = async (data: Record<string, any>) => {
+    const handleCreateConnector = (data: Record<string, any>) => {
         setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-
-            // Get publicationIds from form data (single selection for now)
-            const publicationIds = data.publicationIds as string[] | undefined
-            if (!publicationIds || publicationIds.length === 0) {
-                setDialogError(t('connectors.validation.publicationRequired', 'Please select a Publication'))
-                return
-            }
-            const publicationId = publicationIds[0] // Use first selected publication
-
-            await createConnectorMutation.mutateAsync({
-                applicationId,
-                data: {
-                    name: nameInput,
-                    description: descriptionInput,
-                    namePrimaryLocale,
-                    descriptionPrimaryLocale,
-                    publicationId // Pass publicationId to create the link
-                }
-            })
-
-            await invalidateConnectorsQueries.all(queryClient, applicationId)
-            handleDialogSave()
-        } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('connectors.createError')
-            setDialogError(message)
-            console.error('Failed to create connector', e)
-        } finally {
-            setCreating(false)
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        if (!nameInput || !namePrimaryLocale) {
+            setDialogError(tc('crud.nameRequired', 'Name is required'))
+            return
         }
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+
+        // Get publicationIds from form data (single selection for now)
+        const publicationIds = data.publicationIds as string[] | undefined
+        if (!publicationIds || publicationIds.length === 0) {
+            setDialogError(t('connectors.validation.publicationRequired', 'Please select a Publication'))
+            return
+        }
+        const publicationId = publicationIds[0] // Use first selected publication
+
+        createConnectorMutation.mutate({
+            applicationId,
+            data: {
+                name: nameInput,
+                description: descriptionInput,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                publicationId // Pass publicationId to create the link
+            }
+        })
+
+        handleDialogSave()
     }
 
     const handleChange = (_event: any, nextView: string | null) => {
@@ -605,6 +596,9 @@ const ConnectorList = () => {
                                                 data={getConnectorCardData(connector)}
                                                 images={images[connector.id] || []}
                                                 href={connectorHref}
+                                                pending={isPendingEntity(connector)}
+                                                pendingAction={getPendingAction(connector)}
+                                                onPendingInteractionAttempt={() => handlePendingConnectorInteraction(connector.id)}
                                                 footerEndContent={
                                                     <Chip
                                                         label={t('connectors.relation.metahub', 'Metahub')}
@@ -641,6 +635,7 @@ const ConnectorList = () => {
                                             // Navigate to connector board within Applications
                                             return applicationId && row?.id ? `/a/${applicationId}/admin/connector/${row.id}` : undefined
                                         }}
+                                        onPendingInteractionAttempt={(row: ConnectorDisplay) => handlePendingConnectorInteraction(row.id)}
                                         customColumns={connectorColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: any) => {
@@ -691,7 +686,7 @@ const ConnectorList = () => {
                 saveButtonText={tc('actions.create', 'Create')}
                 savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
+                loading={createConnectorMutation.isPending}
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
                 onSave={handleCreateConnector}
@@ -709,26 +704,11 @@ const ConnectorList = () => {
                 applicationId={applicationId}
                 onClose={() => setDeleteDialogState({ open: false, connector: null })}
                 onConfirm={async (connector) => {
-                    try {
-                        await deleteConnectorMutation.mutateAsync({
-                            applicationId,
-                            connectorId: connector.id
-                        })
-                        setDeleteDialogState({ open: false, connector: null })
-                    } catch (err: unknown) {
-                        const responseMessage =
-                            err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                        const message =
-                            typeof responseMessage === 'string'
-                                ? responseMessage
-                                : err instanceof Error
-                                ? err.message
-                                : typeof err === 'string'
-                                ? err
-                                : t('connectors.deleteError')
-                        enqueueSnackbar(message, { variant: 'error' })
-                        setDeleteDialogState({ open: false, connector: null })
-                    }
+                    deleteConnectorMutation.mutate({
+                        applicationId,
+                        connectorId: connector.id
+                    })
+                    setDeleteDialogState({ open: false, connector: null })
                 }}
                 isDeleting={deleteConnectorMutation.isPending}
                 uiLocale={i18n.language}
@@ -742,13 +722,13 @@ const ConnectorList = () => {
                 onCancel={() => {
                     setConflictState({ open: false, conflict: null, pendingUpdate: null })
                     if (applicationId) {
-                        invalidateConnectorsQueries.all(queryClient, applicationId)
+                        void invalidateConnectorsQueries.all(queryClient, applicationId)
                     }
                 }}
                 onOverwrite={async () => {
                     if (conflictState.pendingUpdate && applicationId) {
                         const { id, patch } = conflictState.pendingUpdate
-                        await updateConnectorMutation.mutateAsync({
+                        void updateConnectorMutation.mutateAsync({
                             applicationId,
                             connectorId: id,
                             data: patch

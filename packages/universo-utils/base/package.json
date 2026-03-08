@@ -56,6 +56,11 @@
             "import": "./dist/database/index.mjs",
             "require": "./dist/database/index.js",
             "types": "./dist/database/index.d.ts"
+        },
+        "./optimistic-crud": {
+            "import": "./dist/optimisticCrud.mjs",
+            "require": "./dist/optimisticCrud.js",
+            "types": "./dist/optimisticCrud.d.ts"
         }
     },
     "sideEffects": false,
@@ -68,6 +73,7 @@
     },
     "license": "Omsk Open License",
     "dependencies": {
+        "@tanstack/react-query": "catalog:",
         "@universo/types": "workspace:*",
         "@universo/i18n": "workspace:*",
         "@justrelate/slugify": "catalog:",

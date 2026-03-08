@@ -1039,6 +1039,19 @@ export function createMetahubsRoutes(
                 })
             }
 
+            if (parsed.data.codenameInput === undefined) {
+                const fallbackLocale = normalizeLocaleCode(
+                    parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceMetahub.name?._primary ?? 'en'
+                )
+                codenameLocalizedVlc = buildCodenameLocalizedVlc({ [fallbackLocale]: normalizedCodename }, fallbackLocale, fallbackLocale)
+                console.info('[metahub-copy] codename_localized built from normalizedCodename', {
+                    sourceCodename: sourceMetahub.codename,
+                    normalizedCodename,
+                    fallbackLocale,
+                    codenameLocalizedVlc: JSON.stringify(codenameLocalizedVlc)
+                })
+            }
+
             const existingCodename = await sourceMetahubRepo.findOne({
                 where: { codename: normalizedCodename, _uplDeleted: false, _mhbDeleted: false }
             })
@@ -1116,6 +1129,13 @@ export function createMetahubsRoutes(
                         templateVersionId: sourceMetahub.templateVersionId ?? null,
                         _uplCreatedBy: userId,
                         _uplUpdatedBy: userId
+                    })
+                    console.info('[metahub-copy] saving copied metahub entity', {
+                        id: copiedMetahub.id,
+                        codename: copiedMetahub.codename,
+                        codenameLocalized: JSON.stringify(copiedMetahub.codenameLocalized),
+                        sourceCodename: sourceMetahub.codename,
+                        sourceCodenameLocalized: JSON.stringify(sourceMetahub.codenameLocalized)
                     })
                     await txMetahubRepo.save(copiedMetahub)
 

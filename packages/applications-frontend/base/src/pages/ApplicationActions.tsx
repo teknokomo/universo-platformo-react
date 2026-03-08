@@ -3,7 +3,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField } from '@universo/template-mui'
 import type { ApplicationCopyOptions, VersionedLocalizedContent } from '@universo/types'
 import { normalizeApplicationCopyOptions } from '@universo/utils'
 import type { Application, ApplicationDisplay, ApplicationLocalizedPayload } from '../types'
@@ -179,23 +179,9 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh applications list after edit', e)
-                        }
-                    },
-                    onSave: async (data: Record<string, any>) => {
-                        try {
-                            const payload = toPayload(data)
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
-                        } catch (error: unknown) {
-                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                            throw error
-                        }
+                    onSave: (data: Record<string, any>) => {
+                        const payload = toPayload(data)
+                        return ctx.api?.updateEntity?.(ctx.entity.id, payload)
                     }
                 }
             }
@@ -317,27 +303,13 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh applications list after copy', e)
-                        }
-                    },
-                    onSave: async (data: Record<string, any>) => {
-                        try {
-                            const payload = toPayload(data)
-                            const copyOptions = getApplicationCopyOptions(data)
-                            await ctx.api?.copyEntity?.(ctx.entity.id, {
-                                ...payload,
-                                ...copyOptions
-                            })
-                            await ctx.helpers?.refreshList?.()
-                        } catch (error: unknown) {
-                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                            throw error
-                        }
+                    onSave: (data: Record<string, any>) => {
+                        const payload = toPayload(data)
+                        const copyOptions = getApplicationCopyOptions(data)
+                        return ctx.api?.copyEntity?.(ctx.entity.id, {
+                            ...payload,
+                            ...copyOptions
+                        })
                     }
                 }
             }
@@ -364,14 +336,8 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                 onCancel: () => {
                     // BaseEntityMenu handles dialog closing
                 },
-                onConfirm: async () => {
-                    try {
-                        await ctx.api?.deleteEntity?.(ctx.entity.id)
-                        await ctx.helpers?.refreshList?.()
-                    } catch (error: unknown) {
-                        notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                        throw error
-                    }
+                onConfirm: () => {
+                    return ctx.api?.deleteEntity?.(ctx.entity.id)
                 }
             })
         }

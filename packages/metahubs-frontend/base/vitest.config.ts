@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
 const coreFrontendSrcDir = path.resolve(__dirname, '../../flowise-core-frontend/base/src')
 const templateMuiSrcDir = path.resolve(__dirname, '../../universo-template-mui/base/src')
+const utilsOptimisticCrudSrcFile = path.resolve(__dirname, '../../universo-utils/base/src/optimisticCrud.ts')
 const adminFrontendI18nDir = path.resolve(__dirname, '../../admin-frontend/base/src/i18n/index.ts')
 const startFrontendI18nDir = path.resolve(__dirname, '../../start-frontend/base/src/i18n/index.ts')
 const applicationsFrontendI18nDir = path.resolve(__dirname, '../../applications-frontend/base/src/i18n/index.ts')
@@ -31,6 +32,10 @@ export default mergeConfig(
         {
           find: '@universo/template-mui',
           replacement: path.resolve(templateMuiSrcDir, 'index.ts'),
+        },
+        {
+          find: '@universo/utils/optimistic-crud',
+          replacement: utilsOptimisticCrudSrcFile,
         },
         {
           find: '@universo/admin-frontend/i18n',

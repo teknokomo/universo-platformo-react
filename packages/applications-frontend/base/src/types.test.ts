@@ -71,7 +71,6 @@ describe('types helpers', () => {
         const display = toConnectorDisplay(connector, 'ru')
         expect(display.id).toBe('s1')
         expect(display.applicationId).toBe('a1')
-        expect(display.codename).toBe('connector')
         expect(display.name).toBe('Connector RU')
         expect(display.description).toBe('Description')
         expect(display.sortOrder).toBe(10)

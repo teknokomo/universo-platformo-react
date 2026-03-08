@@ -5,11 +5,10 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frontend'
 import { canManageRole } from '@universo/types'
 import type { MetahubRole } from '@universo/types'
-import { extractAxiosError, isApiError, isHttpStatus } from '@universo/utils'
+import { isPendingEntity, getPendingAction } from '@universo/utils'
 
 // project imports
 import {
@@ -78,11 +77,9 @@ export const MetahubMembers = () => {
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
-    const queryClient = useQueryClient()
 
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)
-    const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     const paginationResult = usePaginated<MetahubMember, 'email' | 'role' | 'created'>({
         queryKeyFn: (params) => metahubsQueryKeys.membersList(metahubId!, params),
@@ -131,13 +128,12 @@ export const MetahubMembers = () => {
         setInviteDialogOpen(false)
     }
 
-    const handleInviteMember = async (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
-        if (!metahubId) return
+    const handleInviteMember = (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
+        if (!metahubId) return Promise.resolve()
 
-        setInviteDialogError(null)
-        try {
-            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
-            await inviteMember.mutateAsync({
+        const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+        void inviteMember
+            .mutateAsync({
                 metahubId,
                 data: {
                     email: data.email,
@@ -146,23 +142,10 @@ export const MetahubMembers = () => {
                     commentPrimaryLocale
                 }
             })
-            handleInviteDialogSave()
-        } catch (error: unknown) {
-            let message = tc('members.inviteError')
+            .catch(() => undefined)
+        handleInviteDialogSave()
 
-            if (isHttpStatus(error, 404)) {
-                message = tc('members.userNotFound', { email: data.email })
-            } else if (isHttpStatus(error, 409) && isApiError(error, 'METAHUB_MEMBER_EXISTS')) {
-                message = tc('members.userAlreadyMember', { email: data.email })
-            } else {
-                const apiError = extractAxiosError(error)
-                message = apiError.message || message
-            }
-
-            setInviteDialogError(message)
-            // eslint-disable-next-line no-console
-            console.error('Failed to invite member', error)
-        }
+        return Promise.resolve()
     }
 
     const resolveMemberComment = useCallback(
@@ -246,36 +229,36 @@ export const MetahubMembers = () => {
             entityKind: 'member',
             t: baseContext.t!,
             api: {
-                updateEntity: async (id: string, data: MemberData) => {
-                    if (!metahubId) return
+                updateEntity: (id: string, data: MemberData) => {
+                    if (!metahubId) return Promise.resolve()
                     if (!isMemberFormData(data)) {
                         throw new Error('Invalid member data format')
                     }
-                    await updateMemberRoleMutation.mutateAsync({
-                        metahubId,
-                        memberId: id,
-                        data: (() => {
-                            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
-                            return {
-                                role: data.role as AssignableRole,
-                                comment: commentInput ?? null,
-                                commentPrimaryLocale
-                            }
-                        })()
-                    })
+                    void updateMemberRoleMutation
+                        .mutateAsync({
+                            metahubId,
+                            memberId: id,
+                            data: (() => {
+                                const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+                                return {
+                                    role: data.role as AssignableRole,
+                                    comment: commentInput ?? null,
+                                    commentPrimaryLocale
+                                }
+                            })()
+                        })
+                        .catch(() => undefined)
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
-                    if (!metahubId) return
-                    await removeMemberMutation.mutateAsync({ metahubId, memberId: id })
+                deleteEntity: (id: string) => {
+                    if (!metahubId) return Promise.resolve()
+                    removeMemberMutation.mutate({ metahubId, memberId: id })
+                    return Promise.resolve()
                 }
             },
             helpers: {
-                refreshList: async () => {
-                    if (!metahubId) return
-                    await queryClient.invalidateQueries({
-                        queryKey: metahubsQueryKeys.members(metahubId)
-                    })
-                },
+                refreshList: async () => Promise.resolve(),
                 confirm: async (spec: ConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey && baseContext.t ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title || '',
@@ -307,7 +290,7 @@ export const MetahubMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, metahubId, queryClient, removeMemberMutation, updateMemberRoleMutation]
+        [confirm, enqueueSnackbar, metahubId, removeMemberMutation, updateMemberRoleMutation]
     )
 
     if (!metahubId) {
@@ -416,6 +399,8 @@ export const MetahubMembers = () => {
                                                 }}
                                                 images={images[member.id] || []}
                                                 onClick={undefined}
+                                                pending={isPendingEntity(member)}
+                                                pendingAction={getPendingAction(member)}
                                                 footerEndContent={<RoleChip role={member.role} size='small' />}
                                                 headerAction={
                                                     descriptors.length > 0 ? (
@@ -506,7 +491,6 @@ export const MetahubMembers = () => {
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={inviteMember.isPending}
-                error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
                 autoCloseOnSuccess={false}
@@ -530,26 +514,12 @@ export const MetahubMembers = () => {
                 deletingButtonText={tc('actions.deleting', 'Removing...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 onCancel={() => setRemoveDialogState({ open: false, member: null })}
-                onConfirm={async () => {
+                onConfirm={() => {
                     if (removeDialogState.member && metahubId) {
-                        try {
-                            await removeMemberMutation.mutateAsync({ metahubId, memberId: removeDialogState.member.id })
-                            setRemoveDialogState({ open: false, member: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : tc('members.removeError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setRemoveDialogState({ open: false, member: null })
-                        }
+                        removeMemberMutation.mutate({ metahubId, memberId: removeDialogState.member.id })
+                        setRemoveDialogState({ open: false, member: null })
                     }
+                    return Promise.resolve()
                 }}
             />
         </MainCard>

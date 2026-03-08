@@ -3,6 +3,10 @@ import { styled } from '@mui/material/styles'
 import { Box, Grid, Typography, useTheme, Card } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { SxProps, Theme } from '@mui/material'
+import type { PendingAction } from '@universo/utils'
+import { isPendingInteractionBlocked, shouldShowPendingFeedback } from '@universo/utils'
+import { deletingCardSx, pendingCardSx } from '../../styles/pendingAnimations'
+import { PendingCardOverlay } from './PendingCardOverlay'
 
 // Generic data interface with common fields
 export interface ItemCardData {
@@ -28,6 +32,12 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     sx?: SxProps<Theme>
     /** Size of the color dot in pixels (default: 35) */
     colorDotSize?: number
+    /** Whether this entity is in a pending (optimistic) state */
+    pending?: boolean
+    /** The pending action type — controls animation style */
+    pendingAction?: PendingAction
+    /** Called when a user tries to open an optimistic create/copy before it is ready. */
+    onPendingInteractionAttempt?: () => void
 }
 
 // Use Card instead of MainCard for new UI
@@ -64,7 +74,10 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     footerEndContent = null,
     headerAction = null,
     sx = {},
-    colorDotSize = 35
+    colorDotSize = 35,
+    pending = false,
+    pendingAction,
+    onPendingInteractionAttempt
 }: ItemCardProps<T>): React.ReactElement => {
     const theme = useTheme()
     const imageList = Array.isArray(images) ? images : []
@@ -72,25 +85,71 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     const hasFooterStartContent = Boolean(footerStartContent)
     const hasFooterEndContent = Boolean(footerEndContent)
     const showFooter = hasImages || hasFooterStartContent || hasFooterEndContent
+    const interactionBlocked = pending && isPendingInteractionBlocked(data)
+    // Deferred feedback: spinner + pulsating glow only after user clicks a pending entity
+    const showPendingSpinner = pending && shouldShowPendingFeedback(data) && (pendingAction === 'create' || pendingAction === 'copy')
+
+    const handleCardClick = () => {
+        if (interactionBlocked) {
+            onPendingInteractionAttempt?.()
+            return
+        }
+
+        if (!href && !pending) {
+            onClick?.()
+        }
+    }
 
     const cardContent = (
         <CardWrapper
             allowStretch={allowStretch}
-            onClick={!href ? onClick : undefined}
-            sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 1, ...sx }}
+            onClick={!href ? handleCardClick : undefined}
+            sx={{
+                border: 1,
+                borderColor: theme.palette.grey[300],
+                borderRadius: 1,
+                cursor: interactionBlocked ? 'wait' : pending ? 'default' : href || onClick ? 'pointer' : 'default',
+                ...sx,
+                ...(pending && pendingAction === 'delete' ? deletingCardSx : {}),
+                ...(showPendingSpinner ? pendingCardSx : {})
+            }}
         >
             <Box sx={{ height: '100%', p: 2, position: 'relative' }}>
+                {/* Spinner for pending create/copy cards */}
+                {showPendingSpinner && pendingAction && <PendingCardOverlay action={pendingAction} />}
                 {/* Header action positioned tighter to the top-right corner */}
                 {headerAction && (
                     <Box
                         data-header-action
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
+                        onClickCapture={
+                            interactionBlocked
+                                ? (e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      onPendingInteractionAttempt?.()
+                                  }
+                                : undefined
+                        }
+                        onMouseDownCapture={
+                            interactionBlocked
+                                ? (e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                  }
+                                : undefined
+                        }
+                        onClick={(e) => {
+                            e.stopPropagation()
+                        }}
+                        onMouseDown={(e) => {
+                            e.stopPropagation()
+                        }}
                         sx={{
                             position: 'absolute',
                             top: -12,
                             right: -12,
-                            zIndex: 10
+                            zIndex: 10,
+                            ...(interactionBlocked ? { pointerEvents: 'none' as const } : {})
                         }}
                     >
                         {headerAction}
@@ -224,7 +283,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                     )}
                 </Grid>
             </Box>
-            {href && (
+            {href && !pending && (
                 <Link
                     to={href}
                     style={{
@@ -235,6 +294,28 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                         height: '100%',
                         zIndex: 5,
                         opacity: 0
+                    }}
+                />
+            )}
+            {href && interactionBlocked && onPendingInteractionAttempt && (
+                <Box
+                    component='button'
+                    type='button'
+                    aria-label='pending-item-interaction'
+                    onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        onPendingInteractionAttempt()
+                    }}
+                    sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 6,
+                        border: 0,
+                        background: 'transparent',
+                        cursor: 'wait',
+                        p: 0,
+                        m: 0
                     }}
                 />
             )}

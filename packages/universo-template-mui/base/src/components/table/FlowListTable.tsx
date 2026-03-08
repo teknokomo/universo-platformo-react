@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
-import { formatDate } from '@universo/utils'
+import { formatDate, getPendingAction, isPendingEntity, isPendingInteractionBlocked, shouldShowPendingFeedback } from '@universo/utils'
 import { alpha, styled } from '@mui/material/styles'
 import {
     Box,
@@ -24,6 +24,7 @@ import i18n from '@universo/i18n'
 import { Link } from 'react-router-dom'
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableTableRow, SortableTableBody, InternalDndWrapper } from './FlowListTableDnd'
+import { pendingRowSx } from '../../styles/pendingAnimations'
 
 import type { StyledComponent } from '@emotion/styled'
 import type { TableCellProps, TableRowProps } from '@mui/material'
@@ -133,6 +134,8 @@ export interface FlowListTableProps<T extends FlowListTableData = FlowListTableD
     isDropTargetInvalid?: boolean
     /** Message to display when data is empty. Maintains droppable zone height for DnD. */
     emptyStateMessage?: string
+    /** Called when a user tries to open an optimistic create/copy row before it is ready. */
+    onPendingInteractionAttempt?: (row: T) => void
 }
 
 const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean): string => {
@@ -171,7 +174,8 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     dragDisabled = false,
     isDropTarget = false,
     isDropTargetInvalid = false,
-    emptyStateMessage
+    emptyStateMessage,
+    onPendingInteractionAttempt
 }: FlowListTableProps<T>): React.ReactElement => {
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
@@ -250,6 +254,29 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
 
     const activeFilter = typeof filterFunction === 'function' ? filterFunction : () => true
+
+    const getPendingRowStyles = (row: T) => {
+        if (!isPendingEntity(row)) return undefined
+        const action = getPendingAction(row)
+
+        // Delete: visual fade-out + line-through + disable interaction
+        if (action === 'delete') {
+            return {
+                opacity: 0.4,
+                pointerEvents: 'none' as const,
+                textDecoration: 'line-through',
+                transition: 'opacity 0.3s ease-out'
+            }
+        }
+
+        // Create/copy: show running shimmer bar after user clicks the pending row (deferred feedback)
+        if ((action === 'create' || action === 'copy') && shouldShowPendingFeedback(row)) {
+            return pendingRowSx
+        }
+
+        // Create/update/copy without deferred feedback: row looks 100% normal
+        return undefined
+    }
 
     const tableElement = (
         <TableContainer
@@ -376,7 +403,9 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                     const displayData = sortableRows ? sortedData : (sortedData || []).filter(activeFilter)
 
                     const renderRowCells = (row: T, index: number) => {
-                        const linkTarget = buildEntityLink(row)
+                        const rowPending = isPendingEntity(row)
+                        const interactionBlocked = isPendingInteractionBlocked(row)
+                        const linkTarget = rowPending ? undefined : buildEntityLink(row)
                         const displayName = row.templateName || row.name
                         const normalizedUpdatedDate = resolveUpdatedDate(row)
 
@@ -390,14 +419,28 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                     ))}
                                     {renderActions && (
                                         <StyledTableCell key='actions' align='center'>
-                                            <Stack
-                                                direction={{ xs: 'column', sm: 'row' }}
-                                                spacing={1}
-                                                justifyContent='center'
-                                                alignItems='center'
+                                            <Box
+                                                onClickCapture={
+                                                    interactionBlocked && onPendingInteractionAttempt
+                                                        ? (event) => {
+                                                              event.preventDefault()
+                                                              event.stopPropagation()
+                                                              onPendingInteractionAttempt(row)
+                                                          }
+                                                        : undefined
+                                                }
+                                                sx={interactionBlocked ? { cursor: 'wait' } : undefined}
                                             >
-                                                {renderActions(row)}
-                                            </Stack>
+                                                <Stack
+                                                    direction={{ xs: 'column', sm: 'row' }}
+                                                    spacing={1}
+                                                    justifyContent='center'
+                                                    alignItems='center'
+                                                    sx={interactionBlocked ? { opacity: 0.72 } : undefined}
+                                                >
+                                                    {renderActions(row)}
+                                                </Stack>
+                                            </Box>
                                         </StyledTableCell>
                                     )}
                                 </>
@@ -408,22 +451,49 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         return (
                             <>
                                 <StyledTableCell key='0'>
-                                    <Typography
-                                        sx={{
-                                            fontSize: 14,
-                                            fontWeight: 500,
-                                            wordBreak: 'break-word',
-                                            overflowWrap: 'break-word'
-                                        }}
-                                    >
-                                        {linkTarget ? (
-                                            <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
-                                                {displayName}
-                                            </Link>
-                                        ) : (
-                                            displayName
-                                        )}
-                                    </Typography>
+                                    {interactionBlocked && onPendingInteractionAttempt ? (
+                                        <Typography
+                                            component='button'
+                                            type='button'
+                                            onClick={(event) => {
+                                                event.preventDefault()
+                                                event.stopPropagation()
+                                                onPendingInteractionAttempt(row)
+                                            }}
+                                            sx={{
+                                                fontSize: 14,
+                                                fontWeight: 500,
+                                                wordBreak: 'break-word',
+                                                overflowWrap: 'break-word',
+                                                color: 'primary.main',
+                                                background: 'transparent',
+                                                border: 0,
+                                                p: 0,
+                                                m: 0,
+                                                textAlign: 'left',
+                                                cursor: 'wait'
+                                            }}
+                                        >
+                                            {displayName}
+                                        </Typography>
+                                    ) : (
+                                        <Typography
+                                            sx={{
+                                                fontSize: 14,
+                                                fontWeight: 500,
+                                                wordBreak: 'break-word',
+                                                overflowWrap: 'break-word'
+                                            }}
+                                        >
+                                            {linkTarget ? (
+                                                <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
+                                                    {displayName}
+                                                </Link>
+                                            ) : (
+                                                displayName
+                                            )}
+                                        </Typography>
+                                    )}
                                 </StyledTableCell>
                                 {isUnikTable ? (
                                     <StyledTableCell key='1'>
@@ -506,9 +576,28 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                 )}
                                 <StyledTableCell key='3'>{formatDate(normalizedUpdatedDate, 'full')}</StyledTableCell>
                                 <StyledTableCell key='4'>
-                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent='center' alignItems='center'>
-                                        {renderActions ? renderActions(row) : null}
-                                    </Stack>
+                                    <Box
+                                        onClickCapture={
+                                            interactionBlocked && onPendingInteractionAttempt
+                                                ? (event) => {
+                                                      event.preventDefault()
+                                                      event.stopPropagation()
+                                                      onPendingInteractionAttempt(row)
+                                                  }
+                                                : undefined
+                                        }
+                                        sx={interactionBlocked ? { cursor: 'wait' } : undefined}
+                                    >
+                                        <Stack
+                                            direction={{ xs: 'column', sm: 'row' }}
+                                            spacing={1}
+                                            justifyContent='center'
+                                            alignItems='center'
+                                            sx={interactionBlocked ? { opacity: 0.72 } : undefined}
+                                        >
+                                            {renderActions ? renderActions(row) : null}
+                                        </Stack>
+                                    </Box>
                                 </StyledTableCell>
                             </>
                         )
@@ -569,6 +658,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
 
                     // Data rows
                     const dataRows = displayData.map((row, index) => {
+                        const rowPending = isPendingEntity(row)
                         const expansionContent = renderRowExpansion ? renderRowExpansion(row, index) : null
                         const hasExpansion = Boolean(expansionContent)
 
@@ -577,14 +667,21 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                 {sortableRows ? (
                                     <SortableTableRow
                                         id={row.id}
-                                        disabled={dragDisabled}
+                                        disabled={dragDisabled || rowPending}
                                         hasExpansion={hasExpansion}
                                         dragHandleAriaLabel={dragHandleAriaLabel}
+                                        sx={getPendingRowStyles(row)}
                                     >
                                         {renderRowCells(row, index)}
                                     </SortableTableRow>
                                 ) : (
-                                    <StyledTableRow sx={hasExpansion ? { '& td, & th': { borderBottom: 0 } } : undefined}>
+                                    <StyledTableRow
+                                        sx={
+                                            hasExpansion
+                                                ? { '& td, & th': { borderBottom: 0 }, ...(getPendingRowStyles(row) ?? {}) }
+                                                : getPendingRowStyles(row)
+                                        }
+                                    >
                                         {renderRowCells(row, index)}
                                     </StyledTableRow>
                                 )}

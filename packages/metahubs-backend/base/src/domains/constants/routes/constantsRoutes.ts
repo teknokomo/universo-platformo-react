@@ -943,7 +943,11 @@ export function createConstantsRoutes(
                 copyValue: parsed.data.copyValue !== false
             }
 
-            const codenameLocalized = buildCodenameLocalizedVlc(parsed.data.codenameInput, parsed.data.codenamePrimaryLocale)
+            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? 'en')
+            const codenameLocalized =
+                parsed.data.codenameInput === undefined
+                    ? buildCodenameLocalizedVlc({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
+                    : buildCodenameLocalizedVlc(parsed.data.codenameInput, parsed.data.codenamePrimaryLocale)
             const nameInput = parsed.data.name ?? buildDefaultCopyNameInput(source.name)
             const sanitizedName = sanitizeLocalizedInput(nameInput as Record<string, string | undefined>)
             const nameVlc =

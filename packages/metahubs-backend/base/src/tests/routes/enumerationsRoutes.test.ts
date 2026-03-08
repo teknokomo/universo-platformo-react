@@ -81,6 +81,7 @@ const baseDescriptionVlc = {
 
 const mockObjectsService = {
     findById: jest.fn(),
+    createEnumeration: jest.fn(),
     updateEnumeration: jest.fn(),
     restore: jest.fn(),
     permanentDelete: jest.fn(),
@@ -271,6 +272,15 @@ describe('Enumerations Routes', () => {
             _upl_version: 1,
             _upl_created_at: new Date('2026-02-18T00:00:00.000Z').toISOString(),
             _upl_updated_at: new Date('2026-02-18T00:00:00.000Z').toISOString()
+        })
+        mockObjectsService.createEnumeration.mockResolvedValue({
+            id: 'enum-copy-id',
+            codename: 'StatusCopy',
+            presentation: { name: baseNameVlc, description: baseDescriptionVlc },
+            config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+            _upl_version: 1,
+            _upl_created_at: '2026-02-26T00:00:00.000Z',
+            _upl_updated_at: '2026-02-26T00:00:00.000Z'
         })
         mockObjectsService.updateEnumeration.mockImplementation(
             async (_metahubId: string, enumerationId: string, payload: Record<string, unknown>) => ({
@@ -505,8 +515,10 @@ describe('Enumerations Routes', () => {
             expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
             expect(response.body.id).toBe('enum-copy-id')
             expect(response.body.codename).toBe('StatusCopy')
+            expect(response.body.sortOrder).toBe(1)
             expect(response.body.valuesCount).toBe(1)
             expect(tx.valuesInsert).toHaveBeenCalledTimes(1)
+            expect(mockObjectsService.createEnumeration).toHaveBeenCalled()
         })
 
         it('does not copy values when copyValues is disabled', async () => {
@@ -551,6 +563,15 @@ describe('Enumerations Routes', () => {
                     _upl_created_at: '2026-02-26T00:00:00.000Z',
                     _upl_updated_at: '2026-02-26T00:00:00.000Z'
                 }
+            })
+            mockObjectsService.createEnumeration.mockResolvedValueOnce({
+                id: 'enum-copy-id-2',
+                codename: 'StatusCopy_2',
+                presentation: { name: baseNameVlc, description: baseDescriptionVlc },
+                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                _upl_version: 1,
+                _upl_created_at: '2026-02-26T00:00:00.000Z',
+                _upl_updated_at: '2026-02-26T00:00:00.000Z'
             })
 
             mockKnex.transaction

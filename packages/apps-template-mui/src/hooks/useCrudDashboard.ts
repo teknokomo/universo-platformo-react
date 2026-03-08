@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { GridColDef, GridLocaleText, GridPaginationModel } from '@mui/x-data-grid'
+import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
+import { isPendingInteractionBlocked, makePendingMarkers } from '@universo/utils'
+import type { PendingAction } from '@universo/utils'
+import {
+    applyOptimisticCreate,
+    applyOptimisticDelete,
+    applyOptimisticUpdate,
+    confirmOptimisticCreate,
+    confirmOptimisticUpdate,
+    generateOptimisticId,
+    revealPendingEntityFeedback,
+    rollbackOptimisticSnapshots,
+    safeInvalidateQueries,
+    safeInvalidateQueriesInactive
+} from './optimisticCrud'
 import type { AppDataResponse, DashboardLayoutConfig } from '../api/api'
 import type { CrudDataAdapter, CellRendererOverrides } from '../api/types'
 import type { DashboardMenuItem, DashboardMenuSlot } from '../dashboard/Dashboard'
@@ -298,6 +313,7 @@ export interface CrudDashboardState {
     setPaginationModel: (model: GridPaginationModel) => void
     pageSizeOptions: number[]
     localeText: Partial<GridLocaleText> | undefined
+    handlePendingInteractionAttempt: (rowId: string) => boolean
 
     // Catalog selection
     activeCatalogId: string | undefined
@@ -362,6 +378,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     } = options
 
     const { t } = useTranslation(i18nNamespace)
+    const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
 
     // ----- Pagination & catalog -----
@@ -386,6 +403,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- Schema fingerprint (M4) -----
     const formColumnsRef = useRef<string | null>(null)
+    const formRequestIdRef = useRef(0)
+    const deleteRequestIdRef = useRef(0)
 
     // ----- Derived values -----
     const limit = paginationModel.pageSize
@@ -393,6 +412,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // Query key helpers
     const queryKeyPrefix = adapter?.queryKeyPrefix ?? EMPTY_KEY_PREFIX
+    const pendingInteractionMessage = t('app.pendingCreateBlocked', {
+        defaultValue: 'This item is still being created. Please wait a moment and try again.'
+    })
     const listKey = useMemo(
         () => [...queryKeyPrefix, 'list', selectedCatalogId, { limit, offset, locale }] as const,
         [queryKeyPrefix, selectedCatalogId, limit, offset, locale]
@@ -410,6 +432,24 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     })
 
     const appData = listQuery.data
+    const guardPendingRowInteraction = useCallback(
+        (rowId: string) => {
+            const queryEntries = queryClient.getQueriesData<AppDataResponse>({ queryKey: queryKeyPrefix })
+            const pendingRow = queryEntries.flatMap(([, data]) => data?.rows ?? []).find((row) => row.id === rowId)
+
+            if (!pendingRow || !isPendingInteractionBlocked(pendingRow)) return false
+
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix,
+                entityId: rowId,
+                extraQueryKeys: [[...queryKeyPrefix, 'row', rowId]]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+            return true
+        },
+        [enqueueSnackbar, pendingInteractionMessage, queryClient, queryKeyPrefix]
+    )
     const backendActiveCatalogId = appData?.activeCatalogId ?? appData?.catalog.id
     const activeCatalogId = selectedCatalogId ?? backendActiveCatalogId
     const tableColumnRefs = useMemo(
@@ -495,25 +535,70 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- Mutations -----
     const createMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'create'],
         mutationFn: (data: Record<string, unknown>) => {
             if (!adapter) throw new Error('Adapter is not available')
             return adapter.createRow(data, selectedCatalogId)
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
+        onMutate: async (data) => {
+            const optimisticId = generateOptimisticId()
+            const pendingAction: PendingAction = copyRowId ? 'copy' : 'create'
+            return applyOptimisticCreate({
+                queryClient,
+                queryKeyPrefix,
+                optimisticEntity: {
+                    id: optimisticId,
+                    ...data,
+                    ...makePendingMarkers(pendingAction)
+                } as AppDataResponse['rows'][number] & { id: string }
+            })
+        },
+        onError: (_error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
+        },
+        onSuccess: (data, _variables, context) => {
+            if (context?.optimisticId && data?.id) {
+                confirmOptimisticCreate(queryClient, queryKeyPrefix, context.optimisticId, String(data.id), {
+                    serverEntity: data
+                })
+            }
+        },
+        onSettled: () => {
+            safeInvalidateQueriesInactive(queryClient, queryKeyPrefix, queryKeyPrefix)
         }
     })
 
     const updateMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'update'],
         mutationFn: (params: { rowId: string; data: Record<string, unknown> }) => {
             if (!adapter) throw new Error('Adapter is not available')
             return adapter.updateRow(params.rowId, params.data, selectedCatalogId)
         },
-        onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
-            queryClient.invalidateQueries({
-                queryKey: [...queryKeyPrefix, 'row', variables.rowId]
+        onMutate: async ({ rowId, data }) => {
+            const rowDetailKey = [...queryKeyPrefix, 'row', rowId]
+            return applyOptimisticUpdate({
+                queryClient,
+                queryKeyPrefix,
+                entityId: rowId,
+                updater: data as Partial<AppDataResponse['rows'][number]>,
+                detailQueryKey: rowDetailKey
             })
+        },
+        onError: (_error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
+        },
+        onSuccess: async (data, variables) => {
+            await queryClient.cancelQueries({ queryKey: queryKeyPrefix })
+            confirmOptimisticUpdate(queryClient, queryKeyPrefix, variables.rowId, {
+                serverEntity: data ?? null
+            })
+            if (data) {
+                queryClient.setQueryData([...queryKeyPrefix, 'row', variables.rowId], data)
+            }
+        },
+        onSettled: (_data, _error, variables) => {
+            safeInvalidateQueriesInactive(queryClient, queryKeyPrefix, queryKeyPrefix, [...queryKeyPrefix, 'row', variables.rowId])
+            // Also invalidate tabular rows for this row
             queryClient.invalidateQueries({
                 predicate: (query) => {
                     const key = query.queryKey
@@ -524,17 +609,30 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     })
 
     const deleteMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'delete'],
         mutationFn: (rowId: string) => {
             if (!adapter) throw new Error('Adapter is not available')
             return adapter.deleteRow(rowId, selectedCatalogId)
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
+        onMutate: async (rowId) => {
+            return applyOptimisticDelete({
+                queryClient,
+                queryKeyPrefix,
+                entityId: rowId,
+                strategy: 'remove'
+            })
+        },
+        onError: (_error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
+        },
+        onSettled: () => {
+            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
         }
     })
 
     // ----- CRUD handlers -----
     const handleOpenCreate = useCallback(() => {
+        formRequestIdRef.current += 1
         setCopyRowId(null)
         setCopyError(null)
         setEditRowId(null)
@@ -545,6 +643,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const handleOpenEdit = useCallback(
         (rowId: string) => {
+            if (guardPendingRowInteraction(rowId)) return
+            formRequestIdRef.current += 1
             setCopyRowId(null)
             setCopyError(null)
             setEditRowId(rowId)
@@ -552,10 +652,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             formColumnsRef.current = currentSchemaFingerprint
             setFormOpen(true)
         },
-        [currentSchemaFingerprint]
+        [currentSchemaFingerprint, guardPendingRowInteraction]
     )
 
     const handleCloseForm = useCallback(() => {
+        formRequestIdRef.current += 1
         setFormOpen(false)
         setEditRowId(null)
         setCopyRowId(null)
@@ -565,38 +666,36 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     }, [])
 
     const handleFormSubmit = useCallback(
-        async (data: Record<string, unknown>) => {
-            // M4: check for schema drift
+        (data: Record<string, unknown>) => {
             if (formColumnsRef.current && currentSchemaFingerprint && formColumnsRef.current !== currentSchemaFingerprint) {
                 setFormError(
                     t('app.errorSchemaChanged', {
                         defaultValue: 'Schema has changed since this form was opened. Please close and try again.'
                     })
                 )
-                return
+                return Promise.resolve()
             }
-            try {
-                const sanitizedData = stripReadOnlyEnumerationLabelFields({
-                    payload: data,
-                    fieldConfigs
-                })
-                if (copyRowId) {
-                    setCopyError(null)
-                    await createMutation.mutateAsync(sanitizedData)
-                } else if (editRowId) {
-                    await updateMutation.mutateAsync({ rowId: editRowId, data: sanitizedData })
-                } else {
-                    await createMutation.mutateAsync(sanitizedData)
-                }
-                handleCloseForm()
-            } catch (err) {
+
+            const sanitizedData = stripReadOnlyEnumerationLabelFields({
+                payload: data,
+                fieldConfigs
+            })
+            const currentEditRowId = editRowId
+            const currentCopyRowId = copyRowId
+            const isCopyMode = Boolean(currentCopyRowId)
+            const requestId = formRequestIdRef.current
+            const submittedSchemaFingerprint = formColumnsRef.current
+
+            const reopenFormWithError = (err: unknown) => {
+                if (formRequestIdRef.current !== requestId) return
+
                 const msg = extractApiErrorMessage(err)
-                const resolvedError = copyRowId
+                const resolvedError = isCopyMode
                     ? t('app.errorCopy', {
                           defaultValue: 'Copy failed: {{message}}',
                           message: msg
                       })
-                    : editRowId
+                    : currentEditRowId
                     ? t('app.errorUpdate', {
                           defaultValue: 'Update failed: {{message}}',
                           message: msg
@@ -605,31 +704,76 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                           defaultValue: 'Create failed: {{message}}',
                           message: msg
                       })
+
+                setEditRowId(currentEditRowId)
+                setCopyRowId(currentCopyRowId)
                 setFormError(resolvedError)
-                if (copyRowId) {
+                if (isCopyMode) {
                     setCopyError(resolvedError)
+                } else {
+                    setCopyError(null)
                 }
+                formColumnsRef.current = submittedSchemaFingerprint
+                setFormOpen(true)
             }
+
+            setFormError(null)
+            setCopyError(null)
+            setFormOpen(false)
+
+            const mutationPromise = isCopyMode
+                ? createMutation.mutateAsync(sanitizedData)
+                : currentEditRowId
+                ? updateMutation.mutateAsync({ rowId: currentEditRowId, data: sanitizedData })
+                : createMutation.mutateAsync(sanitizedData)
+
+            void mutationPromise
+                .then(() => {
+                    if (formRequestIdRef.current !== requestId) return
+
+                    setEditRowId(null)
+                    setCopyRowId(null)
+                    setFormError(null)
+                    setCopyError(null)
+                    formColumnsRef.current = null
+                })
+                .catch((err: unknown) => {
+                    reopenFormWithError(err)
+                })
+
+            return Promise.resolve()
         },
-        [copyRowId, editRowId, fieldConfigs, updateMutation, createMutation, handleCloseForm, t, currentSchemaFingerprint]
+        [copyRowId, editRowId, fieldConfigs, updateMutation, createMutation, t, currentSchemaFingerprint]
     )
 
-    const handleOpenDelete = useCallback((rowId: string) => {
-        setDeleteRowId(rowId)
-        setDeleteError(null)
-    }, [])
+    const handleOpenDelete = useCallback(
+        (rowId: string) => {
+            if (guardPendingRowInteraction(rowId)) return
+            deleteRequestIdRef.current += 1
+            setDeleteRowId(rowId)
+            setDeleteError(null)
+        },
+        [guardPendingRowInteraction]
+    )
 
     const handleCloseDelete = useCallback(() => {
+        deleteRequestIdRef.current += 1
         setDeleteRowId(null)
         setDeleteError(null)
     }, [])
 
-    const handleConfirmDelete = useCallback(async () => {
-        if (!deleteRowId) return
-        try {
-            await deleteMutation.mutateAsync(deleteRowId)
-            handleCloseDelete()
-        } catch (err) {
+    const handleConfirmDelete = useCallback(() => {
+        if (!deleteRowId) return Promise.resolve()
+
+        const currentDeleteRowId = deleteRowId
+        const requestId = deleteRequestIdRef.current
+
+        setDeleteError(null)
+        setDeleteRowId(null)
+
+        void deleteMutation.mutateAsync(currentDeleteRowId).catch((err: unknown) => {
+            if (deleteRequestIdRef.current !== requestId) return
+
             const msg = extractApiErrorMessage(err)
             setDeleteError(
                 t('app.errorDelete', {
@@ -637,11 +781,16 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                     message: msg
                 })
             )
-        }
-    }, [deleteRowId, deleteMutation, handleCloseDelete, t])
+            setDeleteRowId(currentDeleteRowId)
+        })
+
+        return Promise.resolve()
+    }, [deleteRowId, deleteMutation, t])
 
     const handleOpenCopy = useCallback(
         (rowId: string) => {
+            if (guardPendingRowInteraction(rowId)) return
+            formRequestIdRef.current += 1
             setFormOpen(true)
             setCopyError(null)
             setFormError(null)
@@ -649,7 +798,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setEditRowId(null)
             formColumnsRef.current = currentSchemaFingerprint
         },
-        [currentSchemaFingerprint]
+        [currentSchemaFingerprint, guardPendingRowInteraction]
     )
 
     const handleCloseCopy = useCallback(() => {
@@ -657,11 +806,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     }, [handleCloseForm])
 
     // ----- Row actions menu -----
-    const handleOpenMenu = useCallback((event: React.MouseEvent<HTMLElement>, rowId: string) => {
-        event.stopPropagation()
-        setMenuAnchorEl(event.currentTarget)
-        setMenuRowId(rowId)
-    }, [])
+    const handleOpenMenu = useCallback(
+        (event: React.MouseEvent<HTMLElement>, rowId: string) => {
+            event.stopPropagation()
+            if (guardPendingRowInteraction(rowId)) return
+            setMenuAnchorEl(event.currentTarget)
+            setMenuRowId(rowId)
+        },
+        [guardPendingRowInteraction]
+    )
 
     const handleCloseMenu = useCallback(() => {
         setMenuAnchorEl(null)
@@ -784,6 +937,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setPaginationModel,
         pageSizeOptions,
         localeText,
+        handlePendingInteractionAttempt: guardPendingRowInteraction,
 
         // Catalog
         activeCatalogId,

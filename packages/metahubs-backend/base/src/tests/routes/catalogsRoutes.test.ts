@@ -65,6 +65,7 @@ const mockObjectsService = {
     findById: jest.fn(),
     findByCodename: jest.fn(),
     createCatalog: jest.fn(),
+    createEnumeration: jest.fn(),
     updateCatalog: jest.fn(),
     delete: jest.fn(),
     findDeleted: jest.fn(),
@@ -279,7 +280,18 @@ describe('Catalogs Routes', () => {
         mockObjectsService.findAll.mockResolvedValue([])
         mockObjectsService.findById.mockResolvedValue(null)
         mockObjectsService.findByCodename.mockResolvedValue(null)
-        mockObjectsService.createCatalog.mockResolvedValue(null)
+        mockObjectsService.createCatalog.mockResolvedValue({
+            id: 'catalog-copy-id',
+            codename: 'ProductsCopy',
+            presentation: {
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
+                description: null
+            },
+            config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 6 },
+            _upl_version: 1,
+            _upl_created_at: '2026-02-26T00:00:00.000Z',
+            _upl_updated_at: '2026-02-26T00:00:00.000Z'
+        })
         mockObjectsService.updateCatalog.mockResolvedValue(null)
         mockObjectsService.delete.mockResolvedValue(undefined)
         mockObjectsService.findDeleted.mockResolvedValue([])
@@ -300,7 +312,6 @@ describe('Catalogs Routes', () => {
         mockMetahubRepo.findOne.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'test-metahub-id' })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
-        mockGenerateTableName.mockImplementation((id: string, kind: string) => `${kind}_${id}`)
     })
 
     describe('GET /metahub/:metahubId/catalogs', () => {
@@ -721,11 +732,12 @@ describe('Catalogs Routes', () => {
                 .expect(201)
 
             expect(mockEnsureSchema).toHaveBeenCalledWith('test-metahub-id', 'test-user-id')
-            expect(mockGenerateTableName).toHaveBeenCalledWith('catalog-copy-id', 'catalog')
             expect(response.body.id).toBe('catalog-copy-id')
             expect(response.body.codename).toBe('ProductsCopy')
+            expect(response.body.sortOrder).toBe(6)
             expect(response.body.attributesCount).toBe(0)
             expect(response.body.elementsCount).toBe(0)
+            expect(mockObjectsService.createCatalog).toHaveBeenCalled()
         })
 
         it('copies attributes and elements by default when options are omitted', async () => {
@@ -804,6 +816,18 @@ describe('Catalogs Routes', () => {
                     _upl_created_at: '2026-02-26T00:00:00.000Z',
                     _upl_updated_at: '2026-02-26T00:00:00.000Z'
                 }
+            })
+            mockObjectsService.createCatalog.mockResolvedValueOnce({
+                id: 'catalog-copy-id-2',
+                codename: 'ProductsCopy_2',
+                presentation: {
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
+                    description: null
+                },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 6 },
+                _upl_version: 1,
+                _upl_created_at: '2026-02-26T00:00:00.000Z',
+                _upl_updated_at: '2026-02-26T00:00:00.000Z'
             })
 
             mockKnex.transaction

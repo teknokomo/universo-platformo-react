@@ -22,12 +22,34 @@ const createTestQueryClient = () =>
 describe('applications mutation hooks', () => {
     it('runs success flows: calls APIs, invalidates queries, and enqueues success snackbars', async () => {
         const enqueueSnackbar = vi.fn()
+        const templateMuiMock = {
+            applyOptimisticCreate: vi.fn().mockResolvedValue({ previousSnapshots: [], optimisticId: 'opt-1' }),
+            applyOptimisticUpdate: vi.fn().mockResolvedValue({ previousSnapshots: [] }),
+            applyOptimisticDelete: vi.fn().mockResolvedValue({ previousSnapshots: [] }),
+            rollbackOptimisticSnapshots: vi.fn(),
+            confirmOptimisticUpdate: vi.fn(),
+            confirmOptimisticCreate: vi.fn(),
+            generateOptimisticId: vi.fn(() => 'opt-1'),
+            getNextOptimisticSortOrderFromQueries: vi.fn(() => 1),
+            safeInvalidateQueries: vi.fn((queryClient: QueryClient, _domain: unknown, ...queryKeys: unknown[]) => {
+                queryKeys.forEach((queryKey) => {
+                    queryClient.invalidateQueries({ queryKey: queryKey as any })
+                })
+            }),
+            safeInvalidateQueriesInactive: vi.fn((queryClient: QueryClient, _domain: unknown, ...queryKeys: unknown[]) => {
+                queryKeys.forEach((queryKey) => {
+                    queryClient.invalidateQueries({ queryKey: queryKey as any, refetchType: 'inactive' })
+                })
+            }),
+            makePendingMarkers: vi.fn(() => ({}))
+        }
 
         vi.doMock('notistack', () => ({
             useSnackbar: () => ({ enqueueSnackbar })
         }))
 
         vi.doMock('react-i18next', () => ({
+            initReactI18next: { type: '3rdParty', init: () => {} },
             useTranslation: () => ({
                 t: (_key: string, fallback?: string) => fallback ?? _key,
                 i18n: { language: 'en' }
@@ -40,19 +62,21 @@ describe('applications mutation hooks', () => {
             })
         }))
 
+        vi.doMock('@universo/template-mui', () => templateMuiMock)
+
         const applicationsApi = {
             createApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             updateApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             deleteApplication: vi.fn().mockResolvedValue({ data: {} }),
             copyApplication: vi.fn().mockResolvedValue({ data: { id: 'm2' } }),
-            inviteApplicationMember: vi.fn().mockResolvedValue({ data: {} }),
+            inviteApplicationMember: vi.fn().mockResolvedValue({ data: { id: 'u2' } }),
             updateApplicationMemberRole: vi.fn().mockResolvedValue({ data: {} }),
             removeApplicationMember: vi.fn().mockResolvedValue({ data: {} })
         }
 
         const connectorsApi = {
-            createConnector: vi.fn().mockResolvedValue({ id: 'h1' }),
-            updateConnector: vi.fn().mockResolvedValue({ id: 'h1' }),
+            createConnector: vi.fn().mockResolvedValue({ data: { id: 'h1' } }),
+            updateConnector: vi.fn().mockResolvedValue({ data: { id: 'h1' } }),
             deleteConnector: vi.fn().mockResolvedValue({ data: {} }),
             syncApplication: vi.fn().mockResolvedValue({ status: 'created' })
         }
@@ -71,6 +95,7 @@ describe('applications mutation hooks', () => {
         let copyApplication: ReturnType<typeof hooks.useCopyApplication> | undefined
 
         let memberMutations: ReturnType<typeof hooks.useMemberMutations> | undefined
+        let connectorMutations: ReturnType<typeof hooks.useConnectorMutations> | undefined
 
         function Probe() {
             createApplication = hooks.useCreateApplication()
@@ -79,6 +104,7 @@ describe('applications mutation hooks', () => {
             copyApplication = hooks.useCopyApplication()
 
             memberMutations = hooks.useMemberMutations('m1')
+            connectorMutations = hooks.useConnectorMutations('m1')
 
             return null
         }
@@ -101,6 +127,10 @@ describe('applications mutation hooks', () => {
             await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
             await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
             await memberMutations!.removeMember('u1')
+
+            await connectorMutations!.createConnector({ name: { en: 'Connector 1' } })
+            await connectorMutations!.updateConnector('h1', { name: { en: 'Connector 2' } })
+            await connectorMutations!.deleteConnector('h1')
         })
 
         expect(applicationsApi.createApplication).toHaveBeenCalledTimes(1)
@@ -129,6 +159,38 @@ describe('applications mutation hooks', () => {
         expect(applicationsApi.updateApplicationMemberRole).toHaveBeenCalledWith('m1', 'u1', { role: 'admin' })
         expect(applicationsApi.removeApplicationMember).toHaveBeenCalledWith('m1', 'u1')
 
+        expect(connectorsApi.createConnector).toHaveBeenCalledWith('m1', { name: { en: 'Connector 1' } })
+        expect(connectorsApi.updateConnector).toHaveBeenCalledWith('m1', 'h1', { name: { en: 'Connector 2' } })
+        expect(connectorsApi.deleteConnector).toHaveBeenCalledWith('m1', 'h1')
+
+        expect(templateMuiMock.confirmOptimisticCreate).toHaveBeenCalledWith(
+            queryClient,
+            ['applications', 'list'],
+            'opt-1',
+            'm1',
+            expect.objectContaining({ serverEntity: expect.objectContaining({ id: 'm1' }) })
+        )
+        expect(templateMuiMock.confirmOptimisticCreate).toHaveBeenCalledWith(
+            queryClient,
+            ['applications', 'detail', 'm1', 'members'],
+            'opt-1',
+            'u2',
+            expect.objectContaining({ serverEntity: expect.objectContaining({ id: 'u2' }) })
+        )
+        expect(templateMuiMock.confirmOptimisticCreate).toHaveBeenCalledWith(
+            queryClient,
+            ['applications', 'detail', 'm1', 'connectors'],
+            'opt-1',
+            'h1',
+            expect.objectContaining({ serverEntity: expect.objectContaining({ id: 'h1' }) })
+        )
+        expect(templateMuiMock.confirmOptimisticCreate).toHaveBeenCalledWith(
+            queryClient,
+            ['applications', 'list'],
+            'opt-1',
+            'm2',
+            expect.objectContaining({ serverEntity: expect.objectContaining({ id: 'm2' }) })
+        )
         expect(invalidateSpy).toHaveBeenCalled()
         expect(enqueueSnackbar).toHaveBeenCalled()
     })
@@ -141,6 +203,7 @@ describe('applications mutation hooks', () => {
         }))
 
         vi.doMock('react-i18next', () => ({
+            initReactI18next: { type: '3rdParty', init: () => {} },
             useTranslation: () => ({
                 t: (_key: string, fallback?: string) => fallback ?? _key,
                 i18n: { language: 'en' }
@@ -151,6 +214,27 @@ describe('applications mutation hooks', () => {
             useCommonTranslations: () => ({
                 t: (key: string) => key
             })
+        }))
+
+        vi.doMock('@universo/template-mui', () => ({
+            applyOptimisticCreate: vi.fn().mockResolvedValue({ previousSnapshots: [], optimisticId: 'opt-1' }),
+            applyOptimisticUpdate: vi.fn().mockResolvedValue({ previousSnapshots: [] }),
+            applyOptimisticDelete: vi.fn().mockResolvedValue({ previousSnapshots: [] }),
+            rollbackOptimisticSnapshots: vi.fn(),
+            confirmOptimisticUpdate: vi.fn(),
+            confirmOptimisticCreate: vi.fn(),
+            generateOptimisticId: vi.fn(() => 'opt-1'),
+            safeInvalidateQueries: vi.fn((queryClient: QueryClient, _domain: unknown, ...queryKeys: unknown[]) => {
+                queryKeys.forEach((queryKey) => {
+                    queryClient.invalidateQueries({ queryKey: queryKey as any })
+                })
+            }),
+            safeInvalidateQueriesInactive: vi.fn((queryClient: QueryClient, _domain: unknown, ...queryKeys: unknown[]) => {
+                queryKeys.forEach((queryKey) => {
+                    queryClient.invalidateQueries({ queryKey: queryKey as any, refetchType: 'inactive' })
+                })
+            }),
+            makePendingMarkers: vi.fn(() => ({}))
         }))
 
         const applicationsApi = {
@@ -198,12 +282,33 @@ describe('applications mutation hooks', () => {
 
     it('invalidates lists and shows partial-failure message when copy succeeds but sync fails', async () => {
         const enqueueSnackbar = vi.fn()
+        const templateMuiMock = {
+            applyOptimisticCreate: vi.fn().mockResolvedValue({ previousSnapshots: [], optimisticId: 'opt-1' }),
+            applyOptimisticUpdate: vi.fn().mockResolvedValue({ previousSnapshots: [] }),
+            applyOptimisticDelete: vi.fn().mockResolvedValue({ previousSnapshots: [] }),
+            rollbackOptimisticSnapshots: vi.fn(),
+            confirmOptimisticUpdate: vi.fn(),
+            confirmOptimisticCreate: vi.fn(),
+            generateOptimisticId: vi.fn(() => 'opt-1'),
+            safeInvalidateQueries: vi.fn((queryClient: QueryClient, _domain: unknown, ...queryKeys: unknown[]) => {
+                queryKeys.forEach((queryKey) => {
+                    queryClient.invalidateQueries({ queryKey: queryKey as any })
+                })
+            }),
+            safeInvalidateQueriesInactive: vi.fn((queryClient: QueryClient, _domain: unknown, ...queryKeys: unknown[]) => {
+                queryKeys.forEach((queryKey) => {
+                    queryClient.invalidateQueries({ queryKey: queryKey as any, refetchType: 'inactive' })
+                })
+            }),
+            makePendingMarkers: vi.fn(() => ({}))
+        }
 
         vi.doMock('notistack', () => ({
             useSnackbar: () => ({ enqueueSnackbar })
         }))
 
         vi.doMock('react-i18next', () => ({
+            initReactI18next: { type: '3rdParty', init: () => {} },
             useTranslation: () => ({
                 t: (_key: string, fallback?: string) => fallback ?? _key,
                 i18n: { language: 'en' }
@@ -215,6 +320,8 @@ describe('applications mutation hooks', () => {
                 t: (key: string) => key
             })
         }))
+
+        vi.doMock('@universo/template-mui', () => templateMuiMock)
 
         const applicationsApi = {
             copyApplication: vi.fn().mockResolvedValue({ data: { id: 'copied-app-id' } })
@@ -266,6 +373,7 @@ describe('applications mutation hooks', () => {
             String(call?.[0] ?? '').includes('Application was copied, but schema creation failed')
         )
         expect(partialFailureCall).toBeTruthy()
-        expect(partialFailureCall?.[1]).toMatchObject({ variant: 'error' })
+        expect(partialFailureCall?.[1]).toMatchObject({ variant: 'warning' })
+        expect(templateMuiMock.rollbackOptimisticSnapshots).not.toHaveBeenCalled()
     })
 })

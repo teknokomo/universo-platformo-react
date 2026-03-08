@@ -77,7 +77,7 @@ export const HubDeleteDialog = ({
     const blockingQuery = useQuery({
         queryKey: metahubsQueryKeys.blockingCatalogs(metahubId, hubId),
         queryFn: () => getBlockingCatalogs(metahubId, hubId),
-        enabled: open && Boolean(hubId),
+        enabled: open && Boolean(hubId) && !isDeleting,
         retry: false,
         refetchOnWindowFocus: open ? 'always' : false
     })
@@ -121,6 +121,7 @@ export const HubDeleteDialog = ({
 
     const handleConfirm = () => {
         if (hub && canDelete) {
+            onClose()
             onConfirm(hub)
         }
     }

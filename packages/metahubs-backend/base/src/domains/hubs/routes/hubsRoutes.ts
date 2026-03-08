@@ -53,21 +53,10 @@ type RelatedObjectRow = {
     }
 }
 
-type CopiedHubRow = {
-    id: string
-    codename: string
-    presentation?: {
-        codename?: unknown
-        name?: unknown
-        description?: unknown
-    }
-    config?: {
-        sortOrder?: number
-        parentHubId?: unknown
-    }
-    _upl_version?: number
-    _upl_created_at?: unknown
-    _upl_updated_at?: unknown
+type CopiedHubRow = HubListItemRow & {
+    codenameLocalized?: unknown
+    name?: unknown
+    description?: unknown
 }
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -882,6 +871,9 @@ export function createHubsRoutes(
                           )
                         : null
             }
+            const codenamePrimaryLocale = normalizeLocaleCode(
+                parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary
+            )
 
             const {
                 style: codenameStyle,
@@ -933,30 +925,26 @@ export function createHubsRoutes(
 
             const createHubCopy = async (codename: string) => {
                 return knex.transaction(async (trx) => {
-                    const now = new Date()
+                    const codenameLocalizedForCopy =
+                        parsed.data.codenameInput === undefined
+                            ? buildLocalizedContent({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
+                            : codenameLocalizedVlc
 
-                    const [copiedHub] = await trx
-                        .withSchema(schemaName)
-                        .into('_mhb_objects')
-                        .insert({
-                            kind: MetaEntityKind.HUB,
+                    const copiedHub = (await hubsService.create(
+                        metahubId,
+                        {
                             codename,
-                            table_name: null,
-                            presentation: {
-                                codename: codenameLocalizedVlc ?? null,
-                                name: nameVlc,
-                                description: descriptionVlc ?? null
-                            },
-                            config: {
-                                sortOrder: undefined,
-                                parentHubId: targetParentHubId ?? null
-                            },
-                            _upl_created_at: now,
-                            _upl_created_by: userId ?? null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: userId ?? null
-                        })
-                        .returning('*')
+                            codenameLocalized: (codenameLocalizedForCopy as unknown as Record<string, unknown> | null | undefined) ?? null,
+                            name: nameVlc as unknown as Record<string, unknown>,
+                            description: (descriptionVlc as unknown as Record<string, unknown> | undefined) ?? undefined,
+                            parentHubId: targetParentHubId ?? null,
+                            createdBy: userId
+                        },
+                        userId,
+                        trx
+                    )) as CopiedHubRow
+
+                    const now = new Date()
 
                     const relationKinds: MetaEntityKind[] = []
                     if (copyOptions.copyCatalogRelations) relationKinds.push(MetaEntityKind.CATALOG)
@@ -1066,14 +1054,14 @@ export function createHubsRoutes(
             return res.status(201).json({
                 id: copiedHub.id,
                 codename: copiedHub.codename,
-                codenameLocalized: copiedHub.presentation?.codename ?? null,
-                name: copiedHub.presentation?.name ?? {},
-                description: copiedHub.presentation?.description ?? null,
-                sortOrder: copiedHub.config?.sortOrder ?? 0,
-                parentHubId: typeof copiedHub.config?.parentHubId === 'string' ? copiedHub.config.parentHubId : null,
+                codenameLocalized: copiedHub.codenameLocalized ?? null,
+                name: copiedHub.name ?? {},
+                description: copiedHub.description ?? null,
+                sortOrder: copiedHub.sort_order ?? 0,
+                parentHubId: copiedHub.parent_hub_id ?? null,
                 version: copiedHub._upl_version || 1,
-                createdAt: copiedHub._upl_created_at,
-                updatedAt: copiedHub._upl_updated_at
+                createdAt: copiedHub.created_at,
+                updatedAt: copiedHub.updated_at
             })
         })
     )

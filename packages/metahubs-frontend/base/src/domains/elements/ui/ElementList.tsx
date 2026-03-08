@@ -35,7 +35,8 @@ import {
     useDebouncedSearch,
     PaginationControls,
     FlowListTable,
-    useConfirm
+    useConfirm,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
 import { ConfirmDeleteDialog, DynamicEntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
@@ -547,6 +548,7 @@ const ElementList = () => {
     const [isSubmitting, setSubmitting] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     // Can load data when we have metahubId and catalogId
     // hubId is optional - elements/attributes belong to catalog directly
@@ -1136,6 +1138,21 @@ const ElementList = () => {
         return new Map(sortedElements.map((element) => [element.id, element]))
     }, [sortedElements])
 
+    const handlePendingElementInteraction = useCallback(
+        (elementId: string) => {
+            if (!metahubId || !catalogId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: effectiveHubId
+                    ? metahubsQueryKeys.elements(metahubId, effectiveHubId, catalogId)
+                    : metahubsQueryKeys.elementsDirect(metahubId, catalogId),
+                entityId: elementId
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [catalogId, effectiveHubId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+    )
+
     const elementOrderMap = useMemo(() => {
         const map = new Map<string, number>()
         sortedElements.forEach((element, index) => {
@@ -1433,26 +1450,25 @@ const ElementList = () => {
                             const conflict = extractConflictInfo(error)
                             if (conflict) {
                                 setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { data: patch } } })
-                                return
                             }
                         }
                         throw error
                     }
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId || !catalogId) return
-                    await deleteElementMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, elementId: id })
+                    return deleteElementMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, elementId: id })
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId && catalogId) {
                         if (effectiveHubId) {
-                            await invalidateElementsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                            void invalidateElementsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
                         }
                         // Also invalidate catalog-level queries
-                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId) })
-                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(metahubId, catalogId) })
+                        void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId) })
+                        void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(metahubId, catalogId) })
                     }
                 },
                 confirm: async (spec: any) => {
@@ -1649,17 +1665,15 @@ const ElementList = () => {
 
     const handleCreateElement = async (data: Record<string, unknown>) => {
         setDialogError(null)
-        setSubmitting(true)
         try {
             const normalizedData = applySetReferenceDefaultsToPayload(data)
-            await createElementMutation.mutateAsync({
+            createElementMutation.mutate({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
                 data: { data: normalizedData }
             })
 
-            // Invalidation handled by mutation hook
             handleDialogClose()
         } catch (e: unknown) {
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
@@ -1685,7 +1699,7 @@ const ElementList = () => {
         setSubmitting(true)
         try {
             const normalizedData = applySetReferenceDefaultsToPayload(data)
-            await updateElementMutation.mutateAsync({
+            updateElementMutation.mutate({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
@@ -1715,10 +1729,9 @@ const ElementList = () => {
     const handleCopyElement = async (values: Record<string, unknown>) => {
         if (!copyingElement) return
         setCopyDialogError(null)
-        setSubmitting(true)
         try {
             const normalizedData = applySetReferenceDefaultsToPayload(values)
-            await createElementMutation.mutateAsync({
+            createElementMutation.mutate({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
@@ -1870,6 +1883,7 @@ const ElementList = () => {
                                 data={sortedElements.map(getElementTableData)}
                                 images={images}
                                 isLoading={isLoading}
+                                onPendingInteractionAttempt={(row: HubElementDisplay) => handlePendingElementInteraction(row.id)}
                                 customColumns={elementColumns}
                                 sortableRows
                                 sortableItemIds={sortedElements.map((element) => element.id)}
@@ -1991,31 +2005,32 @@ const ElementList = () => {
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 onCancel={() => setDeleteDialogState({ open: false, element: null })}
-                onConfirm={async () => {
-                    if (deleteDialogState.element) {
-                        try {
-                            await deleteElementMutation.mutateAsync({
-                                metahubId,
-                                hubId: effectiveHubId,
-                                catalogId,
-                                elementId: deleteDialogState.element.id
-                            })
-                            setDeleteDialogState({ open: false, element: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('elements.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, element: null })
+                onConfirm={() => {
+                    if (!deleteDialogState.element) return
+
+                    deleteElementMutation.mutate(
+                        {
+                            metahubId,
+                            hubId: effectiveHubId,
+                            catalogId,
+                            elementId: deleteDialogState.element.id
+                        },
+                        {
+                            onError: (err: unknown) => {
+                                const responseMessage =
+                                    err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                                const message =
+                                    typeof responseMessage === 'string'
+                                        ? responseMessage
+                                        : err instanceof Error
+                                        ? err.message
+                                        : typeof err === 'string'
+                                        ? err
+                                        : t('elements.deleteError')
+                                enqueueSnackbar(message, { variant: 'error' })
+                            }
                         }
-                    }
+                    )
                 }}
             />
             <ConflictResolutionDialog

@@ -512,14 +512,6 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh hubs list after edit', e)
-                        }
-                    },
                     onSave: async (data: HubFormValues) => {
                         try {
                             const payload = toPayload(data)
@@ -540,8 +532,7 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                                     throw DIALOG_SAVE_CANCEL
                                 }
                             }
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             if (
                                 error &&
@@ -602,14 +593,6 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh hubs list after copy', e)
-                        }
-                    },
                     onSave: async (data: HubFormValues) => {
                         try {
                             const payload = toPayload(data)
@@ -631,11 +614,10 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                                     throw DIALOG_SAVE_CANCEL
                                 }
                             }
-                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                            void ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
                                 ...copyOptions
                             })
-                            await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             if (
                                 error &&

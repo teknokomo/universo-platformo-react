@@ -6,6 +6,7 @@ vi.mock('@universo/template-mui', () => ({
     createMemberActions: vi.fn((config: unknown) => config),
     LocalizedInlineField: () => null,
     useCodenameAutoFill: () => undefined,
+    useCodenameVlcSync: () => undefined,
     notifyError: vi.fn()
 }))
 
@@ -20,11 +21,26 @@ const baseHelpers = () => ({
     enqueueSnackbar: vi.fn()
 })
 
+const expectImmediateSettlement = async (result: void | Promise<void> | undefined) => {
+    let settled = false
+
+    if (result && typeof (result as Promise<void>).finally === 'function') {
+        void (result as Promise<void>).finally(() => {
+            settled = true
+        })
+    } else {
+        settled = true
+    }
+
+    await Promise.resolve()
+    expect(settled).toBe(true)
+}
+
 type CopyDescriptor = {
     id?: string
     dialog?: {
         buildProps: (ctx: unknown) => {
-            onSave: (values: unknown) => Promise<void>
+            onSave: (values: unknown) => void | Promise<void>
         }
     }
 }
@@ -39,7 +55,7 @@ describe('Entity copy option payloads', () => {
         const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
-        const copyEntity = vi.fn().mockResolvedValue(undefined)
+        const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
         const helpers = baseHelpers()
         const props = copy?.dialog?.buildProps({
             entity: { id: 'hub-1', codename: 'main-hub', name: 'Main hub', description: '' },
@@ -50,7 +66,7 @@ describe('Entity copy option payloads', () => {
         })
         expect(props).toBeTruthy()
 
-        await props?.onSave({
+        const result = props?.onSave({
             nameVlc: makeVlc('Main hub (copy)'),
             descriptionVlc: null,
             codename: 'main-hub-copy',
@@ -65,7 +81,8 @@ describe('Entity copy option payloads', () => {
                 copyEnumerationRelations: false
             })
         )
-        expect(helpers.refreshList).toHaveBeenCalled()
+        await expectImmediateSettlement(result)
+        expect(helpers.refreshList).not.toHaveBeenCalled()
     })
 
     it('normalizes catalog copy options before sending payload', async () => {
@@ -73,7 +90,7 @@ describe('Entity copy option payloads', () => {
         const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
-        const copyEntity = vi.fn().mockResolvedValue(undefined)
+        const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
         const helpers = baseHelpers()
         const props = copy?.dialog?.buildProps({
             entity: { id: 'catalog-1', codename: 'products', name: 'Products', description: '' },
@@ -84,7 +101,7 @@ describe('Entity copy option payloads', () => {
         })
         expect(props).toBeTruthy()
 
-        await props?.onSave({
+        const result = props?.onSave({
             nameVlc: makeVlc('Products (copy)'),
             descriptionVlc: null,
             codename: 'products-copy',
@@ -99,7 +116,8 @@ describe('Entity copy option payloads', () => {
                 copyElements: false
             })
         )
-        expect(helpers.refreshList).toHaveBeenCalled()
+        await expectImmediateSettlement(result)
+        expect(helpers.refreshList).not.toHaveBeenCalled()
     })
 
     it('applies default enumeration copy options when not provided', async () => {
@@ -107,7 +125,7 @@ describe('Entity copy option payloads', () => {
         const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
-        const copyEntity = vi.fn().mockResolvedValue(undefined)
+        const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
         const helpers = baseHelpers()
         const props = copy?.dialog?.buildProps({
             entity: { id: 'enum-1', codename: 'status', name: 'Status', description: '' },
@@ -118,7 +136,7 @@ describe('Entity copy option payloads', () => {
         })
         expect(props).toBeTruthy()
 
-        await props?.onSave({
+        const result = props?.onSave({
             nameVlc: makeVlc('Status (copy)'),
             descriptionVlc: null,
             codename: 'status-copy'
@@ -130,6 +148,106 @@ describe('Entity copy option payloads', () => {
                 copyValues: true
             })
         )
-        expect(helpers.refreshList).toHaveBeenCalled()
+        await expectImmediateSettlement(result)
+        expect(helpers.refreshList).not.toHaveBeenCalled()
+    })
+
+    it('returns immediately from publication edit save while update mutation is still pending', async () => {
+        const mod = await import('../../../publications/ui/PublicationActions')
+        const edit = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'edit')
+        expect(edit).toBeTruthy()
+
+        const updateEntity = vi.fn().mockReturnValue(new Promise(() => {}))
+        const helpers = baseHelpers()
+        const props = edit?.dialog?.buildProps({
+            entity: { id: 'publication-1', name: 'Main publication', description: 'Initial', accessMode: 'full' },
+            uiLocale: 'en',
+            t: (key: string, defaultValue?: string) => defaultValue ?? key,
+            api: { updateEntity },
+            helpers
+        })
+
+        const result = props?.onSave({
+            nameVlc: makeVlc('Main publication updated'),
+            descriptionVlc: null,
+            accessMode: 'restricted'
+        })
+
+        expect(updateEntity).toHaveBeenCalledWith(
+            'publication-1',
+            expect.objectContaining({
+                name: { en: 'Main publication updated' }
+            })
+        )
+        await expectImmediateSettlement(result)
+        expect(helpers.refreshList).not.toHaveBeenCalled()
+    })
+
+    it('returns immediately from metahub edit save while update mutation is still pending', async () => {
+        const mod = await import('../MetahubActions')
+        const edit = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'edit')
+        expect(edit).toBeTruthy()
+
+        const updateEntity = vi.fn().mockReturnValue(new Promise(() => {}))
+        const helpers = baseHelpers()
+        const props = edit?.dialog?.buildProps({
+            entity: { id: 'metahub-1', codename: 'main-hub', name: 'Main hub', description: '' },
+            uiLocale: 'en',
+            t: (key: string, defaultValue?: string) => defaultValue ?? key,
+            api: { updateEntity },
+            helpers
+        })
+
+        const result = props?.onSave({
+            nameVlc: makeVlc('Main hub updated'),
+            descriptionVlc: null,
+            codename: 'main-hub-updated'
+        })
+
+        expect(updateEntity).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({
+                codename: 'MainHubUpdated',
+                name: { en: 'Main hub updated' }
+            })
+        )
+        expect(result).toBeUndefined()
+        expect(helpers.refreshList).not.toHaveBeenCalled()
+    })
+
+    it('returns immediately from metahub copy save while copy mutation is still pending', async () => {
+        const mod = await import('../MetahubActions')
+        const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
+        expect(copy).toBeTruthy()
+
+        const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
+        const helpers = baseHelpers()
+        const props = copy?.dialog?.buildProps({
+            entity: { id: 'metahub-1', codename: 'main-hub', name: 'Main hub', description: '' },
+            uiLocale: 'en',
+            t: (key: string, defaultValue?: string) => defaultValue ?? key,
+            api: { copyEntity },
+            helpers
+        })
+
+        const result = props?.onSave({
+            nameVlc: makeVlc('Main hub (copy)'),
+            descriptionVlc: null,
+            codename: 'main-hub-copy',
+            copyDefaultBranchOnly: false,
+            copyAccess: true
+        })
+
+        expect(copyEntity).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({
+                codename: 'MainHubCopy',
+                name: { en: 'Main hub (copy)' },
+                copyDefaultBranchOnly: false,
+                copyAccess: true
+            })
+        )
+        expect(result).toBeUndefined()
+        expect(helpers.refreshList).not.toHaveBeenCalled()
     })
 })

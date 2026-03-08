@@ -29,6 +29,16 @@
         "./routes": "./src/routes/ThemeRoutes.jsx",
         "./themes": "./src/themes/legacy/index.js",
         "./layout/NavigationScroll": "./src/layout/NavigationScroll.jsx",
+        "./hooks/optimisticCrud": {
+            "types": "./dist/hooks/optimisticCrud.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./styles/pendingAnimations": {
+            "types": "./dist/styles/pendingAnimations.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
         "./assets/*": "./src/assets/*",
         "./package.json": "./package.json"
     },

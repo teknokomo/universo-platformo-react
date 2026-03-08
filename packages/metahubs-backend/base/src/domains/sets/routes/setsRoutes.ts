@@ -892,6 +892,11 @@ export function createSetsRoutes(
                 parsed.data.codenamePrimaryLocale,
                 DEFAULT_PRIMARY_LOCALE
             )
+            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? DEFAULT_PRIMARY_LOCALE)
+            const codenameLocalizedForSetCopy =
+                parsed.data.codenameInput === undefined
+                    ? buildCodenameLocalizedVlc({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
+                    : codenameLocalizedVlc
 
             const nameInput = parsed.data.name ?? buildDefaultCopyNameInput(sourceSet.presentation?.name)
             const descriptionInput = parsed.data.description
@@ -929,7 +934,7 @@ export function createSetsRoutes(
                         metahubId,
                         {
                             codename,
-                            codenameLocalized: codenameLocalizedVlc,
+                            codenameLocalized: codenameLocalizedForSetCopy,
                             name: nameVlc,
                             description: descriptionVlc,
                             config: {
@@ -954,6 +959,11 @@ export function createSetsRoutes(
                                 userId,
                                 trx
                             })
+                            const constantCodenameLocalized = buildCodenameLocalizedVlc(
+                                { [DEFAULT_PRIMARY_LOCALE]: constantCodename },
+                                DEFAULT_PRIMARY_LOCALE,
+                                DEFAULT_PRIMARY_LOCALE
+                            )
                             await constantsService.create(
                                 metahubId,
                                 {
@@ -961,7 +971,7 @@ export function createSetsRoutes(
                                     codename: constantCodename,
                                     dataType: sourceConstant.dataType,
                                     name: sourceConstant.name,
-                                    codenameLocalized: sourceConstant.codenameLocalized ?? undefined,
+                                    codenameLocalized: constantCodenameLocalized,
                                     validationRules: sourceConstant.validationRules,
                                     uiConfig: sourceConstant.uiConfig,
                                     value: sourceConstant.value,

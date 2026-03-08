@@ -4,7 +4,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography, Checkbox } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Metahub, MetahubDisplay, MetahubLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
@@ -111,6 +111,10 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocali
             uiLocale,
             ctx.entity?.name || ''
         ),
+        // Reset codenameVlc so the backend builds codename_localized from the
+        // computed normalizedCodename (which includes the copy suffix) instead
+        // of receiving the source's codenameInput without the suffix.
+        codenameVlc: null,
         codenameTouched: false,
         copyDefaultBranchOnly: true,
         copyAccess: false
@@ -399,23 +403,9 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh metahubs list after edit', e)
-                        }
-                    },
-                    onSave: async (data: GenericFormValues) => {
-                        try {
-                            const payload = toPayload(data)
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
-                        } catch (error: unknown) {
-                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                            throw error
-                        }
+                    onSave: (data: GenericFormValues) => {
+                        const payload = toPayload(data)
+                        void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                     }
                 }
             }
@@ -450,27 +440,13 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh metahubs list after copy', e)
-                        }
-                    },
-                    onSave: async (data: GenericFormValues) => {
-                        try {
-                            const payload = toPayload(data)
-                            await ctx.api?.copyEntity?.(ctx.entity.id, {
-                                ...payload,
-                                copyDefaultBranchOnly: Boolean(data.copyDefaultBranchOnly ?? true),
-                                copyAccess: Boolean(data.copyAccess ?? false)
-                            })
-                            await ctx.helpers?.refreshList?.()
-                        } catch (error: unknown) {
-                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                            throw error
-                        }
+                    onSave: (data: GenericFormValues) => {
+                        const payload = toPayload(data)
+                        void ctx.api?.copyEntity?.(ctx.entity.id, {
+                            ...payload,
+                            copyDefaultBranchOnly: Boolean(data.copyDefaultBranchOnly ?? true),
+                            copyAccess: Boolean(data.copyAccess ?? false)
+                        })
                     }
                 }
             }
@@ -500,7 +476,6 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                 onConfirm: async () => {
                     try {
                         await ctx.api?.deleteEntity?.(ctx.entity.id)
-                        await ctx.helpers?.refreshList?.()
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                         throw error

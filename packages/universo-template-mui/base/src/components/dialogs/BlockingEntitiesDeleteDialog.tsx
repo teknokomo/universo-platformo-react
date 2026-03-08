@@ -119,6 +119,8 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
     const handleConfirm = () => {
         if (entity && blockingEntities.length === 0) {
             onConfirm(entity)
+            // Close the dialog immediately after dispatching the delete
+            onClose()
         }
     }
 

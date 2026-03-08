@@ -1,6 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
+import {
+    applyOptimisticCreate,
+    applyOptimisticDelete,
+    applyOptimisticUpdate,
+    generateOptimisticId,
+    getNextOptimisticSortOrderFromQueries,
+    rollbackOptimisticSnapshots,
+    confirmOptimisticUpdate,
+    confirmOptimisticCreate
+} from '@universo/template-mui'
+import { makePendingMarkers } from '@universo/utils'
 import type { ConstantLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as constantsApi from '../api'
@@ -43,30 +54,39 @@ interface ReorderConstantParams extends BaseConstantScope {
 const invalidateSetConstantScopes = async (queryClient: ReturnType<typeof useQueryClient>, variables: BaseConstantScope): Promise<void> => {
     if (variables.hubId) {
         await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId)
+            queryKey: metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId),
+            refetchType: 'inactive'
         })
         await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId)
+            queryKey: metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId),
+            refetchType: 'inactive'
         })
-        await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.sets(variables.metahubId, variables.hubId) })
-        await queryClient.refetchQueries({
-            queryKey: metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId),
-            type: 'active'
+        await queryClient.invalidateQueries({
+            queryKey: metahubsQueryKeys.sets(variables.metahubId, variables.hubId),
+            refetchType: 'inactive'
         })
     } else {
         await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId)
-        })
-        await queryClient.refetchQueries({
             queryKey: metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId),
-            type: 'active'
+            refetchType: 'inactive'
         })
     }
 
-    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.setDetail(variables.metahubId, variables.setId) })
-    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(variables.metahubId) })
-    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(variables.metahubId, variables.setId) })
+    await queryClient.invalidateQueries({
+        queryKey: metahubsQueryKeys.setDetail(variables.metahubId, variables.setId),
+        refetchType: 'inactive'
+    })
+    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(variables.metahubId), refetchType: 'inactive' })
+    await queryClient.invalidateQueries({
+        queryKey: metahubsQueryKeys.allConstantCodenames(variables.metahubId, variables.setId),
+        refetchType: 'inactive'
+    })
 }
+
+const getConstantQueryKeyPrefix = (variables: BaseConstantScope) =>
+    variables.hubId
+        ? metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId)
+        : metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId)
 
 export function useCreateConstant() {
     const queryClient = useQueryClient()
@@ -74,6 +94,7 @@ export function useCreateConstant() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        mutationKey: ['constants', 'create'],
         mutationFn: async ({ metahubId, hubId, setId, data }: CreateConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.createConstant(metahubId, hubId, setId, data)
@@ -82,12 +103,44 @@ export function useCreateConstant() {
             const response = await constantsApi.createConstantDirect(metahubId, setId, data)
             return response.data
         },
-        onSuccess: async (_data, variables) => {
-            await invalidateSetConstantScopes(queryClient, variables)
+        onMutate: async (variables) => {
+            const queryKeyPrefix = getConstantQueryKeyPrefix(variables)
+            const optimisticSortOrder = getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
+            return applyOptimisticCreate({
+                queryClient,
+                queryKeyPrefix,
+                optimisticEntity: {
+                    id: generateOptimisticId(),
+                    setId: variables.setId,
+                    codename: variables.data.codename || '',
+                    dataType: variables.data.dataType,
+                    name: variables.data.name,
+                    validationRules: variables.data.validationRules ?? {},
+                    uiConfig: variables.data.uiConfig ?? {},
+                    value: variables.data.value,
+                    sortOrder: optimisticSortOrder,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    version: 1,
+                    ...makePendingMarkers('create')
+                },
+                insertPosition: 'prepend'
+            })
+        },
+        onSuccess: (data, variables, context) => {
+            if (context?.optimisticId && data?.id) {
+                confirmOptimisticCreate(queryClient, getConstantQueryKeyPrefix(variables), context.optimisticId, data.id)
+            }
             enqueueSnackbar(t('constants.createSuccess', 'Constant created'), { variant: 'success' })
         },
-        onError: (error: Error) => {
+        onError: (error: Error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
             enqueueSnackbar(error.message || t('constants.createError', 'Failed to create constant'), { variant: 'error' })
+        },
+        onSettled: async (_data, _error, variables) => {
+            if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
+                await invalidateSetConstantScopes(queryClient, variables)
+            }
         }
     })
 }
@@ -98,6 +151,7 @@ export function useUpdateConstant() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        mutationKey: ['constants', 'update'],
         mutationFn: async ({ metahubId, hubId, setId, constantId, data }: UpdateConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.updateConstant(metahubId, hubId, setId, constantId, data)
@@ -106,12 +160,30 @@ export function useUpdateConstant() {
             const response = await constantsApi.updateConstantDirect(metahubId, setId, constantId, data)
             return response.data
         },
-        onSuccess: async (_data, variables) => {
-            await invalidateSetConstantScopes(queryClient, variables)
+        onMutate: async (variables) => {
+            return applyOptimisticUpdate({
+                queryClient,
+                queryKeyPrefix: getConstantQueryKeyPrefix(variables),
+                entityId: variables.constantId,
+                updater: {
+                    ...variables.data,
+                    updatedAt: new Date().toISOString()
+                },
+                moveToFront: true
+            })
+        },
+        onSuccess: (_data, variables) => {
+            confirmOptimisticUpdate(queryClient, getConstantQueryKeyPrefix(variables), variables.constantId)
             enqueueSnackbar(t('constants.updateSuccess', 'Constant updated'), { variant: 'success' })
         },
-        onError: (error: Error) => {
+        onError: (error: Error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
             enqueueSnackbar(error.message || t('constants.updateError', 'Failed to update constant'), { variant: 'error' })
+        },
+        onSettled: async (_data, _error, variables) => {
+            if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
+                await invalidateSetConstantScopes(queryClient, variables)
+            }
         }
     })
 }
@@ -122,6 +194,7 @@ export function useDeleteConstant() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        mutationKey: ['constants', 'delete'],
         mutationFn: async ({ metahubId, hubId, setId, constantId }: DeleteConstantParams) => {
             if (hubId) {
                 await constantsApi.deleteConstant(metahubId, hubId, setId, constantId)
@@ -129,12 +202,25 @@ export function useDeleteConstant() {
                 await constantsApi.deleteConstantDirect(metahubId, setId, constantId)
             }
         },
-        onSuccess: async (_data, variables) => {
-            await invalidateSetConstantScopes(queryClient, variables)
+        onMutate: async (variables) => {
+            return applyOptimisticDelete({
+                queryClient,
+                queryKeyPrefix: getConstantQueryKeyPrefix(variables),
+                entityId: variables.constantId,
+                strategy: 'remove'
+            })
+        },
+        onSuccess: () => {
             enqueueSnackbar(t('constants.deleteSuccess', 'Constant deleted'), { variant: 'success' })
         },
-        onError: (error: Error) => {
+        onError: (error: Error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
             enqueueSnackbar(error.message || t('constants.deleteError', 'Failed to delete constant'), { variant: 'error' })
+        },
+        onSettled: async (_data, _error, variables) => {
+            if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
+                await invalidateSetConstantScopes(queryClient, variables)
+            }
         }
     })
 }
@@ -145,6 +231,7 @@ export function useMoveConstant() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        mutationKey: ['constants', 'move'],
         mutationFn: async ({ metahubId, hubId, setId, constantId, direction }: MoveConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.moveConstant(metahubId, hubId, setId, constantId, direction)
@@ -153,12 +240,16 @@ export function useMoveConstant() {
             const response = await constantsApi.moveConstantDirect(metahubId, setId, constantId, direction)
             return response.data
         },
-        onSuccess: async (_data, variables) => {
-            await invalidateSetConstantScopes(queryClient, variables)
+        onSuccess: () => {
             enqueueSnackbar(t('constants.moveSuccess', 'Constant order updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('constants.moveError', 'Failed to update constant order'), { variant: 'error' })
+        },
+        onSettled: async (_data, _error, variables) => {
+            if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
+                await invalidateSetConstantScopes(queryClient, variables)
+            }
         }
     })
 }
@@ -167,6 +258,7 @@ export function useReorderConstant() {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: ['constants', 'reorder'],
         mutationFn: async ({ metahubId, hubId, setId, constantId, newSortOrder }: ReorderConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.reorderConstant(metahubId, hubId, setId, constantId, newSortOrder)
@@ -207,7 +299,9 @@ export function useReorderConstant() {
             }
         },
         onSettled: async (_data, _error, variables) => {
-            await invalidateSetConstantScopes(queryClient, variables)
+            if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
+                await invalidateSetConstantScopes(queryClient, variables)
+            }
         }
     })
 }
@@ -218,6 +312,7 @@ export function useCopyConstant() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        mutationKey: ['constants', 'copy'],
         mutationFn: async ({ metahubId, hubId, setId, constantId, data }: CopyConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.copyConstant(metahubId, hubId, setId, constantId, data)
@@ -226,12 +321,55 @@ export function useCopyConstant() {
             const response = await constantsApi.copyConstantDirect(metahubId, setId, constantId, data)
             return response.data
         },
-        onSuccess: async (_data, variables) => {
-            await invalidateSetConstantScopes(queryClient, variables)
+        onMutate: async (variables) => {
+            const queryKeyPrefix = getConstantQueryKeyPrefix(variables)
+            const existingConstant = queryClient
+                .getQueriesData<{ items?: Array<Record<string, unknown>> }>({ queryKey: queryKeyPrefix })
+                .flatMap(([, value]) => (Array.isArray(value?.items) ? value.items : []))
+                .find((item) => item.id === variables.constantId)
+
+            return applyOptimisticCreate({
+                queryClient,
+                queryKeyPrefix,
+                optimisticEntity: {
+                    ...(existingConstant ?? {}),
+                    id: generateOptimisticId(),
+                    setId: variables.setId,
+                    codename: variables.data.codename || (typeof existingConstant?.codename === 'string' ? existingConstant.codename : ''),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    ...makePendingMarkers('copy')
+                },
+                insertPosition: 'prepend'
+            })
+        },
+        onSuccess: (data, _variables, context) => {
+            if (context?.optimisticId && data?.id) {
+                confirmOptimisticCreate(queryClient, getConstantQueryKeyPrefix(_variables), context.optimisticId, data.id)
+            }
+            console.info('[optimistic-copy:constants] onSuccess', {
+                metahubId: _variables.metahubId,
+                setId: _variables.setId,
+                constantId: _variables.constantId,
+                optimisticId: context?.optimisticId,
+                realId: data?.id ?? null
+            })
             enqueueSnackbar(t('constants.copySuccess', 'Constant copied'), { variant: 'success' })
         },
-        onError: (error: Error) => {
+        onError: (error: Error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
             enqueueSnackbar(error.message || t('constants.copyError', 'Failed to copy constant'), { variant: 'error' })
+        },
+        onSettled: async (_data, _error, variables) => {
+            if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
+                await invalidateSetConstantScopes(queryClient, variables)
+            }
+            console.info('[optimistic-copy:constants] onSettled', {
+                metahubId: variables.metahubId,
+                setId: variables.setId,
+                constantId: variables.constantId,
+                hasError: Boolean(_error)
+            })
         }
     })
 }

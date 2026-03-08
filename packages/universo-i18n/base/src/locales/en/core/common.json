@@ -223,6 +223,16 @@
       "chooseAction": "Please choose how to proceed:",
       "overwrite": "Overwrite Changes",
       "reloadLatest": "Reload Latest"
+    },
+    "pending": {
+      "creating": "Creating…",
+      "updating": "Updating…",
+      "deleting": "Deleting…",
+      "copying": "Copying…",
+      "navigateBlocked": "This item is still being created. Please wait."
+    },
+    "optimistic": {
+      "rollbackNotice": "Action failed. Changes have been reverted."
     }
   }
 }

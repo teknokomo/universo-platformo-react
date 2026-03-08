@@ -6,6 +6,7 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Box,
+    ButtonBase,
     Checkbox,
     Chip,
     Divider,
@@ -44,20 +45,22 @@ import {
     FlowListTable,
     gridSpacing,
     LocalizedInlineField,
-    notifyError
+    notifyError,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
 import { STORAGE_KEYS } from '../../../constants/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
+import { metahubsQueryKeys } from '../../shared'
 import * as layoutsApi from '../api'
 import { useCopyLayout, useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
 import type { MetahubLayout, MetahubLayoutDisplay, MetahubLayoutLocalizedPayload } from '../../../types'
 import { getVLCString, toMetahubLayoutDisplay } from '../../../types'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeLayoutCopyOptions } from '@universo/utils'
+import { isPendingEntity, getPendingAction } from '@universo/utils'
 
 type DashboardLayoutConfig = {
     showSideMenu: boolean
@@ -193,6 +196,7 @@ const LayoutList = () => {
     const [isEditDialogOpen, setEditDialogOpen] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
     const [editingLayout, setEditingLayout] = useState<MetahubLayout | null>(null)
     const [copyingLayout, setCopyingLayout] = useState<MetahubLayout | null>(null)
     const [isCopyDialogOpen, setCopyDialogOpen] = useState(false)
@@ -227,6 +231,20 @@ const LayoutList = () => {
     })
 
     const layoutsById = useMemo(() => new Map(layouts.map((l) => [l.id, l])), [layouts])
+
+    const handlePendingLayoutInteraction = useCallback(
+        (layoutId: string) => {
+            if (!metahubId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId),
+                entityId: layoutId,
+                extraQueryKeys: [metahubsQueryKeys.layoutDetail(metahubId, layoutId)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+    )
 
     const activeCount = useMemo(() => layouts.filter((l) => l.isActive).length, [layouts])
 
@@ -392,35 +410,35 @@ const LayoutList = () => {
 
     const handleCreate = async (values: LayoutDialogValues) => {
         if (!metahubId) return
-        try {
-            setDialogError(null)
-            const payload = toPayload(values, { includeConfig: true })
-            await createLayoutMutation.mutateAsync({ metahubId, data: payload })
-            await invalidateLayoutsQueries.all(queryClient, metahubId)
-            setCreateDialogOpen(false)
-        } catch (e: unknown) {
-            setDialogError(e instanceof Error ? e.message : String(e))
-            notifyError(t, enqueueSnackbar, e)
-        }
+        setDialogError(null)
+        const payload = toPayload(values, { includeConfig: true })
+        createLayoutMutation.mutate({ metahubId, data: payload })
+        setCreateDialogOpen(false)
     }
 
     const handleUpdate = async (values: LayoutDialogValues) => {
         if (!metahubId || !editingLayout) return
-        try {
-            setDialogError(null)
-            const payload = toPayload(values, {
-                expectedVersion: editingLayout.version,
-                includeConfig: false,
-                existingLayout: editingLayout
-            })
-            await updateLayoutMutation.mutateAsync({ metahubId, layoutId: editingLayout.id, data: payload })
-            await invalidateLayoutsQueries.all(queryClient, metahubId)
-            setEditDialogOpen(false)
-            setEditingLayout(null)
-        } catch (e: unknown) {
-            setDialogError(e instanceof Error ? e.message : String(e))
-            notifyError(t, enqueueSnackbar, e)
-        }
+        const currentLayout = editingLayout
+        setDialogError(null)
+        const payload = toPayload(values, {
+            expectedVersion: currentLayout.version,
+            includeConfig: false,
+            existingLayout: currentLayout
+        })
+
+        setEditDialogOpen(false)
+        setEditingLayout(null)
+        updateLayoutMutation.mutate(
+            { metahubId, layoutId: currentLayout.id, data: payload },
+            {
+                onError: (error: unknown) => {
+                    const message = error instanceof Error ? error.message : String(error)
+                    setDialogError(message)
+                    setEditingLayout(currentLayout)
+                    setEditDialogOpen(true)
+                }
+            }
+        )
     }
 
     const handleCopyLayout = async (values: LayoutDialogValues) => {
@@ -428,12 +446,11 @@ const LayoutList = () => {
         try {
             setCopyDialogError(null)
             const payload = toCopyPayload(values)
-            await copyLayoutMutation.mutateAsync({
+            copyLayoutMutation.mutate({
                 metahubId,
                 layoutId: copyingLayout.id,
                 data: payload
             })
-            await invalidateLayoutsQueries.all(queryClient, metahubId)
             setCopyDialogOpen(false)
             setCopyingLayout(null)
         } catch (e: unknown) {
@@ -445,7 +462,7 @@ const LayoutList = () => {
     const handleSetDefault = async (layout: MetahubLayout) => {
         if (!metahubId) return
         try {
-            await updateLayoutMutation.mutateAsync({
+            updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
                 data: { isDefault: true, expectedVersion: layout.version }
@@ -458,7 +475,7 @@ const LayoutList = () => {
     const handleToggleActive = async (layout: MetahubLayout) => {
         if (!metahubId) return
         try {
-            await updateLayoutMutation.mutateAsync({
+            updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
                 data: { isActive: !layout.isActive, expectedVersion: layout.version }
@@ -475,7 +492,7 @@ const LayoutList = () => {
     const handleDeleteConfirm = async () => {
         if (!metahubId || !deleteDialogState.layout) return
         try {
-            await deleteLayoutMutation.mutateAsync({ metahubId, layoutId: deleteDialogState.layout.id })
+            deleteLayoutMutation.mutate({ metahubId, layoutId: deleteDialogState.layout.id })
             setDeleteDialogState({ open: false, layout: null })
         } catch (e: unknown) {
             notifyError(t, enqueueSnackbar, e)
@@ -590,20 +607,37 @@ const LayoutList = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: MetahubLayoutDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: MetahubLayoutDisplay) => (
-                    <Link to={`/metahub/${metahubId}/layouts/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                '&:hover': { textDecoration: 'underline', color: 'primary.main' }
-                            }}
+                render: (row: MetahubLayoutDisplay) =>
+                    isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingLayoutInteraction(row.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': { textDecoration: 'underline', color: 'primary.main' }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={`/metahub/${metahubId}/layouts/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': { textDecoration: 'underline', color: 'primary.main' }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
             },
             {
                 id: 'description',
@@ -651,7 +685,7 @@ const LayoutList = () => {
                 )
             }
         ],
-        [metahubId, t, tc]
+        [handlePendingLayoutInteraction, metahubId, t, tc]
     )
 
     // Keep edit dialog state in sync if list updates (e.g., optimistic lock changes).
@@ -753,6 +787,9 @@ const LayoutList = () => {
                                             data={getCardData(layout)}
                                             images={images[layout.id] || []}
                                             onClick={() => goToLayout(layout)}
+                                            pending={isPendingEntity(layout)}
+                                            pendingAction={getPendingAction(layout)}
+                                            onPendingInteractionAttempt={() => handlePendingLayoutInteraction(layout.id)}
                                             footerEndContent={
                                                 <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                                     <Chip
@@ -798,6 +835,7 @@ const LayoutList = () => {
                                         getRowLink={(row: LayoutRowLike) =>
                                             row?.id ? `/metahub/${metahubId}/layouts/${row.id}` : undefined
                                         }
+                                        onPendingInteractionAttempt={(row: LayoutRowLike) => handlePendingLayoutInteraction(row.id)}
                                         customColumns={layoutColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: LayoutRowLike) => {

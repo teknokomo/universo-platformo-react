@@ -191,6 +191,12 @@ function getOptionLabelKey(settingKey: string, option: string): string {
     if (settingKey === 'catalogs.allowedAttributeTypes') {
         return `attributes.dataTypeOptions.${option.toLowerCase()}`
     }
+    if (settingKey === 'sets.constantCodenameScope') {
+        return `settings.attributeCodenameScopes.${option}`
+    }
+    if (settingKey === 'sets.allowedConstantTypes') {
+        return `attributes.dataTypeOptions.${option.toLowerCase()}`
+    }
     if (settingKey === 'general.language') {
         return `settings.languages.${option}`
     }

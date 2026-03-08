@@ -21,7 +21,8 @@
     "build": "tsc -p tsconfig.build.json --noEmit",
     "dev:standalone": "vite --port 5174 --strictPort",
     "preview:standalone": "vite preview --port 5174 --strictPort",
-    "lint": "eslint --ext .ts,.tsx src"
+    "lint": "eslint --ext .ts,.tsx src",
+    "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@emotion/react": "catalog:",
@@ -40,13 +41,17 @@
     "dayjs": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "uuidv7": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "react": ">=18",

@@ -35,7 +35,8 @@ import {
     gridSpacing,
     LocalizedInlineField,
     useCodenameAutoFill,
-    useCodenameVlcSync
+    useCodenameVlcSync,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -56,18 +57,13 @@ import { metahubsQueryKeys, invalidateBranchesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload, getVLCString, toBranchDisplay } from '../../../types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { normalizeBranchCopyOptions } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, BranchDeleteDialog, ExistingCodenamesProvider } from '../../../components'
-import {
-    getBranchCopyOptions,
-    resolveBranchCopyCompatibilityCode,
-    setAllBranchCopyChildren,
-    toggleBranchCopyChild
-} from '../utils/copyOptions'
+import { getBranchCopyOptions, setAllBranchCopyChildren, toggleBranchCopyChild } from '../utils/copyOptions'
 import branchActions from './BranchActions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 
@@ -408,9 +404,7 @@ const BranchList = () => {
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.BRANCH_DISPLAY_STYLE)
-
-    const [isCreating, setCreating] = useState(false)
-    const [dialogError, setDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     const paginationResult = usePaginated<MetahubBranch, 'name' | 'codename' | 'created' | 'updated'>({
         queryKeyFn: metahubId ? (params) => metahubsQueryKeys.branchesList(metahubId, params) : () => ['empty'],
@@ -452,6 +446,20 @@ const BranchList = () => {
         if (!Array.isArray(branches)) return new Map<string, MetahubBranch>()
         return new Map(branches.map((branch) => [branch.id, branch]))
     }, [branches])
+
+    const handlePendingBranchInteraction = useCallback(
+        (branchId: string) => {
+            if (!metahubId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: metahubsQueryKeys.branches(metahubId),
+                entityId: branchId,
+                extraQueryKeys: [metahubsQueryKeys.branchDetail(metahubId, branchId)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+    )
 
     const branchOptionsQuery = useQuery({
         queryKey: metahubId
@@ -688,40 +696,43 @@ const BranchList = () => {
             branchMap,
             uiLocale: preferredVlcLocale,
             api: {
-                updateEntity: async (id: string, patch: BranchLocalizedPayload) => {
-                    if (!metahubId) return
+                updateEntity: (id: string, patch: BranchLocalizedPayload) => {
+                    if (!metahubId) return Promise.resolve()
                     const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
                     }
                     const branch = branchMap.get(id)
                     const expectedVersion = branch?.version
-                    try {
-                        await updateBranchMutation.mutateAsync({
+                    updateBranchMutation.mutate(
+                        {
                             metahubId,
                             branchId: id,
                             data: { ...patch, codename: normalizedCodename, expectedVersion }
-                        })
-                    } catch (error: unknown) {
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({
-                                    open: true,
-                                    conflict,
-                                    pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
-                                })
-                                return
+                        },
+                        {
+                            onError: (error: unknown) => {
+                                if (isOptimisticLockConflict(error)) {
+                                    const conflict = extractConflictInfo(error)
+                                    if (conflict) {
+                                        setConflictState({
+                                            open: true,
+                                            conflict,
+                                            pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
+                                        })
+                                    }
+                                }
                             }
                         }
-                        throw error
-                    }
+                    )
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId) return
-                    await deleteBranchMutation.mutateAsync({ metahubId, branchId: id })
+                    return deleteBranchMutation.mutateAsync({ metahubId, branchId: id })
                 },
-                copyEntity: async (
+                copyEntity: (
                     _id: string,
                     payload: BranchLocalizedPayload & {
                         sourceBranchId?: string
@@ -732,8 +743,10 @@ const BranchList = () => {
                         copyEnumerations?: boolean
                     }
                 ) => {
-                    if (!metahubId) return
-                    await copyBranchMutation.mutateAsync({ metahubId, data: payload })
+                    if (!metahubId) return Promise.resolve()
+                    copyBranchMutation.mutate({ metahubId, data: payload })
+
+                    return Promise.resolve()
                 }
             },
             runtime: {
@@ -747,9 +760,9 @@ const BranchList = () => {
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId) {
-                        await invalidateBranchesQueries.all(queryClient, metahubId)
+                        void invalidateBranchesQueries.all(queryClient, metahubId)
                     }
                 },
                 enqueueSnackbar: (payload: {
@@ -804,92 +817,50 @@ const BranchList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateBranch = async (data: GenericFormValues) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
-            if (!normalizedCodename) {
-                setDialogError(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
-                return
-            }
-            const sourceBranchId =
-                typeof data.sourceBranchId === 'string' && data.sourceBranchId.length > 0 ? data.sourceBranchId : undefined
-            const copyOptions = getBranchCopyOptions(data)
+    const handleCreateBranch = (data: GenericFormValues) => {
+        // Validation is handled by EntityFormDialog's validate/canSave props.
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const sourceBranchId = typeof data.sourceBranchId === 'string' && data.sourceBranchId.length > 0 ? data.sourceBranchId : undefined
+        const copyOptions = getBranchCopyOptions(data)
 
-            await createBranchMutation.mutateAsync({
-                metahubId,
-                data: {
-                    codename: normalizedCodename,
-                    codenameInput,
-                    codenamePrimaryLocale,
-                    name: nameInput,
-                    description: descriptionInput,
-                    namePrimaryLocale,
-                    descriptionPrimaryLocale,
-                    ...(sourceBranchId ? { sourceBranchId } : {}),
-                    ...copyOptions
-                }
-            })
-
-            setDialogOpen(false)
-        } catch (error: unknown) {
-            const status = extractResponseStatus(error)
-            const responseData = extractResponseData(error)
-            const errorCode = responseData?.code
-            const backendMessage = extractResponseMessage(error)
-            const compatibilityCode = resolveBranchCopyCompatibilityCode(errorCode, backendMessage)
-            if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
-                setDialogError(t('metahubs:branches.createLocked', 'Branch creation is already in progress. Please try again.'))
-            } else if (status === 409 && errorCode === 'BRANCH_CODENAME_EXISTS') {
-                setDialogError(t('metahubs:branches.codenameExists', 'Branch with this codename already exists'))
-            } else if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
-                setDialogError(t('metahubs:branches.numberConflict', 'Branch numbering conflict. Please try again.'))
-            } else if (status === 400 && compatibilityCode === 'BRANCH_COPY_ENUM_REFERENCES') {
-                setDialogError(
-                    t(
-                        'metahubs:branches.copyEnumReferencesError',
-                        'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
-                    )
-                )
-            } else if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
-                setDialogError(
-                    t(
-                        'metahubs:branches.copyDanglingReferencesError',
-                        'Copy options would create invalid references. Keep all referenced entity groups enabled.'
-                    )
-                )
-            } else {
-                const fallbackMessage = error instanceof Error ? error.message : undefined
-                setDialogError(backendMessage || fallbackMessage || t('metahubs:branches.createError', 'Failed to create branch'))
+        // Fire-and-forget: optimistic card via onMutate, errors via onError snackbar,
+        // cache invalidation via onSettled. Dialog closes immediately.
+        createBranchMutation.mutate({
+            metahubId,
+            data: {
+                codename: normalizedCodename || '',
+                codenameInput,
+                codenamePrimaryLocale,
+                name: nameInput ?? {},
+                description: descriptionInput,
+                namePrimaryLocale: namePrimaryLocale ?? '',
+                descriptionPrimaryLocale,
+                ...(sourceBranchId ? { sourceBranchId } : {}),
+                ...copyOptions
             }
-        } finally {
-            setCreating(false)
-        }
+        })
     }
 
-    const handleDeleteBranch = async (branch: MetahubBranch) => {
+    const handleDeleteBranch = (branch: MetahubBranch) => {
         if (!metahubId) return
-        try {
-            await deleteBranchMutation.mutateAsync({ metahubId, branchId: branch.id })
-            setDeleteDialogState({ open: false, branch: null })
-        } catch (error: unknown) {
-            const responseMessage = extractResponseMessage(error)
-            const fallbackMessage = error instanceof Error ? error.message : undefined
-            enqueueSnackbar(responseMessage || fallbackMessage || t('metahubs:branches.deleteError', 'Failed to delete branch'), {
-                variant: 'error'
-            })
-        }
+        deleteBranchMutation.mutate(
+            { metahubId, branchId: branch.id },
+            {
+                onError: (error: unknown) => {
+                    const responseMessage = extractResponseMessage(error)
+                    const fallbackMessage = error instanceof Error ? error.message : undefined
+                    enqueueSnackbar(responseMessage || fallbackMessage || t('metahubs:branches.deleteError', 'Failed to delete branch'), {
+                        variant: 'error'
+                    })
+                }
+            }
+        )
     }
 
     return (
@@ -973,6 +944,9 @@ const BranchList = () => {
                                                     key={branch.id}
                                                     data={getBranchDisplay(branch)}
                                                     images={[]}
+                                                    pending={isPendingEntity(branch)}
+                                                    pendingAction={getPendingAction(branch)}
+                                                    onPendingInteractionAttempt={() => handlePendingBranchInteraction(branch.id)}
                                                     footerStartContent={getStatusChips(branch)}
                                                     headerAction={
                                                         descriptors.length > 0 ? (
@@ -998,6 +972,9 @@ const BranchList = () => {
                                             data={branches.map(getBranchDisplay)}
                                             images={{}}
                                             isLoading={isLoading}
+                                            onPendingInteractionAttempt={(row: MetahubBranchDisplay) =>
+                                                handlePendingBranchInteraction(row.id)
+                                            }
                                             customColumns={branchColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: MetahubBranchDisplay) => {
@@ -1047,8 +1024,6 @@ const BranchList = () => {
                     saveButtonText={tc('actions.create', 'Create')}
                     savingButtonText={tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
-                    error={dialogError || undefined}
                     onClose={handleDialogClose}
                     onSave={handleCreateBranch}
                     hideDefaultFields

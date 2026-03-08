@@ -24,7 +24,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill,
     useCodenameVlcSync,
-    BaseEntityMenu
+    BaseEntityMenu,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -36,7 +37,7 @@ import {
     canSaveEnumerationForm,
     toPayload as enumToPayload
 } from './EnumerationActions'
-import type { EnumerationDisplayWithHub } from './EnumerationActions'
+import type { EnumerationActionContext, EnumerationDisplayWithHub } from './EnumerationActions'
 import { useUpdateEnumerationAtMetahub } from '../hooks'
 import * as hubsApi from '../../hubs'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
@@ -265,6 +266,7 @@ const EnumerationValueList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [editingValue, setEditingValue] = useState<EnumerationValue | null>(null)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
     const [deleteState, setDeleteState] = useState<{ open: boolean; value: EnumerationValue | null }>({ open: false, value: null })
 
     const createMutation = useCreateEnumerationValue()
@@ -405,6 +407,19 @@ const EnumerationValueList = () => {
     )
 
     const valueMap = useMemo(() => new Map(values.map((value) => [value.id, value])), [values])
+
+    const handlePendingValueInteraction = useCallback(
+        (valueId: string) => {
+            if (!metahubId || !enumerationId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: metahubsQueryKeys.enumerationValues(metahubId, enumerationId),
+                entityId: valueId
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, enumerationId, metahubId, pendingInteractionMessage, queryClient]
+    )
     const valueOrderMap = useMemo(() => {
         const sortedIds = values
             .slice()
@@ -429,7 +444,7 @@ const EnumerationValueList = () => {
             setDefaultValue: async (value: EnumerationValue) => {
                 if (!metahubId || !enumerationId) return
                 if (value.isDefault) return
-                await updateMutation.mutateAsync({
+                updateMutation.mutate({
                     metahubId,
                     enumerationId,
                     valueId: value.id,
@@ -442,7 +457,7 @@ const EnumerationValueList = () => {
             clearDefaultValue: async (value: EnumerationValue) => {
                 if (!metahubId || !enumerationId) return
                 if (!value.isDefault) return
-                await updateMutation.mutateAsync({
+                updateMutation.mutate({
                     metahubId,
                     enumerationId,
                     valueId: value.id,
@@ -738,58 +753,68 @@ const EnumerationValueList = () => {
             return
         }
 
-        try {
-            if (editingValue) {
-                await updateMutation.mutateAsync({
-                    metahubId,
-                    enumerationId,
-                    valueId: editingValue.id,
-                    data: {
-                        codename,
-                        codenameInput,
-                        codenamePrimaryLocale,
-                        name: nameInput,
-                        description: descriptionInput,
-                        namePrimaryLocale,
-                        descriptionPrimaryLocale,
-                        isDefault,
-                        expectedVersion: editingValue.version
-                    }
-                })
-            } else {
-                await createMutation.mutateAsync({
-                    metahubId,
-                    enumerationId,
-                    data: {
-                        codename,
-                        codenameInput,
-                        codenamePrimaryLocale,
-                        name: nameInput,
-                        description: descriptionInput,
-                        namePrimaryLocale,
-                        descriptionPrimaryLocale,
-                        isDefault
-                    }
-                })
-            }
+        if (!editingValue) {
+            createMutation.mutate({
+                metahubId,
+                enumerationId,
+                data: {
+                    codename,
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    name: nameInput,
+                    description: descriptionInput,
+                    namePrimaryLocale,
+                    descriptionPrimaryLocale,
+                    isDefault
+                }
+            })
 
             setDialogOpen(false)
             setEditingValue(null)
             setDialogError(null)
-        } catch (e: unknown) {
-            const responseMessage = extractResponseMessage(e)
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : editingValue
-                    ? t('enumerationValues.updateError', 'Failed to update enumeration value')
-                    : t('enumerationValues.createError', 'Failed to create enumeration value')
-            setDialogError(message)
+            return
         }
+
+        const currentEditingValue = editingValue
+        setDialogOpen(false)
+        setEditingValue(null)
+        setDialogError(null)
+
+        updateMutation.mutate(
+            {
+                metahubId,
+                enumerationId,
+                valueId: currentEditingValue.id,
+                data: {
+                    codename,
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    name: nameInput,
+                    description: descriptionInput,
+                    namePrimaryLocale,
+                    descriptionPrimaryLocale,
+                    isDefault,
+                    expectedVersion: currentEditingValue.version
+                }
+            },
+            {
+                onError: (e: unknown) => {
+                    const responseMessage = extractResponseMessage(e)
+                    const message =
+                        typeof responseMessage === 'string'
+                            ? responseMessage
+                            : e instanceof Error
+                            ? e.message
+                            : typeof e === 'string'
+                            ? e
+                            : t('enumerationValues.updateError', 'Failed to update enumeration value')
+
+                    setEditingValue(currentEditingValue)
+                    setDialogOpen(true)
+                    setDialogError(message)
+                }
+            }
+        )
     }
 
     if (!metahubId || !enumerationId) {
@@ -877,6 +902,7 @@ const EnumerationValueList = () => {
                                 <FlowListTable<EnumerationValueDisplay>
                                     data={tableData}
                                     customColumns={valueColumns}
+                                    onPendingInteractionAttempt={(row: EnumerationValueDisplay) => handlePendingValueInteraction(row.id)}
                                     sortableRows
                                     sortableItemIds={sortedFilteredValues.map((v) => v.id)}
                                     dragHandleAriaLabel={t('enumerationValues.dnd.dragHandle', 'Drag to reorder')}
@@ -1008,33 +1034,22 @@ const EnumerationValueList = () => {
                             return
                         }
 
-                        try {
-                            await copyMutation.mutateAsync({
-                                metahubId,
-                                enumerationId,
-                                valueId: copyState.value.id,
-                                data: {
-                                    codename,
-                                    codenameInput,
-                                    codenamePrimaryLocale,
-                                    name: nameInput,
-                                    description: descriptionInput,
-                                    namePrimaryLocale,
-                                    descriptionPrimaryLocale,
-                                    isDefault
-                                }
-                            })
-                            setCopyState({ open: false, value: null })
-                        } catch (e: unknown) {
-                            const responseMessage = extractResponseMessage(e)
-                            setCopyDialogError(
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : e instanceof Error
-                                    ? e.message
-                                    : t('enumerationValues.copyError', 'Failed to copy enumeration value')
-                            )
-                        }
+                        copyMutation.mutate({
+                            metahubId,
+                            enumerationId,
+                            valueId: copyState.value.id,
+                            data: {
+                                codename,
+                                codenameInput,
+                                codenamePrimaryLocale,
+                                name: nameInput,
+                                description: descriptionInput,
+                                namePrimaryLocale,
+                                descriptionPrimaryLocale,
+                                isDefault
+                            }
+                        })
+                        setCopyState({ open: false, value: null })
                     }}
                     hideDefaultFields
                     initialExtraValues={copyInitialValues}
@@ -1074,27 +1089,30 @@ const EnumerationValueList = () => {
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onCancel={() => setDeleteState({ open: false, value: null })}
-                    onConfirm={async () => {
+                    onConfirm={() => {
                         if (!deleteState.value || !metahubId || !enumerationId) return
-                        try {
-                            await deleteMutation.mutateAsync({
+                        deleteMutation.mutate(
+                            {
                                 metahubId,
                                 enumerationId,
                                 valueId: deleteState.value.id
-                            })
-                            setDeleteState({ open: false, value: null })
-                        } catch (e: unknown) {
-                            const responseMessage = extractResponseMessage(e)
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : e instanceof Error
-                                    ? e.message
-                                    : typeof e === 'string'
-                                    ? e
-                                    : t('enumerationValues.deleteError', 'Failed to delete enumeration value')
-                            enqueueSnackbar(message, { variant: 'error' })
-                        }
+                            },
+                            {
+                                onError: (e: unknown) => {
+                                    const responseMessage = extractResponseMessage(e)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : e instanceof Error
+                                            ? e.message
+                                            : typeof e === 'string'
+                                            ? e
+                                            : t('enumerationValues.deleteError', 'Failed to delete enumeration value')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
+                            }
+                        )
+                        setDeleteState({ open: false, value: null })
                     }}
                     loading={deleteMutation.isPending}
                 />
@@ -1123,7 +1141,7 @@ const EnumerationValueList = () => {
                             }))
                         }
                         const enumerationMap = new Map<string, Enumeration>([[enumerationForHubResolution.id, enumerationForHubResolution]])
-                        const settingsCtx = {
+                        const settingsCtx: EnumerationActionContext = {
                             entity: enumDisplay,
                             entityKind: 'enumeration' as const,
                             t,
@@ -1133,7 +1151,7 @@ const EnumerationValueList = () => {
                             api: {
                                 updateEntity: async (id: string, patch: EnumerationLocalizedPayload) => {
                                     if (!metahubId) return
-                                    await updateEnumMutation.mutateAsync({
+                                    updateEnumMutation.mutate({
                                         metahubId,
                                         enumerationId: id,
                                         data: { ...patch, expectedVersion: enumerationForHubResolution.version }
@@ -1143,14 +1161,14 @@ const EnumerationValueList = () => {
                             helpers: {
                                 refreshList: async () => {
                                     if (metahubId && enumerationId) {
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
                                         })
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: metahubsQueryKeys.allEnumerations(metahubId)
                                         })
                                         // Invalidate breadcrumb queries so page title refreshes immediately
-                                        await queryClient.invalidateQueries({
+                                        void queryClient.invalidateQueries({
                                             queryKey: ['breadcrumb', 'enumeration', metahubId, enumerationId]
                                         })
                                     }
@@ -1180,8 +1198,8 @@ const EnumerationValueList = () => {
                                 canSave={canSaveEnumerationForm}
                                 onSave={async (data) => {
                                     const payload = enumToPayload(data)
-                                    await settingsCtx.api.updateEntity(enumerationForHubResolution.id, payload)
-                                    await settingsCtx.helpers.refreshList()
+                                    await settingsCtx.api?.updateEntity?.(enumerationForHubResolution.id, payload)
+                                    await settingsCtx.helpers?.refreshList?.()
                                 }}
                                 onClose={() => setEditDialogOpen(false)}
                             />

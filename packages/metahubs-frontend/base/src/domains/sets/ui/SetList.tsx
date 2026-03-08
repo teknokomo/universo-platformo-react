@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Chip, Divider, Tabs, Tab } from '@mui/material'
+import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -25,7 +25,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill,
     useCodenameVlcSync,
-    EntitySelectionPanel
+    EntitySelectionPanel,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
 import type { EntitySelectionLabels } from '@universo/template-mui'
@@ -49,7 +50,7 @@ import type { SetWithHubs } from '../api'
 import * as hubsApi from '../../hubs'
 import { fetchAllPaginatedItems, invalidateSetsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { MetahubSetDisplay, SetLocalizedPayload, Hub, PaginatedResponse, getVLCString, toSetDisplay } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -303,9 +304,6 @@ const SetListContent = () => {
     // Use different storage keys for different views
     const [view, setView] = useViewPreference(isHubScoped ? STORAGE_KEYS.SET_DISPLAY_STYLE : STORAGE_KEYS.ALL_SETS_DISPLAY_STYLE)
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
-    const [dialogError, setDialogError] = useState<string | null>(null)
     const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('sets')
     const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
 
@@ -402,6 +400,8 @@ const SetListContent = () => {
     const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
     const [isAttachingExisting, setAttachingExisting] = useState(false)
     const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
+    const [pendingSetNavigation, setPendingSetNavigation] = useState<{ pendingId: string; codename: string } | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     const { confirm } = useConfirm()
 
@@ -452,6 +452,47 @@ const SetListContent = () => {
         if (!Array.isArray(sortedSets)) return new Map<string, SetWithHubs>()
         return new Map(sortedSets.map((set) => [set.id, set]))
     }, [sortedSets])
+
+    useEffect(() => {
+        if (!pendingSetNavigation || !metahubId) return
+
+        if (sortedSets.some((set) => set.id === pendingSetNavigation.pendingId)) {
+            return
+        }
+
+        const resolvedSet = sortedSets.find((set) => !isPendingEntity(set) && set.codename === pendingSetNavigation.codename)
+
+        if (!resolvedSet) return
+
+        setPendingSetNavigation(null)
+        navigate(
+            isHubScoped && hubId
+                ? `/metahub/${metahubId}/hub/${hubId}/set/${resolvedSet.id}/constants`
+                : `/metahub/${metahubId}/set/${resolvedSet.id}/constants`
+        )
+    }, [hubId, isHubScoped, metahubId, navigate, pendingSetNavigation, sortedSets])
+
+    const handlePendingSetInteraction = useCallback(
+        (pendingSetId: string) => {
+            if (!metahubId) return
+            const pendingSet = setMap.get(pendingSetId)
+            if (pendingSet?.codename) {
+                setPendingSetNavigation({ pendingId: pendingSet.id, codename: pendingSet.codename })
+            }
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: isHubScoped && hubId ? metahubsQueryKeys.sets(metahubId, hubId) : metahubsQueryKeys.allSets(metahubId),
+                entityId: pendingSetId,
+                extraQueryKeys: [
+                    isHubScoped && hubId
+                        ? metahubsQueryKeys.setDetailInHub(metahubId, hubId, pendingSetId)
+                        : metahubsQueryKeys.setDetail(metahubId, pendingSetId)
+                ]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient, setMap]
+    )
 
     const allSetsById = useMemo(() => {
         const map = new Map<string, SetWithHubs>()
@@ -637,30 +678,47 @@ const SetListContent = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: SetWithHubsDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: SetWithHubsDisplay) => (
-                    <Link
-                        to={
-                            isHubScoped
-                                ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
-                                : `/metahub/${metahubId}/set/${row.id}/constants`
-                        }
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
+                render: (row: SetWithHubsDisplay) => {
+                    const href = isHubScoped
+                        ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
+                        : `/metahub/${metahubId}/set/${row.id}/constants`
+                    return isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingSetInteraction(row.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
+                }
             },
             {
                 id: 'description',
@@ -710,16 +768,15 @@ const SetListContent = () => {
             align: 'left' as const,
             render: (row: SetWithHubsDisplay) => (
                 <Stack direction='column' spacing={0.5}>
-                    {row.allHubs.map((hub) => (
-                        <Link
-                            key={hub.id}
-                            to={`/metahub/${metahubId}/hub/${hub.id}/sets`}
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                        >
+                    {row.allHubs.map((hub) =>
+                        isPendingEntity(row) ? (
                             <Chip
+                                key={hub.id}
                                 label={hub.name}
                                 size='small'
                                 variant='outlined'
+                                clickable
+                                onClick={() => handlePendingSetInteraction(row.id)}
                                 sx={{
                                     maxWidth: '100%',
                                     '&:hover': {
@@ -727,8 +784,26 @@ const SetListContent = () => {
                                     }
                                 }}
                             />
-                        </Link>
-                    ))}
+                        ) : (
+                            <Link
+                                key={hub.id}
+                                to={`/metahub/${metahubId}/hub/${hub.id}/sets`}
+                                style={{ textDecoration: 'none', color: 'inherit' }}
+                            >
+                                <Chip
+                                    label={hub.name}
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{
+                                        maxWidth: '100%',
+                                        '&:hover': {
+                                            backgroundColor: 'action.hover'
+                                        }
+                                    }}
+                                />
+                            </Link>
+                        )
+                    )}
                     {row.allHubs.length === 0 && (
                         <Typography variant='body2' color='text.secondary'>
                             —
@@ -747,26 +822,42 @@ const SetListContent = () => {
                 align: 'center' as const,
                 render: (row: SetWithHubsDisplay) =>
                     typeof row.constantsCount === 'number' ? (
-                        <Link
-                            to={
-                                isHubScoped
-                                    ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
-                                    : `/metahub/${metahubId}/set/${row.id}/constants`
-                            }
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                        >
-                            <Typography
-                                sx={{
-                                    fontSize: 14,
-                                    '&:hover': {
-                                        textDecoration: 'underline',
-                                        color: 'primary.main'
-                                    }
-                                }}
+                        isPendingEntity(row) ? (
+                            <ButtonBase onClick={() => handlePendingSetInteraction(row.id)}>
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        '&:hover': {
+                                            textDecoration: 'underline',
+                                            color: 'primary.main'
+                                        }
+                                    }}
+                                >
+                                    {row.constantsCount}
+                                </Typography>
+                            </ButtonBase>
+                        ) : (
+                            <Link
+                                to={
+                                    isHubScoped
+                                        ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
+                                        : `/metahub/${metahubId}/set/${row.id}/constants`
+                                }
+                                style={{ textDecoration: 'none', color: 'inherit' }}
                             >
-                                {row.constantsCount}
-                            </Typography>
-                        </Link>
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        '&:hover': {
+                                            textDecoration: 'underline',
+                                            color: 'primary.main'
+                                        }
+                                    }}
+                                >
+                                    {row.constantsCount}
+                                </Typography>
+                            </Link>
+                        )
                     ) : (
                         '—'
                     )
@@ -779,7 +870,7 @@ const SetListContent = () => {
         } else {
             return [...baseColumns, hubColumn, ...countColumns]
         }
-    }, [t, tc, metahubId, hubId, isHubScoped])
+    }, [handlePendingSetInteraction, hubId, isHubScoped, metahubId, t, tc])
 
     const createSetContext = useCallback(
         (baseContext: SetMenuBaseContext) => ({
@@ -789,8 +880,8 @@ const SetListContent = () => {
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             currentHubId: isHubScoped ? hubId ?? null : null,
             api: {
-                updateEntity: async (id: string, patch: SetLocalizedPayload & { expectedVersion?: number }) => {
-                    if (!metahubId) return
+                updateEntity: (id: string, patch: SetLocalizedPayload & { expectedVersion?: number }) => {
+                    if (!metahubId) return Promise.resolve()
                     const set = setMap.get(id)
                     const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
@@ -800,49 +891,51 @@ const SetListContent = () => {
                     const expectedVersion = set?.version
                     const dataWithVersion = { ...patch, codename: normalizedCodename, expectedVersion }
 
-                    try {
-                        // In hub-scoped mode, use hubId from URL; in global mode, check if set has hubs
-                        const targetHubId = isHubScoped ? hubId! : set?.hubs?.[0]?.id
-                        if (targetHubId) {
-                            // Use hub-scoped endpoint
-                            await updateSetMutation.mutateAsync({
+                    const targetHubId = isHubScoped ? hubId! : set?.hubs?.[0]?.id
+                    const mutationOptions = {
+                        onError: (error: unknown) => {
+                            if (!isOptimisticLockConflict(error)) return
+                            const conflict = extractConflictInfo(error)
+                            if (!conflict) return
+                            setConflictState({
+                                open: true,
+                                conflict,
+                                pendingData: { ...patch, codename: normalizedCodename },
+                                setId: id
+                            })
+                        }
+                    }
+
+                    if (targetHubId) {
+                        updateSetMutation.mutate(
+                            {
                                 metahubId,
                                 hubId: targetHubId,
                                 setId: id,
                                 data: dataWithVersion
-                            })
-                        } else {
-                            // Use metahub-level endpoint for sets without hubs
-                            await updateSetAtMetahubMutation.mutateAsync({
+                            },
+                            { onError: mutationOptions.onError }
+                        )
+                    } else {
+                        updateSetAtMetahubMutation.mutate(
+                            {
                                 metahubId,
                                 setId: id,
                                 data: dataWithVersion
-                            })
-                        }
-                    } catch (error: unknown) {
-                        // Check for optimistic lock conflict
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({
-                                    open: true,
-                                    conflict,
-                                    pendingData: { ...patch, codename: normalizedCodename },
-                                    setId: id
-                                })
-                                return // Don't rethrow - dialog will handle
-                            }
-                        }
-                        throw error
+                            },
+                            { onError: mutationOptions.onError }
+                        )
                     }
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId) return
                     const set = setMap.get(id)
 
                     if (isHubScoped && hubId) {
                         // Hub-scoped mode: use hubId from URL
-                        await deleteSetMutation.mutateAsync({
+                        return deleteSetMutation.mutateAsync({
                             metahubId,
                             hubId,
                             setId: id,
@@ -851,7 +944,7 @@ const SetListContent = () => {
                     } else {
                         // Global mode: check if set has hubs
                         const targetHubId = set?.hubs?.[0]?.id
-                        await deleteSetMutation.mutateAsync({
+                        return deleteSetMutation.mutateAsync({
                             metahubId,
                             hubId: targetHubId, // undefined for sets without hubs
                             setId: id,
@@ -859,23 +952,25 @@ const SetListContent = () => {
                         })
                     }
                 },
-                copyEntity: async (id: string, payload: SetLocalizedPayload & Record<string, unknown>) => {
-                    if (!metahubId) return
-                    await copySetMutation.mutateAsync({
+                copyEntity: (id: string, payload: SetLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId) return Promise.resolve()
+                    copySetMutation.mutate({
                         metahubId,
                         setId: id,
                         data: payload
                     })
+
+                    return Promise.resolve()
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId) {
                         if (isHubScoped && hubId) {
-                            await invalidateSetsQueries.all(queryClient, metahubId, hubId)
+                            void invalidateSetsQueries.all(queryClient, metahubId, hubId)
                         } else {
                             // In global mode, invalidate all sets cache
-                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(metahubId) })
+                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(metahubId) })
                         }
                     }
                 },
@@ -953,10 +1048,6 @@ const SetListContent = () => {
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
-    }
-
-    const handleDialogSave = () => {
         setDialogOpen(false)
     }
 
@@ -1040,116 +1131,62 @@ const SetListContent = () => {
     }
 
     const handleCreateSet = async (data: GenericFormValues) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            const hubIds = Array.isArray(data.hubIds) ? data.hubIds : []
-            const isRequiredHub = Boolean(data.isRequiredHub)
+        // Validation is handled by EntityFormDialog's validate/canSave props.
+        const hubIds = Array.isArray(data.hubIds) ? data.hubIds : []
+        const isRequiredHub = Boolean(data.isRequiredHub)
 
-            // Only require hubs if isRequiredHub is true
-            if (isRequiredHub && hubIds.length === 0) {
-                setDialogError(t('sets.validation.hubRequired', 'At least one hub is required'))
-                return
-            }
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const isSingleHub = Boolean(data.isSingleHub)
 
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
+        // Confirm dialog for detached set (async — throws DIALOG_SAVE_CANCEL if cancelled)
+        if (isHubScoped && hubId && !hubIds.includes(hubId)) {
+            const confirmed = await confirm({
+                title: t('sets.detachedConfirm.title', 'Create set without current hub?'),
+                description: t(
+                    'sets.detachedConfirm.description',
+                    'This set is not linked to the current hub and will not appear in this hub after creation.'
+                ),
+                confirmButtonName: t('common:actions.create', 'Create'),
+                cancelButtonName: t('common:actions.cancel', 'Cancel')
+            })
+            if (!confirmed) {
+                throw DIALOG_SAVE_CANCEL
             }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
-            if (!normalizedCodename) {
-                setDialogError(t('sets.validation.codenameRequired', 'Codename is required'))
-                return
-            }
-            if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
-                setDialogError(t('sets.validation.codenameInvalid', 'Codename contains invalid characters'))
-                return
-            }
+        }
 
-            const isSingleHub = Boolean(data.isSingleHub)
+        // Fire-and-forget: optimistic card via onMutate, errors via onError snackbar,
+        // cache invalidation via onSettled. Dialog closes immediately.
+        const setPayload = {
+            codename: normalizedCodename || '',
+            codenameInput,
+            codenamePrimaryLocale,
+            name: nameInput ?? {},
+            description: descriptionInput,
+            namePrimaryLocale: namePrimaryLocale ?? '',
+            descriptionPrimaryLocale,
+            hubIds,
+            isSingleHub,
+            isRequiredHub
+        }
 
-            if (isHubScoped && hubId && !hubIds.includes(hubId)) {
-                const confirmed = await confirm({
-                    title: t('sets.detachedConfirm.title', 'Create set without current hub?'),
-                    description: t(
-                        'sets.detachedConfirm.description',
-                        'This set is not linked to the current hub and will not appear in this hub after creation.'
-                    ),
-                    confirmButtonName: t('common:actions.create', 'Create'),
-                    cancelButtonName: t('common:actions.cancel', 'Cancel')
-                })
-                if (!confirmed) {
-                    throw DIALOG_SAVE_CANCEL
-                }
-            }
-
-            // Choose API endpoint based on whether we have hubs
-            if (hubIds.length > 0) {
-                // Use hub-scoped endpoint with first hub
-                const primaryHubId = hubIds[0]
-                await createSetMutation.mutateAsync({
-                    metahubId: metahubId!,
-                    hubId: primaryHubId,
-                    data: {
-                        codename: normalizedCodename,
-                        codenameInput,
-                        codenamePrimaryLocale,
-                        name: nameInput,
-                        description: descriptionInput,
-                        namePrimaryLocale,
-                        descriptionPrimaryLocale,
-                        hubIds, // Pass all hubIds for N:M association
-                        isSingleHub,
-                        isRequiredHub
-                    }
-                })
-            } else {
-                // No hubs selected - use metahub-level endpoint
-                await createSetAtMetahubMutation.mutateAsync({
-                    metahubId: metahubId!,
-                    data: {
-                        codename: normalizedCodename,
-                        codenameInput,
-                        codenamePrimaryLocale,
-                        name: nameInput,
-                        description: descriptionInput,
-                        namePrimaryLocale,
-                        descriptionPrimaryLocale,
-                        hubIds: [], // Empty array
-                        isSingleHub,
-                        isRequiredHub
-                    }
-                })
-            }
-            handleDialogSave()
-        } catch (e: unknown) {
-            if (
-                e &&
-                typeof e === 'object' &&
-                '__dialogCancelled' in e &&
-                (e as { __dialogCancelled?: unknown }).__dialogCancelled === true
-            ) {
-                throw e
-            }
-            const responseMessage = extractResponseMessage(e)
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('sets.createError')
-            setDialogError(message)
-            console.error('Failed to create set', e)
-        } finally {
-            setCreating(false)
+        if (hubIds.length > 0) {
+            const primaryHubId = hubIds[0]
+            createSetMutation.mutate({
+                metahubId: metahubId!,
+                hubId: primaryHubId,
+                data: setPayload
+            })
+        } else {
+            createSetAtMetahubMutation.mutate({
+                metahubId: metahubId!,
+                data: setPayload
+            })
         }
     }
 
@@ -1359,6 +1396,9 @@ const SetListContent = () => {
                                                         data={displayData}
                                                         images={images[set.id] || []}
                                                         onClick={() => goToSet(set)}
+                                                        pending={isPendingEntity(set)}
+                                                        pendingAction={getPendingAction(set)}
+                                                        onPendingInteractionAttempt={() => handlePendingSetInteraction(set.id)}
                                                         footerEndContent={
                                                             <Stack direction='row' spacing={1} alignItems='center'>
                                                                 {/* Show hub chip only in global mode */}
@@ -1416,6 +1456,9 @@ const SetListContent = () => {
                                                             : `/metahub/${metahubId}/set/${row.id}/constants`
                                                         : undefined
                                                 }
+                                                onPendingInteractionAttempt={(row: SetWithHubsDisplay) =>
+                                                    handlePendingSetInteraction(row.id)
+                                                }
                                                 customColumns={setColumns}
                                                 i18nNamespace='flowList'
                                                 renderActions={(row: SetWithHubsDisplay) => {
@@ -1467,8 +1510,6 @@ const SetListContent = () => {
                     saveButtonText={tc('actions.create', 'Create')}
                     savingButtonText={tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
-                    error={dialogError || undefined}
                     onClose={handleDialogClose}
                     onSave={handleCreateSet}
                     hideDefaultFields
@@ -1546,36 +1587,38 @@ const SetListContent = () => {
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onCancel={() => setConfirmDeleteDialogState({ open: false, set: null })}
-                    onConfirm={async () => {
-                        if (confirmDeleteDialogState.set && metahubId) {
-                            try {
-                                const deletingSetId = confirmDeleteDialogState.set.id
-                                // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
-                                const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.set.hubs?.[0]?.id || ''
-                                await deleteSetMutation.mutateAsync({
-                                    metahubId,
-                                    hubId: targetHubId,
-                                    setId: deletingSetId,
-                                    force: !isHubScoped // Force delete in global mode
-                                })
-                                setConfirmDeleteDialogState({ open: false, set: null })
-                                queryClient.removeQueries({
-                                    queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, deletingSetId)
-                                })
-                            } catch (err: unknown) {
-                                const responseMessage = extractResponseMessage(err)
-                                const message =
-                                    typeof responseMessage === 'string'
-                                        ? responseMessage
-                                        : err instanceof Error
-                                        ? err.message
-                                        : typeof err === 'string'
-                                        ? err
-                                        : t('sets.deleteError')
-                                enqueueSnackbar(message, { variant: 'error' })
-                                setConfirmDeleteDialogState({ open: false, set: null })
+                    onConfirm={() => {
+                        if (!confirmDeleteDialogState.set || !metahubId) return
+
+                        const deletingSetId = confirmDeleteDialogState.set.id
+                        const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.set.hubs?.[0]?.id || ''
+                        deleteSetMutation.mutate(
+                            {
+                                metahubId,
+                                hubId: targetHubId,
+                                setId: deletingSetId,
+                                force: !isHubScoped
+                            },
+                            {
+                                onSuccess: () => {
+                                    queryClient.removeQueries({
+                                        queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, deletingSetId)
+                                    })
+                                },
+                                onError: (err: unknown) => {
+                                    const responseMessage = extractResponseMessage(err)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : err instanceof Error
+                                            ? err.message
+                                            : typeof err === 'string'
+                                            ? err
+                                            : t('sets.deleteError')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
                             }
-                        }
+                        )
                     }}
                 />
 
@@ -1584,30 +1627,33 @@ const SetListContent = () => {
                     set={blockingDeleteDialogState.set}
                     metahubId={metahubId}
                     onClose={() => setBlockingDeleteDialogState({ open: false, set: null })}
-                    onConfirm={async (set) => {
-                        try {
-                            const targetHubId = isHubScoped ? hubId : set.hubs?.[0]?.id
-                            await deleteSetMutation.mutateAsync({
+                    onConfirm={(set) => {
+                        const targetHubId = isHubScoped ? hubId : set.hubs?.[0]?.id
+                        deleteSetMutation.mutate(
+                            {
                                 metahubId,
                                 hubId: targetHubId,
                                 setId: set.id,
                                 force: !isHubScoped
-                            })
-                            setBlockingDeleteDialogState({ open: false, set: null })
-                            queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, set.id) })
-                        } catch (err: unknown) {
-                            const responseMessage = extractResponseMessage(err)
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('sets.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setBlockingDeleteDialogState({ open: false, set: null })
-                        }
+                            },
+                            {
+                                onSuccess: () => {
+                                    queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, set.id) })
+                                },
+                                onError: (err: unknown) => {
+                                    const responseMessage = extractResponseMessage(err)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : err instanceof Error
+                                            ? err.message
+                                            : typeof err === 'string'
+                                            ? err
+                                            : t('sets.deleteError')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                }
+                            }
+                        )
                     }}
                     isDeleting={deleteSetMutation.isPending}
                     uiLocale={i18n.language}

@@ -166,16 +166,17 @@ export class MetahubHubsService {
             parentHubId?: string | null
             createdBy?: string | null
         },
-        userId?: string
+        userId?: string,
+        trx?: Knex.Transaction
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        return this.knex.transaction(async (trx) => {
+        const createWithRunner = async (runner: Knex.Transaction) => {
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
                     ? input.sortOrder
-                    : await this.getNextSortOrder(schemaName, trx)
+                    : await this.getNextSortOrder(schemaName, runner)
 
-            const [created] = await trx
+            const [created] = await runner
                 .withSchema(schemaName)
                 .into('_mhb_objects')
                 .insert({
@@ -198,7 +199,13 @@ export class MetahubHubsService {
                 })
                 .returning('*')
             return this.mapHubFromObject(created)
-        })
+        }
+
+        if (trx) {
+            return createWithRunner(trx)
+        }
+
+        return this.knex.transaction(async (innerTrx) => createWithRunner(innerTrx))
     }
 
     /**

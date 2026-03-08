@@ -158,6 +158,50 @@ export {
 export { ItemCard } from './components/cards/ItemCard'
 export type { ItemCardProps, ItemCardData } from './components/cards/ItemCard'
 export { default } from './components/cards/ItemCard'
+export { PendingCardOverlay } from './components/cards/PendingCardOverlay'
+
+// Optimistic CRUD utilities
+export {
+    generateOptimisticId,
+    getCurrentLanguageKey,
+    applyOptimisticCreate,
+    applyOptimisticUpdate,
+    applyOptimisticDelete,
+    rollbackOptimisticSnapshots,
+    cleanupBreadcrumbCache,
+    revealPendingEntityFeedback,
+    getNextOptimisticSortOrderFromQueries,
+    safeInvalidateQueries,
+    safeInvalidateQueriesInactive,
+    confirmOptimisticUpdate,
+    confirmOptimisticCreate,
+    isPendingInteractionBlocked,
+    shouldShowPendingFeedback,
+    makePendingMarkers,
+    revealPendingFeedback,
+    getNextOptimisticSortOrder,
+    stripPendingMarkers,
+    isPendingEntity,
+    getPendingAction
+} from './hooks/optimisticCrud'
+export type {
+    ListCache,
+    RowsListCache,
+    OptimisticSnapshot,
+    OptimisticCreateContext,
+    OptimisticUpdateContext,
+    OptimisticDeleteContext,
+    ApplyOptimisticCreateOptions,
+    ApplyOptimisticUpdateOptions,
+    ApplyOptimisticDeleteOptions,
+    RevealPendingEntityFeedbackOptions,
+    ConfirmOptimisticCreateOptions,
+    ConfirmOptimisticUpdateOptions
+} from './hooks/optimisticCrud'
+export type { PendingAction, PendingMarkers, MaybePending, SortOrderLike } from '@universo/utils'
+
+// Pending animation styles
+export { deletingCardSx, pendingCardSx, pendingRowSx, pendingBorderPulse, pendingPulse } from './styles/pendingAnimations'
 
 // Navigation system exports
 export * from './navigation'

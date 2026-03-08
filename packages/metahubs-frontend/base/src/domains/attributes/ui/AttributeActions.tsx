@@ -441,19 +441,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh attributes list after edit', e)
-                        }
-                    },
                     onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
@@ -678,8 +669,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                             if (sourceDataType === 'TABLE') {
                                 payload.copyChildAttributes = Boolean(values.copyChildAttributes ?? true)
                             }
-                            await ctx.api?.copyEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.copyEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
@@ -835,7 +825,6 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                 onConfirm: async () => {
                     try {
                         await ctx.api?.deleteEntity?.(ctx.entity.id)
-                        await ctx.helpers?.refreshList?.()
                     } catch (error: unknown) {
                         notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                         throw error

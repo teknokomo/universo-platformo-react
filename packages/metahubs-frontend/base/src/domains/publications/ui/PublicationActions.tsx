@@ -221,19 +221,10 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to refresh publications list after edit', e)
-                        }
-                    },
                     onSave: async (data: Record<string, any>) => {
                         try {
                             const payload = toPayload(data)
-                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
-                            await ctx.helpers?.refreshList?.()
+                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error

@@ -16,7 +16,12 @@ import {
     type DashboardDetailsSlot
 } from '@universo/apps-template-mui'
 import { createRuntimeAdapter } from '../api/runtimeAdapter'
-import { useUpdateRuntimeCell } from '../api/mutations'
+import {
+    buildPendingRuntimeCellMap,
+    getRuntimeCellPendingKey,
+    usePendingRuntimeCellMutations,
+    useUpdateRuntimeCell
+} from '../api/mutations'
 
 const DEFAULT_PAGE_SIZE = 50
 
@@ -28,34 +33,49 @@ const ApplicationRuntime = () => {
 
     // Inline cell mutation for BOOLEAN checkboxes (catalogId passed dynamically)
     const updateCellMutation = useUpdateRuntimeCell({ applicationId })
+    const pendingRuntimeCellMutations = usePendingRuntimeCellMutations({ applicationId })
 
     // Stabilize cellRenderers — use refs to avoid DataGrid column re-creation on mutation state changes
     const cellMutateRef = useRef(updateCellMutation.mutate)
     cellMutateRef.current = updateCellMutation.mutate
-    const isPendingRef = useRef(false)
-    isPendingRef.current = updateCellMutation.isPending
+    const pendingCellValues = useMemo(() => buildPendingRuntimeCellMap(pendingRuntimeCellMutations), [pendingRuntimeCellMutations])
+    const pendingCellValuesRef = useRef(pendingCellValues)
+    pendingCellValuesRef.current = pendingCellValues
     const catalogIdRef = useRef<string | undefined>(undefined)
+    const pendingInteractionRef = useRef<(rowId: string) => boolean>(() => false)
 
-    // Cell renderer overrides: interactive BOOLEAN checkboxes
+    // Cell renderer overrides: interactive BOOLEAN checkboxes with per-cell optimistic state
     const cellRenderers = useMemo<CellRendererOverrides>(
         () => ({
-            BOOLEAN: (params) => (
-                <Checkbox
-                    disableRipple
-                    checked={Boolean(params.value)}
-                    indeterminate={false}
-                    disabled={isPendingRef.current}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(_, checked) => {
-                        cellMutateRef.current({
-                            rowId: params.rowId,
-                            field: params.field,
-                            value: checked,
-                            catalogId: catalogIdRef.current
-                        })
-                    }}
-                />
-            )
+            BOOLEAN: (params) => {
+                // "via UI" optimistic: if THIS cell has a pending mutation, show the latest pending value for that exact cell
+                const pendingKey = getRuntimeCellPendingKey(params.rowId, params.field)
+                const hasPendingValue = pendingCellValuesRef.current.has(pendingKey)
+                const pendingValue = pendingCellValuesRef.current.get(pendingKey)
+                const displayValue = hasPendingValue ? pendingValue : params.value
+
+                return (
+                    <Checkbox
+                        disableRipple
+                        checked={Boolean(displayValue)}
+                        indeterminate={false}
+                        disabled={false}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(_, checked) => {
+                            if (pendingInteractionRef.current(params.rowId)) {
+                                return
+                            }
+
+                            cellMutateRef.current({
+                                rowId: params.rowId,
+                                field: params.field,
+                                value: checked,
+                                catalogId: catalogIdRef.current
+                            })
+                        }}
+                    />
+                )
+            }
         }),
         []
     )
@@ -72,6 +92,7 @@ const ApplicationRuntime = () => {
 
     // Keep catalogId ref in sync with current catalog from hook state
     catalogIdRef.current = state.selectedCatalogId ?? state.activeCatalogId
+    pendingInteractionRef.current = state.handlePendingInteractionAttempt
 
     const detailsTitle = state.appData?.catalog?.name ?? 'Details'
 

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import {
     Box,
+    ButtonBase,
     Skeleton,
     Stack,
     Typography,
@@ -36,7 +37,8 @@ import {
     gridSpacing,
     useConfirm,
     LocalizedInlineField,
-    CollapsibleSection
+    CollapsibleSection,
+    revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -54,7 +56,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString, type PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import publicationActions from './PublicationActions'
 import { AccessPanel } from './AccessPanel'
 
@@ -121,9 +123,8 @@ const PublicationList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.PUBLICATION_DISPLAY_STYLE)
 
-    // State management for dialog
-    const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     // Use publications list hook
     const {
@@ -284,6 +285,20 @@ const PublicationList = () => {
         if (!Array.isArray(publications)) return new Map<string, Publication>()
         return new Map(publications.map((publication) => [publication.id, publication]))
     }, [publications])
+
+    const handlePendingPublicationInteraction = useCallback(
+        (publicationId: string) => {
+            if (!metahubId) return
+            revealPendingEntityFeedback({
+                queryClient,
+                queryKeyPrefix: metahubsQueryKeys.publications(metahubId),
+                entityId: publicationId,
+                extraQueryKeys: [metahubsQueryKeys.publicationDetail(metahubId, publicationId)]
+            })
+            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
+        },
+        [enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+    )
 
     const localizedFormDefaults = useMemo<PublicationFormValues>(() => {
         // Auto-fill name: metahub name + " API" suffix across all locales
@@ -518,23 +533,46 @@ const PublicationList = () => {
                 label: tc('table.name', 'Name'),
                 width: '35%',
                 align: 'left' as const,
-                render: (row: PublicationDisplay) => (
-                    <Link to={`/metahub/${metahubId}/publication/${row.id}/versions`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
+                render: (row: PublicationDisplay) =>
+                    isPendingEntity(row) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingPublicationInteraction(row.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
                         >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
-                )
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link
+                            to={`/metahub/${metahubId}/publication/${row.id}/versions`}
+                            style={{ textDecoration: 'none', color: 'inherit' }}
+                        >
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    )
             },
             {
                 id: 'description',
@@ -566,7 +604,7 @@ const PublicationList = () => {
                 )
             }
         ],
-        [t, tc, metahubId]
+        [handlePendingPublicationInteraction, metahubId, t, tc]
     )
 
     const createPublicationContext = useCallback(
@@ -579,26 +617,33 @@ const PublicationList = () => {
             isMetahubLoading, // Pass loading state for metahub
             canDeletePublication: true,
             api: {
-                updateEntity: async (id: string, data: any) => {
-                    if (!metahubId) return
+                updateEntity: (id: string, data: any) => {
+                    if (!metahubId) return Promise.resolve()
                     const publication = publicationMap.get(id)
                     const expectedVersion = publication?.version
-                    try {
-                        await updatePublicationMutation.mutateAsync({ metahubId, publicationId: id, data: { ...data, expectedVersion } })
-                    } catch (error: unknown) {
-                        if (isOptimisticLockConflict(error)) {
-                            const conflict = extractConflictInfo(error)
-                            if (conflict) {
-                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: data } })
-                                return
+                    updatePublicationMutation.mutate(
+                        {
+                            metahubId,
+                            publicationId: id,
+                            data: { ...data, expectedVersion }
+                        },
+                        {
+                            onError: (error: unknown) => {
+                                if (isOptimisticLockConflict(error)) {
+                                    const conflict = extractConflictInfo(error)
+                                    if (conflict) {
+                                        setConflictState({ open: true, conflict, pendingUpdate: { id, patch: data } })
+                                    }
+                                }
                             }
                         }
-                        throw error
-                    }
+                    )
+
+                    return Promise.resolve()
                 },
-                deleteEntity: async (id: string) => {
+                deleteEntity: (id: string) => {
                     if (!metahubId) return
-                    await deletePublicationMutation.mutateAsync({ metahubId, publicationId: id })
+                    return deletePublicationMutation.mutateAsync({ metahubId, publicationId: id })
                 },
                 syncEntity: async (id: string, confirmDestructive?: boolean) => {
                     if (!metahubId) return
@@ -606,9 +651,9 @@ const PublicationList = () => {
                 }
             },
             helpers: {
-                refreshList: async () => {
+                refreshList: () => {
                     if (metahubId) {
-                        await invalidatePublicationsQueries.all(queryClient, metahubId)
+                        void invalidatePublicationsQueries.all(queryClient, metahubId)
                     }
                 },
                 openDeleteDialog: (entity: PublicationDisplay) => {
@@ -683,74 +728,56 @@ const PublicationList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreatePublication = async (data: Record<string, any>) => {
+    const handleCreatePublication = (data: Record<string, any>) => {
         setDialogError(null)
-        setCreating(true)
-        try {
-            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            if (!nameInput || !namePrimaryLocale) {
-                setDialogError(tc('crud.nameRequired', 'Name is required'))
-                return
-            }
-            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-
-            // Extract version fields
-            const versionNameVlc = data.versionNameVlc as VersionedLocalizedContent<string> | null | undefined
-            const versionDescriptionVlc = data.versionDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: versionNameInput, primaryLocale: versionNamePrimaryLocale } = extractLocalizedInput(versionNameVlc)
-            const { input: versionDescriptionInput, primaryLocale: versionDescriptionPrimaryLocale } =
-                extractLocalizedInput(versionDescriptionVlc)
-            const versionBranchId = (data.versionBranchId as string | null | undefined) ?? defaultBranchId ?? undefined
-
-            // Extract optional application name/description override
-            const appNameVlc = data.applicationNameVlc as VersionedLocalizedContent<string> | null | undefined
-            const appDescriptionVlc = data.applicationDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
-            const { input: applicationNameInput, primaryLocale: applicationNamePrimaryLocale } = extractLocalizedInput(appNameVlc)
-            const { input: applicationDescriptionInput, primaryLocale: applicationDescriptionPrimaryLocale } =
-                extractLocalizedInput(appDescriptionVlc)
-
-            await createPublicationMutation.mutateAsync({
-                metahubId: metahubId!,
-                data: {
-                    name: nameInput,
-                    description: descriptionInput,
-                    namePrimaryLocale,
-                    descriptionPrimaryLocale,
-                    autoCreateApplication: Boolean(data.autoCreateApplication),
-                    createApplicationSchema: Boolean(data.createApplicationSchema),
-                    // First version data
-                    versionName: versionNameInput,
-                    versionDescription: versionDescriptionInput,
-                    versionNamePrimaryLocale,
-                    versionDescriptionPrimaryLocale,
-                    versionBranchId,
-                    // Optional application name/description override
-                    applicationName: applicationNameInput,
-                    applicationDescription: applicationDescriptionInput,
-                    applicationNamePrimaryLocale,
-                    applicationDescriptionPrimaryLocale
-                }
-            })
-
-            await invalidatePublicationsQueries.all(queryClient, metahubId!)
-            handleDialogSave()
-        } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('publications.messages.createError')
-            setDialogError(message)
-            console.error('Failed to create publication', e)
-        } finally {
-            setCreating(false)
+        const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+        if (!nameInput || !namePrimaryLocale) {
+            setDialogError(tc('crud.nameRequired', 'Name is required'))
+            return
         }
+        const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+
+        // Extract version fields
+        const versionNameVlc = data.versionNameVlc as VersionedLocalizedContent<string> | null | undefined
+        const versionDescriptionVlc = data.versionDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: versionNameInput, primaryLocale: versionNamePrimaryLocale } = extractLocalizedInput(versionNameVlc)
+        const { input: versionDescriptionInput, primaryLocale: versionDescriptionPrimaryLocale } =
+            extractLocalizedInput(versionDescriptionVlc)
+        const versionBranchId = (data.versionBranchId as string | null | undefined) ?? defaultBranchId ?? undefined
+
+        // Extract optional application name/description override
+        const appNameVlc = data.applicationNameVlc as VersionedLocalizedContent<string> | null | undefined
+        const appDescriptionVlc = data.applicationDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
+        const { input: applicationNameInput, primaryLocale: applicationNamePrimaryLocale } = extractLocalizedInput(appNameVlc)
+        const { input: applicationDescriptionInput, primaryLocale: applicationDescriptionPrimaryLocale } =
+            extractLocalizedInput(appDescriptionVlc)
+
+        createPublicationMutation.mutate({
+            metahubId,
+            data: {
+                name: nameInput,
+                description: descriptionInput,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                autoCreateApplication: Boolean(data.autoCreateApplication),
+                createApplicationSchema: Boolean(data.createApplicationSchema),
+                // First version data
+                versionName: versionNameInput,
+                versionDescription: versionDescriptionInput,
+                versionNamePrimaryLocale,
+                versionDescriptionPrimaryLocale,
+                versionBranchId,
+                // Optional application name/description override
+                applicationName: applicationNameInput,
+                applicationDescription: applicationDescriptionInput,
+                applicationNamePrimaryLocale,
+                applicationDescriptionPrimaryLocale
+            }
+        })
+
+        handleDialogSave()
     }
 
     const handleChange = (_event: any, nextView: string | null) => {
@@ -867,6 +894,9 @@ const PublicationList = () => {
                                                 data={cardData}
                                                 images={images[publication.id] || []}
                                                 onClick={() => navigate(`/metahub/${metahubId}/publication/${publication.id}/versions`)}
+                                                pending={isPendingEntity(publication)}
+                                                pendingAction={getPendingAction(publication)}
+                                                onPendingInteractionAttempt={() => handlePendingPublicationInteraction(publication.id)}
                                                 footerEndContent={
                                                     <Chip
                                                         label={t(
@@ -904,6 +934,9 @@ const PublicationList = () => {
                                         customColumns={publicationColumns}
                                         getRowLink={(row: any) =>
                                             row?.id ? `/metahub/${metahubId}/publication/${row.id}/versions` : undefined
+                                        }
+                                        onPendingInteractionAttempt={(row: PublicationDisplay) =>
+                                            handlePendingPublicationInteraction(row.id)
                                         }
                                         i18nNamespace='flowList'
                                         renderActions={(row: any) => {
@@ -954,7 +987,7 @@ const PublicationList = () => {
                 saveButtonText={tc('actions.create', 'Create')}
                 savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
+                loading={createPublicationMutation.isPending}
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
                 onSave={handleCreatePublication}
@@ -974,30 +1007,33 @@ const PublicationList = () => {
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 onCancel={() => setDeleteDialogState({ open: false, publication: null })}
-                onConfirm={async () => {
-                    if (deleteDialogState.publication && metahubId) {
-                        try {
-                            await deletePublicationMutation.mutateAsync({
-                                metahubId,
-                                publicationId: deleteDialogState.publication.id
-                            })
-                            await invalidatePublicationsQueries.all(queryClient, metahubId)
-                            setDeleteDialogState({ open: false, publication: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('publications.messages.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, publication: null })
+                onConfirm={() => {
+                    if (!deleteDialogState.publication || !metahubId) return
+
+                    deletePublicationMutation.mutate(
+                        {
+                            metahubId,
+                            publicationId: deleteDialogState.publication.id
+                        },
+                        {
+                            onSuccess: () => {
+                                void invalidatePublicationsQueries.all(queryClient, metahubId)
+                            },
+                            onError: (err: unknown) => {
+                                const responseMessage =
+                                    err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                                const message =
+                                    typeof responseMessage === 'string'
+                                        ? responseMessage
+                                        : err instanceof Error
+                                        ? err.message
+                                        : typeof err === 'string'
+                                        ? err
+                                        : t('publications.messages.deleteError')
+                                enqueueSnackbar(message, { variant: 'error' })
+                            }
                         }
-                    }
+                    )
                 }}
             />
             <ConflictResolutionDialog
