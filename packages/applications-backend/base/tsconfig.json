@@ -4,6 +4,10 @@
         "module": "Node16",
         "lib": ["ES2020"],
         "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@universo/schema-ddl": ["../../schema-ddl/base/dist/index.d.ts"]
+        },
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,

@@ -1,15 +1,21 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, In } from 'typeorm'
-import { uuid } from '@universo/utils'
+import { getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
-import { AuthUser } from '@universo/auth-backend'
-import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
-import { escapeLikeWildcards, getRequestManager } from '../utils'
-import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
-import { Role } from '../database/entities/Role'
-import { RolePermission } from '../database/entities/RolePermission'
-import { UserRole } from '../database/entities/UserRole'
+import { escapeLikeWildcards } from '../utils'
+import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
+import {
+    listRoles,
+    listAssignableRoles,
+    findRoleById,
+    findRoleByCodename,
+    createRole,
+    updateRole,
+    deleteRole,
+    replacePermissions,
+    countUsersByRoleId,
+    listRoleUsers
+} from '../persistence/rolesStore'
 import { CreateRoleSchema, UpdateRoleSchema } from '../schemas'
 import { z } from 'zod'
 
@@ -39,14 +45,10 @@ const RoleUsersQuerySchema = z.object({
 export interface RolesRoutesConfig {
     globalAccessService: GlobalAccessService
     permissionService: IPermissionService
-    getDataSource: () => DataSource
+    getDbExecutor: () => DbExecutor
 }
 
-/**
- * Create routes for roles management
- * Requires global access for all operations
- */
-export function createRolesRoutes({ globalAccessService, permissionService, getDataSource }: RolesRoutesConfig): Router {
+export function createRolesRoutes({ globalAccessService, permissionService, getDbExecutor }: RolesRoutesConfig): Router {
     const router = Router()
     const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
 
@@ -56,45 +58,12 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             fn(req, res).catch(next)
         }
 
-    const getRoleRepo = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return manager.getRepository(Role)
-    }
-
-    const getPermissionRepo = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return manager.getRepository(RolePermission)
-    }
-
-    const getUserRoleRepo = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return manager.getRepository(UserRole)
-    }
-
-    const getAuthUserRepo = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return manager.getRepository(AuthUser)
-    }
-
-    /**
-     * GET /api/v1/admin/roles/assignable
-     * Get roles that can be assigned to global users
-     * Returns minimal role data for dropdown population
-     */
     router.get(
         '/assignable',
         ensureGlobalAccess('roles', 'read'),
         asyncHandler(async (req, res) => {
-            const roleRepo = getRoleRepo(req)
-
-            const roles = await roleRepo.find({
-                select: ['id', 'codename', 'name', 'color'],
-                order: { codename: 'ASC' }
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const roles = await listAssignableRoles(exec)
 
             const data = roles.map((role) => ({
                 id: role.id,
@@ -107,15 +76,10 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
         })
     )
 
-    /**
-     * GET /api/v1/admin/roles
-     * List all roles with their permissions
-     */
     router.get(
         '/',
         ensureGlobalAccess('roles', 'read'),
         asyncHandler(async (req, res) => {
-            const roleRepo = getRoleRepo(req)
             const parsed = ListQuerySchema.safeParse(req.query)
 
             if (!parsed.success) {
@@ -128,54 +92,34 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             }
 
             const { limit, offset, search, sortBy, sortOrder, includeSystem } = parsed.data
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const qb = roleRepo.createQueryBuilder('r').leftJoinAndSelect('r.permissions', 'p')
+            const { items, total } = await listRoles(exec, {
+                limit,
+                offset,
+                search: search ? escapeLikeWildcards(search.toLowerCase()) : undefined,
+                sortBy,
+                sortOrder,
+                includeSystem
+            })
 
-            if (!includeSystem) {
-                qb.andWhere('r.is_system = false')
-            }
-
-            if (search) {
-                const escapedSearch = escapeLikeWildcards(search.toLowerCase())
-                qb.andWhere(
-                    `(
-                        LOWER(r.codename) LIKE :search OR
-                        r.name::text ILIKE :search OR
-                        r.description::text ILIKE :search
-                    )`,
-                    { search: `%${escapedSearch}%` }
-                )
-            }
-
-            // Sorting
-            const sortColumn = sortBy === 'created' ? 'r.created_at' : sortBy === 'has_global_access' ? 'r.has_global_access' : 'r.codename'
-            qb.orderBy(sortColumn, sortOrder.toUpperCase() as 'ASC' | 'DESC')
-
-            const total = await qb.getCount()
-            const roles = await qb.skip(offset).take(limit).getMany()
-
-            const hasMore = offset + roles.length < total
+            const hasMore = offset + items.length < total
             res.setHeader('X-Pagination-Limit', limit.toString())
             res.setHeader('X-Pagination-Offset', offset.toString())
-            res.setHeader('X-Pagination-Count', roles.length.toString())
+            res.setHeader('X-Pagination-Count', items.length.toString())
             res.setHeader('X-Total-Count', total.toString())
             res.setHeader('X-Pagination-Has-More', hasMore.toString())
 
-            res.json({ success: true, data: roles })
+            res.json({ success: true, data: items })
         })
     )
 
-    /**
-     * GET /api/v1/admin/roles/:id
-     * Get role by ID with permissions
-     */
     router.get(
         '/:id',
         ensureGlobalAccess('roles', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
 
-            // Validate UUID format (prevent 'new' or other non-UUID values from reaching DB)
             if (!uuid.isValidUuid(id)) {
                 res.status(400).json({
                     success: false,
@@ -184,18 +128,11 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const roleRepo = getRoleRepo(req)
-
-            const role = await roleRepo.findOne({
-                where: { id },
-                relations: ['permissions']
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const role = await findRoleById(exec, id)
 
             if (!role) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Role not found'
-                })
+                res.status(404).json({ success: false, error: 'Role not found' })
                 return
             }
 
@@ -203,17 +140,10 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
         })
     )
 
-    /**
-     * POST /api/v1/admin/roles
-     * Create a new role with permissions
-     */
     router.post(
         '/',
         ensureGlobalAccess('roles', 'create'),
         asyncHandler(async (req, res) => {
-            const roleRepo = getRoleRepo(req)
-            const permissionRepo = getPermissionRepo(req)
-
             const parsed = CreateRoleSchema.safeParse(req.body)
 
             if (!parsed.success) {
@@ -226,9 +156,9 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             }
 
             const { codename, description, name, color, isSuperuser, permissions } = parsed.data
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            // Check for duplicate codename
-            const existing = await roleRepo.findOne({ where: { codename } })
+            const existing = await findRoleByCodename(exec, codename)
             if (existing) {
                 res.status(409).json({
                     success: false,
@@ -237,53 +167,34 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            // Create role
-            const role = roleRepo.create({
+            const savedRole = await createRole(exec, {
                 codename,
+                name,
                 description,
-                name: name,
                 color,
-                is_superuser: isSuperuser,
-                is_system: false // User-created roles are never system roles
+                is_superuser: isSuperuser
             })
 
-            const savedRole = await roleRepo.save(role)
-
-            // Create permissions
             if (permissions && permissions.length > 0) {
-                const permissionEntities = permissions.map((perm) =>
-                    permissionRepo.create({
-                        role_id: savedRole.id,
-                        subject: perm.subject,
-                        action: perm.action,
-                        conditions: perm.conditions ?? {},
-                        fields: perm.fields ?? []
-                    })
+                await replacePermissions(
+                    exec,
+                    savedRole.id,
+                    permissions.map((p) => ({ subject: p.subject!, action: p.action!, conditions: p.conditions, fields: p.fields })),
+                    (req as RequestWithGlobalRole).user?.id
                 )
-                await permissionRepo.save(permissionEntities)
             }
 
-            // Reload with permissions
-            const roleWithPermissions = await roleRepo.findOne({
-                where: { id: savedRole.id },
-                relations: ['permissions']
-            })
-
+            const roleWithPermissions = await findRoleById(exec, savedRole.id)
             res.status(201).json({ success: true, data: roleWithPermissions })
         })
     )
 
-    /**
-     * PATCH /api/v1/admin/roles/:id
-     * Update role and optionally replace permissions
-     */
     router.patch(
         '/:id',
         ensureGlobalAccess('roles', 'update'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
 
-            // Validate UUID format
             if (!uuid.isValidUuid(id)) {
                 res.status(400).json({
                     success: false,
@@ -292,19 +203,11 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const roleRepo = getRoleRepo(req)
-            const permissionRepo = getPermissionRepo(req)
-
-            const role = await roleRepo.findOne({
-                where: { id },
-                relations: ['permissions']
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const role = await findRoleById(exec, id)
 
             if (!role) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Role not found'
-                })
+                res.status(404).json({ success: false, error: 'Role not found' })
                 return
             }
 
@@ -328,12 +231,9 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             // Protect system roles from critical changes
             if (role.is_system) {
-                // System roles: only allow updating description, name, color
-                const forbiddenFields = []
+                const forbiddenFields: string[] = []
                 if (codename !== undefined && codename !== role.codename) forbiddenFields.push('codename')
-                if (isSuperuser !== undefined && isSuperuser !== role.is_superuser) {
-                    forbiddenFields.push('isSuperuser')
-                }
+                if (isSuperuser !== undefined && isSuperuser !== role.is_superuser) forbiddenFields.push('isSuperuser')
                 if (permissions !== undefined) forbiddenFields.push('permissions')
 
                 if (forbiddenFields.length > 0) {
@@ -345,9 +245,8 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 }
             }
 
-            // Check for duplicate codename (if changing)
             if (codename !== undefined && codename !== role.codename) {
-                const existing = await roleRepo.findOne({ where: { codename } })
+                const existing = await findRoleByCodename(exec, codename)
                 if (existing) {
                     res.status(409).json({
                         success: false,
@@ -355,62 +254,30 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                     })
                     return
                 }
-                role.codename = codename
             }
 
-            // Update allowed fields
-            if (description !== undefined) {
-                role.description = description as VersionedLocalizedContent<string> | undefined
-            }
-            if (name !== undefined) {
-                role.name = name as VersionedLocalizedContent<string>
-            }
-            if (color !== undefined) role.color = color
-            if (isSuperuser !== undefined) role.is_superuser = isSuperuser
+            await updateRole(exec, id, { codename, name, description, color, is_superuser: isSuperuser })
 
-            await roleRepo.save(role)
-
-            // Replace permissions if provided (only for non-system roles)
             if (permissions !== undefined && !role.is_system) {
-                // Delete existing permissions
-                await permissionRepo.delete({ role_id: id })
-
-                // Create new permissions
-                if (permissions.length > 0) {
-                    const permissionEntities = permissions.map((perm) =>
-                        permissionRepo.create({
-                            role_id: id,
-                            subject: perm.subject,
-                            action: perm.action,
-                            conditions: perm.conditions ?? {},
-                            fields: perm.fields ?? []
-                        })
-                    )
-                    await permissionRepo.save(permissionEntities)
-                }
+                await replacePermissions(
+                    exec,
+                    id,
+                    permissions.map((p) => ({ subject: p.subject!, action: p.action!, conditions: p.conditions, fields: p.fields })),
+                    (req as RequestWithGlobalRole).user?.id
+                )
             }
 
-            // Reload with permissions
-            const updatedRole = await roleRepo.findOne({
-                where: { id },
-                relations: ['permissions']
-            })
-
+            const updatedRole = await findRoleById(exec, id)
             res.json({ success: true, data: updatedRole })
         })
     )
 
-    /**
-     * DELETE /api/v1/admin/roles/:id
-     * Delete a role (system roles cannot be deleted)
-     */
     router.delete(
         '/:id',
         ensureGlobalAccess('roles', 'delete'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
 
-            // Validate UUID format
             if (!uuid.isValidUuid(id)) {
                 res.status(400).json({
                     success: false,
@@ -419,19 +286,14 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const roleRepo = getRoleRepo(req)
-
-            const role = await roleRepo.findOne({ where: { id } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const role = await findRoleById(exec, id)
 
             if (!role) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Role not found'
-                })
+                res.status(404).json({ success: false, error: 'Role not found' })
                 return
             }
 
-            // Prevent deletion of system roles
             if (role.is_system) {
                 res.status(403).json({
                     success: false,
@@ -440,10 +302,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            // Check if role is assigned to any users
-            const userRoleRepo = getUserRoleRepo(req)
-            const assignedUsers = await userRoleRepo.count({ where: { role_id: id } })
-
+            const assignedUsers = await countUsersByRoleId(exec, id)
             if (assignedUsers > 0) {
                 res.status(409).json({
                     success: false,
@@ -452,38 +311,24 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            // Delete role (permissions will be cascade deleted)
-            await roleRepo.delete({ id })
-
-            res.json({
-                success: true,
-                message: `Role "${role.codename}" deleted successfully`
-            })
+            await deleteRole(exec, id, (req as RequestWithGlobalRole).user?.id)
+            res.json({ success: true, message: `Role "${role.codename}" deleted successfully` })
         })
     )
 
-    /**
-     * GET /api/v1/admin/roles/:id/users
-     * Get users assigned to a role with pagination
-     */
     router.get(
         '/:id/users',
         ensureGlobalAccess('roles', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
-            const roleRepo = getRoleRepo(req)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const role = await roleRepo.findOne({ where: { id } })
-
+            const role = await findRoleById(exec, id)
             if (!role) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Role not found'
-                })
+                res.status(404).json({ success: false, error: 'Role not found' })
                 return
             }
 
-            // Parse and validate query parameters
             const parsed = RoleUsersQuerySchema.safeParse(req.query)
             if (!parsed.success) {
                 res.status(400).json({
@@ -496,51 +341,23 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             const { limit, offset, search, sortBy, sortOrder } = parsed.data
 
-            // Get repositories
-            const userRoleRepo = getUserRoleRepo(req)
-            const authUserRepo = getAuthUserRepo(req)
-
-            // Build query with pagination
-            const qb = userRoleRepo.createQueryBuilder('ur').where('ur.role_id = :roleId', { roleId: id })
-
-            // Search filter (email via subquery to avoid cross-schema join issues)
-            if (search) {
-                const escapedSearch = escapeLikeWildcards(search.toLowerCase())
-                qb.andWhere(`EXISTS (SELECT 1 FROM auth.users u WHERE u.id = ur.user_id AND LOWER(u.email) LIKE :search)`, {
-                    search: `%${escapedSearch}%`
-                })
-            }
-
-            // Sorting
-            const sortColumn = sortBy === 'email' ? '(SELECT u.email FROM auth.users u WHERE u.id = ur.user_id)' : 'ur.created_at'
-            qb.orderBy(sortColumn, sortOrder.toUpperCase() as 'ASC' | 'DESC')
-                .skip(offset)
-                .take(limit)
-
-            // Get data and count in one query
-            const [userRoles, total] = await qb.getManyAndCount()
-
-            // Load auth users for the page
-            const userIds = userRoles.map((ur) => ur.user_id)
-            const authUsers = userIds.length > 0 ? await authUserRepo.find({ where: { id: In(userIds) } }) : []
-
-            // Create lookup map
-            const authUserMap = new Map(authUsers.map((u) => [u.id, u]))
-
-            // Map to response format with computed status
-            const users = userRoles.map((ur) => {
-                const authUser = authUserMap.get(ur.user_id)
-                return {
-                    id: ur.user_id,
-                    email: authUser?.email ?? null,
-                    full_name: authUser?.fullName ?? null,
-                    assigned_at: ur.created_at,
-                    assigned_by: ur.granted_by ?? null,
-                    status: authUser?.status ?? 'inactive'
-                }
+            const { items, total } = await listRoleUsers(exec, id, {
+                limit,
+                offset,
+                search: search ? escapeLikeWildcards(search.toLowerCase()) : undefined,
+                sortBy,
+                sortOrder
             })
 
-            // Set pagination headers (consistent with MetaverseList pattern)
+            const users = items.map((ur) => ({
+                id: ur.user_id,
+                email: ur.email,
+                full_name: ur.full_name,
+                assigned_at: ur.created_at,
+                assigned_by: ur.granted_by ?? null,
+                status: ur.status
+            }))
+
             const hasMore = offset + users.length < total
             res.setHeader('X-Pagination-Limit', limit.toString())
             res.setHeader('X-Pagination-Offset', offset.toString())
@@ -550,11 +367,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             res.json({
                 success: true,
-                data: {
-                    roleId: id,
-                    roleCodename: role.codename,
-                    users
-                }
+                data: { roleId: id, roleCodename: role.codename, users }
             })
         })
     )

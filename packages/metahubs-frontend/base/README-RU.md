@@ -391,9 +391,9 @@ docs(readme): обновить руководство по установке
 ```
 
 ## Связанные пакеты
-- [`@universo/metahubs-backend`](../../metahubs-backend/base/README.md) - Бэкенд сервис
-- [`@universo/flowise-template-mui`](../../flowise-template-mui/base/README.md) - UI компоненты
-- [`@universo/types`](../../universo-types/base/README.md) - Общие типы
+- [`@universo/metahubs-backend`](../../metahubs-backend/base/README-RU.md) - Бэкенд сервис
+- [`@universo/template-mui`](../../universo-template-mui/base/README-RU.md) - UI компоненты
+- [`@universo/types`](../../universo-types/base/README-RU.md) - Общие типы
 
 ---
-*Часть [Universo Platformo](../../../README-RU.md) - Комплексная платформа управления метахабами*
+*Часть [Universo Platformo](../../../README-RU.md) - Пакетная бизнес-платформа*

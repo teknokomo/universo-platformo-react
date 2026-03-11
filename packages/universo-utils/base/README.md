@@ -1,4 +1,4 @@
-# @universo-platformo/utils
+# @universo/utils
 
 > 🛠️ Utilities shared across frontend and backend for validation, serialization, ECS deltas, time synchronization, and network utilities in Universo Platformo
 
@@ -6,7 +6,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Package Name** | `@universo-platformo/utils` |
+| **Package Name** | `@universo/utils` |
 | **Version** | See `package.json` |
 | **Type** | TypeScript-first (Utilities) |
 | **Build** | ES module with types |
@@ -82,7 +82,7 @@ REDIS_URL=rediss://:password@redis.example.com:6380
 Run Vitest against the workspace package to exercise UPDL serialization helpers:
 
 ```bash
-pnpm --filter @universo-platformo/utils test
+pnpm --filter @universo/utils test
 ```
 
 ## API Reference
@@ -94,7 +94,7 @@ pnpm --filter @universo-platformo/utils test
 Checks if a port is available by attempting to bind to it. Throws an error if the port is already in use.
 
 ```typescript
-import { net } from '@universo-platformo/utils'
+import { net } from '@universo/utils'
 
 // Check if port 3000 is available
 await net.ensurePortAvailable(3000)
@@ -128,8 +128,8 @@ When contributing to this package:
 
 ## Related Documentation
 
-- [Main Apps Documentation](../README.md)
-- [Universo Types](../universo-types/base/README.md)
+- [Main package index](../../README.md)
+- [Universo Types](../../universo-types/base/README.md)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 
 ---

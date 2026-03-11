@@ -1,24 +1,24 @@
 ---
-description: Build business applications with the template system.
+description: Describe applications as runtime modules built on the shared platform shell.
 ---
 
 # Applications
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Applications are runtime modules built on top of the shared platform shell.
+They are governed execution surfaces connected to memberships, schemas,
+publications, and shared services.
 
-## Overview
+## Current Implementation
 
-Applications in Universo Platformo are configurable business tools built on a flexible template system. Each application has its own schema, data, and admin dashboard.
+The repository already includes application-domain backend and frontend modules,
+connector relations, memberships, schema-aware lifecycle handling, and admin or
+publication integration points.
 
-## Key Features
+## Design Direction
 
-* Template-based application creation
-* Custom schema definitions with DDL migration engine
-* Admin dashboard with role-based access
-* Publication and version management
+- Keep application metadata in managed platform structures.
+- Use controlled schema creation for run-time data when needed.
+- Link applications to publications and metahubs without collapsing boundaries.
+- Preserve portability across future technology stacks.
 
-## Documentation
-
-Coming soon.
+This keeps applications close to ERP/CMS platform logic and shared platform governance.

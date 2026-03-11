@@ -6,27 +6,27 @@
 
 * [Overview](getting-started/README.md)
 * [Installation](getting-started/installation.md)
-* [Quick Start](getting-started/quick-start.md)
 * [Configuration](getting-started/configuration.md)
+* [Quick Start](getting-started/quick-start.md)
 
-## Platform Features
+## Platform
 
 * [Overview](platform/README.md)
-* [Workspaces (Uniks)](platform/workspaces.md)
-* [Spaces & Canvases](platform/spaces.md)
-* [Metaverses](platform/metaverses.md)
-* [Applications](platform/applications.md)
+* [Nodes and Workspaces](platform/workspaces.md)
+* [Knowledge Spaces](platform/spaces.md)
 * [Metahubs](platform/metahubs.md)
-* [Publication System](platform/publications.md)
-* [UPDL Node System](platform/updl/README.md)
+* [Applications](platform/applications.md)
+* [Publications](platform/publications.md)
+* [UPDL](platform/updl/README.md)
   * [Space Nodes](platform/updl/space-nodes.md)
   * [Entity Nodes](platform/updl/entity-nodes.md)
   * [Component Nodes](platform/updl/component-nodes.md)
   * [Action Nodes](platform/updl/action-nodes.md)
   * [Event Nodes](platform/updl/event-nodes.md)
   * [Data Nodes](platform/updl/data-nodes.md)
-* [Space Builder](platform/space-builder.md)
-* [Analytics](platform/analytics.md)
+* [Builder Flows](platform/space-builder.md)
+* [Analytics and Observability](platform/analytics.md)
+* [Simulation and Virtual Worlds](platform/metaverses.md)
 
 ## Architecture
 
@@ -35,7 +35,7 @@
 * [Backend Architecture](architecture/backend.md)
 * [Frontend Architecture](architecture/frontend.md)
 * [Database Design](architecture/database.md)
-* [Authentication & Authorization](architecture/auth.md)
+* [Authentication and Authorization](architecture/auth.md)
 
 ## API Reference
 
@@ -43,14 +43,6 @@
 * [REST API](api-reference/rest-api.md)
 * [Authentication](api-reference/authentication.md)
 * [Webhooks](api-reference/webhooks.md)
-
-## Guides
-
-* [Overview](guides/README.md)
-* [Creating a New Application](guides/creating-application.md)
-* [Publishing Content](guides/publishing-content.md)
-* [Working with UPDL](guides/working-with-updl.md)
-* [Multi-Platform Export](guides/multi-platform-export.md)
 
 ## Contributing
 

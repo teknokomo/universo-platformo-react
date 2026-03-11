@@ -1,6 +1,6 @@
 # @universo/applications-backend
 
-> 🏗️ **Modern Package** - TypeScript-first architecture with Express.js and TypeORM
+> 🏗️ **Modern Package** - TypeScript-first architecture with Express.js, native SQL platform migrations, and SQL-first persistence helpers
 
 Backend service for managing applications, connectors, and memberships with strict application-level isolation.
 
@@ -10,7 +10,7 @@ Backend service for managing applications, connectors, and memberships with stri
 - **Version**: `0.1.0`
 - **Type**: Backend Service Package (TypeScript)
 - **Status**: ✅ Active Development
-- **Architecture**: Express.js + TypeORM + Zod
+- **Architecture**: Express.js + native SQL platform migrations + SQL-first persistence helpers + Zod
 
 ## Key Features
 
@@ -26,9 +26,9 @@ Backend service for managing applications, connectors, and memberships with stri
 - DoS protection via rate limiting
 
 ### Database Integration
-- TypeORM Repository pattern for all data operations
+- SQL-first persistence stores for applications, connectors, and memberships
 - PostgreSQL with JSONB support for metadata
-- Automated migrations through central registry
+- Unified platform migrations through native SQL definitions
 - CASCADE deletion with UNIQUE constraints
 
 > **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
@@ -55,8 +55,12 @@ app.use(express.json())
 
 await initializeRateLimiters()
 
-app.use('/api/v1', createApplicationsRoutes(ensureAuth, getDataSource))
+app.use('/api/v1', createApplicationsRoutes(ensureAuth, getDbExecutor))
 ```
+
+Where:
+- `ensureAuth` - your authentication middleware
+- `getDbExecutor` - returns a `DbExecutor` from `@universo/utils`
 
 ## API Endpoints
 
@@ -114,7 +118,7 @@ Application (1) ─────┬───── (N) Connector
 - **Input Validation**: All inputs validated with Zod schemas
 - **Authorization Guards**: Role-based access control on all endpoints
 - **Rate Limiting**: Configurable rate limits per endpoint
-- **SQL Injection Prevention**: TypeORM parameterized queries
+- **SQL Injection Prevention**: Parameterized SQL through shared executors and persistence helpers
 - **CORS**: Configurable cross-origin resource sharing
 
 ## Development

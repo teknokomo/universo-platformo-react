@@ -1,13 +1,13 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Metahub } from '../../../database/entities/Metahub'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubAttributesService } from '../services/MetahubAttributesService'
 import { MetahubElementsService } from '../services/MetahubElementsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
+import { findPublicMetahubBySlug } from '../../../persistence'
+import type { DbExecutor } from '../../../utils'
 
 /**
  * Public API routes for accessing published Metahubs
@@ -18,7 +18,7 @@ import { MetahubHubsService } from '../services/MetahubHubsService'
  *
  * Hierarchy: Metahub → Hub → Catalog → Attributes/Elements
  */
-export function createPublicMetahubsRoutes(getDataSource: () => DataSource, readLimiter: RateLimitRequestHandler): Router {
+export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, readLimiter: RateLimitRequestHandler): Router {
     const router = Router({ mergeParams: true })
 
     const asyncHandler =
@@ -28,15 +28,15 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         }
 
     const repos = () => {
-        const ds = getDataSource()
-        const schemaService = new MetahubSchemaService(ds)
+        const exec = getDbExecutor()
+        const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
         const hubsService = new MetahubHubsService(schemaService)
 
         return {
-            metahubRepo: ds.getRepository(Metahub),
+            exec,
             hubsService,
             objectsService,
             attributesService,
@@ -53,11 +53,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug } = req.params
-            const { metahubRepo } = repos()
+            const { exec } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -76,11 +74,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug } = req.params
-            const { metahubRepo, hubsService } = repos()
+            const { exec, hubsService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -104,11 +100,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename } = req.params
-            const { metahubRepo, hubsService } = repos()
+            const { exec, hubsService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -133,11 +127,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename } = req.params
-            const { metahubRepo, hubsService, objectsService } = repos()
+            const { exec, hubsService, objectsService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -169,11 +161,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename, catalogCodename } = req.params
-            const { metahubRepo, hubsService, objectsService } = repos()
+            const { exec, hubsService, objectsService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -211,11 +201,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename, catalogCodename } = req.params
-            const { metahubRepo, hubsService, objectsService, attributesService } = repos()
+            const { exec, hubsService, objectsService, attributesService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -255,11 +243,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename, catalogCodename } = req.params
             const { limit = '100', offset = '0' } = req.query
-            const { metahubRepo, hubsService, objectsService, elementsService } = repos()
+            const { exec, hubsService, objectsService, elementsService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })
@@ -309,11 +295,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename, catalogCodename, elementId } = req.params
-            const { metahubRepo, hubsService, objectsService, elementsService } = repos()
+            const { exec, hubsService, objectsService, elementsService } = repos()
 
-            const metahub = await metahubRepo.findOne({
-                where: { slug, isPublic: true }
-            })
+            const metahub = await findPublicMetahubBySlug(exec, slug)
 
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found or not public' })

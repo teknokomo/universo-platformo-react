@@ -1,8 +1,8 @@
 import { Router } from 'express'
-import type { IPermissionService, RequestWithDbContext } from '@universo/auth-backend'
+import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
-import { isAdminPanelEnabled } from '@universo/utils'
+import { getRequestDbSession, isAdminPanelEnabled } from '@universo/utils'
 import { GrantRoleSchema, UpdateGlobalUserSchema, formatZodError, validateListQuery } from '../schemas'
 
 export interface GlobalUsersRoutesConfig {
@@ -69,9 +69,9 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
                 })
             }
 
-            const rlsRunner = (req as RequestWithDbContext).dbContext?.queryRunner
+            const dbSession = getRequestDbSession(req)
             // Get full global access info with metadata
-            const globalInfo = await globalAccessService.getGlobalAccessInfo(userId, rlsRunner)
+            const globalInfo = await globalAccessService.getGlobalAccessInfo(userId, dbSession)
 
             if (!globalInfo || !globalInfo.canAccessAdmin) {
                 return res.json({
@@ -136,8 +136,8 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
             }
 
             // Check if already has admin access
-            const rlsRunner = (req as RequestWithDbContext).dbContext?.queryRunner
-            if (await globalAccessService.canAccessAdmin(targetUserId, rlsRunner)) {
+            const dbSession = getRequestDbSession(req)
+            if (await globalAccessService.canAccessAdmin(targetUserId, dbSession)) {
                 return res.status(409).json({
                     success: false,
                     error: 'User already has admin access',

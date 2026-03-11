@@ -1,10 +1,9 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Metahub } from '../../../database/entities/Metahub'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
 import { type SetCopyOptions, MetaEntityKind } from '@universo/types'
@@ -32,7 +31,6 @@ type RequestUser = {
 }
 
 type RequestWithUser = Request & { user?: RequestUser }
-type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
 
 type HubSummaryRow = {
     id: string
@@ -81,10 +79,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as RequestWithUser).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
@@ -351,7 +345,7 @@ const resolveUniqueSetCodename = async (params: {
 
 export function createSetsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -365,13 +359,10 @@ export function createSetsRoutes(
         }
 
     const services = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         return {
-            ds,
-            manager,
-            metahubRepo: manager.getRepository(Metahub),
+            exec,
             schemaService,
             hubsService: new MetahubHubsService(schemaService),
             objectsService: new MetahubObjectsService(schemaService),
@@ -412,11 +403,11 @@ export function createSetsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { ds, objectsService, hubsService, constantsService } = services(req)
+            const { exec, objectsService, hubsService, constantsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, getRequestDbSession(req))
 
             let validatedQuery
             try {
@@ -471,11 +462,11 @@ export function createSetsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { ds, objectsService, hubsService, constantsService } = services(req)
+            const { exec, objectsService, hubsService, constantsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, getRequestDbSession(req))
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) return res.status(404).json({ error: 'Hub not found' })
@@ -535,11 +526,11 @@ export function createSetsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { ds, objectsService } = services(req)
+            const { exec, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', getRequestDbSession(req))
 
             const parsed = reorderSetsSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -601,11 +592,11 @@ export function createSetsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, setId, hubId } = req.params
-            const { ds, objectsService, hubsService, constantsService } = services(req)
+            const { exec, objectsService, hubsService, constantsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, getRequestDbSession(req))
 
             const setItem = await getSetById(metahubId, setId, {
                 hubId,
@@ -625,18 +616,18 @@ export function createSetsRoutes(
 
     const upsertSet = async (req: Request, res: Response, mode: 'create' | 'update', hubScoped: boolean): Promise<Response | void> => {
         const { metahubId, hubId, setId } = req.params
-        const { ds, metahubRepo, objectsService, hubsService, settingsService, constantsService } = services(req)
+        const { exec, objectsService, hubsService, settingsService, constantsService } = services(req)
         const userId = resolveUserId(req)
 
         if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-        await ensureMetahubAccess(ds, userId, metahubId, mode === 'create' ? 'createContent' : 'editContent', getRequestQueryRunner(req))
+        await ensureMetahubAccess(exec, userId, metahubId, mode === 'create' ? 'createContent' : 'editContent', getRequestDbSession(req))
 
         const parsed = (mode === 'create' ? createSetSchema : updateSetSchema).safeParse(req.body)
         if (!parsed.success) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
         }
 
-        const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+        const metahub = await findMetahubById(exec, metahubId)
         if (!metahub) {
             return res.status(404).json({ error: 'Metahub not found' })
         }
@@ -832,11 +823,11 @@ export function createSetsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, setId } = req.params
-            const { ds, metahubRepo, objectsService, hubsService, constantsService, settingsService } = services(req)
+            const { exec, objectsService, hubsService, constantsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'createContent', getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, 'createContent', getRequestDbSession(req))
 
             const sourceSet = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
             if (!isSetObject(sourceSet)) {
@@ -848,7 +839,7 @@ export function createSetsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
             }
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found' })
             }
@@ -1026,11 +1017,11 @@ export function createSetsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, setId } = req.params
-            const { ds, objectsService, constantsService } = services(req)
+            const { exec, objectsService, constantsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, getRequestDbSession(req))
 
             const existing = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
             if (!isSetObject(existing)) {
@@ -1079,12 +1070,12 @@ export function createSetsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, setId, hubId } = req.params
-            const { ds, objectsService, constantsService } = services(req)
+            const { exec, objectsService, constantsService } = services(req)
             const userId = resolveUserId(req)
             const forceDelete = req.query.force === 'true'
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'deleteContent', getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, 'deleteContent', getRequestDbSession(req))
 
             const setRow = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
             if (!isSetObject(setRow)) {

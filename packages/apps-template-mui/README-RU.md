@@ -298,10 +298,10 @@ pnpm lint                        # Запуск ESLint
 Исходные файлы потребляются напрямую другими пакетами рабочей области через `main`/`module`, указывающие на `./src/index.ts`.
 
 ## Связанные пакеты
-- [`@universo/metahubs-frontend`](../metahubs-frontend/base/README.md) — UI управления метахабами
-- [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) — Бэкенд-сервис
-- [`@universo/types`](../universo-types/base/README.md) — Общие TypeScript-типы
-- [`@universo/template-mui`](../flowise-template-mui/base/README.md) — Базовые MUI-компоненты шаблона
+- [`@universo/metahubs-frontend`](../metahubs-frontend/base/README-RU.md) — UI управления метахабами
+- [`@universo/metahubs-backend`](../metahubs-backend/base/README-RU.md) — Бэкенд-сервис
+- [`@universo/types`](../universo-types/base/README-RU.md) — Общие TypeScript-типы
+- [`@universo/template-mui`](../universo-template-mui/base/README-RU.md) — Базовые MUI-компоненты шаблона
 
 ---
-*Часть [Universo Platformo](../../README-RU.md) — Комплексная платформа управления метахабами*
+*Часть [Universo Platformo](../../README-RU.md) — Пакетная платформа бизнес-приложений*

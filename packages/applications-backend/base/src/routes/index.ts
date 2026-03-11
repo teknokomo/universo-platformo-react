@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from 'express'
-import type { DataSource } from 'typeorm'
+import type { DbExecutor } from '@universo/utils'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createApplicationsRoutes } from './applicationsRoutes'
@@ -33,16 +33,16 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 /**
  * Create all applications service routes
  */
-export function createApplicationsServiceRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
+export function createApplicationsServiceRoutes(ensureAuth: RequestHandler, getDbExecutor: () => DbExecutor): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
 
     // Core applications CRUD
-    router.use('/applications', createApplicationsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/applications', createApplicationsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Connectors routes
-    router.use('/', createConnectorsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createConnectorsRoutes(ensureAuth, getDbExecutor, read, write))
 
     return router
 }

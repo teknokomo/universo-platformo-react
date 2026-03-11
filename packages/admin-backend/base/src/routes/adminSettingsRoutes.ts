@@ -1,17 +1,16 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, In } from 'typeorm'
 import { z } from 'zod'
+import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
-import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
-import { AdminSetting } from '../database/entities/AdminSetting'
+import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
+import { listSettings, findSetting, upsertSetting, bulkUpsertSettings, deleteSetting, transformSettingRow } from '../persistence/settingsStore'
 import { formatZodError } from '../schemas'
-import { getRequestManager } from '../utils'
 
 export interface AdminSettingsRoutesConfig {
     globalAccessService: GlobalAccessService
     permissionService: IPermissionService
-    getDataSource: () => DataSource
+    getDbExecutor: () => DbExecutor
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -74,34 +73,11 @@ const validateSettingValueByCategory = (category: string, key: string, value: un
 }
 
 // ═══════════════════════════════════════════════════════════════
-// RESPONSE TRANSFORMS
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Transform AdminSetting entity to API response (camelCase)
- */
-function transformSetting(setting: AdminSetting) {
-    return {
-        id: setting.id,
-        category: setting.category,
-        key: setting.key,
-        value: setting.value,
-        createdAt: setting.createdAt.toISOString(),
-        updatedAt: setting.updatedAt.toISOString()
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
 // ROUTES
 // ═══════════════════════════════════════════════════════════════
 
-/**
- * Create routes for admin settings management
- * Settings are organized by category (e.g., 'metahubs', 'applications')
- * Requires global access for all operations
- */
 export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Router {
-    const { globalAccessService, permissionService, getDataSource } = config
+    const { globalAccessService, permissionService, getDbExecutor } = config
     const router = Router()
     const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
 
@@ -111,63 +87,24 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
             fn(req, res).catch(next)
         }
 
-    const getSettingsRepo = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return manager.getRepository(AdminSetting)
-    }
-
-    const upsertSettingAtomic = async (req: Request, category: string, key: string, value: unknown): Promise<AdminSetting> => {
-        const repo = getSettingsRepo(req)
-        await repo.upsert(
-            {
-                category,
-                key,
-                value: { _value: value }
-            },
-            ['category', 'key']
-        )
-
-        const persisted = await repo.findOne({ where: { category, key } })
-        if (!persisted) {
-            throw new Error('Failed to persist setting')
-        }
-
-        return persisted
-    }
-
-    /**
-     * GET /api/v1/admin/settings
-     * List all settings (optionally filtered by category via query param)
-     */
     router.get(
         '/',
         ensureGlobalAccess('settings', 'read'),
         asyncHandler(async (req, res) => {
-            const repo = getSettingsRepo(req)
-
-            const categoryFilter = req.query.category as string | undefined
-            const where = categoryFilter ? { category: categoryFilter } : {}
-
-            const settings = await repo.find({
-                where,
-                order: { category: 'ASC', key: 'ASC' }
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const categoryFilter = (req.query as { category?: string }).category
+            const settings = await listSettings(exec, categoryFilter)
 
             res.json({
                 success: true,
                 data: {
-                    items: settings.map(transformSetting),
+                    items: settings.map(transformSettingRow),
                     total: settings.length
                 }
             })
         })
     )
 
-    /**
-     * GET /api/v1/admin/settings/:category
-     * List all settings for a specific category
-     */
     router.get(
         '/:category',
         ensureGlobalAccess('settings', 'read'),
@@ -178,26 +115,19 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const repo = getSettingsRepo(req)
-            const settings = await repo.find({
-                where: { category: parsed.data.category },
-                order: { key: 'ASC' }
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const settings = await listSettings(exec, parsed.data.category)
 
             res.json({
                 success: true,
                 data: {
-                    items: settings.map(transformSetting),
+                    items: settings.map(transformSettingRow),
                     total: settings.length
                 }
             })
         })
     )
 
-    /**
-     * GET /api/v1/admin/settings/:category/:key
-     * Get a single setting by category and key
-     */
     router.get(
         '/:category/:key',
         ensureGlobalAccess('settings', 'read'),
@@ -208,27 +138,18 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const repo = getSettingsRepo(req)
-            const setting = await repo.findOne({
-                where: { category: parsed.data.category, key: parsed.data.key }
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const setting = await findSetting(exec, parsed.data.category, parsed.data.key)
 
             if (!setting) {
                 res.status(404).json({ success: false, error: 'Setting not found' })
                 return
             }
 
-            res.json({
-                success: true,
-                data: transformSetting(setting)
-            })
+            res.json({ success: true, data: transformSettingRow(setting) })
         })
     )
 
-    /**
-     * PUT /api/v1/admin/settings/:category/:key
-     * Create or update a setting (upsert)
-     */
     router.put(
         '/:category',
         ensureGlobalAccess('settings', 'update'),
@@ -262,35 +183,13 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 }
             }
 
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const updatedSettings = await manager.transaction(async (transactionManager) => {
-                const repo = transactionManager.getRepository(AdminSetting)
-
-                for (const [key, value] of entries) {
-                    await repo.upsert(
-                        {
-                            category,
-                            key,
-                            value: { _value: value }
-                        },
-                        ['category', 'key']
-                    )
-                }
-
-                return repo.find({
-                    where: {
-                        category,
-                        key: In(entries.map(([key]) => key))
-                    },
-                    order: { key: 'ASC' }
-                })
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const updatedSettings = await bulkUpsertSettings(exec, category, entries)
 
             res.json({
                 success: true,
                 data: {
-                    items: updatedSettings.map(transformSetting),
+                    items: updatedSettings.map(transformSettingRow),
                     total: updatedSettings.length
                 }
             })
@@ -320,19 +219,13 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const setting = await upsertSettingAtomic(req, category, key, bodyParsed.data.value)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const setting = await upsertSetting(exec, category, key, bodyParsed.data.value)
 
-            res.json({
-                success: true,
-                data: transformSetting(setting)
-            })
+            res.json({ success: true, data: transformSettingRow(setting) })
         })
     )
 
-    /**
-     * DELETE /api/v1/admin/settings/:category/:key
-     * Delete / reset a setting to default
-     */
     router.delete(
         '/:category/:key',
         ensureGlobalAccess('settings', 'delete'),
@@ -343,18 +236,15 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const repo = getSettingsRepo(req)
-            const setting = await repo.findOne({
-                where: { category: parsed.data.category, key: parsed.data.key }
-            })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const setting = await findSetting(exec, parsed.data.category, parsed.data.key)
 
             if (!setting) {
                 res.status(404).json({ success: false, error: 'Setting not found' })
                 return
             }
 
-            await repo.remove(setting)
-
+            await deleteSetting(exec, parsed.data.category, parsed.data.key, (req as RequestWithGlobalRole).user?.id)
             res.json({ success: true })
         })
     )

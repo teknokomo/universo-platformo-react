@@ -1,9 +1,8 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
 import { localizedContent, toNumberRules, validateNumber } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { ConstantDataType, CONSTANT_DATA_TYPES } from '@universo/types'
@@ -332,7 +331,7 @@ const buildSetKindError = (): { status: number; payload: { error: string } } => 
 
 export function createConstantsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -346,11 +345,10 @@ export function createConstantsRoutes(
         }
 
     const services = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         return {
-            ds,
+            exec,
             constantsService: new MetahubConstantsService(schemaService),
             objectsService: new MetahubObjectsService(schemaService),
             settingsService: new MetahubSettingsService(schemaService)
@@ -414,11 +412,11 @@ export function createConstantsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId } = req.params
-            const { ds, constantsService, objectsService } = services(req)
+            const { exec, constantsService, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined)
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -517,11 +515,11 @@ export function createConstantsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId, constantId } = req.params
-            const { ds, constantsService, objectsService } = services(req)
+            const { exec, constantsService, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined)
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -542,11 +540,11 @@ export function createConstantsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId } = req.params
-            const { ds, constantsService, objectsService, settingsService } = services(req)
+            const { exec, constantsService, objectsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent')
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -646,11 +644,11 @@ export function createConstantsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId, constantId } = req.params
-            const { ds, constantsService, objectsService, settingsService } = services(req)
+            const { exec, constantsService, objectsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent')
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -767,11 +765,11 @@ export function createConstantsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId, constantId } = req.params
-            const { ds, constantsService, objectsService, settingsService } = services(req)
+            const { exec, constantsService, objectsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'deleteContent')
+            await ensureMetahubAccess(exec, userId, metahubId, 'deleteContent')
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -806,11 +804,11 @@ export function createConstantsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId, constantId } = req.params
-            const { ds, constantsService, objectsService } = services(req)
+            const { exec, constantsService, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent')
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -832,11 +830,11 @@ export function createConstantsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId } = req.params
-            const { ds, constantsService, objectsService } = services(req)
+            const { exec, constantsService, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent')
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -865,11 +863,11 @@ export function createConstantsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, setId, constantId } = req.params
-            const { ds, constantsService, objectsService, settingsService } = services(req)
+            const { exec, constantsService, objectsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent')
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
 
             const setContext = await resolveSetContext(metahubId, setId, hubId, userId, objectsService)
             if (!setContext.ok) {
@@ -995,11 +993,11 @@ export function createConstantsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, setId } = req.params
-            const { ds, constantsService, objectsService } = services(req)
+            const { exec, constantsService, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, undefined)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined)
 
             const setContext = await resolveSetContext(metahubId, setId, undefined, userId, objectsService)
             if (!setContext.ok) {

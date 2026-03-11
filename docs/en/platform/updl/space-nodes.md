@@ -1,24 +1,17 @@
 ---
-description: Define 3D spaces, scenes, and environments.
+description: Explain the role of space nodes in UPDL.
 ---
 
 # Space Nodes
 
-{% hint style="info" %}
-**This page is under development.** Detailed node reference will be added soon.
-{% endhint %}
+Space nodes define bounded contexts, structural containers, or higher-level
+areas in which other UPDL nodes can be organized.
 
-## Overview
+## Typical Responsibilities
 
-Space Nodes define the top-level containers for 3D content — scenes, environments, and spatial configurations.
+- Represent a scoped environment or domain surface.
+- Hold related entities, events, and actions together.
+- Provide a top-level frame for export or generation workflows.
 
-## Properties
-
-* Environment settings
-* Rendering configuration
-* Child entity nodes
-* Physics parameters
-
-## Documentation
-
-Coming soon.
+In the broader platform direction, a space node can represent a knowledge area,
+a design-time container, or another structured scope instead of only a 3D scene.

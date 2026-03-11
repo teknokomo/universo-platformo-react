@@ -1,22 +1,27 @@
 ---
-description: Install and configure Universo Platformo for development or production use.
+description: Start here to install, configure, and run Universo Platformo React.
 ---
 
 # Getting Started
 
-{% hint style="info" %}
-**This section is under development.** Detailed guides for installation, configuration, and first steps will be added soon.
-{% endhint %}
+This section is for developers and technical reviewers who want to run the
+repository, inspect the current implementation, or prepare a local environment
+for contribution work.
 
-## Prerequisites
+## Who Should Read This Section
 
-* **Node.js** >= 18.15.0
-* **pnpm** >= 9
-* **PostgreSQL** (via Supabase or local)
-* **Git**
+- Developers setting up the monorepo for the first time.
+- Reviewers validating the current platform implementation.
+- Contributors preparing local changes in packages or documentation.
 
-## Next Steps
+## Before You Begin
 
-* [Installation](installation.md) — step-by-step installation guide
-* [Quick Start](quick-start.md) — get up and running in minutes
-* [Configuration](configuration.md) — environment variables and settings
+Universo Platformo React is still in alpha. Prefer a disposable local or test
+installation, expect active architectural movement, and validate changes with
+root-level build commands.
+
+## Reading Order
+
+1. Read Installation for prerequisites and workspace bootstrap.
+2. Read Configuration for environment files and runtime assumptions.
+3. Read Quick Start for the shortest safe path to a running instance.

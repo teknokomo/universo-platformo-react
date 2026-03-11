@@ -1,35 +1,8 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => undefined
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -37,8 +10,14 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createEnumerationsRoutes } from '../../domains/enumerations/routes/enumerationsRoutes'
+
+const mockFindMetahubById = jest.fn(async () => ({ id: 'metahub-1' }))
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args)
+}))
 
 const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
@@ -98,7 +77,7 @@ const mockValuesService = {
 const mockHubsService = {
     findByIds: jest.fn()
 }
-const mockMetahubRepo = createMockRepository<Record<string, unknown>>()
+
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
@@ -242,13 +221,16 @@ describe('Enumerations Routes', () => {
         res.status(statusCode).json({ error: err.message || 'Internal Server Error' })
     }
 
+    const mockExec = {
+        query: jest.fn(async () => []),
+        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        isReleased: () => false
+    }
+
     const buildApp = () => {
-        const dataSource = createMockDataSource({
-            Metahub: mockMetahubRepo
-        })
         const app = express()
         app.use(express.json())
-        app.use(createEnumerationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(createEnumerationsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }
@@ -320,7 +302,7 @@ describe('Enumerations Routes', () => {
                 codename: 'main-hub'
             }
         ])
-        mockMetahubRepo.findOne.mockResolvedValue({ id: 'metahub-1' })
+        mockFindMetahubById.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
     })
@@ -453,7 +435,7 @@ describe('Enumerations Routes', () => {
 
     describe('POST /metahub/:metahubId/enumeration/:enumerationId/copy', () => {
         it('returns 404 when metahub does not exist', async () => {
-            mockMetahubRepo.findOne.mockResolvedValueOnce(null)
+            mockFindMetahubById.mockResolvedValueOnce(null)
 
             const app = buildApp()
             const response = await request(app)

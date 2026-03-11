@@ -1,23 +1,27 @@
 ---
-description: Configure environment variables and platform settings.
+description: Configure backend and frontend environment files for local startup.
 ---
 
 # Configuration
 
-{% hint style="info" %}
-**This page is under development.** Configuration reference will be added soon.
-{% endhint %}
+## Backend Environment
 
-## Environment Variables
+Create a local `.env` file in `packages/universo-core-backend/base` and provide
+at least the Supabase/PostgreSQL and auth settings required by the backend.
 
-The platform is configured through environment variables. Copy the example file to get started:
+Typical values include the Supabase URL, anonymous key, JWT secret, database
+connection settings, session configuration, and other deployment-specific
+secrets.
 
-```bash
-cp .env.example .env
-```
+## Frontend Environment
 
-Key variables include database connection, Supabase keys, and service ports.
+If you need frontend overrides, create a local `.env` file in
+`packages/universo-core-frontend/base`.
 
-## Detailed Reference
+Typical values include UI host or port settings such as `VITE_PORT`.
 
-Coming soon.
+## Configuration Rules
+
+- Keep real secrets out of version control.
+- Use placeholder-only tracked env files.
+- Re-run the root build after changing shared configuration assumptions.

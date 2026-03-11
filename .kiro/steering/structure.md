@@ -8,7 +8,7 @@ This is a PNPM workspace with Turbo build orchestration. The project extends Flo
 universo-platformo-react/
 ├── packages/              # Original Flowise packages
 │   ├── components/        # Flowise components and UPDL nodes
-│   ├── server/           # Backend server (Express + TypeORM)
+│   ├── server/           # Backend server (Express + Knex)
 │   └── ui/               # Frontend React application
 ├── packages/                 # Modular applications (NEW architecture)
 │   ├── */base/           # Each app has a base/ subdirectory

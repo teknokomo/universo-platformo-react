@@ -1,35 +1,8 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -37,9 +10,39 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createBranchesRoutes } from '../../domains/branches/routes/branchesRoutes'
 import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
+
+const mockEnsureMetahubAccess = jest.fn(async () => ({ membership: { role: 'owner' } }))
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+}))
+
+const mockFindMetahubById = jest.fn()
+const mockFindMetahubMembership = jest.fn()
+const mockFindBranchByCodename = jest.fn(async () => null)
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args),
+    findMetahubForUpdate: jest.fn(async () => null),
+    findMetahubMembership: (...args: unknown[]) => mockFindMetahubMembership(...args),
+    updateMetahubFieldsRaw: jest.fn(async () => null),
+    updateMetahubMember: jest.fn(async () => null),
+    findBranchByIdAndMetahub: jest.fn(async () => null),
+    findBranchByCodename: (...args: unknown[]) => mockFindBranchByCodename(...args),
+    findBranchBySchemaName: jest.fn(async () => null),
+    findBranchForUpdate: jest.fn(async () => null),
+    findBranchesByMetahub: jest.fn(async () => []),
+    createBranch: jest.fn(async () => ({})),
+    updateBranch: jest.fn(async () => null),
+    deleteBranchById: jest.fn(async () => undefined),
+    getMaxBranchNumber: jest.fn(async () => 0),
+    countMembersOnBranch: jest.fn(async () => 0),
+    clearMemberActiveBranch: jest.fn(async () => undefined),
+    findTemplateVersionById: jest.fn(async () => null)
+}))
 
 describe('Branches Options Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -60,12 +63,18 @@ describe('Branches Options Routes', () => {
         res.status(statusCode).json({ error: message })
     }
 
-    const buildApp = (dataSource: any) => {
+    const mockExec = {
+        query: jest.fn(async () => []),
+        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        isReleased: () => false
+    }
+
+    const buildApp = () => {
         const app = express()
         app.use(express.json())
         app.use(
             '/',
-            createBranchesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+            createBranchesRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter)
         )
         app.use(errorHandler)
         return app
@@ -80,48 +89,39 @@ describe('Branches Options Routes', () => {
     })
 
     it('returns all branches without pagination', async () => {
-        const branchRepo = createMockRepository<any>()
-        const metahubRepo = createMockRepository<any>()
-        const metahubUserRepo = createMockRepository<any>()
-
-        const dataSource = createMockDataSource({
-            MetahubBranch: branchRepo,
-            Metahub: metahubRepo,
-            MetahubUser: metahubUserRepo
-        })
-
         const metahubId = 'metahub-1'
         const defaultBranchId = 'branch-default'
         const activeBranchId = 'branch-active'
 
-        const qb = branchRepo.createQueryBuilder()
-        qb.getMany.mockResolvedValue([
+        // listAllBranches calls this.exec.query(SQL) directly
+        mockExec.query.mockResolvedValueOnce([
             {
                 id: defaultBranchId,
-                metahub_id: metahubId,
+                metahubId,
                 codename: 'main',
                 name: { locales: { en: { content: 'Main' } }, _primary: 'en', _schema: '1' },
                 description: null,
-                branch_number: 1,
-                created_at: new Date('2026-01-01'),
-                updated_at: new Date('2026-01-02')
+                branchNumber: 1,
+                _uplCreatedAt: new Date('2026-01-01'),
+                _uplUpdatedAt: new Date('2026-01-02')
             },
             {
                 id: activeBranchId,
-                metahub_id: metahubId,
+                metahubId,
                 codename: 'dev',
                 name: { locales: { en: { content: 'Dev' } }, _primary: 'en', _schema: '1' },
                 description: null,
-                branch_number: 2,
-                created_at: new Date('2026-01-03'),
-                updated_at: new Date('2026-01-04')
+                branchNumber: 2,
+                _uplCreatedAt: new Date('2026-01-03'),
+                _uplUpdatedAt: new Date('2026-01-04')
             }
         ])
+        // getDefaultBranchId calls findMetahubById
+        mockFindMetahubById.mockResolvedValue({ id: metahubId, defaultBranchId })
+        // getUserActiveBranchId calls findMetahubMembership
+        mockFindMetahubMembership.mockResolvedValue({ metahubId, userId: 'test-user-id', role: 'owner', activeBranchId })
 
-        metahubRepo.findOne.mockResolvedValue({ id: metahubId, defaultBranchId })
-        metahubUserRepo.findOne.mockResolvedValue({ metahubId, userId: 'test-user-id', role: 'owner', activeBranchId })
-
-        const app = buildApp(dataSource)
+        const app = buildApp()
 
         const response = await request(app).get(`/metahub/${metahubId}/branches/options`).expect(200)
 
@@ -133,23 +133,13 @@ describe('Branches Options Routes', () => {
     })
 
     it('maps branch deletion lock contention to HTTP 409', async () => {
-        const metahubUserRepo = createMockRepository<any>()
-        const dataSource = createMockDataSource({
-            MetahubUser: metahubUserRepo
-        })
-
         const metahubId = 'metahub-1'
         const branchId = 'branch-1'
-        metahubUserRepo.findOne.mockResolvedValue({
-            metahubId,
-            userId: 'test-user-id',
-            role: 'owner'
-        })
 
         jest.spyOn(MetahubBranchesService.prototype, 'getBlockingUsers').mockResolvedValue([])
         jest.spyOn(MetahubBranchesService.prototype, 'deleteBranch').mockRejectedValue(new Error('Branch deletion in progress'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).delete(`/metahub/${metahubId}/branch/${branchId}`).expect(409)
 
         expect(response.body).toEqual({
@@ -159,24 +149,11 @@ describe('Branches Options Routes', () => {
     })
 
     it('returns 400 for incompatible branch copy options', async () => {
-        const metahubUserRepo = createMockRepository<any>()
-        const branchRepo = createMockRepository<any>()
-        const dataSource = createMockDataSource({
-            MetahubUser: metahubUserRepo,
-            MetahubBranch: branchRepo
-        })
-
         const metahubId = 'metahub-1'
-        metahubUserRepo.findOne.mockResolvedValue({
-            metahubId,
-            userId: 'test-user-id',
-            role: 'owner'
-        })
-        branchRepo.createQueryBuilder().getOne.mockResolvedValue(null)
 
         jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_ENUM_REFERENCES'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
 
         const response = await request(app)
             .post(`/metahub/${metahubId}/branches`)
@@ -197,24 +174,11 @@ describe('Branches Options Routes', () => {
     })
 
     it('returns 400 for branch copy options that produce dangling references', async () => {
-        const metahubUserRepo = createMockRepository<any>()
-        const branchRepo = createMockRepository<any>()
-        const dataSource = createMockDataSource({
-            MetahubUser: metahubUserRepo,
-            MetahubBranch: branchRepo
-        })
-
         const metahubId = 'metahub-1'
-        metahubUserRepo.findOne.mockResolvedValue({
-            metahubId,
-            userId: 'test-user-id',
-            role: 'owner'
-        })
-        branchRepo.createQueryBuilder().getOne.mockResolvedValue(null)
 
         jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_DANGLING_REFERENCES'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
 
         const response = await request(app)
             .post(`/metahub/${metahubId}/branches`)
@@ -235,27 +199,14 @@ describe('Branches Options Routes', () => {
     })
 
     it('maps structured branch-copy compatibility error code to deterministic 400 response', async () => {
-        const metahubUserRepo = createMockRepository<any>()
-        const branchRepo = createMockRepository<any>()
-        const dataSource = createMockDataSource({
-            MetahubUser: metahubUserRepo,
-            MetahubBranch: branchRepo
-        })
-
         const metahubId = 'metahub-1'
-        metahubUserRepo.findOne.mockResolvedValue({
-            metahubId,
-            userId: 'test-user-id',
-            role: 'owner'
-        })
-        branchRepo.createQueryBuilder().getOne.mockResolvedValue(null)
 
         const structuredError = Object.assign(new Error('copy compatibility failed'), {
             code: 'BRANCH_COPY_DANGLING_REFERENCES'
         })
         jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(structuredError)
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
 
         const response = await request(app)
             .post(`/metahub/${metahubId}/branches`)

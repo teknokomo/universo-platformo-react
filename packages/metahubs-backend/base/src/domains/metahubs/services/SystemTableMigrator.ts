@@ -5,6 +5,8 @@ import { SystemTableDDLGenerator } from './SystemTableDDLGenerator'
 import { calculateSystemTableDiff, SystemChangeType, type SystemTableDiff } from './systemTableDiff'
 import { SYSTEM_TABLE_VERSIONS, buildColumnOnTable, buildIndexSQL, buildSystemStructureSnapshot } from './systemTableDefinitions'
 import { buildStructureMigrationMeta } from './metahubMigrationMeta'
+import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
+import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 
 /**
  * Result of a system table migration.
@@ -347,18 +349,47 @@ export class SystemTableMigrator {
         applied: string[],
         skippedDestructive: string[]
     ): Promise<void> {
-        const hasMigTable = await trx.schema.withSchema(this.schemaName).hasTable('_mhb_migrations')
+        const hasMigTable = await hasRuntimeHistoryTable(trx, this.schemaName, '_mhb_migrations')
         if (!hasMigTable) return
 
         const suffix = `${Date.now()}_${randomBytes(4).toString('hex')}`
         const name = `structure_v${fromVersion}_to_v${toVersion}_${suffix}`
         const snapshotBefore = buildSystemStructureSnapshot(fromVersion)
         const snapshotAfter = buildSystemStructureSnapshot(toVersion)
+        const globalRunId = await mirrorToGlobalCatalog({
+            knex: trx,
+            scopeKind: 'runtime_schema',
+            scopeKey: this.schemaName,
+            sourceKind: 'system_sync',
+            migrationName: name,
+            migrationVersion: `${fromVersion}-${toVersion}`,
+            localHistoryTable: '_mhb_migrations',
+            summary: `Metahub structure migration ${fromVersion} -> ${toVersion}`,
+            transactionMode: 'single',
+            lockMode: 'session_advisory',
+            checksumPayload: {
+                schemaName: this.schemaName,
+                fromVersion,
+                toVersion,
+                applied,
+                skippedDestructive
+            },
+            meta: {
+                migrationKind: 'structure'
+            },
+            snapshotBefore: snapshotBefore as unknown as Record<string, unknown> | null,
+            snapshotAfter: snapshotAfter as unknown as Record<string, unknown> | null,
+            plan: {
+                applied,
+                skippedDestructive
+            }
+        })
         const meta = buildStructureMigrationMeta({
             applied,
             skippedDestructive,
             snapshotBefore,
-            snapshotAfter
+            snapshotAfter,
+            globalRunId
         })
         await trx.withSchema(this.schemaName).into('_mhb_migrations').insert({
             name,

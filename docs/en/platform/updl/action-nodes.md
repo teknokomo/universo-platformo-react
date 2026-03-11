@@ -1,24 +1,16 @@
 ---
-description: Define interactions and triggers.
+description: Explain the role of action nodes in UPDL.
 ---
 
 # Action Nodes
 
-{% hint style="info" %}
-**This page is under development.** Detailed node reference will be added soon.
-{% endhint %}
+Action nodes represent operations, commands, or controlled state transitions.
 
-## Overview
+## Typical Responsibilities
 
-Action Nodes define what happens when events are triggered — animations, state changes, navigation, and other interactive behaviors.
+- Capture what the system or user can do.
+- Connect business intent to execution logic.
+- Describe explicit transitions instead of hidden side effects.
 
-## Action Types
-
-* Animation
-* Navigation
-* Interaction
-* Custom scripts
-
-## Documentation
-
-Coming soon.
+In a platform like Universo Platformo, action nodes are important for workflows,
+approvals, automation, and future agent or robot coordination.

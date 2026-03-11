@@ -1,18 +1,18 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { AuthUser } from '@universo/auth-backend'
-import { Profile } from '@universo/profile-backend'
-import { getRequestManager } from '@universo/utils/database'
+import { ProfileService } from '@universo/profile-backend'
+import type { DbExecutor } from '@universo/utils/database'
 
 /**
- * Resolve user ID from request
+ * Resolve authenticated user fields from request.
  */
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as unknown as { user?: AuthUser }).user
-    if (!user) return undefined
-    return user.id
+const resolveAuthUser = (req: Request): { id?: string; email?: string } => {
+    const user = (req as unknown as { user?: { id?: string; email?: string } }).user
+    return {
+        id: user?.id,
+        email: user?.email
+    }
 }
 
 /**
@@ -25,7 +25,7 @@ const resolveUserId = (req: Request): string | undefined => {
  */
 export function createOnboardingRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getRequestDbExecutor: (req: unknown) => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -38,19 +38,19 @@ export function createOnboardingRoutes(
      * GET /items - Get onboarding status (items removed, returns empty arrays)
      */
     router.get('/items', readLimiter, async (req: Request, res: Response) => {
-        const userId = resolveUserId(req)
+        const { id: userId } = resolveAuthUser(req)
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' })
         }
 
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
+        const exec = getRequestDbExecutor(req)
 
         try {
-            const profile = await manager.findOne(Profile, {
-                where: { user_id: userId }
-            })
-            const onboardingCompleted = profile?.onboarding_completed ?? false
+            const rows = await exec.query<{ onboarding_completed: boolean }>(
+                'SELECT onboarding_completed FROM public.profiles WHERE user_id = $1 LIMIT 1',
+                [userId]
+            )
+            const onboardingCompleted = rows[0]?.onboarding_completed ?? false
 
             res.json({
                 onboardingCompleted,
@@ -68,7 +68,7 @@ export function createOnboardingRoutes(
      * POST /join - Mark onboarding as completed (items no longer synced)
      */
     router.post('/join', writeLimiter, async (req: Request, res: Response) => {
-        const userId = resolveUserId(req)
+        const { id: userId, email } = resolveAuthUser(req)
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' })
         }
@@ -88,16 +88,11 @@ export function createOnboardingRoutes(
             })
         }
 
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
+        const exec = getRequestDbExecutor(req)
+        const profileService = new ProfileService(exec)
 
         try {
-            // Mark onboarding as completed
-            const updateResult = await manager.update(Profile, { user_id: userId }, { onboarding_completed: true })
-            if (updateResult.affected === 0) {
-                console.warn(`[onboarding] Profile not found for user ${userId}. Onboarding status not updated.`)
-                return res.status(404).json({ error: 'Profile not found' })
-            }
+            await profileService.markOnboardingCompleted(userId, email)
 
             res.json({
                 success: true,

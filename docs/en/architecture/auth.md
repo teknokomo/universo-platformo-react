@@ -1,24 +1,24 @@
 ---
-description: Authentication and authorization model.
+description: Describe authentication, sessions, CSRF, and request-scoped RLS handling.
 ---
 
-# Authentication & Authorization
+# Authentication and Authorization
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+The current auth model combines Passport.js session handling with Supabase
+identity and request-scoped database context.
 
-## Overview
+## Current Model
 
-Authentication is handled through Passport.js with Supabase Auth as the identity provider. Authorization uses a role-based permission system managed through the admin panel.
+- Backend auth routes and middleware live in `@universo/auth-backend`.
+- Frontend auth helpers and UI flows live in `@universo/auth-frontend`.
+- Clients use session-aware requests and CSRF protection.
+- Request-scoped RLS context is applied for protected database operations.
 
-## Key Features
+## Important Contracts
 
-* **Passport.js** strategies for authentication
-* **Supabase Auth** for identity management
-* **Role-based access control (RBAC)** via admin panel
-* **Permission subjects** per module (e.g., metaverses, applications, spaces)
+- Public routes are centrally defined in shared auth utilities.
+- CSRF failures map to HTTP 419 and should retry only once when safe.
+- 401 handling is coordinated with frontend redirect behavior.
+- Membership and role checks remain explicit platform concerns.
 
-## Documentation
-
-Coming soon.
+This model supports multi-user business flows across shared platform modules.

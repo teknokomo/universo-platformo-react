@@ -351,7 +351,7 @@ export const translateError = (error: string): string => {
 ## Руководство по миграции
 
 ### От устаревшей аутентификации
-Пакет предоставляет полную замену устаревшей аутентификации Flowise:
+Пакет предоставляет полную замену более старым ad-hoc потокам входа через диалоги:
 
 **Старый паттерн:**
 ```tsx
@@ -389,9 +389,9 @@ useEffect(() => {
 ## Связанная документация
 
 - [Бэкенд сервиса аутентификации](../../auth-backend/base/README-RU.md)
-- [Пакет API-клиента](../../universo-api-client/README-RU.md)
+- [Пакет API-клиента](../../universo-api-client/base/README-RU.md)
 - [Шаблон Material-UI](../../universo-template-mui/base/README-RU.md)
-- [Архитектура аутентификации](../../../docs/ru/universo-platformo/README.md)
+- [Архитектура аутентификации](../../../docs/ru/architecture/auth.md)
 
 ---
 

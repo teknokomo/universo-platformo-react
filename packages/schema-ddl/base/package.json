@@ -23,6 +23,9 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@universo/migrations-catalog": "workspace:*",
+        "@universo/migrations-core": "workspace:*",
+        "@universo/utils": "workspace:*",
         "@universo/types": "workspace:*",
         "knex": "catalog:"
     },

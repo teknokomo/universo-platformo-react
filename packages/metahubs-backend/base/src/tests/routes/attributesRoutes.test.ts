@@ -1,35 +1,8 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -37,7 +10,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource } from '../utils/typeormMocks'
+import { createMockDbExecutor } from '../utils/dbMocks'
 import { createAttributesRoutes } from '../../domains/attributes/routes/attributesRoutes'
 
 const mockTrx = { __trx: true }
@@ -141,10 +114,10 @@ describe('Attributes Routes', () => {
     }
 
     const buildApp = () => {
-        const dataSource = createMockDataSource({})
+        const mockExecutor = createMockDbExecutor()
         const app = express()
         app.use(express.json())
-        app.use(createAttributesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(createAttributesRoutes(ensureAuth, () => mockExecutor, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }

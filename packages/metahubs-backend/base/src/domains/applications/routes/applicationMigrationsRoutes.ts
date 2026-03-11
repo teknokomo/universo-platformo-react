@@ -14,21 +14,26 @@
  */
 
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
+import type { DbExecutor } from '@universo/utils'
 import {
-    Application,
-    ApplicationUser,
-    ApplicationSchemaStatus,
-    Connector,
-    ConnectorPublication,
     ensureApplicationAccess,
     type ApplicationRole
 } from '@universo/applications-backend'
-import { type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
+import { ApplicationSchemaStatus, type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
-import { Publication } from '../../../database/entities/Publication'
+import {
+    findApplicationById,
+    updateApplicationFields,
+    findApplicationUser,
+    findConnectorsByApplicationId,
+    findFirstConnectorByApplicationId,
+    findConnectorPublications,
+    findFirstConnectorPublication
+} from '../../../persistence'
+import type { AppRow } from '../../../persistence'
+import { findPublicationById } from '../../../persistence'
 import {
     getDDLServices,
     KnexClient,
@@ -60,7 +65,7 @@ const rollbackSchema = z.object({
 
 export function createApplicationMigrationsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -82,10 +87,9 @@ export function createApplicationMigrationsRoutes(
         req: Request,
         res: Response,
         applicationId: string
-    ): Promise<{ application: Application; schemaName: string } | Response> => {
-        const ds = getDataSource()
-        const applicationRepo = ds.getRepository(Application)
-        const application = await applicationRepo.findOneBy({ id: applicationId })
+    ): Promise<{ application: AppRow; schemaName: string } | Response> => {
+        const exec = getDbExecutor()
+        const application = await findApplicationById(exec, applicationId)
 
         if (!application) {
             return res.status(404).json({ error: 'Application not found' })
@@ -97,12 +101,8 @@ export function createApplicationMigrationsRoutes(
         }
 
         // Otherwise, try to find schemaName via Connector → ConnectorPublication → Publication
-        const connectorRepo = ds.getRepository(Connector)
-        const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
-        const publicationRepo = ds.getRepository(Publication)
-
         // Find connectors for this application – must be exactly one
-        const connectors = await connectorRepo.find({ where: { applicationId } })
+        const connectors = await findConnectorsByApplicationId(exec, applicationId)
         if (connectors.length === 0) {
             return res.status(400).json({ error: 'Application has no connectors configured' })
         }
@@ -114,7 +114,7 @@ export function createApplicationMigrationsRoutes(
         const connector = connectors[0]
 
         // Find linked publications – must be exactly one
-        const connectorPublications = await connectorPublicationRepo.find({ where: { connectorId: connector.id } })
+        const connectorPublications = await findConnectorPublications(exec, connector.id)
         if (connectorPublications.length === 0) {
             return res.status(400).json({ error: 'Connector has no publication linked' })
         }
@@ -126,7 +126,7 @@ export function createApplicationMigrationsRoutes(
         const connectorPublication = connectorPublications[0]
 
         // Get publication by ID (direct link now)
-        const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+        const publication = await findPublicationById(exec, connectorPublication.publicationId)
         if (!publication) {
             return res.status(400).json({ error: 'Linked publication not found' })
         }
@@ -146,7 +146,7 @@ export function createApplicationMigrationsRoutes(
         }
 
         try {
-            await ensureApplicationAccess(getDataSource(), userId, applicationId, ADMIN_ROLES)
+            await ensureApplicationAccess(getDbExecutor(), userId, applicationId, ADMIN_ROLES)
             return true
         } catch (error) {
             const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
@@ -168,7 +168,7 @@ export function createApplicationMigrationsRoutes(
         }
 
         try {
-            await ensureApplicationAccess(getDataSource(), userId, applicationId)
+            await ensureApplicationAccess(getDbExecutor(), userId, applicationId)
             return true
         } catch (error) {
             const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
@@ -193,9 +193,8 @@ export function createApplicationMigrationsRoutes(
             const hasAccess = await ensureMemberAccess(req, res, applicationId)
             if (!hasAccess) return
 
-            const ds = getDataSource()
-            const applicationRepo = ds.getRepository(Application)
-            const app = await applicationRepo.findOneBy({ id: applicationId })
+            const exec = getDbExecutor()
+            const app = await findApplicationById(exec, applicationId)
             if (!app) {
                 return res.status(404).json({ error: 'Application not found' })
             }
@@ -205,9 +204,7 @@ export function createApplicationMigrationsRoutes(
             const userId = user?.id ?? user?.sub
             let currentUserRole: ApplicationRole | undefined
             if (userId) {
-                const membership = await ds.getRepository(ApplicationUser).findOne({
-                    where: { applicationId, userId }
-                })
+                const membership = await findApplicationUser(exec, applicationId, userId)
                 if (membership) {
                     currentUserRole = (membership.role || 'member') as ApplicationRole
                 }
@@ -222,15 +219,11 @@ export function createApplicationMigrationsRoutes(
             // Check if publication has been updated since last sync
             let publicationUpdateAvailable = false
             try {
-                const connectorRepo = ds.getRepository(Connector)
-                const connectorPubRepo = ds.getRepository(ConnectorPublication)
-                const publicationRepo = ds.getRepository(Publication)
-
-                const connector = await connectorRepo.findOne({ where: { applicationId } })
+                const connector = await findFirstConnectorByApplicationId(exec, applicationId)
                 if (connector) {
-                    const connectorPub = await connectorPubRepo.findOne({ where: { connectorId: connector.id } })
+                    const connectorPub = await findFirstConnectorPublication(exec, connector.id)
                     if (connectorPub) {
-                        const publication = await publicationRepo.findOneBy({ id: connectorPub.publicationId })
+                        const publication = await findPublicationById(exec, connectorPub.publicationId)
                         if (publication?.activeVersionId) {
                             publicationUpdateAvailable = app.lastSyncedPublicationVersionId !== publication.activeVersionId
                         }
@@ -309,7 +302,7 @@ export function createApplicationMigrationsRoutes(
             const { migrations, total } = await migrationManager.listMigrations(schemaName, { limit, offset })
 
             // Transform for API response (omit large snapshots for list view)
-            const items = migrations.map((m) => ({
+            const items = migrations.map((m: import('../../ddl').MigrationRecord) => ({
                 id: m.id,
                 name: m.name,
                 appliedAt: m.appliedAt.toISOString(),
@@ -401,7 +394,7 @@ export function createApplicationMigrationsRoutes(
                 canRollback: analysis.canRollback,
                 blockers: analysis.blockers,
                 warnings: analysis.warnings,
-                rollbackChanges: analysis.rollbackChanges.map((c) => c.description)
+                rollbackChanges: analysis.rollbackChanges.map((c: MigrationChangeRecord) => c.description)
             })
         })
     )
@@ -455,7 +448,7 @@ export function createApplicationMigrationsRoutes(
                     status: 'pending_confirmation',
                     message: 'Rollback requires confirmation due to data loss',
                     warnings: analysis.warnings,
-                    rollbackChanges: analysis.rollbackChanges.map((c) => c.description)
+                    rollbackChanges: analysis.rollbackChanges.map((c: MigrationChangeRecord) => c.description)
                 })
             }
 
@@ -476,8 +469,11 @@ export function createApplicationMigrationsRoutes(
                 const { migrations } = await migrationManager.listMigrations(schemaName, { limit: 1000 })
                 const targetAppliedAt = targetMigration.appliedAt.getTime()
                 const migrationsToRollback = migrations
-                    .filter((m) => m.appliedAt.getTime() > targetAppliedAt)
-                    .sort((a, b) => b.appliedAt.getTime() - a.appliedAt.getTime()) // newest first
+                    .filter((m: import('../../ddl').MigrationRecord) => m.appliedAt.getTime() > targetAppliedAt)
+                    .sort(
+                        (a: import('../../ddl').MigrationRecord, b: import('../../ddl').MigrationRecord) =>
+                            b.appliedAt.getTime() - a.appliedAt.getTime()
+                    ) // newest first
 
                 let changesApplied = 0
 
@@ -505,20 +501,20 @@ export function createApplicationMigrationsRoutes(
                 })
 
                 // Update application schema status (if application has schemaName)
-                const ds = getDataSource()
-                const applicationRepo = ds.getRepository(Application)
-                const app = await applicationRepo.findOneBy({ id: applicationId })
+                const exec = getDbExecutor()
+                const app = await findApplicationById(exec, applicationId)
                 if (app && app.schemaName) {
-                    app.schemaSnapshot = targetMigration.meta.snapshotAfter as unknown as Record<string, unknown>
-                    app.schemaSyncedAt = new Date()
-                    await applicationRepo.save(app)
+                    await updateApplicationFields(exec, applicationId, {
+                        schemaSnapshot: targetMigration.meta.snapshotAfter as unknown as Record<string, unknown>,
+                        schemaSyncedAt: new Date()
+                    })
                 }
 
                 return res.json({
                     status: 'rolled_back',
                     message: `Successfully rolled back ${migrationsToRollback.length} migration(s)`,
                     changesApplied,
-                    rolledBackMigrations: migrationsToRollback.map((m) => m.name),
+                    rolledBackMigrations: migrationsToRollback.map((m: import('../../ddl').MigrationRecord) => m.name),
                     currentMigration: targetMigration.name
                 })
             } catch (error) {

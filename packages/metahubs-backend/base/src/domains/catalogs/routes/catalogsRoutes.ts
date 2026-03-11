@@ -1,11 +1,10 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
-import { Metahub } from '../../../database/entities/Metahub'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
@@ -33,7 +32,6 @@ type RequestUser = {
 }
 
 type RequestWithUser = Request & { user?: RequestUser }
-type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
 
 type HubSummaryRow = {
     id: string
@@ -125,10 +123,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as RequestWithUser).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
@@ -379,7 +373,7 @@ const compareCatalogItems = (a: CatalogListItemRow, b: CatalogListItemRow, sortB
 
 export function createCatalogsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -393,18 +387,15 @@ export function createCatalogsRoutes(
         }
 
     const services = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(schemaService)
         const hubsService = new MetahubHubsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
         const settingsService = new MetahubSettingsService(schemaService)
         return {
-            ds,
-            manager,
-            metahubRepo: manager.getRepository(Metahub),
+            exec,
             schemaService,
             hubsService,
             objectsService,
@@ -927,12 +918,12 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { ds, objectsService } = services(req)
+            const { exec, objectsService } = services(req)
             const userId = resolveUserId(req)
-            const rlsRunner = getRequestQueryRunner(req)
+            const dbSession = getRequestDbSession(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
             const parsed = reorderCatalogsSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -1078,18 +1069,18 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { ds, metahubRepo, objectsService, hubsService, schemaService, settingsService } = services(req)
+            const { exec, objectsService, hubsService, schemaService, settingsService } = services(req)
             const userId = resolveUserId(req)
-            const rlsRunner = getRequestQueryRunner(req)
+            const dbSession = getRequestDbSession(req)
 
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized' })
             }
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found' })
             }
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
             const sourceCatalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!sourceCatalog || sourceCatalog.kind !== MetaEntityKind.CATALOG) {
@@ -1145,7 +1136,9 @@ export function createCatalogsRoutes(
                     parsed.data.namePrimaryLocale ?? sourceNamePrimary
                 )
             }
-            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary)
+            const codenamePrimaryLocale = normalizeLocaleCode(
+                parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary
+            )
 
             const {
                 style: codenameStyle,

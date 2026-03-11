@@ -1,16 +1,12 @@
-// Migrations
-export { adminMigrations } from './database/migrations/postgres'
-
-// Entities
-export { adminEntities, AdminSetting, Instance, Locale, Role, RolePermission, UserRole } from './database/entities'
+// Platform migration definitions (native SQL)
+export { createAdminSchemaMigrationDefinition, addCodenameAutoConvertMixedSettingMigrationDefinition, addAdminSoftDeleteColumnsMigrationDefinition } from './platform/migrations'
 
 // Services
 export {
     createGlobalAccessService,
-    isSuperuserByDataSource,
-    canAccessAdminByDataSource,
-    getGlobalRoleCodenameByDataSource,
-    hasSubjectPermissionByDataSource,
+    isSuperuser,
+    getGlobalRoleCodename,
+    hasSubjectPermission,
     type GlobalAccessService,
     type GlobalAccessServiceDeps,
     type ListGlobalUsersParams,

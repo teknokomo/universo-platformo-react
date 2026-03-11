@@ -46,5 +46,5 @@ Tables are created by `SchemaGenerator` from `@universo/schema-ddl`.
 ## Dependencies
 
 - `@universo/types` — shared type definitions
-- TypeORM for entity management
+- SQL-first persistence stores on top of the shared Knex runtime
 - Express for routing

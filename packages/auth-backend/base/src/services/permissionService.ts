@@ -4,7 +4,7 @@
  * Loads user permissions from admin.get_user_permissions() and builds CASL ability.
  * Also provides global role information with metadata for frontend display.
  */
-import type { DataSource, QueryRunner } from 'typeorm'
+import type { Knex } from 'knex'
 import type {
     AppAbility,
     DbPermission,
@@ -15,7 +15,8 @@ import type {
     AdminConfig
 } from '@universo/types'
 import { defineAbilitiesFor } from '@universo/types'
-import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled } from '@universo/utils'
+import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled, type DbSession } from '@universo/utils'
+import { createKnexExecutor } from '@universo/database'
 
 /**
  * Raw permission row from database (with metadata)
@@ -55,8 +56,8 @@ export interface FullPermissionsResponse {
  * Configuration for permission service
  */
 export interface PermissionServiceOptions {
-    /** Function to get DataSource */
-    getDataSource: () => DataSource
+    /** Function to get Knex instance */
+    getKnex: () => Knex
 }
 
 /**
@@ -64,56 +65,56 @@ export interface PermissionServiceOptions {
  */
 export interface IPermissionService {
     /** Get permissions for user and build CASL ability */
-    getAbilityForUser(userId: string, queryRunner?: QueryRunner): Promise<AppAbility>
+    getAbilityForUser(userId: string, dbSession?: DbSession): Promise<AppAbility>
     /** Get raw permissions from database (legacy format) */
-    getUserPermissions(userId: string, queryRunner?: QueryRunner): Promise<DbPermission[]>
+    getUserPermissions(userId: string, dbSession?: DbSession): Promise<DbPermission[]>
     /** Get full permissions response with metadata */
-    getFullPermissions(userId: string, queryRunner?: QueryRunner): Promise<FullPermissionsResponse>
+    getFullPermissions(userId: string, dbSession?: DbSession): Promise<FullPermissionsResponse>
     /** Check if user has specific permission */
     hasPermission(
         userId: string,
         subject: string,
         action: string,
         context?: Record<string, unknown>,
-        queryRunner?: QueryRunner
+        dbSession?: DbSession
     ): Promise<boolean>
     /** Check if user can access admin panel (deprecated, use getFullPermissions) */
-    hasGlobalAccess(userId: string, queryRunner?: QueryRunner): Promise<boolean>
+    hasGlobalAccess(userId: string, dbSession?: DbSession): Promise<boolean>
 }
 
 /**
  * Creates permission service
  */
 export function createPermissionService(options: PermissionServiceOptions): IPermissionService {
-    const { getDataSource } = options
+    const { getKnex } = options
+
+    const runQuery = async <T = unknown>(sql: string, params: unknown[], dbSession?: DbSession): Promise<T[]> => {
+        if (dbSession && !dbSession.isReleased()) {
+            return dbSession.query<T>(sql, params)
+        }
+
+        // Use executor so $1-style bindings are converted to Knex ? format
+        const exec = createKnexExecutor(getKnex())
+        return exec.query<T>(sql, params)
+    }
 
     /**
      * Get user permissions from database with full metadata
      */
-    async function getPermissionsWithMetadata(userId: string, queryRunner?: QueryRunner): Promise<RawPermissionWithMetadata[]> {
-        const runner = queryRunner ?? getDataSource().createQueryRunner()
-        const shouldRelease = !queryRunner
-
-        try {
-            // Call updated PostgreSQL function that returns permissions with role metadata
-            const result: RawPermissionWithMetadata[] = await runner.query(
-                `SELECT role_codename, name, color, is_superuser, subject, action, conditions, fields 
-                 FROM admin.get_user_permissions($1)`,
-                [userId]
-            )
-            return result
-        } finally {
-            if (shouldRelease && !runner.isReleased) {
-                await runner.release()
-            }
-        }
+    async function getPermissionsWithMetadata(userId: string, dbSession?: DbSession): Promise<RawPermissionWithMetadata[]> {
+        return runQuery<RawPermissionWithMetadata>(
+            `SELECT role_codename, name, color, is_superuser, subject, action, conditions, fields 
+             FROM admin.get_user_permissions($1)`,
+            [userId],
+            dbSession
+        )
     }
 
     /**
      * Get user permissions from database (legacy format for CASL)
      */
-    async function getUserPermissions(userId: string, queryRunner?: QueryRunner): Promise<DbPermission[]> {
-        const rawPerms = await getPermissionsWithMetadata(userId, queryRunner)
+    async function getUserPermissions(userId: string, dbSession?: DbSession): Promise<DbPermission[]> {
+        const rawPerms = await getPermissionsWithMetadata(userId, dbSession)
 
         return rawPerms.map((row) => ({
             subject: row.subject,
@@ -126,8 +127,8 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
     /**
      * Get full permissions response with metadata for frontend
      */
-    async function getFullPermissions(userId: string, queryRunner?: QueryRunner): Promise<FullPermissionsResponse> {
-        const rawPerms = await getPermissionsWithMetadata(userId, queryRunner)
+    async function getFullPermissions(userId: string, dbSession?: DbSession): Promise<FullPermissionsResponse> {
+        const rawPerms = await getPermissionsWithMetadata(userId, dbSession)
 
         // Build permissions list
         const permissions: PermissionRule[] = rawPerms.map((row) => ({
@@ -208,8 +209,8 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
     /**
      * Build CASL ability for user
      */
-    async function getAbilityForUser(userId: string, queryRunner?: QueryRunner): Promise<AppAbility> {
-        const permissions = await getUserPermissions(userId, queryRunner)
+    async function getAbilityForUser(userId: string, dbSession?: DbSession): Promise<AppAbility> {
+        const permissions = await getUserPermissions(userId, dbSession)
         return defineAbilitiesFor(userId, permissions)
     }
 
@@ -217,7 +218,7 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
      * Check if user can access admin panel (has admin-related permissions)
      * Returns false if ADMIN_PANEL_ENABLED=false or GLOBAL_ROLES_ENABLED=false
      */
-    async function hasGlobalAccess(userId: string, queryRunner?: QueryRunner): Promise<boolean> {
+    async function hasGlobalAccess(userId: string, dbSession?: DbSession): Promise<boolean> {
         // If admin panel is disabled, no one can access it
         if (!isAdminPanelEnabled()) {
             return false
@@ -230,31 +231,12 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
                 return false
             }
             // User must be superuser to access admin when global roles are disabled
-            const runner = queryRunner ?? getDataSource().createQueryRunner()
-            const shouldRelease = !queryRunner
-            try {
-                const result: Array<{ is_super: boolean }> = await runner.query('SELECT admin.is_superuser($1) as is_super', [userId])
-                return result[0]?.is_super ?? false
-            } finally {
-                if (shouldRelease && !runner.isReleased) {
-                    await runner.release()
-                }
-            }
+            const result = await runQuery<{ is_super: boolean }>('SELECT admin.is_superuser($1) as is_super', [userId], dbSession)
+            return result[0]?.is_super ?? false
         }
 
-        const runner = queryRunner ?? getDataSource().createQueryRunner()
-        const shouldRelease = !queryRunner
-
-        try {
-            const result: Array<{ can_access: boolean }> = await runner.query('SELECT admin.has_admin_permission($1) as can_access', [
-                userId
-            ])
-            return result[0]?.can_access ?? false
-        } finally {
-            if (shouldRelease && !runner.isReleased) {
-                await runner.release()
-            }
-        }
+        const result = await runQuery<{ can_access: boolean }>('SELECT admin.has_admin_permission($1) as can_access', [userId], dbSession)
+        return result[0]?.can_access ?? false
     }
 
     /**
@@ -266,25 +248,15 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
         subject: string,
         action: string,
         context?: Record<string, unknown>,
-        queryRunner?: QueryRunner
+        dbSession?: DbSession
     ): Promise<boolean> {
-        const runner = queryRunner ?? getDataSource().createQueryRunner()
-        const shouldRelease = !queryRunner
+        const result = await runQuery<{ has_permission: boolean }>(
+            'SELECT admin.has_permission($1::uuid, $2, $3, $4) as has_permission',
+            [userId, subject, action, context ? JSON.stringify(context) : '{}'],
+            dbSession
+        )
 
-        try {
-            // Call PostgreSQL function with explicit userId
-            // The function uses COALESCE(p_user_id, auth.uid()) for fallback
-            const result: Array<{ has_permission: boolean }> = await runner.query(
-                'SELECT admin.has_permission($1::uuid, $2, $3, $4) as has_permission',
-                [userId, subject, action, context ? JSON.stringify(context) : '{}']
-            )
-
-            return result[0]?.has_permission ?? false
-        } finally {
-            if (shouldRelease && !runner.isReleased) {
-                await runner.release()
-            }
-        }
+        return result[0]?.has_permission ?? false
     }
 
     return {
@@ -300,7 +272,7 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
 let permissionService: IPermissionService | null = null
 
 /**
- * Initialize permission service with DataSource
+ * Initialize permission service with Knex
  */
 export function initPermissionService(options: PermissionServiceOptions): IPermissionService {
     permissionService = createPermissionService(options)

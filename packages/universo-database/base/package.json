@@ -1,0 +1,36 @@
+{
+    "name": "@universo/database",
+    "version": "0.1.0",
+    "description": "Knex singleton and executor factories for Universo Platformo",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist tsconfig.tsbuildinfo",
+        "build": "pnpm run clean && tsc",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts src/",
+        "test": "jest --config ./jest.config.js"
+    },
+    "keywords": [
+        "universo",
+        "database",
+        "knex",
+        "postgres"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/utils": "workspace:*",
+        "knex": "catalog:",
+        "pg": "^8.11.1"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.12",
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "jest": "^29.7.0",
+        "rimraf": "^5.0.5",
+        "ts-jest": "^29.1.2",
+        "typescript": "catalog:"
+    }
+}

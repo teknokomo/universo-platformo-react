@@ -1,17 +1,6 @@
 import { afterEach, expect, jest } from '@jest/globals'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import {
-  createMockDataSource,
-  createMockQueryBuilder,
-  createMockRepository,
-  asMockRepository,
-  type MockDataSource,
-  type MockRepository,
-  type MockSelectQueryBuilder,
-  type TransactionalEntityManager
-} from './typeormMocks'
-
 type SupabaseClientMock = jest.Mocked<SupabaseClient<any, any, any>>
 
 type QueryResult = {
@@ -102,12 +91,6 @@ declare global {
   var createMockSupabaseClient: (
     overrides?: Partial<SupabaseClientMock>
   ) => SupabaseClientMock
-  // eslint-disable-next-line no-var
-  var createMockRepository: typeof createMockRepository
-  // eslint-disable-next-line no-var
-  var createMockQueryBuilder: typeof createMockQueryBuilder
-  // eslint-disable-next-line no-var
-  var createMockDataSource: typeof createMockDataSource
 }
 
 declare global {
@@ -173,18 +156,7 @@ jest.mock('@supabase/supabase-js', () => {
 })
 
 global.createMockSupabaseClient = createMockSupabaseClient
-global.createMockRepository = createMockRepository
-global.createMockQueryBuilder = createMockQueryBuilder
-global.createMockDataSource = createMockDataSource
 
 export {
-  createMockSupabaseClient,
-  createMockRepository,
-  createMockQueryBuilder,
-  createMockDataSource,
-  asMockRepository,
-  MockDataSource,
-  MockRepository,
-  MockSelectQueryBuilder,
-  TransactionalEntityManager
+  createMockSupabaseClient
 }

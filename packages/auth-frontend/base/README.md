@@ -351,7 +351,7 @@ export const translateError = (error: string): string => {
 ## Migration Guide
 
 ### From Legacy Authentication
-Package provides full replacement for legacy Flowise authentication:
+Package provides a full replacement for older ad-hoc login dialog flows:
 
 **Old Pattern:**
 ```tsx
@@ -389,9 +389,9 @@ useEffect(() => {
 ## Related Documentation
 
 - [Authentication Service Backend](../../auth-backend/base/README.md)
-- [API Client Package](../../universo-api-client/README.md)
+- [API Client Package](../../universo-api-client/base/README.md)
 - [Material-UI Template](../../universo-template-mui/base/README.md)
-- [Authentication Architecture](../../../docs/en/universo-platformo/README.md)
+- [Authentication Architecture](../../../docs/en/architecture/auth.md)
 
 ---
 

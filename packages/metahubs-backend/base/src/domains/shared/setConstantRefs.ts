@@ -71,7 +71,9 @@ const enrichFieldWithSetConstantRef = (
 ): FieldDefinition => {
     const nextField: FieldDefinition = {
         ...field,
-        ...(field.childFields ? { childFields: field.childFields.map((child) => enrichFieldWithSetConstantRef(child, lookups)) } : {})
+        ...(field.childFields
+            ? { childFields: field.childFields.map((child: FieldDefinition) => enrichFieldWithSetConstantRef(child, lookups)) }
+            : {})
     }
 
     if (
@@ -107,6 +109,6 @@ export const enrichDefinitionsWithSetConstants = (entities: EntityDefinition[], 
 
     return entities.map((entity) => ({
         ...entity,
-        fields: (entity.fields ?? []).map((field) => enrichFieldWithSetConstantRef(field, lookups))
+        fields: (entity.fields ?? []).map((field: FieldDefinition) => enrichFieldWithSetConstantRef(field, lookups))
     }))
 }

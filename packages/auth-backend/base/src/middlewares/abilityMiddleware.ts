@@ -5,7 +5,7 @@
  * Should be used AFTER authentication middleware.
  */
 import type { Request, Response, NextFunction } from 'express'
-import type { DataSource } from 'typeorm'
+import type { Knex } from 'knex'
 import type { AppAbility } from '@universo/types'
 import { ForbiddenError } from '@universo/types'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
@@ -22,8 +22,8 @@ export interface RequestWithAbility extends AuthenticatedRequest {
  * Configuration for ability middleware
  */
 export interface AbilityMiddlewareOptions {
-    /** Function to get DataSource */
-    getDataSource: () => DataSource
+    /** Function to get Knex instance */
+    getKnex: () => Knex
 }
 
 /**
@@ -31,7 +31,7 @@ export interface AbilityMiddlewareOptions {
  *
  * Usage:
  * ```ts
- * const withAbility = createAbilityMiddleware({ getDataSource })
+ * const withAbility = createAbilityMiddleware({ getKnex })
  * router.use('/protected', ensureAuth, withAbility, protectedRouter)
  * ```
  *

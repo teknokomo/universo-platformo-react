@@ -1,31 +1,18 @@
 ---
-description: Contribute to Universo Platformo development.
+description: Contributing workflow for code, docs, and package-level changes.
 ---
 
 # Contributing
 
-{% hint style="info" %}
-**This section is under development.** Contribution guidelines will be expanded soon.
-{% endhint %}
+Contributions are welcome, but this repository is still moving through an alpha
+phase, so useful contributions start with alignment to the current architecture
+and repository facts.
 
-## Overview
+## Best Contribution Areas
 
-We welcome contributions to Universo Platformo! Whether you're fixing bugs, adding features, or improving documentation — your help is appreciated.
+- Documentation updates tied to current repository facts.
+- Focused fixes in existing feature or infrastructure packages.
+- Tests that lock in current platform behavior.
+- Architecture cleanup that matches the SQL-first runtime direction.
 
-## Getting Involved
-
-* [Development Setup](development-setup.md) — set up your local environment
-* [Coding Guidelines](coding-guidelines.md) — follow project conventions
-* [Creating Packages](creating-packages.md) — add new packages to the monorepo
-
-## Quick Start for Contributors
-
-1. Fork the repository
-2. Create a feature branch (`feature/your-feature`)
-3. Make your changes following the coding guidelines
-4. Submit a Pull Request
-
-## License
-
-* **Flowise core** — Apache License 2.0
-* **Universo Platformo extensions** — Omsk Open License
+Use the pages in this section before opening a large change set.

@@ -1,13 +1,26 @@
-import type { DataSource, EntityManager } from 'typeorm'
+import type { DbExecutor } from '@universo/utils/database'
 import type { BranchCopyOptions, MetahubCreateOptions, MetahubTemplateManifest, VersionedLocalizedContent } from '@universo/types'
 import { normalizeBranchCopyOptions } from '@universo/utils'
-import { Metahub } from '../../../database/entities/Metahub'
-import { MetahubBranch } from '../../../database/entities/MetahubBranch'
-import { MetahubUser } from '../../../database/entities/MetahubUser'
-import { TemplateVersion } from '../../../database/entities/TemplateVersion'
+import type { SqlQueryable, MetahubBranchRow, MetahubRow } from '../../../persistence/types'
+import {
+    findMetahubById,
+    findMetahubForUpdate,
+    findMetahubMembership,
+    updateMetahubFieldsRaw,
+    updateMetahubMember,
+    findBranchByIdAndMetahub,
+    findBranchByCodename,
+    findBranchBySchemaName,
+    findBranchForUpdate,
+    createBranch as createBranchRow,
+    updateBranch as updateBranchRow,
+    deleteBranchById,
+    getMaxBranchNumber,
+    countMembersOnBranch,
+    clearMemberActiveBranch,
+    findTemplateVersionById
+} from '../../../persistence'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
-import { AuthUser } from '@universo/auth-backend'
-import { Profile } from '@universo/profile-backend'
 import { KnexClient, getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../../metahubs/services/structureVersions'
@@ -46,11 +59,7 @@ class BranchCopyCompatibilityError extends Error {
 }
 
 export class MetahubBranchesService {
-    constructor(private dataSource: DataSource, private manager?: EntityManager) {}
-
-    private get repoManager(): EntityManager {
-        return this.manager ?? this.dataSource.manager
-    }
+    constructor(private exec: DbExecutor) {}
 
     private get knex() {
         return KnexClient.getInstance()
@@ -71,7 +80,7 @@ export class MetahubBranchesService {
         }
     }
 
-    private async assertCopyCompatibility(manager: EntityManager, schemaName: string, options: BranchCopyOptions): Promise<void> {
+    private async assertCopyCompatibility(exec: SqlQueryable, schemaName: string, options: BranchCopyOptions): Promise<void> {
         const keptKinds: string[] = []
         if (options.copyCatalogs) keptKinds.push('catalog')
         if (options.copySets) keptKinds.push('set')
@@ -89,7 +98,7 @@ export class MetahubBranchesService {
         this.assertSafeSchemaName(schemaName)
         const schemaIdent = this.quoteIdent(schemaName)
 
-        const rows = (await manager.query(
+        const rows = await exec.query<{ target_kind: string | null }>(
             `
                 SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind
                 FROM ${schemaIdent}._mhb_attributes attr
@@ -115,7 +124,7 @@ export class MetahubBranchesService {
                   )
             `,
             [keptKinds, removedKinds]
-        )) as Array<{ target_kind: string | null }>
+        )
 
         const incompatibleKinds = new Set(rows.map((row) => row.target_kind).filter((kind): kind is string => typeof kind === 'string'))
         if (incompatibleKinds.size === 0) return
@@ -127,11 +136,7 @@ export class MetahubBranchesService {
         throw new BranchCopyCompatibilityError('BRANCH_COPY_DANGLING_REFERENCES')
     }
 
-    private async sanitizeHubReferencesInObjectConfigs(
-        manager: EntityManager,
-        schemaIdent: string,
-        options: BranchCopyOptions
-    ): Promise<void> {
+    private async sanitizeHubReferencesInObjectConfigs(exec: SqlQueryable, schemaIdent: string, options: BranchCopyOptions): Promise<void> {
         if (options.copyHubs) return
 
         const kindsWithHubConfig: string[] = []
@@ -140,7 +145,7 @@ export class MetahubBranchesService {
         if (options.copyEnumerations) kindsWithHubConfig.push('enumeration')
         if (kindsWithHubConfig.length === 0) return
 
-        await manager.query(
+        await exec.query(
             `
                 UPDATE ${schemaIdent}._mhb_objects
                 SET config = jsonb_set(
@@ -162,8 +167,8 @@ export class MetahubBranchesService {
         )
     }
 
-    private async sanitizeHubParentReferences(manager: EntityManager, schemaIdent: string): Promise<void> {
-        await manager.query(`
+    private async sanitizeHubParentReferences(exec: SqlQueryable, schemaIdent: string): Promise<void> {
+        await exec.query(`
             UPDATE ${schemaIdent}._mhb_objects AS child
             SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true)
             WHERE child.kind = 'hub'
@@ -184,15 +189,15 @@ export class MetahubBranchesService {
         `)
     }
 
-    private async pruneClonedSchema(manager: EntityManager, schemaName: string, options: BranchCopyOptions): Promise<void> {
+    private async pruneClonedSchema(exec: SqlQueryable, schemaName: string, options: BranchCopyOptions): Promise<void> {
         this.assertSafeSchemaName(schemaName)
         const schemaIdent = this.quoteIdent(schemaName)
 
         if (!options.copyLayouts) {
-            await manager.query(`DELETE FROM ${schemaIdent}._mhb_layouts`)
+            await exec.query(`DELETE FROM ${schemaIdent}._mhb_layouts`)
         }
 
-        await this.sanitizeHubReferencesInObjectConfigs(manager, schemaIdent, options)
+        await this.sanitizeHubReferencesInObjectConfigs(exec, schemaIdent, options)
 
         const kindsToDelete: string[] = []
         if (!options.copyHubs) kindsToDelete.push('hub')
@@ -201,23 +206,25 @@ export class MetahubBranchesService {
         if (!options.copyEnumerations) kindsToDelete.push('enumeration')
 
         if (kindsToDelete.length > 0) {
-            await manager.query(`DELETE FROM ${schemaIdent}._mhb_objects WHERE kind = ANY($1::text[])`, [kindsToDelete])
+            await exec.query(`DELETE FROM ${schemaIdent}._mhb_objects WHERE kind = ANY($1::text[])`, [kindsToDelete])
         }
 
         // Ensure hubs never keep dangling/self parent links after prune.
-        await this.sanitizeHubParentReferences(manager, schemaIdent)
+        await this.sanitizeHubParentReferences(exec, schemaIdent)
     }
 
     /**
      * Loads the template manifest for a metahub entity with runtime validation.
      * Returns undefined if no template is assigned (initializeSchema will use default).
      */
-    private async loadManifestForMetahub(metahub: Metahub): Promise<MetahubTemplateManifest | undefined> {
+    private async loadManifestForMetahub(
+        metahub: MetahubRow,
+        exec: SqlQueryable = this.exec
+    ): Promise<MetahubTemplateManifest | undefined> {
         if (!metahub.templateVersionId) {
             return undefined
         }
-        const versionRepo = this.repoManager.getRepository(TemplateVersion)
-        const version = await versionRepo.findOneBy({ id: metahub.templateVersionId })
+        const version = await findTemplateVersionById(exec, metahub.templateVersionId)
         if (version?.manifestJson) {
             try {
                 return validateTemplateManifest(version.manifestJson)
@@ -231,14 +238,13 @@ export class MetahubBranchesService {
 
     private async resolveTemplateVersionInfo(
         templateVersionId: string | null | undefined,
-        manager: EntityManager = this.repoManager
+        exec: SqlQueryable = this.exec
     ): Promise<{ templateVersionId: string | null; templateVersionLabel: string | null }> {
         if (!templateVersionId) {
             return { templateVersionId: null, templateVersionLabel: null }
         }
 
-        const versionRepo = manager.getRepository(TemplateVersion)
-        const version = await versionRepo.findOneBy({ id: templateVersionId })
+        const version = await findTemplateVersionById(exec, templateVersionId)
         return {
             templateVersionId,
             templateVersionLabel: version?.versionLabel ?? null
@@ -246,20 +252,19 @@ export class MetahubBranchesService {
     }
 
     async listBranches(metahubId: string, options: BranchListOptions = {}) {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
         const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = options
-
-        const qb = branchRepo.createQueryBuilder('b').where('b.metahub_id = :metahubId', { metahubId })
+        const params: unknown[] = [metahubId]
+        const conditions: string[] = ['b.metahub_id = $1']
 
         if (search) {
             const escapedSearch = escapeLikeWildcards(search.toLowerCase())
-            qb.andWhere(
+            params.push(`%${escapedSearch}%`)
+            conditions.push(
                 `(
-                    COALESCE(b.name::text, '') ILIKE :search
-                    OR COALESCE(b.description::text, '') ILIKE :search
-                    OR COALESCE(b.codename, '') ILIKE :search
-                )`,
-                { search: `%${escapedSearch}%` }
+                    COALESCE(b.name::text, '') ILIKE $${params.length}
+                    OR COALESCE(b.description::text, '') ILIKE $${params.length}
+                    OR COALESCE(b.codename, '') ILIKE $${params.length}
+                )`
             )
         }
 
@@ -271,29 +276,64 @@ export class MetahubBranchesService {
                 : sortBy === 'created'
                 ? 'b._upl_created_at'
                 : 'b._upl_updated_at'
+        const orderDir = (sortOrder ?? 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
 
-        qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-        qb.skip(offset).take(limit)
+        params.push(limit, offset)
+        const limitIdx = params.length - 1
+        const offsetIdx = params.length
 
-        const [branches, total] = await qb.getManyAndCount()
+        const rows = await this.exec.query<MetahubBranchRow & { windowTotal: string }>(
+            `SELECT
+                b.id, b.metahub_id AS "metahubId", b.source_branch_id AS "sourceBranchId",
+                b.name, b.description, b.codename, b.codename_localized AS "codenameLocalized",
+                b.branch_number AS "branchNumber", b.schema_name AS "schemaName",
+                b.structure_version AS "structureVersion",
+                b.last_template_version_id AS "lastTemplateVersionId",
+                b.last_template_version_label AS "lastTemplateVersionLabel",
+                b.last_template_synced_at AS "lastTemplateSyncedAt",
+                b._upl_created_at AS "_uplCreatedAt", b._upl_created_by AS "_uplCreatedBy",
+                b._upl_updated_at AS "_uplUpdatedAt", b._upl_updated_by AS "_uplUpdatedBy",
+                b._upl_version AS "_uplVersion",
+                b._upl_archived AS "_uplArchived", b._upl_archived_at AS "_uplArchivedAt",
+                b._upl_archived_by AS "_uplArchivedBy",
+                b._upl_deleted AS "_uplDeleted", b._upl_deleted_at AS "_uplDeletedAt",
+                b._upl_deleted_by AS "_uplDeletedBy",
+                b._upl_purge_after AS "_uplPurgeAfter",
+                b._upl_locked AS "_uplLocked", b._upl_locked_at AS "_uplLockedAt",
+                b._upl_locked_by AS "_uplLockedBy", b._upl_locked_reason AS "_uplLockedReason",
+                b._mhb_published AS "_mhbPublished", b._mhb_published_at AS "_mhbPublishedAt",
+                b._mhb_published_by AS "_mhbPublishedBy",
+                b._mhb_archived AS "_mhbArchived", b._mhb_archived_at AS "_mhbArchivedAt",
+                b._mhb_archived_by AS "_mhbArchivedBy",
+                b._mhb_deleted AS "_mhbDeleted", b._mhb_deleted_at AS "_mhbDeletedAt",
+                b._mhb_deleted_by AS "_mhbDeletedBy",
+                COUNT(*) OVER() AS "windowTotal"
+             FROM metahubs.metahubs_branches b
+             WHERE ${conditions.join(' AND ')}
+             ORDER BY ${orderColumn} ${orderDir}
+             LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+            params
+        )
+
+        const total = rows.length > 0 ? parseInt(String(rows[0].windowTotal), 10) : 0
+        const branches: MetahubBranchRow[] = rows.map(({ windowTotal: _wt, ...row }) => row)
         return { branches, total }
     }
 
     async listAllBranches(metahubId: string, options: BranchListAllOptions = {}) {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
         const { sortBy = 'updated', sortOrder = 'desc', search } = options
-
-        const qb = branchRepo.createQueryBuilder('b').where('b.metahub_id = :metahubId', { metahubId })
+        const params: unknown[] = [metahubId]
+        const conditions: string[] = ['b.metahub_id = $1']
 
         if (search) {
             const escapedSearch = escapeLikeWildcards(search.toLowerCase())
-            qb.andWhere(
+            params.push(`%${escapedSearch}%`)
+            conditions.push(
                 `(
-                    COALESCE(b.name::text, '') ILIKE :search
-                    OR COALESCE(b.description::text, '') ILIKE :search
-                    OR COALESCE(b.codename, '') ILIKE :search
-                )`,
-                { search: `%${escapedSearch}%` }
+                    COALESCE(b.name::text, '') ILIKE $${params.length}
+                    OR COALESCE(b.description::text, '') ILIKE $${params.length}
+                    OR COALESCE(b.codename, '') ILIKE $${params.length}
+                )`
             )
         }
 
@@ -305,38 +345,56 @@ export class MetahubBranchesService {
                 : sortBy === 'created'
                 ? 'b._upl_created_at'
                 : 'b._upl_updated_at'
+        const orderDir = (sortOrder ?? 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
 
-        qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-
-        const branches = await qb.getMany()
+        const branches = await this.exec.query<MetahubBranchRow>(
+            `SELECT
+                b.id, b.metahub_id AS "metahubId", b.source_branch_id AS "sourceBranchId",
+                b.name, b.description, b.codename, b.codename_localized AS "codenameLocalized",
+                b.branch_number AS "branchNumber", b.schema_name AS "schemaName",
+                b.structure_version AS "structureVersion",
+                b.last_template_version_id AS "lastTemplateVersionId",
+                b.last_template_version_label AS "lastTemplateVersionLabel",
+                b.last_template_synced_at AS "lastTemplateSyncedAt",
+                b._upl_created_at AS "_uplCreatedAt", b._upl_created_by AS "_uplCreatedBy",
+                b._upl_updated_at AS "_uplUpdatedAt", b._upl_updated_by AS "_uplUpdatedBy",
+                b._upl_version AS "_uplVersion",
+                b._upl_archived AS "_uplArchived", b._upl_archived_at AS "_uplArchivedAt",
+                b._upl_archived_by AS "_uplArchivedBy",
+                b._upl_deleted AS "_uplDeleted", b._upl_deleted_at AS "_uplDeletedAt",
+                b._upl_deleted_by AS "_uplDeletedBy",
+                b._upl_purge_after AS "_uplPurgeAfter",
+                b._upl_locked AS "_uplLocked", b._upl_locked_at AS "_uplLockedAt",
+                b._upl_locked_by AS "_uplLockedBy", b._upl_locked_reason AS "_uplLockedReason",
+                b._mhb_published AS "_mhbPublished", b._mhb_published_at AS "_mhbPublishedAt",
+                b._mhb_published_by AS "_mhbPublishedBy",
+                b._mhb_archived AS "_mhbArchived", b._mhb_archived_at AS "_mhbArchivedAt",
+                b._mhb_archived_by AS "_mhbArchivedBy",
+                b._mhb_deleted AS "_mhbDeleted", b._mhb_deleted_at AS "_mhbDeletedAt",
+                b._mhb_deleted_by AS "_mhbDeletedBy"
+             FROM metahubs.metahubs_branches b
+             WHERE ${conditions.join(' AND ')}
+             ORDER BY ${orderColumn} ${orderDir}`,
+            params
+        )
         return { branches, total: branches.length }
     }
 
-    async getBranchById(metahubId: string, branchId: string): Promise<MetahubBranch | null> {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        return branchRepo.findOne({ where: { id: branchId, metahubId } })
+    async getBranchById(metahubId: string, branchId: string): Promise<MetahubBranchRow | null> {
+        return findBranchByIdAndMetahub(this.exec, branchId, metahubId)
     }
 
-    async findByCodename(metahubId: string, codename: string): Promise<MetahubBranch | null> {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        return branchRepo
-            .createQueryBuilder('b')
-            .where('b.metahub_id = :metahubId', { metahubId })
-            .andWhere('b.codename = :codename', { codename })
-            .andWhere('b._upl_deleted = false')
-            .andWhere('b._mhb_deleted = false')
-            .getOne()
+    async findByCodename(metahubId: string, codename: string): Promise<MetahubBranchRow | null> {
+        return findBranchByCodename(this.exec, metahubId, codename)
     }
 
     async getDefaultBranchId(metahubId: string): Promise<string | null> {
-        const metahubRepo = this.repoManager.getRepository(Metahub)
-        const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+        const metahub = await findMetahubById(this.exec, metahubId)
         return metahub?.defaultBranchId ?? null
     }
 
     async getUserActiveBranchId(metahubId: string, userId: string): Promise<string | null> {
-        const memberRepo = this.repoManager.getRepository(MetahubUser)
-        const member = await memberRepo.findOne({ where: { metahubId, userId } })
+        const member = await findMetahubMembership(this.exec, metahubId, userId)
         return member?.activeBranchId ?? null
     }
 
@@ -347,11 +405,9 @@ export class MetahubBranchesService {
         codename?: string
         createdBy?: string | null
         createOptions?: MetahubCreateOptions
-    }): Promise<MetahubBranch> {
+    }): Promise<MetahubBranchRow> {
         const { metahubId, name, description, codename = 'main', createdBy, createOptions } = params
-        const metahubRepo = this.repoManager.getRepository(Metahub)
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
+        const schemaService = new MetahubSchemaService(this.exec)
         const lockKey = uuidToLockKey(`${metahubId}:initial-branch`)
         const acquired = await acquireAdvisoryLock(this.knex, lockKey)
         if (!acquired) {
@@ -361,7 +417,7 @@ export class MetahubBranchesService {
         const branchNumber = 1
         const schemaName = this.buildSchemaName(metahubId, branchNumber)
         try {
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(this.exec, metahubId)
             if (!metahub) {
                 throw new Error('Metahub not found')
             }
@@ -378,16 +434,8 @@ export class MetahubBranchesService {
                 manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
             )
 
-            const savedBranch = await this.repoManager.transaction(async (manager) => {
-                const txMetahubRepo = manager.getRepository(Metahub)
-                const txBranchRepo = manager.getRepository(MetahubBranch)
-
-                const lockedMetahub = await txMetahubRepo
-                    .createQueryBuilder('m')
-                    .setLock('pessimistic_write')
-                    .where('m.id = :metahubId', { metahubId })
-                    .getOne()
-
+            const savedBranch = await this.exec.transaction(async (tx) => {
+                const lockedMetahub = await findMetahubForUpdate(tx, metahubId)
                 if (!lockedMetahub) {
                     throw new Error('Metahub not found')
                 }
@@ -395,7 +443,7 @@ export class MetahubBranchesService {
                     throw new Error('Default branch is already configured')
                 }
 
-                const branch = txBranchRepo.create({
+                const saved = await createBranchRow(tx, {
                     metahubId,
                     name,
                     description: description ?? null,
@@ -406,27 +454,18 @@ export class MetahubBranchesService {
                     lastTemplateVersionId: templateVersionInfo.templateVersionId,
                     lastTemplateVersionLabel: templateVersionInfo.templateVersionLabel,
                     lastTemplateSyncedAt: templateVersionInfo.templateVersionId ? new Date() : null,
-                    _uplCreatedBy: createdBy ?? null,
-                    _uplUpdatedBy: createdBy ?? null
+                    userId: createdBy ?? ''
                 })
 
-                const saved = await txBranchRepo.save(branch)
                 // Use raw update to avoid incrementing _upl_version
-                await txMetahubRepo
-                    .createQueryBuilder()
-                    .update(Metahub)
-                    .set({ defaultBranchId: saved.id, lastBranchNumber: branchNumber })
-                    .where('id = :id', { id: metahubId })
-                    .execute()
+                await updateMetahubFieldsRaw(tx, metahubId, { defaultBranchId: saved.id, lastBranchNumber: branchNumber })
 
                 return saved
             })
 
             return savedBranch
         } catch (error) {
-            const existingBranch = await branchRepo.findOne({
-                where: { metahubId, schemaName }
-            })
+            const existingBranch = await findBranchBySchemaName(this.exec, schemaName)
             if (!existingBranch) {
                 const { generator } = getDDLServices()
                 await generator.dropSchema(schemaName).catch(() => undefined)
@@ -446,10 +485,10 @@ export class MetahubBranchesService {
         description?: VersionedLocalizedContent<string> | null
         copyOptions?: Partial<BranchCopyOptions>
         createdBy?: string | null
-    }): Promise<MetahubBranch> {
+    }): Promise<MetahubBranchRow> {
         const { metahubId, sourceBranchId, codename, codenameLocalized, name, description, createdBy, copyOptions } = params
         const normalizedCopyOptions = normalizeBranchCopyOptions(copyOptions)
-        const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
+        const schemaService = new MetahubSchemaService(this.exec)
 
         // Use a dedicated lock namespace for branch creation.
         // This avoids contention with ensureSchema() read paths that use metahub-wide lock keys.
@@ -460,34 +499,20 @@ export class MetahubBranchesService {
         }
 
         let schemaName: string | null = null
-        let savedBranch: MetahubBranch | null = null
+        let savedBranch: MetahubBranchRow | null = null
         try {
-            await this.repoManager.transaction(async (manager) => {
-                const branchRepo = manager.getRepository(MetahubBranch)
-                const metahubRepo = manager.getRepository(Metahub)
-
-                const metahub = await metahubRepo
-                    .createQueryBuilder('m')
-                    .setLock('pessimistic_write')
-                    .where('m.id = :metahubId', { metahubId })
-                    .getOne()
-
+            await this.exec.transaction(async (tx) => {
+                const metahub = await findMetahubForUpdate(tx, metahubId)
                 if (!metahub) {
                     throw new Error('Metahub not found')
                 }
 
-                const sourceBranch = sourceBranchId ? await branchRepo.findOne({ where: { id: sourceBranchId, metahubId } }) : null
+                const sourceBranch = sourceBranchId ? await findBranchByIdAndMetahub(tx, sourceBranchId, metahubId) : null
                 if (sourceBranchId && !sourceBranch) {
                     throw new Error('Source branch not found')
                 }
 
-                const maxBranchNumberRow = await branchRepo
-                    .createQueryBuilder('b')
-                    .select('COALESCE(MAX(b.branch_number), 0)', 'maxBranchNumber')
-                    .where('b.metahub_id = :metahubId', { metahubId })
-                    .getRawOne<{ maxBranchNumber: string | number }>()
-
-                const maxBranchNumber = Number(maxBranchNumberRow?.maxBranchNumber ?? 0)
+                const maxBranchNumber = await getMaxBranchNumber(tx, metahubId)
                 const baseBranchNumber = Math.max(metahub.lastBranchNumber ?? 0, Number.isFinite(maxBranchNumber) ? maxBranchNumber : 0)
                 const nextNumber = baseBranchNumber + 1
                 schemaName = this.buildSchemaName(metahubId, nextNumber)
@@ -506,9 +531,9 @@ export class MetahubBranchesService {
                         createTargetSchema: true,
                         copyData: true
                     })
-                    await this.assertCopyCompatibility(manager, schemaName, normalizedCopyOptions)
+                    await this.assertCopyCompatibility(tx, schemaName, normalizedCopyOptions)
                     if (!normalizedCopyOptions.fullCopy) {
-                        await this.pruneClonedSchema(manager, schemaName, normalizedCopyOptions)
+                        await this.pruneClonedSchema(tx, schemaName, normalizedCopyOptions)
                     }
                     branchStructureVersion = structureVersionToSemver(sourceBranch.structureVersion)
                     templateVersionSyncId = sourceBranch.lastTemplateVersionId ?? null
@@ -516,18 +541,18 @@ export class MetahubBranchesService {
                     templateSyncedAt = sourceBranch.lastTemplateSyncedAt ?? null
                 } else {
                     // Load template manifest for new branch from scratch
-                    const manifest = await this.loadManifestForMetahub(metahub)
+                    const manifest = await this.loadManifestForMetahub(metahub, tx)
                     await schemaService.initializeSchema(schemaName, manifest)
                     branchStructureVersion = structureVersionToSemver(
                         manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
                     )
-                    const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null, manager)
+                    const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null, tx)
                     templateVersionSyncId = templateVersionInfo.templateVersionId
                     templateVersionSyncLabel = templateVersionInfo.templateVersionLabel
                     templateSyncedAt = templateVersionInfo.templateVersionId ? new Date() : null
                 }
 
-                const branch = branchRepo.create({
+                savedBranch = await createBranchRow(tx, {
                     metahubId,
                     sourceBranchId: sourceBranch?.id ?? null,
                     name,
@@ -540,18 +565,11 @@ export class MetahubBranchesService {
                     lastTemplateVersionId: templateVersionSyncId,
                     lastTemplateVersionLabel: templateVersionSyncLabel,
                     lastTemplateSyncedAt: templateSyncedAt,
-                    _uplCreatedBy: createdBy ?? null,
-                    _uplUpdatedBy: createdBy ?? null
+                    userId: createdBy ?? ''
                 })
 
-                savedBranch = await branchRepo.save(branch)
                 // Use raw update to avoid incrementing _upl_version on metahub
-                await metahubRepo
-                    .createQueryBuilder()
-                    .update(Metahub)
-                    .set({ lastBranchNumber: nextNumber })
-                    .where('id = :id', { id: metahubId })
-                    .execute()
+                await updateMetahubFieldsRaw(tx, metahubId, { lastBranchNumber: nextNumber })
             })
 
             if (!savedBranch) {
@@ -581,8 +599,7 @@ export class MetahubBranchesService {
             updatedBy?: string | null
         }
     ) {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
+        const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
             throw new Error('Branch not found')
         }
@@ -602,56 +619,42 @@ export class MetahubBranchesService {
             }
         }
 
-        if (data.codename !== undefined) {
-            branch.codename = data.codename
-        }
-        if (data.codenameLocalized !== undefined) {
-            branch.codenameLocalized = data.codenameLocalized
-        }
-        if (data.name !== undefined) {
-            branch.name = data.name
-        }
-        if (data.description !== undefined) {
-            branch.description = data.description
-        }
-        if (data.updatedBy !== undefined) {
-            branch._uplUpdatedBy = data.updatedBy ?? null
-        }
+        const updated = await updateBranchRow(this.exec, branchId, {
+            codename: data.codename,
+            codenameLocalized: data.codenameLocalized,
+            name: data.name,
+            description: data.description,
+            userId: data.updatedBy ?? undefined,
+            expectedVersion: data.expectedVersion
+        })
 
-        return branchRepo.save(branch)
+        return updated ?? branch
     }
 
     async activateBranch(metahubId: string, branchId: string, userId: string) {
-        const memberRepo = this.repoManager.getRepository(MetahubUser)
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
+        const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
             throw new Error('Branch not found')
         }
 
-        const membership = await memberRepo.findOne({ where: { metahubId, userId } })
+        const membership = await findMetahubMembership(this.exec, metahubId, userId)
         if (!membership) {
             throw new Error('Membership not found')
         }
 
-        membership.activeBranchId = branch.id
-        await memberRepo.save(membership)
+        await updateMetahubMember(this.exec, membership.id, { activeBranchId: branch.id })
         MetahubSchemaService.setUserBranchCache(metahubId, userId, branch.id)
 
         return branch
     }
 
-    async setDefaultBranch(metahubId: string, branchId: string): Promise<MetahubBranch> {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const metahubRepo = this.repoManager.getRepository(Metahub)
-
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
+    async setDefaultBranch(metahubId: string, branchId: string): Promise<MetahubBranchRow> {
+        const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
             throw new Error('Branch not found')
         }
 
-        await metahubRepo.update(metahubId, { defaultBranchId: branchId })
+        await updateMetahubFieldsRaw(this.exec, metahubId, { defaultBranchId: branchId })
         MetahubSchemaService.clearUserBranchCache(metahubId)
         return branch
     }
@@ -668,8 +671,7 @@ export class MetahubBranchesService {
             isMissing?: boolean
         }>
     }> {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
+        const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
             throw new Error('Branch not found')
         }
@@ -688,7 +690,7 @@ export class MetahubBranchesService {
             if (visited.has(currentId)) break
             visited.add(currentId)
 
-            const source = await branchRepo.findOne({ where: { id: currentId, metahubId } })
+            const source = await findBranchByIdAndMetahub(this.exec, currentId, metahubId)
             if (!source) {
                 chain.push({ id: currentId, isMissing: true })
                 break
@@ -710,31 +712,28 @@ export class MetahubBranchesService {
     }
 
     async getBlockingUsers(metahubId: string, branchId: string, excludeUserId?: string): Promise<BlockingBranchUser[]> {
-        const memberRepo = this.repoManager.getRepository(MetahubUser)
-        const authUserRepo = this.repoManager.getRepository(AuthUser)
-        const profileRepo = this.repoManager.getRepository(Profile)
+        const params: unknown[] = [metahubId, branchId]
+        let excludeClause = ''
+        if (excludeUserId) {
+            params.push(excludeUserId)
+            excludeClause = `AND mu.user_id <> $${params.length}`
+        }
 
-        const members = await memberRepo.find({ where: { metahubId, activeBranchId: branchId } })
-        const filtered = excludeUserId ? members.filter((m) => m.userId !== excludeUserId) : members
-
-        if (filtered.length === 0) return []
-
-        const userIds = filtered.map((m) => m.userId)
-        const [users, profiles] = await Promise.all([
-            authUserRepo.find({ where: userIds.map((id) => ({ id })) }),
-            profileRepo.find({ where: userIds.map((id) => ({ user_id: id })) })
-        ])
-
-        const emailMap = new Map(users.map((u) => [u.id, u.email ?? null]))
-        const nicknameMap = new Map(profiles.map((p) => [p.user_id, p.nickname]))
-
-        return filtered.map((m) => ({
-            id: m.id,
-            userId: m.userId,
-            email: emailMap.get(m.userId) ?? null,
-            nickname: nicknameMap.get(m.userId) ?? null,
-            role: m.role
-        }))
+        return this.exec.query<BlockingBranchUser>(
+            `SELECT
+                mu.id,
+                mu.user_id AS "userId",
+                au.email,
+                p.nickname,
+                mu.role
+             FROM metahubs.metahubs_users mu
+             LEFT JOIN auth.users au ON au.id = mu.user_id
+             LEFT JOIN public.profiles p ON p.user_id = mu.user_id
+             WHERE mu.metahub_id = $1
+               AND mu.active_branch_id = $2
+               ${excludeClause}`,
+            params
+        )
     }
 
     async deleteBranch(params: { metahubId: string; branchId: string; requesterId: string }): Promise<void> {
@@ -746,16 +745,8 @@ export class MetahubBranchesService {
         }
 
         try {
-            await this.repoManager.transaction(async (manager) => {
-                const branchRepo = manager.getRepository(MetahubBranch)
-                const metahubRepo = manager.getRepository(Metahub)
-                const memberRepo = manager.getRepository(MetahubUser)
-
-                const metahub = await metahubRepo
-                    .createQueryBuilder('m')
-                    .setLock('pessimistic_write')
-                    .where('m.id = :metahubId', { metahubId })
-                    .getOne()
+            await this.exec.transaction(async (tx) => {
+                const metahub = await findMetahubForUpdate(tx, metahubId)
                 if (!metahub) {
                     throw new Error('Metahub not found')
                 }
@@ -763,32 +754,23 @@ export class MetahubBranchesService {
                     throw new Error('Default branch cannot be deleted')
                 }
 
-                const branch = await branchRepo
-                    .createQueryBuilder('b')
-                    .setLock('pessimistic_write')
-                    .where('b.id = :branchId AND b.metahub_id = :metahubId', { branchId, metahubId })
-                    .getOne()
+                const branch = await findBranchForUpdate(tx, branchId, metahubId)
                 if (!branch) {
                     throw new Error('Branch not found')
                 }
 
-                const blockingUsersCount = await memberRepo
-                    .createQueryBuilder('mu')
-                    .where('mu.metahub_id = :metahubId', { metahubId })
-                    .andWhere('mu.active_branch_id = :branchId', { branchId })
-                    .andWhere('mu.user_id <> :requesterId', { requesterId })
-                    .getCount()
+                const blockingUsersCount = await countMembersOnBranch(tx, metahubId, branchId, requesterId)
                 if (blockingUsersCount > 0) {
                     throw new Error('Branch is active for other users')
                 }
 
                 // Clear active branch for requester if it matches this branch.
-                await memberRepo.update({ metahubId, userId: requesterId, activeBranchId: branchId }, { activeBranchId: null })
+                await clearMemberActiveBranch(tx, metahubId, requesterId, branchId)
 
                 // Drop schema and delete branch row in the same DB transaction to avoid divergent states.
                 this.assertSafeSchemaName(branch.schemaName)
-                await manager.query(`DROP SCHEMA IF EXISTS ${this.quoteIdent(branch.schemaName)} CASCADE`)
-                await branchRepo.delete({ id: branchId, metahubId })
+                await tx.query(`DROP SCHEMA IF EXISTS ${this.quoteIdent(branch.schemaName)} CASCADE`)
+                await deleteBranchById(tx, branchId, metahubId, requesterId)
             })
 
             MetahubSchemaService.clearCache(metahubId)

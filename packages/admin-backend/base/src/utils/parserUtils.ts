@@ -21,4 +21,4 @@ export function parseIntSafe(value: any, defaultValue: number, min: number, max:
 }
 
 // Re-export centralized database utilities from @universo/utils
-export { escapeLikeWildcards, getRequestManager } from '@universo/utils/database'
+export { escapeLikeWildcards } from '@universo/utils/database'

@@ -1,24 +1,23 @@
 ---
-description: REST API endpoint reference.
+description: Base REST API conventions for Universo Platformo React.
 ---
 
 # REST API
 
-{% hint style="info" %}
-**This page is under development.** Detailed endpoint documentation will be added soon.
-{% endhint %}
+## Base URL
 
-## Overview
+```text
+https://your-instance.example.com/api/v1
+```
 
-The REST API provides programmatic access to all Universo Platformo resources including workspaces, spaces, metaverses, applications, and publications.
+## Current API Shape
 
-## Key Concepts
+The current repository organizes API routes by platform module.
 
-* Base URL and versioning
-* Request and response format
-* Pagination
-* Error handling
+Typical route groups include auth, start, profile, metahubs, publications,
+applications, admin, configuration, and generated OpenAPI endpoints.
 
-## Documentation
+## Documentation Source
 
-Coming soon.
+The Swagger or OpenAPI presentation layer is provided by `@universo/rest-docs`.
+That package aggregates modular route documentation into one published surface.

@@ -1,24 +1,17 @@
 ---
-description: Handle events and state changes.
+description: Explain the role of event nodes in UPDL.
 ---
 
 # Event Nodes
 
-{% hint style="info" %}
-**This page is under development.** Detailed node reference will be added soon.
-{% endhint %}
+Event nodes represent triggers, signals, and observable changes that other
+parts of the system can react to.
 
-## Overview
+## Typical Responsibilities
 
-Event Nodes handle user interactions, system events, and state transitions within UPDL scenes.
+- Mark that something happened.
+- Decouple reactions from the originating operation.
+- Support monitoring, automation, and integration hooks.
 
-## Event Types
-
-* User input (click, hover, gesture)
-* Timers and delays
-* Collision conditions
-* Custom events
-
-## Documentation
-
-Coming soon.
+This makes event nodes relevant to publications, applications, analytics,
+notifications, and future distributed coordination scenarios.

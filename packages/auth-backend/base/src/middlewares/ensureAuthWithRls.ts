@@ -1,11 +1,21 @@
 import type { Request, Response, NextFunction } from 'express'
-import type { DataSource, QueryRunner } from 'typeorm'
-import { isDatabaseConnectTimeoutError, isWhitelistedApiPath } from '@universo/utils'
+import type { Knex } from 'knex'
+import { convertPgBindings, createRlsExecutor } from '@universo/database'
+import { buildSetLocalStatementTimeoutSql } from '@universo/utils/database'
+import {
+    createDbSession,
+    createRequestDbContext,
+    getRequestDbContext,
+    isDatabaseConnectTimeoutError,
+    isWhitelistedApiPath,
+    type RequestWithDbContext as BaseRequestWithDbContext
+} from '@universo/utils'
 import { ensureAuth } from './ensureAuth'
 import { applyRlsContext } from '../utils/rlsContext'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
 
 const RLS_DEBUG = process.env.AUTH_RLS_DEBUG === 'true'
+const REQUEST_STATEMENT_TIMEOUT_MS = 30_000
 
 const logRlsDebug = (message: string, payload?: unknown): void => {
     if (!RLS_DEBUG) return
@@ -19,57 +29,37 @@ const logRlsDebug = (message: string, payload?: unknown): void => {
 /**
  * Extended request type with database context for RLS-enabled queries
  */
-export interface RequestWithDbContext extends AuthenticatedRequest {
-    dbContext?: {
-        queryRunner: QueryRunner
-        manager: import('typeorm').EntityManager
-    }
-}
+export type RequestWithDbContext = AuthenticatedRequest & BaseRequestWithDbContext
 
 /**
  * Configuration options for RLS middleware
  */
 export interface EnsureAuthWithRlsOptions {
-    /**
-     * Function that returns the TypeORM DataSource instance
-     */
-    getDataSource: () => DataSource
+    getKnex: () => Knex
 }
 
 /**
  * Creates middleware that ensures authentication AND propagates JWT context to PostgreSQL.
- * This enables Row Level Security (RLS) policies to work correctly with TypeORM queries.
+ * This enables Row Level Security (RLS) policies to work correctly with Knex queries.
  *
  * The middleware:
  * 1. Validates user session (via ensureAuth)
- * 2. Creates a dedicated QueryRunner for the request
- * 3. Sets PostgreSQL session variables (role, JWT claims)
- * 4. Attaches the QueryRunner's manager to req.dbContext
- * 5. Ensures cleanup on request completion
+ * 2. Acquires a dedicated pool connection and pins it for the request
+ * 3. Sets PostgreSQL session variables (role, JWT claims) on the pinned connection
+ * 4. Creates an RLS executor that routes all queries through the pinned connection
+ * 5. Attaches the request-scoped DbSession/DbExecutor to req.dbContext
+ * 6. Ensures cleanup (reset claims + release connection) on response completion
  *
- * Usage in routes:
- * ```ts
- * const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
- * router.use('/uniks', ensureAuthWithRls, uniksRouter)
- * ```
- *
- * Accessing the RLS-enabled manager:
- * ```ts
- * const manager = (req as RequestWithDbContext).dbContext?.manager ?? dataSource.manager
- * const repo = manager.getRepository(Unik)
- * ```
- *
- * @param options - Configuration with DataSource getter
+ * @param options - Configuration with Knex getter
  * @returns Express middleware function
  */
 export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
-    const { getDataSource } = options
+    const { getKnex } = options
 
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         const requestPath = (req.originalUrl || req.url || req.path).split('?')[0]
 
         // Public endpoints must remain accessible without authentication.
-        // This middleware wraps ensureAuth and would otherwise return 401 before the core whitelist is applied.
         if (isWhitelistedApiPath(requestPath)) {
             logRlsDebug('[RLS] Whitelisted request - skipping auth/RLS', {
                 originalUrl: req.originalUrl,
@@ -88,12 +78,11 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 timestamp: new Date().toISOString()
             })
 
-            // IMPORTANT: Check if RLS context already exists on this request.
-            // This prevents creating multiple QueryRunners when the middleware
-            // is applied at multiple router levels (e.g., parent + child routers).
-            const existingContext = (req as RequestWithDbContext).dbContext
-            if (existingContext?.queryRunner && !existingContext.queryRunner.isReleased) {
-                logRlsDebug('[RLS] Context already exists, reusing existing QueryRunner', {
+            // Prevent creating multiple request-scoped DB sessions when the middleware
+            // is applied at multiple router levels.
+            const existingContext = getRequestDbContext(req)
+            if (existingContext && !existingContext.isReleased()) {
+                logRlsDebug('[RLS] Context already exists, reusing existing request DB session', {
                     path: req.path
                 })
                 next()
@@ -120,39 +109,44 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 return
             }
 
-            logRlsDebug('[RLS] Creating QueryRunner', { path: req.path })
-            const ds = getDataSource()
-            const runner = ds.createQueryRunner()
+            const knex = getKnex()
+            logRlsDebug('[RLS] Acquiring pinned connection', { path: req.path })
 
-            let cleanupStarted = false
-            let runnerConnected = false
+            let connection: unknown = null
+            let released = false
+            let committed = false
 
-            // Cleanup function to release resources
+            // Cleanup function — commits the request-level transaction and releases the connection.
+            // Transaction-local set_config auto-clears on COMMIT/ROLLBACK, so no explicit reset needed.
             const cleanup = async () => {
-                if (cleanupStarted) return
-                cleanupStarted = true
+                if (released) return
+                released = true
 
-                if (!runner.isReleased) {
+                if (connection) {
                     try {
-                        // Reset request.jwt.claims before releasing the pooled connection.
-                        if (runnerConnected) {
-                            try {
-                                logRlsDebug('[RLS] Resetting session context', { path: req.path })
-                                await runner.query(`SELECT set_config('request.jwt.claims', '', false)`)
-                            } catch (resetErr) {
-                                console.warn('[RLS] Failed to reset session context (continuing to release)', {
-                                    path: req.path,
-                                    error: resetErr instanceof Error ? resetErr.message : String(resetErr)
-                                })
-                            }
+                        if (!committed) {
+                            logRlsDebug('[RLS] Committing request transaction', { path: req.path })
+                            await knex.raw('COMMIT').connection(connection)
+                            committed = true
                         }
-
-                        logRlsDebug('[RLS] Releasing QueryRunner', { path: req.path })
-                        await runner.release()
-                        runnerConnected = false
-                    } catch (err) {
-                        console.error('[RLS] Error releasing QueryRunner:', err)
+                    } catch (commitErr) {
+                        console.warn('[RLS] COMMIT failed, attempting ROLLBACK', {
+                            path: req.path,
+                            error: commitErr instanceof Error ? commitErr.message : String(commitErr)
+                        })
+                        try {
+                            await knex.raw('ROLLBACK').connection(connection)
+                        } catch {
+                            /* best-effort rollback */
+                        }
                     }
+                    try {
+                        logRlsDebug('[RLS] Releasing pinned connection', { path: req.path })
+                        knex.client.releaseConnection(connection)
+                    } catch (err) {
+                        console.error('[RLS] Error releasing connection:', err)
+                    }
+                    connection = null
                 }
                 delete (req as RequestWithDbContext).dbContext
             }
@@ -162,19 +156,35 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             res.once('close', cleanup)
 
             try {
-                // Connect and apply RLS context
-                logRlsDebug('[RLS] Connecting QueryRunner', { path: req.path })
-                await runner.connect()
-                runnerConnected = true
+                // Acquire a dedicated connection from the pool
+                connection = await knex.client.acquireConnection()
+
+                // Begin a request-level transaction — JWT claims will be transaction-local.
+                // This guarantees claims auto-disappear on COMMIT/ROLLBACK, preventing leaks.
+                await knex.raw('BEGIN').connection(connection)
+                await knex.raw(buildSetLocalStatementTimeoutSql(REQUEST_STATEMENT_TIMEOUT_MS)).connection(connection)
+
+                const session = createDbSession({
+                    query: <T = unknown>(sql: string, parameters?: unknown[]) => {
+                        if (released) throw new Error('RLS session already released')
+                        const { sql: knexSql, bindings } = convertPgBindings(sql, parameters)
+                        return knex.raw(knexSql, bindings as Knex.RawBinding[]).connection(connection).then(
+                            (result: any) => (result.rows ?? result) as T[]
+                        )
+                    },
+                    isReleased: () => released
+                })
 
                 logRlsDebug('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path })
-                await applyRlsContext(runner, access)
+                await applyRlsContext(session, access)
 
-                // Attach to request
-                ;(req as RequestWithDbContext).dbContext = {
-                    queryRunner: runner,
-                    manager: runner.manager
-                }
+                // Create an RLS executor — all queries AND transactions stay on
+                // the same pinned connection where set_config was called.
+                // inTransaction: true means top-level transaction() calls use SAVEPOINT.
+                const executor = createRlsExecutor(knex, connection, { inTransaction: true })
+
+                // Attach the neutral request-scoped context
+                ;(req as RequestWithDbContext).dbContext = createRequestDbContext(session, executor)
 
                 logRlsDebug('[RLS] ✅ Successfully applied RLS context', {
                     path: req.path,
@@ -183,7 +193,6 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
 
                 next()
             } catch (error) {
-                // Clean up on error
                 console.error('[RLS] ❌ Failed to apply RLS context', {
                     error: error instanceof Error ? error.message : String(error),
                     stack: error instanceof Error ? error.stack : undefined,
@@ -191,6 +200,11 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                     method: req.method,
                     userId: authReq.user?.id
                 })
+                // ROLLBACK before releasing — setup failed, no data to commit
+                if (connection) {
+                    try { await knex.raw('ROLLBACK').connection(connection) } catch { /* best-effort */ }
+                    committed = true // prevent cleanup from attempting COMMIT
+                }
                 await cleanup()
                 if (isDatabaseConnectTimeoutError(error)) {
                     const wrapped = new Error('Database connection timeout while applying RLS context') as Error & {

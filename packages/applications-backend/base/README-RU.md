@@ -1,6 +1,6 @@
 # @universo/applications-backend
 
-> 🏗️ **Современный пакет** - TypeScript-first архитектура с Express.js и TypeORM
+> 🏗️ **Современный пакет** - TypeScript-first архитектура с Express.js, нативными платформенными SQL-миграциями и SQL-first persistence helper-модулями
 
 Бэкенд-сервис для управления приложениями, коннекторами и членством со строгой изоляцией на уровне приложения.
 
@@ -10,7 +10,7 @@
 - **Версия**: `0.1.0`
 - **Тип**: Backend Service Package (TypeScript)
 - **Статус**: ✅ Активная разработка
-- **Архитектура**: Express.js + TypeORM + Zod
+- **Архитектура**: Express.js + нативные платформенные SQL-миграции + SQL-first persistence helper-модули + Zod
 
 ## Ключевые возможности
 
@@ -26,9 +26,9 @@
 - Защита от DoS-атак через rate limiting
 
 ### Интеграция с базой данных
-- Паттерн TypeORM Repository для всех операций с данными
+- SQL-first persistence stores для приложений, коннекторов и членства
 - PostgreSQL с поддержкой JSONB для метаданных
-- Автоматизированные миграции через центральный реестр
+- Единые платформенные миграции через нативные SQL-определения
 - CASCADE удаление связей с UNIQUE ограничениями
 
 > **Документация по миграциям**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
@@ -55,8 +55,12 @@ app.use(express.json())
 
 await initializeRateLimiters()
 
-app.use('/api/v1', createApplicationsRoutes(ensureAuth, getDataSource))
+app.use('/api/v1', createApplicationsRoutes(ensureAuth, getDbExecutor))
 ```
+
+Где:
+- `ensureAuth` - ваш middleware аутентификации
+- `getDbExecutor` - возвращает `DbExecutor` из `@universo/utils`
 
 ## API эндпоинты
 
@@ -114,7 +118,7 @@ Application (1) ─────┬───── (N) Connector
 - **Валидация входных данных**: Все входные данные валидируются Zod схемами
 - **Авторизационные guard-ы**: Ролевой контроль доступа на всех эндпоинтах
 - **Rate Limiting**: Настраиваемые лимиты запросов для каждого эндпоинта
-- **Защита от SQL-инъекций**: Параметризованные запросы TypeORM
+- **Защита от SQL-инъекций**: Параметризованный SQL через общие executor-ы и persistence helper-модули
 - **CORS**: Настраиваемый cross-origin resource sharing
 
 ## Разработка

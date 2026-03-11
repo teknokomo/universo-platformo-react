@@ -1,57 +1,28 @@
 ## Current Focus
 
-**The reopened optimistic QA follow-up is fully fixed and re-validated; the branch is back in a QA-ready handoff state.**
+**PR #719 bot-review triage is complete and the follow-up fixes are ready to ship on the active branch.**
 
-### Current Session Goal (2026-03-09)
+### Summary
 
-- Close the published runtime pending interaction gap for optimistic create/copy rows.
-- Restore Metahubs optimistic copy placeholder integrity for Sets, Catalogs, and Enumerations.
-- Re-verify the touched scope with focused tests and root `pnpm build` before handoff.
+The current session reviewed bot comments on PR #719 after the TypeORM-to-Knex migration work. The valid findings were concentrated around request-scoped RLS execution in authenticated admin routes plus one stale memory-bank architecture note that still described the removed TypeORM flow.
 
-### Current Session Outcome (2026-03-09)
+The fix set stayed narrow and architecture-safe: authenticated admin routes now prefer `getRequestDbExecutor(req, getDbExecutor())`, a regression test locks that behavior in, and `memory-bank/rls-integration-pattern.md` now describes the real Knex/request-scoped RLS lifecycle instead of the legacy TypeORM model.
 
-- `useCrudDashboard` now exposes a shared pending-interaction handler, and `ApplicationRuntime` BOOLEAN cells call it before dispatching inline runtime cell mutations.
-- `CustomizedDataGrid` now reveals the running pending stripe only after deferred feedback is revealed for optimistic create/copy rows; unrevealed rows stay visually normal.
-- `useCopySet`, `useCopyCatalog`, and `useCopyEnumeration` no longer reuse the source codename for optimistic copies when no new codename is provided.
-- The remaining optimistic delete debug log in Publications was removed, and stale `react-i18next` test mocks were fixed in the touched Metahubs/Application runtime suites.
-- Regression coverage now asserts the runtime pending-interaction contract, the grid pending-row class contract, and the empty-codename placeholder contract for copied Sets, Catalogs, and Enumerations.
-- Validation finished green for `pnpm --filter @universo/apps-template-mui test` (3 files, 10 tests), targeted `ApplicationRuntime` regression coverage (1 file, 2 tests), `pnpm --filter @universo/metahubs-frontend test` (31 files, 122 tests), and root `pnpm build` (23/23 tasks).
+### What Was Accepted
 
-### Expected Product Behavior After Closure
+- Authenticated admin routes must use request-scoped executors under `ensureAuthWithRls` so SQL runs on the pinned connection carrying `request.jwt.claims`.
+- The old `memory-bank/rls-integration-pattern.md` was stale and had to be rewritten around `DbSession` / `DbExecutor` and the current middleware lifecycle.
+- Minor readability/docs comments were safe to accept where they clarified route intent without changing behavior.
 
-- Create/copy/edit dialogs still close immediately after optimistic dispatch.
-- Optimistic create/copy rows look fully created by default; no pending indicator is shown until the user tries to interact with the still-pending entity.
-- Unsafe runtime interaction attempts on pending create/copy rows are blocked consistently and reveal the running stripe feedback only after that attempt.
-- Delete still removes the entity from the visible list immediately.
-- Pending copied Sets, Catalogs, and Enumerations no longer surface stale source codenames while waiting for server confirmation.
+### What Was Rejected
 
-### Files Most Relevant to the Current Work
+- The suggested `COUNT(*) OVER()` pagination rewrite for the instances list path was not applied because an empty page produced by `OFFSET` would incorrectly collapse `total` to zero even when matching rows still exist.
 
-- `packages/apps-template-mui/src/hooks/useCrudDashboard.ts`
-- `packages/apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
-- `packages/applications-frontend/base/src/pages/ApplicationRuntime.tsx`
-- `packages/apps-template-mui/src/hooks/__tests__/useCrudDashboard.test.tsx`
-- `packages/apps-template-mui/src/dashboard/components/__tests__/CustomizedDataGrid.test.tsx`
-- `packages/applications-frontend/base/src/pages/__tests__/ApplicationRuntime.test.tsx`
-- `packages/metahubs-frontend/base/src/domains/sets/hooks/mutations.ts`
-- `packages/metahubs-frontend/base/src/domains/catalogs/hooks/mutations.ts`
-- `packages/metahubs-frontend/base/src/domains/enumerations/hooks/mutations.ts`
-- `packages/metahubs-frontend/base/src/domains/shared/__tests__/optimisticMutations.remaining.test.tsx`
+### Validation State
 
-### Validation Snapshot
-
-- `pnpm --filter @universo/apps-template-mui test` → passed (3 files, 10 tests)
-- targeted `pnpm exec vitest run --config vitest.config.ts src/pages/__tests__/ApplicationRuntime.test.tsx` in `applications-frontend/base` → passed (1 file, 2 tests)
-- `pnpm --filter @universo/metahubs-frontend test` → passed (31 files, 122 tests)
-- `pnpm build` → passed, 23/23 tasks green
-
-### Current Technical Interpretation
-
-- Pending interaction blocking must exist at both the generic row-action layer and any page-specific inline editors; hook-level safety alone is not enough.
-- Deferred pending visuals remain opt-in by user interaction attempt, not default styling.
-- Optimistic copy placeholders must preserve visibility-critical fields such as `name` while avoiding source identity leakage such as inherited `codename`.
+- `pnpm --filter @universo/admin-backend test` passed, including the new request-scoped executor regression test.
+- Root `pnpm build` passed with 27/27 tasks.
 
 ### Immediate Next Step
 
-- Wait for QA or user review.
-- If another optimistic regression appears, check the exact rendered interaction path before assuming the shared mutation helpers already cover it.
+- Push the follow-up commit to the existing PR branch and wait for the next review cycle or user-directed work.

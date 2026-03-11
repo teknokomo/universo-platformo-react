@@ -1,30 +1,3 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn(() => 'lock-key')
@@ -62,11 +35,27 @@ jest.mock('../../domains/ddl', () => ({
     })
 }))
 
+const mockFindMetahubById = jest.fn()
+const mockFindBranchByIdAndMetahub = jest.fn()
+const mockFindMetahubMembership = jest.fn()
+const mockUpdateBranch = jest.fn()
+const mockFindBranchesByMetahub = jest.fn()
+const mockFindTemplateVersionById = jest.fn()
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args),
+    findBranchByIdAndMetahub: (...args: unknown[]) => mockFindBranchByIdAndMetahub(...args),
+    findMetahubMembership: (...args: unknown[]) => mockFindMetahubMembership(...args),
+    updateBranch: (...args: unknown[]) => mockUpdateBranch(...args),
+    findBranchesByMetahub: (...args: unknown[]) => mockFindBranchesByMetahub(...args),
+    findTemplateVersionById: (...args: unknown[]) => mockFindTemplateVersionById(...args)
+}))
+
 import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSchemaService'
 import { SystemTableMigrator } from '../../domains/metahubs/services/SystemTableMigrator'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
 import { MetahubMigrationRequiredError } from '../../domains/shared/domainErrors'
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 
 describe('MetahubSchemaService (read_only mode)', () => {
     const metahubId = '019c5a80-94a8-7ea4-a2eb-cf1522e0d123'
@@ -81,27 +70,20 @@ describe('MetahubSchemaService (read_only mode)', () => {
         }
     }
 
-    const setupDataSource = (structureVersion: number) => {
-        const metahubRepo = createMockRepository<any>()
-        const branchRepo = createMockRepository<any>()
-        const metahubUserRepo = createMockRepository<any>()
+    const mockExec = { query: jest.fn().mockResolvedValue([]) }
 
-        ;(metahubRepo as any).findOneByOrFail = jest.fn().mockResolvedValue({
+    const setupExec = (structureVersion: number) => {
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateVersionId: null
         })
-        metahubRepo.findOneBy.mockResolvedValue({
-            id: metahubId,
-            defaultBranchId: branchId,
-            templateVersionId: null
-        })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId,
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName,
@@ -110,11 +92,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
             lastTemplateVersionLabel: null
         })
 
-        return createMockDataSource({
-            Metahub: metahubRepo,
-            MetahubBranch: branchRepo,
-            MetahubUser: metahubUserRepo
-        }) as any
+        return mockExec
     }
 
     beforeEach(() => {
@@ -134,8 +112,8 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_migrations'
         ])
 
-        const ds = setupDataSource(1)
-        const service = new MetahubSchemaService(ds)
+        const exec = setupExec(1)
+        const service = new MetahubSchemaService(exec)
 
         await expect(service.ensureSchema(metahubId, userId)).rejects.toBeInstanceOf(MetahubMigrationRequiredError)
         expect(mockAcquireAdvisoryLock).not.toHaveBeenCalled()
@@ -155,8 +133,8 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_migrations'
         ])
 
-        const ds = setupDataSource(CURRENT_STRUCTURE_VERSION)
-        const service = new MetahubSchemaService(ds)
+        const exec = setupExec(CURRENT_STRUCTURE_VERSION)
+        const service = new MetahubSchemaService(exec)
 
         await expect(service.ensureSchema(metahubId, userId)).resolves.toBe(schemaName)
         expect(mockAcquireAdvisoryLock).not.toHaveBeenCalled()
@@ -170,11 +148,8 @@ describe('MetahubSchemaService migration sequencing', () => {
     })
 
     it('does not update branch structureVersion when seed sync fails after structure migration', async () => {
-        const branchRepo = createMockRepository<any>()
-        const dataSource = createMockDataSource({
-            MetahubBranch: branchRepo
-        }) as any
-        const service = new MetahubSchemaService(dataSource)
+        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const service = new MetahubSchemaService(exec)
 
         const migrateSpy = jest.spyOn(SystemTableMigrator.prototype, 'migrate').mockResolvedValue({
             fromVersion: 1,
@@ -189,7 +164,7 @@ describe('MetahubSchemaService migration sequencing', () => {
             'seed sync failed'
         )
 
-        expect(branchRepo.update).not.toHaveBeenCalled()
+        expect(mockUpdateBranch).not.toHaveBeenCalled()
 
         migrateSpy.mockRestore()
         syncSpy.mockRestore()
@@ -204,8 +179,8 @@ describe('MetahubSchemaService create options', () => {
     })
 
     it('passes createOptions through initializeSchema into system table initialization', async () => {
-        const dataSource = createMockDataSource({}) as any
-        const service = new MetahubSchemaService(dataSource)
+        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const service = new MetahubSchemaService(exec)
         const manifest = {
             version: '0.1.0',
             minStructureVersion: '0.1.0',

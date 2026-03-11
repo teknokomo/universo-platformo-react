@@ -1,9 +1,8 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
 import { database, localizedContent, validation, OptimisticLockError } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
@@ -31,16 +30,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as RequestWithAuthUser).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-interface RequestWithDbContext extends Request {
-    dbContext?: {
-        queryRunner?: QueryRunner
-    }
-}
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -111,7 +100,7 @@ const updateBranchSchema = z.object({
 
 export function createBranchesRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -125,15 +114,13 @@ export function createBranchesRoutes(
         }
 
     const getService = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return new MetahubBranchesService(ds, manager)
+        const executor = getRequestDbExecutor(req, getDbExecutor())
+        return new MetahubBranchesService(executor)
     }
 
     const getSettingsService = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         return new MetahubSettingsService(schemaService)
     }
 
@@ -149,7 +136,7 @@ export function createBranchesRoutes(
             return null
         }
 
-        await ensureMetahubAccess(getDataSource(), userId, metahubId, permission, getRequestQueryRunner(req))
+        await ensureMetahubAccess(getRequestDbExecutor(req, getDbExecutor()), userId, metahubId, permission, getRequestDbSession(req))
         return userId
     }
 

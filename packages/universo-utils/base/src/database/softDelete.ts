@@ -39,7 +39,7 @@ export interface SoftDeleteOptions {
 }
 
 /**
- * Options for platform-level only tables (static TypeORM entities)
+ * Options for platform-level only tables
  */
 export interface UplSoftDeleteOptions {
     /** Include platform-level deleted records */
@@ -64,7 +64,7 @@ export interface MhbSoftDeleteOptions {
 
 /**
  * Builds WHERE conditions for platform-level soft delete filter.
- * Use with static TypeORM entities (metahubs, applications, etc.)
+ * Use with platform-level tables (metahubs, applications, etc.)
  */
 export function getUplDeleteConditions(options: UplSoftDeleteOptions = {}): Record<string, boolean> {
     const { includeDeleted = false, onlyDeleted = false } = options

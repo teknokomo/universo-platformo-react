@@ -1,24 +1,17 @@
 ---
-description: Create objects, characters, and interactive elements.
+description: Explain the role of entity nodes in UPDL.
 ---
 
 # Entity Nodes
 
-{% hint style="info" %}
-**This page is under development.** Detailed node reference will be added soon.
-{% endhint %}
+Entity nodes describe the main objects of a domain: people, records, assets,
+documents, templates, devices, or other meaningful units.
 
-## Overview
+## Typical Responsibilities
 
-Entity Nodes represent objects within a 3D space — characters, items, UI elements, and other interactive entities.
+- Define the identity of a domain object.
+- Expose fields, relations, or ownership links.
+- Serve as anchors for actions, events, and components.
 
-## Properties
-
-* Transform (position, rotation, scale)
-* Parent-child relationships
-* Component binding
-* Action binding
-
-## Documentation
-
-Coming soon.
+This makes entity nodes useful for business modeling and structured content,
+not only for interactive object graphs.

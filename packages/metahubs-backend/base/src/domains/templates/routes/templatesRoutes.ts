@@ -1,8 +1,11 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Template } from '../../../database/entities/Template'
-import { TemplateVersion } from '../../../database/entities/TemplateVersion'
+import {
+    listActiveTemplatesForCatalog,
+    findTemplateByIdNotDeleted,
+    listTemplateVersions
+} from '../../../persistence'
+import type { SqlQueryable } from '../../../persistence'
 
 /**
  * Templates routes — read-only catalog of available metahub templates.
@@ -13,7 +16,7 @@ import { TemplateVersion } from '../../../database/entities/TemplateVersion'
  */
 export function createTemplatesRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => SqlQueryable,
     readLimiter: RateLimitRequestHandler
 ): Router {
     const router = Router({ mergeParams: true })
@@ -30,14 +33,8 @@ export function createTemplatesRoutes(
         '/templates',
         readLimiter,
         asyncHandler(async (_req, res) => {
-            const ds = getDataSource()
-            const templateRepo = ds.getRepository(Template)
-
-            const templates = await templateRepo.find({
-                where: { isActive: true, _uplDeleted: false },
-                order: { sortOrder: 'ASC', _uplCreatedAt: 'ASC' },
-                relations: ['activeVersion']
-            })
+            const exec = getDbExecutor()
+            const templates = await listActiveTemplatesForCatalog(exec)
 
             const result = templates.map((t) => ({
                 id: t.id,
@@ -47,12 +44,12 @@ export function createTemplatesRoutes(
                 icon: t.icon,
                 isSystem: t.isSystem,
                 sortOrder: t.sortOrder,
-                activeVersion: t.activeVersion
+                activeVersion: t.activeVersionData
                     ? {
-                          id: t.activeVersion.id,
-                          versionNumber: t.activeVersion.versionNumber,
-                          versionLabel: t.activeVersion.versionLabel,
-                          changelog: t.activeVersion.changelog
+                          id: t.activeVersionData.id,
+                          versionNumber: t.activeVersionData.versionNumber,
+                          versionLabel: t.activeVersionData.versionLabel,
+                          changelog: t.activeVersionData.changelog
                       }
                     : null
             }))
@@ -66,23 +63,14 @@ export function createTemplatesRoutes(
         '/templates/:templateId',
         readLimiter,
         asyncHandler(async (req, res) => {
-            const ds = getDataSource()
-            const templateRepo = ds.getRepository(Template)
-            const versionRepo = ds.getRepository(TemplateVersion)
-
-            const template = await templateRepo.findOne({
-                where: { id: req.params.templateId, _uplDeleted: false }
-            })
+            const exec = getDbExecutor()
+            const template = await findTemplateByIdNotDeleted(exec, req.params.templateId)
 
             if (!template) {
                 return res.status(404).json({ error: 'Template not found' })
             }
 
-            const versions = await versionRepo.find({
-                where: { templateId: template.id },
-                order: { versionNumber: 'DESC' },
-                select: ['id', 'versionNumber', 'versionLabel', 'isActive', 'changelog', '_uplCreatedAt']
-            })
+            const versions = await listTemplateVersions(exec, template.id)
 
             return res.json({
                 id: template.id,

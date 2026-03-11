@@ -1,24 +1,24 @@
 ---
-description: Manage content hubs with branches and publications.
+description: Describe metahubs as collaborative design-time hubs.
 ---
 
 # Metahubs
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Metahubs are collaborative design-time hubs used to organize shared structures,
+branches, publication-ready artifacts, and related ownership or membership data.
 
-## Overview
+## Current Implementation
 
-Metahubs serve as content management hubs that organize publications across branches. They provide a structured way to manage versioned content for distribution.
+The repository already contains backend and frontend modules for metahub flows,
+including branch handling, publication relations, memberships, template seeding,
+and request-aware access checks.
 
-## Key Features
+## Architectural Role
 
-* Branch-based content organization
-* Publication lifecycle management
-* Version control for published content
-* Integration with applications
+- Hold design-time structures in central schemas.
+- Coordinate branches and publication lifecycle.
+- Connect authorship, memberships, and reusable templates.
+- Feed publication and application runtime surfaces.
 
-## Documentation
-
-Coming soon.
+Metahubs are one of the clearest examples of the platform's current
+organization-first and schema-aware direction.

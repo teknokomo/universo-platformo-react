@@ -1,4 +1,4 @@
-import type { DataSource, EntityManager } from 'typeorm'
+import type { SqlQueryable } from '../../../persistence/types'
 import { MetahubSchemaService } from './MetahubSchemaService'
 
 /**
@@ -14,11 +14,11 @@ import { MetahubSchemaService } from './MetahubSchemaService'
  * - _mhb_elements: Predefined data for catalogs
  *
  * @param metahubId - The Metahub UUID
- * @param ds - TypeORM DataSource
+ * @param exec - SQL executor (RLS-scoped or admin)
  * @returns The schema name (mhb_<uuid>)
  */
-export async function syncMetahubSchema(metahubId: string, ds: DataSource, userId?: string, manager?: EntityManager): Promise<string> {
-    const schemaService = new MetahubSchemaService(ds, undefined, manager)
+export async function syncMetahubSchema(metahubId: string, exec: SqlQueryable, userId?: string): Promise<string> {
+    const schemaService = new MetahubSchemaService(exec)
 
     // Only ensure schema and system tables exist - NO physical table creation
     const schemaName = await schemaService.ensureSchema(metahubId, userId)

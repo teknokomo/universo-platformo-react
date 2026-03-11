@@ -26,15 +26,12 @@ applyTo: '**'
     -   The compiled JavaScript output must be placed in a `dist/` directory within the package.
 -   **Integration**: The package's `package.json` must correctly specify the `main` (for CJS) and `module` (for ESM) entry points, pointing to the compiled files in `dist/`. This allows new TSX components to be directly imported into the existing codebase (`packages/universo-core-frontend/base`) as standard dependencies.
 
-### 2.3. Backend Packages (TypeORM)
+### 2.3. Backend Packages (Knex + SQL Migrations)
 
--   **Data Access Pattern**: Direct database calls (e.g., to the Supabase client) are forbidden. All database interaction **must** go through the **TypeORM Repository pattern**.
--   **Database Target**: Currently, all entities and migrations should be written for **PostgreSQL**, as it is the only database in use (via Supabase).
+-   **Data Access Pattern**: Direct database calls (e.g., to the Supabase client) are forbidden. All database interaction **must** go through **store modules** that use `DbExecutor.query()` with raw SQL.
+-   **Database Target**: Currently, all schemas and migrations should be written for **PostgreSQL**, as it is the only database in use (via Supabase).
 -   **Creating a New Service**: When creating a new backend service in `packages/` that requires database access, you must:
-    1.  **Define Entities**: Create TypeORM entity classes for your tables inside your package's `src/database/entities/` directory.
-    2.  **Register Entities**: Import and export your new entities from the central registry file: `packages/universo-core-backend/base/src/database/entities/index.ts`.
-    3.  **Define & Register Migrations**:
-        a. Create TypeORM migration files for any schema changes inside your package's `src/database/migrations/postgres/` directory.
-        b. Create an `index.ts` file in that same directory that exports an array containing all of your package's migrations (e.g., `export const myAppMigrations = [Migration1, Migration2]`).
-        c. Import your package's migration array into the central registry (`packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`) and spread it into the main `postgresMigrations` array.
-    4.  **Use Repositories**: In your service logic, get the shared `DataSource` via `getDataSource()` from `packages/universo-core-backend/base/src/DataSource.ts`. Use it to get a repository for your entity (e.g., `getDataSource().getRepository(YourEntity)`) to perform all database operations.
+    1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo/schema-ddl`.
+    2.  **Register Migrations**: Import your migration definition into `packages/universo-migrations-platform/base/src/platformMigrations.ts` and add it to the `platformMigrations` array.
+    3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
+    4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo/utils`. This ensures RLS context is applied.

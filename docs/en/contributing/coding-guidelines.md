@@ -1,25 +1,21 @@
 ---
-description: Coding conventions and style guidelines.
+description: Coding guidelines for the current monorepo.
 ---
 
 # Coding Guidelines
 
-{% hint style="info" %}
-**This page is under development.** Detailed coding guidelines will be added soon.
-{% endhint %}
+## General Rules
 
-## Overview
+- Prefer TypeScript where the package already uses it.
+- Use 2-space indentation and keep changes focused.
+- Keep root and package documentation aligned with the real code.
+- Do not reintroduce removed TypeORM-first patterns into new work.
 
-Coding conventions and style guidelines adopted in Universo Platformo. All contributions must follow these conventions to maintain codebase consistency.
+## Package Rules
 
-## Topics
+- Use workspace package names for cross-package imports.
+- Backend database access must go through SQL-first stores or executor helpers.
+- Frontend packages should fit the current React shell and shared UI patterns.
+- Update English and Russian docs together when a translated pair exists.
 
-* TypeScript / JavaScript conventions
-* React component naming
-* Commit message style
-* Linting and formatting
-* Internationalization (i18n) patterns
-
-## Documentation
-
-Coming soon.
+Write changes that match the platform's modular and repository-first direction.

@@ -2,23 +2,15 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { ProfileController } from '../controllers/profileController'
 import { ProfileService } from '../services/profileService'
-import { Profile } from '../database/entities/Profile'
+import type { DbExecutor } from '@universo/utils/database'
 
-// Create function that will be called when DataSource is available
-export function createProfileRoutes(dataSource: any, authMiddleware?: any): Router {
+export interface ProfileRouteDeps {
+    getDbExecutor: () => DbExecutor
+    getRequestDbExecutor: (req: unknown) => DbExecutor
+}
+
+export function createProfileRoutes(deps: ProfileRouteDeps, authMiddleware?: any): Router {
     const router = Router()
-
-    // Helper to create controller lazily after DataSource is ready
-    const getController = async () => {
-        // Ensure DataSource is initialized before creating repository
-        if (!dataSource.isInitialized) {
-            await dataSource.initialize()
-        }
-
-        const repo = dataSource.getRepository(Profile)
-        const service = new ProfileService(repo)
-        return new ProfileController(service)
-    }
 
     // Public route: check nickname availability (with basic rate limiting)
     const checkNicknameLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
@@ -29,7 +21,9 @@ export function createProfileRoutes(dataSource: any, authMiddleware?: any): Rout
         if (!isValid) {
             return res.status(400).json({ success: false, error: 'Invalid nickname format' })
         }
-        const controller = await getController()
+        const exec = deps.getDbExecutor()
+        const service = new ProfileService(exec)
+        const controller = new ProfileController(service)
         return controller.checkNickname(req, res)
     })
 
@@ -38,42 +32,41 @@ export function createProfileRoutes(dataSource: any, authMiddleware?: any): Rout
         router.use(authMiddleware)
     }
 
+    // Helper to get controller with RLS-aware executor from request context
+    const getController = (req: unknown) => {
+        const exec = deps.getRequestDbExecutor(req)
+        const service = new ProfileService(exec)
+        return new ProfileController(service)
+    }
+
     // Settings routes (must be before /:userId to avoid conflict)
     router.get('/settings', async (req, res) => {
-        const controller = await getController()
-        return controller.getSettings(req, res)
+        return getController(req).getSettings(req, res)
     })
     router.put('/settings', async (req, res) => {
-        const controller = await getController()
-        return controller.updateSettings(req, res)
+        return getController(req).updateSettings(req, res)
     })
 
     // Get or create current user's profile (auto-creates if not exists)
     router.get('/me', async (req, res) => {
-        const controller = await getController()
-        return controller.getOrCreateCurrentProfile(req, res)
+        return getController(req).getOrCreateCurrentProfile(req, res)
     })
 
     // Protected routes
     router.get('/:userId', async (req, res) => {
-        const controller = await getController()
-        return controller.getProfile(req, res)
+        return getController(req).getProfile(req, res)
     })
     router.post('/', async (req, res) => {
-        const controller = await getController()
-        return controller.createProfile(req, res)
+        return getController(req).createProfile(req, res)
     })
     router.put('/:userId', async (req, res) => {
-        const controller = await getController()
-        return controller.updateProfile(req, res)
+        return getController(req).updateProfile(req, res)
     })
     router.delete('/:userId', async (req, res) => {
-        const controller = await getController()
-        return controller.deleteProfile(req, res)
+        return getController(req).deleteProfile(req, res)
     })
     router.get('/', async (req, res) => {
-        const controller = await getController()
-        return controller.getAllProfiles(req, res)
+        return getController(req).getAllProfiles(req, res)
     })
 
     return router

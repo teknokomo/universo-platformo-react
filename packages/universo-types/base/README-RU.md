@@ -1,4 +1,4 @@
-# @universo-platformo/types
+# @universo/types
 
 > 🔧 Основные протоколы и типы ECS домена для Universo Platformo
 
@@ -6,7 +6,7 @@
 
 | Поле | Значение |
 |------|----------|
-| **Имя пакета** | `@universo-platformo/types` |
+| **Имя пакета** | `@universo/types` |
 | **Версия** | Смотрите `package.json` |
 | **Тип** | TypeScript-first (Типы и интерфейсы) |
 | **Сборка** | ES модуль с определениями типов |
@@ -50,7 +50,7 @@
 Запуск тестов регрессии на уровне типов с помощью Vitest:
 
 ```bash
-pnpm --filter @universo-platformo/types test
+pnpm --filter @universo/types test
 ```
 
 ## Вклад в разработку
@@ -66,9 +66,9 @@ pnpm --filter @universo-platformo/types test
 
 ## Связанная документация
 
-- [Документация основных приложений](../README-RU.md)
-- [Flowise Server](../flowise-server/base/README-RU.md)
-- [UPDL](../updl/base/README-RU.md)
+- [Индекс пакетов](../../README-RU.md)
+- [Core Backend](../../universo-core-backend/base/README-RU.md)
+- [Core Frontend](../../universo-core-frontend/base/README-RU.md)
 - [Документация TypeScript](https://www.typescriptlang.org/docs/)
 
 ## Лицензия

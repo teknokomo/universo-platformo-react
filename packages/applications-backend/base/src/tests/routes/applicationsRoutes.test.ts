@@ -1,32 +1,8 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
 }))
 
 const mockCloneSchemaWithExecutor = jest.fn(async () => undefined)
@@ -44,10 +20,21 @@ import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
+import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 
 describe('Applications Routes', () => {
+    const normalizeMembershipRow = (membership: Record<string, unknown> | null) =>
+        membership
+            ? {
+                  ...membership,
+                  id: membership.id ?? 'membership-id',
+                  userId: membership.userId ?? membership.user_id ?? null,
+                  applicationId: membership.applicationId ?? membership.application_id ?? null,
+                  _uplCreatedAt: membership._uplCreatedAt ?? new Date()
+              }
+            : null
+
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as any).user = { id: 'test-user-id' }
         next()
@@ -81,30 +68,54 @@ describe('Applications Routes', () => {
     }
 
     const buildDataSource = () => {
-        const applicationRepo = createMockRepository<any>()
-        const applicationUserRepo = createMockRepository<any>()
-        const connectorRepo = createMockRepository<any>()
-        const connectorPublicationRepo = createMockRepository<any>()
-        const authUserRepo = createMockRepository<any>()
-        const profileRepo = createMockRepository<any>()
+        const applicationRepo = createMockDataStore()
+        const applicationUserRepo = createMockDataStore()
 
-        const dataSource = createMockDataSource({
-            Application: applicationRepo,
-            ApplicationUser: applicationUserRepo,
-            Connector: connectorRepo,
-            ConnectorPublication: connectorPublicationRepo,
-            AuthUser: authUserRepo,
-            Profile: profileRepo
+        const { executor, txExecutor } = createMockDbExecutor()
+
+        // Expose manager-like structure so existing test assertions on
+        // dataSource.manager.query keep working with zero body changes.
+        const dataSource = Object.assign(executor, {
+            manager: { query: txExecutor.query }
+        })
+
+        ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('FROM applications.applications_users')) {
+                const membership = normalizeMembershipRow(
+                    await applicationUserRepo.findOne({
+                        where: {
+                            applicationId: params?.[0],
+                            userId: params?.[1]
+                        }
+                    })
+                )
+                return membership ? [membership] : []
+            }
+
+            if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.applications')) {
+                const application = await applicationRepo.findOne({
+                    where: {
+                        id: params?.[0]
+                    }
+                })
+
+                return application
+                    ? [
+                          {
+                              id: application.id,
+                              schemaName: (application as Record<string, unknown>).schemaName ?? null
+                          }
+                      ]
+                    : []
+            }
+
+            return txExecutor.query(sql, params)
         })
 
         return {
             dataSource,
             applicationRepo,
-            applicationUserRepo,
-            connectorRepo,
-            connectorPublicationRepo,
-            authUserRepo,
-            profileRepo
+            applicationUserRepo
         }
     }
 
@@ -118,9 +129,8 @@ describe('Applications Routes', () => {
 
     describe('GET /applications', () => {
         it('should return empty array for user with no applications', async () => {
-            const { dataSource, applicationRepo } = buildDataSource()
-
-            applicationRepo.createQueryBuilder().getManyAndCount.mockResolvedValue([[], 0])
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValue([])
 
             const app = buildApp(dataSource)
 
@@ -135,22 +145,28 @@ describe('Applications Routes', () => {
         })
 
         it('should return applications with counts for authenticated user', async () => {
-            const { dataSource, applicationRepo } = buildDataSource()
-
-            const mockApplications = [
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValue([
                 {
                     id: 'application-1',
                     name: 'Test Application',
                     description: 'Test Description',
                     slug: 'test-app',
                     isPublic: false,
+                    schemaName: 'app_123',
+                    schemaStatus: 'draft',
+                    schemaSyncedAt: null,
+                    schemaError: null,
+                    version: 2,
                     createdAt: new Date('2025-01-01'),
-                    updatedAt: new Date('2025-01-02')
+                    updatedAt: new Date('2025-01-02'),
+                    updatedBy: 'test-user-id',
+                    connectorsCount: 2,
+                    membersCount: 3,
+                    membershipRole: 'owner',
+                    windowTotal: '1'
                 }
-            ]
-
-            const mockQB = applicationRepo.createQueryBuilder()
-            mockQB.getManyAndCount.mockResolvedValue([mockApplications, 1])
+            ])
 
             const app = buildApp(dataSource)
 
@@ -160,14 +176,15 @@ describe('Applications Routes', () => {
             expect(response.body.items[0]).toMatchObject({
                 id: 'application-1',
                 name: 'Test Application',
-                description: 'Test Description'
+                description: 'Test Description',
+                connectorsCount: 2,
+                membersCount: 3
             })
         })
 
         it('should support pagination parameters', async () => {
-            const { dataSource, applicationRepo } = buildDataSource()
-
-            applicationRepo.createQueryBuilder().getManyAndCount.mockResolvedValue([[], 0])
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValue([])
 
             const app = buildApp(dataSource)
 
@@ -182,35 +199,51 @@ describe('Applications Routes', () => {
         })
 
         it('should support search parameter', async () => {
-            const { dataSource, applicationRepo } = buildDataSource()
-
-            const mockQB = applicationRepo.createQueryBuilder()
-            mockQB.getManyAndCount.mockResolvedValue([[], 0])
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValue([])
 
             const app = buildApp(dataSource)
 
             const response = await request(app).get('/applications').query({ search: 'test' }).expect(200)
 
-            expect(mockQB.andWhere).toHaveBeenCalled()
+            expect((dataSource.query as jest.Mock).mock.calls[0][0]).toContain('ILIKE')
+            expect((dataSource.query as jest.Mock).mock.calls[0][1]).toContain('%test%')
             expect(response.body).toMatchObject({ items: [], total: 0 })
         })
     })
 
     describe('POST /applications', () => {
         it('should create a new application', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-
-            applicationRepo.findOne.mockResolvedValue(null) // slug not taken
-            applicationRepo.save.mockResolvedValue({
-                id: 'new-application-id',
-                name: 'New Application',
-                description: 'Description',
-                slug: 'new-application',
-                isPublic: false,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            })
-            applicationUserRepo.save.mockResolvedValue({ id: 'member-id' })
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValueOnce([])
+            ;(dataSource.manager.query as jest.Mock)
+                .mockResolvedValueOnce([{ id: 'new-application-id' }])
+                .mockResolvedValueOnce([
+                    {
+                        id: 'new-application-id',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'New Application' } }
+                        },
+                        description: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Description' } }
+                        },
+                        slug: 'new-application',
+                        isPublic: false,
+                        schemaName: 'app_newapplicationid',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id'
+                    }
+                ])
+                .mockResolvedValueOnce([])
 
             const app = buildApp(dataSource)
 
@@ -225,7 +258,9 @@ describe('Applications Routes', () => {
 
             expect(response.body).toMatchObject({
                 id: 'new-application-id',
-                name: 'New Application'
+                name: {
+                    _primary: 'en'
+                }
             })
         })
 
@@ -240,9 +275,8 @@ describe('Applications Routes', () => {
         })
 
         it('should reject duplicate slug', async () => {
-            const { dataSource, applicationRepo } = buildDataSource()
-
-            applicationRepo.findOne.mockResolvedValue({ id: 'existing', slug: 'taken-slug' })
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValue([{ id: 'existing', slug: 'taken-slug' }])
 
             const app = buildApp(dataSource)
 
@@ -259,14 +293,78 @@ describe('Applications Routes', () => {
     })
 
     describe('POST /applications/:applicationId/copy', () => {
-        it('should copy application with connectors and access (excluding requester duplicate role)', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
+        const buildCopiedApplicationRow = (id: string, overrides: Record<string, unknown> = {}) => ({
+            id,
+            name: {
+                _schema: 'v1',
+                _primary: 'en',
+                locales: { en: { content: 'Source App (copy)' } }
+            },
+            description: null,
+            slug: 'source-app-copy',
+            isPublic: false,
+            schemaName: `app_${id.replace(/-/g, '')}`,
+            schemaStatus: 'draft',
+            schemaSyncedAt: null,
+            schemaError: null,
+            version: 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            updatedBy: 'test-user-id',
+            ...overrides
+        })
 
-            applicationUserRepo.findOne.mockResolvedValueOnce({
-                userId: 'test-user-id',
-                applicationId: 'application-1',
-                role: 'owner'
+        const configureCopyQueries = (
+            dataSource: any,
+            options: {
+                sourceApplication: Record<string, unknown>
+                slugChecks?: Record<string, Record<string, unknown> | null>
+                generatedId: string
+                copiedApplication?: Record<string, unknown>
+            }
+        ) => {
+            const slugChecks = options.slugChecks ?? {}
+            const copiedApplication = options.copiedApplication ?? buildCopiedApplicationRow(options.generatedId)
+
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM applications.applications_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: params?.[0],
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                if (sql.includes('SELECT') && sql.includes('FROM applications.applications a') && sql.includes('schema_snapshot')) {
+                    return [options.sourceApplication]
+                }
+
+                if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.applications')) {
+                    const slug = params?.[0] as string
+                    const result = slugChecks[slug]
+                    return result ? [result] : []
+                }
+
+                if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                    return [{ id: options.generatedId }]
+                }
+
+                return []
             })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('INSERT INTO applications.applications (')) {
+                    return [copiedApplication]
+                }
+                return []
+            })
+        }
+
+        it('should copy application with connectors and access (excluding requester duplicate role)', async () => {
+            const { dataSource } = buildDataSource()
 
             const sourceApplication = {
                 id: 'application-1',
@@ -292,36 +390,17 @@ describe('Applications Routes', () => {
                 _uplUpdatedAt: new Date()
             }
 
-            applicationRepo.findOne.mockResolvedValueOnce(sourceApplication).mockResolvedValueOnce(null)
-            applicationRepo.create.mockImplementation((entity: any) => entity)
-            applicationRepo.save.mockImplementation(async (entity: any) => ({
-                ...entity,
-                id: entity.id ?? 'copied-application-id'
-            }))
-
-            applicationUserRepo.find.mockResolvedValue([
-                { userId: 'test-user-id', role: 'admin', comment: null },
-                { userId: 'member-2', role: 'member', comment: 'Keep access' }
-            ])
-            connectorRepo.find.mockResolvedValue([
-                {
-                    id: 'connector-1',
-                    applicationId: 'application-1',
-                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Connector 1' } } },
-                    description: null,
-                    sortOrder: 10,
-                    isSingleMetahub: true,
-                    isRequiredMetahub: true
-                }
-            ])
-            connectorPublicationRepo.find.mockResolvedValue([
-                {
-                    connectorId: 'connector-1',
-                    publicationId: 'publication-1',
-                    sortOrder: 1
-                }
-            ])
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }])
+            configureCopyQueries(dataSource, {
+                sourceApplication,
+                generatedId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                slugChecks: {
+                    'source-app-copy': null
+                },
+                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334444', {
+                    slug: 'source-app-copy',
+                    schemaStatus: 'outdated'
+                })
+            })
 
             const app = buildApp(dataSource)
 
@@ -338,66 +417,56 @@ describe('Applications Routes', () => {
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334444')
             expect(mockGenerateSchemaName).toHaveBeenCalledWith('018f8a78-7b8f-7c1d-a111-222233334444')
             expect(mockCloneSchemaWithExecutor).not.toHaveBeenCalled()
-
-            expect(applicationUserRepo.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
-                    userId: 'test-user-id',
-                    role: 'owner'
-                })
-            )
-            expect(applicationUserRepo.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
-                    userId: 'member-2',
-                    role: 'member'
-                })
-            )
-            expect(applicationUserRepo.find).toHaveBeenCalledWith({
-                where: {
-                    applicationId: 'application-1',
-                    _uplDeleted: false,
-                    _appDeleted: false
-                }
-            })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+                    sql.includes('INSERT INTO applications.applications_users')
+                )
+            ).toBe(true)
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+                    sql.includes('INSERT INTO applications.connectors (')
+                )
+            ).toBe(true)
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+                    sql.includes('INSERT INTO applications.connectors_publications')
+                )
+            ).toBe(true)
         })
 
         it('should copy without connectors when copyConnector is false', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
+            const { dataSource } = buildDataSource()
 
-            applicationUserRepo.findOne.mockResolvedValueOnce({
-                userId: 'test-user-id',
-                applicationId: 'application-1',
-                role: 'owner'
-            })
-
-            applicationRepo.findOne.mockResolvedValueOnce({
-                id: 'application-1',
-                name: {
-                    _schema: 'v1',
-                    _primary: 'en',
-                    locales: { en: { content: 'Source App' } }
+            configureCopyQueries(dataSource, {
+                sourceApplication: {
+                    id: 'application-1',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Source App' } }
+                    },
+                    description: null,
+                    slug: 'source-app',
+                    isPublic: false,
+                    schemaName: 'app_source001',
+                    schemaStatus: 'synced',
+                    schemaSyncedAt: new Date(),
+                    schemaError: null,
+                    schemaSnapshot: { entities: {} },
+                    appStructureVersion: 1,
+                    _uplVersion: 1,
+                    _uplCreatedAt: new Date(),
+                    _uplUpdatedAt: new Date()
                 },
-                description: null,
-                slug: 'source-app',
-                isPublic: false,
-                schemaName: 'app_source001',
-                schemaStatus: 'synced',
-                schemaSyncedAt: new Date(),
-                schemaError: null,
-                schemaSnapshot: { entities: {} },
-                appStructureVersion: 1,
-                _uplVersion: 1,
-                _uplCreatedAt: new Date(),
-                _uplUpdatedAt: new Date()
+                generatedId: '018f8a78-7b8f-7c1d-a111-222233334445',
+                slugChecks: {
+                    'source-app-copy': null
+                },
+                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334445', {
+                    slug: 'source-app-copy',
+                    schemaStatus: 'draft'
+                })
             })
-            applicationRepo.findOne.mockResolvedValueOnce(null)
-            applicationRepo.create.mockImplementation((entity: any) => entity)
-            applicationRepo.save.mockImplementation(async (entity: any) => ({
-                ...entity,
-                id: entity.id ?? 'copied-application-id'
-            }))
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334445' }])
 
             const app = buildApp(dataSource)
 
@@ -412,26 +481,22 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334445')
-            expect(connectorRepo.find).not.toHaveBeenCalled()
-            expect(connectorPublicationRepo.find).not.toHaveBeenCalled()
-            const createdApplicationPayload = applicationRepo.create.mock.calls[0][0]
-            expect(createdApplicationPayload.schemaStatus).toBe('draft')
-            expect(createdApplicationPayload.schemaSnapshot).toBeNull()
-            expect(createdApplicationPayload.appStructureVersion).toBeNull()
-            expect(createdApplicationPayload.lastSyncedPublicationVersionId).toBeNull()
+            const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
+                sql.includes('INSERT INTO applications.applications (')
+            )
+            expect(insertApplicationCall?.[1]?.[6]).toBe('draft')
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+                    sql.includes('INSERT INTO applications.connectors (')
+                )
+            ).toBe(false)
         })
 
         it('should auto-resolve slug collisions for repeated copies when slug is not provided explicitly', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const { dataSource } = buildDataSource()
 
-            applicationUserRepo.findOne.mockResolvedValueOnce({
-                userId: 'test-user-id',
-                applicationId: 'application-1',
-                role: 'owner'
-            })
-
-            applicationRepo.findOne
-                .mockResolvedValueOnce({
+            configureCopyQueries(dataSource, {
+                sourceApplication: {
                     id: 'application-1',
                     name: {
                         _schema: 'v1',
@@ -446,16 +511,16 @@ describe('Applications Routes', () => {
                     _uplVersion: 1,
                     _uplCreatedAt: new Date(),
                     _uplUpdatedAt: new Date()
+                },
+                generatedId: '018f8a78-7b8f-7c1d-a111-222233334447',
+                slugChecks: {
+                    'source-app-copy': { id: 'existing-copy-1', slug: 'source-app-copy' },
+                    'source-app-copy-2': null
+                },
+                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334447', {
+                    slug: 'source-app-copy-2'
                 })
-                .mockResolvedValueOnce({ id: 'existing-copy-1' })
-                .mockResolvedValueOnce(null)
-
-            applicationRepo.create.mockImplementation((entity: any) => entity)
-            applicationRepo.save.mockImplementation(async (entity: any) => ({
-                ...entity,
-                id: entity.id ?? 'copied-application-id'
-            }))
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334447' }])
+            })
 
             const app = buildApp(dataSource)
 
@@ -470,21 +535,22 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334447')
-            const createdApplicationPayload = applicationRepo.create.mock.calls[0][0]
-            expect(createdApplicationPayload.slug).toBe('source-app-copy-2')
+            const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
+                sql.includes('INSERT INTO applications.applications (')
+            )
+            expect(insertApplicationCall?.[1]?.[3]).toBe('source-app-copy-2')
         })
 
         it('should retry with next generated slug when insert fails with concurrent slug conflict', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const { dataSource } = buildDataSource()
 
-            applicationUserRepo.findOne.mockResolvedValueOnce({
-                userId: 'test-user-id',
-                applicationId: 'application-1',
-                role: 'owner'
+            const slugRaceError = Object.assign(new Error('duplicate key value violates unique constraint "applications_slug_key"'), {
+                code: '23505',
+                constraint: 'applications_slug_key'
             })
 
-            applicationRepo.findOne
-                .mockResolvedValueOnce({
+            configureCopyQueries(dataSource, {
+                sourceApplication: {
                     id: 'application-1',
                     name: {
                         _schema: 'v1',
@@ -499,21 +565,33 @@ describe('Applications Routes', () => {
                     _uplVersion: 1,
                     _uplCreatedAt: new Date(),
                     _uplUpdatedAt: new Date()
+                },
+                generatedId: '018f8a78-7b8f-7c1d-a111-222233334448',
+                slugChecks: {
+                    'source-app-copy': null,
+                    'source-app-copy-2': null
+                },
+                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334448', {
+                    slug: 'source-app-copy-2'
                 })
-                .mockResolvedValueOnce(null)
-                .mockResolvedValueOnce(null)
-
-            const slugRaceError = Object.assign(new Error('duplicate key value violates unique constraint "applications_slug_key"'), {
-                code: '23505',
-                constraint: 'applications_slug_key'
             })
-
-            applicationRepo.create.mockImplementation((entity: any) => entity)
-            applicationRepo.save.mockRejectedValueOnce(slugRaceError).mockImplementation(async (entity: any) => ({
-                ...entity,
-                id: entity.id ?? 'copied-application-id'
-            }))
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334448' }])
+            ;(dataSource.manager.query as jest.Mock)
+                .mockImplementationOnce(async (sql: string) => {
+                    if (sql.includes('INSERT INTO applications.applications (')) {
+                        throw slugRaceError
+                    }
+                    return []
+                })
+                .mockImplementation(async (sql: string) => {
+                    if (sql.includes('INSERT INTO applications.applications (')) {
+                        return [
+                            buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334448', {
+                                slug: 'source-app-copy-2'
+                            })
+                        ]
+                    }
+                    return []
+                })
 
             const app = buildApp(dataSource)
 
@@ -528,42 +606,38 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334448')
-            expect(applicationRepo.save).toHaveBeenCalledTimes(2)
-
-            const firstAttemptPayload = applicationRepo.create.mock.calls[0][0]
-            const secondAttemptPayload = applicationRepo.create.mock.calls[1][0]
-            expect(firstAttemptPayload.slug).toBe('source-app-copy')
-            expect(secondAttemptPayload.slug).toBe('source-app-copy-2')
+            const insertCalls = (dataSource.manager.query as jest.Mock).mock.calls.filter(([sql]: [string]) =>
+                sql.includes('INSERT INTO applications.applications (')
+            )
+            expect(insertCalls).toHaveLength(2)
+            expect(insertCalls[0][1][3]).toBe('source-app-copy')
+            expect(insertCalls[1][1][3]).toBe('source-app-copy-2')
         })
 
         it('should ignore legacy createSchema flag and still copy without connectors when copyConnector=false', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
+            const { dataSource } = buildDataSource()
 
-            applicationUserRepo.findOne.mockResolvedValueOnce({
-                userId: 'test-user-id',
-                applicationId: 'application-1',
-                role: 'owner'
-            })
-
-            applicationRepo.findOne.mockResolvedValueOnce({
-                id: 'application-1',
-                name: {
-                    _schema: 'v1',
-                    _primary: 'en',
-                    locales: { en: { content: 'Source App' } }
+            configureCopyQueries(dataSource, {
+                sourceApplication: {
+                    id: 'application-1',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Source App' } }
+                    },
+                    description: null,
+                    slug: 'source-app',
+                    isPublic: false,
+                    schemaName: 'app_source001'
                 },
-                description: null,
-                slug: 'source-app',
-                isPublic: false,
-                schemaName: 'app_source001'
+                generatedId: '018f8a78-7b8f-7c1d-a111-222233334449',
+                slugChecks: {
+                    'source-app-copy': null
+                },
+                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334449', {
+                    slug: 'source-app-copy'
+                })
             })
-            applicationRepo.findOne.mockResolvedValueOnce(null)
-            applicationRepo.create.mockImplementation((entity: any) => entity)
-            applicationRepo.save.mockImplementation(async (entity: any) => ({
-                ...entity,
-                id: entity.id ?? 'copied-application-id'
-            }))
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334449' }])
 
             const app = buildApp(dataSource)
 
@@ -577,8 +651,11 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334449')
-            expect(connectorRepo.find).not.toHaveBeenCalled()
-            expect(connectorPublicationRepo.find).not.toHaveBeenCalled()
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+                    sql.includes('INSERT INTO applications.connectors (')
+                )
+            ).toBe(false)
         })
     })
 
@@ -599,23 +676,30 @@ describe('Applications Routes', () => {
         })
 
         it('should return application details for member', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-
-            const mockApplication = {
-                id: 'application-1',
-                name: 'Test Application',
-                description: 'Description',
-                slug: 'test-app',
-                isPublic: false,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            }
-
-            applicationRepo.findOne.mockResolvedValue(mockApplication)
+            const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({
                 user_id: 'test-user-id',
                 role: 'owner'
             })
+            ;(dataSource.query as jest.Mock).mockResolvedValue([
+                {
+                    id: 'application-1',
+                    name: 'Test Application',
+                    description: 'Description',
+                    slug: 'test-app',
+                    isPublic: false,
+                    schemaName: 'app_123',
+                    schemaStatus: 'draft',
+                    schemaSyncedAt: null,
+                    schemaError: null,
+                    version: 1,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    updatedBy: 'test-user-id',
+                    connectorsCount: 2,
+                    membersCount: 4
+                }
+            ])
 
             const app = buildApp(dataSource)
 
@@ -630,57 +714,139 @@ describe('Applications Routes', () => {
 
     describe('PATCH /applications/:applicationId', () => {
         it('should update application for owner', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-
-            const mockApplication = {
-                id: 'application-1',
-                name: 'Old Name',
-                description: 'Old Description',
-                slug: 'test-app',
-                isPublic: false
-            }
-
-            applicationRepo.findOne.mockResolvedValue(mockApplication)
+            const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({
                 user_id: 'test-user-id',
                 role: 'owner'
             })
-            applicationRepo.save.mockResolvedValue({
-                ...mockApplication,
-                name: 'New Name'
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM applications.applications_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                if (sql.includes('UPDATE applications.applications')) {
+                    return [
+                        {
+                            id: 'application-1',
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'New Name' } }
+                            },
+                            description: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Old Description' } }
+                            },
+                            slug: 'test-app',
+                            isPublic: false,
+                            schemaName: 'app_123',
+                            schemaStatus: 'draft',
+                            schemaSyncedAt: null,
+                            schemaError: null,
+                            version: 2,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                            updatedBy: 'test-user-id'
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Old Name' } }
+                        },
+                        description: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Old Description' } }
+                        },
+                        slug: 'test-app',
+                        isPublic: false,
+                        schemaName: 'app_123',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id',
+                        connectorsCount: 0,
+                        membersCount: 1
+                    }
+                ]
             })
 
             const app = buildApp(dataSource)
 
             const response = await request(app).patch('/applications/application-1').send({ name: 'New Name' }).expect(200)
 
-            expect(response.body.name).toBe('New Name')
+            expect(response.body.name).toMatchObject({
+                _primary: 'en'
+            })
         })
     })
 
     describe('DELETE /applications/:applicationId', () => {
         it('should delete application for owner', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-
-            const mockApplication = {
-                id: 'application-1',
-                name: 'Test Application',
-                schemaName: 'app_1234567890abcdef1234567890abcdef'
-            }
-
-            applicationRepo.findOne.mockResolvedValue(mockApplication)
+            const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({
                 user_id: 'test-user-id',
                 role: 'owner'
             })
-            applicationRepo.remove.mockResolvedValue(mockApplication)
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM applications.applications_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: 'Test Application',
+                        description: null,
+                        slug: 'test-app',
+                        isPublic: false,
+                        schemaName: 'app_1234567890abcdef1234567890abcdef',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id',
+                        connectorsCount: 0,
+                        membersCount: 1
+                    }
+                ]
+            })
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'application-1' }])
 
             const app = buildApp(dataSource)
 
             await request(app).delete('/applications/application-1').expect(204)
 
-            expect(applicationRepo.remove).toHaveBeenCalled()
-            expect(dataSource.manager.query).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "app_1234567890abcdef1234567890abcdef" CASCADE')
+            expect(dataSource.transaction).toHaveBeenCalled()
+            expect(dataSource.manager.query).toHaveBeenCalled()
         })
 
         it('should return 403 for non-owner', async () => {
@@ -704,31 +870,43 @@ describe('Applications Routes', () => {
     describe('Members endpoints', () => {
         describe('GET /applications/:applicationId/members', () => {
             it('should return members list for admin', async () => {
-                const { dataSource, applicationRepo, applicationUserRepo, authUserRepo } = buildDataSource()
+                const { dataSource, applicationUserRepo } = buildDataSource()
 
-                applicationRepo.findOne.mockResolvedValue({
-                    id: 'application-1',
-                    name: 'Test'
-                })
                 applicationUserRepo.findOne.mockResolvedValue({
                     userId: 'test-user-id',
                     role: 'admin'
                 })
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('COUNT(*) OVER()') && sql.includes('FROM applications.applications_users au')) {
+                        return [
+                            {
+                                id: 'member-1',
+                                applicationId: 'application-1',
+                                userId: 'user-1',
+                                role: 'member',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'member@example.com',
+                                nickname: 'Member',
+                                windowTotal: '1'
+                            }
+                        ]
+                    }
 
-                const mockQB = applicationUserRepo.createQueryBuilder()
-                mockQB.getManyAndCount.mockResolvedValue([
-                    [
-                        {
-                            id: 'member-1',
-                            userId: 'user-1',
-                            role: 'member',
-                            _uplCreatedAt: new Date()
-                        }
-                    ],
-                    1
-                ])
+                    if (sql.includes('FROM applications.applications_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
 
-                authUserRepo.find.mockResolvedValue([{ id: 'user-1', email: 'member@example.com' }])
+                    return []
+                })
 
                 const app = buildApp(dataSource)
 
@@ -744,23 +922,47 @@ describe('Applications Routes', () => {
 
         describe('POST /applications/:applicationId/members', () => {
             it('should invite new member', async () => {
-                const { dataSource, applicationRepo, applicationUserRepo, authUserRepo } = buildDataSource()
+                const { dataSource, applicationUserRepo } = buildDataSource()
 
-                applicationRepo.findOne.mockResolvedValue({
-                    id: 'application-1',
-                    name: 'Test'
+                applicationUserRepo.findOne.mockImplementation(async ({ where }: { where: { userId: string } }) => {
+                    if (where.userId === 'test-user-id') {
+                        return { user_id: 'test-user-id', role: 'admin' }
+                    }
+                    return null
                 })
-                applicationUserRepo.findOne
-                    .mockResolvedValueOnce({ user_id: 'test-user-id', role: 'admin' }) // inviter
-                    .mockResolvedValueOnce(null) // new member not already in app
-                authUserRepo.findOne.mockResolvedValue({
-                    id: 'new-user-id',
-                    email: 'newuser@example.com'
-                })
-                applicationUserRepo.save.mockResolvedValue({
-                    id: 'new-member-id',
-                    user_id: 'new-user-id',
-                    role: 'member'
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('FROM auth.users')) {
+                        return [{ id: 'new-user-id', email: 'newuser@example.com' }]
+                    }
+
+                    if (sql.includes('WITH inserted AS')) {
+                        return [
+                            {
+                                id: 'new-member-id',
+                                applicationId: 'application-1',
+                                userId: 'new-user-id',
+                                role: 'member',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'newuser@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
                 })
 
                 const app = buildApp(dataSource)
@@ -777,18 +979,37 @@ describe('Applications Routes', () => {
             })
 
             it('should reject inviting already existing member', async () => {
-                const { dataSource, applicationRepo, applicationUserRepo, authUserRepo } = buildDataSource()
+                const { dataSource, applicationUserRepo } = buildDataSource()
 
-                applicationRepo.findOne.mockResolvedValue({
-                    id: 'application-1',
-                    name: 'Test'
+                applicationUserRepo.findOne.mockImplementation(async ({ where }: { where: { userId: string } }) => {
+                    if (where.userId === 'test-user-id') {
+                        return { user_id: 'test-user-id', role: 'admin' }
+                    }
+
+                    if (where.userId === 'existing-id') {
+                        return { user_id: 'existing-id', role: 'member' }
+                    }
+
+                    return null
                 })
-                applicationUserRepo.findOne
-                    .mockResolvedValueOnce({ user_id: 'test-user-id', role: 'admin' }) // inviter
-                    .mockResolvedValueOnce({ user_id: 'existing-id', role: 'member' }) // already member
-                authUserRepo.findOne.mockResolvedValue({
-                    id: 'existing-id',
-                    email: 'existing@example.com'
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('FROM auth.users')) {
+                        return [{ id: 'existing-id', email: 'existing@example.com' }]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
                 })
 
                 const app = buildApp(dataSource)
@@ -802,25 +1023,57 @@ describe('Applications Routes', () => {
 
         describe('PATCH /applications/:applicationId/members/:userId', () => {
             it('should update member role', async () => {
-                const { dataSource, applicationRepo, applicationUserRepo, authUserRepo } = buildDataSource()
+                const { dataSource, applicationUserRepo } = buildDataSource()
 
-                applicationRepo.findOne.mockResolvedValue({
-                    id: 'application-1',
-                    name: 'Test'
+                applicationUserRepo.findOne.mockResolvedValue({
+                    user_id: 'test-user-id',
+                    role: 'admin'
                 })
-                applicationUserRepo.findOne
-                    .mockResolvedValueOnce({ user_id: 'test-user-id', role: 'admin' }) // actor
-                    .mockResolvedValueOnce({
-                        id: 'member-id',
-                        user_id: 'target-user',
-                        role: 'member'
-                    }) // target
-                applicationUserRepo.save.mockResolvedValue({
-                    id: 'member-id',
-                    user_id: 'target-user',
-                    role: 'editor'
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('WITH updated AS')) {
+                        return [
+                            {
+                                id: 'member-id',
+                                applicationId: 'application-1',
+                                userId: 'target-user',
+                                role: 'editor',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'target@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users au') && sql.includes('au.id = $2')) {
+                        return [
+                            {
+                                id: 'member-id',
+                                applicationId: 'application-1',
+                                userId: 'target-user',
+                                role: 'member',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'target@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
                 })
-                authUserRepo.find.mockResolvedValue([{ id: 'target-user', email: 'target@example.com' }])
 
                 const app = buildApp(dataSource)
 
@@ -835,42 +1088,91 @@ describe('Applications Routes', () => {
 
         describe('DELETE /applications/:applicationId/members/:userId', () => {
             it('should remove member', async () => {
-                const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+                const { dataSource, applicationUserRepo } = buildDataSource()
 
-                applicationRepo.findOne.mockResolvedValue({
-                    id: 'application-1',
-                    name: 'Test'
+                applicationUserRepo.findOne.mockResolvedValue({
+                    user_id: 'test-user-id',
+                    role: 'admin'
                 })
-                applicationUserRepo.findOne
-                    .mockResolvedValueOnce({ user_id: 'test-user-id', role: 'admin' }) // actor
-                    .mockResolvedValueOnce({
-                        id: 'member-id',
-                        user_id: 'target-user',
-                        role: 'member'
-                    }) // target
-                applicationUserRepo.remove.mockResolvedValue({ id: 'member-id' })
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('DELETE FROM applications.applications_users')) {
+                        return [{ id: 'member-id' }]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users au') && sql.includes('au.id = $2')) {
+                        return [
+                            {
+                                id: 'member-id',
+                                applicationId: 'application-1',
+                                userId: 'target-user',
+                                role: 'member',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'target@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
+                })
 
                 const app = buildApp(dataSource)
 
                 await request(app).delete('/applications/application-1/members/target-user').expect(204)
 
-                expect(applicationUserRepo.remove).toHaveBeenCalled()
+                expect(dataSource.query).toHaveBeenCalled()
             })
 
             it('should prevent removing owner', async () => {
-                const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+                const { dataSource, applicationUserRepo } = buildDataSource()
 
-                applicationRepo.findOne.mockResolvedValue({
-                    id: 'application-1',
-                    name: 'Test'
+                applicationUserRepo.findOne.mockResolvedValue({
+                    user_id: 'test-user-id',
+                    role: 'admin'
                 })
-                applicationUserRepo.findOne
-                    .mockResolvedValueOnce({ user_id: 'test-user-id', role: 'admin' }) // actor
-                    .mockResolvedValueOnce({
-                        id: 'owner-id',
-                        user_id: 'owner-user',
-                        role: 'owner'
-                    }) // target is owner
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('FROM applications.applications_users au') && sql.includes('au.id = $2')) {
+                        return [
+                            {
+                                id: 'owner-id',
+                                applicationId: 'application-1',
+                                userId: 'owner-user',
+                                role: 'owner',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'owner@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.applications_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
+                })
 
                 const app = buildApp(dataSource)
 

@@ -94,6 +94,8 @@ export interface MigrationMeta {
     publicationVersionId?: string
     /** Seed warnings recorded during predefined records import (optional) */
     seedWarnings?: string[]
+    /** Global migration catalog run identifier mirrored into upl_migrations (optional) */
+    globalRunId?: string
 }
 
 /**

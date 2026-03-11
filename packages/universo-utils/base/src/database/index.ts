@@ -3,7 +3,22 @@
  */
 
 export { escapeLikeWildcards } from './escaping'
-export { getRequestManager, type RequestWithDbContext } from './manager'
+export { buildSetLocalStatementTimeoutSql, formatStatementTimeoutLiteral } from './statementTimeout'
+export {
+    createDbSession,
+    createDbExecutor,
+    createRequestDbContext,
+    getRequestDbContext,
+    getRequestDbExecutor,
+    getRequestDbSession,
+    type CreateDbExecutorOptions,
+    type CreateDbSessionOptions,
+    type DbExecutor,
+    type DbSession,
+    type RequestDbContext,
+    type RequestWithDbContext,
+    type SqlQueryable
+} from './manager'
 export {
     isDatabaseConnectTimeoutError,
     getDbErrorCode,

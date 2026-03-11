@@ -25,7 +25,10 @@
         "@universo/admin-backend": "workspace:*",
         "@universo/applications-backend": "workspace:*",
         "@universo/auth-backend": "workspace:*",
+        "@universo/database": "workspace:*",
         "@universo/migration-guard-shared": "workspace:*",
+        "@universo/migrations-catalog": "workspace:*",
+        "@universo/migrations-core": "workspace:*",
         "@universo/profile-backend": "workspace:*",
         "@universo/schema-ddl": "workspace:*",
         "@universo/types": "workspace:*",
@@ -34,7 +37,6 @@
         "http-errors": "catalog:",
         "json-stable-stringify": "catalog:",
         "knex": "catalog:",
-        "typeorm": "catalog:",
         "zod": "^3.25.76"
     },
     "devDependencies": {

@@ -1,24 +1,18 @@
 ---
-description: Create 3D/AR/VR content using UPDL nodes.
+description: How to use UPDL as a structured modeling layer.
 ---
 
 # Working with UPDL
 
-{% hint style="info" %}
-**This page is under development.** A step-by-step guide will be added soon.
-{% endhint %}
+UPDL should be approached as a structured modeling layer for portable platform
+definitions across shared platform structures.
 
-## Overview
+## Recommended Approach
 
-Learn how to use the UPDL node system to create interactive 3D/AR/VR content using the visual canvas editor.
+1. Start from the domain you want to describe, not from visual effects.
+2. Choose the right node families for scope, objects, behavior, events, and data.
+3. Keep the model explicit enough to validate, version, and export later.
+4. Link UPDL work to publications, applications, or other platform structures.
+5. Treat reuse and clarity as more important than graph size.
 
-## Topics
-
-* Introduction to UPDL node types
-* Creating your first space with UPDL
-* Connecting nodes and building graphs
-* Validation and debugging
-
-## Documentation
-
-Coming soon.
+That mindset keeps UPDL aligned with the broader platform direction.

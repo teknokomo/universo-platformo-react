@@ -1,23 +1,22 @@
 ---
-description: Manage collaborative workspaces for teams and projects.
+description: Explain operating nodes, organizations, and workspace-like scopes.
 ---
 
-# Workspaces (Uniks)
+# Nodes and Workspaces
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Nodes and workspaces describe operational scopes for organizations, people,
+owned resources, and collaboration rules across the platform.
 
-## Overview
+## What This Scope Represents
 
-Workspaces (called **Uniks**) are the top-level organizational unit in Universo Platformo. Each workspace provides an isolated environment for teams to collaborate on spaces, applications, and metaverses.
+- A boundary for people, roles, memberships, and owned resources.
+- A place where operational data and collaboration rules can be attached.
+- A unit that can later participate in broader distributed coordination.
 
-## Key Features
+## Current Implementation
 
-* Create and manage multiple workspaces
-* Invite team members with role-based access
-* Organize content within isolated environments
+The current public implementation already includes authenticated membership,
+profile bootstrap, admin roles, metahub access, and request-scoped data access.
 
-## Documentation
-
-Coming soon.
+The exact domain vocabulary can still evolve, but the repository already
+implements the coordination and access patterns behind this scope.

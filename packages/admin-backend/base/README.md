@@ -1,6 +1,6 @@
 # @universo/admin-backend
 
-> 🏗️ **Modern Package** - TypeScript-first architecture with Express.js and TypeORM
+> 🏗️ **Modern Package** - TypeScript-first architecture with Express.js, SQL-first persistence, and Zod
 
 Backend service for global admin management (superadmins and supermoderators) with RBAC system.
 
@@ -9,7 +9,7 @@ Backend service for global admin management (superadmins and supermoderators) wi
 - **Version**: 0.1.0
 - **Type**: Backend Service Package (TypeScript)
 - **Status**: ✅ Active Development
-- **Architecture**: Modern with Express.js + TypeORM + Zod validation
+- **Architecture**: Modern with Express.js + SQL-first persistence helpers + Zod validation
 
 ## Key Features
 
@@ -25,9 +25,9 @@ Backend service for global admin management (superadmins and supermoderators) wi
 - RLS integration via PostgreSQL functions
 
 ### 📊 Database
-- TypeORM entities in `admin` schema
+- SQL-first stores in the `admin` schema
 - PostgreSQL with JSONB for localized content
-- Hybrid approach: TypeORM for CRUD, SQL functions for RLS consistency
+- PostgreSQL functions reused for consistent permission and access checks
 
 ## API Reference
 
@@ -55,9 +55,9 @@ GET    /api/v1/admin/roles/global          # List roles with global access
 
 ```typescript
 import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
-import { getDataSource } from '@universo/flowise-core-backend'
+import { createKnexExecutor, getKnex } from '@universo/database'
 
-const globalAccessService = createGlobalAccessService({ getDataSource })
+const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
 const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService })
 
 app.use('/api/v1/admin/global-users', globalUsersRoutes)
@@ -66,11 +66,13 @@ app.use('/api/v1/admin/global-users', globalUsersRoutes)
 ### Access Guard in Other Modules
 
 ```typescript
-import { hasGlobalAccessByDataSource } from '@universo/admin-backend'
-import { getDataSource } from '@universo/flowise-core-backend'
+import { createGlobalAccessService } from '@universo/admin-backend'
+import { createKnexExecutor, getKnex } from '@universo/database'
+
+const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
 
 // In your access guard
-const hasAccess = await hasGlobalAccessByDataSource(getDataSource(), userId)
+const hasAccess = await globalAccessService.canAccessAdmin(userId)
 if (hasAccess) {
     // Bypass ownership checks for global admins
 }
@@ -106,36 +108,32 @@ if (hasAccess) {
 
 ## Architecture
 
-### Hybrid SQL + TypeORM Approach
+### SQL-First Access Pattern
 
-This module uses a deliberate hybrid approach:
+This module uses SQL-first services and neutral database contracts:
 
-- **TypeORM Repository** for simple CRUD operations (roles queries, assignment deletion)
-- **Raw SQL** for PostgreSQL functions (`admin.has_global_access()`) to maintain consistency with RLS policies
+- **DbExecutor / DbSession** for all route and service level queries
+- **Raw SQL** for PostgreSQL functions such as `admin.is_superuser()` and `admin.has_permission()`
+- **Legacy compatibility wrappers** only where other packages still import the historical helpers
 
-This design ensures that permission checks in application code match the database-level RLS policies exactly.
+This design ensures that permission checks in application code match the database-level permission functions exactly.
 
 ## Troubleshooting
 
 ### Admin roles list hangs after direct navigation
 
 - **Symptom**: Direct navigation or page reload on `/admin/instance/:id/roles` leaves the UI on skeleton loaders and Network shows pending `GET /api/v1/admin/roles` requests.
-- **Root cause**: Admin guard checks executed outside the request-scoped RLS `QueryRunner`, competing for pooled connections and sometimes running after the runner was released, which caused `QueryRunnerAlreadyReleasedError` or hanging requests.
-- **Fix**: Reuse the request `QueryRunner` for admin access checks and permission queries, and fall back to `DataSource` only when no active runner exists. No database schema changes required.
+- **Root cause**: Admin guard checks executed outside the request-scoped DB session, competing for pooled connections and sometimes running after the request context had already been released.
+- **Fix**: Reuse the request `DbSession` for admin access checks and permission queries, and fall back to the pool-level `DbExecutor` only when no active request context exists. No database schema changes required.
 
 ## File Structure
 
 ```
 packages/admin-backend/base/
 ├── src/
-│   ├── database/
-│   │   ├── entities/          # TypeORM entities
-│   │   │   ├── Role.ts
-│   │   │   ├── RolePermission.ts
-│   │   │   └── UserRole.ts
-│   │   └── migrations/        # Database migrations
 │   ├── guards/
 │   │   └── ensureGlobalAccess.ts
+│   ├── persistence/           # SQL-first query helpers for roles/settings/locales/instances
 │   ├── routes/
 │   │   └── globalUsersRoutes.ts
 │   ├── schemas/
@@ -151,7 +149,6 @@ packages/admin-backend/base/
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `express` | ^4.18.2 | HTTP server framework |
-| `typeorm` | catalog | Database ORM |
 | `zod` | ^3.25.76 | Schema validation |
 | `http-errors` | catalog | HTTP error handling |
 

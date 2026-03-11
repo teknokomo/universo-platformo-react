@@ -1,154 +1,77 @@
-# Universo Core Backend
+# Universo Core Backend (@universo/core-backend)
 
-✅ **Modern Package** — `@universo/core-backend`
+Main backend server package for Universo Platformo.
 
 ## Overview
 
-The main backend server for Universo Platformo. This is the central Express-based application that boots the HTTP server, connects to PostgreSQL via TypeORM, sets up authentication middleware, registers all API routes, and integrates feature-specific `@universo/*` backend packages.
+This package boots the Express application, initializes the shared Knex runtime, runs registered platform migrations, mounts service routers, and serves the frontend bundle.
+It is the composition root for authentication, metahubs, applications, onboarding, admin, and profile services.
 
-## Package Information
+## Package Structure
 
-- **Package**: `@universo/core-backend`
-- **Version**: `0.1.0`
-- **Type**: Backend Server (Modern)
-- **Framework**: Express.js + TypeORM + OCLIF CLI
-- **Language**: TypeScript
-- **Database**: PostgreSQL via Supabase
-- **Authentication**: Passport.js + JWT + Supabase integration
+```text
+packages/universo-core-backend/base/
+├── src/
+│   ├── commands/        # Oclif CLI commands
+│   ├── database/        # Legacy entity exports still kept for compatibility
+│   ├── errors/          # Shared backend error types
+│   ├── middlewares/     # Error and request middleware
+│   ├── routes/          # API composition and global API error handling
+│   ├── utils/           # Logging, telemetry, XSS, helpers
+│   ├── Interface.ts     # Public app interface types
+│   └── index.ts         # App bootstrap and server lifecycle
+├── bin/                 # Oclif runtime entrypoint
+├── package.json
+└── tsconfig.json
+```
 
-## Key Features
+## Startup Flow
 
-### 🎯 Core Server Functionality
-- **Express API Server**: REST API with rate limiting, CORS, and body parsing
-- **TypeORM DataSource**: Centralized database connection with migration runner
-- **Entity & Migration Registry**: All packages register entities and migrations through the core
-- **OCLIF CLI**: `universo start` command with configurable port and host
+1. Validate required auth configuration such as `SUPABASE_JWT_SECRET`.
+2. Initialize the shared Knex singleton from `@universo/database`.
+3. Validate and run registered platform migrations through `@universo/migrations-platform`.
+4. Configure sessions, CSRF, CORS, JWT auth, sanitization, and request logging.
+5. Initialize rate limiters for downstream service packages.
+6. Seed metahub templates through `@universo/metahubs-backend`.
+7. Mount `/api/v1` routers and serve the frontend bundle from `@universo/core-frontend`.
 
-### 🔐 Security
-- **CSRF Protection**: Token-based CSRF middleware
-- **Rate Limiting**: Express rate limiter with configurable window
-- **Request Sanitization**: XSS protection middleware
-- **Session Management**: Passport.js with secure cookie sessions
-- **API Key Validation**: Multi-layer auth (JWT → session → API key fallback)
+## Key Integrations
 
-### 🏗️ Architecture
-- **Modular Routes**: Feature routes imported from `@universo/*` backend packages
-- **Error Handling**: Centralized error middleware with `InternalError` class
-- **Queue Management**: Redis-based job queue for background processing
-- **Metrics**: Prometheus and OpenTelemetry integration (optional)
-- **Multiplayer**: Colyseus server integration for real-time features
+- `@universo/database` provides `getKnex()`, `destroyKnex()`, and executor factories.
+- `@universo/migrations-platform` owns startup validation and unified platform migration execution.
+- `@universo/auth-backend` provides Passport setup, auth routes, and RLS-aware auth middleware.
+- `@universo/metahubs-backend`, `@universo/applications-backend`, `@universo/start-backend`, `@universo/admin-backend`, and `@universo/profile-backend` provide domain routers mounted by the core server.
 
-## CLI Commands (OCLIF)
+## Routing Model
+
+The server mounts a shared `/api/v1` router that combines:
+
+- public health and public metahub endpoints
+- authenticated metahub, applications, onboarding, admin, and profile routes
+- optimistic-lock conflict mapping and database timeout handling
+
+Request-scoped database access is derived from the shared Knex runtime and request-aware executor helpers instead of TypeORM `DataSource` or `EntityManager` objects.
+
+## Build And Test
 
 ```bash
-# Start the server
-pnpm start
-
-# Start in development mode (from project root)
-pnpm dev
+pnpm --filter @universo/core-backend build
+pnpm --filter @universo/core-backend test
 ```
 
-## Architecture
+## Migration Commands
 
-### Boot Sequence
-
-```
-bin/run                        → OCLIF CLI entry point
-  └─ commands/start.ts         → Start command
-       └─ index.ts (App)       → Express application class
-            ├─ DataSource.ts   → TypeORM connection + migrations
-            ├─ middlewares/     → Auth, CSRF, rate-limit, error handling
-            ├─ routes/         → API v1 router (aggregates feature routes)
-            └─ utils/          → Server utilities (paths, versions)
-```
-
-### Key Modules
-
-| Module | Purpose |
-|---|---|
-| `index.ts` | `App` class — Express setup, middleware chain, route mounting |
-| `DataSource.ts` | TypeORM DataSource factory with pool management |
-| `routes/` | API v1 router that imports feature-specific routers |
-| `middlewares/errors/` | Centralized Express error handler |
-| `errors/internalError/` | `InternalError` custom HTTP error class |
-| `utils/` | `getUserHome()`, `getAppVersion()`, path utilities |
-| `database/entities/` | Central entity registry (all packages register here) |
-| `database/migrations/` | Central migration registry (Postgres) |
-
-### Data Directory
-
-The server stores runtime data in `~/.universo/` (configurable via `UNIVERSO_PATH` env var, with `FLOWISE_PATH` fallback for backward compatibility).
-
-## File Structure
-
-```
-packages/universo-core-backend/
-└── base/
-    ├── bin/                    # CLI entry point (OCLIF)
-    ├── src/
-    │   ├── commands/           # OCLIF commands (start)
-    │   ├── database/
-    │   │   ├── entities/       # Central entity registry
-    │   │   └── migrations/     # Central migration registry (postgres)
-    │   ├── errors/
-    │   │   └── internalError/  # InternalError HTTP error class
-    │   ├── middlewares/
-    │   │   └── errors/         # Express error handler
-    │   ├── routes/             # API v1 router
-    │   ├── utils/              # Server utilities
-    │   ├── DataSource.ts       # TypeORM DataSource factory
-    │   ├── Interface.ts        # Shared TypeScript interfaces
-    │   └── index.ts            # Express App class (main server)
-    ├── package.json
-    ├── README.md
-    └── README-RU.md
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `SUPABASE_URL` | Yes | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
-| `SUPABASE_JWT_SECRET` | Yes | JWT secret for token verification |
-| `UNIVERSO_PATH` | No | Custom data directory (default: `~/.universo`) |
-| `FILE_SIZE_LIMIT` | No | Max upload file size (default: `50mb`) |
-| `PORT` | No | Server port (default: `3000`) |
-
-### Adding Entities & Migrations
-
-Feature packages register their TypeORM entities and migrations through the central registries:
-
-```typescript
-// 1. Define entity in your package
-// packages/your-backend/base/src/database/entities/YourEntity.ts
-
-// 2. Register in central entity registry
-// packages/universo-core-backend/base/src/database/entities/index.ts
-export { YourEntity } from '@universo/your-backend/entities'
-
-// 3. Register migrations in central migration registry
-// packages/universo-core-backend/base/src/database/migrations/postgres/index.ts
-import { yourMigrations } from '@universo/your-backend/migrations'
-export const postgresMigrations = [...yourMigrations, ...]
-```
-
-## Development
+Run workspace-level migration helpers from the repository root:
 
 ```bash
-# From project root
-pnpm install
-pnpm build              # Full workspace build
-pnpm start              # Start production server
+pnpm migration:status
+pnpm migration:plan
+pnpm migration:diff
+pnpm migration:export
 ```
 
-> **Note**: Always run commands from the project root. Individual package builds are for validation only — use `pnpm build` at root to propagate changes.
+## Notes
 
-## Related Packages
-
-- [universo-core-frontend](../../universo-core-frontend/base/README.md) — React frontend application
-- [universo-types](../../universo-types/base/README.md) — Shared TypeScript types
-- [universo-utils](../../universo-utils/base/README.md) — Shared utilities (UUID, codename, etc.)
-- [auth-backend](../../auth-backend/base/README.md) — Authentication service
+- The package still contains compatibility exports under `src/database/entities/` for code that has not been fully trimmed yet.
+- The canonical database runtime is Knex-based and shared through `@universo/database`.
+- New backend services should register native SQL platform migration definitions instead of TypeORM entities and migrations.

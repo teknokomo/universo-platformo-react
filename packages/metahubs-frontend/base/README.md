@@ -392,8 +392,8 @@ docs(readme): update installation guide
 
 ## Related Packages
 - [`@universo/metahubs-backend`](../../metahubs-backend/base/README.md) - Backend service
-- [`@universo/flowise-template-mui`](../../flowise-template-mui/base/README.md) - UI components
+- [`@universo/template-mui`](../../universo-template-mui/base/README.md) - UI components
 - [`@universo/types`](../../universo-types/base/README.md) - Shared types
 
 ---
-*Part of [Universo Platformo](../../../README.md) - A comprehensive metahub management platform*
+*Part of [Universo Platformo](../../../README.md) - A package-based business platform*

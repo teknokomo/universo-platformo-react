@@ -1,4 +1,6 @@
 import type { Knex } from 'knex'
+import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
+import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 import { ChangeType } from './diff'
 import type { SchemaChange, SchemaDiff } from './diff'
 import type { MigrationMeta, MigrationRecord, MigrationChangeRecord, RollbackAnalysis, SchemaSnapshot } from './types'
@@ -85,6 +87,39 @@ export class MigrationManager {
             ...extraMeta
         }
 
+        const globalRunId = await mirrorToGlobalCatalog({
+            knex,
+            scopeKind: 'runtime_schema',
+            scopeKey: schemaName,
+            sourceKind: 'publication_snapshot',
+            migrationName: name,
+            migrationVersion: name,
+            localHistoryTable: '_app_migrations',
+            summary: diff.summary,
+            transactionMode: trx ? 'single' : 'none',
+            lockMode: 'session_advisory',
+            checksumPayload: {
+                schemaName,
+                name,
+                meta,
+                publicationSnapshot
+            },
+            meta: {
+                publicationId: extraMeta?.publicationId ?? null,
+                publicationVersionId: extraMeta?.publicationVersionId ?? null,
+                publicationSnapshotHash: extraMeta?.publicationSnapshotHash ?? null
+            },
+            snapshotBefore: snapshotBefore as unknown as Record<string, unknown> | null,
+            snapshotAfter: snapshotAfter as unknown as Record<string, unknown>,
+            plan: {
+                summary: diff.summary,
+                additiveCount: diff.additive.length,
+                destructiveCount: diff.destructive.length
+            }
+        })
+
+        meta.globalRunId = globalRunId
+
         const result = await knex
             .withSchema(schemaName)
             .table('_app_migrations')
@@ -122,7 +157,7 @@ export class MigrationManager {
         }
 
         // Check if _app_migrations table exists
-        const tableExists = await this.knex.schema.withSchema(schemaName).hasTable('_app_migrations')
+        const tableExists = await hasRuntimeHistoryTable(this.knex, schemaName, '_app_migrations')
         if (!tableExists) {
             return { migrations: [], total: 0 }
         }
@@ -156,7 +191,7 @@ export class MigrationManager {
      * Get a single migration by ID
      */
     public async getMigration(schemaName: string, migrationId: string): Promise<MigrationRecord | null> {
-        const tableExists = await this.knex.schema.withSchema(schemaName).hasTable('_app_migrations')
+        const tableExists = await hasRuntimeHistoryTable(this.knex, schemaName, '_app_migrations')
         if (!tableExists) {
             return null
         }

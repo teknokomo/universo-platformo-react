@@ -1,24 +1,23 @@
 ---
-description: Create and manage virtual worlds and immersive experiences.
+description: Describe the planned simulation and virtual-world layer above the platform core.
 ---
 
-# Metaverses
+# Simulation and Virtual Worlds
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Simulation and virtual worlds are a planned layer above the current platform
+core. They extend the ERP/CMS and operational foundation already visible in the
+codebase.
 
-## Overview
+## Planned Role
 
-The Metaverses module allows you to create, manage, and deploy virtual worlds. Each metaverse can contain multiple spaces, assets, and interactive experiences.
+The long-term goal is to support large-scale simulated or virtual environments
+such as Universo MMOOMM on top of the shared platform abstractions.
 
-## Key Features
+## What The Current Repository Already Contributes
 
-* Virtual world creation and management
-* Multi-user access control
-* Integration with MMOOMM templates
-* Real-time multiplayer support via Colyseus
+- Shared identities, memberships, and organizational boundaries.
+- Design-time structures through metahubs and publications.
+- Portable application descriptions and cross-stack thinking.
+- A modular runtime that can support future specialized clients.
 
-## Documentation
-
-Coming soon.
+The simulation layer is therefore a downstream expansion of the platform core.

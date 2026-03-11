@@ -14,78 +14,65 @@ jest.mock('../../controllers/profileController', () => ({
     ProfileController: MockProfileController
 }))
 
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            Index: decorator
-        }
-    },
-    { virtual: true }
-)
-
 import type { Request, Response, NextFunction } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createProfileRoutes } from '../../routes/profileRoutes'
+
+function createMockExec() {
+    return { query: jest.fn().mockResolvedValue([]), transaction: jest.fn(), isReleased: jest.fn(() => false) }
+}
 
 describe('profile routes', () => {
     beforeEach(() => {
         jest.clearAllMocks()
 
-        mockControllerMethods.getProfile.mockImplementation(async (_req, res) => res.status(200).json({ id: 'profile-1' }))
-        mockControllerMethods.createProfile.mockImplementation(async (_req, res) => res.status(201).json({ id: 'profile-1' }))
-        mockControllerMethods.updateProfile.mockImplementation(async (_req, res) => res.status(200).json({ id: 'profile-1' }))
-        mockControllerMethods.deleteProfile.mockImplementation(async (_req, res) => res.status(204).send())
-        mockControllerMethods.getAllProfiles.mockImplementation(async (_req, res) => res.status(200).json([]))
-        mockControllerMethods.checkNickname.mockImplementation(async (_req, res) => res.status(200).json({ available: true }))
+        mockControllerMethods.getProfile.mockImplementation(async (_req: any, res: any) => res.status(200).json({ id: 'profile-1' }))
+        mockControllerMethods.createProfile.mockImplementation(async (_req: any, res: any) => res.status(201).json({ id: 'profile-1' }))
+        mockControllerMethods.updateProfile.mockImplementation(async (_req: any, res: any) => res.status(200).json({ id: 'profile-1' }))
+        mockControllerMethods.deleteProfile.mockImplementation(async (_req: any, res: any) => res.status(204).send())
+        mockControllerMethods.getAllProfiles.mockImplementation(async (_req: any, res: any) => res.status(200).json([]))
+        mockControllerMethods.checkNickname.mockImplementation(async (_req: any, res: any) => res.status(200).json({ available: true }))
     })
 
-    const buildApp = (isInitialized = false) => {
-        const profileRepo = createMockRepository<any>()
-        const dataSource = createMockDataSource({ Profile: profileRepo }, { isInitialized }) as any
-        dataSource.initialize = jest.fn(async () => {
-            dataSource.isInitialized = true
-            return dataSource
-        })
+    const buildApp = () => {
+        const poolExec = createMockExec()
+        const rlsExec = createMockExec()
 
-        const router = createProfileRoutes(dataSource, (_req: Request, _res: Response, next: NextFunction) => {
-            ;(_req as any).user = { sub: 'user-1' }
-            next()
-        })
+        const router = createProfileRoutes(
+            {
+                getDbExecutor: () => poolExec as any,
+                getRequestDbExecutor: () => rlsExec as any
+            },
+            (_req: Request, _res: Response, next: NextFunction) => {
+                ;(_req as any).user = { sub: 'user-1' }
+                next()
+            }
+        )
 
         const app = express()
         app.use(express.json())
         app.use(router)
 
-        return { app, dataSource }
+        return { app, poolExec, rlsExec }
     }
 
-    it('инициализирует источник данных перед использованием контроллера', async () => {
-        const { app, dataSource } = buildApp(false)
+    it('проверяет доступность никнейма через публичный маршрут', async () => {
+        const { app } = buildApp()
 
         const response = await request(app).get('/check-nickname/test')
 
         expect(response.status).toBe(200)
-        expect(dataSource.initialize).toHaveBeenCalled()
         expect(MockProfileController).toHaveBeenCalledTimes(1)
+        expect(mockControllerMethods.checkNickname).toHaveBeenCalled()
     })
 
-    it('использует существующее подключение без повторной инициализации', async () => {
-        const { app, dataSource } = buildApp(true)
+    it('использует контроллер для получения профиля пользователя', async () => {
+        const { app } = buildApp()
 
         const response = await request(app).get('/user-1')
 
         expect(response.status).toBe(200)
-        expect(dataSource.initialize).not.toHaveBeenCalled()
         expect(MockProfileController).toHaveBeenCalledTimes(1)
         expect(mockControllerMethods.getProfile).toHaveBeenCalled()
     })

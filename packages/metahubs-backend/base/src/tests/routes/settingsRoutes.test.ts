@@ -1,36 +1,9 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => undefined
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource } from '../utils/typeormMocks'
+import { createMockDbExecutor } from '../utils/dbMocks'
 import { createSettingsRoutes } from '../../domains/settings/routes/settingsRoutes'
 
 const mockEnsureMetahubAccess = jest.fn()
@@ -81,12 +54,11 @@ describe('Settings Routes', () => {
     }
 
     const buildApp = () => {
-        const dataSource = createMockDataSource({}) as any
-        dataSource.query = jest.fn().mockResolvedValue([])
+        const mockExecutor = createMockDbExecutor()
 
         const app = express()
         app.use(express.json())
-        app.use(createSettingsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(createSettingsRoutes(ensureAuth, () => mockExecutor, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }

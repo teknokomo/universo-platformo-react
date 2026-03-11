@@ -1,12 +1,4 @@
-// Entity exports
-export { metahubsEntities } from './database/entities/index'
-export { Metahub } from './database/entities/Metahub'
-export { MetahubUser } from './database/entities/MetahubUser'
-export { Publication, PublicationAccessMode, PublicationSchemaStatus } from './database/entities/Publication'
-export { Template } from './database/entities/Template'
-export { TemplateVersion } from './database/entities/TemplateVersion'
-
-// Template seeder (call at startup after DataSource initialization)
+// Template seeder (call at startup after shared Knex initialization)
 export { seedTemplates } from './domains/templates/services/TemplateSeeder'
 
 // Route exports
@@ -26,8 +18,8 @@ export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, c
 // Guard exports
 export { ensureMetahubAccess, ensureHubAccess, assertNotOwner } from './domains/shared/guards'
 
-// Migration exports
-export { metahubsMigrations } from './database/migrations/postgres'
+// Platform migration exports
+export { createMetahubsSchemaMigrationDefinition, addTemplateDefinitionTypeMigrationDefinition } from './platform/migrations'
 
 // DDL exports (runtime schema management)
 // Re-export from @universo/schema-ddl for convenience
