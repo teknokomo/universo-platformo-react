@@ -29,6 +29,16 @@ export interface GenerateFullSchemaOptions {
     publicationSnapshot?: Record<string, unknown> | null
     /** User ID for audit fields */
     userId?: string | null
+    /** Optional hook executed inside the schema transaction after migration history is recorded */
+    afterMigrationRecorded?: (context: {
+        trx: Knex.Transaction
+        schemaName: string
+        snapshotBefore: null
+        snapshotAfter: SchemaSnapshot
+        diff: SchemaDiff
+        migrationName: string
+        migrationId: string
+    }) => Promise<void>
 }
 
 /**
@@ -167,7 +177,7 @@ export class SchemaGenerator {
                         summary: `Initial schema creation with ${entities.length} table(s)`
                     }
 
-                    await migrationManager.recordMigration(
+                    const migrationId = await migrationManager.recordMigration(
                         schemaName,
                         migrationName,
                         null, // snapshotBefore
@@ -178,6 +188,16 @@ export class SchemaGenerator {
                         options.publicationSnapshot ?? null,
                         options.userId ?? null
                     )
+
+                    await options.afterMigrationRecorded?.({
+                        trx,
+                        schemaName,
+                        snapshotBefore: null,
+                        snapshotAfter: snapshot,
+                        diff: initialDiff,
+                        migrationName,
+                        migrationId
+                    })
                 }
             })
 

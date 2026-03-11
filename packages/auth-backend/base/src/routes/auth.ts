@@ -13,7 +13,7 @@ import {
     isLoginCaptchaRequired
 } from '../services/captchaService'
 import { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled } from '@universo/utils/auth'
-import type { DataSource } from 'typeorm'
+import type { Knex } from 'knex'
 
 const LoginSchema = z.object({
     email: z.string().email().max(320),
@@ -38,12 +38,12 @@ type MiddlewareFn = (...args: any[]) => unknown
 type RouterFactoryOptions = {
     csrfProtection: MiddlewareFn
     loginLimiter: MiddlewareFn
-    getDataSource?: () => DataSource
+    getKnex?: () => Knex
 }
 
-type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getDataSource?: () => DataSource) => Router
+type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getKnex?: () => Knex) => Router
 
-export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getDataSource) => {
+export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getKnex) => {
     const router = Router()
 
     // Captcha configuration endpoint (public, no auth required)
@@ -136,21 +136,24 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
 
             // Save consent data to profile (profile is auto-created by Supabase trigger)
             // Using retry pattern with RETURNING clause for reliable affected row check
-            if (getDataSource) {
+            if (getKnex) {
                 const userId = data.user.id
+                const knex = getKnex()
                 const maxAttempts = 5
                 let consentSaved = false
+
+                const rawQuery = async <T = unknown>(sql: string, params: unknown[]): Promise<T[]> => {
+                    const result = await knex.raw(sql, params as any)
+                    return (result.rows ?? result) as T[]
+                }
 
                 console.info('[auth:profile] Starting profile consent save', { userId, email: data.user.email })
 
                 // Retry up to 5 times with increasing delays to wait for trigger to create profile
                 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                     try {
-                        const dataSource = getDataSource()
-                        console.info('[auth:profile] DataSource obtained', { userId, attempt, isInitialized: dataSource?.isInitialized })
-
                         // First, check if profile exists
-                        const existingProfile = await dataSource.query(
+                        const existingProfile = await rawQuery(
                             `SELECT user_id, nickname, terms_accepted FROM profiles WHERE user_id = $1`,
                             [userId]
                         )
@@ -162,7 +165,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         })
 
                         // Use RETURNING to reliably check if UPDATE affected any rows
-                        const updateResult = await dataSource.query(
+                        const returnedRows = await rawQuery<{ user_id: string }>(
                             `UPDATE profiles 
                              SET terms_accepted = $1, 
                                  terms_accepted_at = $2, 
@@ -174,14 +177,10 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                              RETURNING user_id`,
                             [true, now, true, now, termsVersion, privacyVersion, userId]
                         )
-                        // PostgreSQL with TypeORM returns [rows[], rowCount] for queries with RETURNING
-                        // updateResult[0] is the array of returned rows, updateResult[1] is affected count
-                        const returnedRows = Array.isArray(updateResult) ? updateResult[0] : updateResult
-                        const hasRows = Array.isArray(returnedRows) && returnedRows.length > 0
+                        const hasRows = returnedRows.length > 0
                         console.info('[auth:profile] UPDATE result', {
                             userId,
                             attempt,
-                            rawResult: updateResult,
                             returnedRows,
                             hasRows
                         })
@@ -213,9 +212,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                 if (!consentSaved) {
                     console.info('[auth:profile] UPDATE failed after all attempts, trying UPSERT fallback', { userId })
                     try {
-                        const dataSource = getDataSource()
                         const nickname = `user_${userId.substring(0, 8)}`
-                        const upsertResult = await dataSource.query(
+                        const upsertResult = await rawQuery(
                             `INSERT INTO profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version)
                              VALUES ($1, $2, '{}', $3, $4, $5, $6, $7, $8)
                              ON CONFLICT (user_id) DO UPDATE
@@ -231,7 +229,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         console.info('[auth] consent saved via UPSERT fallback', { userId, result: upsertResult })
 
                         // Verify profile was created
-                        const verifyProfile = await dataSource.query(
+                        const verifyProfile = await rawQuery(
                             `SELECT user_id, nickname, terms_accepted, created_at FROM profiles WHERE user_id = $1`,
                             [userId]
                         )
@@ -245,7 +243,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                     }
                 }
             } else {
-                console.warn('[auth:profile] getDataSource not available, skipping profile consent save')
+                console.warn('[auth:profile] getKnex not available, skipping profile consent save')
             }
 
             console.info('[auth] register success', { email: data.user.email })
@@ -354,13 +352,13 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             return res.status(401).json({ error: 'Unauthorized' })
         }
 
-        if (!getDataSource) {
-            console.warn('[auth] /permissions called but getDataSource not provided')
+        if (!getKnex) {
+            console.warn('[auth] /permissions called but getKnex not provided')
             return res.status(501).json({ error: 'Permissions endpoint not configured' })
         }
 
         try {
-            const permissionService = createPermissionService({ getDataSource })
+            const permissionService = createPermissionService({ getKnex })
             const fullPermissions = await permissionService.getFullPermissions(userId)
 
             console.info('[auth] /permissions success', {

@@ -301,7 +301,7 @@ Source files are consumed directly by other workspace packages via `main`/`modul
 - [`@universo/metahubs-frontend`](../metahubs-frontend/base/README.md) — Metahub management UI
 - [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) — Backend service
 - [`@universo/types`](../universo-types/base/README.md) — Shared TypeScript types
-- [`@universo/template-mui`](../flowise-template-mui/base/README.md) — Base MUI template components
+- [`@universo/template-mui`](../universo-template-mui/base/README.md) — Base MUI template components
 
 ---
-*Part of [Universo Platformo](../../README.md) — A comprehensive metahub management platform*
+*Part of [Universo Platformo](../../README.md) — A package-based business platform*

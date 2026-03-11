@@ -7,23 +7,30 @@
  */
 
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { Knex } from 'knex'
 import { z } from 'zod'
 import stableStringify from 'json-stable-stringify'
-import { AttributeDataType, AttributeValidationRules } from '@universo/types'
-import { validateNumberOrThrow } from '@universo/utils'
 import {
-    Application,
-    Connector,
-    ConnectorPublication,
     ApplicationSchemaStatus,
+    AttributeDataType,
+    AttributeValidationRules
+} from '@universo/types'
+import { validateNumberOrThrow } from '@universo/utils'
+import type { DbExecutor } from '../../../utils'
+import {
     ensureApplicationAccess,
     type ApplicationRole
 } from '@universo/applications-backend'
-import { Publication } from '../../../database/entities/Publication'
-import { PublicationVersion } from '../../../database/entities/PublicationVersion'
+import {
+    findApplicationById,
+    updateApplicationFields,
+    findFirstConnectorByApplicationId,
+    findFirstConnectorPublication,
+    findPublicationById,
+    findPublicationVersionById
+} from '../../../persistence'
+import type { AppRow } from '../../../persistence'
 import { SnapshotSerializer, MetahubSnapshot } from '../../publications/services/SnapshotSerializer'
 import {
     getDDLServices,
@@ -43,6 +50,8 @@ import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsSer
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { TARGET_APP_STRUCTURE_VERSION } from '../constants'
 import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
+import { persistApplicationSchemaSyncState } from '../services/ApplicationSchemaStateStore'
+import { persistConnectorSyncTouch } from '../services/ConnectorSyncTouchStore'
 
 interface RequestUser {
     id?: string
@@ -187,6 +196,25 @@ function normalizeReferenceId(value: unknown): string | null {
     }
 
     return null
+}
+
+function applyApplicationSyncState(
+    application: AppRow,
+    state: {
+        schemaStatus: ApplicationSchemaStatus
+        schemaError: string | null
+        schemaSyncedAt: Date | null
+        schemaSnapshot: Record<string, unknown> | null
+        lastSyncedPublicationVersionId: string | null
+        appStructureVersion: number | null
+    }
+): void {
+    application.schemaStatus = state.schemaStatus
+    application.schemaError = state.schemaError
+    application.schemaSyncedAt = state.schemaSyncedAt
+    application.schemaSnapshot = state.schemaSnapshot
+    application.lastSyncedPublicationVersionId = state.lastSyncedPublicationVersionId
+    application.appStructureVersion = state.appStructureVersion
 }
 
 function extractSetConstantRefConfig(
@@ -384,7 +412,8 @@ export async function seedPredefinedElements(
     schemaName: string,
     snapshot: MetahubSnapshot,
     entities: EntityDefinition[],
-    userId?: string | null
+    userId?: string | null,
+    trx?: Knex.Transaction
 ): Promise<string[]> {
     if (!snapshot.elements || Object.keys(snapshot.elements).length === 0) {
         return []
@@ -392,12 +421,13 @@ export async function seedPredefinedElements(
 
     const entityMap = new Map<string, EntityDefinition>(entities.map((entity) => [entity.id, entity]))
     const knex = KnexClient.getInstance()
+    const executor = trx ?? knex
     const now = new Date()
     const warnings: string[] = []
 
     const catalogOrder = resolveCatalogSeedingOrder(entities)
 
-    await knex.transaction(async (trx) => {
+    const applySeed = async (activeTrx: Knex.Transaction) => {
         for (const objectId of catalogOrder) {
             const rawElements = snapshot.elements?.[objectId] as unknown[] | undefined
             const elements = (rawElements ?? []) as SnapshotElementRow[]
@@ -487,7 +517,7 @@ export async function seedPredefinedElements(
             if (validRows.length === 0) continue
 
             const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns]
-            await trx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
+            await activeTrx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
 
             // Seed TABLE child rows
             if (tableFields.length > 0) {
@@ -504,7 +534,7 @@ export async function seedPredefinedElements(
 
                         const childRows = tableData.map((rowData, index) => {
                             const childRow: Record<string, unknown> = {
-                                id: knex.raw('public.uuid_generate_v7()'),
+                                id: executor.raw('public.uuid_generate_v7()'),
                                 _tp_parent_id: element.id,
                                 _tp_sort_order: (rowData as Record<string, unknown>)?._tp_sort_order ?? index,
                                 _upl_created_at: now,
@@ -520,13 +550,19 @@ export async function seedPredefinedElements(
                         })
 
                         // Delete existing child rows for this parent element (re-seed pattern)
-                        await trx.withSchema(schemaName).table(tabularTableName).where('_tp_parent_id', element.id).del()
-                        await trx.withSchema(schemaName).table(tabularTableName).insert(childRows)
+                        await activeTrx.withSchema(schemaName).table(tabularTableName).where('_tp_parent_id', element.id).del()
+                        await activeTrx.withSchema(schemaName).table(tabularTableName).insert(childRows)
                     }
                 }
             }
         }
-    })
+    }
+
+    if (trx) {
+        await applySeed(trx)
+    } else {
+        await knex.transaction(applySeed)
+    }
 
     return warnings
 }
@@ -623,7 +659,12 @@ async function remapStaleEnumerationReferences(options: {
     }
 }
 
-export async function syncEnumerationValues(schemaName: string, snapshot: MetahubSnapshot, userId?: string | null): Promise<void> {
+export async function syncEnumerationValues(
+    schemaName: string,
+    snapshot: MetahubSnapshot,
+    userId?: string | null,
+    trx?: Knex.Transaction
+): Promise<void> {
     const knex = KnexClient.getInstance()
     const now = new Date()
 
@@ -721,8 +762,8 @@ export async function syncEnumerationValues(schemaName: string, snapshot: Metahu
         _upl_updated_by: userId ?? null
     }
 
-    await knex.transaction(async (trx) => {
-        const tableQuery = () => trx.withSchema(schemaName).table('_app_values')
+    const applySync = async (activeTrx: Knex.Transaction) => {
+        const tableQuery = () => activeTrx.withSchema(schemaName).table('_app_values')
         const existingActiveRows = (await tableQuery()
             .select(['id', 'object_id'])
             .where((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))) as Array<{
@@ -740,7 +781,7 @@ export async function syncEnumerationValues(schemaName: string, snapshot: Metahu
         }
 
         await remapStaleEnumerationReferences({
-            trx,
+            trx: activeTrx,
             schemaName,
             snapshot,
             staleValueIdsByObject,
@@ -793,7 +834,13 @@ export async function syncEnumerationValues(schemaName: string, snapshot: Metahu
             .whereIn('object_id', enumerationObjectIds)
             .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
             .update(softDeletePatch)
-    })
+    }
+
+    if (trx) {
+        await applySync(trx)
+    } else {
+        await knex.transaction(applySync)
+    }
 }
 
 type PersistedAppLayout = {
@@ -1098,26 +1145,28 @@ export async function persistPublishedLayouts(options: {
     schemaName: string
     snapshot: MetahubSnapshot
     userId?: string | null
+    trx?: Knex.Transaction
 }): Promise<void> {
-    const { schemaName, snapshot, userId } = options
+    const { schemaName, snapshot, userId, trx } = options
     const knex = KnexClient.getInstance()
+    const executor = trx ?? knex
 
     try {
         const { generator } = getDDLServices()
-        await generator.ensureSystemTables(schemaName)
+        await generator.ensureSystemTables(schemaName, trx)
     } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[SchemaSync] Failed to ensure _app_layouts for layouts (ignored)', e)
     }
 
-    const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
+    const hasLayouts = await executor.schema.withSchema(schemaName).hasTable('_app_layouts')
     if (!hasLayouts) return
 
     const now = new Date()
     const nextLayouts = normalizeSnapshotLayouts(snapshot)
 
-    await knex.transaction(async (trx) => {
-        const existingRows = await trx
+    const applyPersist = async (activeTrx: Knex.Transaction) => {
+        const existingRows = await activeTrx
             .withSchema(schemaName)
             .from('_app_layouts')
             .where({ _upl_deleted: false, _app_deleted: false })
@@ -1128,7 +1177,7 @@ export async function persistPublishedLayouts(options: {
         // index violation (idx_app_layouts_default_active) when inserting a new
         // default layout while the old one still exists.
         if (existingRows.length > 0) {
-            await trx
+            await activeTrx
                 .withSchema(schemaName)
                 .from('_app_layouts')
                 .where({ _upl_deleted: false, _app_deleted: false, is_default: true })
@@ -1148,7 +1197,7 @@ export async function persistPublishedLayouts(options: {
             }
 
             if (existingIds.has(row.id)) {
-                await trx
+                await activeTrx
                     .withSchema(schemaName)
                     .from('_app_layouts')
                     .where({ id: row.id, _upl_deleted: false, _app_deleted: false })
@@ -1156,10 +1205,10 @@ export async function persistPublishedLayouts(options: {
                         ...payload,
                         _upl_updated_at: now,
                         _upl_updated_by: userId ?? null,
-                        _upl_version: trx.raw('_upl_version + 1')
+                        _upl_version: activeTrx.raw('_upl_version + 1')
                     })
             } else {
-                await trx
+                await activeTrx
                     .withSchema(schemaName)
                     .into('_app_layouts')
                     .insert({
@@ -1182,33 +1231,41 @@ export async function persistPublishedLayouts(options: {
 
         const nextIds = nextLayouts.map((row) => row.id)
         if (nextIds.length > 0) {
-            await trx
+            await activeTrx
                 .withSchema(schemaName)
                 .from('_app_layouts')
                 .where({ _upl_deleted: false, _app_deleted: false })
                 .whereNotIn('id', nextIds)
                 .del()
         } else {
-            await trx.withSchema(schemaName).from('_app_layouts').where({ _upl_deleted: false, _app_deleted: false }).del()
+            await activeTrx.withSchema(schemaName).from('_app_layouts').where({ _upl_deleted: false, _app_deleted: false }).del()
         }
-    })
+    }
+
+    if (trx) {
+        await applyPersist(trx)
+    } else {
+        await knex.transaction(applyPersist)
+    }
 }
 
 export async function persistPublishedWidgets(options: {
     schemaName: string
     snapshot: MetahubSnapshot
     userId?: string | null
+    trx?: Knex.Transaction
 }): Promise<void> {
-    const { schemaName, snapshot, userId } = options
+    const { schemaName, snapshot, userId, trx } = options
     const knex = KnexClient.getInstance()
-    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
+    const executor = trx ?? knex
+    const hasTable = await executor.schema.withSchema(schemaName).hasTable('_app_widgets')
     if (!hasTable) return
 
     const now = new Date()
     const nextRows = normalizeSnapshotLayoutZoneWidgets(snapshot)
 
-    await knex.transaction(async (trx) => {
-        const existingRows = await trx
+    const applyPersist = async (activeTrx: Knex.Transaction) => {
+        const existingRows = await activeTrx
             .withSchema(schemaName)
             .from('_app_widgets')
             .where({ _upl_deleted: false, _app_deleted: false })
@@ -1224,7 +1281,7 @@ export async function persistPublishedWidgets(options: {
                 config: row.config
             }
             if (existingIds.has(row.id)) {
-                await trx
+                await activeTrx
                     .withSchema(schemaName)
                     .from('_app_widgets')
                     .where({ id: row.id, _upl_deleted: false, _app_deleted: false })
@@ -1232,10 +1289,10 @@ export async function persistPublishedWidgets(options: {
                         ...payload,
                         _upl_updated_at: now,
                         _upl_updated_by: userId ?? null,
-                        _upl_version: trx.raw('_upl_version + 1')
+                        _upl_version: activeTrx.raw('_upl_version + 1')
                     })
             } else {
-                await trx
+                await activeTrx
                     .withSchema(schemaName)
                     .into('_app_widgets')
                     .insert({
@@ -1258,16 +1315,22 @@ export async function persistPublishedWidgets(options: {
 
         const nextIds = nextRows.map((row) => row.id)
         if (nextIds.length > 0) {
-            await trx
+            await activeTrx
                 .withSchema(schemaName)
                 .from('_app_widgets')
                 .where({ _upl_deleted: false, _app_deleted: false })
                 .whereNotIn('id', nextIds)
                 .del()
         } else {
-            await trx.withSchema(schemaName).from('_app_widgets').where({ _upl_deleted: false, _app_deleted: false }).del()
+            await activeTrx.withSchema(schemaName).from('_app_widgets').where({ _upl_deleted: false, _app_deleted: false }).del()
         }
-    })
+    }
+
+    if (trx) {
+        await applyPersist(trx)
+    } else {
+        await knex.transaction(applyPersist)
+    }
 }
 
 async function getPersistedDashboardLayoutConfig(options: { schemaName: string }): Promise<Record<string, unknown>> {
@@ -1410,31 +1473,103 @@ async function hasPublishedWidgetsChanges(options: { schemaName: string; snapsho
 export async function persistSeedWarnings(
     schemaName: string,
     migrationManager: ReturnType<typeof getDDLServices>['migrationManager'],
-    warnings: string[]
+    warnings: string[],
+    options?: {
+        trx?: Knex.Transaction
+        migrationId?: string
+    }
 ): Promise<void> {
     if (warnings.length === 0) return
 
-    const latestMigration = await migrationManager.getLatestMigration(schemaName)
-    if (!latestMigration) return
+    const executor = options?.trx ?? KnexClient.getInstance()
 
-    const existing = Array.isArray(latestMigration.meta.seedWarnings) ? latestMigration.meta.seedWarnings : []
-    const mergedWarnings = [...existing, ...warnings]
+    let migrationRecord: { id: string; meta: Record<string, unknown> } | null = null
 
-    const updatedMeta = {
-        ...latestMigration.meta,
-        seedWarnings: mergedWarnings
+    if (options?.migrationId) {
+        const row = await executor
+            .withSchema(schemaName)
+            .table('_app_migrations')
+            .select(['id', 'meta'])
+            .where({ id: options.migrationId })
+            .first()
+        if (!row) return
+        migrationRecord = {
+            id: String(row.id),
+            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta
+        }
+    } else if (options?.trx) {
+        const row = await executor
+            .withSchema(schemaName)
+            .table('_app_migrations')
+            .select(['id', 'meta'])
+            .orderBy('applied_at', 'desc')
+            .first()
+        if (!row) return
+        migrationRecord = {
+            id: String(row.id),
+            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta
+        }
+    } else {
+        const latestMigration = await migrationManager.getLatestMigration(schemaName)
+        if (!latestMigration) return
+        migrationRecord = {
+            id: latestMigration.id,
+            meta: latestMigration.meta as unknown as Record<string, unknown>
+        }
     }
 
-    await KnexClient.getInstance()
+    const existing = Array.isArray(migrationRecord.meta.seedWarnings) ? migrationRecord.meta.seedWarnings : []
+    const mergedWarnings = [...existing, ...warnings]
+
+    await executor
         .withSchema(schemaName)
         .table('_app_migrations')
-        .where({ id: latestMigration.id })
-        .update({ meta: JSON.stringify(updatedMeta) })
+        .where({ id: migrationRecord.id })
+        .update({
+            meta: JSON.stringify({
+                ...migrationRecord.meta,
+                seedWarnings: mergedWarnings
+            })
+        })
+}
+
+export async function runPublishedApplicationRuntimeSync(options: {
+    trx: Knex.Transaction
+    schemaName: string
+    snapshot: MetahubSnapshot
+    entities: EntityDefinition[]
+    migrationManager: ReturnType<typeof getDDLServices>['migrationManager']
+    migrationId?: string
+    userId?: string | null
+}): Promise<{ seedWarnings: string[] }> {
+    const { trx, schemaName, snapshot, entities, migrationManager, migrationId, userId } = options
+
+    await persistPublishedLayouts({
+        schemaName,
+        snapshot,
+        userId,
+        trx
+    })
+    await persistPublishedWidgets({
+        schemaName,
+        snapshot,
+        userId,
+        trx
+    })
+    await syncEnumerationValues(schemaName, snapshot, userId, trx)
+
+    const seedWarnings = await seedPredefinedElements(schemaName, snapshot, entities, userId, trx)
+    await persistSeedWarnings(schemaName, migrationManager, seedWarnings, {
+        trx,
+        migrationId
+    })
+
+    return { seedWarnings }
 }
 
 export function createApplicationSyncRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -1452,11 +1587,11 @@ export function createApplicationSyncRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
+            const exec = getDbExecutor()
 
             // Check access
             try {
-                await ensureApplicationAccess(ds, userId, applicationId, ADMIN_ROLES)
+                await ensureApplicationAccess(exec, userId, applicationId, ADMIN_ROLES)
             } catch (error) {
                 const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
                 if (status === 403) {
@@ -1485,36 +1620,22 @@ export function createApplicationSyncRoutes(
             }
 
             try {
-                const applicationRepo = ds.getRepository(Application)
-                const application = await applicationRepo.findOneBy({ id: applicationId })
+                const application = await findApplicationById(exec, applicationId)
                 if (!application) {
                     return res.status(404).json({ error: 'Application not found' })
                 }
 
-                const connectorRepo = ds.getRepository(Connector)
-                const connector = await connectorRepo.findOne({
-                    where: { applicationId }
-                })
+                const connector = await findFirstConnectorByApplicationId(exec, applicationId)
                 if (!connector) {
                     return res.status(400).json({ error: 'No connector found for this application. Create a connector first.' })
                 }
 
-                const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
-                const connectorPublication = await connectorPublicationRepo.findOne({
-                    where: { connectorId: connector.id }
-                })
+                const connectorPublication = await findFirstConnectorPublication(exec, connector.id)
                 if (!connectorPublication) {
                     return res.status(400).json({ error: 'Connector is not linked to any Publication. Link a Publication first.' })
                 }
 
-                const touchConnectorUpdatedAt = async () => {
-                    connector._uplUpdatedBy = userId
-                    connector._uplUpdatedAt = new Date()
-                    await connectorRepo.save(connector)
-                }
-
-                const publicationRepo = ds.getRepository(Publication)
-                const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+                const publication = await findPublicationById(exec, connectorPublication.publicationId)
                 if (!publication) {
                     return res.status(400).json({ error: 'Linked publication not found' })
                 }
@@ -1526,8 +1647,7 @@ export function createApplicationSyncRoutes(
                     })
                 }
 
-                const versionRepo = ds.getRepository(PublicationVersion)
-                const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
+                const activeVersion = await findPublicationVersionById(exec, publication.activeVersionId)
                 if (!activeVersion) {
                     return res.status(404).json({ error: 'Active version data not found' })
                 }
@@ -1538,7 +1658,7 @@ export function createApplicationSyncRoutes(
                 }
 
                 // Init services for serializer
-                const schemaService = new MetahubSchemaService(ds)
+                const schemaService = new MetahubSchemaService(exec)
                 const objectsService = new MetahubObjectsService(schemaService)
                 const attributesService = new MetahubAttributesService(schemaService)
                 // hubRepo removed - hubs are now in isolated schemas
@@ -1549,10 +1669,11 @@ export function createApplicationSyncRoutes(
                 const snapshotHash = activeVersion.snapshotHash || serializer.calculateHash(snapshot)
 
                 const { generator, migrator, migrationManager } = getDDLServices()
+                const knex = KnexClient.getInstance()
 
                 if (!application.schemaName) {
                     application.schemaName = generateSchemaName(application.id)
-                    await applicationRepo.save(application)
+                    await updateApplicationFields(exec, application.id, { schemaName: application.schemaName })
                 }
 
                 const schemaExists = await generator.schemaExists(application.schemaName)
@@ -1575,35 +1696,53 @@ export function createApplicationSyncRoutes(
                         })
                         const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
 
-                        application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                        application.schemaError = null
-                        application.schemaSyncedAt = new Date()
-                        application.lastSyncedPublicationVersionId = activeVersion.id
-                        application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
-                        await applicationRepo.save(application)
+                        const schemaSyncedAt = new Date()
+                        const schemaSnapshot =
+                            (application.schemaSnapshot as Record<string, unknown> | null) ??
+                            (generator.generateSnapshot(catalogDefs) as unknown as Record<string, unknown>)
+                        const { seedWarnings } = await knex.transaction(async (trx) => {
+                            await generator.syncSystemMetadata(application.schemaName!, catalogDefs, {
+                                trx,
+                                userId,
+                                removeMissing: true
+                            })
 
-                        // Keep system metadata in sync even when DDL didn't change.
-                        // This covers non-DDL evolutions (e.g., new metadata columns like sort_order) and keeps runtime UI stable.
-                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, {
-                            userId,
-                            removeMissing: true
+                            const runtimeSyncResult = await runPublishedApplicationRuntimeSync({
+                                trx,
+                                schemaName: application.schemaName!,
+                                snapshot,
+                                entities: catalogDefs,
+                                migrationManager,
+                                userId
+                            })
+
+                            await persistApplicationSchemaSyncState(trx, {
+                                applicationId: application.id,
+                                schemaStatus: ApplicationSchemaStatus.SYNCED,
+                                schemaError: null,
+                                schemaSyncedAt,
+                                schemaSnapshot,
+                                lastSyncedPublicationVersionId: activeVersion.id,
+                                appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                                userId
+                            })
+
+                            await persistConnectorSyncTouch(trx, {
+                                connectorId: connector.id,
+                                userId
+                            })
+
+                            return runtimeSyncResult
                         })
 
-                        await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                        await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
-                        await syncEnumerationValues(application.schemaName!, snapshot, userId)
-
-                        // Seed predefined elements even on hash match — previous seed may have failed
-                        let seedWarnings: string[] = []
-                        try {
-                            seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-                            await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
-                        } catch (seedErr: unknown) {
-                            const msg = seedErr instanceof Error ? seedErr.message : String(seedErr)
-                            console.warn(`[sync] Seed predefined elements failed on hash-match fast path: ${msg}`)
-                            seedWarnings = [`Seed error: ${msg}`]
-                        }
-                        await touchConnectorUpdatedAt()
+                        applyApplicationSyncState(application, {
+                            schemaStatus: ApplicationSchemaStatus.SYNCED,
+                            schemaError: null,
+                            schemaSyncedAt,
+                            schemaSnapshot,
+                            lastSyncedPublicationVersionId: activeVersion.id,
+                            appStructureVersion: TARGET_APP_STRUCTURE_VERSION
+                        })
 
                         return res.json({
                             status: hasUiChanges || seedWarnings.length > 0 ? 'ui_updated' : 'no_changes',
@@ -1615,23 +1754,54 @@ export function createApplicationSyncRoutes(
 
                 // Set MAINTENANCE status so other users see the maintenance page during sync
                 application.schemaStatus = ApplicationSchemaStatus.MAINTENANCE
-                await applicationRepo.save(application)
+                await updateApplicationFields(exec, application.id, { schemaStatus: ApplicationSchemaStatus.MAINTENANCE })
 
                 try {
                     if (!schemaExists) {
+                        const schemaSyncedAt = new Date()
                         const result = await generator.generateFullSchema(application.schemaName!, catalogDefs, {
                             recordMigration: true,
                             migrationDescription: 'initial_schema',
                             migrationManager,
                             migrationMeta,
                             publicationSnapshot,
-                            userId
+                            userId,
+                            afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
+                                await runPublishedApplicationRuntimeSync({
+                                    trx,
+                                    schemaName: application.schemaName!,
+                                    snapshot,
+                                    entities: catalogDefs,
+                                    migrationManager,
+                                    migrationId,
+                                    userId
+                                })
+
+                                await persistApplicationSchemaSyncState(trx, {
+                                    applicationId: application.id,
+                                    schemaStatus: ApplicationSchemaStatus.SYNCED,
+                                    schemaError: null,
+                                    schemaSyncedAt,
+                                    schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                                    lastSyncedPublicationVersionId: activeVersion.id,
+                                    appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                                    userId
+                                })
+
+                                await persistConnectorSyncTouch(trx, {
+                                    connectorId: connector.id,
+                                    userId
+                                })
+                            }
                         })
 
                         if (!result.success) {
                             application.schemaStatus = ApplicationSchemaStatus.ERROR
                             application.schemaError = result.errors.join('; ')
-                            await applicationRepo.save(application)
+                            await updateApplicationFields(exec, application.id, {
+                                schemaStatus: ApplicationSchemaStatus.ERROR,
+                                schemaError: result.errors.join('; ')
+                            })
 
                             return res.status(500).json({
                                 status: 'error',
@@ -1641,21 +1811,16 @@ export function createApplicationSyncRoutes(
                         }
 
                         const schemaSnapshot = generator.generateSnapshot(catalogDefs)
-                        application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                        application.schemaError = null
-                        application.schemaSyncedAt = new Date()
-                        application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
-                        application.lastSyncedPublicationVersionId = activeVersion.id
-                        application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
-                        await applicationRepo.save(application)
-
-                        await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                        await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
-                        await syncEnumerationValues(application.schemaName!, snapshot, userId)
-
-                        const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-                        await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
-                        await touchConnectorUpdatedAt()
+                        applyApplicationSyncState(application, {
+                            schemaStatus: ApplicationSchemaStatus.SYNCED,
+                            schemaError: null,
+                            schemaSyncedAt,
+                            schemaSnapshot: schemaSnapshot as unknown as Record<string, unknown>,
+                            lastSyncedPublicationVersionId: activeVersion.id,
+                            appStructureVersion: TARGET_APP_STRUCTURE_VERSION
+                        })
+                        const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
+                        const seedWarnings = Array.isArray(latestMigration?.meta?.seedWarnings) ? latestMigration.meta.seedWarnings : []
 
                         return res.json({
                             status: 'created',
@@ -1679,60 +1844,77 @@ export function createApplicationSyncRoutes(
                         })
                         const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
 
-                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, {
-                            userId,
-                            removeMissing: true
-                        })
-
-                        application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                        application.schemaError = null
-                        application.schemaSyncedAt = new Date()
-                        application.lastSyncedPublicationVersionId = activeVersion.id
-                        application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
-                        await applicationRepo.save(application)
-
-                        await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                        await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
-                        await syncEnumerationValues(application.schemaName!, snapshot, userId)
-
-                        // Seed predefined elements even when schema DDL hasn't changed —
-                        // new elements may have been added to the metahub since the last sync.
-                        const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-
-                        // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
-                        // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
                         const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
                         const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
-                        if (snapshotHash && lastAppliedHash !== snapshotHash) {
-                            const snapshotBefore = (application.schemaSnapshot as SchemaSnapshot | null) ?? null
-                            const snapshotAfter = generator.generateSnapshot(catalogDefs)
-                            const metaOnlyDiff = {
-                                hasChanges: false,
-                                additive: [],
-                                destructive: [],
-                                summary: 'System metadata updated (no DDL changes)'
+                        const snapshotBefore = (application.schemaSnapshot as SchemaSnapshot | null) ?? null
+                        const snapshotAfter = generator.generateSnapshot(catalogDefs)
+                        const metaOnlyDiff = {
+                            hasChanges: false,
+                            additive: [],
+                            destructive: [],
+                            summary: 'System metadata updated (no DDL changes)'
+                        }
+
+                        const schemaSyncedAt = new Date()
+                        const { seedWarnings } = await knex.transaction(async (trx) => {
+                            await generator.syncSystemMetadata(application.schemaName!, catalogDefs, {
+                                trx,
+                                userId,
+                                removeMissing: true
+                            })
+
+                            let migrationId: string | undefined
+                            if (snapshotHash && lastAppliedHash !== snapshotHash) {
+                                migrationId = await migrationManager.recordMigration(
+                                    application.schemaName!,
+                                    generateMigrationName('system_sync'),
+                                    snapshotBefore,
+                                    snapshotAfter,
+                                    metaOnlyDiff,
+                                    trx,
+                                    migrationMeta,
+                                    publicationSnapshot,
+                                    userId
+                                )
                             }
 
-                            await migrationManager.recordMigration(
-                                application.schemaName!,
-                                generateMigrationName('system_sync'),
-                                snapshotBefore,
-                                snapshotAfter,
-                                metaOnlyDiff,
-                                undefined,
-                                migrationMeta,
-                                publicationSnapshot,
+                            const runtimeSyncResult = await runPublishedApplicationRuntimeSync({
+                                trx,
+                                schemaName: application.schemaName!,
+                                snapshot,
+                                entities: catalogDefs,
+                                migrationManager,
+                                migrationId,
                                 userId
-                            )
+                            })
 
-                            application.schemaSnapshot = snapshotAfter as unknown as Record<string, unknown>
-                            await applicationRepo.save(application)
-                        }
+                            await persistApplicationSchemaSyncState(trx, {
+                                applicationId: application.id,
+                                schemaStatus: ApplicationSchemaStatus.SYNCED,
+                                schemaError: null,
+                                schemaSyncedAt,
+                                schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                                lastSyncedPublicationVersionId: activeVersion.id,
+                                appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                                userId
+                            })
 
-                        if (seedWarnings.length > 0) {
-                            await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
-                        }
-                        await touchConnectorUpdatedAt()
+                            await persistConnectorSyncTouch(trx, {
+                                connectorId: connector.id,
+                                userId
+                            })
+
+                            return runtimeSyncResult
+                        })
+
+                        applyApplicationSyncState(application, {
+                            schemaStatus: ApplicationSchemaStatus.SYNCED,
+                            schemaError: null,
+                            schemaSyncedAt,
+                            schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                            lastSyncedPublicationVersionId: activeVersion.id,
+                            appStructureVersion: TARGET_APP_STRUCTURE_VERSION
+                        })
 
                         const hasElementChanges = seedWarnings.length > 0
                         return res.json({
@@ -1748,7 +1930,7 @@ export function createApplicationSyncRoutes(
 
                     if (hasDestructiveChanges && !confirmDestructive) {
                         application.schemaStatus = ApplicationSchemaStatus.OUTDATED
-                        await applicationRepo.save(application)
+                        await updateApplicationFields(exec, application.id, { schemaStatus: ApplicationSchemaStatus.OUTDATED })
 
                         return res.json({
                             status: 'pending_confirmation',
@@ -1763,18 +1945,49 @@ export function createApplicationSyncRoutes(
                         })
                     }
 
+                    const schemaSyncedAt = new Date()
                     const migrationResult = await migrator.applyAllChanges(application.schemaName!, diff, catalogDefs, confirmDestructive, {
                         recordMigration: true,
                         migrationDescription: 'schema_sync',
                         migrationMeta,
                         publicationSnapshot,
-                        userId
+                        userId,
+                        afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
+                            await runPublishedApplicationRuntimeSync({
+                                trx,
+                                schemaName: application.schemaName!,
+                                snapshot,
+                                entities: catalogDefs,
+                                migrationManager,
+                                migrationId,
+                                userId
+                            })
+
+                            await persistApplicationSchemaSyncState(trx, {
+                                applicationId: application.id,
+                                schemaStatus: ApplicationSchemaStatus.SYNCED,
+                                schemaError: null,
+                                schemaSyncedAt,
+                                schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                                lastSyncedPublicationVersionId: activeVersion.id,
+                                appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                                userId
+                            })
+
+                            await persistConnectorSyncTouch(trx, {
+                                connectorId: connector.id,
+                                userId
+                            })
+                        }
                     })
 
                     if (!migrationResult.success) {
                         application.schemaStatus = ApplicationSchemaStatus.ERROR
                         application.schemaError = migrationResult.errors.join('; ')
-                        await applicationRepo.save(application)
+                        await updateApplicationFields(exec, application.id, {
+                            schemaStatus: ApplicationSchemaStatus.ERROR,
+                            schemaError: migrationResult.errors.join('; ')
+                        })
 
                         return res.status(500).json({
                             status: 'error',
@@ -1784,21 +1997,16 @@ export function createApplicationSyncRoutes(
                     }
 
                     const newSnapshot = generator.generateSnapshot(catalogDefs)
-                    application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                    application.schemaError = null
-                    application.schemaSyncedAt = new Date()
-                    application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
-                    application.lastSyncedPublicationVersionId = activeVersion.id
-                    application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
-                    await applicationRepo.save(application)
-
-                    await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                    await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
-                    await syncEnumerationValues(application.schemaName!, snapshot, userId)
-
-                    const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-                    await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
-                    await touchConnectorUpdatedAt()
+                    applyApplicationSyncState(application, {
+                        schemaStatus: ApplicationSchemaStatus.SYNCED,
+                        schemaError: null,
+                        schemaSyncedAt,
+                        schemaSnapshot: newSnapshot as unknown as Record<string, unknown>,
+                        lastSyncedPublicationVersionId: activeVersion.id,
+                        appStructureVersion: TARGET_APP_STRUCTURE_VERSION
+                    })
+                    const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
+                    const seedWarnings = Array.isArray(latestMigration?.meta?.seedWarnings) ? latestMigration.meta.seedWarnings : []
 
                     return res.json({
                         status: 'migrated',
@@ -1810,7 +2018,10 @@ export function createApplicationSyncRoutes(
                 } catch (error) {
                     application.schemaStatus = ApplicationSchemaStatus.ERROR
                     application.schemaError = error instanceof Error ? error.message : 'Unknown error'
-                    await applicationRepo.save(application)
+                    await updateApplicationFields(exec, application.id, {
+                        schemaStatus: ApplicationSchemaStatus.ERROR,
+                        schemaError: error instanceof Error ? error.message : 'Unknown error'
+                    })
 
                     return res.status(500).json({
                         status: 'error',
@@ -1836,10 +2047,10 @@ export function createApplicationSyncRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
+            const exec = getDbExecutor()
 
             try {
-                await ensureApplicationAccess(ds, userId, applicationId, ADMIN_ROLES)
+                await ensureApplicationAccess(exec, userId, applicationId, ADMIN_ROLES)
             } catch (error) {
                 const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
                 if (status === 403) {
@@ -1848,28 +2059,22 @@ export function createApplicationSyncRoutes(
                 throw error
             }
 
-            const applicationRepo = ds.getRepository(Application)
-            const application = await applicationRepo.findOneBy({ id: applicationId })
+            const application = await findApplicationById(exec, applicationId)
             if (!application) {
                 return res.status(404).json({ error: 'Application not found' })
             }
 
-            const connectorRepo = ds.getRepository(Connector)
-            const connector = await connectorRepo.findOne({ where: { applicationId } })
+            const connector = await findFirstConnectorByApplicationId(exec, applicationId)
             if (!connector) {
                 return res.status(400).json({ error: 'No connector found' })
             }
 
-            const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
-            const connectorPublication = await connectorPublicationRepo.findOne({
-                where: { connectorId: connector.id }
-            })
+            const connectorPublication = await findFirstConnectorPublication(exec, connector.id)
             if (!connectorPublication) {
                 return res.status(400).json({ error: 'Connector not linked to Publication' })
             }
 
-            const publicationRepo = ds.getRepository(Publication)
-            const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+            const publication = await findPublicationById(exec, connectorPublication.publicationId)
             if (!publication) {
                 return res.status(400).json({ error: 'Linked publication not found' })
             }
@@ -1881,8 +2086,7 @@ export function createApplicationSyncRoutes(
                 })
             }
 
-            const versionRepo = ds.getRepository(PublicationVersion)
-            const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
+            const activeVersion = await findPublicationVersionById(exec, publication.activeVersionId)
             if (!activeVersion) {
                 return res.status(404).json({ error: 'Active version data not found' })
             }
@@ -1892,7 +2096,7 @@ export function createApplicationSyncRoutes(
                 return res.status(400).json({ error: 'Invalid publication snapshot' })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(exec)
             const objectsService = new MetahubObjectsService(schemaService)
             const attributesService = new MetahubAttributesService(schemaService)
             // hubRepo removed - hubs are now in isolated schemas

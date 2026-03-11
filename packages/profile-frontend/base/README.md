@@ -374,9 +374,9 @@ export default {
 4. Submit PR with description
 
 ## Related Packages
-- [`@universo/profile-backend`](../profile-backend/base/README.md) - Backend profile service
-- [`@universo/auth-frontend`](../auth-frontend/base/README.md) - Authentication frontend
-- [`@universo/i18n`](../universo-i18n/base/README.md) - Internationalization
+- [`@universo/profile-backend`](../../profile-backend/base/README.md) - Backend profile service
+- [`@universo/auth-frontend`](../../auth-frontend/base/README.md) - Authentication frontend
+- [`@universo/i18n`](../../universo-i18n/base/README.md) - Internationalization
 
 ---
-*Part of [Universo Platformo](../../../README.md) - A comprehensive metaverse management platform*
+*Part of [Universo Platformo](../../../README.md) - A package-based business platform*

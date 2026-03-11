@@ -1,24 +1,23 @@
 ---
-description: Организация пакетов и структура монорепозитория.
+description: Объясняет, как организован PNPM-монорепозиторий.
 ---
 
 # Структура монорепозитория
 
-{% hint style="info" %}
-**Страница в разработке.** Подробная документация будет добавлена в ближайшее время.
-{% endhint %}
+Рабочее пространство использует PNPM workspaces и Turborepo. Большинство пакетов следует
+схеме `packages/<name>/base`, тогда как небольшое число корней пакетов, вроде
+`packages/apps-template-mui` или `packages/universo-rest-docs`, живёт без
+вложенного слоя `base`.
 
-## Обзор
+## Основные группы пакетов
 
-Universo Platformo организован как pnpm-монорепозиторий с Turborepo для оркестрации сборки. Пакеты находятся в директории `packages/`, каждый со своей директорией `base/` для реализации по умолчанию.
+- Core shell packages: `@universo/core-backend`, `@universo/core-frontend`.
+- Функциональные пакеты: auth, start, profile, metahubs, applications, admin.
+- Инфраструктурные пакеты: database, schema-ddl, migrations, types, utils, i18n.
+- Пакеты поддержки UI: template-mui, apps-template-mui, store.
+- Пакеты документации: rest-docs и GitBook-исходники в `docs/`.
 
-## Ключевые концепции
+## Межпакетные правила
 
-* Рабочие пространства pnpm (pnpm workspaces)
-* Конвейер сборки Turborepo
-* Соглашение по директории `base/`
-* Соглашения по именованию пакетов
-
-## Документация
-
-Скоро будет добавлена.
+Используйте имена workspace-пакетов для импортов между пакетами и запускайте
+PNPM-команды из корня репозитория.

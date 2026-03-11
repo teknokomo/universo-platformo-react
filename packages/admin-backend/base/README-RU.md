@@ -1,6 +1,6 @@
 # @universo/admin-backend
 
-> 🏗️ **Современный пакет** - Архитектура TypeScript-first с Express.js и TypeORM
+> 🏗️ **Современный пакет** - Архитектура TypeScript-first с Express.js, SQL-first persistence и Zod
 
 Бэкенд-сервис для управления глобальными администраторами (суперадмин и супермодератор) с RBAC-системой.
 
@@ -9,7 +9,7 @@
 - **Версия**: 0.1.0
 - **Тип**: Backend-сервис (TypeScript)
 - **Статус**: ✅ Активная разработка
-- **Архитектура**: Modern с Express.js + TypeORM + Zod валидация
+- **Архитектура**: Modern с Express.js + SQL-first persistence helper-модулями + Zod валидация
 
 ## Ключевые возможности
 
@@ -25,9 +25,9 @@
 - Интеграция с RLS через PostgreSQL-функции
 
 ### 📊 База данных
-- TypeORM-сущности в схеме `admin`
+- SQL-first store-модули в схеме `admin`
 - PostgreSQL с JSONB для локализованного контента
-- Гибридный подход: TypeORM для CRUD, SQL-функции для согласованности с RLS
+- PostgreSQL-функции переиспользуются для согласованных проверок доступа и прав
 
 ## API-справочник
 
@@ -55,9 +55,9 @@ GET    /api/v1/admin/roles/global          # Список ролей с глоб
 
 ```typescript
 import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
-import { getDataSource } from '@universo/flowise-core-backend'
+import { createKnexExecutor, getKnex } from '@universo/database'
 
-const globalAccessService = createGlobalAccessService({ getDataSource })
+const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
 const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService })
 
 app.use('/api/v1/admin/global-users', globalUsersRoutes)
@@ -66,11 +66,13 @@ app.use('/api/v1/admin/global-users', globalUsersRoutes)
 ### Проверка доступа в других модулях
 
 ```typescript
-import { hasGlobalAccessByDataSource } from '@universo/admin-backend'
-import { getDataSource } from '@universo/flowise-core-backend'
+import { createGlobalAccessService } from '@universo/admin-backend'
+import { createKnexExecutor, getKnex } from '@universo/database'
+
+const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
 
 // В вашем guard'е доступа
-const hasAccess = await hasGlobalAccessByDataSource(getDataSource(), userId)
+const hasAccess = await globalAccessService.canAccessAdmin(userId)
 if (hasAccess) {
     // Пропустить проверку владельца для глобальных админов
 }
@@ -106,36 +108,32 @@ if (hasAccess) {
 
 ## Архитектура
 
-### Гибридный подход SQL + TypeORM
+### SQL-first паттерн доступа
 
-Этот модуль использует продуманный гибридный подход:
+Этот модуль использует SQL-first сервисы и нейтральные DB-контракты:
 
-- **TypeORM Repository** для простых CRUD-операций (запросы ролей, удаление назначений)
-- **Raw SQL** для PostgreSQL-функций (`admin.has_global_access()`) для согласованности с RLS-политиками
+- **DbExecutor / DbSession** для всех запросов на уровне роутов и сервисов
+- **Raw SQL** для PostgreSQL-функций, таких как `admin.is_superuser()` и `admin.has_permission()`
+- **Legacy compatibility wrappers** только там, где другие пакеты всё ещё импортируют исторические helper'ы
 
-Такой дизайн гарантирует, что проверки прав в коде приложения точно соответствуют RLS-политикам на уровне базы данных.
+Такой дизайн гарантирует, что проверки прав в коде приложения точно соответствуют database-level permission functions.
 
 ## Устранение неполадок
 
 ### Список ролей зависает при прямом переходе
 
 - **Симптом**: При прямом переходе или перезагрузке `/admin/instance/:id/roles` интерфейс остаётся на скелетонах, а в Network висят `GET /api/v1/admin/roles`.
-- **Причина**: Проверки guard выполнялись вне request-scoped RLS `QueryRunner`, конкурировали за соединения пула и иногда работали после освобождения runner, что приводило к `QueryRunnerAlreadyReleasedError` или зависшим запросам.
-- **Решение**: Использовать `QueryRunner` запроса для проверок доступа и прав, а к `DataSource` переходить только при отсутствии активного runner. Схема БД не менялась.
+- **Причина**: Проверки guard выполнялись вне request-scoped DB session, конкурировали за соединения пула и иногда работали после освобождения request context.
+- **Решение**: Использовать request `DbSession` для проверок доступа и прав, а к pool-level `DbExecutor` переходить только при отсутствии активного request context. Схема БД не менялась.
 
 ## Структура файлов
 
 ```
 packages/admin-backend/base/
 ├── src/
-│   ├── database/
-│   │   ├── entities/          # TypeORM-сущности
-│   │   │   ├── Role.ts
-│   │   │   ├── RolePermission.ts
-│   │   │   └── UserRole.ts
-│   │   └── migrations/        # Миграции базы данных
 │   ├── guards/
 │   │   └── ensureGlobalAccess.ts
+│   ├── persistence/           # SQL-first query helper-модули для ролей/settings/locales/instances
 │   ├── routes/
 │   │   └── globalUsersRoutes.ts
 │   ├── schemas/
@@ -151,7 +149,6 @@ packages/admin-backend/base/
 | Пакет | Версия | Назначение |
 |-------|--------|------------|
 | `express` | ^4.18.2 | HTTP-сервер |
-| `typeorm` | catalog | ORM для базы данных |
 | `zod` | ^3.25.76 | Валидация схем |
 | `http-errors` | catalog | Обработка HTTP-ошибок |
 

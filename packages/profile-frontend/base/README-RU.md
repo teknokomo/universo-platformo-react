@@ -374,9 +374,9 @@ export default {
 4. Отправьте PR с описанием
 
 ## Связанные пакеты
-- [`@universo/profile-backend`](../profile-backend/base/README.md) - Бэкенд сервис профилей
-- [`@universo/auth-frontend`](../auth-frontend/base/README.md) - Фронтенд аутентификации
-- [`@universo/i18n`](../universo-i18n/base/README.md) - Интернационализация
+- [`@universo/profile-backend`](../../profile-backend/base/README-RU.md) - Бэкенд сервис профилей
+- [`@universo/auth-frontend`](../../auth-frontend/base/README-RU.md) - Фронтенд аутентификации
+- [`@universo/i18n`](../../universo-i18n/base/README-RU.md) - Интернационализация
 
 ---
-*Часть [Universo Platformo](../../../README-RU.md) - Комплексная платформа управления мета-вселенными*
+*Часть [Universo Platformo](../../../README-RU.md) - Пакетная бизнес-платформа*

@@ -1,24 +1,23 @@
 ---
-description: Usage analytics and insights for your content.
+description: Describe analytics, observability, and future operational insight layers.
 ---
 
-# Analytics
+# Analytics and Observability
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Analytics in Universo Platformo should be read broadly: metrics, operational
+feedback, publication outcomes, and future planning insight across the platform.
 
-## Overview
+## Current Repository Signals
 
-The Analytics module provides insights into how your published content is used and interacted with.
+The repository already emphasizes request handling, access control, migrations,
+validation, OpenAPI exposure, and admin flows. Those are prerequisites for any
+credible analytics or observability layer.
 
-## Key Features
+## Direction Of Travel
 
-* Usage dashboards
-* Performance metrics
-* User engagement analytics
-* Data export
+- Operational metrics for platform modules and installations.
+- Better visibility into publication and application behavior.
+- Feedback loops for planning, governance, and execution quality.
+- Shared definitions that make analytics portable across stacks.
 
-## Documentation
-
-Coming soon.
+This keeps analytics tied to platform operations and execution quality.

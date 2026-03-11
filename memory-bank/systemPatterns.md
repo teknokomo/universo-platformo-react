@@ -96,36 +96,112 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 
 **Why**: Workspace consumers resolve exported package subpaths during package builds; stable dist outputs are required for TypeScript and bundlers to agree on the same module surface.
 
-## RLS Integration Pattern (CRITICAL)
+## Request-Scoped DB Contract Pattern (CRITICAL)
 
-**Rule**: All DB access via TypeORM Repository with user context for RLS.
-**Required**: `getDataSource().getRepository(Entity)` and RLS session context.
-**Detection**: `rg "supabaseClient" packages` (antipattern).
-**Fix**: Use repositories + request-scoped context.
-**Why**: Prevents bypassing RLS policies.
+**Rule**: All new or refactored DB access must use the neutral request-scoped contract (`DbExecutor` / `DbSession`) or package-level SQL-first persistence stores built on top of it.
+**Required**: `getRequestDbExecutor()` / `getRequestDbSession()` for neutral paths; request-scoped SQL helpers for transactional work.
+**Detection**: `rg "getRequestManager\(|getRepository\(" packages` to find legacy TypeORM-only consumers.
+**Fix**: Move route/service logic into SQL-first stores or executor-backed helpers while keeping RLS/session propagation intact.
+**Why**: Preserves RLS semantics without keeping TypeORM in newly migrated packages.
 
-## TypeORM Repository Pattern (CRITICAL)
+## Soft-Delete Parity At Persistence Boundaries (CRITICAL)
 
-**Rule**: Do not call raw SQL in services; use repositories.
-**Required**: `getDataSource()` and per-entity repository.
-**Detection**: `rg "\.query\(" packages/*/src`.
+**Rule**: SQL-first stores and access guards must treat `_upl_deleted = true` or `_app_deleted = true` rows as inactive in every list/find/count/access query, not only in route-local ad hoc SQL.
+
+**Required**:
+- Put active-row predicates directly inside persistence helpers and guard lookups.
+- Keep duplicate/single-required checks aligned with the same active-row predicate used by the partial indexes.
+- Do not rely on route-level filtering alone for deleted-row exclusion.
+
+**Detection**:
+- `rg "FROM applications\\.(applications|connectors|connectors_publications|applications_users)" packages/applications-backend/base/src`
+- Check that each read/count/access query also contains `COALESCE(..._upl_deleted, false) = false` and `COALESCE(..._app_deleted, false) = false` where applicable.
+
+**Why**: The platform uses soft-delete flags plus active partial indexes to define live records. If stores or guards skip those predicates, deleted rows can silently reappear in access checks, duplicate-link detection, required-link constraints, and list/detail APIs.
+
+## Metahub Active-Row Parity In SQL-First Stores (CRITICAL)
+
+**Rule**: Metahub-domain SQL-first stores and access guards must treat rows as active only when both `_upl_deleted = false` and `_mhb_deleted = false`.
+
+**Required**:
+- Apply the dual predicate in metahub, branch, membership, publication, and publication-version list/find/count/access queries.
+- Apply the same dual predicate inside soft-delete helpers and guard membership lookups, not only in route code.
+- When soft-deleting metahub-domain rows, update both `_upl_*` delete fields and `_mhb_*` delete fields together.
+
+**Detection**:
+- `rg "_upl_deleted = false" packages/metahubs-backend/base/src/persistence packages/metahubs-backend/base/src/domains/shared`
+- Verify that metahub-domain queries also include `_mhb_deleted = false` for the same alias or table.
+
+**Why**: The platform schema and active partial indexes for metahub-domain tables define liveness through both delete layers. If SQL-first helpers only enforce `_upl_deleted`, deleted memberships can still grant access and deleted branches/publications can re-enter active reads.
+
+## Cross-Schema Soft-Delete Predicate Pattern (CRITICAL)
+
+**Rule**: Never reuse one domain's active-row predicate on tables from another schema if their lifecycle columns differ.
+
+**Required**:
+- Application tables use `_upl_deleted` plus `_app_deleted`.
+- Metahub platform tables use `_upl_deleted` plus `_mhb_deleted`.
+- Cross-schema joins must apply the predicate that matches each alias's owning schema, even when the query itself lives in one package.
+
+**Detection**:
+- `rg "activeRowPredicate\('p'\)|activeRowPredicate\('m'\)|_app_deleted" packages/applications-backend/base/src`
+- Inspect joins from `applications.*` into `metahubs.*` and verify alias-specific predicates instead of one shared helper.
+
 **Symptoms**:
-- RLS bypass.
-- Untracked schema drift.
+- Runtime SQL errors such as `column p._app_deleted does not exist`.
+- Connector/publication views fail only when cross-domain metadata is joined.
+
+**Why**: Application and Metahub schemas intentionally keep different lifecycle columns. Cross-domain query helpers must preserve that contract per alias or they will emit invalid SQL despite both sides individually following soft-delete conventions.
+
+## Managed Schema Drop Safety Pattern (CRITICAL)
+
+**Rule**: Any helper that executes `DROP SCHEMA` for runtime application schemas must validate the schema name inside the helper itself, even if callers already performed route-level validation.
+
+**Required**:
+- Accept only managed application schemas (`app_*`) that pass the shared schema-name validator.
+- Quote the identifier before interpolation into raw SQL.
+- Fail before executing any SQL when validation fails.
+
+**Why**: Route-level checks are not a sufficient safety boundary for reusable persistence helpers. The helper itself must enforce managed-schema rules so future callers cannot accidentally bypass the invariant.
+
+## TypeORM Residue Boundary Pattern (TRANSITIONAL)
+
+**Rule**: Treat TypeORM as removed from the live architecture. No new package, route, service, or helper may introduce `DataSource`, repositories, entities, or TypeORM-specific request helpers.
+**Required**: New work must use `@universo/database`, `DbExecutor`, `DbSession`, `SqlQueryable`, and SQL-first persistence stores.
+**Detection**: `rg "typeorm|DataSource|getRequestManager\(|getRepository\(" packages`.
+**Symptoms**:
+- TypeORM APIs leaking back into freshly migrated packages.
+- New docs or helpers describing `DataSource` or repository-based flows as current practice.
 **Fix**:
 ```typescript
-const repo = getDataSource().getRepository(MyEntity)
-return repo.find({ where: { ... } })
+const executor = getRequestDbExecutor(req, createKnexExecutor(getKnex()))
+return applicationsStore.listApplications(executor, userId)
 ```
 
-**Exception (cross-schema joins)**: When TypeORM cannot model cross-schema relations (e.g., connectors ↔ metahubs), use raw SQL **only** via the request-scoped manager: `getRequestManager(req, ds).query(...)`. This preserves RLS context.
+**Exception**: compatibility-only comments or historical progress entries may mention removed TypeORM surfaces, but they must not describe them as current architecture.
 
 ## DDL Utilities Pattern (schema-ddl)
 
 **Rule**: Runtime schema operations must use `@universo/schema-ddl` with DI-created services.
 **Required**: Instantiate via `createDDLServices(knex)` or backend wrapper `getDDLServices()`.
-**Avoid**: Deprecated static wrappers (use naming utilities directly) and raw string interpolation in `knex.raw`.
+**Avoid**: Deprecated static wrappers (use naming utilities directly) and unsafe raw string interpolation in `knex.raw`.
+**Compensation Rule**: If metadata creation commits before a runtime DDL step runs, the caller must fail loudly and compensate the fresh metadata immediately when DDL/runtime sync fails.
 **Why**: Consistent DI simplifies testing and reduces SQL injection risk.
+
+## Statement Timeout Helper Pattern (CRITICAL)
+
+**Rule**: PostgreSQL `SET LOCAL statement_timeout` must use the shared validated helper from `@universo/utils/database`, not a bound placeholder.
+
+**Required**:
+- Use `buildSetLocalStatementTimeoutSql(timeoutMs)` for `SET LOCAL statement_timeout`.
+- Keep timeout values numeric and validated before SQL generation.
+- Reuse the same helper in request-scoped RLS middleware and schema-ddl locking paths.
+
+**Avoid**:
+- `knex.raw('SET LOCAL statement_timeout TO ?', [...])`
+- ad hoc SQL assembly for statement timeout changes
+
+**Why**: PostgreSQL rejected placeholder-style `SET LOCAL` in the live RLS path, so the only safe canonical implementation in this repository is the shared helper that emits a validated literal.
 
 ## Codename Retry Policy Pattern (IMPORTANT)
 
@@ -144,11 +220,10 @@ return repo.find({ where: { ... } })
 
 ## Database Pool Budget + Error Logging Pattern
 
-**Rule**: Keep total pooled connections within Supabase Pool Size; log pool state on errors.
-**Current Split**: Knex pool max = 8, TypeORM pool max = 7 (total 15).
+**Rule**: Use one shared Knex pool through `@universo/database`; log pool state on errors and under pressure.
 **Required**:
 - Knex: attach pool error listener and log `used/free/pending` metrics.
-- TypeORM: `poolErrorHandler` logs `total/idle/waiting` metrics.
+- Default pool max comes from `DATABASE_POOL_MAX` and currently defaults to 15.
 **Why**: Prevent pool exhaustion and provide actionable diagnostics during incidents.
 
 ## DynamicEntityFormDialog Custom Field Rendering
@@ -208,14 +283,14 @@ return repo.find({ where: { ... } })
 
 **Why**: Query-scope mismatches were the main reason nested optimistic parity remained incomplete after the shared helper rollout looked green at the top level.
 
-## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
+## RLS Request DB Session Reuse for Admin Guards (CRITICAL)
 
-**Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.
-**Required**: pass QueryRunner into guard helpers.
+**Rule**: Reuse request-scoped DB session from `req.dbContext`.
+**Required**: pass the neutral `DbSession` into guard helpers.
 **Detection**: `rg "req\.dbContext" packages`.
 **Symptoms**:
 - Permission checks outside RLS context.
-**Fix**: fallback to `getDataSource().query()` only if QueryRunner missing.
+**Fix**: fallback to a neutral executor or session derived from `@universo/database` only if the request DB session is missing.
 
 ## Template Seed Identity Pattern (IMPORTANT)
 
@@ -298,10 +373,10 @@ const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragmen
 
 ## Service Factory + NodeProvider Pattern (CRITICAL)
 
-**Rule**: Services are factories to inject dependencies (DataSource, telemetry, config).
+**Rule**: Services are factories to inject neutral dependencies (`DbExecutor`, `DbSession`, telemetry, config).
 **Fix**:
 ```typescript
-export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... })
+export const createXService = ({ getDbExecutor, telemetryProvider }) => ({ ... })
 ```
 
 ## Runtime Migration Pattern (CRITICAL)
@@ -345,7 +420,7 @@ export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... }
 ## Applications Config/Data Separation Pattern
 
 **Rule**: Metahubs store configuration; Applications store data (PG schemas).
-**Required**: SchemaGenerator + SchemaMigrator + KnexClient.
+**Required**: SchemaGenerator + SchemaMigrator + shared Knex runtime from `@universo/database`.
 **Naming**:
 - Schema: `app_<uuid32>`
 - Table: `cat_<uuid32>`
@@ -469,7 +544,7 @@ export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'fa
 - Direct Supabase client usage (violates RLS pattern)
 - Hardcoded role checks (use database permissions)
 - `dependencies` in source-only packages (use `peerDependencies`)
-- Raw SQL in services (use repositories)
+- Raw SQL in routes or service layers (use dedicated SQL-first persistence helpers)
 - `i18next.use()` in packages (use `registerNamespace()`)
 - StrictMode in production builds
 - Client-side pagination for large datasets
@@ -508,15 +583,15 @@ export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'fa
 - Avoid direct Supabase client usage.
 - Validate RLS session context on requests.
 
-### TypeORM Repository
-- Replace raw SQL in services with repository calls.
-- Use getDataSource().getRepository(Entity).
-- Keep RLS consistency across repositories.
+### SQL-First Persistence
+- Put database reads and writes into dedicated persistence/store modules.
+- Use `DbExecutor`, `DbSession`, or `SqlQueryable` contracts instead of repositories.
+- Keep RLS consistency by threading the request-scoped executor/session through the store boundary.
 
-### QueryRunner Reuse
-- Use req.dbContext QueryRunner for guards.
-- Fallback to getDataSource().query() only if needed.
-- Validate QueryRunner cleanup per request.
+### Request DB Session Reuse
+- Use `req.dbContext.session` for guards and other raw-query access paths.
+- Fallback to a neutral executor built from `createKnexExecutor(getKnex())` only if needed.
+- Validate request-session cleanup per request.
 
 ### i18n Architecture
 - Register namespaces before app render.
@@ -645,6 +720,29 @@ export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'fa
 - `MetahubSchemaService.initSystemTables()` delegates to structure version init + template seed executor.
 - Template manifest is loaded from DB (`TemplateVersion.manifestJson`) when `metahub.templateVersionId` exists, falls back to built-in default.
 
-**DB Tables**: `metahubs.templates` (codename, VLC name/desc, active_version_id FK → templates_versions), `metahubs.templates_versions` (JSONB manifest, SHA-256 hash, version_number, version_label).
+**DB Tables**: `metahubs.templates` (codename, VLC name/desc, active_version_id FK → templates_versions, definition_type), `metahubs.templates_versions` (JSONB manifest, SHA-256 hash, version_number, version_label).
 
 **Last Updated**: 2026-02-09
+
+---
+
+## Application-Definition Model
+
+**Architecture**: Metahubs are treated as one specialization of a generic "application definition" pattern. The unified definition model supports future non-Metahub definitions (e.g., custom app templates).
+
+**Key Concepts**:
+- **DefinitionArtifact** (`@universo/migrations-catalog`): A single schema definition unit (table, index, RLS policy, etc.) with `kind`, `name`, `schemaQualifiedName`, `sql`, `checksum`, `dependencies[]`.
+- **Definition Registry** (`upl_migrations.definition_registry`): Central catalog of all definition artifacts. Each entry has a `logical_key` (schemaQualifiedName::kind) and `active_revision_id`.
+- **Definition Revisions** (`upl_migrations.definition_revisions`): Immutable revision history for each definition. Each revision stores the full `payload` (DefinitionArtifact) and a `checksum`.
+- **Definition Drafts** (`upl_migrations.definition_drafts`): Draft revisions for future editor UI support. Same schema as revisions but with `status: draft|review|published` and `author_id`.
+- **Template definition_type** (`metahubs.templates.definition_type`): Distinguishes `metahub_template`, `application_template`, or `custom`. Default: `metahub_template` for backward compatibility.
+
+**Patterns**:
+- `registerDefinition(trx, artifact)` is idempotent — returns existing record if checksum matches, creates new revision if different.
+- `exportDefinitions()` + `importDefinitions()` provide round-trip support for file-based storage.
+- Definition exports are tracked in `upl_migrations.definition_exports` for provenance.
+- Template system remains backward-compatible: all existing templates auto-receive `definition_type = 'metahub_template'` via column default.
+
+**Dependency Direction**: `@universo/migrations-catalog` → `@universo/migrations-core` (core types + read functions). Never reverse.
+
+**Last Updated**: 2026-03-09

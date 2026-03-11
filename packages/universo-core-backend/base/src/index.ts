@@ -8,10 +8,8 @@ import csurf from 'csurf'
 import rateLimit from 'express-rate-limit'
 const cookieParser = require('cookie-parser')
 import jwt from 'jsonwebtoken'
-import { DataSource } from 'typeorm'
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
-import { getDataSource } from './DataSource'
 import { Telemetry } from './utils/telemetry'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import apiV1Router from './routes'
@@ -20,7 +18,9 @@ import {
     initializeRateLimiters as initializeMetahubsRateLimiters,
     seedTemplates as seedMetahubTemplates
 } from '@universo/metahubs-backend'
+import { getKnex, destroyKnex, createKnexExecutor, checkDatabaseHealth, registerGracefulShutdown } from '@universo/database'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
+import { runRegisteredPlatformMigrations, validateRegisteredPlatformMigrations } from '@universo/migrations-platform'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
 import { API_WHITELIST_URLS } from '@universo/utils'
@@ -37,7 +37,6 @@ const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
 export class App {
     app: express.Application
     telemetry: Telemetry
-    AppDataSource: DataSource = getDataSource()
 
     constructor() {
         this.app = express()
@@ -45,23 +44,39 @@ export class App {
 
     async initDatabase() {
         try {
-            await this.AppDataSource.initialize()
-            logger.info('📦 [server]: Data Source is initializing...')
+            logger.info('📦 [server]: Knex is initializing...')
 
-            // Run Migrations Scripts
-            await this.AppDataSource.runMigrations({ transaction: 'each' })
+            const validation = validateRegisteredPlatformMigrations()
+            if (!validation.ok) {
+                throw new Error(validation.issues.map((issue: { message: string }) => issue.message).join('; '))
+            }
+
+            const migrationResult = await runRegisteredPlatformMigrations(getKnex(), {
+                info(message: string, meta?: Record<string, unknown>) {
+                    logger.info(message, meta)
+                },
+                warn(message: string, meta?: Record<string, unknown>) {
+                    logger.warn(message, meta)
+                },
+                error(message: string, meta?: Record<string, unknown>) {
+                    logger.error(message, meta)
+                }
+            })
+            logger.info('[server]: Unified platform migrations completed', migrationResult)
 
             // Initialize telemetry
             this.telemetry = new Telemetry()
-
-            // Diagnostics: list registered entities
-            const entityNames = getDataSource()
-                .entityMetadatas.map((m) => m.name)
-                .sort()
-            logger.info('📦 [server]: Data Source has been initialized!')
-            logger.info(`[diag] Entities loaded: ${entityNames.join(', ')}`)
+            logger.info('📦 [server]: Database has been initialized!')
         } catch (error) {
-            logger.error('❌ [server]: Error during Data Source initialization:', error)
+            logger.error('❌ [server]: Error during database initialization:', error)
+            try {
+                await destroyKnex()
+            } catch (cleanupError) {
+                logger.warn('[server]: Failed to destroy Knex after initialization error', {
+                    error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+                })
+            }
+            throw error
         }
     }
 
@@ -145,7 +160,13 @@ export class App {
         this.app.use(sanitizeMiddleware)
 
         // Auth routes (login, logout, CSRF, refresh, etc.)
-        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getDataSource))
+        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getKnex))
+
+        // Health check endpoint (no auth required)
+        this.app.get('/api/v1/health/db', async (_req: Request, res: Response) => {
+            const health = await checkDatabaseHealth()
+            res.status(health.connected ? 200 : 503).json(health)
+        })
 
         const whitelistURLs = API_WHITELIST_URLS
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
@@ -177,8 +198,8 @@ export class App {
             }
 
             const headerValue = req.headers['authorization'] || req.headers['Authorization']
-            const bearerToken =
-                typeof headerValue === 'string' && headerValue.startsWith('Bearer ') ? headerValue.substring(7) : null
+            const hasBearerToken = typeof headerValue === 'string' && headerValue.startsWith('Bearer ')
+            const bearerToken = hasBearerToken ? headerValue.substring(7) : null
             const tokenToVerify = bearerToken ?? (hasSession ? sessionTokens?.access : null)
 
             if (!tokenToVerify) {
@@ -207,7 +228,7 @@ export class App {
 
         // Seed metahub templates into DB (idempotent, non-fatal)
         try {
-            await seedMetahubTemplates(this.AppDataSource)
+            await seedMetahubTemplates(createKnexExecutor(getKnex()))
         } catch (error) {
             logger.error('[server]: Failed to seed metahub templates:', error)
         }
@@ -246,6 +267,8 @@ let serverApp: App | undefined
 
 export async function start(): Promise<void> {
     serverApp = new App()
+
+    registerGracefulShutdown()
 
     const host = process.env.HOST
     const port = parseInt(process.env.PORT || '', 10) || 3000

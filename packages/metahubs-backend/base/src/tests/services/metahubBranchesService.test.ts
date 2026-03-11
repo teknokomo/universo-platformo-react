@@ -1,29 +1,3 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator
-        }
-    },
-    { virtual: true }
-)
-
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockInitializeSchema = jest.fn(async () => undefined)
@@ -42,6 +16,45 @@ type MockSchemaServiceStatics = {
 const mockSchemaServiceStatics = MockMetahubSchemaService as unknown as MockSchemaServiceStatics
 mockSchemaServiceStatics.setUserBranchCache = (...args: unknown[]) => mockSetUserBranchCache(...args)
 mockSchemaServiceStatics.clearUserBranchCache = (...args: unknown[]) => mockClearUserBranchCache(...args)
+
+// Mock persistence functions
+const mockFindMetahubById = jest.fn()
+const mockFindMetahubForUpdate = jest.fn()
+const mockFindBranchByIdAndMetahub = jest.fn()
+const mockFindBranchBySchemaName = jest.fn()
+const mockCreateBranchRow = jest.fn()
+const mockUpdateBranchRow = jest.fn()
+const mockUpdateMetahubFieldsRaw = jest.fn()
+const mockGetMaxBranchNumber = jest.fn()
+const mockFindTemplateVersionById = jest.fn()
+const mockFindMetahubMembership = jest.fn()
+const mockUpdateMetahubMember = jest.fn()
+const mockFindBranchByCodename = jest.fn()
+const mockFindBranchForUpdate = jest.fn()
+const mockDeleteBranchById = jest.fn()
+const mockCountMembersOnBranch = jest.fn()
+const mockClearMemberActiveBranch = jest.fn()
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args),
+    findMetahubForUpdate: (...args: unknown[]) => mockFindMetahubForUpdate(...args),
+    findBranchByIdAndMetahub: (...args: unknown[]) => mockFindBranchByIdAndMetahub(...args),
+    findBranchBySchemaName: (...args: unknown[]) => mockFindBranchBySchemaName(...args),
+    findBranchByCodename: (...args: unknown[]) => mockFindBranchByCodename(...args),
+    findBranchForUpdate: (...args: unknown[]) => mockFindBranchForUpdate(...args),
+    findBranchesByMetahub: jest.fn(async () => []),
+    createBranch: (...args: unknown[]) => mockCreateBranchRow(...args),
+    updateBranch: (...args: unknown[]) => mockUpdateBranchRow(...args),
+    deleteBranchById: (...args: unknown[]) => mockDeleteBranchById(...args),
+    updateMetahubFieldsRaw: (...args: unknown[]) => mockUpdateMetahubFieldsRaw(...args),
+    getMaxBranchNumber: (...args: unknown[]) => mockGetMaxBranchNumber(...args),
+    findTemplateVersionById: (...args: unknown[]) => mockFindTemplateVersionById(...args),
+    findMetahubMembership: (...args: unknown[]) => mockFindMetahubMembership(...args),
+    updateMetahubMember: (...args: unknown[]) => mockUpdateMetahubMember(...args),
+    countMembersOnBranch: (...args: unknown[]) => mockCountMembersOnBranch(...args),
+    clearMemberActiveBranch: (...args: unknown[]) => mockClearMemberActiveBranch(...args)
+}))
 
 jest.mock('../../domains/templates/services/TemplateManifestValidator', () => ({
     __esModule: true,
@@ -68,6 +81,23 @@ jest.mock('../../domains/ddl', () => ({
 }))
 
 import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
+import type { DbExecutor } from '@universo/utils/database'
+
+function createMockExecutor(queryFn?: jest.Mock): DbExecutor {
+    const qFn = queryFn ?? jest.fn(async () => [])
+    return {
+        query: qFn,
+        transaction: jest.fn(async (cb: (tx: DbExecutor) => Promise<unknown>) => {
+            const txExec: DbExecutor = {
+                query: qFn,
+                transaction: jest.fn(),
+                isReleased: () => false
+            }
+            return cb(txExec)
+        }),
+        isReleased: () => false
+    }
+}
 
 describe('MetahubBranchesService', () => {
     beforeEach(() => {
@@ -83,29 +113,15 @@ describe('MetahubBranchesService', () => {
     it('createInitialBranch drops schema when initialization fails before branch save', async () => {
         mockInitializeSchema.mockRejectedValueOnce(new Error('init failed'))
 
-        const metahubRepo = {
-            findOne: jest.fn().mockResolvedValue({
-                id: 'metahub-1',
-                defaultBranchId: null,
-                templateVersionId: null
-            })
-        }
+        mockFindMetahubById.mockResolvedValue({
+            id: 'metahub-1',
+            defaultBranchId: null,
+            templateVersionId: null
+        })
+        mockFindBranchBySchemaName.mockResolvedValue(null)
 
-        const branchRepo = {
-            findOne: jest.fn().mockResolvedValue(null)
-        }
-
-        const manager = {
-            transaction: jest.fn(),
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'Metahub') return metahubRepo
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                if (entity?.name === 'TemplateVersion') return { findOneBy: jest.fn() }
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            })
-        }
-
-        const service = new MetahubBranchesService({} as any, manager as any)
+        const exec = createMockExecutor()
+        const service = new MetahubBranchesService(exec)
 
         await expect(
             service.createInitialBranch({
@@ -115,7 +131,7 @@ describe('MetahubBranchesService', () => {
             })
         ).rejects.toThrow('init failed')
 
-        expect(manager.transaction).not.toHaveBeenCalled()
+        expect(exec.transaction).not.toHaveBeenCalled()
         expect(mockDropSchema).toHaveBeenCalledWith('mhb_metahub1_b1')
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
@@ -123,57 +139,27 @@ describe('MetahubBranchesService', () => {
     it('uses manifest minStructureVersion for branch created without source', async () => {
         const metahubId = 'metahub-1'
 
-        const metahubQb = {
-            setLock: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue({
-                id: metahubId,
-                lastBranchNumber: 1,
-                templateVersionId: 'tpl-v1'
-            })
-        }
-        const metahubUpdateQb = {
-            update: jest.fn().mockReturnThis(),
-            set: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            execute: jest.fn().mockResolvedValue({ affected: 1 })
-        }
-        const metahubRepo = {
-            createQueryBuilder: jest.fn((alias?: string) => (alias === 'm' ? metahubQb : metahubUpdateQb))
-        }
+        mockFindMetahubForUpdate.mockResolvedValue({
+            id: metahubId,
+            lastBranchNumber: 1,
+            templateVersionId: 'tpl-v1'
+        })
+        mockGetMaxBranchNumber.mockResolvedValue(1)
+        mockFindTemplateVersionById.mockResolvedValue({
+            id: 'tpl-v1',
+            versionLabel: 'v1',
+            manifestJson: {
+                minStructureVersion: '0.1.0'
+            }
+        })
+        mockCreateBranchRow.mockImplementation(async (_tx: unknown, input: Record<string, unknown>) => ({
+            ...input,
+            id: 'branch-2'
+        }))
+        mockUpdateMetahubFieldsRaw.mockResolvedValue(undefined)
 
-        const branchStatsQb = {
-            select: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getRawOne: jest.fn().mockResolvedValue({ maxBranchNumber: '1' })
-        }
-        const branchRepo = {
-            findOne: jest.fn().mockResolvedValue(null),
-            createQueryBuilder: jest.fn(() => branchStatsQb),
-            create: jest.fn((payload: Record<string, unknown>) => payload),
-            save: jest.fn(async (payload: Record<string, unknown>) => ({ ...payload, id: 'branch-2' }))
-        }
-
-        const templateVersionRepo = {
-            findOneBy: jest.fn().mockResolvedValue({
-                id: 'tpl-v1',
-                manifestJson: {
-                    minStructureVersion: '0.1.0'
-                }
-            })
-        }
-
-        const manager = {
-            transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<unknown>) => callback(manager)),
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'Metahub') return metahubRepo
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                if (entity?.name === 'TemplateVersion') return templateVersionRepo
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            })
-        }
-
-        const service = new MetahubBranchesService({} as any, manager as any)
+        const exec = createMockExecutor()
+        const service = new MetahubBranchesService(exec)
 
         const created = await service.createBranch({
             metahubId,
@@ -183,7 +169,10 @@ describe('MetahubBranchesService', () => {
         })
 
         expect(mockInitializeSchema).toHaveBeenCalledWith('mhb_metahub1_b2', expect.objectContaining({ minStructureVersion: '0.1.0' }))
-        expect(branchRepo.create).toHaveBeenCalledWith(expect.objectContaining({ structureVersion: '0.1.0' }))
+        expect(mockCreateBranchRow).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ structureVersion: '0.1.0' })
+        )
         expect((created as any).structureVersion).toBe('0.1.0')
         expect(mockAcquireAdvisoryLock).toHaveBeenCalled()
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
@@ -192,24 +181,12 @@ describe('MetahubBranchesService', () => {
     it('throws BRANCH_COPY_DANGLING_REFERENCES when partial copy removes referenced object groups', async () => {
         const metahubId = 'metahub-1'
 
-        const metahubQb = {
-            setLock: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue({
-                id: metahubId,
-                lastBranchNumber: 1,
-                templateVersionId: 'tpl-v1'
-            })
-        }
-        const metahubUpdateQb = {
-            update: jest.fn().mockReturnThis(),
-            set: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            execute: jest.fn().mockResolvedValue({ affected: 1 })
-        }
-        const metahubRepo = {
-            createQueryBuilder: jest.fn((alias?: string) => (alias === 'm' ? metahubQb : metahubUpdateQb))
-        }
+        mockFindMetahubForUpdate.mockResolvedValue({
+            id: metahubId,
+            lastBranchNumber: 1,
+            templateVersionId: 'tpl-v1'
+        })
+        mockGetMaxBranchNumber.mockResolvedValue(1)
 
         const sourceBranch = {
             id: 'source-branch-1',
@@ -220,30 +197,13 @@ describe('MetahubBranchesService', () => {
             lastTemplateVersionLabel: null,
             lastTemplateSyncedAt: null
         }
+        mockFindBranchByIdAndMetahub.mockResolvedValue(sourceBranch)
+        mockFindBranchBySchemaName.mockResolvedValue(null)
 
-        const branchStatsQb = {
-            select: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getRawOne: jest.fn().mockResolvedValue({ maxBranchNumber: '1' })
-        }
-        const branchRepo = {
-            findOne: jest.fn().mockResolvedValue(sourceBranch),
-            createQueryBuilder: jest.fn(() => branchStatsQb),
-            create: jest.fn((payload: Record<string, unknown>) => payload),
-            save: jest.fn(async (payload: Record<string, unknown>) => ({ ...payload, id: 'branch-2' }))
-        }
-
-        const manager = {
-            transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<unknown>) => callback(manager)),
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'Metahub') return metahubRepo
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            }),
-            query: jest.fn().mockResolvedValue([{ target_kind: 'catalog' }])
-        }
-
-        const service = new MetahubBranchesService({} as any, manager as any)
+        // assertCopyCompatibility query returns dangling refs
+        const queryMock = jest.fn(async () => [{ target_kind: 'catalog' }])
+        const exec = createMockExecutor(queryMock)
+        const service = new MetahubBranchesService(exec)
 
         await expect(
             service.createBranch({
@@ -268,24 +228,12 @@ describe('MetahubBranchesService', () => {
     it('clears hub references from kept object configs when hubs are excluded from partial copy', async () => {
         const metahubId = 'metahub-1'
 
-        const metahubQb = {
-            setLock: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue({
-                id: metahubId,
-                lastBranchNumber: 1,
-                templateVersionId: null
-            })
-        }
-        const metahubUpdateQb = {
-            update: jest.fn().mockReturnThis(),
-            set: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            execute: jest.fn().mockResolvedValue({ affected: 1 })
-        }
-        const metahubRepo = {
-            createQueryBuilder: jest.fn((alias?: string) => (alias === 'm' ? metahubQb : metahubUpdateQb))
-        }
+        mockFindMetahubForUpdate.mockResolvedValue({
+            id: metahubId,
+            lastBranchNumber: 1,
+            templateVersionId: null
+        })
+        mockGetMaxBranchNumber.mockResolvedValue(1)
 
         const sourceBranch = {
             id: 'source-branch-1',
@@ -296,18 +244,12 @@ describe('MetahubBranchesService', () => {
             lastTemplateVersionLabel: null,
             lastTemplateSyncedAt: null
         }
-
-        const branchStatsQb = {
-            select: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getRawOne: jest.fn().mockResolvedValue({ maxBranchNumber: '1' })
-        }
-        const branchRepo = {
-            findOne: jest.fn().mockResolvedValue(sourceBranch),
-            createQueryBuilder: jest.fn(() => branchStatsQb),
-            create: jest.fn((payload: Record<string, unknown>) => payload),
-            save: jest.fn(async (payload: Record<string, unknown>) => ({ ...payload, id: 'branch-2' }))
-        }
+        mockFindBranchByIdAndMetahub.mockResolvedValue(sourceBranch)
+        mockCreateBranchRow.mockImplementation(async (_tx: unknown, input: Record<string, unknown>) => ({
+            ...input,
+            id: 'branch-2'
+        }))
+        mockUpdateMetahubFieldsRaw.mockResolvedValue(undefined)
 
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind')) {
@@ -316,17 +258,8 @@ describe('MetahubBranchesService', () => {
             return undefined
         })
 
-        const manager = {
-            transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<unknown>) => callback(manager)),
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'Metahub') return metahubRepo
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            }),
-            query: queryMock
-        }
-
-        const service = new MetahubBranchesService({} as any, manager as any)
+        const exec = createMockExecutor(queryMock)
+        const service = new MetahubBranchesService(exec)
 
         await service.createBranch({
             metahubId,
@@ -352,53 +285,28 @@ describe('MetahubBranchesService', () => {
         )
     })
 
-    it('findByCodename checks only active branches', async () => {
-        const qb = {
-            where: jest.fn().mockReturnThis(),
-            andWhere: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue({ id: 'branch-1', codename: 'main' })
-        }
-        const branchRepo = {
-            createQueryBuilder: jest.fn(() => qb)
-        }
-        const manager = {
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            })
-        }
+    it('findByCodename returns branch for given metahub and codename', async () => {
+        mockFindBranchByCodename.mockResolvedValue({ id: 'branch-1', codename: 'main', metahubId: 'metahub-1' })
 
-        const service = new MetahubBranchesService({} as any, manager as any)
+        const exec = createMockExecutor()
+        const service = new MetahubBranchesService(exec)
         const found = await service.findByCodename('metahub-1', 'main')
 
-        expect(qb.where).toHaveBeenCalledWith('b.metahub_id = :metahubId', { metahubId: 'metahub-1' })
-        expect(qb.andWhere).toHaveBeenCalledWith('b.codename = :codename', { codename: 'main' })
-        expect(qb.andWhere).toHaveBeenCalledWith('b._upl_deleted = false')
-        expect(qb.andWhere).toHaveBeenCalledWith('b._mhb_deleted = false')
-        expect(found).toEqual({ id: 'branch-1', codename: 'main' })
+        expect(mockFindBranchByCodename).toHaveBeenCalledWith(expect.anything(), 'metahub-1', 'main')
+        expect(found).toEqual({ id: 'branch-1', codename: 'main', metahubId: 'metahub-1' })
     })
 
     it('activateBranch updates schema service user branch cache', async () => {
-        const branchRepo = {
-            findOne: jest.fn().mockResolvedValue({ id: 'branch-2', metahubId: 'metahub-1' })
-        }
+        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-2', metahubId: 'metahub-1' })
         const membership = { id: 'member-1', metahubId: 'metahub-1', userId: 'user-1', activeBranchId: null }
-        const memberRepo = {
-            findOne: jest.fn().mockResolvedValue(membership),
-            save: jest.fn().mockResolvedValue(undefined)
-        }
-        const manager = {
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                if (entity?.name === 'MetahubUser') return memberRepo
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            })
-        }
+        mockFindMetahubMembership.mockResolvedValue(membership)
+        mockUpdateMetahubMember.mockResolvedValue({ ...membership, activeBranchId: 'branch-2' })
 
-        const service = new MetahubBranchesService({} as any, manager as any)
+        const exec = createMockExecutor()
+        const service = new MetahubBranchesService(exec)
         const branch = await service.activateBranch('metahub-1', 'branch-2', 'user-1')
 
-        expect(memberRepo.save).toHaveBeenCalledWith(expect.objectContaining({ activeBranchId: 'branch-2' }))
+        expect(mockUpdateMetahubMember).toHaveBeenCalledWith(expect.anything(), 'member-1', { activeBranchId: 'branch-2' })
         expect(mockSetUserBranchCache).toHaveBeenCalledWith('metahub-1', 'user-1', 'branch-2')
         expect(branch).toEqual({ id: 'branch-2', metahubId: 'metahub-1' })
     })
@@ -406,24 +314,14 @@ describe('MetahubBranchesService', () => {
     it('setDefaultBranch clears cached user branch resolution for metahub', async () => {
         const metahubId = 'metahub-1'
         const branchId = 'branch-2'
-        const branchRepo = {
-            findOne: jest.fn().mockResolvedValue({ id: branchId, metahubId })
-        }
-        const metahubRepo = {
-            update: jest.fn().mockResolvedValue({ affected: 1 })
-        }
-        const manager = {
-            getRepository: jest.fn((entity: { name?: string }) => {
-                if (entity?.name === 'MetahubBranch') return branchRepo
-                if (entity?.name === 'Metahub') return metahubRepo
-                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
-            })
-        }
+        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: branchId, metahubId })
+        mockUpdateMetahubFieldsRaw.mockResolvedValue(undefined)
 
-        const service = new MetahubBranchesService({} as any, manager as any)
+        const exec = createMockExecutor()
+        const service = new MetahubBranchesService(exec)
         const branch = await service.setDefaultBranch(metahubId, branchId)
 
-        expect(metahubRepo.update).toHaveBeenCalledWith(metahubId, { defaultBranchId: branchId })
+        expect(mockUpdateMetahubFieldsRaw).toHaveBeenCalledWith(expect.anything(), metahubId, { defaultBranchId: branchId })
         expect(mockClearUserBranchCache).toHaveBeenCalledWith(metahubId)
         expect(branch).toEqual({ id: branchId, metahubId })
     })

@@ -1,24 +1,19 @@
 ---
-description: Build a custom application using the template system.
+description: How to think about creating a new application in the current platform.
 ---
 
 # Creating a New Application
 
-{% hint style="info" %}
-**This page is under development.** A step-by-step guide will be added soon.
-{% endhint %}
+In the current repository, creating an application usually involves application
+metadata, memberships, publication links,
+controlled schema behavior, and frontend or backend package integration.
 
-## Overview
+## Recommended Approach
 
-Learn how to create a new application in Universo Platformo using the template system, define custom schemas, and deploy your application.
+1. Decide whether the application needs only managed metadata or its own runtime schema.
+2. Clarify how it relates to metahubs, publications, and memberships.
+3. Add or extend backend routes and SQL-first persistence only where necessary.
+4. Connect the frontend through the shared shell and API client packages.
+5. Validate behavior with targeted tests and a root build.
 
-## Topics
-
-* Creating a new application
-* Configuring application settings
-* Adding a space
-* Testing and preview
-
-## Documentation
-
-Coming soon.
+Treat application creation as a platform design task with shared runtime implications.

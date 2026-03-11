@@ -1,6 +1,6 @@
 # Authentication Service (@universo/auth-backend)
 
-Production-grade authentication service powering Universo Platformo's server-side authentication. Built with Passport.js + Supabase and ships as a dual ESM/CJS library. Mounted inside `packages/flowise-core-backend/base` at `/api/v1/auth`.
+Production-grade authentication service powering Universo Platformo's server-side authentication. Built with Passport.js + Supabase and mounted inside `packages/universo-core-backend/base` at `/api/v1/auth`.
 
 ## Overview
 
@@ -13,7 +13,7 @@ This package provides a comprehensive backend authentication solution that combi
 - **CSRF Protection**: Built-in CSRF tokens via `csurf` middleware with `X-CSRF-Token` headers
 - **Rate Limiting**: Login attempt protection (10 attempts per minute window)
 - **Token Management**: Automatic Supabase access-token refresh with single-flight locking
-- **Row Level Security (RLS)**: Advanced JWT context propagation to PostgreSQL via TypeORM QueryRunner
+- **Row Level Security (RLS)**: Advanced JWT context propagation to PostgreSQL via a request-scoped DB session
 - **Production Security**: Cookie security, session regeneration, and comprehensive error handling
 
 ## Endpoints (mounted under `/api/v1/auth`)
@@ -28,52 +28,47 @@ This package provides a comprehensive backend authentication solution that combi
 
 ### Overview
 
-The package provides `createEnsureAuthWithRls` middleware that combines authentication with automatic RLS context setup for TypeORM requests. This enables PostgreSQL Row Level Security policies to access JWT claims (user_id, email, role) via session variables.
+The package provides `createEnsureAuthWithRls` middleware that combines authentication with automatic RLS context setup for request-scoped database access. This enables PostgreSQL Row Level Security policies to access JWT claims (user_id, email, role) via session variables.
 
 ### Architecture
 
 ```typescript
 import { createEnsureAuthWithRls } from '@universo/auth-backend'
-import { getDataSource } from './DataSource'
+import { getKnex } from '@universo/database'
 
 // Create RLS-enabled authentication middleware
-const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
+const ensureAuthWithRls = createEnsureAuthWithRls({ getKnex })
 
 // Apply to routes that need DB access with RLS
-router.use('/uniks', ensureAuthWithRls, uniksRouter)
-router.use('/metaverses', ensureAuthWithRls, metaversesRoutes)
+router.use('/metahubs', ensureAuthWithRls, metahubsRouter)
+router.use('/applications', ensureAuthWithRls, applicationsRouter)
 ```
 
 ### How It Works
 
 1. **Authentication**: Validates user session via Passport
 2. **JWT Extraction**: Retrieves Supabase access_token from session
-3. **JWT Verification**: Verifies token using `jose` library with SUPABASE_JWT_SECRET
-4. **QueryRunner Creation**: Creates dedicated TypeORM QueryRunner per request
-5. **RLS Context Application**: Executes PostgreSQL commands:
-   ```sql
-   SET LOCAL role = 'authenticated';
-   SELECT set_config('request.jwt.claims', '{"sub":"user-id","email":"user@example.com","role":"authenticated"}', true);
-   SELECT set_config('request.jwt.token', 'actual-jwt-token', true);
-   ```
-6. **Request Context**: Attaches QueryRunner to `req.dbContext.manager` for route handlers
-7. **Cleanup**: Automatically releases QueryRunner on request finish/close
+3. **JWT Verification**: Verifies the Supabase token with `jose` and resolves the JWT claims payload
+4. **Pinned Connection**: Acquires one dedicated Knex pool connection for the full request lifecycle
+5. **RLS Context Application**: Writes `request.jwt.claims` on that pinned connection so PostgreSQL policies can read the authenticated user context
+6. **Request Context**: Attaches a neutral `DbSession` / `DbExecutor` pair to `req.dbContext` for route handlers and services
+7. **Cleanup**: Resets the session claims and releases the pinned connection on request finish/close
 
 ### Usage in Services
 
-Services should use request-bound EntityManager instead of DataSource manager:
+Services should use the request-bound executor instead of a global pool query helper when RLS matters:
 
 ```typescript
 import type { RequestWithDbContext } from '@universo/auth-backend'
 
-function getRequestManager(req: Request, dataSource: DataSource) {
+function getRequestExecutor(req: Request, fallbackExecutor: DbExecutor) {
     const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
+    return rlsContext?.executor ?? fallbackExecutor
 }
 
 router.get('/items', async (req, res) => {
-    const manager = getRequestManager(req, getDataSource())
-    const items = await manager.getRepository(Item).find() // RLS applied
+    const executor = getRequestExecutor(req, createKnexExecutor(getKnex()))
+    const items = await executor.query('SELECT * FROM app.items ORDER BY created_at DESC')
     res.json(items)
 })
 ```
@@ -84,7 +79,7 @@ RLS policies can access JWT claims via:
 
 ```sql
 -- Example policy using request.jwt.claims
-CREATE POLICY "Users can only access their own data" ON uniks
+CREATE POLICY "Users can only access their own data" ON app.items
     FOR ALL
     USING (
         owner_id = (current_setting('request.jwt.claims', true)::json->>'sub')::uuid
@@ -93,22 +88,22 @@ CREATE POLICY "Users can only access their own data" ON uniks
 
 ### Dependencies
 
-- `jose@^5.9.6` - Modern JWT verification (replaces jsonwebtoken)
-- `typeorm@^0.3.20` - QueryRunner lifecycle management
+- `jose@^5.9.6` - Modern JWT verification for Supabase access tokens
+- `@universo/database` - Shared Knex runtime plus `createRlsExecutor()` for pinned request execution
 
 ### Error Handling
 
 - **Invalid JWT**: Returns 401 Unauthorized with error details
 - **Missing access_token**: Returns 401 if no token in session
-- **DB Connection Issues**: Properly releases QueryRunner and returns 500
-- **Query Timeout**: QueryRunner cleanup prevents connection leaks
+- **DB Connection Issues**: Properly releases the request-scoped transport and returns 500
+- **Query Timeout**: Request transport cleanup prevents connection leaks
 
 ### Performance Considerations
 
-- Each request creates a dedicated QueryRunner (connection from pool)
-- QueryRunner is released on request completion (automatic cleanup)
-- JWT verification is done once per request (cached in req.dbContext)
-- Session variables are transaction-scoped (LOCAL) for isolation
+- Each protected request uses one pinned Knex connection until cleanup runs
+- The request-scoped executor keeps all queries and transactions on that same connection
+- JWT verification happens once per request before `req.dbContext` is populated
+- Cleanup explicitly clears `request.jwt.claims` before the connection returns to the pool
 
 ## Core Components
 
@@ -127,7 +122,7 @@ CREATE POLICY "Users can only access their own data" ON uniks
 ### RLS Integration
 - **JWT Verification**: Secure token validation using `jose` library
 - **Context Propagation**: PostgreSQL session variable management
-- **QueryRunner Lifecycle**: Automatic resource cleanup and connection pooling
+- **Request Session Lifecycle**: Automatic resource cleanup and connection pooling
 - **Request Context**: Per-request database manager attachment
 
 ## Development
@@ -160,7 +155,7 @@ pnpm --filter @universo/auth-backend lint
 
 ## Environment Configuration
 
-Consumed by `packages/flowise-core-backend/base`. Required variables:
+Consumed by `packages/universo-core-backend/base`. Required variables:
 
 ### Required Variables
 - `SESSION_SECRET` - Secret key for session signing and encryption
@@ -232,37 +227,31 @@ app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter))
 ```typescript
 // routes/index.ts
 import { createEnsureAuthWithRls } from '@universo/auth-backend'
-import { getDataSource } from '../DataSource'
+import { getKnex } from '@universo/database'
 
 // Create RLS middleware
-const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
+const ensureAuthWithRls = createEnsureAuthWithRls({ getKnex })
 
 // Apply to database routes
-router.use('/uniks', ensureAuthWithRls, uniksRouter)
-router.use('/metaverses', ensureAuthWithRls, metaversesRouter)
+router.use('/metahubs', ensureAuthWithRls, metahubsRouter)
+router.use('/applications', ensureAuthWithRls, applicationsRouter)
 router.use('/profile', ensureAuthWithRls, profileRouter)
 ```
 
 ### Service Layer with RLS
 ```typescript
-// services/uniksService.ts
 import type { Request } from 'express'
 import type { RequestWithDbContext } from '@universo/auth-backend'
-import { getDataSource } from '../DataSource'
+import { createKnexExecutor, getKnex } from '@universo/database'
 
-function getRequestManager(req: Request) {
+function getRequestExecutor(req: Request) {
     const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? getDataSource().manager
+    return rlsContext?.executor ?? createKnexExecutor(getKnex())
 }
 
-export async function getUserUniks(req: Request) {
-    const manager = getRequestManager(req)
-    const unikRepo = manager.getRepository(Unik)
-    
-    // RLS policies automatically filter by user
-    return await unikRepo.find({
-        relations: ['users', 'sections']
-    })
+export async function getUserItems(req: Request) {
+    const executor = getRequestExecutor(req)
+    return executor.query('SELECT * FROM app.items ORDER BY created_at DESC')
 }
 ```
 
@@ -296,18 +285,18 @@ export async function getUserUniks(req: Request) {
 If migrating from simple authentication to RLS-enabled authentication:
 
 1. **Update Middleware**: Replace `ensureAuth` with `createEnsureAuthWithRls`
-2. **Service Layer**: Use `getRequestManager()` instead of direct DataSource
+2. **Service Layer**: Use a request-bound executor instead of global database helpers
 3. **Database Policies**: Create appropriate RLS policies in PostgreSQL
 4. **Environment**: Add `SUPABASE_JWT_SECRET` to environment variables
 
 ### Migration Steps
 ```typescript
 // Before: Basic authentication
-router.use('/api/uniks', ensureAuth, uniksRouter)
+router.use('/api/v1/metahubs', ensureAuth, metahubsRouter)
 
 // After: RLS-enabled authentication  
-const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
-router.use('/api/uniks', ensureAuthWithRls, uniksRouter)
+const ensureAuthWithRls = createEnsureAuthWithRls({ getKnex })
+router.use('/api/v1/metahubs', ensureAuthWithRls, metahubsRouter)
 ```
 
 ## Testing
@@ -324,14 +313,14 @@ const mockEnsureAuth = (req: any, res: any, next: any) => {
 // Test RLS context application
 describe('RLS Context', () => {
     it('should apply PostgreSQL session variables', async () => {
-        const runner = mockQueryRunner()
-        await applyRlsContext(runner, mockJwtToken)
+        const session = createDbSession({
+            query: jest.fn(async () => []),
+            isReleased: () => false
+        })
+        await applyRlsContext(session, mockJwtToken)
         
-        expect(runner.query).toHaveBeenCalledWith(
-            "SET LOCAL role = 'authenticated'"
-        )
-        expect(runner.query).toHaveBeenCalledWith(
-            "SELECT set_config('request.jwt.claims', $1::text, true)",
+        expect(session.query).toHaveBeenCalledWith(
+            "SELECT set_config('request.jwt.claims', $1::text, false)",
             [expect.stringContaining('"sub":"test-user-id"')]
         )
     })
@@ -340,11 +329,11 @@ describe('RLS Context', () => {
 
 ## Performance Optimization
 
-### QueryRunner Management
-- **Per-request Pools**: Each request gets dedicated QueryRunner from connection pool
-- **Automatic Cleanup**: QueryRunner released on request completion (finish/close)
-- **Error Recovery**: Proper cleanup even on request errors or timeouts
-- **Connection Reuse**: Pool management prevents connection exhaustion
+### Pinned Connection Management
+- **Per-request Connection**: Each protected request pins one Knex/pg connection while RLS context is active
+- **Automatic Cleanup**: `request.jwt.claims` is reset before the pinned connection is released on finish/close
+- **Error Recovery**: Cleanup still attempts release even if claim reset fails or request processing errors
+- **Connection Reuse**: Pool management prevents connection exhaustion once cleanup completes
 
 ### Caching Strategy
 - **Session Cache**: In-memory session storage for frequently accessed user data
@@ -358,9 +347,8 @@ res.once('finish', cleanup)
 res.once('close', cleanup)
 
 const cleanup = async () => {
-    if (!runner.isReleased) {
-        await runner.release()
-    }
+    await knex.raw("SELECT set_config('request.jwt.claims', '', false)").connection(connection)
+    knex.client.releaseConnection(connection)
     delete req.dbContext
 }
 ```
@@ -369,8 +357,8 @@ const cleanup = async () => {
 
 - [Authentication Frontend](../../auth-frontend/base/README.md)
 - [RLS Integration Pattern](../../../memory-bank/rls-integration-pattern.md)
-- [Flowise Server Integration](../../flowise-server/README.md)
-- [TypeORM Data Access](../../../docs/en/universo-platformo/database.md)
+- [Core Backend Integration](../../universo-core-backend/base/README.md)
+- [Database Architecture](../../../docs/en/architecture/database.md)
 
 ---
 

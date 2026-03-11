@@ -1,29 +1,25 @@
 ---
-description: Explore the core features and modules of Universo Platformo.
+description: Understand the current platform scope, modules, and planned layers.
 ---
 
-# Platform Features
+# Platform
 
-{% hint style="info" %}
-**This section is under development.** Detailed documentation for each platform feature will be added progressively.
-{% endhint %}
+Universo Platformo is not documented here as a generic AI-workflow product.
+This section describes the platform as it exists in the repository today and as
+it is intended to evolve from that codebase.
 
-## Core Modules
+## Current Scope
 
-Universo Platformo consists of several interconnected modules:
-
-| Module | Description |
+| Layer | Current state |
 | --- | --- |
-| **Workspaces (Uniks)** | Multi-user collaborative workspace management |
-| **Spaces & Canvases** | Visual flow-based editors for building content |
-| **Metaverses** | Virtual world management and deployment |
-| **Applications** | Business application framework with templates |
-| **Metahubs** | Content hub management with branches and publications |
-| **Publication System** | Export and share content across platforms |
-| **UPDL Node System** | Universal description language for 3D/AR/VR |
-| **Space Builder** | AI-powered graph generation from text |
-| **Analytics** | Usage analytics and insights |
+| Platform shell | Running in this repository. |
+| Auth and onboarding | Running in this repository. |
+| Profiles and admin flows | Running in this repository. |
+| Metahubs, publications, applications | Running in this repository. |
+| Kiberplano planning layer | Planned, not complete. |
+| MMOOMM and simulation worlds | Planned, not complete. |
 
-## Learn More
+## Reading Strategy
 
-Select a module from the sidebar to learn about its features and usage.
+Read the pages in this section as a split between current implementation,
+transitional architectural direction, and long-term planned layers.

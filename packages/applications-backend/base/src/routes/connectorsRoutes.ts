@@ -1,15 +1,28 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Connector } from '../database/entities/Connector'
-import { ConnectorPublication } from '../database/entities/ConnectorPublication'
-import { Application, ApplicationSchemaStatus } from '../database/entities/Application'
 import { z } from 'zod'
+import type { VersionedLocalizedContent } from '@universo/types'
+import type { DbExecutor } from '@universo/utils'
 import { validateListQuery } from '../schemas/queryParams'
-import { escapeLikeWildcards, getRequestManager } from '../utils'
+import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { OptimisticLockError } from '@universo/utils'
 import { ensureApplicationAccess, type ApplicationRole } from './guards'
+import {
+    countConnectorPublicationLinks,
+    deleteConnector,
+    deleteConnectorPublicationLink,
+    findApplicationStatus,
+    findConnector,
+    findConnectorPublicationLink,
+    findConnectorPublicationLinkById,
+    insertConnector,
+    insertConnectorPublicationLink,
+    listConnectorPublicationLinks,
+    listConnectors,
+    touchApplicationSchemaSyncedIfUpdateAvailable,
+    updateConnector
+} from '../persistence/connectorsStore'
 
 // User ID resolution helper
 interface RequestUser {
@@ -49,9 +62,17 @@ const updateConnectorSchema = z.object({
     expectedVersion: z.number().int().positive().optional()
 })
 
+const resolveConnectorSortBy = (sortBy: string): 'name' | 'created' | 'updated' => {
+    if (sortBy === 'name' || sortBy === 'created' || sortBy === 'updated') {
+        return sortBy
+    }
+
+    return 'updated'
+}
+
 export function createConnectorsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -64,14 +85,25 @@ export function createConnectorsRoutes(
             fn(req, res).catch(next)
         }
 
-    const repos = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return {
-            connectorRepo: manager.getRepository(Connector),
-            connectorPublicationRepo: manager.getRepository(ConnectorPublication),
-            applicationRepo: manager.getRepository(Application)
+    const query = <TRow = unknown>(req: Request, sql: string, parameters: unknown[] = []): Promise<TRow[]> => {
+        const session = getRequestDbSession(req)
+        if (session && !session.isReleased()) {
+            return session.query<TRow>(sql, parameters)
         }
+
+        return getDbExecutor().query<TRow>(sql, parameters)
+    }
+
+    const transaction = async <TResult>(
+        req: Request,
+        handler: (executor: { query<TRow = unknown>(sql: string, parameters?: unknown[]): Promise<TRow[]> }) => Promise<TResult>
+    ): Promise<TResult> => {
+        const executor = getRequestDbExecutor(req, getDbExecutor())
+        return executor.transaction(async (trx) =>
+            handler({
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => trx.query<TRow>(sql, parameters ?? [])
+            })
+        )
     }
 
     const ensureAccess = async (
@@ -87,7 +119,7 @@ export function createConnectorsRoutes(
         }
 
         try {
-            await ensureApplicationAccess(getDataSource(), userId, applicationId, requiredRoles)
+            await ensureApplicationAccess(getRequestDbExecutor(req, getDbExecutor()), userId, applicationId, requiredRoles)
             return userId
         } catch (error) {
             const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
@@ -110,7 +142,6 @@ export function createConnectorsRoutes(
             const { applicationId } = req.params
             const userId = await ensureAccess(req, res, applicationId)
             if (!userId) return
-            const { connectorRepo } = repos(req)
 
             let validatedQuery
             try {
@@ -123,64 +154,22 @@ export function createConnectorsRoutes(
             }
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+            const escapedSearch = search ? escapeLikeWildcards(search) : undefined
+            const result = await listConnectors(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                {
+                    applicationId,
+                    limit,
+                    offset,
+                    sortBy: resolveConnectorSortBy(sortBy),
+                    sortOrder,
+                    search: escapedSearch
+                }
+            )
 
-            const qb = connectorRepo.createQueryBuilder('s').where('s.applicationId = :applicationId', { applicationId })
-
-            if (search) {
-                const escapedSearch = escapeLikeWildcards(search)
-                qb.andWhere("(s.name::text ILIKE :search OR COALESCE(s.description::text, '') ILIKE :search)", {
-                    search: `%${escapedSearch}%`
-                })
-            }
-
-            const orderColumn =
-                sortBy === 'name'
-                    ? "COALESCE(s.name->>(s.name->>'_primary'), s.name->>'en', '')"
-                    : sortBy === 'created'
-                    ? 's._upl_created_at'
-                    : 's._upl_updated_at'
-
-            qb.select([
-                's.id as id',
-                's.applicationId as "applicationId"',
-                's.name as name',
-                's.description as description',
-                's.sortOrder as "sortOrder"',
-                's._upl_version as "version"',
-                's._upl_created_at as "createdAt"',
-                's._upl_updated_at as "updatedAt"'
-            ])
-                .addSelect('COUNT(*) OVER()', 'window_total')
-                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-                .limit(limit)
-                .offset(offset)
-
-            const raw = await qb.getRawMany<{
-                id: string
-                applicationId: string
-                name: Record<string, string> | null
-                description: Record<string, string> | null
-                sortOrder: number
-                version: number
-                createdAt: Date
-                updatedAt: Date
-                window_total?: string
-            }>()
-
-            const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
-
-            const connectors = raw.map((row) => ({
-                id: row.id,
-                applicationId: row.applicationId,
-                name: row.name,
-                description: row.description,
-                sortOrder: row.sortOrder,
-                version: row.version || 1,
-                createdAt: row.createdAt,
-                updatedAt: row.updatedAt
-            }))
-
-            res.json({ items: connectors, pagination: { total, limit, offset } })
+            res.json({ items: result.items, pagination: { total: result.total, limit, offset } })
         })
     )
 
@@ -195,11 +184,13 @@ export function createConnectorsRoutes(
             const { applicationId, connectorId } = req.params
             const userId = await ensureAccess(req, res, applicationId)
             if (!userId) return
-            const { connectorRepo } = repos(req)
-
-            const connector = await connectorRepo.findOne({
-                where: { id: connectorId, applicationId }
-            })
+            const connector = await findConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId,
+                connectorId
+            )
 
             if (!connector) {
                 return res.status(404).json({ error: 'Connector not found' })
@@ -211,9 +202,9 @@ export function createConnectorsRoutes(
                 name: connector.name,
                 description: connector.description,
                 sortOrder: connector.sortOrder,
-                version: connector._uplVersion || 1,
-                createdAt: connector._uplCreatedAt,
-                updatedAt: connector._uplUpdatedAt
+                version: connector.version || 1,
+                createdAt: connector.createdAt,
+                updatedAt: connector.updatedAt
             })
         })
     )
@@ -229,10 +220,12 @@ export function createConnectorsRoutes(
             const { applicationId } = req.params
             const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
             if (!userId) return
-            const { connectorRepo, applicationRepo } = repos(req)
-
-            // Verify application exists
-            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            const application = await findApplicationStatus(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
             if (!application) {
                 return res.status(404).json({ error: 'Application not found' })
             }
@@ -254,41 +247,32 @@ export function createConnectorsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            let descriptionVlc = undefined
+            let descriptionVlc: VersionedLocalizedContent<string> | null = null
             if (description) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    descriptionVlc = buildLocalizedContent(sanitizedDescription, descriptionPrimaryLocale, namePrimaryLocale ?? 'en')
+                    descriptionVlc =
+                        buildLocalizedContent(sanitizedDescription, descriptionPrimaryLocale, namePrimaryLocale ?? 'en') ?? null
                 }
             }
 
-            const connector = connectorRepo.create({
-                applicationId,
-                name: nameVlc,
-                description: descriptionVlc,
-                sortOrder: sortOrder ?? 0,
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
-
-            // Wrap connector creation and optional publication link in a transaction
-            const ds = getDataSource()
-            const saved = await ds.transaction(async (manager) => {
-                const txConnectorRepo = manager.getRepository(Connector)
-                const txConnectorPublicationRepo = manager.getRepository(ConnectorPublication)
-
-                const savedConnector = await txConnectorRepo.save(connector)
+            const saved = await getRequestDbExecutor(req, getDbExecutor()).transaction(async (trx) => {
+                const savedConnector = await insertConnector(trx, {
+                    applicationId,
+                    name: nameVlc,
+                    description: descriptionVlc,
+                    sortOrder: sortOrder ?? 0,
+                    userId
+                })
 
                 // If publicationId provided, create the link
                 if (publicationId) {
-                    const link = txConnectorPublicationRepo.create({
+                    await insertConnectorPublicationLink(trx, {
                         connectorId: savedConnector.id,
                         publicationId,
                         sortOrder: 0,
-                        _uplCreatedBy: userId,
-                        _uplUpdatedBy: userId
+                        userId
                     })
-                    await txConnectorPublicationRepo.save(link)
                 }
 
                 return savedConnector
@@ -300,9 +284,9 @@ export function createConnectorsRoutes(
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sortOrder,
-                version: saved._uplVersion || 1,
-                createdAt: saved._uplCreatedAt,
-                updatedAt: saved._uplUpdatedAt
+                version: saved.version || 1,
+                createdAt: saved.createdAt,
+                updatedAt: saved.updatedAt
             })
         })
     )
@@ -318,9 +302,13 @@ export function createConnectorsRoutes(
             const { applicationId, connectorId } = req.params
             const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
             if (!userId) return
-            const { connectorRepo } = repos(req)
-
-            const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
+            const connector = await findConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId,
+                connectorId
+            )
             if (!connector) {
                 return res.status(404).json({ error: 'Connector not found' })
             }
@@ -334,18 +322,21 @@ export function createConnectorsRoutes(
 
             // Optimistic locking check
             if (expectedVersion !== undefined) {
-                const currentVersion = connector._uplVersion || 1
+                const currentVersion = connector.version || 1
                 if (currentVersion !== expectedVersion) {
                     throw new OptimisticLockError({
                         entityId: connectorId,
                         entityType: 'connector',
                         expectedVersion,
                         actualVersion: currentVersion,
-                        updatedAt: connector._uplUpdatedAt,
-                        updatedBy: connector._uplUpdatedBy ?? null
+                        updatedAt: connector.updatedAt,
+                        updatedBy: connector.updatedBy ?? null
                     })
                 }
             }
+
+            let nextName = connector.name
+            let nextDescription: VersionedLocalizedContent<string> | null = connector.description ?? null
 
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)
@@ -355,40 +346,52 @@ export function createConnectorsRoutes(
                 const primary = namePrimaryLocale ?? connector.name?._primary ?? 'en'
                 const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
                 if (nameVlc) {
-                    connector.name = nameVlc
+                    nextName = nameVlc
                 }
             }
 
             if (description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
+                    const currentName = nextName
                     const primary =
-                        descriptionPrimaryLocale ?? connector.description?._primary ?? connector.name?._primary ?? namePrimaryLocale ?? 'en'
+                        descriptionPrimaryLocale ?? connector.description?._primary ?? currentName?._primary ?? namePrimaryLocale ?? 'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
                     if (descriptionVlc) {
-                        connector.description = descriptionVlc
+                        nextDescription = descriptionVlc
                     }
                 } else {
-                    connector.description = undefined
+                    nextDescription = null
                 }
             }
 
-            if (sortOrder !== undefined) {
-                connector.sortOrder = sortOrder
+            const saved = await updateConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                {
+                    connectorId,
+                    applicationId,
+                    name: nextName,
+                    description: nextDescription,
+                    sortOrder,
+                    userId
+                }
+            )
+
+            if (!saved) {
+                return res.status(404).json({ error: 'Connector not found' })
             }
 
-            connector._uplUpdatedBy = userId
-
-            const saved = await connectorRepo.save(connector)
             res.json({
                 id: saved.id,
                 applicationId: saved.applicationId,
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sortOrder,
-                version: saved._uplVersion || 1,
-                createdAt: saved._uplCreatedAt,
-                updatedAt: saved._uplUpdatedAt
+                version: saved.version || 1,
+                createdAt: saved.createdAt,
+                updatedAt: saved.updatedAt
             })
         })
     )
@@ -404,22 +407,21 @@ export function createConnectorsRoutes(
             const { applicationId, connectorId } = req.params
             const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin'])
             if (!userId) return
-            const { connectorRepo } = repos(req)
-
-            const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
+            const connector = await findConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId,
+                connectorId
+            )
             if (!connector) {
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            await connectorRepo.remove(connector)
-
-            // Reset UPDATE_AVAILABLE status — the data source link is gone
-            const { applicationRepo } = repos(req)
-            const app = await applicationRepo.findOne({ where: { id: applicationId } })
-            if (app && app.schemaStatus === ApplicationSchemaStatus.UPDATE_AVAILABLE) {
-                app.schemaStatus = ApplicationSchemaStatus.SYNCED
-                await applicationRepo.save(app)
-            }
+            await transaction(req, async (executor) => {
+                await deleteConnector(executor, applicationId, connectorId, userId)
+                await touchApplicationSchemaSyncedIfUpdateAvailable(executor, applicationId, userId)
+            })
 
             res.status(204).send()
         })
@@ -440,61 +442,23 @@ export function createConnectorsRoutes(
             const { applicationId, connectorId } = req.params
             const userId = await ensureAccess(req, res, applicationId)
             if (!userId) return
-            const { connectorRepo } = repos(req)
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-
-            // Verify connector belongs to application
-            const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
+            const connector = await findConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId,
+                connectorId
+            )
             if (!connector) {
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            // Fetch links with publication and metahub details via cross-schema join
-            const linksWithPublications = await manager.query(
-                `
-                SELECT 
-                    cp.id,
-                    cp.connector_id AS "connectorId",
-                    cp.publication_id AS "publicationId",
-                    cp.sort_order AS "sortOrder",
-                    cp._upl_created_at AS "createdAt",
-                    p.id AS "publication_id",
-                    p.name AS "publication_name",
-                    p.description AS "publication_description",
-                    p.metahub_id AS "metahubId",
-                    m.codename AS "metahub_codename",
-                    m.name AS "metahub_name"
-                FROM applications.connectors_publications cp
-                LEFT JOIN metahubs.publications p ON p.id = cp.publication_id
-                LEFT JOIN metahubs.metahubs m ON m.id = p.metahub_id
-                WHERE cp.connector_id = $1
-                ORDER BY cp.sort_order ASC
-            `,
-                [connectorId]
+            const items = await listConnectorPublicationLinks(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                connectorId
             )
-
-            // Transform to expected format with nested publication object
-            const items = linksWithPublications.map((row: Record<string, unknown>) => ({
-                id: row.id,
-                connectorId: row.connectorId,
-                publicationId: row.publicationId,
-                sortOrder: row.sortOrder,
-                createdAt: row.createdAt,
-                publication: row.publication_id
-                    ? {
-                          id: row.publication_id,
-                          name: row.publication_name,
-                          description: row.publication_description,
-                          metahubId: row.metahubId,
-                          metahub: {
-                              id: row.metahubId,
-                              codename: row.metahub_codename,
-                              name: row.metahub_name
-                          }
-                      }
-                    : null
-            }))
 
             return res.json({
                 items,
@@ -516,8 +480,6 @@ export function createConnectorsRoutes(
             const { applicationId, connectorId } = req.params
             const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
             if (!userId) return
-            const { connectorRepo, connectorPublicationRepo } = repos(req)
-
             const bodySchema = z.object({
                 publicationId: z.string().uuid(),
                 sortOrder: z.number().int().optional().default(0)
@@ -533,15 +495,25 @@ export function createConnectorsRoutes(
 
             const { publicationId, sortOrder } = parsed.data
 
-            // Verify connector belongs to application
-            const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
+            const connector = await findConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId,
+                connectorId
+            )
             if (!connector) {
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
             // Check isSingleMetahub constraint
             if (connector.isSingleMetahub) {
-                const existingLinks = await connectorPublicationRepo.count({ where: { connectorId } })
+                const existingLinks = await countConnectorPublicationLinks(
+                    {
+                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                    },
+                    connectorId
+                )
                 if (existingLinks > 0) {
                     return res.status(400).json({
                         error: 'Single publication constraint',
@@ -551,7 +523,13 @@ export function createConnectorsRoutes(
             }
 
             // Check for duplicate link
-            const existingLink = await connectorPublicationRepo.findOne({ where: { connectorId, publicationId } })
+            const existingLink = await findConnectorPublicationLink(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                connectorId,
+                publicationId
+            )
             if (existingLink) {
                 return res.status(400).json({
                     error: 'Duplicate link',
@@ -560,14 +538,17 @@ export function createConnectorsRoutes(
             }
 
             // Create link
-            const link = connectorPublicationRepo.create({
-                connectorId,
-                publicationId,
-                sortOrder,
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
-            await connectorPublicationRepo.save(link)
+            const link = await insertConnectorPublicationLink(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                {
+                    connectorId,
+                    publicationId,
+                    sortOrder,
+                    userId
+                }
+            )
 
             return res.status(201).json(link)
         })
@@ -584,24 +565,36 @@ export function createConnectorsRoutes(
             const { applicationId, connectorId, linkId } = req.params
             const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
             if (!userId) return
-            const { connectorRepo, connectorPublicationRepo } = repos(req)
-
-            // Verify connector belongs to application
-            const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
+            const connector = await findConnector(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId,
+                connectorId
+            )
             if (!connector) {
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            const link = await connectorPublicationRepo.findOne({
-                where: { id: linkId, connectorId }
-            })
+            const link = await findConnectorPublicationLinkById(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                connectorId,
+                linkId
+            )
             if (!link) {
                 return res.status(404).json({ error: 'Link not found' })
             }
 
             // Check isRequiredMetahub constraint
             if (connector.isRequiredMetahub) {
-                const linksCount = await connectorPublicationRepo.count({ where: { connectorId } })
+                const linksCount = await countConnectorPublicationLinks(
+                    {
+                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                    },
+                    connectorId
+                )
                 if (linksCount <= 1) {
                     return res.status(400).json({
                         error: 'Required publication constraint',
@@ -610,15 +603,10 @@ export function createConnectorsRoutes(
                 }
             }
 
-            await connectorPublicationRepo.remove(link)
-
-            // Reset UPDATE_AVAILABLE status — the publication link is gone
-            const { applicationRepo } = repos(req)
-            const app = await applicationRepo.findOneBy({ id: applicationId })
-            if (app && app.schemaStatus === ApplicationSchemaStatus.UPDATE_AVAILABLE) {
-                app.schemaStatus = ApplicationSchemaStatus.SYNCED
-                await applicationRepo.save(app)
-            }
+            await transaction(req, async (executor) => {
+                await deleteConnectorPublicationLink(executor, connectorId, linkId, userId)
+                await touchApplicationSchemaSyncedIfUpdateAvailable(executor, applicationId, userId)
+            })
 
             return res.status(204).send()
         })

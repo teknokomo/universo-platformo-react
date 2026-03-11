@@ -15,7 +15,7 @@
 
 ## Database & Storage
 - **Supabase**: Authentication and multi-user functionality
-- **TypeORM**: Database ORM (^0.3.6)
+- **Knex**: SQL query builder (^3.1.0)
 - **PostgreSQL**: Primary database (pg ^8.11.1)
 - **MySQL**: Alternative database support (mysql2 ^3.11.3)
 - **SQLite**: Development database (sqlite3 ^5.1.6)

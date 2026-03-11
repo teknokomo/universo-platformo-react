@@ -1,24 +1,17 @@
 ---
-description: Manage data flow and storage.
+description: Explain the role of data nodes in UPDL.
 ---
 
 # Data Nodes
 
-{% hint style="info" %}
-**This page is under development.** Detailed node reference will be added soon.
-{% endhint %}
+Data nodes carry values, mappings, references, and typed payloads that other
+nodes consume.
 
-## Overview
+## Typical Responsibilities
 
-Data Nodes manage data flow, storage, and retrieval within UPDL scenes — variables, external data sources, and persistent state.
+- Hold structured values or parameters.
+- Bridge one part of a model to another.
+- Make data flow explicit inside larger graphs.
 
-## Data Types
-
-* Static values
-* API bindings
-* Reactive state
-* External data sources
-
-## Documentation
-
-Coming soon.
+In a broader platform context, data nodes help express configuration,
+intermediate results, exported definitions, and integration payloads.

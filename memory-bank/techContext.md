@@ -9,9 +9,9 @@
 **Integration Point**: Bridge between Supabase JWT ↔ Passport.js successfully implemented
 **Files Affected**: All middleware, controllers, UI authentication components migrated
 
-### Access Control Evolution (Phase 2 - TypeORM Enforcement) - **COMPLETED**
-**Current Model**: Application-level access control with TypeORM middleware.  
-**Key Components**: WorkspaceAccessService (centralized membership validation), strict TypeScript role enum (`owner`, `admin`, `editor`, `member`), dedicated `uniks` schema with RLS policies, TypeORM Repository pattern (migrated from Supabase REST).
+### Access Control Evolution (Phase 2 - Request-Scoped DB Enforcement) - **COMPLETED**
+**Current Model**: Application-level access control with request-scoped DB middleware.  
+**Key Components**: WorkspaceAccessService (centralized membership validation), strict TypeScript role enum (`owner`, `admin`, `editor`, `member`), dedicated `uniks` schema with RLS policies, and the neutral `DbExecutor` / `DbSession` request contracts used across the SQL-first backend.
 
 **Pattern**:
 ```typescript
@@ -21,12 +21,12 @@ const userId = await ensureUnikMembershipResponse(req, res, unikId, {
 if (!userId) return
 ```
 
-**Security Layers**: (1) TypeORM membership validation (primary), (2) RLS policies (fallback), (3) Request cache.  
+**Security Layers**: (1) request-scoped membership validation (primary), (2) RLS policies (fallback), (3) Request cache.  
 **CRITICAL**: All Unik-scoped routes MUST use `ensureUnikMembershipResponse` or `requireUnikRole` middleware.
 
 #### 2. Uniks (Workspace) System
 -   **Purpose**: Multi-tenant workspace isolation (enterprise feature simulation)
--   **Implementation**: Schema-isolated entities with TypeORM access control
+-   **Implementation**: Schema-isolated entities with request-scoped DB access control
 -   **Database Schema**: 
     - `uniks.uniks` - Workspace entities
     - `uniks.uniks_users` - Membership relationships with roles
@@ -72,7 +72,7 @@ if (!userId) return
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
--   **Safety**: All `knex.raw` calls must use parameterized queries (including `SET LOCAL statement_timeout`).
+-   **Safety**: `knex.raw` calls should use parameterized queries by default, but PostgreSQL `SET LOCAL statement_timeout` is the explicit exception here and must go through `buildSetLocalStatementTimeoutSql()` from `@universo/utils/database`.
 
 #### 4. UPDL Nodes & Multi-Technology Export
 
@@ -103,20 +103,24 @@ if (!userId) return
 
 **Target**: Supabase Nano tier by default (Pool Size 15, PG max_connections 60).
 
-**Pool formula** (as of 2026-02-13):
-- Knex: `max(4, min(6, floor(budget / 3)))` — DDL, advisory locks, schema inspection
-- TypeORM: `max(4, budget - knexReserve)` — RLS QueryRunners, entity CRUD
+**Pool model** (as of 2026-03-10):
+- Single shared Knex pool owned by `@universo/database`
+- Default pool max = `DATABASE_POOL_MAX` or 15
+- Pool-level execution uses `createKnexExecutor(getKnex())`
+- Request-scoped RLS execution uses pinned connections wrapped by `createRlsExecutor(...)`
 
 **Tier-scaling guide**:
-| Tier    | Pool Size | Budget | Knex | TypeORM | Headroom |
-|---------|-----------|--------|------|---------|----------|
-| Nano    | 15        | 8      | 4-5  | 4-5     | 5-7      |
-| Micro   | 15        | 10     | 4    | 6       | 5        |
-| Small   | 15        | 12     | 4    | 8       | 3        |
-| Medium  | 50        | 25     | 6    | 19      | 25       |
-| Large+  | 100       | 40     | 6    | 34      | 60       |
+| Tier    | Pool Size | Default Knex Max | Headroom |
+|---------|-----------|------------------|----------|
+| Nano    | 15        | 15               | 0-5      |
+| Micro   | 15        | 15               | 0-5      |
+| Small   | 15        | 15               | 0-5      |
+| Medium  | 50        | tune via env     | 35+      |
+| Large+  | 100       | tune via env     | 85+      |
 
-**Env overrides**: `DATABASE_CONNECTION_BUDGET`, `DATABASE_POOL_MAX`, `DATABASE_KNEX_POOL_MAX`.
+**Env overrides**: `DATABASE_POOL_MAX`, `DATABASE_KNEX_POOL_DEBUG`.
+
+**Tracked env policy**: committed `.env` files in the repository must stay placeholder-only; live Supabase, session, encryption, and object-storage secrets belong outside version control.
 
 **Advisory lock safety**: Schema DDL uses `pg_try_advisory_lock` (session-level) which pins a raw TCP connection. Knex pool must always have ≥4 connections to avoid starvation when 2 advisory locks are held and `inspectSchemaState` / widget resolution queries run.
 
@@ -141,8 +145,8 @@ if (!userId) return
 - **CSRF contract**: `EBADCSRFTOKEN` → HTTP 419; clients clear cached CSRF token and retry once when safe.
 - **Public routes**: centralized allowlists in `@universo/utils/routes` (`PUBLIC_UI_ROUTES`, `API_WHITELIST_URLS`).
 
-**RLS request context (TypeORM + Postgres/Supabase)**:
-- `ensureAuthWithRls` uses a per-request QueryRunner and sets `request.jwt.claims` for RLS policies, then resets context on cleanup.
+**RLS request context (Knex + Postgres/Supabase)**:
+- `ensureAuthWithRls` pins a request-scoped connection, sets `request.jwt.claims` for RLS policies, exposes neutral request helpers, and resets context on cleanup.
 - No DB role switching (`SET role = ...`) required; see [systemPatterns.md](systemPatterns.md) and [rls-integration-pattern.md](rls-integration-pattern.md).
 
 ## APPs Architecture (v0.21.0-alpha)
@@ -161,7 +165,7 @@ if (!userId) return
 -   **Workspace Packages**: `@universo/profile-backend`, `@universo/resources-backend` with clean imports and professional structure
 -   **Template-First**: Reusable export templates across multiple technologies
 -   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
--   **Data Isolation**: Complete cluster-based data separation with TypeORM Repository pattern
+-   **Data Isolation**: Complete cluster-based data separation with neutral DB contracts and a shared Knex runtime
 -   **Future-Ready**: Prepared for plugin extraction and microservices evolution
 
 ## Build System Architecture (Updated 2025-10-18)
@@ -220,16 +224,15 @@ if (!userId) return
 -   Use useRef for API request state tracking
 -   Minimize useEffect dependencies
 
-### TypeORM Repository Pattern
+### Request-Scoped DB Access Pattern
 
-**Database Access Pattern** - All database operations must use TypeORM Repository pattern
+**Database Access Pattern** - New and migrated database operations must use the neutral request-scoped contract or SQL-first persistence stores
 
 **Key Implementation Details:**
 
--   No direct database calls - all operations through Repository pattern
--   Shared DataSource via `getDataSource()` from `packages/universo-core-backend/base/src/DataSource.ts`
--   Entity registration in central registry `packages/universo-core-backend/base/src/database/entities/index.ts`
--   Migration registration in `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`
+-   New work should use `DbExecutor` / `DbSession` and SQL-first persistence helpers
+-   Shared database runtime comes from `@universo/database`
+-   Unified platform migration registration now uses native SQL definitions plus catalog-backed dry-run/export/diff helpers
 -   CASCADE delete relationships for data integrity
 -   UNIQUE constraints on junction tables to prevent duplicates
 
@@ -241,13 +244,12 @@ if (!userId) return
 
 **Key Implementation Details:**
 
--   **TypeORM Version**: 0.3.28 (upgraded from 0.3.6)
 -   **Infrastructure Migration**: PostgreSQL `public.uuid_generate_v7()` function in dedicated migration (MUST execute first)
     - File: `packages/universo-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts`
     - Timestamp: `1500000000000` (July 14, 2017) - Earliest migration to ensure execution before all table creation
     - Registered: First entry in `postgresMigrations` array (PHASE 0: Infrastructure)
     - Implementation: Custom PL/pgSQL function following RFC 9562 specification for PostgreSQL 17.4 (Supabase)
-    - **Why separate?**: TypeORM sorts migrations by class name timestamp, not array order. Function MUST exist before any table with `DEFAULT public.uuid_generate_v7()` is created.
+  - **Why separate?**: The UUID v7 function must exist before any schema bootstrap that relies on `DEFAULT public.uuid_generate_v7()`.
 -   **Backend Module**: `@universo/utils/uuid` with `generateUuidV7()`, `isValidUuid()`, `extractTimestampFromUuidV7()`
 -   **Frontend Package**: `uuidv7@^1.1.0` (npm package for browser bundles)
 -   **Migration Pattern**: All DEFAULT clauses use `public.uuid_generate_v7()` instead of `uuid_generate_v4()` or `gen_random_uuid()`
@@ -259,7 +261,7 @@ if (!userId) return
 
 **Example Usage:**
 ```typescript
-// Backend (TypeORM migration)
+// Backend (SQL migration)
 CREATE TABLE spaces (
   id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
   ...
@@ -280,16 +282,10 @@ const newId = uuidv7()
 - Backend module: `packages/universo-utils/base/src/uuid/index.ts`
 
 
-**TypeORM Compatibility (QA Verified 2025-12-11):**
-- **Entity Decorator Pattern**: `@PrimaryGeneratedColumn('uuid')` is fully compatible with `uuid_generate_v7()`
-- **How It Works**: TypeORM does NOT generate UUIDs client-side. When `repository.save(entity)` is called without an id:
-  1. TypeORM executes `INSERT INTO table (...) VALUES (...) RETURNING *`
-  2. PostgreSQL generates UUID using the column's DEFAULT clause (`uuid_generate_v7()`)
-  3. TypeORM receives the generated UUID v7 from the RETURNING clause
-- **Schema Synchronization**: DataSource configured with `synchronize: false` to prevent TypeORM from overwriting DEFAULT clauses
-- **Migration Safety**: TypeORM's `uuidGenerator` getter (returns `uuid_generate_v4()` or `gen_random_uuid()`) is used only for DDL operations (CREATE/ALTER TABLE). Our raw SQL migrations override this with `public.uuid_generate_v7()`.
-- **Auto-Migration Warning**: If using `typeorm migration:generate`, manually edit generated migrations to replace `uuid_generate_v4()` with `public.uuid_generate_v7()`
-- **Database Verification**: All 75+ tables confirmed to have `DEFAULT uuid_generate_v7()` in PostgreSQL schema (verified via `information_schema.columns`)
+**Current UUID v7 Contract:**
+- SQL-first migrations and schema bootstrap use `DEFAULT public.uuid_generate_v7()` directly.
+- Backend services generate UUID v7 through `@universo/utils/uuid` when they need client-side identifiers.
+- Database verification previously confirmed the default is present across the PostgreSQL schema.
 
 ### Data Isolation Architecture
 

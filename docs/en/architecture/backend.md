@@ -1,24 +1,23 @@
 ---
-description: Server-side architecture and design patterns.
+description: Describe the backend runtime and server-side package composition.
 ---
 
 # Backend Architecture
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+The backend is centered on `@universo/core-backend`, which boots the Express
+application, initializes the shared Knex runtime, runs platform migrations,
+mounts service routers, and serves the frontend bundle.
 
-## Overview
+## Runtime Pattern
 
-The backend is built on Express.js with TypeORM for database access. Each feature module registers its routes, entities, and migrations through a centralized system in `flowise-core-backend`.
+- Express provides HTTP routing and middleware composition.
+- Feature packages own routes, services, and SQL-first persistence helpers.
+- `@universo/migrations-platform` validates and runs platform migrations.
+- `@universo/database` provides the shared Knex singleton and executor factories.
 
-## Key Patterns
+## Current Domain Surface
 
-* **TypeORM Repository pattern** for all database operations
-* **Rate limiting** per service with configurable budgets
-* **RLS-aware** request managers for multi-tenant data isolation
-* **Zod validation** for request body schemas
+The active public backend surface includes auth, onboarding, profiles,
+metahubs, publications, applications, admin flows, and OpenAPI docs support.
 
-## Documentation
-
-Coming soon.
+This is a modular business backend for shared platform services.

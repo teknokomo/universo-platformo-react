@@ -82,7 +82,26 @@ export {
 } from './vlc'
 
 // Database utilities
-export { escapeLikeWildcards, lookupUserEmail, isDatabaseConnectTimeoutError } from './database'
+export {
+    createDbExecutor,
+    createDbSession,
+    buildSetLocalStatementTimeoutSql,
+    escapeLikeWildcards,
+    formatStatementTimeoutLiteral,
+    lookupUserEmail,
+    isDatabaseConnectTimeoutError,
+    createRequestDbContext,
+    getRequestDbContext,
+    getRequestDbExecutor,
+    getRequestDbSession,
+    type CreateDbExecutorOptions,
+    type CreateDbSessionOptions,
+    type DbExecutor,
+    type DbSession,
+    type RequestDbContext,
+    type RequestWithDbContext,
+    type SqlQueryable
+} from './database'
 
 // System fields utilities for three-level architecture
 export {

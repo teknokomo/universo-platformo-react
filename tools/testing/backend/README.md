@@ -29,30 +29,10 @@ The base configuration provides:
 
 The setup file runs after the Jest environment is created and is responsible for:
 
-- Registering reusable globals: `createMockSupabaseClient`, `createMockRepository`, `createMockQueryBuilder`, and `createMockDataSource`.
+- Registering reusable globals: `createMockSupabaseClient`.
 - Providing a default mock implementation for `@supabase/supabase-js`'s `createClient`.
 - Adding the custom matcher `toHaveBeenCalledOnceWith` to Jest's `expect`.
 - Clearing mocks after every test and forcing `NODE_ENV` to `test` when it is not defined.
-
-All helpers are exported so they can be imported explicitly as well:
-
-```ts
-import { createMockDataSource } from '@testing/backend/setupAfterEnv'
-```
-
-## TypeORM helpers (`typeormMocks.ts`)
-
-`createMockQueryBuilder`, `createMockRepository`, and `createMockDataSource` create deeply mocked TypeORM primitives used by service unit tests. They are chainable by default and expose the most common terminal methods (`getOne`, `getMany`, `execute`, etc.).
-
-```ts
-import { createMockDataSource } from '@testing/backend/setupAfterEnv'
-
-const dataSource = createMockDataSource()
-const repository = dataSource.getRepository(MyEntity)
-repository.findOne.mockResolvedValue(mockEntity)
-```
-
-A convenience `asMockRepository` cast helper is also provided for safely treating existing repositories as mocks inside tests.
 
 ## Supabase client mock
 

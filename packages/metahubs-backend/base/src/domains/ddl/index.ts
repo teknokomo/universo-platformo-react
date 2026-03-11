@@ -1,11 +1,12 @@
 /**
- * DDL Domain - Re-exports from @universo/schema-ddl with local KnexClient integration
+ * DDL Domain - Re-exports from @universo/schema-ddl with the shared database runtime.
  *
- * This module provides pre-configured DDL services using the local KnexClient singleton.
- * For pure functions and types, import directly from '@universo/schema-ddl'.
+ * This module provides pre-configured DDL services using the shared Knex singleton
+ * from @universo/database. For pure functions and types, import directly from
+ * @universo/schema-ddl.
  */
 
-import { KnexClient } from './KnexClient'
+import { getKnex } from '@universo/database'
 import {
     createDDLServices,
     SchemaGenerator as SchemaGeneratorClass,
@@ -60,9 +61,21 @@ export { SchemaMigratorClass as SchemaMigrator }
 export { MigrationManagerClass as MigrationManager }
 export { SchemaClonerClass as SchemaCloner }
 
-// Re-export local-only exports
-export { KnexClient } from './KnexClient'
+// Re-export from @universo/database for backward compatibility
+export { getKnex, initKnex, destroyKnex } from '@universo/database'
 export { buildCatalogDefinitions } from './definitions/catalogs'
+
+/**
+ * @deprecated Use getKnex() from '@universo/database' directly.
+ * Kept for backward compatibility during migration.
+ */
+export const KnexClient = {
+    getInstance: () => getKnex(),
+    destroy: async () => {
+        const { destroyKnex: dk } = await import('@universo/database')
+        return dk()
+    }
+}
 
 /**
  * Get pre-configured DDL services using the local KnexClient singleton.
@@ -74,8 +87,7 @@ export { buildCatalogDefinitions } from './definitions/catalogs'
  * ```
  */
 export function getDDLServices() {
-    const knex = KnexClient.getInstance()
-    return createDDLServices(knex)
+    return createDDLServices(getKnex())
 }
 
 /**
@@ -83,8 +95,7 @@ export function getDDLServices() {
  * @deprecated Use getDDLServices() instead for better dependency management.
  */
 export function createSchemaGenerator() {
-    const knex = KnexClient.getInstance()
-    return new SchemaGeneratorClass(knex)
+    return new SchemaGeneratorClass(getKnex())
 }
 
 /**
@@ -92,8 +103,7 @@ export function createSchemaGenerator() {
  * @deprecated Use getDDLServices() instead for better dependency management.
  */
 export function createMigrationManager() {
-    const knex = KnexClient.getInstance()
-    return new MigrationManagerClass(knex)
+    return new MigrationManagerClass(getKnex())
 }
 
 /**

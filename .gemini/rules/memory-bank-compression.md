@@ -368,7 +368,7 @@ If API fails (rate limit, network error, authentication):
 -   [ ] i18n Architecture
 -   [ ] Universal List Pattern
 -   [ ] React StrictMode Pattern
--   [ ] TypeORM Repository Pattern
+-   [ ] Store Pattern with Raw SQL
 -   [ ] Rate Limiting Pattern
 
 ---

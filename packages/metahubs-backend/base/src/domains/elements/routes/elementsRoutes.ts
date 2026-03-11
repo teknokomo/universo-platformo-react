@@ -1,10 +1,9 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { OptimisticLockError } from '@universo/utils'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -25,12 +24,6 @@ const extractErrorCode = (error: unknown): string | undefined => {
     if (!error || typeof error !== 'object' || !('code' in error)) return undefined
     const code = (error as { code?: unknown }).code
     return typeof code === 'string' ? code : undefined
-}
-
-type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 // Request body schemas
@@ -60,7 +53,7 @@ const reorderElementSchema = z.object({
 
 export function createElementsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -74,15 +67,14 @@ export function createElementsRoutes(
         }
 
     const services = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
-            ds,
+            exec,
             elementsService,
             attributesService
         }
@@ -274,12 +266,12 @@ export function createElementsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, elementId } = req.params
-            const { ds, elementsService } = services(req)
+            const { exec, elementsService } = services(req)
             const userId = resolveUserId(req)
-            const rlsRunner = getRequestQueryRunner(req)
+            const dbSession = getRequestDbSession(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
             const parsed = moveElementSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -309,12 +301,12 @@ export function createElementsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { ds, elementsService } = services(req)
+            const { exec, elementsService } = services(req)
             const userId = resolveUserId(req)
-            const rlsRunner = getRequestQueryRunner(req)
+            const dbSession = getRequestDbSession(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
             const parsed = reorderElementSchema.safeParse(req.body)
             if (!parsed.success) {

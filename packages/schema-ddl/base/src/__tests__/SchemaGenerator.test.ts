@@ -351,4 +351,43 @@ describe('SchemaGenerator', () => {
             expect(insertedRows[0]?.table_name).toBe(generateTableName('hub-1', 'hub'))
         })
     })
+
+    describe('generateFullSchema', () => {
+        it('runs afterMigrationRecorded inside the same transaction after migration history is persisted', async () => {
+            jest.spyOn(generator, 'createSchema').mockResolvedValue()
+            jest.spyOn(generator, 'ensureSystemTables').mockResolvedValue()
+            jest.spyOn(generator, 'syncSystemMetadata').mockResolvedValue()
+
+            const recordMigration = jest.fn().mockResolvedValue('migration-id')
+            const afterMigrationRecorded = jest.fn().mockResolvedValue(undefined)
+
+            const result = await generator.generateFullSchema('app_test123', [], {
+                recordMigration: true,
+                migrationManager: {
+                    recordMigration
+                } as unknown as import('../MigrationManager').MigrationManager,
+                afterMigrationRecorded
+            })
+
+            expect(result.success).toBe(true)
+            expect(recordMigration).toHaveBeenCalledTimes(1)
+            expect(afterMigrationRecorded).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    trx: mockKnex,
+                    schemaName: 'app_test123',
+                    snapshotBefore: null,
+                    migrationName: expect.stringMatching(/^\d{8}_\d{6}_initial_schema$/),
+                    migrationId: 'migration-id',
+                    snapshotAfter: expect.objectContaining({
+                        version: expect.any(Number),
+                        entities: {}
+                    }),
+                    diff: expect.objectContaining({
+                        summary: 'Initial schema creation with 0 table(s)'
+                    })
+                })
+            )
+            expect(recordMigration.mock.invocationCallOrder[0]).toBeLessThan(afterMigrationRecorded.mock.invocationCallOrder[0])
+        })
+    })
 })

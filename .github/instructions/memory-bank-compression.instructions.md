@@ -153,6 +153,7 @@ If API fails (rate limit, network error, authentication):
 -   Current Focus section → key achievements + next step
 -   Each bullet: 1 line max
 -   Format:
+
     ```markdown
     ## Current Focus: [Feature] - [Status]
 
@@ -190,6 +191,7 @@ If API fails (rate limit, network error, authentication):
 **CONDENSE (Last 2 months)**:
 
 -   Completed tasks 15-60 days old → summary format:
+
     ```markdown
     ## [Feature Name] - Complete ✅ (YYYY-MM-DD)
 
@@ -197,6 +199,7 @@ If API fails (rate limit, network error, authentication):
     -   Main outcome 2 (1 line)
     -   Details: progress.md#YYYY-MM-DD-feature-name
     ```
+
 -   Remove verbose "Files Modified" lists → "Modified N files"
 -   Remove detailed implementation steps → keep outcomes only
 -   Remove build logs → "Build: ✅ All packages successful"
@@ -205,6 +208,7 @@ If API fails (rate limit, network error, authentication):
 
 -   Move entire completed task sections to progress.md
 -   Replace with single reference line:
+
     ```markdown
     ## [2025-08] Historical Tasks ✅
 
@@ -244,12 +248,15 @@ If API fails (rate limit, network error, authentication):
 **ARCHIVE 90%** (>6 months old):
 
 -   Major features → 1-2 lines summary:
+
     ```markdown
     ### 2025-MM-DD: [Feature Name] ✅
 
     -   [Main outcome]. Files: N. Pattern: systemPatterns.md#link
     ```
+
 -   Group by month if multiple small features:
+
     ```markdown
     ### 2025-MM: [Month Name] Summary ✅
 
@@ -389,7 +396,7 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 -   [ ] i18n Architecture
 -   [ ] Universal List Pattern
 -   [ ] React StrictMode Pattern
--   [ ] TypeORM Repository Pattern
+-   [ ] Store Pattern with Raw SQL
 -   [ ] Rate Limiting Pattern
 
 **Verification**: Compare compressed files with `.backup` files

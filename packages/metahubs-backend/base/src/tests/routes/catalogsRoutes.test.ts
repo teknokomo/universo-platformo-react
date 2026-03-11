@@ -1,35 +1,8 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => undefined
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -37,8 +10,14 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createCatalogsRoutes } from '../../domains/catalogs/routes/catalogsRoutes'
+
+const mockFindMetahubById = jest.fn(async () => ({ id: 'test-metahub-id' }))
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args)
+}))
 
 const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
@@ -88,7 +67,7 @@ const mockElementsService = {
     countByObjectIds: jest.fn()
 }
 
-const mockMetahubRepo = createMockRepository<Record<string, unknown>>()
+
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
@@ -263,13 +242,16 @@ describe('Catalogs Routes', () => {
         res.status(statusCode).json({ error: message })
     }
 
+    const mockExec = {
+        query: jest.fn(async () => []),
+        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        isReleased: () => false
+    }
+
     const buildApp = () => {
-        const dataSource = createMockDataSource({
-            Metahub: mockMetahubRepo
-        })
         const app = express()
         app.use(express.json())
-        app.use(createCatalogsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(createCatalogsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }
@@ -309,7 +291,7 @@ describe('Catalogs Routes', () => {
         mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([])
 
         mockElementsService.countByObjectIds.mockResolvedValue(new Map<string, number>())
-        mockMetahubRepo.findOne.mockResolvedValue({ id: 'test-metahub-id' })
+        mockFindMetahubById.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'test-metahub-id' })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
     })
@@ -651,7 +633,7 @@ describe('Catalogs Routes', () => {
 
     describe('POST /metahub/:metahubId/catalog/:catalogId/copy', () => {
         it('returns 404 when metahub does not exist', async () => {
-            mockMetahubRepo.findOne.mockResolvedValueOnce(null)
+            mockFindMetahubById.mockResolvedValueOnce(null)
 
             const app = buildApp()
             const response = await request(app).post('/metahub/missing/catalog/catalog-1/copy').send({ codename: 'copy-1' }).expect(404)

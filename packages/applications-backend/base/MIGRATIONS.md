@@ -25,15 +25,15 @@ Returns `ApplicationMigrationStatusResponse`:
 - `RECOMMENDED` — migration required but not mandatory
 - `OPTIONAL` — no migration needed
 
-## Database Migrations (TypeORM)
+## Platform Schema Migrations
 
-Static schema migrations are in `src/database/migrations/postgres/`:
+Static platform-schema definitions are in `src/platform/migrations/`:
 
 | Migration | Purpose |
 |---|---|
-| `1800000000000-CreateApplicationsSchema` | Creates `applications` schema with `applications` and `connector_publications` tables |
+| `1800000000000-CreateApplicationsSchema.sql.ts` | Creates the `applications` schema with platform tables for applications, connectors, memberships, and sync metadata |
 
-Migrations are exported as `applicationsMigrations` array and registered in `@universo/core-backend` central registry.
+The unified platform runner consumes `createApplicationsSchemaMigrationDefinition` directly through `@universo/migrations-platform`. This package no longer exports a TypeORM `applicationsMigrations` array for platform bootstrap.
 
 ## Dynamic Schema Tables
 

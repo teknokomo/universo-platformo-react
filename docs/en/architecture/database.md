@@ -1,25 +1,22 @@
 ---
-description: Database schema design and migration strategy.
+description: Describe the PostgreSQL, Knex, migration, and schema-evolution model.
 ---
 
 # Database Design
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+The current repository uses PostgreSQL, typically through Supabase, with a
+shared Knex-based runtime.
 
-## Overview
+## Current Model
 
-Universo Platformo uses PostgreSQL (via Supabase) with TypeORM for schema management. Migrations are organized per-package and registered centrally.
+- `@universo/database` owns the shared Knex runtime and executor helpers.
+- Request-scoped execution is used where auth and RLS context must be applied.
+- `@universo/migrations-platform` registers and runs platform migrations.
+- `@universo/schema-ddl` provides runtime schema generation and diff utilities.
 
-## Key Concepts
+## Design Goals
 
-* **Single PostgreSQL database** via Supabase
-* **TypeORM entities and migrations** per package
-* **Central migration registry** in `flowise-core-backend`
-* **UUID v7** for primary keys (time-sortable)
-* **Row Level Security (RLS)** for multi-tenant isolation
+The database layer is built for controlled schema evolution, soft-delete-aware
+business domains, migration visibility, and future exportable definitions.
 
-## Documentation
-
-Coming soon.
+That makes the data layer part of the platform kernel and its operational model.

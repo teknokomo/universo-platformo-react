@@ -1,35 +1,8 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => undefined
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
 }))
 
 import type { NextFunction, Request, Response } from 'express'
@@ -38,8 +11,14 @@ import { OptimisticLockError } from '@universo/utils'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createSetsRoutes } from '../../domains/sets/routes/setsRoutes'
+
+const mockFindMetahubById = jest.fn(async () => ({ id: 'test-metahub-id' }))
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args)
+}))
 
 const mockEnsureMetahubAccess = jest.fn()
 const mockKnexTransaction = jest.fn(async (handler: (trx: Record<string, unknown>) => Promise<unknown>) => handler({}))
@@ -82,7 +61,7 @@ const mockConstantsService = {
     ensureUniqueCodenameWithRetries: jest.fn()
 }
 
-const mockMetahubRepo = createMockRepository<Record<string, unknown>>()
+
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
@@ -139,13 +118,16 @@ describe('Sets Routes', () => {
         res.status(statusCode).json({ error: err.message || 'Internal Server Error' })
     }
 
+    const mockExec = {
+        query: jest.fn(async () => []),
+        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        isReleased: () => false
+    }
+
     const buildApp = () => {
-        const dataSource = createMockDataSource({
-            Metahub: mockMetahubRepo
-        })
         const app = express()
         app.use(express.json())
-        app.use(createSetsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(createSetsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }
@@ -176,7 +158,7 @@ describe('Sets Routes', () => {
             async ({ desiredCodename }: { desiredCodename: string }) => desiredCodename
         )
 
-        mockMetahubRepo.findOne.mockResolvedValue({ id: 'test-metahub-id' })
+        mockFindMetahubById.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue(undefined)
         mockKnexTransaction.mockImplementation(async (handler: (trx: Record<string, unknown>) => Promise<unknown>) => handler({}))
     })

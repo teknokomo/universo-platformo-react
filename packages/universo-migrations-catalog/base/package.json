@@ -1,0 +1,36 @@
+{
+    "name": "@universo/migrations-catalog",
+    "version": "0.1.0",
+    "description": "Migration catalog storage for Universo Platformo",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist tsconfig.tsbuildinfo",
+        "build": "pnpm run clean && tsc",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts src/",
+        "test": "jest --config ./jest.config.js"
+    },
+    "keywords": [
+        "universo",
+        "migrations",
+        "catalog",
+        "postgres"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/migrations-core": "workspace:*",
+        "json-stable-stringify": "catalog:",
+        "knex": "catalog:"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.12",
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "jest": "^29.7.0",
+        "rimraf": "^5.0.5",
+        "ts-jest": "^29.1.2",
+        "typescript": "catalog:"
+    }
+}

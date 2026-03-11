@@ -6,27 +6,27 @@
 
 * [Обзор](getting-started/README.md)
 * [Установка](getting-started/installation.md)
-* [Быстрый старт](getting-started/quick-start.md)
 * [Конфигурация](getting-started/configuration.md)
+* [Быстрый старт](getting-started/quick-start.md)
 
-## Возможности платформы
+## Платформа
 
 * [Обзор](platform/README.md)
-* [Рабочие пространства (Юники)](platform/workspaces.md)
-* [Пространства и холсты](platform/spaces.md)
-* [Метавселенные](platform/metaverses.md)
-* [Приложения](platform/applications.md)
+* [Узлы и рабочие пространства](platform/workspaces.md)
+* [Пространства знаний](platform/spaces.md)
 * [Метахабы](platform/metahubs.md)
-* [Система публикаций](platform/publications.md)
-* [Система узлов UPDL](platform/updl/README.md)
+* [Приложения](platform/applications.md)
+* [Публикации](platform/publications.md)
+* [UPDL](platform/updl/README.md)
   * [Узлы пространств](platform/updl/space-nodes.md)
   * [Узлы сущностей](platform/updl/entity-nodes.md)
   * [Узлы компонентов](platform/updl/component-nodes.md)
   * [Узлы действий](platform/updl/action-nodes.md)
   * [Узлы событий](platform/updl/event-nodes.md)
   * [Узлы данных](platform/updl/data-nodes.md)
-* [Space Builder](platform/space-builder.md)
-* [Аналитика](platform/analytics.md)
+* [Потоки инструментов-конструкторов](platform/space-builder.md)
+* [Аналитика и наблюдаемость](platform/analytics.md)
+* [Моделирование и виртуальные миры](platform/metaverses.md)
 
 ## Архитектура
 
@@ -43,14 +43,6 @@
 * [REST API](api-reference/rest-api.md)
 * [Аутентификация](api-reference/authentication.md)
 * [Вебхуки](api-reference/webhooks.md)
-
-## Руководства
-
-* [Обзор](guides/README.md)
-* [Создание нового приложения](guides/creating-application.md)
-* [Публикация контента](guides/publishing-content.md)
-* [Работа с UPDL](guides/working-with-updl.md)
-* [Мультиплатформенный экспорт](guides/multi-platform-export.md)
 
 ## Участие в проекте
 

@@ -1,10 +1,14 @@
-import type { DataSource, EntityManager } from 'typeorm'
 import { randomBytes } from 'crypto'
 import type { MetahubCreateOptions, MetahubTemplateManifest, MetahubTemplateSeed } from '@universo/types'
-import { Metahub } from '../../../database/entities/Metahub'
-import { MetahubBranch } from '../../../database/entities/MetahubBranch'
-import { MetahubUser } from '../../../database/entities/MetahubUser'
-import { TemplateVersion } from '../../../database/entities/TemplateVersion'
+import type { SqlQueryable } from '../../../persistence/types'
+import {
+    findMetahubById,
+    findBranchByIdAndMetahub,
+    findBranchesByMetahub,
+    findMetahubMembership,
+    findTemplateVersionById,
+    updateBranch
+} from '../../../persistence'
 import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import {
     getStructureVersion,
@@ -18,6 +22,8 @@ import { buildSystemStructureSnapshot } from './systemTableDefinitions'
 import { buildBaselineMigrationMeta, buildTemplateSeedMigrationMeta } from './metahubMigrationMeta'
 import { TemplateSeedExecutor } from '../../templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigrator'
+import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
+import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 import { clearWidgetTableResolverCache } from '../../templates/services/widgetTableResolver'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
 import { builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
@@ -87,14 +93,10 @@ interface EnsureSchemaOptions {
  * are only created in Application schemas (app_*) during publication.
  */
 export class MetahubSchemaService {
-    constructor(private dataSource: DataSource, private branchIdOverride?: string, private managerOverride?: EntityManager) {}
+    constructor(private exec: SqlQueryable, private branchIdOverride?: string) {}
 
     private get knex() {
         return KnexClient.getInstance()
-    }
-
-    private get repoManager(): EntityManager {
-        return this.managerOverride ?? this.dataSource.manager
     }
 
     /**
@@ -393,11 +395,10 @@ export class MetahubSchemaService {
         lastTemplateVersionId: string | null
         lastTemplateVersionLabel: string | null
     }> {
-        const metaRepo = this.repoManager.getRepository(Metahub)
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const memberRepo = this.repoManager.getRepository(MetahubUser)
-
-        const metahub = await metaRepo.findOneByOrFail({ id: metahubId })
+        const metahub = await findMetahubById(this.exec, metahubId)
+        if (!metahub) {
+            throw new Error('Metahub not found')
+        }
         const defaultBranchId = metahub.defaultBranchId
         if (!defaultBranchId) {
             throw new Error('Default branch is not configured for this metahub')
@@ -405,13 +406,13 @@ export class MetahubSchemaService {
 
         let branchId = this.branchIdOverride ?? defaultBranchId
         if (!this.branchIdOverride && userId) {
-            const membership = await memberRepo.findOne({ where: { metahubId, userId } })
+            const membership = await findMetahubMembership(this.exec, metahubId, userId)
             if (membership?.activeBranchId) {
                 branchId = membership.activeBranchId
             }
         }
 
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
+        const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
             throw new Error('Branch not found')
         }
@@ -431,8 +432,7 @@ export class MetahubSchemaService {
      * WARNING: destructive operation.
      */
     async dropSchema(metahubId: string): Promise<void> {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const branches = await branchRepo.find({ where: { metahubId } })
+        const branches = await findBranchesByMetahub(this.exec, metahubId)
         const { generator } = getDDLServices()
         for (const branch of branches) {
             await generator.dropSchema(branch.schemaName)
@@ -448,10 +448,13 @@ export class MetahubSchemaService {
      * Falls back to the default built-in template.
      */
     private async loadManifest(metahubId: string): Promise<MetahubTemplateManifest> {
-        const metahub = await this.repoManager.getRepository(Metahub).findOneByOrFail({ id: metahubId })
+        const metahub = await findMetahubById(this.exec, metahubId)
+        if (!metahub) {
+            throw new Error('Metahub not found')
+        }
 
         if (metahub.templateVersionId) {
-            const version = await this.repoManager.getRepository(TemplateVersion).findOneBy({ id: metahub.templateVersionId })
+            const version = await findTemplateVersionById(this.exec, metahub.templateVersionId)
             if (version?.manifestJson) {
                 try {
                     return validateTemplateManifest(version.manifestJson)
@@ -601,8 +604,9 @@ export class MetahubSchemaService {
         const seedSynced = await this.syncTemplateSeed(schemaName, manifest, CURRENT_STRUCTURE_VERSION, templateVersionInfo)
 
         // 3. Update branch structure version only after successful structure + seed sync
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        await branchRepo.update({ id: branchId }, { structureVersion: normalizeStoredStructureVersion(CURRENT_STRUCTURE_VERSION) })
+        await updateBranch(this.exec, branchId, {
+            structureVersion: normalizeStoredStructureVersion(CURRENT_STRUCTURE_VERSION)
+        })
 
         return seedSynced
     }
@@ -616,22 +620,66 @@ export class MetahubSchemaService {
         structureVersion: number,
         templateVersionLabel?: string | null
     ): Promise<void> {
-        const hasMigrationTable = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_migrations')
+        const hasMigrationTable = await hasRuntimeHistoryTable(this.knex, schemaName, '_mhb_migrations')
         if (!hasMigrationTable) return
 
         const baselineName = `baseline_structure_v${structureVersion}`
-        const meta = buildBaselineMigrationMeta(buildSystemStructureSnapshot(structureVersion), templateVersionLabel)
-        await this.knex
-            .withSchema(schemaName)
-            .into('_mhb_migrations')
-            .insert({
-                name: baselineName,
-                from_version: structureVersion,
-                to_version: structureVersion,
-                meta
+        const snapshotAfter = buildSystemStructureSnapshot(structureVersion)
+
+        await this.knex.transaction(async (trx) => {
+            const insertResult = await trx
+                .withSchema(schemaName)
+                .into('_mhb_migrations')
+                .insert({
+                    name: baselineName,
+                    from_version: structureVersion,
+                    to_version: structureVersion,
+                    meta: buildBaselineMigrationMeta(snapshotAfter, templateVersionLabel)
+                })
+                .onConflict('name')
+                .ignore()
+                .returning('id')
+
+            const localMigrationId = insertResult[0]?.id ?? insertResult[0]
+            if (!localMigrationId) {
+                return
+            }
+
+            const globalRunId = await mirrorToGlobalCatalog({
+                knex: trx,
+                scopeKind: 'runtime_schema',
+                scopeKey: schemaName,
+                sourceKind: 'system_sync',
+                migrationName: baselineName,
+                migrationVersion: String(structureVersion),
+                localHistoryTable: '_mhb_migrations',
+                summary: `Metahub baseline structure v${structureVersion}`,
+                transactionMode: 'single',
+                lockMode: 'session_advisory',
+                checksumPayload: {
+                    schemaName,
+                    structureVersion,
+                    templateVersionLabel: templateVersionLabel ?? null
+                },
+                meta: {
+                    migrationKind: 'baseline',
+                    templateVersionLabel: templateVersionLabel ?? null
+                },
+                snapshotBefore: null,
+                snapshotAfter: snapshotAfter as unknown as Record<string, unknown>,
+                plan: {
+                    structureVersion
+                }
             })
-            .onConflict('name')
-            .ignore()
+
+            await trx
+                .withSchema(schemaName)
+                .into('_mhb_migrations')
+                .where({ id: localMigrationId })
+                .update({
+                    meta: buildBaselineMigrationMeta(snapshotAfter, templateVersionLabel, globalRunId)
+                })
+        })
     }
 
     private async syncTemplateSeed(
@@ -684,43 +732,83 @@ export class MetahubSchemaService {
         },
         templateVersionInfo?: { templateVersionId?: string | null; templateVersionLabel?: string | null }
     ): Promise<void> {
-        const hasMigrationTable = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_migrations')
+        const hasMigrationTable = await hasRuntimeHistoryTable(this.knex, schemaName, '_mhb_migrations')
         if (!hasMigrationTable) return
 
         const name = `template_seed_${Date.now()}_${randomBytes(4).toString('hex')}`
-        const meta = buildTemplateSeedMigrationMeta({
-            counts: {
-                layoutsAdded: seedResult.layoutsAdded,
-                zoneWidgetsAdded: seedResult.zoneWidgetsAdded,
-                settingsAdded: seedResult.settingsAdded,
-                entitiesAdded: seedResult.entitiesAdded,
-                constantsAdded: seedResult.constantsAdded,
-                attributesAdded: seedResult.attributesAdded,
-                enumValuesAdded: seedResult.enumValuesAdded,
-                elementsAdded: seedResult.elementsAdded
-            },
-            skipped: seedResult.skipped,
-            templateVersionId: templateVersionInfo?.templateVersionId ?? null,
-            templateVersionLabel: templateVersionInfo?.templateVersionLabel ?? null
-        })
+        const counts = {
+            layoutsAdded: seedResult.layoutsAdded,
+            zoneWidgetsAdded: seedResult.zoneWidgetsAdded,
+            settingsAdded: seedResult.settingsAdded,
+            entitiesAdded: seedResult.entitiesAdded,
+            constantsAdded: seedResult.constantsAdded,
+            attributesAdded: seedResult.attributesAdded,
+            enumValuesAdded: seedResult.enumValuesAdded,
+            elementsAdded: seedResult.elementsAdded
+        }
 
-        await this.knex.withSchema(schemaName).into('_mhb_migrations').insert({
-            name,
-            from_version: structureVersion,
-            to_version: structureVersion,
-            meta
+        await this.knex.transaction(async (trx) => {
+            const globalRunId = await mirrorToGlobalCatalog({
+                knex: trx,
+                scopeKind: 'runtime_schema',
+                scopeKey: schemaName,
+                sourceKind: 'template_seed',
+                migrationName: name,
+                migrationVersion: String(structureVersion),
+                localHistoryTable: '_mhb_migrations',
+                summary: `Metahub template seed sync for structure v${structureVersion}`,
+                transactionMode: 'single',
+                lockMode: 'session_advisory',
+                checksumPayload: {
+                    schemaName,
+                    structureVersion,
+                    counts,
+                    skipped: seedResult.skipped,
+                    templateVersionId: templateVersionInfo?.templateVersionId ?? null,
+                    templateVersionLabel: templateVersionInfo?.templateVersionLabel ?? null
+                },
+                meta: {
+                    migrationKind: 'template_seed',
+                    templateVersionId: templateVersionInfo?.templateVersionId ?? null,
+                    templateVersionLabel: templateVersionInfo?.templateVersionLabel ?? null
+                },
+                snapshotBefore: null,
+                snapshotAfter: null,
+                plan: {
+                    counts,
+                    skipped: seedResult.skipped
+                }
+            })
+
+            const meta = buildTemplateSeedMigrationMeta({
+                counts,
+                skipped: seedResult.skipped,
+                templateVersionId: templateVersionInfo?.templateVersionId ?? null,
+                templateVersionLabel: templateVersionInfo?.templateVersionLabel ?? null,
+                globalRunId
+            })
+
+            await trx.withSchema(schemaName).into('_mhb_migrations').insert({
+                name,
+                from_version: structureVersion,
+                to_version: structureVersion,
+                meta
+            })
         })
     }
 
     private async loadTemplateVersionInfo(
         metahubId: string
     ): Promise<{ templateVersionId: string | null; templateVersionLabel: string | null }> {
-        const metahub = await this.repoManager.getRepository(Metahub).findOneByOrFail({ id: metahubId })
+        const metahub = await findMetahubById(this.exec, metahubId)
+        if (!metahub) {
+            throw new Error('Metahub not found')
+        }
         if (!metahub.templateVersionId) {
             return { templateVersionId: null, templateVersionLabel: null }
         }
 
-        const version = await this.repoManager.getRepository(TemplateVersion).findOneBy({ id: metahub.templateVersionId })
+        const version = await findTemplateVersionById(this.exec, metahub.templateVersionId)
         return {
             templateVersionId: metahub.templateVersionId,
             templateVersionLabel: version?.versionLabel ?? null
@@ -731,15 +819,11 @@ export class MetahubSchemaService {
         branchId: string,
         templateVersionInfo: { templateVersionId?: string | null; templateVersionLabel?: string | null }
     ): Promise<void> {
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        await branchRepo.update(
-            { id: branchId },
-            {
-                lastTemplateVersionId: templateVersionInfo.templateVersionId ?? null,
-                lastTemplateVersionLabel: templateVersionInfo.templateVersionLabel ?? null,
-                lastTemplateSyncedAt: templateVersionInfo.templateVersionId || templateVersionInfo.templateVersionLabel ? new Date() : null
-            }
-        )
+        await updateBranch(this.exec, branchId, {
+            lastTemplateVersionId: templateVersionInfo.templateVersionId ?? null,
+            lastTemplateVersionLabel: templateVersionInfo.templateVersionLabel ?? null,
+            lastTemplateSyncedAt: templateVersionInfo.templateVersionId || templateVersionInfo.templateVersionLabel ? new Date() : null
+        })
     }
 
     private normalizeStructureVersion(version: number | null | undefined): number {

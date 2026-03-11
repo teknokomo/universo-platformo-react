@@ -1,10 +1,10 @@
-import type { DataSource, QueryRunner } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { MetahubRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { MetahubUser } from '../../database/entities/MetahubUser'
-// Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
+import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
+import type { DbSession } from '@universo/utils'
+import type { SqlQueryable, MetahubUserRow } from '../../persistence/types'
+import { activeMetahubRowCondition } from '../../persistence/metahubsQueryHelpers'
 
 // Handle both ESM and CJS imports
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,74 +47,109 @@ export const ROLE_PERMISSIONS: Record<MetahubRole, Record<string, boolean>> = {
 export type RolePermission = 'manageMembers' | 'manageMetahub' | 'createContent' | 'editContent' | 'deleteContent'
 
 export interface MetahubMembershipContext {
-    membership: MetahubUser
+    membership: MetahubUserRow
     metahubId: string
     entityId?: string
     isSynthetic?: boolean
     globalRole?: string | null
 }
 
-const getManager = (ds: DataSource, queryRunner?: QueryRunner) => {
-    if (queryRunner && !queryRunner.isReleased) {
-        return queryRunner.manager
+const MEMBERSHIP_SELECT = (alias: string) =>
+    `
+    ${alias}.id,
+    ${alias}.metahub_id AS "metahubId",
+    ${alias}.user_id AS "userId",
+    ${alias}.active_branch_id AS "activeBranchId",
+    ${alias}.role,
+    ${alias}.comment
+`.trim()
+
+const runQuery = async <TRow = unknown>(exec: SqlQueryable, sql: string, params: unknown[], dbSession?: DbSession): Promise<TRow[]> => {
+    if (dbSession && !dbSession.isReleased()) {
+        return dbSession.query<TRow>(sql, params)
     }
-    return ds.manager
+
+    return exec.query<TRow>(sql, params)
 }
 
 // Create base guards using generic factory from auth-backend
 // Includes global admin bypass for superadmin/supermoderator
-const baseGuards = createAccessGuards<MetahubRole, MetahubUser>({
+const baseGuards = createAccessGuards<MetahubRole, MetahubUserRow, SqlQueryable>({
     entityName: 'metahub',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
     permissions: ROLE_PERMISSIONS,
-    getMembership: async (ds: DataSource, userId: string, metahubId: string, queryRunner?: QueryRunner) => {
-        const repo = getManager(ds, queryRunner).getRepository(MetahubUser)
-        return repo.findOne({ where: { metahubId, userId } })
+    getMembership: async (exec: SqlQueryable, userId: string, metahubId: string, dbSession?: DbSession) => {
+        const rows = await runQuery<MetahubUserRow>(
+            exec,
+            `
+                        SELECT ${MEMBERSHIP_SELECT('mu')}
+                        FROM metahubs.metahubs_users mu
+                        JOIN metahubs.metahubs m ON m.id = mu.metahub_id
+                        WHERE mu.metahub_id = $1
+                            AND mu.user_id = $2
+                            AND ${activeMetahubRowCondition('mu')}
+                            AND ${activeMetahubRowCondition('m')}
+            LIMIT 1
+            `,
+            [metahubId, userId],
+            dbSession
+        )
+
+        return rows[0] ?? null
     },
-    extractRole: (m) => (m.role || 'member') as MetahubRole,
-    extractUserId: (m) => m.userId,
-    extractEntityId: (m) => m.metahubId,
+    extractRole: (m: MetahubUserRow) => (m.role || 'member') as MetahubRole,
+    extractUserId: (m: MetahubUserRow) => m.userId,
+    extractEntityId: (m: MetahubUserRow) => m.metahubId,
     // Global admin bypass - users with global access get owner-level access
-    isSuperuser: isSuperuserByDataSource,
-    getGlobalRoleName: getGlobalRoleCodenameByDataSource,
-    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+    isSuperuser: (exec: SqlQueryable, userId: string, dbSession?: DbSession) => {
+        const q = dbSession && !dbSession.isReleased() ? dbSession : exec
+        return isSuperuser(q, userId)
+    },
+    getGlobalRoleName: (exec: SqlQueryable, userId: string, dbSession?: DbSession) => {
+        const q = dbSession && !dbSession.isReleased() ? dbSession : exec
+        return getGlobalRoleCodename(q, userId)
+    },
+    createGlobalAdminMembership: (userId: string, entityId: string, _globalRole: string | null) =>
         ({
             userId,
             metahubId: entityId,
             role: 'owner', // Global admins get owner-level access
             _uplCreatedAt: new Date()
-        } as MetahubUser)
+        } as MetahubUserRow)
 })
 
 // Re-export base guards
-const { getMembershipSafe, assertPermission, hasPermission, ensureAccess } = baseGuards
+const { getMembershipSafe, assertPermission, hasPermission } = baseGuards
 export { assertPermission, hasPermission }
 
 // Helpers for external use
-export async function getMetahubMembership(ds: DataSource, userId: string, metahubId: string): Promise<MetahubUser | null> {
-    return getMembershipSafe(ds, userId, metahubId)
+export async function getMetahubMembership(exec: SqlQueryable, userId: string, metahubId: string): Promise<MetahubUserRow | null> {
+    return getMembershipSafe(exec, userId, metahubId)
 }
 
 export async function ensureMetahubAccess(
-    ds: DataSource,
+    exec: SqlQueryable,
     userId: string,
     metahubId: string,
     permission?: RolePermission,
-    queryRunner?: QueryRunner
+    dbSession?: DbSession
 ): Promise<MetahubMembershipContext> {
+    // Prefer active dbSession (RLS-enabled) for all queries
+    const q = dbSession && !dbSession.isReleased() ? dbSession : exec
+
     // First check if user has global metahubs permission / superuser bypass
-    const isSuper = await isSuperuserByDataSource(ds, userId, queryRunner)
-    const hasGlobalMetahubsAccess = await hasSubjectPermissionByDataSource(ds, userId, 'metahubs', 'read', queryRunner)
+    const isSuper = await isSuperuser(q, userId)
+    const hasGlobalMetahubsAccess = await hasSubjectPermission(q, userId, 'metahubs', 'read')
 
     if (isSuper || hasGlobalMetahubsAccess) {
         // User has global access - create synthetic membership with owner role
-        const globalRoleName = await getGlobalRoleCodenameByDataSource(ds, userId, queryRunner)
-        const syntheticMembership: MetahubUser = {
+        const globalRoleName = await getGlobalRoleCodename(q, userId)
+        const syntheticMembership = {
             userId,
             metahubId,
             role: 'owner', // Global role users get owner-level access
             _uplCreatedAt: new Date()
-        } as MetahubUser
+        } as MetahubUserRow
 
         return {
             membership: syntheticMembership,
@@ -125,9 +160,8 @@ export async function ensureMetahubAccess(
         }
     }
 
-    // Otherwise do membership check using request manager (RLS-enabled if available)
-    const manager = getManager(ds, queryRunner)
-    const membership = await manager.getRepository(MetahubUser).findOne({ where: { metahubId, userId } })
+    // Otherwise do membership check using request-scoped queryable (RLS-enabled if available)
+    const membership = await getMembershipSafe(exec, userId, metahubId, dbSession)
     if (!membership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
@@ -150,7 +184,7 @@ export async function ensureMetahubAccess(
  * Assert that the target user is not the owner of the metahub
  * Used to prevent owner from being demoted or removed
  */
-export function assertNotOwner(membership: MetahubUser, operation: 'modify' | 'remove' = 'modify'): void {
+export function assertNotOwner(membership: MetahubUserRow, operation: 'modify' | 'remove' = 'modify'): void {
     if (membership.role === 'owner') {
         const action = operation === 'modify' ? 'update role of' : 'remove'
         throw createError(403, `Cannot ${action} the owner of this metahub`)
@@ -184,21 +218,21 @@ export interface HubAccessContext extends MetahubMembershipContext {
  * should use MetahubHubsService directly after ensureMetahubAccess.
  */
 export async function ensureHubAccess(
-    ds: DataSource,
+    exec: SqlQueryable,
     userId: string,
     metahubId: string,
     hubId: string,
     permission?: RolePermission,
-    queryRunner?: QueryRunner
+    dbSession?: DbSession
 ): Promise<HubAccessContext> {
     // First check metahub access
-    const context = await ensureMetahubAccess(ds, userId, metahubId, permission, queryRunner)
+    const context = await ensureMetahubAccess(exec, userId, metahubId, permission, dbSession)
 
     // Import dynamically to avoid circular dependencies
     const { MetahubSchemaService } = await import('../metahubs/services/MetahubSchemaService.js')
     const { MetahubHubsService } = await import('../metahubs/services/MetahubHubsService.js')
 
-    const schemaService = new MetahubSchemaService(ds, undefined, getManager(ds, queryRunner))
+    const schemaService = new MetahubSchemaService(exec)
     const hubsService = new MetahubHubsService(schemaService)
 
     const hubData = await hubsService.findById(metahubId, hubId)

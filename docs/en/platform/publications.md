@@ -1,24 +1,24 @@
 ---
-description: Publish and share your creations across platforms.
+description: Describe publication flows and versioned release surfaces.
 ---
 
-# Publication System
+# Publications
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Publications are the release-facing side of design-time structures. They make it
+possible to move curated content, definitions, or application-linked artifacts
+from collaborative editing flows toward distributable runtime surfaces.
 
-## Overview
+## Current Implementation
 
-The Publication System enables exporting and sharing content created in Universo Platformo. It supports multiple output formats including AR.js, PlayCanvas, and A-Frame.
+The repository already includes publication entities, versions, links to
+metahubs and applications, route-level management, and related persistence or
+access-control logic.
 
-## Key Features
+## Why Publications Matter
 
-* Multi-platform export (AR.js, PlayCanvas, A-Frame)
-* Publication versioning
-* Shareable links and embeds
-* Application synchronization
+- They separate editing from release surfaces.
+- They support explicit versions and controlled release updates.
+- They help bridge design-time structures and runtime applications.
+- They create a base for export, synchronization, and future deployment tooling.
 
-## Documentation
-
-Coming soon.
+This is a core platform capability, not just a content-sharing add-on.

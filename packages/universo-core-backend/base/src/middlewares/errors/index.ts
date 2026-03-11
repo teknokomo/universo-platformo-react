@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import { OptimisticLockError, lookupUserEmail } from '@universo/utils'
-import { getDataSource } from '../../DataSource'
+import { getKnex, createKnexExecutor } from '@universo/database'
 
 /**
  * Check if error is an OptimisticLockError (by class or duck typing)
@@ -42,7 +42,7 @@ async function errorHandlerMiddleware(err: ErrorLike, req: Request, res: Respons
     // Handle Optimistic Lock Conflicts (409)
     if (isOptimisticLockError(err)) {
         const conflict = err.conflict
-        const updatedByEmail = await lookupUserEmail(getDataSource(), conflict.updatedBy)
+        const updatedByEmail = await lookupUserEmail(createKnexExecutor(getKnex()), conflict.updatedBy)
 
         res.setHeader('Content-Type', 'application/json')
         return res.status(409).json({

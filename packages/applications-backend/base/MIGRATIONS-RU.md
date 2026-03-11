@@ -25,15 +25,15 @@
 - `RECOMMENDED` — миграция требуется, но не обязательна
 - `OPTIONAL` — миграция не требуется
 
-## Миграции базы данных (TypeORM)
+## Миграции платформенной схемы
 
-Миграции статической схемы находятся в `src/database/migrations/postgres/`:
+Определения статической платформенной схемы находятся в `src/platform/migrations/`:
 
 | Миграция | Назначение |
 |---|---|
-| `1800000000000-CreateApplicationsSchema` | Создаёт схему `applications` с таблицами `applications` и `connector_publications` |
+| `1800000000000-CreateApplicationsSchema.sql.ts` | Создаёт схему `applications` с платформенными таблицами приложений, коннекторов, членства и метаданных синхронизации |
 
-Миграции экспортируются как массив `applicationsMigrations` и регистрируются в центральном реестре `@universo/core-backend`.
+Единый раннер платформенных миграций использует `createApplicationsSchemaMigrationDefinition` напрямую через `@universo/migrations-platform`. Этот пакет больше не экспортирует TypeORM-массив `applicationsMigrations` для platform bootstrap.
 
 ## Таблицы динамической схемы
 

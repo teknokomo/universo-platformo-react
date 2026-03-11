@@ -1,4 +1,4 @@
-# @universo-platformo/utils
+# @universo/utils
 
 > 🛠️ Утилиты, разделяемые между frontend и backend для валидации, сериализации, ECS дельт, синхронизации времени и сетевых утилит в Universo Platformo
 
@@ -6,7 +6,7 @@
 
 | Поле | Значение |
 |------|----------|
-| **Имя пакета** | `@universo-platformo/utils` |
+| **Имя пакета** | `@universo/utils` |
 | **Версия** | Смотрите `package.json` |
 | **Тип** | TypeScript-first (Утилиты) |
 | **Сборка** | ES модуль с типами |
@@ -82,7 +82,7 @@ REDIS_URL=rediss://:password@redis.example.com:6380
 Запустите Vitest для тестирования UPDL помощников сериализации:
 
 ```bash
-pnpm --filter @universo-platformo/utils test
+pnpm --filter @universo/utils test
 ```
 
 ## Справочник API
@@ -94,7 +94,7 @@ pnpm --filter @universo-platformo/utils test
 Проверяет, доступен ли порт, пытаясь привязаться к нему. Выбрасывает ошибку, если порт уже используется.
 
 ```typescript
-import { net } from '@universo-platformo/utils'
+import { net } from '@universo/utils'
 
 // Проверить, доступен ли порт 3000
 await net.ensurePortAvailable(3000)
@@ -128,8 +128,8 @@ await net.ensurePortAvailable(8080, 'localhost')
 
 ## Связанная документация
 
-- [Документация основных приложений](../README-RU.md)
-- [Universo Types](../universo-types/base/README-RU.md)
+- [Индекс пакетов](../../README-RU.md)
+- [Universo Types](../../universo-types/base/README-RU.md)
 - [Документация TypeScript](https://www.typescriptlang.org/docs/)
 
 ---

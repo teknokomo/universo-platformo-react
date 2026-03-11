@@ -1,4 +1,4 @@
-# @universo-platformo/types
+# @universo/types
 
 > 🔧 Core protocol and ECS domain types for Universo Platformo
 
@@ -6,7 +6,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Package Name** | `@universo-platformo/types` |
+| **Package Name** | `@universo/types` |
 | **Version** | See `package.json` |
 | **Type** | TypeScript-first (Types & Interfaces) |
 | **Build** | ES module with type definitions |
@@ -50,7 +50,7 @@ This package lives at `packages/universo-types/base` and is consumed via `worksp
 Run the type-level regression tests with Vitest:
 
 ```bash
-pnpm --filter @universo-platformo/types test
+pnpm --filter @universo/types test
 ```
 
 ## Contributing
@@ -66,9 +66,9 @@ When contributing to this package:
 
 ## Related Documentation
 
-- [Main Apps Documentation](../README.md)
-- [Flowise Server](../flowise-server/base/README.md)
-- [UPDL](../updl/base/README.md)
+- [Main package index](../../README.md)
+- [Core Backend](../../universo-core-backend/base/README.md)
+- [Core Frontend](../../universo-core-frontend/base/README.md)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 
 ## License

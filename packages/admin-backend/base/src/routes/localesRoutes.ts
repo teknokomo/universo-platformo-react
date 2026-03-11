@@ -1,37 +1,24 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import { uuid } from '@universo/utils'
+import type { DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
-import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
-import { Locale } from '../database/entities/Locale'
+import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
+import {
+    listLocales,
+    findLocaleById,
+    findLocaleByCode,
+    createLocale,
+    updateLocale,
+    deleteLocale,
+    transformLocaleRow
+} from '../persistence/localesStore'
 import { CreateLocaleSchema, UpdateLocaleSchema, LocalesListQuerySchema, formatZodError } from '../schemas'
-import { getRequestManager } from '../utils'
 
 export interface LocalesRoutesConfig {
     globalAccessService: GlobalAccessService
     permissionService: IPermissionService
-    getDataSource: () => DataSource
-}
-
-/**
- * Transform Locale entity to API response (camelCase)
- */
-function transformLocale(locale: Locale) {
-    return {
-        id: locale.id,
-        code: locale.code,
-        name: locale.name,
-        nativeName: locale.nativeName,
-        isEnabledContent: locale.isEnabledContent,
-        isEnabledUi: locale.isEnabledUi,
-        isDefaultContent: locale.isDefaultContent,
-        isDefaultUi: locale.isDefaultUi,
-        isSystem: locale.isSystem,
-        sortOrder: locale.sortOrder,
-        createdAt: locale.createdAt.toISOString(),
-        updatedAt: locale.updatedAt.toISOString()
-    }
+    getDbExecutor: () => DbExecutor
 }
 
 /**
@@ -39,7 +26,7 @@ function transformLocale(locale: Locale) {
  * Requires global access for all operations
  */
 export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
-    const { globalAccessService, permissionService, getDataSource } = config
+    const { globalAccessService, permissionService, getDbExecutor } = config
     const router = Router()
     const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
 
@@ -49,16 +36,6 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
             fn(req, res).catch(next)
         }
 
-    const getLocaleRepo = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return manager.getRepository(Locale)
-    }
-
-    /**
-     * GET /api/v1/admin/locales
-     * List all locales
-     */
     router.get(
         '/',
         ensureGlobalAccess('locales', 'read'),
@@ -74,78 +51,47 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
             }
 
             const query = parsed.data
-            const repo = getLocaleRepo(req)
+            const exec = getDbExecutor()
 
-            const qb = repo.createQueryBuilder('locale')
-
-            if (!query.includeDisabled) {
-                qb.where('locale.is_enabled_content = true OR locale.is_enabled_ui = true')
-            }
-
-            // Apply sorting
-            const sortColumn =
-                query.sortBy === 'code' ? 'locale.code' : query.sortBy === 'created_at' ? 'locale.created_at' : 'locale.sort_order'
-            qb.orderBy(sortColumn, query.sortOrder.toUpperCase() as 'ASC' | 'DESC')
-
-            // Apply optional pagination
-            if (query.limit !== undefined) {
-                qb.take(query.limit)
-            }
-            if (query.offset !== undefined) {
-                qb.skip(query.offset)
-            }
-
-            // Get total count for pagination info
-            const [locales, total] = await qb.getManyAndCount()
+            const { items, total } = await listLocales(exec, {
+                includeDisabled: query.includeDisabled,
+                sortBy: query.sortBy,
+                sortOrder: query.sortOrder,
+                limit: query.limit,
+                offset: query.offset
+            })
 
             res.json({
                 success: true,
                 data: {
-                    items: locales.map(transformLocale),
+                    items: items.map(transformLocaleRow),
                     total
                 }
             })
         })
     )
 
-    /**
-     * GET /api/v1/admin/locales/:id
-     * Get single locale by ID
-     */
     router.get(
         '/:id',
         ensureGlobalAccess('locales', 'read'),
         asyncHandler(async (req, res) => {
             if (!uuid.isValidUuid(req.params.id)) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Invalid UUID format'
-                })
+                res.status(400).json({ success: false, error: 'Invalid UUID format' })
                 return
             }
 
-            const repo = getLocaleRepo(req)
-            const locale = await repo.findOne({ where: { id: req.params.id } })
+            const exec = getDbExecutor()
+            const locale = await findLocaleById(exec, req.params.id)
 
             if (!locale) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Locale not found'
-                })
+                res.status(404).json({ success: false, error: 'Locale not found' })
                 return
             }
 
-            res.json({
-                success: true,
-                data: transformLocale(locale)
-            })
+            res.json({ success: true, data: transformLocaleRow(locale) })
         })
     )
 
-    /**
-     * POST /api/v1/admin/locales
-     * Create a new locale
-     */
     router.post(
         '/',
         ensureGlobalAccess('locales', 'create'),
@@ -153,135 +99,69 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
             const parsed = CreateLocaleSchema.safeParse(req.body)
 
             if (!parsed.success) {
-                res.status(400).json({
-                    success: false,
-                    error: formatZodError(parsed.error)
-                })
+                res.status(400).json({ success: false, error: formatZodError(parsed.error) })
                 return
             }
 
             const data = parsed.data
-            const ds = getDataSource()
-            const repo = getLocaleRepo(req)
+            const exec = getDbExecutor()
 
-            // Check if code already exists
-            const existing = await repo.findOne({ where: { code: data.code } })
+            const existing = await findLocaleByCode(exec, data.code)
             if (existing) {
-                res.status(409).json({
-                    success: false,
-                    error: 'Locale code already exists'
-                })
+                res.status(409).json({ success: false, error: 'Locale code already exists' })
                 return
             }
 
-            // Use transaction to atomically handle default flags and creation
-            const saved = await ds.transaction(async (manager) => {
-                const txRepo = manager.getRepository(Locale)
-
-                // Clear existing defaults if setting new one
-                if (data.isDefaultContent) {
-                    await txRepo.update({}, { isDefaultContent: false })
-                }
-                if (data.isDefaultUi) {
-                    await txRepo.update({}, { isDefaultUi: false })
-                }
-
-                const locale = txRepo.create({
-                    code: data.code,
-                    name: data.name,
-                    nativeName: data.nativeName ?? null,
-                    isEnabledContent: data.isEnabledContent,
-                    isEnabledUi: data.isEnabledUi,
-                    isDefaultContent: data.isDefaultContent,
-                    isDefaultUi: data.isDefaultUi,
-                    isSystem: false,
-                    sortOrder: data.sortOrder
-                })
-
-                return await txRepo.save(locale)
+            const saved = await createLocale(exec, {
+                code: data.code,
+                name: data.name,
+                nativeName: data.nativeName ?? null,
+                isEnabledContent: data.isEnabledContent,
+                isEnabledUi: data.isEnabledUi,
+                isDefaultContent: data.isDefaultContent,
+                isDefaultUi: data.isDefaultUi,
+                sortOrder: data.sortOrder
             })
 
-            res.status(201).json({
-                success: true,
-                data: transformLocale(saved)
-            })
+            res.status(201).json({ success: true, data: transformLocaleRow(saved) })
         })
     )
 
-    /**
-     * PATCH /api/v1/admin/locales/:id
-     * Update an existing locale
-     */
     router.patch(
         '/:id',
         ensureGlobalAccess('locales', 'update'),
         asyncHandler(async (req, res) => {
             if (!uuid.isValidUuid(req.params.id)) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Invalid UUID format'
-                })
+                res.status(400).json({ success: false, error: 'Invalid UUID format' })
                 return
             }
 
             const parsed = UpdateLocaleSchema.safeParse(req.body)
 
             if (!parsed.success) {
-                res.status(400).json({
-                    success: false,
-                    error: formatZodError(parsed.error)
-                })
+                res.status(400).json({ success: false, error: formatZodError(parsed.error) })
                 return
             }
 
             const data = parsed.data
-            const ds = getDataSource()
-            const repo = getLocaleRepo(req)
+            const exec = getDbExecutor()
 
-            const locale = await repo.findOne({ where: { id: req.params.id } })
+            const locale = await findLocaleById(exec, req.params.id)
             if (!locale) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Locale not found'
-                })
+                res.status(404).json({ success: false, error: 'Locale not found' })
                 return
             }
 
-            // Use transaction to atomically handle default flags, updates, and business rules
             let saved
             try {
-                saved = await ds.transaction(async (manager) => {
-                    const txRepo = manager.getRepository(Locale)
-
-                    // Prevent disabling if it's the only enabled content locale (inside transaction for atomicity)
-                    if (
-                        data.isEnabledContent === false &&
-                        locale.isEnabledContent // only if currently enabled
-                    ) {
-                        const enabledCount = await txRepo.count({ where: { isEnabledContent: true } })
-                        if (enabledCount <= 1) {
-                            throw new Error('LAST_ENABLED_LOCALE')
-                        }
-                    }
-
-                    // Clear existing defaults if setting new one
-                    if (data.isDefaultContent === true && !locale.isDefaultContent) {
-                        await txRepo.update({}, { isDefaultContent: false })
-                    }
-                    if (data.isDefaultUi === true && !locale.isDefaultUi) {
-                        await txRepo.update({}, { isDefaultUi: false })
-                    }
-
-                    // Apply updates
-                    if (data.name !== undefined) locale.name = data.name
-                    if (data.nativeName !== undefined) locale.nativeName = data.nativeName
-                    if (data.isEnabledContent !== undefined) locale.isEnabledContent = data.isEnabledContent
-                    if (data.isEnabledUi !== undefined) locale.isEnabledUi = data.isEnabledUi
-                    if (data.isDefaultContent !== undefined) locale.isDefaultContent = data.isDefaultContent
-                    if (data.isDefaultUi !== undefined) locale.isDefaultUi = data.isDefaultUi
-                    if (data.sortOrder !== undefined) locale.sortOrder = data.sortOrder
-
-                    return await txRepo.save(locale)
+                saved = await updateLocale(exec, req.params.id, {
+                    name: data.name,
+                    nativeName: data.nativeName,
+                    isEnabledContent: data.isEnabledContent,
+                    isEnabledUi: data.isEnabledUi,
+                    isDefaultContent: data.isDefaultContent,
+                    isDefaultUi: data.isDefaultUi,
+                    sortOrder: data.sortOrder
                 })
             } catch (err) {
                 if (err instanceof Error && err.message === 'LAST_ENABLED_LOCALE') {
@@ -291,52 +171,36 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
                     })
                     return
                 }
-                throw err // Re-throw unexpected errors
+                throw err
             }
 
-            res.json({
-                success: true,
-                data: transformLocale(saved)
-            })
+            res.json({ success: true, data: transformLocaleRow(saved) })
         })
     )
 
-    /**
-     * DELETE /api/v1/admin/locales/:id
-     * Delete a locale
-     */
     router.delete(
         '/:id',
         ensureGlobalAccess('locales', 'delete'),
         asyncHandler(async (req, res) => {
             if (!uuid.isValidUuid(req.params.id)) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Invalid UUID format'
-                })
+                res.status(400).json({ success: false, error: 'Invalid UUID format' })
                 return
             }
 
-            const repo = getLocaleRepo(req)
-            const locale = await repo.findOne({ where: { id: req.params.id } })
+            const exec = getDbExecutor()
+            const locale = await findLocaleById(exec, req.params.id)
 
             if (!locale) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Locale not found'
-                })
+                res.status(404).json({ success: false, error: 'Locale not found' })
                 return
             }
 
-            if (locale.isSystem) {
-                res.status(403).json({
-                    success: false,
-                    error: 'Cannot delete system locale'
-                })
+            if (locale.is_system) {
+                res.status(403).json({ success: false, error: 'Cannot delete system locale' })
                 return
             }
 
-            if (locale.isDefaultContent || locale.isDefaultUi) {
+            if (locale.is_default_content || locale.is_default_ui) {
                 res.status(400).json({
                     success: false,
                     error: 'Cannot delete default locale. Set another locale as default first.'
@@ -344,8 +208,7 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
                 return
             }
 
-            await repo.remove(locale)
-
+            await deleteLocale(exec, req.params.id, (req as RequestWithGlobalRole).user?.id)
             res.status(204).send()
         })
     )

@@ -1,25 +1,33 @@
 # @universo/api-client
 
-> 🚀 TypeScript API client for Universo Platformo
+TypeScript API client package for Universo Platformo frontend integrations.
 
-## Package Information
+## Package Role
 
-| Field | Value |
-|-------|-------|
-| **Package Name** | `@universo/api-client` |
-| **Version** | See `package.json` |
-| **Type** | TypeScript-first (API Client) |
-| **Build** | Dual build (CommonJS + ESM) |
-| **Purpose** | Centralized, type-safe client for all backend API calls |
+This package centralizes authenticated HTTP client creation for frontend code and
+provides typed entry points for the currently exported API groups.
 
-## 🚀 Key Features
+## Current Exported Surface
 
-- ✅ **TypeScript** - Full type safety for API requests and responses
-- ✅ **Class-based API** - Modern, extensible architecture
-- ✅ **TanStack Query Integration** - Built-in query keys for caching
-- ✅ **Authentication** - Built on @universo/auth-frontend with CSRF support
-- ✅ **Error Handling** - Automatic 401 redirect, retry logic
-- ✅ **Tree-shakeable** - Only bundle what you use
+The package currently exports:
+
+- `createUniversoApiClient` and the `UniversoApiClient` types.
+- A default `api` instance created from the shared API base URL helper.
+- `AttachmentsApi` plus `attachmentsQueryKeys`.
+- `ConfigApi` plus `configQueryKeys`.
+- `FeedbackApi` plus `feedbackQueryKeys`.
+- `createValidationApi` plus validation response types.
+- Shared query-key exports and package types.
+
+## Important Maturity Note
+
+The package surface is broader than the old canvases-only README suggested, but
+not every exported API group is equally mature yet.
+
+`validation.checkValidation(unikId, canvasId)` is the clearest concrete method
+in the current codebase. `AttachmentsApi`, `ConfigApi`, and `FeedbackApi` are
+already exported as typed integration points and query-key namespaces, but their
+method-level implementation is still intentionally thin and expected to expand.
 
 ## Installation
 
@@ -27,114 +35,40 @@
 pnpm add @universo/api-client
 ```
 
-## Usage
-
-### Basic Usage
+## Basic Usage
 
 ```typescript
 import { createUniversoApiClient } from '@universo/api-client'
 
-// Create client instance
 const api = createUniversoApiClient({ baseURL: '/api/v1' })
 
-// Use async/await
-const canvases = await api.canvases.getCanvases(unikId, spaceId)
+const result = await api.validation.checkValidation(unikId, canvasId)
+console.log(result.data)
 ```
 
-### With TanStack Query
+## Client Behavior
 
-```typescript
-import { useQuery } from '@tanstack/react-query'
-import { createUniversoApiClient, canvasQueryKeys } from '@universo/api-client'
+The internal HTTP client is created through `@universo/auth-frontend`, so it is
+aligned with the repository's current session, CSRF, and 401 redirect behavior.
 
-const api = createUniversoApiClient({ baseURL: '/api/v1' })
-
-function CanvasList({ unikId, spaceId }) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: canvasQueryKeys.list(unikId, spaceId),
-    queryFn: () => api.canvases.getCanvases(unikId, spaceId),
-    enabled: !!unikId && !!spaceId,
-  })
-
-  if (isLoading) return <div>Loading...</div>
-  if (error) return <div>Error: {error.message}</div>
-
-  return (
-    <div>
-      {data.canvases.map(canvas => (
-        <div key={canvas.id}>{canvas.name}</div>
-      ))}
-    </div>
-  )
-}
-```
-
-### Available APIs
-
-Currently implemented:
-
-- **canvases** - Canvas/Chatflow management
-  - `getCanvases()` - List all canvases
-  - `getCanvas()` - Get single canvas
-  - `createCanvas()` - Create new canvas
-  - `updateCanvas()` - Update canvas
-  - `deleteCanvas()` - Delete canvas
-  - `duplicateCanvas()` - Duplicate canvas
-  - `exportCanvas()` - Export canvas
-  - `importCanvas()` - Import canvas
-  - `reorderCanvases()` - Reorder canvases
-
-More APIs coming soon...
+The returned client object also exposes `$client` for cases where you need the
+underlying authenticated axios instance directly.
 
 ## Development
 
 ```bash
-# Build the package
-pnpm build
-
-# Watch mode
-pnpm dev
-
-# Lint
-pnpm lint
+pnpm --filter @universo/api-client build
+pnpm --filter @universo/api-client test
+pnpm --filter @universo/api-client lint
 ```
-
-## Migration from old API
-
-Old pattern (flowise-ui):
-```javascript
-import canvasesApi from '@/api/canvases'
-
-const response = await canvasesApi.getCanvases(unikId, spaceId)
-const canvases = response.data
-```
-
-New pattern:
-```typescript
-import { api } from '@/api/client' // or create instance
-
-const canvases = await api.canvases.getCanvases(unikId, spaceId)
-// Response is already unwrapped (.data)
-```
-
-## Contributing
-
-When contributing to this package:
-
-1. Follow TypeScript best practices and maintain strict typing
-2. Add tests for new API methods or clients
-3. Update both EN and RU documentation
-4. Ensure backward compatibility with existing integrations
-5. Follow the project's coding standards
 
 ## Related Documentation
 
-- [Main Apps Documentation](../README.md)
-- [Publishing Frontend](../publish-frontend/base/README.md)
-- [Universo Types](../universo-types/README.md)
-- [AR.js Documentation](https://ar-js-org.github.io/AR.js-Docs/)
-- [PlayCanvas API Reference](https://api.playcanvas.com/)
+- [Main package index](../../README.md)
+- [Core Frontend](../../universo-core-frontend/base/README.md)
+- [Auth Frontend](../../auth-frontend/base/README.md)
+- [REST Docs](../../universo-rest-docs/README.md)
 
 ## License
 
-MIT
+Omsk Open License

@@ -1,4 +1,4 @@
-import type { QueryRunner } from 'typeorm'
+import type { DbSession } from '@universo/utils'
 import { jwtVerify } from 'jose'
 
 const RLS_DEBUG = process.env.AUTH_RLS_DEBUG === 'true'
@@ -13,13 +13,13 @@ const logRlsDebug = (message: string, payload?: unknown): void => {
 }
 
 /**
- * Apply RLS context to a TypeORM QueryRunner by setting PostgreSQL session variables.
- * This enables Row Level Security policies that depend on auth.uid() to work with TypeORM.
+ * Apply RLS context to a request-scoped database session by setting PostgreSQL session variables.
+ * This enables Row Level Security policies that depend on auth.uid() to work with request-bound queries.
  *
- * @param runner - TypeORM QueryRunner connected to the database
+ * @param session - Request-scoped database session bound to a dedicated connection
  * @param accessToken - JWT access token from Supabase session
  */
-export async function applyRlsContext(runner: QueryRunner, accessToken: string): Promise<void> {
+export async function applyRlsContext(session: DbSession, accessToken: string): Promise<void> {
     logRlsDebug('[RLS:applyContext] Starting RLS context setup')
 
     const secret = process.env.SUPABASE_JWT_SECRET
@@ -41,10 +41,9 @@ export async function applyRlsContext(runner: QueryRunner, accessToken: string):
         })
 
         // Set PostgreSQL session variables for RLS.
-        // IMPORTANT: Do NOT use transaction-local settings here (SET LOCAL / set_config(..., true)),
-        // because most requests execute multiple statements without an explicit transaction.
-        // We set session-level values and rely on middleware cleanup to reset them before releasing
-        // the pooled connection.
+        // We use set_config(..., true) = transaction-local, which auto-clears on
+        // COMMIT/ROLLBACK. The middleware wraps each request in BEGIN/COMMIT,
+        // so claims never leak to subsequent requests on the same pooled connection.
         //
         // NOTE: We do NOT change the session role to 'authenticated' because that role may not have
         // USAGE privilege on application schemas (e.g., admin). Instead we only set request.jwt.claims,
@@ -52,7 +51,7 @@ export async function applyRlsContext(runner: QueryRunner, accessToken: string):
 
         // Set JWT claims in session config (makes auth.uid() and auth.jwt() work)
         logRlsDebug('[RLS:applyContext] Setting request.jwt.claims in PostgreSQL session')
-        await runner.query(`SELECT set_config('request.jwt.claims', $1::text, false)`, [JSON.stringify(payload)])
+        await session.query(`SELECT set_config('request.jwt.claims', $1::text, true)`, [JSON.stringify(payload)])
         logRlsDebug('[RLS:applyContext] ✅ JWT claims configured in session')
 
         logRlsDebug('[RLS:applyContext] ✅ RLS context fully applied')

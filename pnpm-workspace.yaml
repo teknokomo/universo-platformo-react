@@ -85,9 +85,6 @@ catalog:
     ioredis: ^5.8.2
     async-mutex: ^0.5.0
     
-    # ORM - TypeORM for database operations
-    typeorm: ^0.3.28
-    
     # Knex - SQL query builder for runtime DDL (schema generation)
     knex: ^3.1.0
     

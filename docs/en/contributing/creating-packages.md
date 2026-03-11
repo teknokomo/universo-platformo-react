@@ -1,35 +1,23 @@
 ---
-description: Add new packages to the monorepo.
+description: Package creation rules for new frontend or backend modules.
 ---
 
 # Creating Packages
 
-{% hint style="info" %}
-**This page is under development.** Detailed package creation guide will be added soon.
-{% endhint %}
+## Shared Rules
 
-## Overview
+- Put new work under `packages/` and follow existing naming conventions.
+- Use workspace package names for imports across package boundaries.
+- Add synchronized English and Russian README files.
 
-New packages follow a standard structure under `packages/`. Frontend packages use TypeScript (TSX) with dual CJS/ESM builds. Backend packages use TypeORM for database access.
+## Frontend Packages
 
-## Package Structure
+New frontend packages should use TypeScript or TSX and fit the current build
+pattern for dual-format outputs when they are intended for reuse.
 
-```
-packages/your-package/base/
-├── src/
-│   └── index.ts
-├── package.json
-├── tsconfig.json
-└── README.md
-```
+## Backend Packages
 
-## Key Rules
+New backend packages should use SQL-first stores, `DbExecutor`-style access,
+platform migration definitions, and root-level registration where required.
 
-* Frontend packages must compile to both CommonJS and ES Modules
-* Backend packages must use the TypeORM Repository pattern
-* All packages must register entities and migrations centrally
-* Use pnpm workspace package names for cross-package imports
-
-## Documentation
-
-Coming soon.
+Package creation is an architectural task with runtime and integration consequences.

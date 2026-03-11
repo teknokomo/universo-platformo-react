@@ -12,6 +12,10 @@
         "build-force": "pnpm clean && turbo run build --force",
         "dev": "turbo run dev --parallel --no-cache",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",
+        "migration:status": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js status",
+        "migration:plan": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js plan",
+        "migration:diff": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js diff",
+        "migration:export": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js export",
         "start": "run-script-os",
         "start:windows": "cd packages/universo-core-backend/base/bin && run start",
         "start:default": "cd packages/universo-core-backend/base/bin && ./run start",
@@ -27,8 +31,7 @@
         "lint-fix": "pnpm lint --fix",
         "check:react-bundle": "node tools/testing/check-react-require.mjs",
         "quick": "pretty-quick --staged",
-        "postinstall": "husky install",
-        "migration:create": "pnpm typeorm migration:create"
+        "postinstall": "husky install"
     },
     "lint-staged": {
         "*.{js,jsx,ts,tsx,json,md}": "eslint --fix"

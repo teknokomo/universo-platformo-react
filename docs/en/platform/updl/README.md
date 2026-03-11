@@ -1,30 +1,22 @@
 ---
-description: Universal Platform Description Language for 3D/AR/VR content.
+description: Introduce UPDL as an evolving description system for shared platform structures.
 ---
 
-# UPDL Node System
+# UPDL
 
-{% hint style="info" %}
-**This section is under development.** Detailed documentation for each node type will be added progressively.
-{% endhint %}
+UPDL is the repository's evolving description language for shared structures,
+portable definitions, and future cross-stack modeling workflows.
 
-## Overview
+In the current platform direction, it is best treated as a broader language
+layer for describing entities, relations, behaviors, and exportable structures.
 
-**UPDL** (Universal Platform Description Language) is a node-based system for describing 3D scenes, game logic, and interactive content. It enables platform-agnostic content creation that can be exported to multiple engines and frameworks.
+## Node Families
 
-## Node Categories
+- Space Nodes define bounded contexts and structural containers.
+- Entity Nodes describe business or content objects.
+- Component Nodes attach reusable capabilities or fields.
+- Action Nodes express operations and state transitions.
+- Event Nodes express triggers and reactions.
+- Data Nodes carry values, mappings, and typed payloads.
 
-| Category | Description |
-| --- | --- |
-| [Space Nodes](space-nodes.md) | Define 3D spaces, scenes, and environments |
-| [Entity Nodes](entity-nodes.md) | Create objects, characters, and interactive elements |
-| [Component Nodes](component-nodes.md) | Add behaviors and properties to entities |
-| [Action Nodes](action-nodes.md) | Define interactions and triggers |
-| [Event Nodes](event-nodes.md) | Handle events and state changes |
-| [Data Nodes](data-nodes.md) | Manage data flow and storage |
-
-## Design Philosophy
-
-UPDL defines seven base node types for describing virtual spaces and metaverses.
-
-UPDL enables "write once, deploy everywhere" — create content in a unified format and export to AR.js, PlayCanvas, A-Frame, or other supported engines.
+The node family pages below describe the role of each category in that broader direction.

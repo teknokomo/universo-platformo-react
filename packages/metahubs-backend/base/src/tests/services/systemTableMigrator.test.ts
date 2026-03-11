@@ -2,7 +2,24 @@ import type { Knex } from 'knex'
 import { SystemTableMigrator } from '../../domains/metahubs/services/SystemTableMigrator'
 import { SYSTEM_TABLE_VERSIONS, type SystemTableDef } from '../../domains/metahubs/services/systemTableDefinitions'
 
+const mockMirrorToGlobalCatalog = jest.fn().mockResolvedValue('019ccefc-2f7b-7b36-82f4-85cdb1312268')
+let mockHasRuntimeHistoryTable = false
+
+jest.mock('@universo/migrations-catalog', () => ({
+    mirrorToGlobalCatalog: (...args: unknown[]) => mockMirrorToGlobalCatalog(...args)
+}))
+
+jest.mock('@universo/migrations-core', () => ({
+    hasRuntimeHistoryTable: jest.fn(async () => mockHasRuntimeHistoryTable)
+}))
+
 describe('SystemTableMigrator', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockMirrorToGlobalCatalog.mockResolvedValue('019ccefc-2f7b-7b36-82f4-85cdb1312268')
+        mockHasRuntimeHistoryTable = false
+    })
+
     it('blocks automatic migration when destructive diff is detected', async () => {
         const fromVersion = 101
         const toVersion = 102
@@ -129,6 +146,106 @@ describe('SystemTableMigrator', () => {
                     )
                 )
             ).toBe(true)
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('records a global runtime run id when _mhb_migrations exists', async () => {
+        const fromVersion = 301
+        const toVersion = 302
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'title', type: 'string', length: 255, nullable: true }
+                ]
+            },
+            {
+                name: '_mhb_migrations',
+                description: 'Migration table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const insert = jest.fn().mockResolvedValue(undefined)
+            const hasColumn = jest.fn(async () => false)
+            const createColumnBuilder = () => ({
+                primary: jest.fn().mockReturnThis(),
+                nullable: jest.fn().mockReturnThis(),
+                notNullable: jest.fn().mockReturnThis(),
+                defaultTo: jest.fn().mockReturnThis()
+            })
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async (tableName: string) => tableName === '_mhb_migrations'),
+                        hasColumn,
+                        alterTable: jest.fn(async (_tableName: string, callback: (table: Record<string, jest.Mock>) => void) => {
+                            const table = {
+                                uuid: jest.fn(() => createColumnBuilder()),
+                                string: jest.fn(() => createColumnBuilder()),
+                                text: jest.fn(() => createColumnBuilder()),
+                                integer: jest.fn(() => createColumnBuilder()),
+                                boolean: jest.fn(() => createColumnBuilder()),
+                                jsonb: jest.fn(() => createColumnBuilder()),
+                                timestamp: jest.fn(() => createColumnBuilder())
+                            }
+                            callback(table as never)
+                        })
+                    }))
+                },
+                withSchema: jest.fn(() => ({
+                    into: jest.fn(() => ({
+                        insert
+                    }))
+                })),
+                raw: jest.fn().mockResolvedValue({ rows: [] })
+            } as unknown as Knex
+
+            const mockKnex = {
+                raw: jest.fn().mockResolvedValue({ rows: [] }),
+                fn: {
+                    now: jest.fn(() => 'now()')
+                },
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            mockHasRuntimeHistoryTable = true
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(mockMirrorToGlobalCatalog).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    scopeKind: 'runtime_schema',
+                    scopeKey: 'mhb_test_schema',
+                    sourceKind: 'system_sync',
+                    localHistoryTable: '_mhb_migrations'
+                })
+            )
+            expect(insert).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    meta: expect.objectContaining({
+                        globalRunId: '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+                    })
+                })
+            )
         } finally {
             ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
             ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)

@@ -1,10 +1,9 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Metahub } from '../../../database/entities/Metahub'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
@@ -34,7 +33,6 @@ type RequestUser = {
 }
 
 type RequestWithUser = Request & { user?: RequestUser }
-type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
 
 type HubSummaryRow = {
     id: string
@@ -116,10 +114,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as RequestWithUser).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
@@ -443,7 +437,7 @@ const mapEnumerationSummary = (row: EnumerationObjectRow, metahubId: string, val
 
 export function createEnumerationsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -457,14 +451,11 @@ export function createEnumerationsRoutes(
         }
 
     const services = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(schemaService)
         return {
-            ds,
-            manager,
-            metahubRepo: manager.getRepository(Metahub),
+            exec,
             schemaService,
             objectsService,
             hubsService: new MetahubHubsService(schemaService),
@@ -681,18 +672,18 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId } = req.params
-            const { ds, metahubRepo, objectsService, hubsService, schemaService, settingsService } = services(req)
+            const { exec, objectsService, hubsService, schemaService, settingsService } = services(req)
             const userId = resolveUserId(req)
-            const rlsRunner = getRequestQueryRunner(req)
+            const dbSession = getRequestDbSession(req)
 
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized' })
             }
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found' })
             }
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
             // Check allowCopy setting
             const allowCopyRow = await settingsService.findByKey(metahubId, 'enumerations.allowCopy', userId)
@@ -749,7 +740,9 @@ export function createEnumerationsRoutes(
                     parsed.data.namePrimaryLocale ?? sourceNamePrimary
                 )
             }
-            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary)
+            const codenamePrimaryLocale = normalizeLocaleCode(
+                parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary
+            )
 
             const {
                 style: codenameStyle,
@@ -1154,11 +1147,11 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId } = req.params
-            const { ds, objectsService } = services(req)
+            const { exec, objectsService } = services(req)
             const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', getRequestQueryRunner(req))
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', getRequestDbSession(req))
 
             const parsed = reorderEnumerationsSchema.safeParse(req.body)
             if (!parsed.success) {

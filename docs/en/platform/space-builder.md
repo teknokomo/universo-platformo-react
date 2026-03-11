@@ -1,25 +1,24 @@
 ---
-description: AI-powered graph generation from text descriptions.
+description: Describe builder flows, templates, and future generation assistance.
 ---
 
-# Space Builder
+# Builder Flows
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Builder tooling in Universo Platformo should be understood as structured authoring
+assistance, template assembly, and future generation workflows around platform
+entities.
 
-## Overview
+## Current Direction
 
-Space Builder uses LLM-powered AI to generate UPDL node graphs from natural language descriptions. Describe your 3D scene in text, and the builder creates the visual graph automatically.
+The public repository already contains reusable templates, structured domain
+entities, migration-aware definitions, and documentation of shared package
+boundaries that future builder experiences can rely on.
 
-## Key Features
+## Planned Expansion
 
-* Text-to-graph generation using LLM
-* Automatic UPDL node creation
-* Interactive editing after generation
-* Real-time space preview
-* Asset management integration
+- Guided creation of platform structures and applications.
+- Better template-driven composition across domains.
+- More explicit generation assistance for schemas and content structures.
+- Safer handoff from design-time editing to publication or runtime execution.
 
-## Documentation
-
-Coming soon.
+The important point is repeatable structure and governance, not novelty alone.

@@ -1,30 +1,18 @@
 ---
-description: Deploy your content to different engines and platforms.
+description: How to think about export across multiple technology stacks.
 ---
 
 # Multi-Platform Export
 
-{% hint style="info" %}
-**This page is under development.** A step-by-step guide will be added soon.
-{% endhint %}
+Multi-platform export in Universo Platformo is a strategic property of the
+platform. Not every current feature is expected to ship everywhere today.
 
-## Overview
+## Recommended Approach
 
-Learn how to export your UPDL content to different platforms and engines — AR.js, PlayCanvas, A-Frame, and more.
+1. Start from portable definitions and stable domain semantics.
+2. Separate design-time structures from stack-specific runtime details.
+3. Identify what can stay shared across implementations and what needs adaptation.
+4. Validate exports against the target stack and document any adaptation gaps.
+5. Treat the React repository as the main public reference, not the only future client.
 
-## Supported Platforms
-
-* AR.js
-* PlayCanvas
-* A-Frame
-
-## Topics
-
-* Choosing target platform
-* Configuring export parameters
-* Testing exported content
-* Troubleshooting
-
-## Documentation
-
-Coming soon.
+This keeps export discussions grounded in current architecture and delivery reality.

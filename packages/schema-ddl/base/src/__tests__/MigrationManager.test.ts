@@ -1,6 +1,18 @@
 import { MigrationManager, generateMigrationName } from '../MigrationManager'
 import { ChangeType } from '../diff'
 import type { SchemaDiff, SchemaSnapshot } from '../types'
+import { hasRuntimeHistoryTable } from '@universo/migrations-core'
+
+const mockMirrorToGlobalCatalog = jest.fn().mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
+const mockHasRuntimeHistoryTable = hasRuntimeHistoryTable as jest.MockedFunction<typeof hasRuntimeHistoryTable>
+
+jest.mock('@universo/migrations-catalog', () => ({
+    mirrorToGlobalCatalog: (...args: unknown[]) => mockMirrorToGlobalCatalog(...args)
+}))
+
+jest.mock('@universo/migrations-core', () => ({
+    hasRuntimeHistoryTable: jest.fn(async () => true)
+}))
 
 // Create mock Knex instance
 const mockSchemaBuilder = {
@@ -52,7 +64,9 @@ describe('MigrationManager', () => {
         mockQueryBuilder.offset.mockReturnThis()
         mockQueryBuilder.count.mockReturnThis()
         mockSchemaBuilder.hasTable.mockResolvedValue(true)
+        mockHasRuntimeHistoryTable.mockResolvedValue(true)
         mockKnex.raw.mockResolvedValue({ rows: [{ exists: true }] })
+        mockMirrorToGlobalCatalog.mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
     })
 
     describe('generateMigrationName', () => {
@@ -140,6 +154,15 @@ describe('MigrationManager', () => {
             expect(migrationId).toBe('migration-id-123')
             // Knex.withSchema is called on the knex instance
             expect(mockKnex.withSchema).toHaveBeenCalledWith('app_test123')
+            expect(mockMirrorToGlobalCatalog).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    scopeKind: 'runtime_schema',
+                    scopeKey: 'app_test123',
+                    sourceKind: 'publication_snapshot',
+                    migrationName: '20260117_143022_add_products',
+                    localHistoryTable: '_app_migrations'
+                })
+            )
             expect(mockQueryBuilder.table).toHaveBeenCalledWith('_app_migrations')
             expect(mockQueryBuilder.insert).toHaveBeenCalled()
         })
@@ -161,6 +184,7 @@ describe('MigrationManager', () => {
             expect(meta.snapshotAfter).toBeDefined()
             expect(meta.changes).toHaveLength(1)
             expect(meta.hasDestructive).toBe(false)
+            expect(meta.globalRunId).toBe('run_019ccefc2f7b7b3682f485cdb1312268')
         })
 
         it('should mark hasDestructive true when diff has destructive changes', async () => {
@@ -187,7 +211,7 @@ describe('MigrationManager', () => {
         })
 
         it('should return empty array when _app_migrations table does not exist', async () => {
-            mockSchemaBuilder.hasTable.mockResolvedValueOnce(false)
+            mockHasRuntimeHistoryTable.mockResolvedValueOnce(false)
 
             const result = await manager.listMigrations('app_test123')
 
@@ -250,7 +274,7 @@ describe('MigrationManager', () => {
 
     describe('getMigration', () => {
         it('should return null when table does not exist', async () => {
-            mockSchemaBuilder.hasTable.mockResolvedValueOnce(false)
+            mockHasRuntimeHistoryTable.mockResolvedValueOnce(false)
 
             const result = await manager.getMigration('app_test123', 'mig-id')
 

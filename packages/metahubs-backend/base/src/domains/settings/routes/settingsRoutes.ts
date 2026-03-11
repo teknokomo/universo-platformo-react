@@ -1,8 +1,8 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import type { SqlQueryable } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubSettingsService } from '../services/MetahubSettingsService'
@@ -76,7 +76,7 @@ const buildLanguageOptions = (codes: string[]): string[] => {
     return unique
 }
 
-const getContentLocaleCodes = async (ds: DataSource): Promise<string[]> => {
+const getContentLocaleCodes = async (ds: SqlQueryable): Promise<string[]> => {
     try {
         const rows = (await ds.query(
             `
@@ -108,7 +108,7 @@ const withDynamicLanguageOptions = (languageOptions: string[]): RegistryEntry[] 
 
 export function createSettingsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -122,11 +122,10 @@ export function createSettingsRoutes(
         }
 
     const services = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds, undefined, manager)
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const schemaService = new MetahubSchemaService(exec)
         const settingsService = new MetahubSettingsService(schemaService)
-        return { ds, settingsService }
+        return { exec, settingsService }
     }
 
     // GET /metahub/:metahubId/settings
@@ -141,12 +140,11 @@ export function createSettingsRoutes(
                 res.status(401).json({ error: 'Unauthorized' })
                 return
             }
-            const ds = getDataSource()
-            await ensureMetahubAccess(ds, userId, metahubId)
-            const { settingsService } = services(req)
+            const { exec, settingsService } = services(req)
+            await ensureMetahubAccess(exec, userId, metahubId)
 
             const dbRows = await settingsService.findAll(metahubId, userId)
-            const languageOptions = await getContentLocaleCodes(ds)
+            const languageOptions = await getContentLocaleCodes(exec)
             const registry = withDynamicLanguageOptions(languageOptions)
             const merged = mergeSettingsWithDefaults(dbRows, registry)
             const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
@@ -167,9 +165,9 @@ export function createSettingsRoutes(
                 res.status(401).json({ error: 'Unauthorized' })
                 return
             }
-            const ds = getDataSource()
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub')
-            const languageOptions = await getContentLocaleCodes(ds)
+            const { exec, settingsService } = services(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub')
+            const languageOptions = await getContentLocaleCodes(exec)
 
             const parsed = settingsUpdateSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -188,7 +186,6 @@ export function createSettingsRoutes(
                 return
             }
 
-            const { settingsService } = services(req)
             await settingsService.bulkUpsert(metahubId, parsed.data.settings, userId)
 
             // One-shot action: clear hub nesting links and immediately reset trigger flag.
@@ -220,9 +217,8 @@ export function createSettingsRoutes(
                 res.status(401).json({ error: 'Unauthorized' })
                 return
             }
-            const ds = getDataSource()
-            await ensureMetahubAccess(ds, userId, metahubId)
-            const { settingsService } = services(req)
+            const { exec, settingsService } = services(req)
+            await ensureMetahubAccess(exec, userId, metahubId)
 
             const row = await settingsService.findByKey(metahubId, key, userId)
             if (!row) {
@@ -259,9 +255,8 @@ export function createSettingsRoutes(
                 return
             }
 
-            const ds = getDataSource()
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub')
-            const { settingsService } = services(req)
+            const { exec, settingsService } = services(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub')
 
             await settingsService.resetToDefault(metahubId, key, userId)
             res.json({ key, value: { _value: def.defaultValue }, isDefault: true })

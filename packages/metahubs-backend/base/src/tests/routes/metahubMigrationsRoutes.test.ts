@@ -1,30 +1,3 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 const mockEnsureMetahubAccess = jest.fn(async () => ({ membership: { role: 'owner' } }))
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -121,10 +94,26 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createMetahubMigrationsRoutes } from '../../domains/metahubs/routes/metahubMigrationsRoutes'
 import { CURRENT_STRUCTURE_VERSION, CURRENT_STRUCTURE_VERSION_SEMVER } from '../../domains/metahubs/services/structureVersions'
 import { basicTemplate } from '../../domains/templates/data/basic.template'
+
+const mockFindMetahubById = jest.fn()
+const mockFindMetahubForUpdate = jest.fn()
+const mockFindBranchByIdAndMetahub = jest.fn()
+const mockFindMetahubMembership = jest.fn()
+const mockFindTemplateById = jest.fn()
+const mockFindTemplateVersionById = jest.fn()
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: unknown[]) => mockFindMetahubById(...args),
+    findMetahubForUpdate: (...args: unknown[]) => mockFindMetahubForUpdate(...args),
+    findBranchByIdAndMetahub: (...args: unknown[]) => mockFindBranchByIdAndMetahub(...args),
+    findMetahubMembership: (...args: unknown[]) => mockFindMetahubMembership(...args),
+    findTemplateById: (...args: unknown[]) => mockFindTemplateById(...args),
+    findTemplateVersionById: (...args: unknown[]) => mockFindTemplateVersionById(...args)
+}))
 
 describe('Metahub Migrations Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -143,40 +132,21 @@ describe('Metahub Migrations Routes', () => {
         res.status(statusCode).json({ error: message })
     }
 
-    const buildApp = (dataSource: any) => {
+    const mockExec = {
+        query: jest.fn(async () => []),
+        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        isReleased: () => false
+    }
+
+    const buildApp = () => {
         const app = express()
         app.use(express.json())
         app.use(
             '/',
-            createMetahubMigrationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+            createMetahubMigrationsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter)
         )
         app.use(errorHandler)
         return app
-    }
-
-    const setupDataSource = () => {
-        const metahubRepo = createMockRepository<any>()
-        const branchRepo = createMockRepository<any>()
-        const metahubUserRepo = createMockRepository<any>()
-        const templateRepo = createMockRepository<any>()
-        const templateVersionRepo = createMockRepository<any>()
-
-        const dataSource = createMockDataSource({
-            Metahub: metahubRepo,
-            MetahubBranch: branchRepo,
-            MetahubUser: metahubUserRepo,
-            Template: templateRepo,
-            TemplateVersion: templateVersionRepo
-        })
-
-        return {
-            dataSource,
-            metahubRepo,
-            branchRepo,
-            metahubUserRepo,
-            templateRepo,
-            templateVersionRepo
-        }
     }
 
     beforeEach(() => {
@@ -211,22 +181,22 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns migration list and safely handles invalid JSON meta payloads', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
+        
         const metahubId = 'metahub-1'
         const branchId = 'branch-1'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId: null,
             templateVersionId: null
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1',
@@ -246,7 +216,7 @@ describe('Metahub Migrations Routes', () => {
             }
         ])
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).get(`/metahub/${metahubId}/migrations`).expect(200)
 
         expect(response.body.items).toHaveLength(1)
@@ -261,22 +231,22 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns 409 when apply lock cannot be acquired', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
+        
         const metahubId = 'metahub-2'
         const branchId = 'branch-2'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId: null,
             templateVersionId: null
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b2',
@@ -285,36 +255,36 @@ describe('Metahub Migrations Routes', () => {
 
         mockAcquireAdvisoryLock.mockResolvedValue(false)
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).post(`/metahub/${metahubId}/migrations/apply`).send({ dryRun: false }).expect(409)
 
         expect(response.body.error).toContain('Could not acquire migration apply lock')
     })
 
     it('returns structured migration plan payload for v1 baseline', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
+        
         const metahubId = 'metahub-3'
         const branchId = 'branch-3'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId: null,
             templateVersionId: null
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
             structureVersion: 1
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).post(`/metahub/${metahubId}/migrations/plan`).send({}).expect(200)
 
         expect(response.body).toMatchObject({
@@ -341,25 +311,25 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('uses branch last synced template version as current template source in migration plan', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo, templateRepo, templateVersionRepo } = setupDataSource()
+        
         const metahubId = 'metahub-branch-template-source'
         const branchId = 'branch-template-source'
         const templateId = 'template-basic'
         const targetTemplateVersionId = 'template-v100-target'
         const branchTemplateVersionId = 'template-v100-branch'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId,
             templateVersionId: targetTemplateVersionId
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_tpl_source',
@@ -367,11 +337,11 @@ describe('Metahub Migrations Routes', () => {
             lastTemplateVersionId: branchTemplateVersionId,
             lastTemplateVersionLabel: '0.1.0'
         })
-        templateRepo.findOneBy.mockResolvedValue({
+        mockFindTemplateById.mockResolvedValue({
             id: templateId,
             activeVersionId: targetTemplateVersionId
         })
-        templateVersionRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
+        mockFindTemplateVersionById.mockImplementation(async (_exec: any, id: string) => {
             if (id === branchTemplateVersionId) {
                 return { id, templateId, versionLabel: '0.1.0', manifestJson: null }
             }
@@ -381,7 +351,7 @@ describe('Metahub Migrations Routes', () => {
             return null
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).post(`/metahub/${metahubId}/migrations/plan`).send({}).expect(200)
 
         expect(response.body.currentTemplateVersionId).toBe(branchTemplateVersionId)
@@ -390,29 +360,29 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns up-to-date migration status payload for route-level guard checks', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
+        
         const metahubId = 'metahub-3-status'
         const branchId = 'branch-3-status'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId: null,
             templateVersionId: null
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3_status',
             structureVersion: 1
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).get(`/metahub/${metahubId}/migrations/status`).expect(200)
 
         expect(response.body).toMatchObject({
@@ -426,25 +396,25 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('does not execute template seed dry-run in migrations status endpoint', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo, templateRepo, templateVersionRepo } = setupDataSource()
+        
         const metahubId = 'metahub-status-lightweight'
         const branchId = 'branch-status-lightweight'
         const templateId = 'template-basic'
         const targetTemplateVersionId = 'template-v100-target'
         const branchTemplateVersionId = 'template-v100-branch'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId,
             templateVersionId: targetTemplateVersionId
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_status_light',
@@ -452,11 +422,11 @@ describe('Metahub Migrations Routes', () => {
             lastTemplateVersionId: branchTemplateVersionId,
             lastTemplateVersionLabel: '0.1.0'
         })
-        templateRepo.findOneBy.mockResolvedValue({
+        mockFindTemplateById.mockResolvedValue({
             id: templateId,
             activeVersionId: targetTemplateVersionId
         })
-        templateVersionRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
+        mockFindTemplateVersionById.mockImplementation(async (_exec: any, id: string) => {
             if (id === branchTemplateVersionId) {
                 return { id, templateId, versionLabel: '0.1.0', manifestJson: null }
             }
@@ -466,7 +436,7 @@ describe('Metahub Migrations Routes', () => {
             return null
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).get(`/metahub/${metahubId}/migrations/status`).expect(200)
 
         expect(response.body).toMatchObject({
@@ -479,12 +449,12 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations status endpoint', async () => {
-        const { dataSource } = setupDataSource()
+        
         const metahubId = 'metahub-status-timeout'
 
         mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).get(`/metahub/${metahubId}/migrations/status`).expect(503)
 
         expect(response.body).toMatchObject({
@@ -493,12 +463,12 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations list endpoint', async () => {
-        const { dataSource } = setupDataSource()
+        
         const metahubId = 'metahub-list-timeout'
 
         mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).get(`/metahub/${metahubId}/migrations`).expect(503)
 
         expect(response.body).toMatchObject({
@@ -507,12 +477,12 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations plan endpoint', async () => {
-        const { dataSource } = setupDataSource()
+        
         const metahubId = 'metahub-plan-timeout'
 
         mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).post(`/metahub/${metahubId}/migrations/plan`).send({}).expect(503)
 
         expect(response.body).toMatchObject({
@@ -521,24 +491,24 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations apply endpoint pre-plan phase', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
+        
         const metahubId = 'metahub-apply-timeout'
         const branchId = 'branch-apply-timeout'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId: null,
             templateVersionId: null
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
+        mockFindBranchByIdAndMetahub.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).post(`/metahub/${metahubId}/migrations/apply`).send({ dryRun: false }).expect(503)
 
         expect(response.body).toMatchObject({
@@ -547,22 +517,22 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('blocks apply when cleanup mode is dry_run and cleanup has pending destructive changes', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
+        
         const metahubId = 'metahub-4'
         const branchId = 'branch-4'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId: null,
             templateVersionId: null
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b4',
@@ -577,7 +547,7 @@ describe('Metahub Migrations Routes', () => {
             summary: { entitiesDeleted: 1, attributesDeleted: 2, elementsDeleted: 3, settingsDeleted: 1 }
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app)
             .post(`/metahub/${metahubId}/migrations/apply`)
             .send({ dryRun: false, cleanupMode: 'dry_run' })
@@ -588,25 +558,25 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('does not update metahub template pointer when branch template sync is not confirmed', async () => {
-        const { dataSource, metahubRepo, branchRepo, metahubUserRepo, templateRepo, templateVersionRepo } = setupDataSource()
+        
         const metahubId = 'metahub-template-sync-check'
         const branchId = 'branch-template-sync-check'
         const templateId = 'template-basic'
         const targetTemplateVersionId = 'template-v100-target'
         const branchTemplateVersionId = 'template-v100-branch'
 
-        metahubRepo.findOneBy.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId,
             templateId,
             templateVersionId: targetTemplateVersionId
         })
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             activeBranchId: branchId
         })
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_tpl_sync_check',
@@ -614,11 +584,11 @@ describe('Metahub Migrations Routes', () => {
             lastTemplateVersionId: branchTemplateVersionId,
             lastTemplateVersionLabel: '0.1.0'
         })
-        templateRepo.findOneBy.mockResolvedValue({
+        mockFindTemplateById.mockResolvedValue({
             id: templateId,
             activeVersionId: targetTemplateVersionId
         })
-        templateVersionRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
+        mockFindTemplateVersionById.mockImplementation(async (_exec: any, id: string) => {
             if (id === branchTemplateVersionId) {
                 return { id, templateId, versionLabel: '0.1.0', manifestJson: null }
             }
@@ -628,7 +598,7 @@ describe('Metahub Migrations Routes', () => {
             return null
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
         const response = await request(app).post(`/metahub/${metahubId}/migrations/apply`).send({ dryRun: false }).expect(409)
 
         expect(response.body).toMatchObject({
@@ -644,6 +614,6 @@ describe('Metahub Migrations Routes', () => {
                 templateVersionId: targetTemplateVersionId
             })
         )
-        expect(dataSource.transaction).not.toHaveBeenCalled()
+        expect(mockExec.transaction).not.toHaveBeenCalled()
     })
 })

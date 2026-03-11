@@ -1,24 +1,23 @@
 ---
-description: Build visual content with flow-based canvases.
+description: Describe knowledge spaces, structured content, and reusable layouts.
 ---
 
-# Spaces & Canvases
+# Knowledge Spaces
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+Knowledge spaces are structured areas where content, definitions, templates,
+and operational context can be organized.
 
-## Overview
+## Why This Matters
 
-Spaces are containers for visual canvases where you build content using a node-based editor. Each canvas represents a workflow or scene that can be published and shared.
+Universo Platformo is moving toward a CMS-capable architecture, so spaces serve
+as containers for content structures, knowledge layouts, publication assets,
+and reusable definitions.
 
-## Key Features
+## Current Direction
 
-* Visual drag-and-drop canvas editor
-* UPDL node integration for 3D/AR/VR content
-* Canvas versioning and history
-* Real-time collaboration
+- Metahubs and publications already provide design-time structure.
+- Applications provide run-time execution surfaces.
+- Shared schema and migration tooling supports structured evolution over time.
 
-## Documentation
-
-Coming soon.
+Some specialized editors and builders are still evolving, but the repository is
+already organized around structured information and reusable content patterns.

@@ -1,13 +1,19 @@
 import { Router, type Request, type Response, type RequestHandler } from 'express'
 import { z } from 'zod'
-import type { DataSource, EntityManager, QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { ensureMetahubAccess } from '../../shared/guards'
-import { Metahub } from '../../../database/entities/Metahub'
-import { MetahubBranch } from '../../../database/entities/MetahubBranch'
-import { MetahubUser } from '../../../database/entities/MetahubUser'
-import { Template } from '../../../database/entities/Template'
-import { TemplateVersion } from '../../../database/entities/TemplateVersion'
+import {
+    findMetahubById,
+    findMetahubForUpdate,
+    findBranchByIdAndMetahub,
+    findMetahubMembership,
+    findTemplateById,
+    findTemplateVersionById,
+    type SqlQueryable,
+    type MetahubRow,
+    type MetahubBranchRow
+} from '../../../persistence'
+import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
 import { type MetahubMigrationStatusResponse, type MetahubTemplateManifest, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../services/structureVersions'
@@ -30,7 +36,7 @@ import {
     isKnexPoolTimeoutError,
     isMetahubDomainError
 } from '../../shared/domainErrors'
-import { getRequestManager } from '../../../utils'
+import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 
 const listQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -63,19 +69,9 @@ const resolveUserId = (req: Request): string | undefined => {
     return (user.id as string | undefined) ?? (user.sub as string | undefined) ?? (user.user_id as string | undefined)
 }
 
-interface RequestWithDbContext extends Request {
-    dbContext?: {
-        queryRunner?: QueryRunner
-    }
-}
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
-}
-
 interface BranchContext {
-    metahub: Metahub
-    branch: MetahubBranch
+    metahub: MetahubRow
+    branch: MetahubBranchRow
 }
 
 interface StructurePlanStep {
@@ -223,27 +219,23 @@ const toMigrationStatus = (plan: MetahubMigrationPlanResponse): MetahubMigration
 }
 
 async function resolveBranchContext(
-    manager: EntityManager,
+    exec: SqlQueryable,
     metahubId: string,
     userId: string,
     requestedBranchId?: string
 ): Promise<BranchContext> {
-    const metahubRepo = manager.getRepository(Metahub)
-    const branchRepo = manager.getRepository(MetahubBranch)
-    const memberRepo = manager.getRepository(MetahubUser)
-
-    const metahub = await metahubRepo.findOneBy({ id: metahubId })
+    const metahub = await findMetahubById(exec, metahubId)
     if (!metahub) {
         throw new Error('Metahub not found')
     }
 
-    const membership = await memberRepo.findOne({ where: { metahubId, userId } })
+    const membership = await findMetahubMembership(exec, metahubId, userId)
     const fallbackBranchId = requestedBranchId ?? membership?.activeBranchId ?? metahub.defaultBranchId ?? null
     if (!fallbackBranchId) {
         throw new Error('Default branch is not configured')
     }
 
-    const branch = await branchRepo.findOne({ where: { id: fallbackBranchId, metahubId } })
+    const branch = await findBranchByIdAndMetahub(exec, fallbackBranchId, metahubId)
     if (!branch) {
         throw new Error('Branch not found')
     }
@@ -252,9 +244,9 @@ async function resolveBranchContext(
 }
 
 async function resolveTemplateContext(
-    manager: EntityManager,
-    metahub: Metahub,
-    branch: MetahubBranch,
+    exec: SqlQueryable,
+    metahub: MetahubRow,
+    branch: MetahubBranchRow,
     requestedVersionId?: string
 ): Promise<TemplateContext> {
     const currentTemplateVersionId = branch.lastTemplateVersionId ?? null
@@ -269,9 +261,7 @@ async function resolveTemplateContext(
         }
     }
 
-    const templateRepo = manager.getRepository(Template)
-    const templateVersionRepo = manager.getRepository(TemplateVersion)
-    const template = await templateRepo.findOneBy({ id: metahub.templateId })
+    const template = await findTemplateById(exec, metahub.templateId)
     if (!template) {
         return {
             currentTemplateVersionId,
@@ -288,7 +278,7 @@ async function resolveTemplateContext(
     let currentTemplateVersionLabel: string | null = branch.lastTemplateVersionLabel ?? null
     let currentManifest: MetahubTemplateManifest | null = null
     if (currentTemplateVersionId) {
-        const currentVersion = await templateVersionRepo.findOneBy({ id: currentTemplateVersionId })
+        const currentVersion = await findTemplateVersionById(exec, currentTemplateVersionId)
         currentTemplateVersionLabel = currentVersion?.versionLabel ?? null
         if (currentVersion?.manifestJson) {
             try {
@@ -310,7 +300,7 @@ async function resolveTemplateContext(
         }
     }
 
-    const requested = await templateVersionRepo.findOneBy({ id: targetTemplateVersionId })
+    const requested = await findTemplateVersionById(exec, targetTemplateVersionId)
     if (!requested || requested.templateId !== template.id) {
         throw new Error('Target template version is not linked to this metahub template')
     }
@@ -491,9 +481,9 @@ async function buildTemplatePlan(
 }
 
 async function buildMigrationPlan(
-    manager: EntityManager,
-    metahub: Metahub,
-    branch: MetahubBranch,
+    exec: SqlQueryable,
+    metahub: MetahubRow,
+    branch: MetahubBranchRow,
     requestedTemplateVersionId?: string,
     cleanupMode: TemplateCleanupMode = 'confirm',
     options?: BuildMigrationPlanOptions
@@ -503,7 +493,7 @@ async function buildMigrationPlan(
     const includeTemplateSeedDryRun = options?.includeTemplateSeedDryRun ?? true
 
     const structurePlan = buildStructurePlan(currentStructureVersion, targetStructureVersion)
-    const templateContext = await resolveTemplateContext(manager, metahub, branch, requestedTemplateVersionId)
+    const templateContext = await resolveTemplateContext(exec, metahub, branch, requestedTemplateVersionId)
     const templatePlan = await buildTemplatePlan(
         branch.schemaName,
         targetStructureVersion,
@@ -533,7 +523,7 @@ async function buildMigrationPlan(
 
 export function createMetahubMigrationsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -554,19 +544,18 @@ export function createMetahubMigrationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
-            const manager = getRequestManager(req, ds)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const dbSession = getRequestDbSession(req)
             const parsed = statusQuerySchema.safeParse(req.query)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid query parameters', details: parsed.error.flatten() })
             }
 
             try {
-                await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
-                const { metahub, branch } = await resolveBranchContext(manager, metahubId, userId, parsed.data.branchId)
+                await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
+                const { metahub, branch } = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
                 const plan = await buildMigrationPlan(
-                    manager,
+                    exec,
                     metahub,
                     branch,
                     parsed.data.targetTemplateVersionId,
@@ -594,20 +583,19 @@ export function createMetahubMigrationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
-            const manager = getRequestManager(req, ds)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const dbSession = getRequestDbSession(req)
             const parsed = listQuerySchema.safeParse(req.query)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid query parameters', details: parsed.error.flatten() })
             }
 
             try {
-                await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
-                const { branch } = await resolveBranchContext(manager, metahubId, userId, parsed.data.branchId)
+                await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
+                const { branch } = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
 
                 const knex = KnexClient.getInstance()
-                const hasMigrationTable = await knex.schema.withSchema(branch.schemaName).hasTable('_mhb_migrations')
+                const hasMigrationTable = await hasRuntimeHistoryTable(knex, branch.schemaName, '_mhb_migrations')
                 if (!hasMigrationTable) {
                     return res.json({
                         items: [],
@@ -667,19 +655,18 @@ export function createMetahubMigrationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
-            const manager = getRequestManager(req, ds)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const dbSession = getRequestDbSession(req)
             const parsed = planBodySchema.safeParse(req.body ?? {})
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
             }
 
             try {
-                await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
-                const { metahub, branch } = await resolveBranchContext(manager, metahubId, userId, parsed.data.branchId)
+                await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
+                const { metahub, branch } = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
                 const plan = await buildMigrationPlan(
-                    manager,
+                    exec,
                     metahub,
                     branch,
                     parsed.data.targetTemplateVersionId,
@@ -704,23 +691,22 @@ export function createMetahubMigrationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
-            const manager = getRequestManager(req, ds)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const dbSession = getRequestDbSession(req)
             const parsed = applyBodySchema.safeParse(req.body ?? {})
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
             }
 
-            let metahub: Metahub | null = null
-            let branch: MetahubBranch | null = null
+            let metahub: MetahubRow | null = null
+            let branch: MetahubBranchRow | null = null
             let plan: MetahubMigrationPlanResponse
             try {
-                await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
-                const context = await resolveBranchContext(manager, metahubId, userId, parsed.data.branchId)
+                await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
+                const context = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
                 metahub = context.metahub
                 branch = context.branch
-                plan = await buildMigrationPlan(manager, metahub, branch, parsed.data.targetTemplateVersionId, parsed.data.cleanupMode)
+                plan = await buildMigrationPlan(exec, metahub, branch, parsed.data.targetTemplateVersionId, parsed.data.cleanupMode)
             } catch (error) {
                 const mapped = mapMigrationsRouteError(error, {
                     metahubId,
@@ -760,7 +746,7 @@ export function createMetahubMigrationsRoutes(
 
             let manifestOverride: MetahubTemplateManifest | undefined
             if (plan.templateUpgradeRequired && plan.targetTemplateVersionId) {
-                const version = await manager.getRepository(TemplateVersion).findOneBy({ id: plan.targetTemplateVersionId })
+                const version = await findTemplateVersionById(exec, plan.targetTemplateVersionId)
                 if (!version?.manifestJson) {
                     return res.status(422).json({
                         error: 'Target template manifest is not available',
@@ -821,7 +807,7 @@ export function createMetahubMigrationsRoutes(
 
             let cleanupResult: TemplateSeedCleanupResult | null = null
             try {
-                const schemaService = new MetahubSchemaService(ds, branch.id, manager)
+                const schemaService = new MetahubSchemaService(exec, branch.id)
                 await schemaService.ensureSchema(metahubId, userId, {
                     mode: 'apply_migrations',
                     manifestOverride,
@@ -830,7 +816,7 @@ export function createMetahubMigrationsRoutes(
                 })
 
                 if (parsed.data.cleanupMode === 'confirm') {
-                    const templateContext = await resolveTemplateContext(manager, metahub, branch, parsed.data.targetTemplateVersionId)
+                    const templateContext = await resolveTemplateContext(exec, metahub, branch, parsed.data.targetTemplateVersionId)
                     const cleanupService = new TemplateSeedCleanupService(KnexClient.getInstance(), branch.schemaName)
                     cleanupResult = await cleanupService.apply({
                         mode: 'confirm',
@@ -848,9 +834,7 @@ export function createMetahubMigrationsRoutes(
                     }
                 }
 
-                const refreshedBranchAfterSync = await manager.getRepository(MetahubBranch).findOne({
-                    where: { id: branch.id, metahubId }
-                })
+                const refreshedBranchAfterSync = await findBranchByIdAndMetahub(exec, branch.id, metahubId)
                 if (!refreshedBranchAfterSync) {
                     return res.status(404).json({
                         error: 'Branch not found after migration apply',
@@ -870,21 +854,19 @@ export function createMetahubMigrationsRoutes(
                         })
                     }
 
-                    await manager.transaction(async (txManager) => {
-                        const metahubRepoTx = txManager.getRepository(Metahub)
-                        const lockedMetahub = await metahubRepoTx
-                            .createQueryBuilder('metahub')
-                            .setLock('pessimistic_write')
-                            .where('metahub.id = :id', { id: metahub.id })
-                            .getOne()
-
-                        if (!lockedMetahub) {
+                    await exec.transaction(async (tx) => {
+                        const locked = await findMetahubForUpdate(tx, metahub!.id)
+                        if (!locked) {
                             throw new Error('Metahub not found')
                         }
-
-                        lockedMetahub.templateVersionId = plan.targetTemplateVersionId
-                        lockedMetahub._uplUpdatedBy = userId
-                        await metahubRepoTx.save(lockedMetahub)
+                        await tx.query(
+                            `UPDATE metahubs.metahubs
+                             SET template_version_id = $1,
+                                 _upl_updated_by = $2,
+                                 _upl_updated_at = NOW()
+                             WHERE id = $3`,
+                            [plan.targetTemplateVersionId, userId, metahub!.id]
+                        )
                     })
                 }
             } catch (error) {
@@ -911,14 +893,14 @@ export function createMetahubMigrationsRoutes(
 
             try {
                 const [refreshedBranch, refreshedMetahub] = await Promise.all([
-                    manager.getRepository(MetahubBranch).findOne({ where: { id: branch.id, metahubId } }),
-                    manager.getRepository(Metahub).findOneBy({ id: metahub.id })
+                    findBranchByIdAndMetahub(exec, branch.id, metahubId),
+                    findMetahubById(exec, metahub.id)
                 ])
                 structureVersion = refreshedBranch?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
                 templateVersionId = refreshedMetahub?.templateVersionId ?? null
 
                 const knex = KnexClient.getInstance()
-                const hasMigrationTable = await knex.schema.withSchema(branch.schemaName).hasTable('_mhb_migrations')
+                const hasMigrationTable = await hasRuntimeHistoryTable(knex, branch.schemaName, '_mhb_migrations')
                 const latest = hasMigrationTable
                     ? await knex
                           .withSchema(branch.schemaName)

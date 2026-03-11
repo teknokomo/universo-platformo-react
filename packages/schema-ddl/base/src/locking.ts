@@ -1,4 +1,5 @@
 import type { Knex } from 'knex'
+import { buildSetLocalStatementTimeoutSql } from '@universo/utils/database'
 
 export type AdvisoryLockKey = number | string
 
@@ -45,27 +46,18 @@ const getMapKey = (lockKey: AdvisoryLockKey): string => {
     return typeof lockKey === 'number' ? `n:${lockKey}` : `s:${lockKey}`
 }
 
-const buildLockSql = (lockKey: AdvisoryLockKey, unlock = false): { sql: string; params: unknown[] } => {
+const buildLockSql = (lockKey: AdvisoryLockKey): { sql: string; params: unknown[] } => {
     if (typeof lockKey === 'number') {
-        const fn = unlock ? 'pg_advisory_unlock' : 'pg_try_advisory_lock'
-        return { sql: `SELECT ${fn}(?)`, params: [lockKey] }
+        return { sql: `SELECT pg_try_advisory_xact_lock(?)`, params: [lockKey] }
     }
 
-    const fn = unlock ? 'pg_advisory_unlock' : 'pg_try_advisory_lock'
-    return { sql: `SELECT ${fn}(hashtextextended(?, 0))`, params: [lockKey] }
-}
-
-const setSessionStatementTimeout = async (knex: Knex, connection: any, timeoutMs: number): Promise<void> => {
-    await knex.raw('SELECT set_config(?, ?, false)', ['statement_timeout', `${timeoutMs}ms`]).connection(connection)
-}
-
-const resetSessionStatementTimeout = async (knex: Knex, connection: any): Promise<void> => {
-    await knex.raw('RESET statement_timeout').connection(connection)
+    return { sql: `SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))`, params: [lockKey] }
 }
 
 /**
- * Acquire an advisory lock for DDL operations
- * This prevents concurrent schema modifications
+ * Acquire a transaction-level advisory lock for DDL operations.
+ * The lock is held within a transaction on a pinned connection and auto-releases
+ * on COMMIT/ROLLBACK via releaseAdvisoryLock().
  *
  * @param knex - Knex instance to use for the query
  * @param lockKey - Numeric lock key or string resource key
@@ -103,16 +95,16 @@ export async function acquireAdvisoryLock(knex: Knex, lockKey: AdvisoryLockKey, 
         try {
             connection = await knex.client.acquireConnection()
 
-            // Apply timeout at the session level for the current pooled connection.
-            // SET LOCAL has no effect outside an explicit transaction block.
-            await setSessionStatementTimeout(knex, connection, timeout)
+            // Begin a transaction to hold the advisory xact lock.
+            // Transaction-level locks auto-release on COMMIT/ROLLBACK.
+            await knex.raw('BEGIN').connection(connection)
+            await knex.raw(buildSetLocalStatementTimeoutSql(timeout)).connection(connection)
 
-            // Try to acquire exclusive session-level advisory lock
+            // Try to acquire transaction-level advisory lock
             const { sql, params } = buildLockSql(lockKey)
-            const result = await knex.raw<{ rows: { pg_try_advisory_lock: boolean }[] }>(sql, params).connection(connection)
-            const acquired = result.rows[0]?.pg_try_advisory_lock === true
+            const result = await knex.raw<{ rows: { pg_try_advisory_xact_lock: boolean }[] }>(sql, params).connection(connection)
+            const acquired = result.rows[0]?.pg_try_advisory_xact_lock === true
             if (acquired) {
-                await resetSessionStatementTimeout(knex, connection)
                 lockConnections.set(mapKey, { connection, knex })
                 logLockDebug('[schema-ddl:lock] lock acquired', {
                     lockKey,
@@ -121,17 +113,18 @@ export async function acquireAdvisoryLock(knex: Knex, lockKey: AdvisoryLockKey, 
                 return true
             }
 
-            await resetSessionStatementTimeout(knex, connection)
+            // Lock not acquired — rollback and release
+            await knex.raw('ROLLBACK').connection(connection)
             await knex.client.releaseConnection(connection)
             connection = null
         } catch (error) {
             console.error('[schema-ddl] Failed to acquire advisory lock:', error)
             try {
                 if (connection) {
-                    await resetSessionStatementTimeout(knex, connection)
+                    await knex.raw('ROLLBACK').connection(connection)
                 }
             } catch {
-                // Ignore reset failures for broken connections.
+                // Ignore rollback failures for broken connections.
             }
             if (connection) {
                 await knex.client.releaseConnection(connection)
@@ -152,9 +145,10 @@ export async function acquireAdvisoryLock(knex: Knex, lockKey: AdvisoryLockKey, 
 }
 
 /**
- * Release an advisory lock
+ * Release an advisory lock by committing the holding transaction.
+ * Transaction-level advisory locks auto-release on COMMIT/ROLLBACK.
  *
- * @param knex - Knex instance to use for the query
+ * @param knex - Knex instance (used as fallback if entry not found)
  * @param lockKey - The same key used to acquire the lock
  */
 export async function releaseAdvisoryLock(knex: Knex, lockKey: AdvisoryLockKey): Promise<void> {
@@ -164,15 +158,19 @@ export async function releaseAdvisoryLock(knex: Knex, lockKey: AdvisoryLockKey):
     const effectiveKnex = entry?.knex ?? knex
 
     try {
-        const { sql, params } = buildLockSql(lockKey, true)
         if (connection) {
-            await effectiveKnex.raw(sql, params).connection(connection)
-            await resetSessionStatementTimeout(effectiveKnex, connection).catch(() => undefined)
-        } else {
-            await effectiveKnex.raw(sql, params)
+            // COMMIT releases the transaction-level advisory lock automatically
+            await effectiveKnex.raw('COMMIT').connection(connection)
         }
     } catch (error) {
-        console.error('[schema-ddl] Failed to release advisory lock:', error)
+        console.error('[schema-ddl] Failed to release advisory lock (COMMIT):', error)
+        try {
+            if (connection) {
+                await effectiveKnex.raw('ROLLBACK').connection(connection)
+            }
+        } catch {
+            /* best-effort rollback */
+        }
     } finally {
         pendingLockAcquires.delete(mapKey)
         if (connection) {

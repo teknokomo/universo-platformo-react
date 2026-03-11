@@ -27,6 +27,16 @@ export interface ApplyChangesOptions {
     publicationSnapshot?: Record<string, unknown> | null
     /** User ID for audit fields */
     userId?: string | null
+    /** Optional hook executed inside the migration transaction after migration history is recorded */
+    afterMigrationRecorded?: (context: {
+        trx: Knex.Transaction
+        schemaName: string
+        snapshotBefore: SchemaSnapshot | null
+        snapshotAfter: SchemaSnapshot
+        diff: SchemaDiff
+        migrationName: string
+        migrationId: string
+    }) => Promise<void>
 }
 
 /**
@@ -165,7 +175,7 @@ export class SchemaMigrator {
                     const description = options.migrationDescription || 'schema_sync'
                     const migrationName = generateMigrationName(description)
 
-                    await this.migrationManager.recordMigration(
+                    const migrationId = await this.migrationManager.recordMigration(
                         schemaName,
                         migrationName,
                         snapshotBefore,
@@ -176,6 +186,16 @@ export class SchemaMigrator {
                         options.publicationSnapshot ?? null,
                         options.userId ?? null
                     )
+
+                    await options.afterMigrationRecorded?.({
+                        trx,
+                        schemaName,
+                        snapshotBefore,
+                        snapshotAfter,
+                        diff,
+                        migrationName,
+                        migrationId
+                    })
                 }
             })
 

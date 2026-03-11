@@ -1,41 +1,21 @@
 ---
-description: Set up your local development environment.
+description: Local setup and validation workflow for contributors.
 ---
 
 # Development Setup
 
-{% hint style="info" %}
-**This page is under development.** Detailed setup instructions will be added soon.
-{% endhint %}
+## Local Workflow
 
-## Prerequisites
+1. Install dependencies from the repository root with `pnpm install`.
+2. Configure local backend and optional frontend env files.
+3. Validate with `pnpm build` from the root.
+4. Run targeted package tests or lint where needed.
 
-* Node.js >= 18.15.0
-* pnpm >= 9
-* PostgreSQL (via Supabase or local)
-* Git
+## Repository Rules
 
-## Setup Steps
+- Prefer root-level PNPM commands.
+- Use `pnpm --filter <package> lint` for package-scoped linting.
+- Avoid using `pnpm dev` unless you truly need live development servers.
+- Keep English docs canonical and mirror Russian docs with matching structure.
 
-```bash
-# Clone the repository
-git clone https://github.com/teknokomo/universo-platformo-react.git
-cd universo-platformo-react
-
-# Install dependencies
-pnpm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your database and service credentials
-
-# Build all packages
-pnpm build
-
-# Start development servers
-pnpm dev
-```
-
-## Documentation
-
-Coming soon.
+This workflow keeps package boundaries and generated artifacts consistent.

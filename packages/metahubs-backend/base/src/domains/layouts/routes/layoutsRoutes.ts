@@ -1,11 +1,10 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import type { DataSource, QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { DASHBOARD_LAYOUT_WIDGETS, type LayoutCopyOptions } from '@universo/types'
-import { Metahub } from '../../../database/entities/Metahub'
 import { ensureMetahubAccess } from '../../shared/guards'
-import { getRequestManager } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { findMetahubById } from '../../../persistence'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import {
     MetahubLayoutsService,
@@ -33,7 +32,6 @@ type RequestUser = {
 }
 
 type RequestWithUser = Request & { user?: RequestUser }
-type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
 
 type StoredLocaleEntry = { content?: unknown } | unknown
 type StoredLocaleMap = Record<string, StoredLocaleEntry>
@@ -45,10 +43,6 @@ type SourceWidgetRow = {
     sort_order?: number
     config?: unknown
     is_active?: boolean
-}
-
-const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -130,7 +124,7 @@ const toStoredLocalizedRecord = (value: unknown): Record<string, string> => {
 
 export function createLayoutsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -159,22 +153,20 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
 
             const parsed = listQuerySchema.safeParse(req.query)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const result = await layoutsService.listLayouts(
                 metahubId,
@@ -200,15 +192,13 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const parsed = createLayoutSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -242,7 +232,7 @@ export function createLayoutsRoutes(
                 description: descriptionVlc
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const created = await layoutsService.createLayout(metahubId, createInput, userId)
             return res.status(201).json(created)
@@ -257,17 +247,15 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const layout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!layout) return res.status(404).json({ error: 'Layout not found' })
@@ -283,21 +271,19 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const parsed = copyLayoutSchema.safeParse(req.body ?? {})
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const sourceLayout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!sourceLayout) {
@@ -443,22 +429,20 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const parsed = updateLayoutSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const existingLayout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!existingLayout) {
@@ -525,17 +509,15 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             await layoutsService.deleteLayout(metahubId, layoutId, userId)
             return res.status(204).send()
@@ -550,15 +532,13 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
 
             return res.json({
                 items: DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({
@@ -578,16 +558,14 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const items = await layoutsService.listLayoutZoneWidgets(metahubId, layoutId, userId)
             return res.json({ items })
@@ -602,21 +580,19 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const parsed = assignLayoutZoneWidgetSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const item = await layoutsService.assignLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json(item)
@@ -631,21 +607,19 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const parsed = moveLayoutZoneWidgetSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const items = await layoutsService.moveLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json({ items })
@@ -660,14 +634,12 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId, widgetId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const uuidSchema = z.string().uuid()
             const parseResult = uuidSchema.safeParse(widgetId)
@@ -675,7 +647,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid widget ID' })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             await layoutsService.removeLayoutZoneWidget(metahubId, layoutId, parseResult.data, userId)
             return res.status(204).send()
@@ -691,14 +663,12 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId, widgetId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const uuidSchema = z.string().uuid()
             const widgetIdResult = uuidSchema.safeParse(widgetId)
@@ -711,7 +681,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             try {
                 const widget = await layoutsService.updateLayoutZoneWidgetConfig(
@@ -740,14 +710,12 @@ export function createLayoutsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId, layoutId, widgetId } = req.params
-            const ds = getDataSource()
-            const manager = getRequestManager(req, ds)
-            const metahubRepo = manager.getRepository(Metahub)
-            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const metahub = await findMetahubById(exec, metahubId)
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const rlsRunner = getRequestQueryRunner(req)
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+            const dbSession = getRequestDbSession(req)
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const uuidSchema = z.string().uuid()
             const widgetIdResult = uuidSchema.safeParse(widgetId)
@@ -760,7 +728,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const schemaService = new MetahubSchemaService(exec)
             const layoutsService = new MetahubLayoutsService(schemaService)
             try {
                 const widget = await layoutsService.toggleLayoutZoneWidgetActive(

@@ -1,44 +1,43 @@
 ---
 description: >-
-  Universo Platformo — an open-source platform for building AI Agents,
-  LLM workflows, and immersive 3D/AR/VR experiences.
+  Current product documentation for Universo Platformo React, organized as concise product guides, architecture notes, API reference, and contribution guidance.
 ---
 
 # Welcome
 
-{% hint style="info" %}
-**Documentation under development.** We are actively working on comprehensive documentation for Universo Platformo. Content will be added progressively. Check back soon for updates!
-{% endhint %}
+Universo Platformo React is the current public React / Express / Supabase
+reference implementation of Universo Platformo.
 
-## What is Universo Platformo?
+This documentation is structured as a GitBook product manual: short landing
+pages, clear sidebar sections, and factual content tied to the current
+repository.
 
-**Universo Platformo React** is an advanced open-source platform.
+## What This Documentation Covers
 
-The platform implements the **UPDL** (Universal Platform Description Language) — a unified node-based language for describing 3D scenes, game logic, and interactive content across multiple engines and frameworks.
+| Area | Purpose |
+| --- | --- |
+| Getting Started | Install, configure, build, and run the repository safely. |
+| Platform | Explain the current platform scope, domain modules, and planned layers. |
+| Architecture | Describe the monorepo, backend, frontend, database, and auth patterns. |
+| API Reference | Explain the public REST surface and where OpenAPI docs come from. |
+| Contributing | Document local workflow, coding rules, and package creation patterns. |
 
-## Key Features
+## Current Product Position
 
-* **Visual AI Agent Builder** — create sophisticated AI agents with a visual flow-based interface
-* **UPDL Node System** — universal description language for 3D/AR/VR content
-* **Multi-Platform Export** — export to AR.js, PlayCanvas, A-Frame, and more
-* **Workspaces (Uniks)** — multi-user collaborative workflow management
-* **Applications & Metaverses** — build and manage interactive digital experiences
-* **Publication System** — publish and share your creations with the world
+Universo Platformo is being shaped as an ERP-class and CMS-capable platform for
+organizations, digital services, operational processes, knowledge spaces, and
+future robot-assisted production flows.
 
-## Quick Links
+The repository in this workspace is the most complete public implementation for
+platform bootstrap, package boundaries, migrations, authentication, onboarding,
+profiles, metahubs, applications, administration, and REST documentation.
 
-<table data-card-size="large" data-view="cards">
-<thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead>
-<tbody>
-<tr><td><strong>Getting Started</strong></td><td>Install and run Universo Platformo</td><td><a href="getting-started/">getting-started</a></td></tr>
-<tr><td><strong>Platform Features</strong></td><td>Explore core platform capabilities</td><td><a href="platform/">platform</a></td></tr>
-<tr><td><strong>Architecture</strong></td><td>Understand the system design</td><td><a href="architecture/">architecture</a></td></tr>
-<tr><td><strong>API Reference</strong></td><td>REST API and SDK documentation</td><td><a href="api-reference/">api-reference</a></td></tr>
-</tbody>
-</table>
+## How To Read The Docs
 
-## Community & Support
+Start with Getting Started if you want to run the repository.
 
-* **GitHub**: [teknokomo/universo-platformo-react](https://github.com/teknokomo/universo-platformo-react)
-* **GitBook**: [teknokomo.gitbook.io/up](https://teknokomo.gitbook.io/up)
-* **License**: Apache 2.0 (Flowise core) / Omsk Open License (Universo extensions)
+Move to Platform if you want the product/domain picture.
+
+Use Architecture when you need repository-level technical facts.
+
+Use API Reference for integration details and Contributing for repository rules.

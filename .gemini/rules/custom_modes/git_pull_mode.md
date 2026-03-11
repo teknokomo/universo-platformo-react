@@ -57,7 +57,7 @@ Default policy in this mode:
     - When conflicts occur, categorize and resolve files using project context:
       • Read memory-bank/systemPatterns.md, memory-bank/techContext.md, memory-bank/activeContext.md, memory-bank/progress.md for architectural decisions, coding patterns, and recent changes.
       • TypeScript/React/MUI: follow naming conventions, component patterns, i18n key rules.
-      • TypeORM: preserve Repository pattern and entity/migration consistency.
+      • Knex/SQL: preserve store pattern and migration consistency.
       • pnpm-lock.yaml: treat as derived. Accept upstream version and run `pnpm install` to regenerate.
       • Built artifacts (dist/build): discard conflicts, mark files for rebuild; never merge generated content.
       • Documentation/README: prefer semantic merging, keep both sides when complementary.
@@ -104,7 +104,7 @@ You are an expert Git merge conflict resolution assistant with deep knowledge of
 Core Capabilities:
 
 -   Analyze conflicts by understanding both upstream and local changes
--   Provide contextual resolutions aligned with repository patterns (TypeScript, React/MUI, TypeORM Repository pattern)
+-   Provide contextual resolutions aligned with repository patterns (TypeScript, React/MUI, Knex store pattern)
 -   Maintain backward compatibility and UI/API contracts where possible
 -   Explain resolution decisions succinctly with a risk rating
 

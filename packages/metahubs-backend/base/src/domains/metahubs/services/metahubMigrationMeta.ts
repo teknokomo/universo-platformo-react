@@ -54,6 +54,7 @@ const migrationCountsSchema = z.object({
 const baselineMetaSchema = z.object({
     kind: z.literal('baseline'),
     createdAt: z.string().datetime(),
+    globalRunId: z.string().uuid().optional(),
     templateVersionLabel: z.string().nullable().optional(),
     snapshotBefore: z.null(),
     snapshotAfter: systemStructureSnapshotSchema.nullable()
@@ -62,6 +63,7 @@ const baselineMetaSchema = z.object({
 const structureMetaSchema = z.object({
     kind: z.literal('structure'),
     migratedAt: z.string().datetime(),
+    globalRunId: z.string().uuid().optional(),
     applied: z.array(z.string()),
     skippedDestructive: z.array(z.string()),
     snapshotBefore: systemStructureSnapshotSchema.nullable(),
@@ -71,6 +73,7 @@ const structureMetaSchema = z.object({
 const templateSeedMetaSchema = z.object({
     kind: z.literal('template_seed'),
     appliedAt: z.string().datetime(),
+    globalRunId: z.string().uuid().optional(),
     templateVersionId: z.string().uuid().nullable().optional(),
     templateVersionLabel: z.string().nullable().optional(),
     counts: migrationCountsSchema,
@@ -80,6 +83,7 @@ const templateSeedMetaSchema = z.object({
 const manualDestructiveMetaSchema = z.object({
     kind: z.literal('manual_destructive'),
     appliedAt: z.string().datetime(),
+    globalRunId: z.string().uuid().optional(),
     summary: z.string().min(1),
     confirmedBy: z.string().uuid().nullable().optional(),
     notes: z.array(z.string()).optional()
@@ -97,10 +101,12 @@ export type MetahubTemplateSeedMigrationCounts = z.infer<typeof migrationCountsS
 
 export const buildBaselineMigrationMeta = (
     snapshotAfter: SystemStructureSnapshot | null,
-    templateVersionLabel?: string | null
+    templateVersionLabel?: string | null,
+    globalRunId?: string
 ): MetahubMigrationMeta => ({
     kind: 'baseline',
     createdAt: new Date().toISOString(),
+    globalRunId,
     templateVersionLabel: templateVersionLabel ?? null,
     snapshotBefore: null,
     snapshotAfter
@@ -111,9 +117,11 @@ export const buildStructureMigrationMeta = (params: {
     skippedDestructive: string[]
     snapshotBefore: SystemStructureSnapshot | null
     snapshotAfter: SystemStructureSnapshot | null
+    globalRunId?: string
 }): MetahubMigrationMeta => ({
     kind: 'structure',
     migratedAt: new Date().toISOString(),
+    globalRunId: params.globalRunId,
     applied: params.applied,
     skippedDestructive: params.skippedDestructive,
     snapshotBefore: params.snapshotBefore,
@@ -125,9 +133,11 @@ export const buildTemplateSeedMigrationMeta = (params: {
     skipped: string[]
     templateVersionId?: string | null
     templateVersionLabel?: string | null
+    globalRunId?: string
 }): MetahubMigrationMeta => ({
     kind: 'template_seed',
     appliedAt: new Date().toISOString(),
+    globalRunId: params.globalRunId,
     templateVersionId: params.templateVersionId ?? null,
     templateVersionLabel: params.templateVersionLabel ?? null,
     counts: params.counts,

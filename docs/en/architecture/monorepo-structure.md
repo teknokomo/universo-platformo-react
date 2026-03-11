@@ -1,24 +1,23 @@
 ---
-description: How packages are organized in the monorepo.
+description: Explain how the PNPM monorepo is organized.
 ---
 
 # Monorepo Structure
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+The workspace uses PNPM workspaces and Turborepo. Most packages follow the
+`packages/<name>/base` layout, while a small number of package roots such as
+`packages/apps-template-mui` or `packages/universo-rest-docs` live without a
+nested `base` layer.
 
-## Overview
+## Main Package Groups
 
-The project is organized as a pnpm monorepo with Turborepo for build orchestration. All feature packages live under `packages/`, each containing a `base/` directory for the default implementation.
+- Core shell packages: `@universo/core-backend`, `@universo/core-frontend`.
+- Feature packages: auth, start, profile, metahubs, applications, admin.
+- Infrastructure packages: database, schema-ddl, migrations, types, utils, i18n.
+- UI support packages: template-mui, apps-template-mui, store.
+- Documentation packages: rest-docs and the GitBook source under `docs/`.
 
-## Package Categories
+## Cross-Package Rules
 
-* **Core packages** — `flowise-core-backend`, `flowise-core-frontend`, `flowise-components`
-* **Feature packages** — paired backend/frontend packages (e.g., `spaces-backend`, `spaces-frontend`)
-* **Shared packages** — `universo-types`, `universo-utils`, `schema-ddl`, `api-client`
-* **Template packages** — `universo-template-mui`, `flowise-template-mui`, `template-mmoomm`
-
-## Documentation
-
-Coming soon.
+Use workspace package names for imports across package boundaries and run PNPM
+commands from the repository root.

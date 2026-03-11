@@ -1,5 +1,5 @@
 import { Router, type ErrorRequestHandler, type RequestHandler } from 'express'
-import type { DataSource } from 'typeorm'
+import type { DbExecutor } from '@universo/utils'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
@@ -56,44 +56,44 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 /**
  * Create all metahubs service routes
  */
-export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
+export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExecutor: () => DbExecutor): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
 
     // Core metahubs CRUD
-    router.use('/', createMetahubsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createMetahubsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Branches (metahub design-time branches)
-    router.use('/', createBranchesRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createBranchesRoutes(ensureAuth, getDbExecutor, read, write))
 
-    // Publications (Information Bases) - imports entities from @universo/applications-backend
-    router.use('/', createPublicationsRoutes(ensureAuth, getDataSource, read, write))
+    // Publications (Information Bases)
+    router.use('/', createPublicationsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Metahub migration history and controlled apply/dry-run endpoints
-    router.use('/', createMetahubMigrationsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createMetahubMigrationsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Application migrations - runtime schema migration history and rollback
-    router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Application sync - schema creation and synchronization
-    router.use('/', createApplicationSyncRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createApplicationSyncRoutes(ensureAuth, getDbExecutor, read, write))
 
     // New metadata-driven routes
-    router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createSetsRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createEnumerationsRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createAttributesRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createConstantsRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createElementsRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createLayoutsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createHubsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createCatalogsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createSetsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEnumerationsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createAttributesRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createConstantsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createElementsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Settings (metahub-level configuration)
-    router.use('/', createSettingsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createSettingsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Templates catalog (read-only)
-    router.use('/', createTemplatesRoutes(ensureAuth, getDataSource, read))
+    router.use('/', createTemplatesRoutes(ensureAuth, getDbExecutor, read))
 
     const domainErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
         if (!isMetahubDomainError(err)) {
@@ -121,9 +121,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
  * Create public API routes for accessing published Metahubs
  * These routes do NOT require authentication
  */
-export function createPublicMetahubsServiceRoutes(getDataSource: () => DataSource): Router {
+export function createPublicMetahubsServiceRoutes(getDbExecutor: () => DbExecutor): Router {
     const { read } = getRateLimiters()
-    return createPublicMetahubsRoutes(getDataSource, read)
+    return createPublicMetahubsRoutes(getDbExecutor, read)
 }
 
 export { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'

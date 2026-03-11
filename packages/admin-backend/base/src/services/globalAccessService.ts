@@ -1,19 +1,5 @@
-import { In } from 'typeorm'
-import type { DataSource, QueryRunner } from 'typeorm'
-import { AuthUser } from '@universo/auth-backend'
-import { Profile } from '@universo/profile-backend'
 import type { RoleMetadata, GlobalRoleInfo, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
-import { isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled } from '@universo/utils'
-import { Role } from '../database/entities/Role'
-import { UserRole } from '../database/entities/UserRole'
-
-// TODO: [RLS-REFACTOR] Several functions in this service use ds.manager directly.
-// This works because admin schema data is not RLS-protected, but for consistency,
-// consider refactoring these functions to accept queryRunner parameter:
-// - listGlobalUsers (lines ~331, 335)
-// - findUserIdByEmail (line ~367)
-// - grantRole (lines ~429, 430)
-// - getAssignment (lines ~530, 531)
+import { isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled, type DbSession, type DbExecutor } from '@universo/utils'
 
 /**
  * Raw role row from database
@@ -69,13 +55,13 @@ export interface GlobalAccessInfo {
 }
 
 export interface GlobalAccessServiceDeps {
-    getDataSource: () => DataSource
+    getDbExecutor: () => DbExecutor
 }
 
 /**
- * Converts Role entity or raw row to RoleMetadata
+ * Converts raw role row to RoleMetadata
  */
-function toRoleMetadata(role: Role | RoleRow): RoleMetadata {
+function toRoleMetadata(role: RoleRow): RoleMetadata {
     // Ensure we have a valid VLC structure, even if null/empty from DB
     const name: VersionedLocalizedContent<string> =
         role.name && typeof role.name === 'object' && '_schema' in role.name
@@ -104,59 +90,54 @@ function toRoleMetadata(role: Role | RoleRow): RoleMetadata {
 
 /**
  * Factory for Global Access service
- * Replaces globalUserService with new RBAC-based approach
- *
- * Uses hybrid approach:
- * - TypeORM Repository for simple CRUD (roles queries)
- * - Raw SQL for RLS functions and complex queries (consistency with PostgreSQL policies)
+ * Uses SQL-first approach with DbExecutor for all database operations
  */
-export function createGlobalAccessService({ getDataSource }: GlobalAccessServiceDeps) {
-    const runQuery = async <T = unknown>(sql: string, params: unknown[], queryRunner?: QueryRunner): Promise<T[]> => {
-        if (queryRunner && !queryRunner.isReleased) {
-            return (await queryRunner.query(sql, params)) as T[]
+export function createGlobalAccessService({ getDbExecutor }: GlobalAccessServiceDeps) {
+    const runQuery = async <T = unknown>(sql: string, params: unknown[], dbSession?: DbSession): Promise<T[]> => {
+        if (dbSession && !dbSession.isReleased()) {
+            return dbSession.query<T>(sql, params)
         }
 
-        return (await getDataSource().query(sql, params)) as T[]
+        return getDbExecutor().query<T>(sql, params)
     }
 
     /**
-     * Get all roles with metadata (TypeORM Repository)
+     * Get all roles with metadata (SQL)
      */
     async function getAllRoles(): Promise<RoleMetadata[]> {
-        const ds = getDataSource()
-        const roleRepo = ds.getRepository(Role)
+        const rows = await getDbExecutor().query<RoleRow>(
+            `SELECT id, codename, description, name, color, is_superuser, is_system, created_at, updated_at
+             FROM admin.roles
+             WHERE _upl_deleted = false
+             ORDER BY is_system DESC, codename ASC`
+        )
 
-        const roles = await roleRepo.find({
-            order: {
-                is_system: 'DESC',
-                codename: 'ASC'
-            }
-        })
-
-        return roles.map(toRoleMetadata)
+        return rows.map(toRoleMetadata)
     }
 
     /**
-     * Get role by codename (TypeORM Repository)
+     * Get role by codename (SQL)
      */
     async function getRoleByCodename(codename: string): Promise<RoleMetadata | null> {
-        const ds = getDataSource()
-        const roleRepo = ds.getRepository(Role)
+        const rows = await getDbExecutor().query<RoleRow>(
+            `SELECT id, codename, description, name, color, is_superuser, is_system, created_at, updated_at
+             FROM admin.roles WHERE codename = $1 AND _upl_deleted = false`,
+            [codename]
+        )
 
-        const role = await roleRepo.findOne({ where: { codename } })
-        return role ? toRoleMetadata(role) : null
+        return rows.length > 0 ? toRoleMetadata(rows[0]) : null
     }
 
     /**
      * Check if user is superuser (has is_superuser=true role)
      */
-    async function isSuperuser(userId: string, queryRunner?: QueryRunner): Promise<boolean> {
+    async function isSuperuser(userId: string, dbSession?: DbSession): Promise<boolean> {
         const result = await runQuery<{ is_super: boolean }>(
             `
             SELECT admin.is_superuser($1::uuid) as is_super
         `,
             [userId],
-            queryRunner
+            dbSession
         )
         return result[0]?.is_super ?? false
     }
@@ -164,13 +145,13 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
     /**
      * Check if user can access admin panel (has admin-related permissions)
      */
-    async function canAccessAdmin(userId: string, queryRunner?: QueryRunner): Promise<boolean> {
+    async function canAccessAdmin(userId: string, dbSession?: DbSession): Promise<boolean> {
         const result = await runQuery<{ can_access: boolean }>(
             `
             SELECT admin.has_admin_permission($1::uuid) as can_access
         `,
             [userId],
-            queryRunner
+            dbSession
         )
         return result[0]?.can_access ?? false
     }
@@ -178,7 +159,7 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
     /**
      * Get user's global access info (roles with metadata)
      */
-    async function getGlobalAccessInfo(userId: string, queryRunner?: QueryRunner): Promise<GlobalAccessInfo> {
+    async function getGlobalAccessInfo(userId: string, dbSession?: DbSession): Promise<GlobalAccessInfo> {
         // Get all user's roles with metadata
         const rows = await runQuery<{ role_codename: string; name: VersionedLocalizedContent<string>; color: string }>(
             `
@@ -186,7 +167,7 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
             FROM admin.get_user_global_roles($1::uuid)
         `,
             [userId],
-            queryRunner
+            dbSession
         )
 
         const globalRoles: GlobalRoleInfo[] = rows.map((row) => ({
@@ -200,8 +181,8 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         }))
 
         // Check if user is superuser
-        const isSuperuserFlag = await isSuperuser(userId, queryRunner)
-        const canAccessAdminFlag = await canAccessAdmin(userId, queryRunner)
+        const isSuperuserFlag = await isSuperuser(userId, dbSession)
+        const canAccessAdminFlag = await canAccessAdmin(userId, dbSession)
 
         // Mark superuser role
         if (isSuperuserFlag) {
@@ -222,8 +203,8 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      * Get user's primary global role codename (for backward compatibility)
      * Returns the first global role or null
      */
-    async function getGlobalRoleCodename(userId: string, queryRunner?: QueryRunner): Promise<string | null> {
-        const info = await getGlobalAccessInfo(userId, queryRunner)
+    async function getGlobalRoleCodename(userId: string, dbSession?: DbSession): Promise<string | null> {
+        const info = await getGlobalAccessInfo(userId, dbSession)
         return info.globalRoles[0]?.codename ?? null
     }
 
@@ -234,7 +215,7 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         users: GlobalUserMember[]
         total: number
     }> {
-        const ds = getDataSource()
+        const exec = getDbExecutor()
         const {
             limit = 20,
             offset = 0,
@@ -286,15 +267,15 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         const direction = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
         // Get total count
-        const countResult = (await ds.query(
+        const countResult = await exec.query<{ count: string }>(
             `
             SELECT COUNT(*) as count
             FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id
+            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
             WHERE ${whereClause}
         `,
             queryParams
-        )) as { count: string }[]
+        )
         const total = parseInt(countResult[0]?.count ?? '0', 10)
 
         if (total === 0) {
@@ -302,7 +283,7 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         }
 
         // Get paginated results
-        const rows = (await ds.query(
+        const rows = await exec.query<UserRoleRow & RoleRow & { role_codename: string }>(
             `
             SELECT 
                 ur.id,
@@ -316,13 +297,13 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
                 r.color,
                 r.is_superuser
             FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id
+            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
             WHERE ${whereClause}
             ORDER BY ${orderBy} ${direction}
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
             [...queryParams, limit, offset]
-        )) as (UserRoleRow & RoleRow)[]
+        )
 
         if (rows.length === 0) {
             return { users: [], total }
@@ -331,13 +312,15 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         // Load user emails and nicknames
         const userIds = rows.map((r) => r.user_id)
 
-        const authUsers = await ds.manager.find(AuthUser, {
-            where: { id: In(userIds) }
-        })
+        const authUsers = await exec.query<{ id: string; email: string | null }>(
+            `SELECT id, email FROM auth.users WHERE id = ANY($1::uuid[])`,
+            [userIds]
+        )
 
-        const profiles = await ds.manager.find(Profile, {
-            where: { user_id: In(userIds) }
-        })
+        const profiles = await exec.query<{ user_id: string; nickname: string | null }>(
+            `SELECT user_id, nickname FROM public.profiles WHERE user_id = ANY($1::uuid[])`,
+            [userIds]
+        )
 
         const emailMap = new Map(authUsers.map((u) => [u.id, u.email ?? null]))
         const nicknameMap = new Map(profiles.map((p) => [p.user_id, p.nickname ?? null]))
@@ -347,9 +330,9 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
             userId: row.user_id,
             email: emailMap.get(row.user_id) ?? null,
             nickname: nicknameMap.get(row.user_id) ?? null,
-            roleCodename: (row as unknown as { role_codename: string }).role_codename,
+            roleCodename: row.role_codename,
             roleMetadata: {
-                codename: (row as unknown as { role_codename: string }).role_codename,
+                codename: row.role_codename,
                 name: (row.name || {}) as VersionedLocalizedContent<string>,
                 color: row.color || '#9e9e9e',
                 isSuperuser: row.is_superuser
@@ -366,26 +349,28 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      * Find user by email
      */
     async function findUserIdByEmail(email: string): Promise<string | null> {
-        const ds = getDataSource()
-        const result = await ds.manager.createQueryBuilder(AuthUser, 'user').where('LOWER(user.email) = LOWER(:email)', { email }).getOne()
-        return result?.id ?? null
+        const rows = await getDbExecutor().query<{ id: string }>(
+            `SELECT id FROM auth.users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+            [email]
+        )
+        return rows[0]?.id ?? null
     }
 
     /**
      * Grant a global role to a user
      */
     async function grantRole(userId: string, roleCodename: string, grantedBy: string, comment?: string): Promise<GlobalUserMember> {
-        const ds = getDataSource()
+        const exec = getDbExecutor()
 
         // Get role ID (any role, not filtered by can_access_admin)
-        const roleResult = (await ds.query(
+        const roleResult = await exec.query<{ id: string; name: VersionedLocalizedContent<string>; color: string; is_superuser: boolean }>(
             `
             SELECT id, name, color, is_superuser
             FROM admin.roles
-            WHERE codename = $1
+            WHERE codename = $1 AND _upl_deleted = false
         `,
             [roleCodename]
-        )) as { id: string; name: VersionedLocalizedContent<string>; color: string; is_superuser: boolean }[]
+        )
 
         if (roleResult.length === 0) {
             throw new Error(`Role '${roleCodename}' not found`)
@@ -394,19 +379,19 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         const roleId = roleResult[0].id
 
         // Check if user already has this role
-        const existing = (await ds.query(
+        const existing = await exec.query<UserRoleRow>(
             `
             SELECT id FROM admin.user_roles
             WHERE user_id = $1 AND role_id = $2
         `,
             [userId, roleId]
-        )) as UserRoleRow[]
+        )
 
         let assignmentId: string
 
         if (existing.length > 0) {
             // Update existing assignment
-            await ds.query(
+            await exec.query(
                 `
                 UPDATE admin.user_roles
                 SET granted_by = $1, comment = $2
@@ -417,26 +402,32 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
             assignmentId = existing[0].id
         } else {
             // Insert new assignment (allowing multiple roles per user)
-            const insertResult = (await ds.query(
+            const insertResult = await exec.query<{ id: string }>(
                 `
                 INSERT INTO admin.user_roles (user_id, role_id, granted_by, comment)
                 VALUES ($1, $2, $3, $4)
                 RETURNING id
             `,
                 [userId, roleId, grantedBy, comment ?? null]
-            )) as { id: string }[]
+            )
             assignmentId = insertResult[0].id
         }
 
         // Get user info
-        const authUser = await ds.manager.findOne(AuthUser, { where: { id: userId } })
-        const profile = await ds.manager.findOne(Profile, { where: { user_id: userId } })
+        const authUsers = await exec.query<{ id: string; email: string | null }>(
+            `SELECT id, email FROM auth.users WHERE id = $1`,
+            [userId]
+        )
+        const profileRows = await exec.query<{ user_id: string; nickname: string | null }>(
+            `SELECT user_id, nickname FROM public.profiles WHERE user_id = $1`,
+            [userId]
+        )
 
         return {
             id: assignmentId,
             userId,
-            email: authUser?.email ?? null,
-            nickname: profile?.nickname ?? null,
+            email: authUsers[0]?.email ?? null,
+            nickname: profileRows[0]?.nickname ?? null,
             roleCodename,
             roleMetadata: {
                 codename: roleCodename,
@@ -457,18 +448,18 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         assignmentId: string,
         updates: { roleCodename?: string; comment?: string }
     ): Promise<GlobalUserMember | null> {
-        const ds = getDataSource()
+        const exec = getDbExecutor()
 
         // Get current assignment
-        const current = (await ds.query(
+        const current = await exec.query<UserRoleRow & { role_codename: string }>(
             `
             SELECT ur.*, r.codename as role_codename
             FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id
+            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
             WHERE ur.id = $1
         `,
             [assignmentId]
-        )) as (UserRoleRow & { role_codename: string })[]
+        )
 
         if (current.length === 0) {
             return null
@@ -478,19 +469,19 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
 
         if (updates.roleCodename && updates.roleCodename !== assignment.role_codename) {
             // Get new role ID (allow any role)
-            const newRole = (await ds.query(
+            const newRole = await exec.query<{ id: string }>(
                 `
                 SELECT id FROM admin.roles
-                WHERE codename = $1
+                WHERE codename = $1 AND _upl_deleted = false
             `,
                 [updates.roleCodename]
-            )) as { id: string }[]
+            )
 
             if (newRole.length === 0) {
                 throw new Error(`Role '${updates.roleCodename}' not found`)
             }
 
-            await ds.query(
+            await exec.query(
                 `
                 UPDATE admin.user_roles
                 SET role_id = $1, comment = $2
@@ -499,7 +490,7 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
                 [newRole[0].id, updates.comment ?? assignment.comment, assignmentId]
             )
         } else if (updates.comment !== undefined) {
-            await ds.query(
+            await exec.query(
                 `
                 UPDATE admin.user_roles
                 SET comment = $1
@@ -510,7 +501,7 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         }
 
         // Get updated assignment with full info
-        const result = (await ds.query(
+        const result = await exec.query<UserRoleRow & RoleRow & { role_codename: string }>(
             `
             SELECT 
                 ur.*,
@@ -519,28 +510,34 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
                 r.color,
                 r.is_superuser
             FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id
+            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
             WHERE ur.id = $1
         `,
             [assignmentId]
-        )) as (UserRoleRow & RoleRow)[]
+        )
 
         if (result.length === 0) {
             return null
         }
 
         const row = result[0]
-        const authUser = await ds.manager.findOne(AuthUser, { where: { id: row.user_id } })
-        const profile = await ds.manager.findOne(Profile, { where: { user_id: row.user_id } })
+        const authUsers = await exec.query<{ id: string; email: string | null }>(
+            `SELECT id, email FROM auth.users WHERE id = $1`,
+            [row.user_id]
+        )
+        const profileRows = await exec.query<{ user_id: string; nickname: string | null }>(
+            `SELECT user_id, nickname FROM public.profiles WHERE user_id = $1`,
+            [row.user_id]
+        )
 
         return {
             id: row.id,
             userId: row.user_id,
-            email: authUser?.email ?? null,
-            nickname: profile?.nickname ?? null,
-            roleCodename: (row as unknown as { role_codename: string }).role_codename,
+            email: authUsers[0]?.email ?? null,
+            nickname: profileRows[0]?.nickname ?? null,
+            roleCodename: row.role_codename,
             roleMetadata: {
-                codename: (row as unknown as { role_codename: string }).role_codename,
+                codename: row.role_codename,
                 name: (row.name || {}) as VersionedLocalizedContent<string>,
                 color: row.color || '#9e9e9e',
                 isSuperuser: row.is_superuser
@@ -555,26 +552,26 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      * Revoke global access from a user (remove all global roles)
      */
     async function revokeGlobalAccess(userId: string): Promise<boolean> {
-        const ds = getDataSource()
-        const result = await ds.query(
+        const result = await getDbExecutor().query<{ id: string }>(
             `
             DELETE FROM admin.user_roles
             WHERE user_id = $1
+            RETURNING id
         `,
             [userId]
         )
-        return (result as unknown as { rowCount: number }).rowCount > 0
+        return result.length > 0
     }
 
     /**
-     * Revoke specific role assignment (TypeORM Repository)
+     * Revoke specific role assignment (SQL)
      */
     async function revokeAssignment(assignmentId: string): Promise<boolean> {
-        const ds = getDataSource()
-        const userRoleRepo = ds.getRepository(UserRole)
-
-        const result = await userRoleRepo.delete({ id: assignmentId })
-        return (result.affected ?? 0) > 0
+        const result = await getDbExecutor().query<{ id: string }>(
+            `DELETE FROM admin.user_roles WHERE id = $1 RETURNING id`,
+            [assignmentId]
+        )
+        return result.length > 0
     }
 
     /**
@@ -584,14 +581,12 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         totalGlobalUsers: number
         byRole: Record<string, number>
     }> {
-        const ds = getDataSource()
-
-        const stats = (await ds.query(`
+        const stats = await getDbExecutor().query<{ role_name: string; count: string }>(`
             SELECT r.name as role_name, COUNT(ur.id)::text as count
             FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id
+            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
             GROUP BY r.name
-        `)) as { role_name: string; count: string }[]
+        `)
 
         const byRole: Record<string, number> = {}
         let totalGlobalUsers = 0
@@ -631,128 +626,55 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
 
 export type GlobalAccessService = ReturnType<typeof createGlobalAccessService>
 
-const runQueryWithOptionalRunner = async <T = unknown>(
-    ds: DataSource,
-    sql: string,
-    params: unknown[],
-    queryRunner?: QueryRunner
-): Promise<T[]> => {
-    if (queryRunner && !queryRunner.isReleased) {
-        return (await queryRunner.query(sql, params)) as T[]
-    }
-    return (await ds.query(sql, params)) as T[]
+/** Minimal interface for SQL query execution — satisfied by DbSession, DbExecutor, and DataSource */
+interface SqlQueryable {
+    query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]>
 }
 
-/**
- * Standalone function to check if user is superuser by DataSource
- * Used by access guards in other modules for superuser bypass
- * Returns false if SUPERUSER_ENABLED=false
- */
-export async function isSuperuserByDataSource(ds: DataSource, userId: string, queryRunner?: QueryRunner): Promise<boolean> {
-    // If superuser privileges are disabled, no one has RLS bypass
-    if (!isSuperuserEnabled()) {
-        return false
-    }
+// ── Neutral versions (accept any SqlQueryable) ──
 
-    const result = await runQueryWithOptionalRunner<{ is_super: boolean }>(
-        ds,
-        `
-        SELECT admin.is_superuser($1::uuid) as is_super
-    `,
-        [userId],
-        queryRunner
+/**
+ * Check if user is superuser using a neutral queryable.
+ * Accepts DbSession, DbExecutor, or any object with `.query()`.
+ */
+export async function isSuperuser(queryable: SqlQueryable, userId: string): Promise<boolean> {
+    if (!isSuperuserEnabled()) return false
+    const result = await queryable.query<{ is_super: boolean }>(
+        `SELECT admin.is_superuser($1::uuid) as is_super`,
+        [userId]
     )
     return result[0]?.is_super ?? false
 }
 
 /**
- * Standalone function to check if user can access admin panel by DataSource
- * Used by access guards and middleware
- * Returns false if ADMIN_PANEL_ENABLED=false or (GLOBAL_ROLES_ENABLED=false AND SUPERUSER_ENABLED=false)
+ * Get global role codename using a neutral queryable.
  */
-export async function canAccessAdminByDataSource(ds: DataSource, userId: string, queryRunner?: QueryRunner): Promise<boolean> {
-    // If admin panel is disabled, no admin panel access
-    if (!isAdminPanelEnabled()) {
-        return false
-    }
-
-    // If global roles are disabled, only superuser can access (if enabled)
-    if (!isGlobalRolesEnabled()) {
-        if (!isSuperuserEnabled()) {
-            return false
-        }
-        // Check if user is superuser
-        const superResult = await runQueryWithOptionalRunner<{ is_super: boolean }>(
-            ds,
-            `SELECT admin.is_superuser($1::uuid) as is_super`,
-            [userId],
-            queryRunner
-        )
-        return superResult[0]?.is_super ?? false
-    }
-
-    const result = await runQueryWithOptionalRunner<{ can_access: boolean }>(
-        ds,
-        `
-        SELECT admin.has_admin_permission($1::uuid) as can_access
-    `,
-        [userId],
-        queryRunner
-    )
-    return result[0]?.can_access ?? false
-}
-
-/**
- * Standalone function to get global role codename (for backward compatibility)
- * Used by access guards for synthetic membership creation
- */
-export async function getGlobalRoleCodenameByDataSource(ds: DataSource, userId: string, queryRunner?: QueryRunner): Promise<string | null> {
-    const result = await runQueryWithOptionalRunner<{ role_codename: string }>(
-        ds,
-        `
-        SELECT r.codename as role_codename
-        FROM admin.user_roles ur
-        JOIN admin.roles r ON ur.role_id = r.id
-        WHERE ur.user_id = $1
-        LIMIT 1
-    `,
-        [userId],
-        queryRunner
+export async function getGlobalRoleCodename(queryable: SqlQueryable, userId: string): Promise<string | null> {
+    const result = await queryable.query<{ role_codename: string }>(
+        `SELECT r.codename as role_codename
+         FROM admin.user_roles ur
+         JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
+         WHERE ur.user_id = $1
+         LIMIT 1`,
+        [userId]
     )
     return result[0]?.role_codename ?? null
 }
 
 /**
- * Standalone function to check if user has permission for a specific subject
- * Used by module routes to check global access (e.g., metaverses, clusters)
- * Returns false if GLOBAL_ROLES_ENABLED=false
- *
- * @param ds DataSource instance
- * @param userId User UUID
- * @param subject Subject to check (e.g., 'metaverses', 'clusters')
- * @param action Action to check (default: 'read')
- * @returns true if user has permission, false otherwise
+ * Check if user has permission for a specific subject using a neutral queryable.
+ * Returns false if GLOBAL_ROLES_ENABLED=false.
  */
-export async function hasSubjectPermissionByDataSource(
-    ds: DataSource,
+export async function hasSubjectPermission(
+    queryable: SqlQueryable,
     userId: string,
     subject: string,
-    action = 'read',
-    queryRunner?: QueryRunner
+    action = 'read'
 ): Promise<boolean> {
-    // If global roles are disabled, no one has subject-based global access
-    if (!isGlobalRolesEnabled()) {
-        return false
-    }
-
-    const result = await runQueryWithOptionalRunner<{ has_perm: boolean }>(
-        ds,
-        `
-        SELECT admin.has_permission($1::uuid, $2::varchar, $3::varchar) as has_perm
-    `,
-
-        [userId, subject, action],
-        queryRunner
+    if (!isGlobalRolesEnabled()) return false
+    const result = await queryable.query<{ has_perm: boolean }>(
+        `SELECT admin.has_permission($1::uuid, $2::varchar, $3::varchar) as has_perm`,
+        [userId, subject, action]
     )
     return result[0]?.has_perm ?? false
 }

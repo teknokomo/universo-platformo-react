@@ -1,4 +1,4 @@
-# Important! Grave! Важно!
+# Important! Grave! Important!
 
 -   Workers of the world, unite!
 -   Proletoj el ĉiuj landoj, unuiĝu!
@@ -9,165 +9,124 @@
 [![Version](https://img.shields.io/badge/version-0.54.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
+**Attention, please read this carefully.**
+
+1. Universo Platformo React is currently in alpha development and is just beginning to reach beta. We strongly advise against using Universo Platformo React for production projects.
+
+2. Compatibility between versions is not guaranteed yet. Updating without preparation can require manual migration work and may lead to data loss.
+
+3. The current priority is to reach a stable release, so technical support for alpha installations is limited.
+
+4. If you want earlier access to future Universo Platformo functionality, including Universo Kiberplano and Universo MMOOMM, register at [https://universo.pro](https://universo.pro). Early participants receive priority testing access and additional opportunities.
+
+5. We need your support to develop the project. You can help with both work and funding through [Boosty](https://boosty.to/universo).
+
 ## Basic Information
 
 ![image](https://github.com/user-attachments/assets/0be3687e-afe2-46be-a0f6-487ff03d9c80)
 
-Implementation of Universo Platformo / Universo MMOOMM / Universo Kiberplano built on React and related stack.
+**In this repository, a public initiative is currently underway to create a Universo Platformo implementation, with the goal of launching global teknokomization and saving humanity from ultimate enslavement and total annihilation.**
 
-**In this repository, public efforts are currently underway to create Universo Platformo / Universo MMOOMM, in order to launch a global teknokomization and save humanity from final enslavement and complete destruction by creating special mass multi-user virtual worlds, such as Universo MMOOMM, and a platform for their creation - Universo Platformo, initially with gaming functionality, and then with the addition of the Cyberplan functionality.**
+Teknokomization entails the creation of the Technocomo Era, characterized by humanity's transition from the current fifth technological paradigm to the sixth technological paradigm, with a socio-economic structure in which the means of production will be maximally roboticized and owned by all working people. Human labor will thus consist of acquiring new knowledge, improving the social order, exploring the infinite universe, caring for their families, and so on.
 
-Universo Platformo React serves as the foundation for implementing **Universo Kiberplano** - a global planning and implementation system that unifies plans, tasks, and resources while controlling robots. This system aims to create a comprehensive framework for worldwide coordination of efforts, optimizing resource allocation, and enabling efficient automation through robotic systems, all within a unified digital environment.
+Teknokomization is a long-term, yet inevitable, and literally vitally necessary process of human development. This process is gradual and involves the need to create the necessary systems now, improve coordination, reduce waste, and gradually expand the scope of labor that can be planned, modeled, automated, and collectively regulated.
 
-More details about all this are written in "The Book of The Future" and various other materials of ours, most of which are still poorly structured and not in English, but right now work is underway to create new detailed documentation, which will be presented in many languages.
+Universo Platformo is being shaped as an ERP-class and CMS-capable platform for designing, operating, and evolving organizations, digital services, operational processes, knowledge spaces, and eventually robot-assisted production flows. In software-market terms, it belongs to the same broad category as platforms such as 1C:Enterprise, SAP, and similar enterprise systems, while also aiming to remain open, modular, and exportable across technology stacks.
+
+On top of Universo Platformo, the project is preparing **Universo Kiberplano**: a planning and execution environment that connects plans, tasks, resources, people, organizations, software agents, and robots inside one coordinated system. It is intended to combine ERP-style planning, CMS-style knowledge handling, and agent-orchestration mechanisms for complex distributed work.
+
+Also, on the basis of Universo Platformo, various special large-scale virtual worlds (metaverses) are created, such as **Universo MMOOMM**, in which different economic systems can be used in various parallel worlds, virtual organizations and industries can be created, entire virtual cities as digital twins, and then these developments can be transferred to the real world.
+
+Universo Platformo React is the current React / Express / Supabase (PostgreSQL) reference implementation. It is the most advanced public implementation for the platform's business flows, package boundaries, migration runtime, onboarding, administration, and domain modules, and it serves as a practical baseline for parallel implementations in other stacks.
+
+More detailed materials already exist, including the "Book of the Future" and internal planning notes, but most of that material is still being reorganized. The repository is therefore being accompanied by a new multilingual documentation set that will gradually describe the platform in a more structured and implementation-oriented way.
 
 ## Inspiration
 
-Our wonderful project, which will help create a global teknokomization and save humanity from final enslavement and total destruction, is currently in pre-alpha stage. We are implementing a React-based version of Universo Platformo that will serve as a foundation for creating interactive 3D/AR/VR experiences.
+![image](https://github.com/user-attachments/assets/887794d6-57a3-4898-a101-1a2e6e8f213e)
 
-## Where Am I and What Should I Do?
-
-The near future, Omsk is the capital of the world, in the Olympus-1 tower, scientists explain to you that it is possible to connect your consciousness to a robot in another part of the Universe, in a parallel reality, controlled by robots we call Robocubans, through the recently discovered Great Ring system.
-
-In Universo Platformo React, you are at the control panel of this revolutionary technology. Through the visual node editor, you can create interactive 3D scenes, AR experiences, and VR worlds that bridge our reality with parallel universes.
-
-Your mission is to help build and expand this platform, creating new exporters, enhancing the node system, and contributing to the publication mechanism that will allow these experiences to be shared across the multiverse.
+The visible state of the project is still far from the scale of the long-term vision, but the repository already contains the real runtime kernel, package layout, migrations, feature modules, and operational tooling that future implementations will build on.
 
 ## Contact Information
 
-For questions or collaboration, please contact:
+To join our work, you can write to Vladimir Levadnij without any hesitation:
 
--   VK: [https://vk.com/vladimirlevadnij](https://vk.com/vladimirlevadnij)
 -   Telegram: [https://t.me/Vladimir_Levadnij](https://t.me/Vladimir_Levadnij)
+-   VK: [https://vk.com/vladimirlevadnij](https://vk.com/vladimirlevadnij)
 -   Email: [universo.pro@yandex.com](mailto:universo.pro@yandex.com)
 
-Our website: [https://universo.pro](https://universo.pro)
-
-## Overview
-
-Universo Platformo React:
-
--   **Multi-user functionality** through Supabase integration
--   **Universal node system (UPDL)** for describing scenes and logic
--   **Multi-platform export** capabilities for generating AR/VR/3D applications
--   **Publishing mechanism** for deploying generated applications
-
-The project aims to create a unified platform for developing interactive 3D applications that can be exported to various technologies including AR.js, PlayCanvas, Babylon.js, Three.js, and A-Frame.
+Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current Sprint**: 0.54.0-alpha (March 2026)
-
-**Primary Focus**:
-
--   APPs architecture implementation with packages/updl and packages/publish
--   Universal UPDL node system development
--   AR.js and PlayCanvas React exporters
--   Publication and export UI integration
+**Current version**: 0.54.0-alpha (March 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
 -   Node.js (>=18.15.0 <19.0.0 || ^20)
 -   PNPM (>=9)
 -   React
--   Supabase (for multi-user functionality)
+-   Express.js
+-   Supabase (PostgreSQL)
+-   Turborepo workspace tooling
 
 ## Project Structure
 
-```
-universo-platformo-react/
-├── packages/                  # Original packages
-│   ├── components/            # Components and utilities
-│   ├── server/                # Server-side code
-│   └── ui/                    # Frontend
-├── packages/                      # New APPs architecture
-│   ├── updl/                  # UPDL node system
-│   │   └── imp/               # Implementation
-│   └── publish/               # Publication system
-│       ├── imp/               # Implementation
-│       │   ├── react/         # Frontend
-│       │   │   └── minipackages/  # Technology-specific handlers
-│       │   └── express/       # Backend
-```
+-   The repository is a PNPM + Turborepo monorepo with root-level documentation, planning records in `memory-bank`, engineering tools, and package workspaces.
+-   Most runtime workspaces follow the `packages/<name>/base` convention, while package roots such as `packages/apps-template-mui` and `packages/universo-rest-docs` provide shared UI scaffolding and documentation services.
+-   The backend side is organized around a SQL-first PostgreSQL/Supabase runtime, modular migration tooling, schema-definition utilities, and feature packages for authentication, onboarding, profile, metahubs, applications, and administration.
+-   The frontend side is organized around a React shell, shared UI/state/i18n packages, and feature packages for onboarding, authentication, profile, metahubs, applications, and administration.
+-   The repository also contains cross-cutting documentation and architecture notes that track active plans, verified progress, and stable system patterns for ongoing platform development.
 
-This structure allows for:
+## Universo Platformo Functionality (in development)
 
--   **Modularity**: Each functional area is contained within its own application
--   **Minimal Core Changes**: Original code remains largely untouched
--   **Easy Extension**: New technologies can be added as miniapps
--   **Clean Separation**: Clear boundaries between different functional areas
+-   **Modular business applications**: the platform is being assembled as a package-based environment where separate domains can be developed, migrated, and evolved without collapsing into one monolith.
+-   **ERP-class process kernel**: current work already covers identities, memberships, roles, metahubs, applications, admin flows, migrations, and request-scoped data access, with future expansion toward broader planning, accounting, logistics, and operational domains.
+-   **CMS-style information management**: the architecture is moving toward structured content, schema evolution, publication flows, versioned definitions, and reusable templates that can serve both websites and internal operational knowledge.
+-   **Cross-stack application descriptions**: applications created in the platform are intended to remain exportable between implementations, so business logic, structure, and data definitions are being separated from any single UI or engine.
+-   **Shared migration and schema runtime**: the monorepo already contains dedicated packages for migration orchestration, runtime schema DDL, catalog storage, and platform-wide definition export or diff workflows.
+-   **Operational shell for real deployments**: onboarding, authentication, profile management, admin tooling, API documentation, and package-based frontend modules are being developed as the practical shell for real installations.
 
-## Features
+## Universo Kiberplano Functionality (planned)
 
-### UPDL Node System
+-   **Integrated planning of tasks, resources, and capacities**: Kiberplano is intended to unify operational plans, production plans, staffing, inventory, and execution feedback inside one coordinated system.
+-   **Multi-agent orchestration**: software agents will eventually help decompose goals, negotiate subtasks, monitor execution, and coordinate with human operators and organizational rules instead of acting as isolated assistants.
+-   **Robot and digital-twin integration**: the planning layer is expected to connect to equipment, sensors, and robotized execution environments through explicit schemas, events, and control workflows.
+-   **Distributed node coordination**: separate personal, organizational, and larger regional nodes should be able to exchange plans, constraints, and results without requiring one fragile centralized deployment.
+-   **Scenario modeling and simulation**: the platform is intended to support simulation of plans, bottlenecks, and resource conflicts before those plans are executed in the physical world.
+-   **Governance and auditability**: role separation, approval flows, version history, and transparent change tracking are expected to be first-class requirements rather than optional afterthoughts.
 
-The Universal Platform Description Language (UPDL) provides a unified way to describe 3D scenes and interactions:
+## Universo MMOOMM Functionality (planned)
 
--   **Scene Nodes**: Define the environment and root container
--   **Object Nodes**: 3D models, primitives with materials and transformations
--   **Camera Nodes**: Different camera types with configurable properties
--   **Light Nodes**: Various light types with color and intensity controls
--   **Interaction Nodes**: Handle user input and events
--   **Animation Nodes**: Control object animations and behaviors
+Universo MMOOMM is planned as a massive multiplayer online environment built on top of Universo Platformo. It is closer to a combined game, economic simulator, organizational laboratory, and production-planning sandbox than to a conventional entertainment-only MMO.
 
-### Multi-Platform Export
+Key capabilities are expected to include:
 
-The system can export to multiple platforms from a single UPDL description:
-
--   **AR.js / A-Frame**: Web-based augmented reality
--   **PlayCanvas React**: React components for PlayCanvas engine
--   **Babylon.js**: Advanced 3D rendering
--   **Three.js**: Popular 3D library for web
--   **A-Frame VR**: Virtual reality experiences
-
-### Publication System
-
-Easily publish and share your creations:
-
--   **URL Structure**: Clean URLs for accessing published projects
--   **Embedding**: Options for embedded or standalone viewing
--   **Versioning**: Support for project revisions
-
-## Universo Platformo Functionality
-
-Universo Platformo is a universal platform for developing metaverses, virtual reality, multiplayer games, and industrial applications. It provides tools for creating, editing, and managing projects in real-time, and supports integration with various technology stacks.
-
-Key functional areas include:
-
--   **Metaverses**: Tools for creating virtual worlds with unique ecosystems, including dynamic nature, social structures, and economic systems
--   **Game Development**: Visual scripting, AI for NPCs, physics editors, animation tools, and shader editors
--   **Networking**: Multiplayer support, real-time collaboration, and cross-platform compatibility
--   **Asset Management**: 3D model import/export, texture management, and asset optimization
--   **Industrial Integration**: CAD integration, digital twins, simulation tools, and IoT connectivity
--   **Project Management**: Team collaboration, version control, and task tracking
--   **High-Level Abstraction**: Export/import between different game engines and technology stacks
-
-## Universo MMOOMM Functionality
-
-Universo MMOOMM is a massive multiplayer online game built on Universo Platformo. It's similar to EVE Online and Star Citizen but with additional functionality that helps people unite, create organizations, and implement Kiberplano (Cyberplan) functionality to create production chains, develop products down to the smallest details, create common action plans, and bring their developments into the real world, including through various robots.
-
-Key features include:
-
--   **Parallel Worlds**: Different worlds with unique economic systems (capitalist, socialist, etc.)
--   **Character Mechanics**: Character creation, development, FPS mechanics, and specialization
--   **Ship and Transport**: Ship management, customization, repair, and various ship types
--   **Careers and Professions**: Military, trading, resource gathering, research, and manufacturing
--   **Economy and Trade**: Dynamic economy, trade hubs, production, and contracts
--   **Social Mechanics**: Corporations, diplomacy, politics, and social interactions
--   **Exploration**: Scanning, planetary exploration, wormholes, and archaeological discoveries
--   **Base Building**: Construction of bases, orbital stations, and territorial control
--   **Science and Technology**: Research, technology trees, and technological breakthroughs
+-   **Parallel worlds** with different institutional and economic rules.
+-   **Character and role systems** that support specialization, cooperation, and long-term progression.
+-   **Vehicles, ships, and infrastructure** with maintenance, customization, and coordinated operation.
+-   **Careers and professions** connected to production chains, logistics, research, and defense.
+-   **Dynamic economy and contracts** that connect planning, exchange, and manufacturing.
+-   **Organizations and governance** for cooperatives, scientific groups, crews, and larger federations.
+-   **Exploration and research** across large virtual spaces and experimental scenarios.
+-   **Construction and territorial development** for bases, stations, settlements, and industrial facilities.
+-   **Technology trees and scientific progress** that connect simulation outcomes with real-world planning experiments.
 
 ## Cross-Platform Implementation
 
-Universo Platformo is being developed on multiple technology stacks:
+Universo Platformo is being developed across multiple technology stacks.
 
--   **React**: This repository implements Universo Platformo on React and related technologies
--   **Godot**: A parallel implementation exists using the Godot game engine ([Universo Platformo Godot](https://github.com/teknokomo/universo-platformo-godot))
--   **PlayCanvas**: Another implementation using the PlayCanvas engine ([Universo Platformo Nebulo](https://github.com/teknokomo/universo-platformo-nebulo))
--   **Quasar**: A version built with the Quasar framework for cross-platform applications
+The primary goal is not to replicate every interface or feature line by line, although we ultimately strive for consistency in functionality and implementation, while also following best practices for each technology stack. To begin with, the goal is to maintain a common conceptual layer: domain definitions, scheduling semantics, access control rules, migration logic, publishing structures, and portable application definitions. Therefore, applications built within Universo Platformo should be able to transition between stacks through controlled adaptation, rather than a complete rewrite.
 
-Each implementation shares the same core concepts and goals while leveraging the strengths of its respective technology stack. The high-level abstraction layer allows projects to be exported between different implementations.
+Currently, the React implementation in this repository is the most complete public reference implementation for business flows, administration, onboarding, migrations, and package boundaries. Other implementations may not initially replicate all the functionality of this implementation, but rather specialize in game engines, simulation environments, robotics runtimes, or device-specific interfaces, while still following the same platform direction.
+
+In our accounts, you can find repositories with Universo Platformo implementations on other technology stacks, and you can propose creating a new repository for your proposed technology stack:
+
+- GitHub account: https://github.com/teknokomo
+
+- GitVerse account: https://gitverse.ru/teknokomo
+
+Each implementation shares the same strategic direction, and the high-level abstraction layer should ensure the portability of applications and platform definitions between them.
 
 ## Getting Started
 
@@ -178,99 +137,66 @@ Each implementation shares the same core concepts and goals while leveraging the
 
 ### Installation
 
-1. Clone the repository
+1. Clone the repository.
 
     ```bash
     git clone https://github.com/teknokomo/universo-platformo-react.git
     cd universo-platformo-react
     ```
 
-2. Install dependencies
+2. Install dependencies.
 
     ```bash
     pnpm install
     ```
 
-3. Set up environment variables
+3. Configure environment variables.
 
-    - Create `.env` file in `packages/universo-core-backend/base` directory
-    - Add required Supabase configuration:
+    - Create `.env` in `packages/universo-core-backend/base`.
+    - Add the required Supabase/PostgreSQL settings:
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
         ```
-    - Optionally, create `.env` file in `packages/universo-core-frontend/base` directory for UI-specific settings like `VITE_PORT`
+    - Optionally create `.env` in `packages/universo-core-frontend/base` for UI-specific settings such as `VITE_PORT`.
 
-    Note: After refactoring, Supabase configuration should only be specified in the `packages/universo-core-backend/base` directory.
-
-4. Build the project
+4. Build the workspace.
 
     ```bash
     pnpm build
     ```
 
-5. Start the application
+5. Start the application.
 
     ```bash
     pnpm start
     ```
 
-6. Access the application at [http://localhost:3000](http://localhost:3000)
+6. Open [http://localhost:3000](http://localhost:3000).
 
 ### Development Mode
 
-For development with hot-reloading:
+For local development, the repository also provides:
 
 ```bash
 pnpm dev
 ```
 
-This will start the application in development mode at [http://localhost:8080](http://localhost:8080)
-
-## Roadmap
-
-The development of Universo Platformo React follows a phased approach:
-
-### Phase 1: Foundation
-
--   Establishing the APPs architecture
--   Implementing the core UPDL node system
--   Creating the first exporters for AR/VR technologies
--   Developing the publication system
-
-### Phase 2: Expansion
-
--   Adding support for additional 3D technologies and platforms
--   Enhancing node functionality and user experience
--   Implementing advanced interaction capabilities
--   Expanding the multi-user functionality
-
-### Phase 3: Integration
-
--   Connecting with robotic systems for Universo Kiberplano
--   Implementing resource management and planning tools
--   Creating digital twins for real-world environments
--   Developing comprehensive automation workflows
+This mode is resource-intensive in the current monorepo, so routine validation is usually better done with `pnpm build` and targeted package commands.
 
 ## Contributing
 
-We welcome contributions to Universo Platformo React! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions to Universo Platformo React and Universo Platformo implementations on other tech stacks, which are located in our other repositories. However, we will not be able to accept poorly prepared PRs from contributors who do not fully understand our project's goals and are not familiar with the development environment of our project. Our project is rapidly evolving, and because it is still in the alpha stage, it may undergo significant architectural changes and adjustments to development priorities. To ensure your contribution is accepted and relevant to the project, please first contact Vladimir Levadnij using the contact information provided above.
 
 ## License
 
-This project is being implemented under the [Omsk Open License](https://universo.pro/ol) (Basic modification). Individual packages in `packages/` may have a different license, please check the license in each individual package.
+The project is distributed under the Omsk Open License (Basic modification with indication of authorship). Individual packages in `packages/` may have a different license, please check the license in each individual package.
 
 The Omsk Open License is similar to the MIT license, but includes additional "Basic Provisions" aimed at creating a meaningful and secure public domain while protecting traditional values.
 
-AI agents are actively used in the development of this project, which are trained on a variety of other projects / code of various free source projects, and Universo Platformo React uses many libraries and large projects. 
+AI agents are actively used in the development of this project, which are trained on many other projects / code of various free source projects, as well as many libraries and large projects are used at the heart of Universo Platformo React. 
 
-If you believe that some code in this repository violates your copyrights, please create an Issue in which describe this problem, specify which code violates your rights, show the original author's code and evidence that this code itself is not a copy of another code, describe your suggestions for resolving the problem (attribution, code replacement, etc.). 
+If you think that some code in this repository violates your copyrights, please [create an Issue](https://github.com/teknokomo/universo-platformo-react/issues ) in which describe this problem, specify which code violates your rights, show the original author's code and evidence that this code itself is not a copy of another code, describe your suggestions for problem resolution (attribution, code replacement, etc.).
 
-In any case, thank you for your participation and contribution to the development of free source code, which directly or indirectly influenced the possibility of creating Universo Platformo React!
+In any case, thank you for your participation and contribution to the development of free software code, which directly or indirectly influenced the possibility of creating Universo Platformo / Universo Platformo React!

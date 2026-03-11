@@ -1,5 +1,4 @@
 import type { Request } from 'express'
-import type { DataSource, Repository } from 'typeorm'
 import { WorkspaceAccessService } from '../../src/services/access-control'
 import { UnikRole } from '../../src/services/access-control/roles'
 
@@ -72,7 +71,7 @@ describe('WorkspaceAccessService', () => {
         return createMockRepository()
       }),
       query: queryMock
-    } as unknown as DataSource
+    } as unknown as Record<string, unknown>
 
     const service = new WorkspaceAccessService(() => dataSource)
     return { service, membershipRepo, queryMock }

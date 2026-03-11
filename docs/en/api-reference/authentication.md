@@ -1,24 +1,20 @@
 ---
-description: Authenticate with the Universo Platformo API.
+description: Explain how authentication affects API requests.
 ---
 
 # Authentication
 
-{% hint style="info" %}
-**This page is under development.** Detailed authentication guide will be added soon.
-{% endhint %}
+Most non-public API routes require an authenticated session.
 
-## Overview
+## Current Contract
 
-API authentication uses session-based authentication via Passport.js or API keys for programmatic access.
+- Backend session handling is implemented with Passport.js.
+- Supabase identity is used as the backing auth system.
+- CSRF protection is expected for state-changing requests.
+- 401 and 419 responses have specific frontend handling behavior.
 
-## Key Concepts
+## Practical Guidance
 
-* Bearer token format
-* Token obtaining and refresh
-* Scopes and permissions
-* Rate limiting
-
-## Documentation
-
-Coming soon.
+If you are integrating against a running instance, assume that protected routes
+need both session-aware auth and correct CSRF handling rather than only a raw
+Bearer-token flow.

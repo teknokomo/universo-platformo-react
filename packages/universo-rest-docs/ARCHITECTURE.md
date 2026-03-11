@@ -149,63 +149,50 @@ const writeLimiter = new RateLimiterRedis({
 
 ## 4. Data Model Patterns
 
-### TypeORM Repository Pattern
+### SQL-First Persistence Pattern
 
-**Principle:** All database access goes through TypeORM repositories (no raw SQL or direct Supabase calls).
+**Principle:** Backend packages use SQL-first stores over neutral `DbExecutor` / `SqlQueryable` contracts. Direct Supabase table access from feature code is forbidden, but parameterized SQL is the canonical persistence layer.
 
 **Example:**
 ```typescript
-import { getDataSource } from '@universo/flowise-server/DataSource';
-import { Canvas } from '@universo/flowise-server/database/entities/Canvas';
+import type { DbExecutor } from '@universo/utils'
 
-// Repository-based query
-const canvasRepo = getDataSource().getRepository(Canvas);
-const canvas = await canvasRepo.findOne({
-  where: { id: canvasId },
-  relations: ['space', 'versions']
-});
+async function findCanvas(exec: DbExecutor, canvasId: string) {
+  const rows = await exec.query(
+    `SELECT id, flow_data AS "flowData", version_number AS "versionNumber"
+     FROM canvases
+     WHERE id = $1
+     LIMIT 1`,
+    [canvasId]
+  )
+
+  return rows[0] ?? null
+}
 ```
 
-### Entity Registration
+### Platform Migration Registration
 
-**Central Registry:** `packages/universo-core-backend/base/src/database/entities/index.ts`
+**Canonical Registry:** `packages/universo-migrations-platform/base/src/platform/migrations/`
 
-All entities must be:
-1. Defined in their package's `src/database/entities/` directory
-2. Exported from the central `index.ts`
-3. Registered in `AppDataSource` initialization
-
-**Migration Registration:** `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`
-
-Each package exports its migrations, which are combined into `postgresMigrations` array.
+Backend packages should:
+1. Keep SQL-first stores under `src/persistence/` or equivalent package-local query modules
+2. Define native SQL platform migration definitions under `src/platform/migrations/`
+3. Export those definitions through the package public API when they participate in platform bootstrap
+4. Register the package migration definitions with the unified platform runner
 
 ### Version Control Schema
 
 **Canvas Versions Table:**
-```typescript
-@Entity()
-class CanvasVersion {
-  @PrimaryColumn('uuid')
-  id: string;
-
-  @ManyToOne(() => Canvas, canvas => canvas.versions)
-  canvas: Canvas;
-
-  @Column('text')
-  flowData: string; // JSON node graph
-
-  @Column('int')
-  versionNumber: number;
-
-  @Column('boolean', { default: false })
-  isActive: boolean;
-
-  @Column('timestamp')
-  createdAt: Date;
-
-  @Column('varchar', { length: 255 })
-  createdBy: string; // User ID
-}
+```sql
+CREATE TABLE canvas_versions (
+  id uuid PRIMARY KEY,
+  canvas_id uuid NOT NULL,
+  flow_data text NOT NULL,
+  version_number integer NOT NULL,
+  is_active boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL,
+  created_by varchar(255) NOT NULL
+);
 ```
 
 **Activation Logic:**
@@ -376,7 +363,7 @@ Canvas flowData (JSON) → UPDL Parser → AR.js Scene Graph → WebXR Export
 | **Runtime** | Node.js 18+ | ES modules enabled |
 | **Framework** | Express.js | Minimal middleware |
 | **Database** | PostgreSQL 14+ | Via Supabase |
-| **ORM** | TypeORM 0.3+ | Repository pattern |
+| **Data Access** | SQL-first stores + Knex | Neutral executor contracts |
 | **Auth** | Supabase Auth | JWT + RLS |
 | **Cache** | Redis 7+ | Rate limiting + session storage |
 | **Validation** | Zod | Runtime schema validation |
@@ -422,30 +409,27 @@ packages/new-feature-frontend/
 └── README.md
 ```
 
-**Backend Packages (TypeORM):**
+**Backend Packages (SQL-first):**
 ```
 packages/new-service-backend/
 ├── base/
 │   ├── src/
-│   │   ├── database/
-│   │   │   ├── entities/
-│   │   │   │   └── NewEntity.ts
+│   │   ├── persistence/
+│   │   │   └── newServiceStore.ts
+│   │   ├── platform/
 │   │   │   └── migrations/
-│   │   │       └── postgres/
-│   │   │           ├── Migration1.ts
-│   │   │           └── index.ts  # Export migration array
+│   │   │       └── createNewServiceSchema.ts
 │   │   ├── routes/
 │   │   └── services/
 │   └── package.json
 └── README.md
 ```
 
-**Entity Registration Steps:**
-1. Create entity in package: `src/database/entities/NewEntity.ts`
-2. Export from central registry: `packages/universo-core-backend/base/src/database/entities/index.ts`
-3. Create migrations in package: `src/database/migrations/postgres/`
-4. Export migrations array: `src/database/migrations/postgres/index.ts`
-5. Import into central registry: `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts`
+**Registration Steps:**
+1. Create package-local SQL stores under `src/persistence/`
+2. Add native SQL migration definitions under `src/platform/migrations/`
+3. Re-export the migration definitions from the package public API when required
+4. Register the package migrations in `packages/universo-migrations-platform/base/src/platform/migrations/`
 
 ### Workspace Imports
 
@@ -624,7 +608,7 @@ describe('POST /unik/:id/spaces/:id/canvases', () => {
 
 **Instrumented Operations:**
 - HTTP requests (Express auto-instrumentation)
-- Database queries (TypeORM instrumentation)
+- Database queries (Knex / pg instrumentation)
 - Redis operations (ioredis instrumentation)
 
 **Export:** OTLP to Grafana Cloud

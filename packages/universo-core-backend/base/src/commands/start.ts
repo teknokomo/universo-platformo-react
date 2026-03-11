@@ -1,5 +1,5 @@
 import * as Server from '../index'
-import * as DataSource from '../DataSource'
+import { initKnex } from '@universo/database'
 import logger from '../utils/logger'
 import { BaseCommand } from './base'
 import { net, rateLimiting } from '@universo/utils'
@@ -11,7 +11,7 @@ export default class Start extends BaseCommand {
         const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 
         await net.ensurePortAvailable(port, host)
-        await DataSource.init()
+        initKnex()
         await Server.start()
     }
 

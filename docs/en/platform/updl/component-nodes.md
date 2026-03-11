@@ -1,26 +1,17 @@
 ---
-description: Add behaviors and properties to entities.
+description: Explain the role of component nodes in UPDL.
 ---
 
 # Component Nodes
 
-{% hint style="info" %}
-**This page is under development.** Detailed node reference will be added soon.
-{% endhint %}
+Component nodes attach reusable capabilities, fields, behaviors, or metadata to
+other nodes.
 
-## Overview
+## Typical Responsibilities
 
-Component Nodes attach behaviors, visual properties, and logic to entities — transforms, materials, physics, animations, and more.
+- Add optional or repeatable features to a base entity.
+- Keep reusable concerns separate from primary identity.
+- Support composition instead of deep inheritance.
 
-## Component Types
-
-* Mesh / Geometry
-* Material / Texture
-* Light source
-* Camera
-* Physics body
-* Audio
-
-## Documentation
-
-Coming soon.
+In platform terms, component nodes can express business fields, presentation
+settings, integration metadata, or execution-related capabilities.

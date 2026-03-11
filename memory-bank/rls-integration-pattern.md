@@ -2,12 +2,12 @@
 
 ## Overview
 
-Pattern for integrating PostgreSQL Row Level Security with TypeORM via JWT context propagation through Express middleware.
+Pattern for integrating PostgreSQL Row Level Security with request-scoped database sessions via JWT context propagation through Express middleware.
 
 **When to Use**:
 - Multi-tenant applications with row-level data isolation
 - Security-critical applications requiring database-enforced access control
-- TypeORM + PostgreSQL stack with JWT authentication
+- PostgreSQL stack with JWT authentication and request-scoped DB sessions
 - Replacing application-level access control with database policies
 
 **Key Benefits**:
@@ -31,9 +31,9 @@ Pattern for integrating PostgreSQL Row Level Security with TypeORM via JWT conte
 ┌─────────────────────────────────────────────────┐
 │  ensureAuthWithRls Middleware (@universo/auth-backend) │
 │  • Validates JWT                                 │
-│  • Creates QueryRunner per request               │
+│  • Creates request DB session per request        │
 │  • Sets PostgreSQL session variables             │
-│  • Attaches manager to req.dbContext             │
+│  • Attaches manager + session to req.dbContext   │
 └──────────────────┬──────────────────────────────┘
                    │
                    ▼
@@ -61,13 +61,14 @@ Pattern for integrating PostgreSQL Row Level Security with TypeORM via JWT conte
 
 ```typescript
 import type { Request, Response, NextFunction, RequestHandler } from 'express'
-import type { DataSource, QueryRunner } from 'typeorm'
+import type { DataSource } from 'typeorm'
+import { createDbSession, type DbSession } from '@universo/utils'
 import { applyRlsContext } from '../utils/rlsContext'
 import { ensureAuth } from './ensureAuth'
 
 export interface DbContext {
-    queryRunner: QueryRunner
     manager: EntityManager
+    session: DbSession
 }
 
 export interface RequestWithDbContext extends Request {
@@ -91,17 +92,21 @@ export function createEnsureAuthWithRls(options: {
                     return res.status(401).json({ error: 'No access token in session' })
                 }
 
-                // 2. Create dedicated QueryRunner for this request
+                // 2. Create a dedicated request transport for this request
                 const queryRunner = dataSource.createQueryRunner()
                 await queryRunner.connect()
 
-                // 3. Apply RLS context (JWT claims → PostgreSQL session variables)
-                await applyRlsContext(queryRunner, accessToken)
+                // 3. Wrap it in a neutral DB session + apply RLS context
+                const session = createDbSession({
+                    query: queryRunner.query.bind(queryRunner),
+                    isReleased: () => queryRunner.isReleased
+                })
+                await applyRlsContext(session, accessToken)
 
                 // 4. Attach to request for route handlers
                 (req as RequestWithDbContext).dbContext = {
-                    queryRunner,
-                    manager: queryRunner.manager
+                    manager: queryRunner.manager,
+                    session
                 }
 
                 // 5. Ensure cleanup on request completion
@@ -127,9 +132,10 @@ export function createEnsureAuthWithRls(options: {
 ```
 
 **Key Implementation Details**:
-- Creates dedicated QueryRunner per request (isolated connection from pool)
+- Creates one dedicated request transport per request (isolated connection from pool)
 - Sets PostgreSQL session variables with JWT claims
-- Automatically releases QueryRunner on request finish/close
+- Exposes only a neutral `DbSession` to route/guard consumers
+- Automatically releases the underlying request transport on request finish/close
 - Prevents connection leaks with comprehensive cleanup handlers
 
 ---
@@ -139,11 +145,11 @@ export function createEnsureAuthWithRls(options: {
 **File**: `packages/auth-backend/base/src/utils/rlsContext.ts`
 
 ```typescript
-import type { QueryRunner } from 'typeorm'
+import type { DbSession } from '@universo/utils'
 import * as jose from 'jose'
 
 export async function applyRlsContext(
-    queryRunner: QueryRunner,
+    session: DbSession,
     accessToken: string
 ): Promise<void> {
     // 1. Verify JWT with jose (modern, secure)
@@ -160,14 +166,14 @@ export async function applyRlsContext(
         email: payload.email,
         role: payload.role || 'authenticated'
     }
-    await queryRunner.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify(claims)])
+    await session.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify(claims)])
 }
 ```
 
 **Important**:
 - **Do NOT use `SET role = 'authenticated'`** — this role lacks USAGE privilege on `admin` schema and will break calls to `admin.is_superuser()` and similar functions.
 - RLS policies use `auth.uid()` which extracts the user ID from `request.jwt.claims.sub`. No role change is needed.
-- Session-scoped `set_config(..., false)` persists across all statements on the pooled connection, so always reset `request.jwt.claims` before releasing the QueryRunner back to the pool.
+- Session-scoped `set_config(..., false)` persists across all statements on the pooled connection, so always reset `request.jwt.claims` before releasing the underlying request transport back to the pool.
 
 **Why `jose` instead of `jsonwebtoken`**:
 - Modern, actively maintained (jsonwebtoken in maintenance mode)
@@ -310,17 +316,17 @@ describe('ensureAuthWithRls', () => {
         expect(next).toHaveBeenCalled()
     })
 
-    it('should release QueryRunner on response finish', async () => {
+    it('should release the request DB session on response finish', async () => {
         const req = mockRequest({ user: { supabaseAccessToken: validJWT } })
         const res = mockResponse()
         const next = jest.fn()
 
         await ensureAuthWithRls(req, res, next)
-        const queryRunner = req.dbContext.queryRunner
+        const session = req.dbContext.session
 
         res.emit('finish')
 
-        expect(queryRunner.isReleased).toBe(true)
+        expect(session.isReleased()).toBe(true)
     })
 })
 ```
@@ -413,7 +419,7 @@ scenarios:
 // Optional: Cache verified JWT payloads per session
 const jwtCache = new Map<string, { payload: JWTPayload, exp: number }>()
 
-export async function applyRlsContext(queryRunner: QueryRunner, accessToken: string) {
+export async function applyRlsContext(session: DbSession, accessToken: string) {
     const cached = jwtCache.get(accessToken)
     if (cached && cached.exp > Date.now()) {
         // Use cached payload
@@ -511,16 +517,11 @@ await dataSource.transaction(async (manager) => {
     await manager.getRepository(Unik).save(unik)
 })
 
-// SAFE ALTERNATIVE - use req.dbContext.queryRunner
-const queryRunner = (req as RequestWithDbContext).dbContext?.queryRunner
-await queryRunner.startTransaction()
-try {
-    await queryRunner.manager.getRepository(Unik).save(unik)
-    await queryRunner.commitTransaction()
-} catch (error) {
-    await queryRunner.rollbackTransaction()
-    throw error
-}
+// SAFE ALTERNATIVE - reuse req.dbContext.manager and keep transactions explicit
+const manager = (req as RequestWithDbContext).dbContext?.manager
+await manager.transaction(async (txManager) => {
+    await txManager.getRepository(Unik).save(unik)
+})
 ```
 
 ---
@@ -574,6 +575,6 @@ await testRlsPolicy({
 ## References
 
 - [PostgreSQL Row Security Policies](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)
-- [TypeORM QueryRunner Documentation](https://typeorm.io/query-runner)
+- [TypeORM Transactions and QueryRunner](https://typeorm.io/docs/advanced-topics/transactions/)
 - [jose JWT Library](https://github.com/panva/jose)
 - [Supabase RLS Guide](https://supabase.com/docs/guides/auth/row-level-security)

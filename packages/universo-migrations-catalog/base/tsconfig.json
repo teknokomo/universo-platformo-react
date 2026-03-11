@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "CommonJS",
+        "lib": ["ES2020"],
+        "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@universo/migrations-core": ["../../universo-migrations-core/base/dist/index.d.ts"]
+        },
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "declaration": true,
+        "sourceMap": true,
+        "types": ["node"]
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist", "src/__tests__/**/*"]
+}

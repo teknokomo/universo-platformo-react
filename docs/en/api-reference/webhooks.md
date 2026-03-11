@@ -1,24 +1,18 @@
 ---
-description: Receive event notifications via webhooks.
+description: Current status of webhook-style integrations.
 ---
 
 # Webhooks
 
-{% hint style="info" %}
-**This page is under development.** Detailed webhook documentation will be added soon.
-{% endhint %}
+The repository does not yet publish a stable public webhook contract.
 
-## Overview
+## Current Status
 
-Webhooks allow you to receive real-time notifications when events occur in Universo Platformo.
+Webhook-like integration points may emerge from individual modules over time.
+This documentation set will add a dedicated webhook section once a versioned
+public contract is available and maintained.
 
-## Key Concepts
+## What To Use Today
 
-* Webhook registration
-* Payload format
-* Retry mechanism
-* Signature verification
-
-## Documentation
-
-Coming soon.
+Today, prefer the documented REST surface, the generated OpenAPI layer, and
+package-level integration points that are explicitly exposed in the repository.

@@ -1,9 +1,8 @@
-import type { DataSource, QueryRunner } from 'typeorm'
+import type { DbExecutor } from '@universo/utils'
 import * as httpErrors from 'http-errors'
 import { createAccessGuards } from '@universo/auth-backend'
-import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { ApplicationUser } from '../database/entities/ApplicationUser'
-import { Connector } from '../database/entities/Connector'
+import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
+import type { ApplicationMembershipRecord, ConnectorAccessRecord } from '../persistence/contracts'
 
 // Handle both ESM and CJS imports
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,41 +45,51 @@ export const ROLE_PERMISSIONS: Record<ApplicationRole, Record<string, boolean>> 
 export type RolePermission = 'manageMembers' | 'manageApplication' | 'createContent' | 'editContent' | 'deleteContent'
 
 export interface ApplicationMembershipContext {
-    membership: ApplicationUser
+    membership: ApplicationMembershipRecord
     applicationId: string
     entityId?: string
     isSynthetic?: boolean
     globalRole?: string | null
 }
 
-const getManager = (ds: DataSource, queryRunner?: QueryRunner) => {
-    if (queryRunner && !queryRunner.isReleased) {
-        return queryRunner.manager
-    }
-    return ds.manager
+const runQuery = async <TRow = unknown>(executor: DbExecutor, sql: string, params: unknown[]): Promise<TRow[]> => {
+    return executor.query<TRow>(sql, params)
 }
 
 // Create base guards using generic factory from auth-backend
-const baseGuards = createAccessGuards<ApplicationRole, ApplicationUser>({
+const baseGuards = createAccessGuards<ApplicationRole, ApplicationMembershipRecord, DbExecutor>({
     entityName: 'application',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
     permissions: ROLE_PERMISSIONS,
-    getMembership: async (ds: DataSource, userId: string, applicationId: string, queryRunner?: QueryRunner) => {
-        const repo = getManager(ds, queryRunner).getRepository(ApplicationUser)
-        return repo.findOne({ where: { applicationId, userId } })
+    getMembership: async (executor: DbExecutor, userId: string, applicationId: string) => {
+        const rows = await runQuery<ApplicationMembershipRecord>(
+            executor,
+            `
+            SELECT *
+            FROM applications.applications_users
+            WHERE application_id = $1
+              AND user_id = $2
+                            AND COALESCE(_upl_deleted, false) = false
+                            AND COALESCE(_app_deleted, false) = false
+            LIMIT 1
+            `,
+            [applicationId, userId]
+        )
+
+        return rows[0] ?? null
     },
-    extractRole: (m) => (m.role || 'member') as ApplicationRole,
-    extractUserId: (m) => m.userId,
-    extractEntityId: (m) => m.applicationId,
-    isSuperuser: isSuperuserByDataSource,
-    getGlobalRoleName: getGlobalRoleCodenameByDataSource,
-    createGlobalAdminMembership: (visitorUserId, entityId, _globalRole) =>
+    extractRole: (m: ApplicationMembershipRecord) => (m.role || 'member') as ApplicationRole,
+    extractUserId: (m: ApplicationMembershipRecord) => m.userId,
+    extractEntityId: (m: ApplicationMembershipRecord) => m.applicationId,
+    isSuperuser: (executor: DbExecutor, userId: string) => isSuperuser(executor, userId),
+    getGlobalRoleName: (executor: DbExecutor, userId: string) => getGlobalRoleCodename(executor, userId),
+    createGlobalAdminMembership: (visitorUserId: string, entityId: string, _globalRole: string | null) =>
         ({
             userId: visitorUserId,
             applicationId: entityId,
             role: 'owner',
             _uplCreatedAt: new Date()
-        } as ApplicationUser)
+        } satisfies ApplicationMembershipRecord)
 })
 
 // Re-export base guards
@@ -88,30 +97,33 @@ const { getMembershipSafe, assertPermission, hasPermission, ensureAccess } = bas
 export { assertPermission, hasPermission }
 
 // Helpers for external use
-export async function getApplicationMembership(ds: DataSource, userId: string, applicationId: string): Promise<ApplicationUser | null> {
-    return getMembershipSafe(ds, userId, applicationId)
+export async function getApplicationMembership(
+    executor: DbExecutor,
+    userId: string,
+    applicationId: string
+): Promise<ApplicationMembershipRecord | null> {
+    return getMembershipSafe(executor, userId, applicationId)
 }
 
 export async function ensureApplicationAccess(
-    ds: DataSource,
+    executor: DbExecutor,
     userId: string,
     applicationId: string,
-    requiredRoles?: ApplicationRole[],
-    queryRunner?: QueryRunner
+    requiredRoles?: ApplicationRole[]
 ): Promise<ApplicationMembershipContext> {
     // First check if user has global applications permission / superuser bypass
-    const isSuper = await isSuperuserByDataSource(ds, userId, queryRunner)
-    const hasGlobalApplicationsAccess = await hasSubjectPermissionByDataSource(ds, userId, 'applications', 'read', queryRunner)
+    const isSuper = await isSuperuser(executor, userId)
+    const hasGlobalApplicationsAccess = await hasSubjectPermission(executor, userId, 'applications', 'read')
 
     if (isSuper || hasGlobalApplicationsAccess) {
         // User has global access - create synthetic membership with owner role
-        const globalRoleName = await getGlobalRoleCodenameByDataSource(ds, userId, queryRunner)
-        const syntheticMembership: ApplicationUser = {
+        const globalRoleName = await getGlobalRoleCodename(executor, userId)
+        const syntheticMembership: ApplicationMembershipRecord = {
             userId,
             applicationId,
             role: 'owner',
             _uplCreatedAt: new Date()
-        } as ApplicationUser
+        }
 
         return {
             membership: syntheticMembership,
@@ -122,9 +134,8 @@ export async function ensureApplicationAccess(
         }
     }
 
-    // Otherwise do membership check using request manager (RLS-enabled if available)
-    const manager = getManager(ds, queryRunner)
-    const membership = await manager.getRepository(ApplicationUser).findOne({ where: { applicationId, userId } })
+    // Otherwise do membership check using request-scoped executor (RLS-enabled if available)
+    const membership = await getMembershipSafe(executor, userId, applicationId)
     if (!membership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
@@ -159,7 +170,7 @@ export async function ensureApplicationAccess(
  * Assert that the target user is not the owner of the application
  * Used to prevent owner from being demoted or removed
  */
-export function assertNotOwner(membership: ApplicationUser, message = 'Cannot modify owner'): void {
+export function assertNotOwner(membership: Pick<ApplicationMembershipRecord, 'role'>, message = 'Cannot modify owner'): void {
     if (membership.role === 'owner') {
         throw createError(403, message)
     }
@@ -168,21 +179,31 @@ export function assertNotOwner(membership: ApplicationUser, message = 'Cannot mo
 // ============ CONNECTOR ACCESS GUARDS ============
 
 export interface ConnectorAccessContext extends ApplicationMembershipContext {
-    connector: Connector
+    connector: ConnectorAccessRecord
 }
 
 /**
  * Ensure user has access to a Connector through its parent Application
  */
 export async function ensureConnectorAccess(
-    ds: DataSource,
+    executor: DbExecutor,
     userId: string,
     connectorId: string,
-    requiredRoles?: ApplicationRole[],
-    queryRunner?: QueryRunner
+    requiredRoles?: ApplicationRole[]
 ): Promise<ConnectorAccessContext> {
-    const connectorRepo = getManager(ds, queryRunner).getRepository(Connector)
-    const connector = await connectorRepo.findOne({ where: { id: connectorId } })
+    const connectorRows = await runQuery<ConnectorAccessRecord>(
+        executor,
+        `
+        SELECT *
+        FROM applications.connectors
+        WHERE id = $1
+                    AND COALESCE(_upl_deleted, false) = false
+                    AND COALESCE(_app_deleted, false) = false
+        LIMIT 1
+        `,
+        [connectorId]
+    )
+    const connector = connectorRows[0] ?? null
 
     if (!connector) {
         console.warn('[SECURITY] Permission denied', {
@@ -196,7 +217,7 @@ export async function ensureConnectorAccess(
     }
 
     // Check access to the parent application
-    const context = await ensureApplicationAccess(ds, userId, connector.applicationId, requiredRoles, queryRunner)
+    const context = await ensureApplicationAccess(executor, userId, connector.applicationId, requiredRoles)
 
     return { ...context, connector }
 }

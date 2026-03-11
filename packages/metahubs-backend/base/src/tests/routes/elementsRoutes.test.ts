@@ -1,37 +1,3 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => undefined
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
-jest.mock('@universo/admin-backend', () => ({
-    __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
-}))
-
 const mockEnsureMetahubAccess = jest.fn(async () => undefined)
 
 jest.mock('../../domains/shared/guards', () => ({
@@ -44,7 +10,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource } from '../utils/typeormMocks'
+import { createMockDbExecutor } from '../utils/dbMocks'
 import { createElementsRoutes } from '../../domains/elements/routes/elementsRoutes'
 
 const mockElementsService = {
@@ -100,10 +66,10 @@ describe('Elements Routes', () => {
     }
 
     const buildApp = () => {
-        const dataSource = createMockDataSource({})
+        const mockExecutor = createMockDbExecutor()
         const app = express()
         app.use(express.json())
-        app.use(createElementsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(createElementsRoutes(ensureAuth, () => mockExecutor, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }

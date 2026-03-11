@@ -1,44 +1,28 @@
-import { DataSource, QueryRunner } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import type { AccessGuardsConfig, MembershipContext, RolePermission } from './types'
+import type { DbSession } from '@universo/utils'
 
 // Handle both ESM and CJS imports
 const createError = (httpErrors as any).default || httpErrors
 
 /**
- * Creates a set of access guard functions for entity-based access control
+ * Creates a set of access guard functions for entity-based access control.
  *
  * @template TRole - String union of valid role names
  * @template TMembership - Type of the membership entity
+ * @template TConn - Connection/queryable type (defaults to unknown)
  * @param config - Configuration object
  * @returns Object with guard functions
  *
  * @example
  * ```typescript
- * const guards = createAccessGuards<MetaverseRole, MetaverseUser>({
- *   entityName: 'metaverse',
- *   roles: ['owner', 'admin', 'editor', 'member'],
- *   permissions: ROLE_PERMISSIONS,
- *   getMembership: async (ds, userId, metaverseId) => {
- *     return ds.getRepository(MetaverseUser).findOne({
- *       where: { metaverse_id: metaverseId, user_id: userId }
- *     })
- *   },
- *   extractRole: (m) => m.role || 'member',
- *   extractUserId: (m) => m.user_id,
- *   extractEntityId: (m) => m.metaverse_id,
- *   // Enable superuser bypass (new API)
- *   isSuperuser: async (ds, userId) => isSuperuserByDataSource(ds, userId),
- *   getGlobalRoleName: async (ds, userId) => getGlobalRoleCodenameByDataSource(ds, userId),
- *   createGlobalAdminMembership: (userId, entityId, globalRole) => ({
- *     user_id: userId,
- *     metaverse_id: entityId,
- *     role: 'owner' // Superusers get owner-level access
- *   })
- * })
+ * // Usage with DbExecutor:
+ * const guards = createAccessGuards<AppRole, AppMembership, DbExecutor>({ ... })
  * ```
  */
-export function createAccessGuards<TRole extends string, TMembership>(config: AccessGuardsConfig<TRole, TMembership>) {
+export function createAccessGuards<TRole extends string, TMembership, TConn = unknown>(
+    config: AccessGuardsConfig<TRole, TMembership, TConn>
+) {
     const {
         entityName,
         permissions,
@@ -76,16 +60,17 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
     /**
      * Ensure user has access to entity (optionally with specific permission)
      * Checks global access first (dynamic roles), then membership
-     * @param queryRunner - Optional QueryRunner for RLS-aware database operations
+     * @param conn - Connection/queryable instance (DataSource, DbExecutor, etc.)
+     * @param dbSession - Optional request-scoped database session for RLS-aware database operations
      * @throws 403 if user is not a member or lacks permission
      * @throws 401 if userId is not provided
      */
     async function ensureAccess(
-        ds: DataSource,
+        conn: TConn,
         userId: string | undefined,
         entityId: string,
         permission?: RolePermission,
-        queryRunner?: QueryRunner
+        dbSession?: DbSession
     ): Promise<MembershipContext<TMembership>> {
         if (!userId) {
             throw createError(401, 'Authentication required')
@@ -93,10 +78,10 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
 
         // Check superuser access (new API with isSuperuser function)
         if (isSuperuserFn && createGlobalAdminMembership) {
-            const isSuper = await isSuperuserFn(ds, userId, queryRunner)
+            const isSuper = await isSuperuserFn(conn, userId, dbSession)
             if (isSuper) {
                 // Get role name for logging (optional)
-                const roleName = getGlobalRoleName ? await getGlobalRoleName(ds, userId, queryRunner) : 'superuser'
+                const roleName = getGlobalRoleName ? await getGlobalRoleName(conn, userId, dbSession) : 'superuser'
                 console.info('[ACCESS] Superuser access granted - bypassing permissions', {
                     timestamp: new Date().toISOString(),
                     userId,
@@ -111,7 +96,7 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
         }
         // Fallback to deprecated getGlobalRole API for backward compatibility
         else if (getGlobalRole && createGlobalAdminMembership) {
-            const globalRole = await getGlobalRole(ds, userId, queryRunner)
+            const globalRole = await getGlobalRole(conn, userId, dbSession)
             if (globalRole === 'superadmin' || globalRole === 'supermoderator') {
                 console.info('[ACCESS] Global admin access granted (legacy)', {
                     timestamp: new Date().toISOString(),
@@ -126,7 +111,7 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
             }
         }
 
-        const membership = await getMembership(ds, userId, entityId, queryRunner)
+        const membership = await getMembership(conn, userId, entityId, dbSession)
         if (!membership) {
             console.warn('[SECURITY] Permission denied', {
                 timestamp: new Date().toISOString(),
@@ -148,16 +133,11 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
 
     /**
      * Get membership without throwing errors
-     * @param queryRunner - Optional QueryRunner for RLS-aware database operations
+     * @param dbSession - Optional request-scoped database session for RLS-aware database operations
      * @returns Membership if found, null otherwise
      */
-    async function getMembershipSafe(
-        ds: DataSource,
-        userId: string,
-        entityId: string,
-        queryRunner?: QueryRunner
-    ): Promise<TMembership | null> {
-        return getMembership(ds, userId, entityId, queryRunner)
+    async function getMembershipSafe(conn: TConn, userId: string, entityId: string, dbSession?: DbSession): Promise<TMembership | null> {
+        return getMembership(conn, userId, entityId, dbSession)
     }
 
     /**

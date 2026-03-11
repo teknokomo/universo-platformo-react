@@ -1,35 +1,47 @@
-jest.mock(
-    'typeorm',
-    () => {
-        const decorator = () => () => {}
-        return {
-            __esModule: true,
-            Entity: decorator,
-            PrimaryGeneratedColumn: decorator,
-            PrimaryColumn: decorator,
-            Column: decorator,
-            CreateDateColumn: decorator,
-            UpdateDateColumn: decorator,
-            VersionColumn: decorator,
-            ManyToOne: decorator,
-            OneToMany: decorator,
-            OneToOne: decorator,
-            ManyToMany: decorator,
-            JoinTable: decorator,
-            JoinColumn: decorator,
-            Index: decorator,
-            Unique: decorator,
-            In: jest.fn((value) => value)
-        }
-    },
-    { virtual: true }
-)
-
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuserByDataSource: jest.fn(async () => false),
-    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
-    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+    isSuperuser: jest.fn(async () => false),
+    getGlobalRoleCodename: jest.fn(async () => null),
+    hasSubjectPermission: jest.fn(async () => false)
+}))
+
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: jest.fn(async () => {}),
+    ROLE_PERMISSIONS: {},
+    assertNotOwner: jest.fn(),
+    MetahubRole: {}
+}))
+
+const mockFindMetahubById = jest.fn()
+const mockFindMetahubMembership = jest.fn()
+const mockFindBranchByIdAndMetahub = jest.fn()
+const mockCountBranches = jest.fn()
+const mockCountMetahubMembers = jest.fn()
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    findMetahubById: (...args: any[]) => mockFindMetahubById(...args),
+    findMetahubMembership: (...args: any[]) => mockFindMetahubMembership(...args),
+    findBranchByIdAndMetahub: (...args: any[]) => mockFindBranchByIdAndMetahub(...args),
+    countBranches: (...args: any[]) => mockCountBranches(...args),
+    countMetahubMembers: (...args: any[]) => mockCountMetahubMembers(...args),
+    findMetahubByCodename: jest.fn(async () => null),
+    findMetahubBySlug: jest.fn(async () => null),
+    findMetahubForUpdate: jest.fn(async () => null),
+    listMetahubs: jest.fn(async () => ({ rows: [], total: 0 })),
+    createMetahub: jest.fn(async () => ({})),
+    updateMetahub: jest.fn(async () => ({})),
+    findMetahubMemberById: jest.fn(async () => null),
+    listMetahubMembers: jest.fn(async () => []),
+    addMetahubMember: jest.fn(async () => ({})),
+    updateMetahubMember: jest.fn(async () => ({})),
+    removeMetahubMember: jest.fn(async () => {}),
+    findBranchesByMetahub: jest.fn(async () => []),
+    createBranch: jest.fn(async () => ({})),
+    findTemplateByIdNotDeleted: jest.fn(async () => null),
+    findTemplateByCodename: jest.fn(async () => null),
+    softDelete: jest.fn(async () => true)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -37,7 +49,6 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
 
 describe('Metahub Board Summary', () => {
@@ -59,12 +70,14 @@ describe('Metahub Board Summary', () => {
         res.status(statusCode).json({ error: message })
     }
 
-    const buildApp = (dataSource: any) => {
+    let mockExec: any
+
+    const buildApp = () => {
         const app = express()
         app.use(express.json())
         app.use(
             '/',
-            createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+            createMetahubsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter)
         )
         app.use(errorHandler)
         return app
@@ -72,65 +85,60 @@ describe('Metahub Board Summary', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockExec = {
+            query: jest.fn(async () => []),
+            transaction: jest.fn(async (cb: any) =>
+                cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })
+            ),
+            isReleased: () => false
+        }
     })
 
     it('returns aggregated counts for metahub board', async () => {
-        const metahubRepo = createMockRepository<any>()
-        const metahubUserRepo = createMockRepository<any>()
-        const branchRepo = createMockRepository<any>()
-        const publicationRepo = createMockRepository<any>()
-        const authUserRepo = createMockRepository<any>()
-
-        const dataSource = createMockDataSource({
-            Metahub: metahubRepo,
-            MetahubUser: metahubUserRepo,
-            MetahubBranch: branchRepo,
-            Publication: publicationRepo,
-            AuthUser: authUserRepo
-        })
-
         const metahubId = 'metahub-1'
         const branchId = 'branch-1'
 
-        metahubRepo.findOne.mockResolvedValue({
+        mockFindMetahubById.mockResolvedValue({
             id: metahubId,
             defaultBranchId: branchId
         })
 
-        metahubUserRepo.findOne.mockResolvedValue({
+        mockFindMetahubMembership.mockResolvedValue({
             metahubId,
             userId: 'test-user-id',
             role: 'owner',
             activeBranchId: branchId
         })
 
-        branchRepo.findOne.mockResolvedValue({
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
             schemaName: 'mhb_abcdef_b1'
         })
 
-        branchRepo.count.mockResolvedValue(3)
-        publicationRepo.count.mockResolvedValue(2)
-        metahubUserRepo.count.mockResolvedValue(5)
+        mockCountBranches.mockResolvedValue(3)
+        mockCountMetahubMembers.mockResolvedValue(5)
 
-        dataSource.manager.query = jest.fn(async (sql: string) => {
+        mockExec.query.mockImplementation(async (sql: string) => {
             if (sql.includes('_mhb_objects') && sql.includes("kind = 'hub'")) {
                 return [{ count: 2 }]
             }
             if (sql.includes('_mhb_objects') && sql.includes("kind = 'catalog'")) {
                 return [{ count: 4 }]
             }
-            if (sql.includes('FROM metahubs.publications_versions')) {
+            if (sql.includes('publications_versions')) {
                 return [{ count: 7 }]
             }
-            if (sql.includes('FROM applications.applications')) {
+            if (sql.includes('applications.applications')) {
                 return [{ count: 1 }]
+            }
+            if (sql.includes('metahubs.publications')) {
+                return [{ count: 2 }]
             }
             return [{ count: 0 }]
         })
 
-        const app = buildApp(dataSource)
+        const app = buildApp()
 
         const response = await request(app).get(`/metahub/${metahubId}/board/summary`).expect(200)
 

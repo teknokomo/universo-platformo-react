@@ -1,24 +1,23 @@
 ---
-description: Client-side architecture and component patterns.
+description: Describe the frontend shell and feature-package composition.
 ---
 
 # Frontend Architecture
 
-{% hint style="info" %}
-**This page is under development.** Detailed documentation will be added soon.
-{% endhint %}
+The frontend is centered on `@universo/core-frontend`, which bootstraps the
+React application and assembles feature packages into one routed web shell.
 
-## Overview
+## Runtime Pattern
 
-The frontend uses React 18 with TypeScript, Material UI 7 for components, and React Router 6 for navigation. Two template systems provide different UI layouts.
+- React provides the UI runtime.
+- Vite is used for frontend build and dev tooling.
+- Redux, React Query, auth helpers, routing, and i18n are composed at startup.
+- Feature packages provide domain-specific pages and UI flows.
 
-## Key Patterns
+## Current Domain Surface
 
-* **Template system** — `universo-template-mui` (new MUI dashboard) and `flowise-template-mui` (legacy Flowise sidebar)
-* **Data fetching** — `@tanstack/react-query` for server state management
-* **Internationalization** — `i18next` with EN/RU locales
-* **Routing** — React Router 6 with lazy-loaded routes
+The active public frontend includes authentication, onboarding, profile,
+metahubs, applications, admin pages, shared templates, and API client usage.
 
-## Documentation
-
-Coming soon.
+The frontend shell is therefore a modular assembly point, not a single
+hard-coded application layer.

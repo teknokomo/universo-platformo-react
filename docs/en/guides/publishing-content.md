@@ -1,24 +1,18 @@
 ---
-description: Export and share your content with the world.
+description: How to approach publication flows in the current platform.
 ---
 
 # Publishing Content
 
-{% hint style="info" %}
-**This page is under development.** A step-by-step guide will be added soon.
-{% endhint %}
+Publication flows connect collaborative design-time work to release-facing
+runtime surfaces.
 
-## Overview
+## Recommended Approach
 
-Learn how to publish content from your spaces — create publications, manage versions, and share with users.
+1. Prepare the metahub or source structure you want to release.
+2. Decide what must be versioned and what can remain editable.
+3. Create or update the publication entity and its versions explicitly.
+4. Confirm any application links or runtime surfaces that depend on it.
+5. Validate the final result through the relevant UI, API, or tests.
 
-## Topics
-
-* Preparing content for publication
-* Choosing export format
-* Creating a sharing link
-* Embedding in external pages
-
-## Documentation
-
-Coming soon.
+The key idea is controlled release and traceability, not one-click sharing.

@@ -1,29 +1,20 @@
 ---
-description: API documentation for Universo Platformo.
+description: Overview of the current REST and OpenAPI documentation surface.
 ---
 
 # API Reference
 
-{% hint style="info" %}
-**This section is under development.** Comprehensive API documentation will be added soon.
-{% endhint %}
+The public API surface in this repository is REST-oriented and documented through
+modular route packages plus the `@universo/rest-docs` package.
 
-## Overview
+## What This Section Covers
 
-Universo Platformo exposes a RESTful API for all platform operations. Authentication is required for most endpoints.
+- The base URL and shape of the public API surface.
+- How authentication affects API requests.
+- The current status of webhook-style integrations.
 
-## Sections
+## Important Scope Note
 
-* [REST API](rest-api.md) — endpoint reference
-* [Authentication](authentication.md) — API authentication guide
-* [Webhooks](webhooks.md) — event notifications
-
-## Base URL
-
-```
-https://your-instance.example.com/api/v1
-```
-
-## Documentation
-
-Coming soon.
+The exact route surface depends on which feature packages are mounted by the
+current build, but the repository already exposes platform APIs for auth,
+profiles, metahubs, publications, applications, admin flows, and related config.

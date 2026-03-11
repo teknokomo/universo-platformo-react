@@ -1,4 +1,5 @@
 import type { MetaEntityKind } from '@universo/types'
+import { isManagedDynamicSchemaName } from '@universo/migrations-core'
 
 type RuntimeEntityKind = MetaEntityKind | 'enumeration'
 
@@ -34,7 +35,7 @@ export const generateMetahubSchemaName = (metahubId: string): string => {
     return `mhb_${cleanId}`
 }
 
-export const isValidSchemaName = (schemaName: string): boolean => /^(app_[a-f0-9]+|mhb_[a-f0-9]+(_b[0-9]+)?)$/.test(schemaName)
+export const isValidSchemaName = (schemaName: string): boolean => isManagedDynamicSchemaName(schemaName)
 
 /**
  * Generates independent table name for a child table (TABLE attribute).

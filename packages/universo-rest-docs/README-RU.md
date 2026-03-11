@@ -1,271 +1,63 @@
 # @universo/rest-docs
 
-> 📚 Документация REST API для Universo Platformo
+Отдельный Swagger UI и OpenAPI-сервер для текущего слоя REST-документации Universo Platformo.
 
-## Информация о пакете
+## Overview
 
-| Поле | Значение |
-|------|----------|
-| **Имя пакета** | `@universo/rest-docs` |
-| **Версия** | Смотрите `package.json` |
-| **Тип** | Node.js API документация |
-| **Сборка** | TypeScript с Swagger/OpenAPI 3.1 |
-| **Назначение** | Интерактивная документация для публичных API Universo Platformo |
+Этот пакет поднимает bundled OpenAPI specification по адресу `/api-docs` и предоставляет отдельный documentation-процесс, независимый от основного backend runtime.
+Он документирует те route groups, которые сейчас реально присутствуют в спецификации пакета, включая исторические API-группы, ещё остающиеся в transitional OpenAPI-layer.
 
-## 🚀 Ключевые возможности
+## What The Package Does
 
-- 📚 **Полная документация API** - Все REST API Universo Platformo документированы
-- 🔧 **Программный доступ** - Выполнение задач программно, как в GUI
-- 📖 **Интерактивная документация** - Swagger UI для тестирования API в реальном времени
-- 🎯 **Соответствие OpenAPI 3.1** - Современная спецификация с поддержкой JSON Schema
-- 🔄 **Типобезопасные схемы** - Автогенерация из Zod validation schemas
-- ⚡ **Валидация в реальном времени** - Тестирование endpoints с мгновенной обратной связью
+- Загружает bundled OpenAPI document, который генерируется из `src/openapi/index.yml`.
+- Поднимает небольшой Express-сервер, который перенаправляет `/` на `/api-docs`.
+- Отдаёт интерактивный Swagger UI для локального и удалённого изучения API.
+- Хранит authoring source в модульном виде под `src/openapi/` и собирает его в runtime bundle.
 
-## Описание
+## Current Specification Scope
 
-Комплексная документация REST API для экосистемы Universo Platformo. Этот пакет предоставляет интерфейс Swagger UI, который документирует все публичные API, позволяя пользователям программно выполнять те же задачи, что доступны в графическом интерфейсе.
+Текущее OpenAPI-дерево всё ещё включает route groups, определённые в `src/openapi/index.yml`:
 
-Документация автоматически генерируется из спецификаций OpenAPI 3.1 и включает:
-- Эндпоинты аутентификации (Supabase JWT)
-- Управление Canvas (3D сцены, AI workflows)
-- Операции с рабочими пространствами (Uniks)
-- Иерархия Spaces (Spaces → Canvases)
-- Система метавселенных (коллекции, секции, сущности)
-- Рабочие процессы публикации (экспорт в AR.js, PlayCanvas)
-- Управление профилями
-- API Space Builder AI
+- authentication
+- uniks
+- spaces
+- canvases
+- metaverses
+- publications
+- profile
+- space-builder
 
-## Обзор API
+Этот README намеренно описывает пакет в его текущем состоянии.
+Если platform taxonomy изменится, сначала должен быть обновлён OpenAPI source, а затем уже этот README должен следовать за ним.
 
-### Основные эндпоинты
-
-| Категория эндпоинтов | Базовый путь | Описание |
-|---------------------|--------------|----------|
-| **Аутентификация** | `/api/auth` | Вход, регистрация, управление сессией |
-| **Рабочие пространства (Uniks)** | `/api/uniks` | Управление коллекцией рабочих пространств |
-| **Пространства** | `/api/unik/:id/spaces` | Иерархия пространств внутри workspace |
-| **Canvas** | `/api/unik/:id/spaces/:id/canvases` | Управление 3D сценами и AI workflows |
-| **Метавселенные** | `/api/metaverses` | Тематические коллекции пространств |
-| **Секции и Сущности** | `/api/sections`, `/api/entities` | Компоненты метавселенной |
-| **Публикация** | `/api/publish` | Экспорт в AR.js, PlayCanvas, Babylon.js |
-| **Профили** | `/api/profile` | Профиль пользователя и настройки |
-| **Space Builder AI** | `/api/space-builder` | AI-генерация пространств |
-
-### Примеры вызовов API
-
-#### Список всех Canvas в пространстве
-```bash
-curl -X GET "http://localhost:3000/api/v1/unik/{unikId}/spaces/{spaceId}/canvases" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
-#### Создание нового рабочего пространства (Unik)
-```bash
-curl -X POST "http://localhost:3000/api/v1/uniks" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Мое рабочее пространство", "description": "Проектное пространство"}'
-```
-
-#### Публикация Canvas в AR.js
-```bash
-curl -X POST "http://localhost:3000/api/v1/publish/arjs" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "canvasId": "canvas-uuid",
-    "versionGroupId": "version-uuid",
-    "technology": "arjs",
-    "template": "quiz"
-  }'
-```
-
-#### Генерация пространства с помощью AI
-```bash
-curl -X POST "http://localhost:3000/api/v1/space-builder/generate" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Создай 3D художественную галерею с картинами",
-    "credentialId": "openai-credential-uuid"
-  }'
-```
-
-## Использование
-
-### Автономный режим
-
-## Запуск в автономном режиме
-
-1. Запустите сервер Universo Platformo:
-    ```sh
-    cd universo-platformo-react
-    pnpm start
-    ```
-2. Запустите сервер документации API (в отдельном терминале):
-    ```sh
-    cd packages/universo-rest-docs
-    pnpm start
-    ```
-
-### Режим разработки
-
-## Запуск в режиме разработки
-
-```sh
-cd universo-platformo-react
-pnpm dev
-```
-
-### Доступ к документации
-
-После запуска интерактивный Swagger UI будет доступен по адресу:
-- **Локально**: `http://localhost:6655/api-docs`
-- **Продакшн**: `https://your-domain.com/api-docs`
-
-## Возможности
-
-### Интерактивное тестирование
-- **Try It Out**: Выполнение вызовов API прямо из документации
-- **Аутентификация**: Тестирование эндпоинтов с API ключами или сессионными токенами
-- **Валидация ответов**: Просмотр ответов и кодов статуса в реальном времени
-- **Инспекция схем**: Детальное изучение моделей запросов/ответов
-
-### Генерация кода
-Swagger UI предоставляет сниппеты кода на нескольких языках:
-- cURL
-- JavaScript/Node.js
-- Python
-- Java
-- C#
-
-### Версионирование API
-Документация следует семантическому версионированию:
-- **v1**: Текущий стабильный API с иерархией Space+Canvas
-- Все эндпоинты используют префикс `/api/v1` для стабильности
-
-## Конфигурация
-
-### Переменные окружения
-
-```env
-# Порт сервера документации API
-REST_DOCS_PORT=6655
-
-# URL основного сервера Universo Platformo (для автономного режима)
-UNIVERSO_SERVER_URL=http://localhost:3000
-
-# Путь к спецификации OpenAPI
-OPENAPI_SPEC_PATH=./src/openapi/index.yml
-
-# Конфигурация Supabase (для тестирования аутентификации)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-```
-
-## Интеграция
-
-Этот пакет интегрируется с:
-- **Universo Platformo Server**: Монтирует документацию на эндпоинт `/api-docs`
-- **Supabase Authentication**: Валидирует JWT токены для защищённых эндпоинтов
-- **TypeScript Types**: Общие Zod схемы из `@universo/types`
-- **Rate Limiting**: Распределённое ограничение скорости на базе Redis (100 чтение, 60 запись req/min)
-
-## Разработка
-
-### Современные возможности OpenAPI 3.1.0
-
-Этот пакет использует последнюю спецификацию OpenAPI 3.1.0 со следующими современными функциями:
-
-- **JSON Schema 2020-12**: Полная совместимость с современной валидацией JSON Schema
-- **Поддержка Webhooks**: Определение webhook endpoints для асинхронных уведомлений (в будущем)
-- **Улучшенные Discriminators**: Лучшая обработка полиморфных типов
-- **Упрощения $ref**: Более чистые ссылки на схемы и композиция
-- **Идентификаторы лицензий**: SPDX выражения лицензий
-
-### Интеграция Zod схем
-
-API схемы автоматически генерируются из Zod validation схем с использованием `@asteasolutions/zod-to-openapi`:
-
-```typescript
-// Определите Zod схему в @universo/types/api
-import { z } from 'zod';
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-
-extendZodWithOpenApi(z);
-
-export const WorkspaceSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).max(255),
-  description: z.string().max(2000).optional(),
-}).openapi('Workspace', {
-  description: 'Сущность рабочего пространства (Unik)',
-  example: {
-    id: '550e8400-e29b-41d4-a716-446655440000',
-    name: 'Мой проект',
-    description: 'Основное рабочее пространство для AR проектов'
-  }
-});
-```
-
-Это автоматически генерирует OpenAPI компоненты:
-
-```yaml
-components:
-  schemas:
-    Workspace:
-      type: object
-      required: [id, name]
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        description:
-          type: string
-          maxLength: 2000
-```
-
-**Преимущества:**
-- ✅ Единый источник истины (Zod схема используется для валидации и документации)
-- ✅ Типобезопасные API контракты (TypeScript типы выводятся из Zod)
-- ✅ Автоматическое обновление документации при изменении схем
-- ✅ Runtime валидация точно соответствует документации
-
-### Валидация
-
-Валидация спецификации OpenAPI на соответствие стандарту 3.1.0:
+## Development Notes
 
 ```bash
-pnpm validate
+pnpm --filter @universo/rest-docs build
+pnpm --filter @universo/rest-docs validate
+pnpm --filter @universo/rest-docs lint
 ```
 
-Это запускает `@redocly/openapi-cli` для проверки:
-- Синтаксических ошибок в YAML
-- Невалидных ссылок на схемы
-- Отсутствующих обязательных полей
-- Нарушений лучших практик
-- Проблем с security schemes
+- `build` компилирует TypeScript и собирает модульные OpenAPI-файлы в bundle.
+- `validate` проверяет `src/openapi/index.yml` через Redocly.
+- Runtime serving использует `dist/openapi-bundled.yml`, а не authoring-tree напрямую.
 
-### Обновление документации API
-
-При добавлении новых эндпоинтов:
-1. Определите Zod схемы в `@universo/types/api`
-2. Обновите спецификацию OpenAPI в `src/yml/swagger.yml`
-3. Добавьте JSDoc аннотации к обработчикам маршрутов
-4. Пересоберите документацию: `pnpm build`
-5. Валидируйте спецификацию: `pnpm validate`
-6. Проверьте изменения в Swagger UI по адресу `http://localhost:6655/api-docs`
-
-### Тестирование
+## Running The Docs Server
 
 ```bash
-pnpm --filter universo-rest-docs test
+pnpm --filter @universo/rest-docs build
+pnpm --filter @universo/rest-docs start
 ```
 
-## Лицензия
+По умолчанию Swagger UI доступен по адресу `http://localhost:6655/api-docs`.
 
-Исходный код в этом репозитории доступен под лицензией Apache License Version 2.0.
+## Related Documentation
+
+- [Индекс пакетов](../README-RU.md)
+- [Корневой README проекта](../../README-RU.md)
+- [Точка входа OpenAPI authoring](src/openapi/index.yml)
+- [Архитектурные заметки](ARCHITECTURE.md)
+
+---
+
+Universo Platformo | REST docs server

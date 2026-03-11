@@ -1,23 +1,30 @@
 ---
-description: Step-by-step guide to install Universo Platformo.
+description: Install the monorepo dependencies and prepare the local workspace.
 ---
 
 # Installation
 
-{% hint style="info" %}
-**This page is under development.** Detailed installation instructions will be added soon.
-{% endhint %}
+## Prerequisites
 
-## Quick Install
+- Node.js 18.15.x, 20.x, or another version allowed by the root package rules.
+- PNPM 9 or newer.
+- Access to a PostgreSQL/Supabase environment for backend startup.
+
+## Workspace Bootstrap
 
 ```bash
 git clone https://github.com/teknokomo/universo-platformo-react.git
 cd universo-platformo-react
 pnpm install
-pnpm build
-pnpm start
 ```
 
-## Detailed Instructions
+## Validation Step
 
-Coming soon.
+Run the root build after installation.
+
+```bash
+pnpm build
+```
+
+This repository uses PNPM workspaces and Turborepo, so install and build from
+the repository root rather than from nested package directories.

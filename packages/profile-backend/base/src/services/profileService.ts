@@ -1,5 +1,14 @@
-import { Repository } from 'typeorm'
-import { Profile } from '../database/entities/Profile'
+import { isUniqueViolation, type DbExecutor } from '@universo/utils/database'
+import {
+    findProfileByUserId,
+    createProfile as createProfileRow,
+    updateProfileByUserId,
+    isNicknameAvailable as checkNickname,
+    profileExistsByUserId,
+    findAllProfiles,
+    deleteProfileByUserId,
+    type ProfileRow
+} from '../persistence/profileStore'
 import { CreateProfileDto, UpdateProfileDto, UserSettingsData } from '../types'
 
 /**
@@ -8,7 +17,10 @@ import { CreateProfileDto, UpdateProfileDto, UserSettingsData } from '../types'
 function generateNickname(userId: string, email?: string): string {
     if (email) {
         // Use email prefix, sanitized for nickname rules
-        const prefix = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20)
+        const prefix = email
+            .split('@')[0]
+            .replace(/[^a-zA-Z0-9_]/g, '_')
+            .substring(0, 20)
         const suffix = userId.substring(0, 8)
         return `${prefix}_${suffix}`
     }
@@ -17,50 +29,54 @@ function generateNickname(userId: string, email?: string): string {
 }
 
 export class ProfileService {
-    constructor(private profileRepository: Repository<Profile>) {}
+    constructor(private exec: DbExecutor) {}
+
+    private async createAutoProfile(userId: string, email?: string): Promise<ProfileRow> {
+        const baseNickname = generateNickname(userId, email)
+        const maxAttempts = 10
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const nickname = attempt === 0 ? baseNickname : `${baseNickname}_${(Date.now() + attempt) % 10000}`
+
+            try {
+                const profile = await createProfileRow(this.exec, {
+                    user_id: userId,
+                    nickname,
+                    settings: {}
+                })
+                console.log(`[ProfileService] Auto-created profile for user ${userId} with nickname ${nickname}`)
+                return profile
+            } catch (error) {
+                if (!isUniqueViolation(error)) {
+                    throw error
+                }
+
+                const concurrentProfile = await findProfileByUserId(this.exec, userId)
+                if (concurrentProfile) {
+                    return concurrentProfile
+                }
+            }
+        }
+
+        throw new Error(`Failed to auto-create profile for user ${userId} after ${maxAttempts} attempts`)
+    }
 
     /**
      * Get user profile by user ID
      */
-    async getUserProfile(userId: string): Promise<Profile | null> {
-        return await this.profileRepository.findOne({
-            where: { user_id: userId }
-        })
+    async getUserProfile(userId: string): Promise<ProfileRow | null> {
+        return findProfileByUserId(this.exec, userId)
     }
 
     /**
      * Get or create user profile.
      * If profile doesn't exist, creates one with auto-generated nickname.
-     * @param userId - User ID from auth
-     * @param email - Optional email for generating nickname
      */
-    async getOrCreateProfile(userId: string, email?: string): Promise<Profile> {
-        let profile = await this.profileRepository.findOne({
-            where: { user_id: userId }
-        })
+    async getOrCreateProfile(userId: string, email?: string): Promise<ProfileRow> {
+        let profile = await findProfileByUserId(this.exec, userId)
 
         if (!profile) {
-            // Generate unique nickname
-            let nickname = generateNickname(userId, email)
-            let attempts = 0
-            const maxAttempts = 10
-
-            // Ensure nickname uniqueness
-            while (attempts < maxAttempts) {
-                const isAvailable = await this.checkNicknameAvailable(nickname)
-                if (isAvailable) break
-                nickname = `${generateNickname(userId, email)}_${Date.now() % 10000}`
-                attempts++
-            }
-
-            // Create new profile
-            profile = this.profileRepository.create({
-                user_id: userId,
-                nickname,
-                settings: {}
-            })
-            profile = await this.profileRepository.save(profile)
-            console.log(`[ProfileService] Auto-created profile for user ${userId} with nickname ${nickname}`)
+            profile = await this.createAutoProfile(userId, email)
         }
 
         return profile
@@ -69,9 +85,8 @@ export class ProfileService {
     /**
      * Create a new profile for a user
      */
-    async createProfile(data: CreateProfileDto): Promise<Profile> {
-        const profile = this.profileRepository.create(data)
-        return await this.profileRepository.save(profile)
+    async createProfile(data: CreateProfileDto): Promise<ProfileRow> {
+        return createProfileRow(this.exec, data)
     }
 
     /**
@@ -79,16 +94,9 @@ export class ProfileService {
      */
     async checkNicknameAvailable(nickname: string, excludeUserId?: string): Promise<boolean> {
         try {
-            const query = this.profileRepository.createQueryBuilder('profile').where('profile.nickname = :nickname', { nickname })
-
-            if (excludeUserId) {
-                query.andWhere('profile.user_id != :userId', { userId: excludeUserId })
-            }
-
-            const existing = await query.getOne()
-            return !existing
-        } catch (error) {
-            // If repository query fails (e.g., table doesn't exist in local DB), assume nickname is available.
+            return await checkNickname(this.exec, nickname, excludeUserId)
+        } catch {
+            // If query fails (e.g., table doesn't exist in local DB), assume nickname is available.
             return true
         }
     }
@@ -96,7 +104,7 @@ export class ProfileService {
     /**
      * Update existing user profile
      */
-    async updateProfile(userId: string, data: UpdateProfileDto): Promise<Profile | null> {
+    async updateProfile(userId: string, data: UpdateProfileDto): Promise<ProfileRow | null> {
         // Check nickname uniqueness if being updated
         if (data.nickname) {
             const isAvailable = await this.checkNicknameAvailable(data.nickname, userId)
@@ -105,52 +113,35 @@ export class ProfileService {
             }
         }
 
-        const updateData = {
-            ...data,
-            updated_at: new Date()
-        }
-
-        const result = await this.profileRepository.update({ user_id: userId }, updateData)
-
-        if (result.affected === 0) {
-            return null
-        }
-
-        return await this.getUserProfile(userId)
+        return updateProfileByUserId(this.exec, userId, data as Record<string, unknown>)
     }
 
     /**
      * Check if profile exists for user
      */
     async profileExists(userId: string): Promise<boolean> {
-        const count = await this.profileRepository.count({
-            where: { user_id: userId }
-        })
-        return count > 0
+        return profileExistsByUserId(this.exec, userId)
     }
 
     /**
      * Get all profiles (admin function)
      */
-    async getAllProfiles(): Promise<Profile[]> {
-        return await this.profileRepository.find()
+    async getAllProfiles(): Promise<ProfileRow[]> {
+        return findAllProfiles(this.exec)
     }
 
     /**
      * Delete user profile
      */
     async deleteProfile(userId: string): Promise<boolean> {
-        const result = await this.profileRepository.delete({ user_id: userId })
-        return (result.affected ?? 0) > 0
+        return deleteProfileByUserId(this.exec, userId)
     }
 
     /**
      * Get user settings
      */
     async getUserSettings(userId: string): Promise<UserSettingsData> {
-        const profile = await this.profileRepository.findOne({
-            where: { user_id: userId }
-        })
+        const profile = await findProfileByUserId(this.exec, userId)
         return profile?.settings || {}
     }
 
@@ -159,14 +150,10 @@ export class ProfileService {
      * Auto-creates profile if it doesn't exist.
      */
     async updateUserSettings(userId: string, settingsUpdate: Partial<UserSettingsData>, email?: string): Promise<UserSettingsData> {
-        // Get or create profile - ensures profile exists
-        let profile = await this.profileRepository.findOne({
-            where: { user_id: userId }
-        })
+        let profile = await findProfileByUserId(this.exec, userId)
 
         if (!profile) {
-            // Auto-create profile
-            profile = await this.getOrCreateProfile(userId, email)
+            profile = await this.createAutoProfile(userId, email)
         }
 
         // Deep merge existing settings with update
@@ -191,11 +178,25 @@ export class ProfileService {
             delete newSettings.display
         }
 
-        await this.profileRepository.update(
-            { user_id: userId },
-            { settings: newSettings, updated_at: new Date() }
-        )
+        await updateProfileByUserId(this.exec, userId, { settings: newSettings })
 
         return newSettings
+    }
+
+    /**
+     * Mark onboarding as completed, bootstrapping the profile when needed.
+     */
+    async markOnboardingCompleted(userId: string, email?: string): Promise<ProfileRow> {
+        let profile = await findProfileByUserId(this.exec, userId)
+
+        if (!profile) {
+            profile = await this.createAutoProfile(userId, email)
+        }
+
+        if (profile.onboarding_completed) {
+            return profile
+        }
+
+        return (await updateProfileByUserId(this.exec, userId, { onboarding_completed: true })) ?? profile
     }
 }

@@ -1,16 +1,8 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
-import { AuthUser } from '@universo/auth-backend'
-import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
+import { isSuperuser as isSuperuserCheck, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
 import { generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo/schema-ddl'
-import { Application } from '../database/entities/Application'
-import { ApplicationSchemaStatus } from '../database/entities/Application'
-import { ApplicationUser } from '../database/entities/ApplicationUser'
-import { Connector } from '../database/entities/Connector'
-import { ConnectorPublication } from '../database/entities/ConnectorPublication'
-import { Profile } from '@universo/profile-backend'
+import { ApplicationSchemaStatus } from '../persistence/contracts'
 import { ensureApplicationAccess, ROLE_PERMISSIONS, assertNotOwner } from './guards'
 import type { ApplicationRole } from './guards'
 import { z } from 'zod'
@@ -18,21 +10,37 @@ import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { getVLCString } from '@universo/utils/vlc'
 import type { VersionedLocalizedContent } from '@universo/types'
+import type { DbExecutor } from '@universo/utils'
 import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
-import { escapeLikeWildcards, getRequestManager } from '../utils'
+import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '../utils'
+import {
+    type ApplicationMemberRecord,
+    copyApplicationWithOptions,
+    createApplicationWithOwner,
+    deleteApplicationMember,
+    deleteApplicationWithSchema,
+    findApplicationBySlug,
+    findApplicationCopySource,
+    findApplicationDetails,
+    findApplicationMemberById,
+    findApplicationMemberByUserId,
+    findApplicationSchemaInfo,
+    findAuthUserByEmail,
+    insertApplicationMember,
+    listApplicationMembers,
+    listApplications,
+    updateApplicationMember,
+    updateApplication
+} from '../persistence/applicationsStore'
 
 /**
- * Thrown inside `manager.transaction()` callbacks to signal a business-logic
+ * Thrown inside `executor.transaction()` callbacks to signal a business-logic
  * failure that should trigger transaction rollback and a specific HTTP response.
  */
 class UpdateFailure extends Error {
     constructor(public readonly statusCode: number, public readonly body: Record<string, unknown>) {
         super('Update failed')
     }
-}
-
-const getRequestQueryRunner = (req: Request) => {
-    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 interface RequestUser {
@@ -195,7 +203,7 @@ const buildCopiedApplicationSlugCandidate = (sourceSlug: string, attempt: number
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
-    getDataSource: () => DataSource,
+    getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
     writeLimiter: RateLimitRequestHandler
 ): Router {
@@ -208,16 +216,13 @@ export function createApplicationsRoutes(
             fn(req, res).catch(next)
         }
 
-    const repos = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-        return {
-            applicationRepo: manager.getRepository(Application),
-            applicationUserRepo: manager.getRepository(ApplicationUser),
-            connectorRepo: manager.getRepository(Connector),
-            connectorPublicationRepo: manager.getRepository(ConnectorPublication),
-            authUserRepo: manager.getRepository(AuthUser)
+    const query = <TRow = unknown>(req: Request, sql: string, parameters: unknown[] = []): Promise<TRow[]> => {
+        const session = getRequestDbSession(req)
+        if (session && !session.isReleased()) {
+            return session.query<TRow>(sql, parameters)
         }
+
+        return getDbExecutor().query<TRow>(sql, parameters)
     }
 
     const isCommentVlc = (value: unknown): value is VersionedLocalizedContent<string> =>
@@ -236,7 +241,7 @@ export function createApplicationsRoutes(
             return primaryContent.trim()
         }
 
-        for (const entry of Object.values(commentValue.locales)) {
+        for (const entry of Object.values(commentValue.locales) as Array<{ content?: string }>) {
             if (typeof entry?.content === 'string' && entry.content.trim().length > 0) {
                 return entry.content.trim()
             }
@@ -271,74 +276,16 @@ export function createApplicationsRoutes(
         .union([z.string(), z.record(z.string(), z.string().optional())])
         .transform((value) => (typeof value === 'string' ? { en: value } : value))
 
-    const mapMember = (member: ApplicationUser, email: string | null, nickname: string | null) => ({
+    const mapMember = (member: ApplicationMemberRecord) => ({
         id: member.id,
         userId: member.userId,
-        email,
-        nickname,
+        email: member.email,
+        nickname: member.nickname,
         role: (member.role || 'member') as ApplicationRole,
         comment: resolveLocalizedCommentText(member.comment),
         commentVlc: normalizeCommentVlcOutput(member.comment),
-        createdAt: member._uplCreatedAt
+        createdAt: member.createdAt
     })
-
-    const loadMembers = async (
-        req: Request,
-        applicationId: string,
-        params?: { limit?: number; offset?: number; sortBy?: string; sortOrder?: string; search?: string }
-    ): Promise<{ members: ReturnType<typeof mapMember>[]; total: number }> => {
-        const { applicationUserRepo } = repos(req)
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
-
-        try {
-            const qb = applicationUserRepo.createQueryBuilder('au').where('au.application_id = :applicationId', { applicationId })
-
-            if (params) {
-                const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
-
-                if (search) {
-                    const escapedSearch = escapeLikeWildcards(search.toLowerCase())
-                    qb.andWhere(
-                        `(
-                            EXISTS (SELECT 1 FROM auth.users u WHERE u.id = au.user_id AND LOWER(u.email) LIKE :search)
-                         OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.user_id = au.user_id AND LOWER(p.nickname) LIKE :search)
-                        )`,
-                        { search: `%${escapedSearch}%` }
-                    )
-                }
-
-                const orderColumn =
-                    sortBy === 'email'
-                        ? '(SELECT u.email FROM auth.users u WHERE u.id = au.user_id)'
-                        : sortBy === 'role'
-                        ? 'au.role'
-                        : 'au._upl_created_at'
-                qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-                qb.skip(offset).take(limit)
-            }
-
-            const [rawMembers, total] = await qb.getManyAndCount()
-            const userIds = rawMembers.map((m) => m.userId)
-
-            if (userIds.length === 0) {
-                return { members: [], total }
-            }
-
-            const users = userIds.length ? await manager.find(AuthUser, { where: { id: In(userIds) } }) : []
-            const profiles = userIds.length ? await manager.find(Profile, { where: { user_id: In(userIds) } }) : []
-
-            const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
-            const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
-
-            const members = rawMembers.map((m) => mapMember(m, usersMap.get(m.userId) ?? null, profilesMap.get(m.userId) ?? null))
-
-            return { members, total }
-        } catch (error) {
-            console.error('[loadMembers] Error loading application members:', error)
-            throw error
-        }
-    }
 
     const runtimeQuerySchema = z.object({
         limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -355,9 +302,7 @@ export function createApplicationsRoutes(
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-            const { applicationRepo, applicationUserRepo } = repos(req)
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
             let validatedQuery
             try {
@@ -370,78 +315,29 @@ export function createApplicationsRoutes(
             }
             const { limit, offset, sortBy, sortOrder, search, showAll } = validatedQuery
 
-            const isSuperuser = await isSuperuserByDataSource(ds, userId, rlsRunner)
-            const hasGlobalApplicationsAccess = await hasSubjectPermissionByDataSource(ds, userId, 'applications', 'read', rlsRunner)
+            const isSuperuser = await isSuperuserCheck(ds, userId)
+            const hasGlobalApplicationsAccess = await hasSubjectPermission(ds, userId, 'applications', 'read')
+            const escapedSearch = search ? escapeLikeWildcards(search) : undefined
+            const { items: applications, total } = await listApplications(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                {
+                    userId,
+                    showAll: showAll && (isSuperuser || hasGlobalApplicationsAccess),
+                    limit,
+                    offset,
+                    sortBy: sortBy === 'name' || sortBy === 'created' || sortBy === 'updated' ? sortBy : 'updated',
+                    sortOrder,
+                    search: escapedSearch
+                }
+            )
 
-            let qb = applicationRepo.createQueryBuilder('a')
-
-            if (showAll && (isSuperuser || hasGlobalApplicationsAccess)) {
-                // Show all applications for superusers/global admins
-            } else {
-                qb = qb.where(`a.id IN (SELECT au.application_id FROM applications.applications_users au WHERE au.user_id = :userId)`, {
-                    userId
-                })
-            }
-
-            if (search) {
-                qb = qb.andWhere(
-                    "(a.name::text ILIKE :search OR COALESCE(a.description::text, '') ILIKE :search OR COALESCE(a.slug, '') ILIKE :search)",
-                    { search: `%${search}%` }
-                )
-            }
-
-            const orderColumn =
-                sortBy === 'name'
-                    ? "COALESCE(a.name->>(a.name->>'_primary'), a.name->>'en', '')"
-                    : sortBy === 'created'
-                    ? 'a._upl_created_at'
-                    : 'a._upl_updated_at'
-            qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-            qb = qb.skip(offset).take(limit)
-
-            const [applications, total] = await qb.getManyAndCount()
-            const applicationIds = applications.map((a) => a.id)
-
-            const memberships =
-                applicationIds.length > 0
-                    ? await applicationUserRepo.find({
-                          where: { applicationId: In(applicationIds), userId }
-                      })
-                    : []
-            const membershipMap = new Map(memberships.map((m) => [m.applicationId, m]))
-
-            const { connectorRepo } = repos(req)
-            const connectorCounts =
-                applicationIds.length > 0
-                    ? await connectorRepo
-                          .createQueryBuilder('s')
-                          .select('s.application_id', 'applicationId')
-                          .addSelect('COUNT(*)', 'count')
-                          .where('s.application_id IN (:...ids)', { ids: applicationIds })
-                          .groupBy('s.application_id')
-                          .getRawMany<{ applicationId: string; count: string }>()
-                    : []
-            const connectorCountMap = new Map(connectorCounts.map((c) => [c.applicationId, parseInt(c.count, 10)]))
-
-            const memberCounts =
-                applicationIds.length > 0
-                    ? await applicationUserRepo
-                          .createQueryBuilder('au')
-                          .select('au.application_id', 'applicationId')
-                          .addSelect('COUNT(*)', 'count')
-                          .where('au.application_id IN (:...ids)', { ids: applicationIds })
-                          .groupBy('au.application_id')
-                          .getRawMany<{ applicationId: string; count: string }>()
-                    : []
-            const memberCountMap = new Map(memberCounts.map((c) => [c.applicationId, parseInt(c.count, 10)]))
-
-            const globalRoleName =
-                isSuperuser || hasGlobalApplicationsAccess ? await getGlobalRoleCodenameByDataSource(ds, userId, rlsRunner) : null
+            const globalRoleName = isSuperuser || hasGlobalApplicationsAccess ? await getGlobalRoleCodename(ds, userId) : null
 
             const result = applications.map((a) => {
-                const membership = membershipMap.get(a.id)
-                const role = membership ? (membership.role as ApplicationRole) : globalRoleName ? 'owner' : 'member'
-                const accessType = membership ? 'member' : globalRoleName ?? 'member'
+                const role = a.membershipRole ? (a.membershipRole as ApplicationRole) : globalRoleName ? 'owner' : 'member'
+                const accessType = a.membershipRole ? 'member' : globalRoleName ?? 'member'
                 const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
 
                 return {
@@ -450,11 +346,11 @@ export function createApplicationsRoutes(
                     description: a.description,
                     slug: a.slug,
                     isPublic: a.isPublic,
-                    version: a._uplVersion || 1,
-                    createdAt: a._uplCreatedAt,
-                    updatedAt: a._uplUpdatedAt,
-                    connectorsCount: connectorCountMap.get(a.id) ?? 0,
-                    membersCount: memberCountMap.get(a.id) ?? 0,
+                    version: a.version || 1,
+                    createdAt: a.createdAt,
+                    updatedAt: a.updatedAt,
+                    connectorsCount: a.connectorsCount ?? 0,
+                    membersCount: a.membersCount ?? 0,
                     role,
                     accessType,
                     permissions
@@ -474,18 +370,17 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const { applicationRepo } = repos(req)
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            const ctx = await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+            const ctx = await ensureApplicationAccess(ds, userId, applicationId)
 
-            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            const application = await findApplicationDetails(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
             if (!application) return res.status(404).json({ error: 'Application not found' })
-
-            const { connectorRepo } = repos(req)
-            const connectorsCount = await connectorRepo.count({ where: { applicationId } })
-            const { total: membersCount } = await loadMembers(req, applicationId, { limit: 1 })
 
             const role = ctx.membership.role as ApplicationRole
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
@@ -496,15 +391,15 @@ export function createApplicationsRoutes(
                 description: application.description,
                 slug: application.slug,
                 isPublic: application.isPublic,
-                version: application._uplVersion || 1,
-                createdAt: application._uplCreatedAt,
-                updatedAt: application._uplUpdatedAt,
+                version: application.version || 1,
+                createdAt: application.createdAt,
+                updatedAt: application.updatedAt,
                 schemaName: application.schemaName,
                 schemaStatus: application.schemaStatus,
                 schemaSyncedAt: application.schemaSyncedAt,
                 schemaError: application.schemaError,
-                connectorsCount,
-                membersCount,
+                connectorsCount: application.connectorsCount,
+                membersCount: application.membersCount,
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
                 permissions
@@ -522,10 +417,9 @@ export function createApplicationsRoutes(
 
             const { applicationId } = req.params
             if (!UUID_REGEX.test(applicationId)) return res.status(400).json({ error: 'Invalid application ID format' })
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+            await ensureApplicationAccess(ds, userId, applicationId)
 
             const parsedQuery = runtimeQuerySchema.safeParse(req.query)
             if (!parsedQuery.success) {
@@ -535,8 +429,12 @@ export function createApplicationsRoutes(
             const { limit, offset, locale } = parsedQuery.data
             const requestedLocale = normalizeLocale(locale)
             const requestedCatalogId = parsedQuery.data.catalogId ?? null
-            const { applicationRepo } = repos(req)
-            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            const application = await findApplicationSchemaInfo(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
             if (!application) return res.status(404).json({ error: 'Application not found' })
 
             if (!application.schemaName) {
@@ -549,7 +447,7 @@ export function createApplicationsRoutes(
             }
 
             const schemaIdent = quoteIdentifier(schemaName)
-            const manager = getRequestManager(req, ds)
+            const manager = ds
 
             const catalogs = await manager.query(
                 `
@@ -1621,11 +1519,7 @@ export function createApplicationsRoutes(
     /**
      * Shared helper: resolve catalog and load its attributes from a runtime schema.
      */
-    const resolveRuntimeCatalog = async (
-        manager: ReturnType<typeof getRequestManager>,
-        schemaIdent: string,
-        requestedCatalogId?: string
-    ) => {
+    const resolveRuntimeCatalog = async (manager: DbExecutor, schemaIdent: string, requestedCatalogId?: string) => {
         const catalogs = (await manager.query(
             `
                 SELECT id, codename, table_name
@@ -1676,24 +1570,27 @@ export function createApplicationsRoutes(
         req: Request,
         res: Response,
         applicationId: string
-    ): Promise<{ schemaIdent: string; manager: ReturnType<typeof getRequestManager>; userId: string } | null> => {
+    ): Promise<{ schemaIdent: string; manager: DbExecutor; userId: string } | null> => {
         if (!UUID_REGEX.test(applicationId)) {
             res.status(400).json({ error: 'Invalid application ID format' })
             return null
         }
 
-        const ds = getDataSource()
+        const ds = getRequestDbExecutor(req, getDbExecutor())
         const userId = resolveUserId(req)
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' })
             return null
         }
 
-        const rlsRunner = getRequestQueryRunner(req)
-        await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+        await ensureApplicationAccess(ds, userId, applicationId)
 
-        const { applicationRepo } = repos(req)
-        const application = await applicationRepo.findOne({ where: { id: applicationId } })
+        const application = await findApplicationSchemaInfo(
+            {
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+            },
+            applicationId
+        )
         if (!application) {
             res.status(404).json({ error: 'Application not found' })
             return null
@@ -1711,7 +1608,7 @@ export function createApplicationsRoutes(
 
         return {
             schemaIdent: quoteIdentifier(schemaName),
-            manager: getRequestManager(req, ds),
+            manager: ds,
             userId
         }
     }
@@ -1804,7 +1701,7 @@ export function createApplicationsRoutes(
     }
 
     const ensureEnumerationValueBelongsToTarget = async (
-        manager: ReturnType<typeof getRequestManager>,
+        manager: DbExecutor,
         schemaIdent: string,
         enumValueId: string,
         targetEnumerationId: string
@@ -2218,7 +2115,7 @@ export function createApplicationsRoutes(
             // Helper: execute the UPDATE + optional child row replace.
             // Throws UpdateFailure on business errors so the wrapping
             // transaction (if any) is rolled back automatically.
-            const performBulkUpdate = async (mgr: ReturnType<typeof getRequestManager>) => {
+            const performBulkUpdate = async (mgr: DbExecutor) => {
                 const updated = (await mgr.query(
                     `
                         UPDATE ${dataTableIdent}
@@ -2319,9 +2216,9 @@ export function createApplicationsRoutes(
 
             try {
                 if (hasTableUpdates) {
-                    // Use TypeORM transaction management — creates savepoint when
-                    // manager is already queryRunner-bound (RLS), or a new
-                    // queryRunner with proper isolation otherwise.
+                    // Use DbExecutor transaction — creates savepoint when
+                    // executor is already RLS-bound, or a new
+                    // connection with proper isolation otherwise.
                     await ctx.manager.transaction(async (txManager) => {
                         await performBulkUpdate(txManager)
                     })
@@ -2604,7 +2501,7 @@ export function createApplicationsRoutes(
 
             // Use transaction if TABLE data is present to ensure atomicity
             // Helper: insert parent row + batch-insert child rows
-            const performCreate = async (mgr: ReturnType<typeof getRequestManager>): Promise<string> => {
+            const performCreate = async (mgr: DbExecutor): Promise<string> => {
                 const [inserted] = (await mgr.query(insertSql, values)) as Array<{ id: string }>
                 const parentId = inserted.id
 
@@ -2721,7 +2618,7 @@ export function createApplicationsRoutes(
                 placeholders.push(`$${insertValues.length}`)
             }
 
-            const performCopy = async (mgr: ReturnType<typeof getRequestManager>) => {
+            const performCopy = async (mgr: DbExecutor) => {
                 const [insertedParent] = (await mgr.query(
                     `INSERT INTO ${dataTableIdent} (${insertColumns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`,
                     insertValues
@@ -2893,7 +2790,7 @@ export function createApplicationsRoutes(
             const needsTransaction = tableAttrsForDelete.length > 0
 
             // Helper: soft-delete parent row + cascade to child tables
-            const performDelete = async (mgr: ReturnType<typeof getRequestManager>) => {
+            const performDelete = async (mgr: DbExecutor) => {
                 const deleted = (await mgr.query(
                     `
                         UPDATE ${dataTableIdent}
@@ -2971,12 +2868,7 @@ export function createApplicationsRoutes(
     /**
      * Resolve a TABLE attribute and its child table for tabular CRUD operations.
      */
-    const resolveTabularContext = async (
-        manager: ReturnType<typeof getRequestManager>,
-        schemaIdent: string,
-        catalogId: string,
-        attributeId: string
-    ) => {
+    const resolveTabularContext = async (manager: DbExecutor, schemaIdent: string, catalogId: string, attributeId: string) => {
         if (!UUID_REGEX.test(catalogId) || !UUID_REGEX.test(attributeId)) {
             return { error: 'Invalid catalog or attribute ID format' } as const
         }
@@ -3768,7 +3660,6 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { applicationRepo, applicationUserRepo } = repos(req)
             const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale } = result.data
 
             const sanitizedName = sanitizeLocalizedInput(name)
@@ -3789,37 +3680,44 @@ export function createApplicationsRoutes(
             }
 
             if (slug) {
-                const existing = await applicationRepo.findOne({ where: { slug } })
+                const existing = await findApplicationBySlug(
+                    {
+                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                    },
+                    slug
+                )
                 if (existing) {
                     return res.status(409).json({ error: 'Application with this slug already exists' })
                 }
             }
 
-            const application = applicationRepo.create({
-                name: nameVlc,
-                description: descriptionVlc,
-                slug: slug || undefined,
-                isPublic: isPublic ?? false,
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
+            let saved
+            try {
+                const provisionalSchemaName = generateSchemaName('00000000-0000-7000-8000-000000000000')
+                if (
+                    !provisionalSchemaName.startsWith('app_') ||
+                    !isValidSchemaName(provisionalSchemaName) ||
+                    !IDENTIFIER_REGEX.test(provisionalSchemaName)
+                ) {
+                    return res.status(400).json({ error: 'Invalid generated application schema name' })
+                }
 
-            const saved = await applicationRepo.save(application)
-
-            // Generate schemaName based on Application UUID
-            saved.schemaName = generateSchemaName(saved.id)
-            saved._uplUpdatedBy = userId
-            await applicationRepo.save(saved)
-
-            // Add creator as owner
-            const member = applicationUserRepo.create({
-                applicationId: saved.id,
-                userId,
-                role: 'owner',
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
-            await applicationUserRepo.save(member)
+                saved = await createApplicationWithOwner(getRequestDbExecutor(req, getDbExecutor()), {
+                    name: nameVlc,
+                    description: descriptionVlc ?? null,
+                    slug,
+                    isPublic: isPublic ?? false,
+                    userId,
+                    resolveSchemaName: generateSchemaName,
+                    validateSchemaName: (schemaName) =>
+                        schemaName.startsWith('app_') && isValidSchemaName(schemaName) && IDENTIFIER_REGEX.test(schemaName)
+                })
+            } catch (error) {
+                if (database.isSlugUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'Application with this slug already exists' })
+                }
+                throw error
+            }
 
             return res.status(201).json({
                 id: saved.id,
@@ -3827,9 +3725,9 @@ export function createApplicationsRoutes(
                 description: saved.description,
                 slug: saved.slug,
                 isPublic: saved.isPublic,
-                version: saved._uplVersion || 1,
-                createdAt: saved._uplCreatedAt,
-                updatedAt: saved._uplUpdatedAt,
+                version: saved.version || 1,
+                createdAt: saved.createdAt,
+                updatedAt: saved.updatedAt,
                 connectorsCount: 0,
                 membersCount: 1,
                 role: 'owner',
@@ -3848,10 +3746,9 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId, ['owner', 'admin'], rlsRunner)
+            await ensureApplicationAccess(ds, userId, applicationId, ['owner', 'admin'])
 
             const localizedInputSchema = z
                 .union([z.string().min(1).max(255), z.record(z.string())])
@@ -3882,17 +3779,16 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const manager = getRequestManager(req, ds)
             const copyOptions = normalizeApplicationCopyOptions({
                 copyConnector: parsed.data.copyConnector,
                 copyAccess: parsed.data.copyAccess
             })
-            const sourceApplicationRepo = manager.getRepository(Application)
-            const sourceApplicationUserRepo = manager.getRepository(ApplicationUser)
-            const sourceConnectorRepo = manager.getRepository(Connector)
-            const sourceConnectorPublicationRepo = manager.getRepository(ConnectorPublication)
-
-            const sourceApplication = await sourceApplicationRepo.findOne({ where: { id: applicationId } })
+            const sourceApplication = await findApplicationCopySource(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
             if (!sourceApplication) {
                 return res.status(404).json({ error: 'Application not found' })
             }
@@ -3909,17 +3805,21 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            let descriptionVlc = sourceApplication.description
+            let descriptionVlc: VersionedLocalizedContent<string> | null = sourceApplication.description ?? null
             if (parsed.data.description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    descriptionVlc = buildLocalizedContent(
-                        sanitizedDescription,
-                        parsed.data.descriptionPrimaryLocale,
-                        parsed.data.namePrimaryLocale ?? sourceApplication.description?._primary ?? sourceApplication.name?._primary ?? 'en'
-                    )
+                    descriptionVlc =
+                        buildLocalizedContent(
+                            sanitizedDescription,
+                            parsed.data.descriptionPrimaryLocale,
+                            parsed.data.namePrimaryLocale ??
+                                sourceApplication.description?._primary ??
+                                sourceApplication.name?._primary ??
+                                'en'
+                        ) ?? null
                 } else {
-                    descriptionVlc = undefined
+                    descriptionVlc = null
                 }
             }
 
@@ -3933,7 +3833,12 @@ export function createApplicationsRoutes(
                 if (!sourceSlug) return false
                 for (; nextSlugAttempt <= maxSlugAttempts; nextSlugAttempt++) {
                     const candidate = buildCopiedApplicationSlugCandidate(sourceSlug, nextSlugAttempt)
-                    const existing = await sourceApplicationRepo.findOne({ where: { slug: candidate } })
+                    const existing = await findApplicationBySlug(
+                        {
+                            query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                        },
+                        candidate
+                    )
                     if (!existing) {
                         slugCandidate = candidate
                         nextSlugAttempt += 1
@@ -3945,7 +3850,12 @@ export function createApplicationsRoutes(
 
             if (requestedSlug) {
                 slugCandidate = requestedSlug
-                const existing = await sourceApplicationRepo.findOne({ where: { slug: slugCandidate } })
+                const existing = await findApplicationBySlug(
+                    {
+                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                    },
+                    slugCandidate
+                )
                 if (existing) {
                     return res.status(409).json({ error: 'Application with this slug already exists' })
                 }
@@ -3956,7 +3866,9 @@ export function createApplicationsRoutes(
                 }
             }
 
-            const [{ id: newApplicationId }] = (await manager.query(`SELECT public.uuid_generate_v7() AS id`)) as Array<{ id: string }>
+            const [{ id: newApplicationId }] = (await query<{ id: string }>(req, `SELECT public.uuid_generate_v7() AS id`)) as Array<{
+                id: string
+            }>
             const newSchemaName = generateSchemaName(newApplicationId)
 
             if (!newSchemaName.startsWith('app_') || !isValidSchemaName(newSchemaName) || !IDENTIFIER_REGEX.test(newSchemaName)) {
@@ -3964,112 +3876,22 @@ export function createApplicationsRoutes(
             }
 
             const runCopyTransaction = () =>
-                ds.transaction(async (txManager) => {
-                    const txApplicationRepo = txManager.getRepository(Application)
-                    const txApplicationUserRepo = txManager.getRepository(ApplicationUser)
-                    const txConnectorRepo = txManager.getRepository(Connector)
-                    const txConnectorPublicationRepo = txManager.getRepository(ConnectorPublication)
-
-                    const copiedApplication = await txApplicationRepo.save(
-                        txApplicationRepo.create({
-                            id: newApplicationId,
-                            name: nameVlc,
-                            description: descriptionVlc,
-                            slug: slugCandidate,
-                            isPublic: parsed.data.isPublic ?? sourceApplication.isPublic,
-                            schemaName: newSchemaName,
-                            schemaStatus: copyOptions.copyConnector ? ApplicationSchemaStatus.OUTDATED : ApplicationSchemaStatus.DRAFT,
-                            schemaSyncedAt: null,
-                            schemaError: null,
-                            schemaSnapshot: null,
-                            appStructureVersion: null,
-                            lastSyncedPublicationVersionId: null,
-                            _uplCreatedBy: userId,
-                            _uplUpdatedBy: userId
-                        })
-                    )
-
-                    await txApplicationUserRepo.save(
-                        txApplicationUserRepo.create({
-                            applicationId: copiedApplication.id,
-                            userId,
-                            role: 'owner',
-                            _uplCreatedBy: userId,
-                            _uplUpdatedBy: userId
-                        })
-                    )
-
-                    if (copyOptions.copyAccess) {
-                        const sourceMembers = await sourceApplicationUserRepo.find({
-                            where: {
-                                applicationId,
-                                _uplDeleted: false,
-                                _appDeleted: false
-                            }
-                        })
-                        for (const sourceMember of sourceMembers) {
-                            if (sourceMember.userId === userId) continue
-                            await txApplicationUserRepo.save(
-                                txApplicationUserRepo.create({
-                                    applicationId: copiedApplication.id,
-                                    userId: sourceMember.userId,
-                                    role: sourceMember.role,
-                                    comment: sourceMember.comment,
-                                    _uplCreatedBy: userId,
-                                    _uplUpdatedBy: userId
-                                })
-                            )
-                        }
-                    }
-
-                    if (copyOptions.copyConnector) {
-                        const sourceConnectors = await sourceConnectorRepo.find({
-                            where: { applicationId },
-                            order: { sortOrder: 'ASC' }
-                        })
-
-                        const connectorIdMap = new Map<string, string>()
-                        for (const sourceConnector of sourceConnectors) {
-                            const savedConnector = await txConnectorRepo.save(
-                                txConnectorRepo.create({
-                                    applicationId: copiedApplication.id,
-                                    name: sourceConnector.name,
-                                    description: sourceConnector.description,
-                                    sortOrder: sourceConnector.sortOrder,
-                                    isSingleMetahub: sourceConnector.isSingleMetahub,
-                                    isRequiredMetahub: sourceConnector.isRequiredMetahub,
-                                    _uplCreatedBy: userId,
-                                    _uplUpdatedBy: userId
-                                })
-                            )
-                            connectorIdMap.set(sourceConnector.id, savedConnector.id)
-                        }
-
-                        const sourceConnectorIds = sourceConnectors.map((connector) => connector.id)
-                        if (sourceConnectorIds.length > 0) {
-                            const sourceLinks = await sourceConnectorPublicationRepo.find({
-                                where: { connectorId: In(sourceConnectorIds) }
-                            })
-                            for (const sourceLink of sourceLinks) {
-                                const copiedConnectorId = connectorIdMap.get(sourceLink.connectorId)
-                                if (!copiedConnectorId) continue
-                                await txConnectorPublicationRepo.save(
-                                    txConnectorPublicationRepo.create({
-                                        connectorId: copiedConnectorId,
-                                        publicationId: sourceLink.publicationId,
-                                        sortOrder: sourceLink.sortOrder,
-                                        _uplCreatedBy: userId,
-                                        _uplUpdatedBy: userId
-                                    })
-                                )
-                            }
-                        }
-                    }
-
-                    return copiedApplication
+                copyApplicationWithOptions(ds, {
+                    newApplicationId,
+                    sourceApplicationId: applicationId,
+                    sourceApplication,
+                    copiedName: nameVlc,
+                    copiedDescription: descriptionVlc ?? null,
+                    slug: slugCandidate ?? null,
+                    isPublic: parsed.data.isPublic ?? sourceApplication.isPublic,
+                    schemaName: newSchemaName,
+                    schemaStatus: copyOptions.copyConnector ? ApplicationSchemaStatus.OUTDATED : ApplicationSchemaStatus.DRAFT,
+                    copyAccess: copyOptions.copyAccess,
+                    copyConnector: copyOptions.copyConnector,
+                    actorUserId: userId
                 })
 
-            let copied: Application | null = null
+            let copied: Awaited<ReturnType<typeof copyApplicationWithOptions>> | null = null
             const maxCopyAttempts = requestedSlug ? 1 : sourceSlug ? maxSlugAttempts : 1
             for (let attempt = 0; attempt < maxCopyAttempts; attempt++) {
                 try {
@@ -4103,9 +3925,9 @@ export function createApplicationsRoutes(
                 description: copied.description,
                 slug: copied.slug,
                 isPublic: copied.isPublic,
-                version: copied._uplVersion || 1,
-                createdAt: copied._uplCreatedAt,
-                updatedAt: copied._uplUpdatedAt,
+                version: copied.version || 1,
+                createdAt: copied.createdAt,
+                updatedAt: copied.updatedAt,
                 connectorsCount: undefined,
                 membersCount: undefined,
                 role: 'owner',
@@ -4124,13 +3946,16 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            const ctx = await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'], rlsRunner)
+            const ctx = await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
-            const { applicationRepo } = repos(req)
-            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            const application = await findApplicationDetails(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
             if (!application) return res.status(404).json({ error: 'Application not found' })
 
             const localizedInputSchema = z
@@ -4166,19 +3991,20 @@ export function createApplicationsRoutes(
 
             // Optimistic locking check
             if (expectedVersion !== undefined) {
-                const currentVersion = application._uplVersion || 1
+                const currentVersion = application.version || 1
                 if (currentVersion !== expectedVersion) {
                     throw new OptimisticLockError({
                         entityId: applicationId,
                         entityType: 'application',
                         expectedVersion,
                         actualVersion: currentVersion,
-                        updatedAt: application._uplUpdatedAt,
-                        updatedBy: application._uplUpdatedBy ?? null
+                        updatedAt: application.updatedAt,
+                        updatedBy: application.updatedBy ?? null
                     })
                 }
             }
 
+            let nextName = application.name
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)
                 if (Object.keys(sanitizedName).length === 0) {
@@ -4187,45 +4013,84 @@ export function createApplicationsRoutes(
                 const primary = namePrimaryLocale ?? application.name?._primary ?? 'en'
                 const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
                 if (nameVlc) {
-                    application.name = nameVlc
+                    nextName = nameVlc
                 }
             }
 
+            let nextDescription = application.description
             if (description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
                     const primary =
-                        descriptionPrimaryLocale ??
-                        application.description?._primary ??
-                        application.name?._primary ??
-                        namePrimaryLocale ??
-                        'en'
+                        descriptionPrimaryLocale ?? application.description?._primary ?? nextName?._primary ?? namePrimaryLocale ?? 'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
                     if (descriptionVlc) {
-                        application.description = descriptionVlc
+                        nextDescription = descriptionVlc
                     }
                 } else {
-                    application.description = undefined
+                    nextDescription = null
                 }
             }
 
+            let nextSlug = application.slug
             if (slug !== undefined) {
                 if (slug !== null && slug !== application.slug) {
-                    const existing = await applicationRepo.findOne({ where: { slug } })
+                    const existing = await findApplicationBySlug(
+                        {
+                            query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                        },
+                        slug
+                    )
                     if (existing && existing.id !== applicationId) {
                         return res.status(409).json({ error: 'Application with this slug already exists' })
                     }
                 }
-                application.slug = slug ?? undefined
+                nextSlug = slug ?? null
             }
 
-            if (isPublic !== undefined) {
-                application.isPublic = isPublic
+            let saved = await updateApplication(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                {
+                    applicationId,
+                    name: name !== undefined ? nextName : undefined,
+                    description: description !== undefined ? nextDescription : undefined,
+                    slug: slug !== undefined ? nextSlug : undefined,
+                    isPublic,
+                    userId,
+                    expectedVersion
+                }
+            )
+
+            if (!saved && expectedVersion !== undefined) {
+                const latest = await findApplicationDetails(
+                    {
+                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                    },
+                    applicationId
+                )
+                if (latest && latest.version !== expectedVersion) {
+                    throw new OptimisticLockError({
+                        entityId: applicationId,
+                        entityType: 'application',
+                        expectedVersion,
+                        actualVersion: latest.version,
+                        updatedAt: latest.updatedAt,
+                        updatedBy: latest.updatedBy ?? null
+                    })
+                }
             }
 
-            application._uplUpdatedBy = userId
-
-            const saved = await applicationRepo.save(application)
+            if (!saved) {
+                saved = await findApplicationDetails(
+                    {
+                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                    },
+                    applicationId
+                )
+            }
+            if (!saved) return res.status(404).json({ error: 'Application not found' })
             const role = ctx.membership.role as ApplicationRole
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
 
@@ -4235,9 +4100,9 @@ export function createApplicationsRoutes(
                 description: saved.description,
                 slug: saved.slug,
                 isPublic: saved.isPublic,
-                version: saved._uplVersion || 1,
-                createdAt: saved._uplCreatedAt,
-                updatedAt: saved._uplUpdatedAt,
+                version: saved.version || 1,
+                createdAt: saved.createdAt,
+                updatedAt: saved.updatedAt,
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
                 permissions
@@ -4254,13 +4119,16 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId, ['owner'], rlsRunner)
+            await ensureApplicationAccess(ds, userId, applicationId, ['owner'])
 
-            const { applicationRepo } = repos(req)
-            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            const application = await findApplicationDetails(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
             if (!application) return res.status(404).json({ error: 'Application not found' })
 
             // Drop application runtime schema together with the application record.
@@ -4273,20 +4141,7 @@ export function createApplicationsRoutes(
                 }
             }
 
-            await ds.transaction(async (txManager) => {
-                if (schemaName) {
-                    const schemaIdent = quoteIdentifier(schemaName)
-                    await txManager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`)
-                }
-
-                const txRepo = txManager.getRepository(Application)
-                const txApplication = await txRepo.findOne({ where: { id: applicationId } })
-                if (!txApplication) {
-                    // If the application disappeared concurrently, treat as not found.
-                    return
-                }
-                await txRepo.remove(txApplication)
-            })
+            await deleteApplicationWithSchema(ds, { applicationId, schemaName, userId })
             return res.status(204).send()
         })
     )
@@ -4300,10 +4155,9 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+            await ensureApplicationAccess(ds, userId, applicationId)
 
             let validatedQuery
             try {
@@ -4315,8 +4169,20 @@ export function createApplicationsRoutes(
                 throw error
             }
 
-            const { members, total } = await loadMembers(req, applicationId, validatedQuery)
-            return res.json({ items: members, total, limit: validatedQuery.limit, offset: validatedQuery.offset })
+            const { items: members, total } = await listApplicationMembers(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                {
+                    applicationId,
+                    limit: validatedQuery.limit,
+                    offset: validatedQuery.offset,
+                    sortBy: validatedQuery.sortBy,
+                    sortOrder: validatedQuery.sortOrder,
+                    search: validatedQuery.search ? escapeLikeWildcards(validatedQuery.search.toLowerCase()) : undefined
+                }
+            )
+            return res.json({ items: members.map(mapMember), total, limit: validatedQuery.limit, offset: validatedQuery.offset })
         })
     )
 
@@ -4329,10 +4195,9 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'], rlsRunner)
+            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
             const schema = z.object({
                 email: z.string().email(),
@@ -4355,35 +4220,41 @@ export function createApplicationsRoutes(
             }
 
             const { email, role } = result.data
-            const { applicationUserRepo, authUserRepo } = repos(req)
+            const executor = {
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+            }
 
-            const user = await authUserRepo.findOne({ where: { email: email.toLowerCase() } })
+            const user = await findAuthUserByEmail(executor, email.toLowerCase())
             if (!user) {
                 return res.status(404).json({ error: 'User not found' })
             }
 
-            const existing = await applicationUserRepo.findOne({
-                where: { applicationId, userId: user.id }
-            })
+            const existing = await findApplicationMemberByUserId(executor, { applicationId, userId: user.id })
             if (existing) {
                 return res.status(409).json({ error: 'User is already a member', code: 'APPLICATION_MEMBER_EXISTS' })
             }
 
-            const member = applicationUserRepo.create({
-                applicationId,
-                userId: user.id,
-                role,
-                comment: normalizedComment.commentVlc,
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
-            await applicationUserRepo.save(member)
+            try {
+                const member = await insertApplicationMember(executor, {
+                    applicationId,
+                    userId: user.id,
+                    role,
+                    comment: normalizedComment.commentVlc,
+                    createdBy: userId,
+                    updatedBy: userId
+                })
 
-            const manager = getRequestManager(req, ds)
-            const profiles = await manager.find(Profile, { where: { user_id: user.id } })
-            const nickname = profiles.length > 0 ? profiles[0].nickname : null
+                if (!member) {
+                    return res.status(500).json({ error: 'Failed to create application member' })
+                }
 
-            return res.status(201).json(mapMember(member, user.email, nickname))
+                return res.status(201).json(mapMember(member))
+            } catch (error) {
+                if (database.isUniqueViolation(error)) {
+                    return res.status(409).json({ error: 'User is already a member', code: 'APPLICATION_MEMBER_EXISTS' })
+                }
+                throw error
+            }
         })
     )
 
@@ -4396,15 +4267,15 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId, memberId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            const ctx = await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'], rlsRunner)
+            const ctx = await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
-            const { applicationUserRepo, authUserRepo } = repos(req)
-            const member = await applicationUserRepo.findOne({
-                where: { id: memberId, applicationId }
-            })
+            const executor = {
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+            }
+
+            const member = await findApplicationMemberById(executor, { applicationId, memberId })
             if (!member) {
                 return res.status(404).json({ error: 'Member not found' })
             }
@@ -4443,20 +4314,19 @@ export function createApplicationsRoutes(
                 member.role = role
             }
 
-            if (result.data.comment !== undefined) {
-                member.comment = normalizedComment.commentVlc ?? null
+            const updatedMember = await updateApplicationMember(executor, {
+                applicationId,
+                memberId,
+                role: result.data.role,
+                comment: result.data.comment !== undefined ? normalizedComment.commentVlc ?? null : undefined,
+                updatedBy: userId
+            })
+
+            if (!updatedMember) {
+                return res.status(404).json({ error: 'Member not found' })
             }
 
-            member._uplUpdatedBy = userId
-
-            await applicationUserRepo.save(member)
-
-            const user = await authUserRepo.findOne({ where: { id: member.userId } })
-            const manager = getRequestManager(req, ds)
-            const profiles = await manager.find(Profile, { where: { user_id: member.userId } })
-            const nickname = profiles.length > 0 ? profiles[0].nickname : null
-
-            return res.json(mapMember(member, user?.email ?? null, nickname))
+            return res.json(mapMember(updatedMember))
         })
     )
 
@@ -4469,22 +4339,22 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId, memberId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'], rlsRunner)
+            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
-            const { applicationUserRepo } = repos(req)
-            const member = await applicationUserRepo.findOne({
-                where: { id: memberId, applicationId }
-            })
+            const executor = {
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+            }
+
+            const member = await findApplicationMemberById(executor, { applicationId, memberId })
             if (!member) {
                 return res.status(404).json({ error: 'Member not found' })
             }
 
             assertNotOwner(member, 'Cannot remove owner')
 
-            await applicationUserRepo.remove(member)
+            await deleteApplicationMember(executor, { applicationId, memberId, userId })
             return res.status(204).send()
         })
     )
