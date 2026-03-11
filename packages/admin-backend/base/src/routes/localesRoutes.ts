@@ -1,6 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { uuid } from '@universo/utils'
-import type { DbExecutor } from '@universo/utils'
+import { getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
@@ -51,7 +50,7 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
             }
 
             const query = parsed.data
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const { items, total } = await listLocales(exec, {
                 includeDisabled: query.includeDisabled,
@@ -80,7 +79,7 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const locale = await findLocaleById(exec, req.params.id)
 
             if (!locale) {
@@ -104,7 +103,7 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
             }
 
             const data = parsed.data
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const existing = await findLocaleByCode(exec, data.code)
             if (existing) {
@@ -144,7 +143,7 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
             }
 
             const data = parsed.data
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const locale = await findLocaleById(exec, req.params.id)
             if (!locale) {
@@ -187,7 +186,7 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const locale = await findLocaleById(exec, req.params.id)
 
             if (!locale) {

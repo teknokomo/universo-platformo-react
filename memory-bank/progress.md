@@ -46,6 +46,25 @@
 
 ---
 
+## PR #719 Bot Review Triage COMPLETE (2026-03-11)
+
+Closed the follow-up QA pass on PR #719 after reviewing the bot comments against the actual Knex/RLS architecture and PostgreSQL behavior. The accepted fixes were intentionally narrow: preserve the SQL-first migration direction, correct request-scoped database usage in authenticated admin routes, refresh the stale RLS architecture note, and avoid speculative query rewrites that could change pagination semantics.
+
+| Area | Resolution |
+| --- | --- |
+| Authenticated admin routes | `instances`, `adminSettings`, `roles`, and `locales` routes now resolve executors with `getRequestDbExecutor(req, getDbExecutor())` so request SQL stays on the pinned RLS-aware connection. |
+| Regression coverage | Added a focused admin-backend route test that proves request-scoped executors are passed through the touched route factories. |
+| RLS architecture note | Replaced the stale TypeORM-era `memory-bank/rls-integration-pattern.md` content with the current Knex/request-scoped lifecycle and anti-pattern guidance. |
+| Public route docs | Restored concise route-level comments for the public locales endpoints without changing behavior. |
+| Rejected suggestion | Did not apply the proposed `COUNT(*) OVER()` pagination rewrite because empty offset pages would break the existing `total` contract. |
+| Validation | `pnpm --filter @universo/admin-backend test` passed and the final root `pnpm build` completed successfully with **27/27 tasks**. |
+
+### Review Outcome
+
+- The valid bot feedback exposed a real correctness risk: authenticated routes that fall back to the pool-level executor can bypass the request-bound RLS context.
+- The broader route sweep fixed the root pattern instead of only patching the two files explicitly mentioned in review.
+- The follow-up QA pass also documented why the pagination optimization was rejected, reducing the chance of reintroducing that unsafe change later.
+
 ## GitBook Editorial QA Remediation COMPLETE (2026-03-11)
 
 Closed the follow-up editorial pass that remained after the larger GitBook rewrite. This was intentionally a wording-quality and localization pass rather than another structural rewrite: English was tightened to remove defensive legacy-comparison phrasing, and the remaining Russian surface was localized into consistent editorial Russian without reopening repository facts or section structure.

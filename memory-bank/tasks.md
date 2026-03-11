@@ -7,6 +7,21 @@
 
 ## Active Open Tasks (Canonical)
 
+### PR #719 Bot Review Triage — 2026-03-11
+
+> **Status**: ✅ COMPLETE — reviewed the bot comments/reviews on PR #719, validated each finding against the current branch plus PostgreSQL documentation, applied only safe/correct fixes, rejected the unsafe pagination optimization suggestion, and re-verified the branch with focused tests plus a full root build.
+
+- [x] Fetch all bot comments/reviews from PR #719 and classify unique findings
+  - Note: reviewed inline comments, review summaries, and the PR-level bot note to separate real correctness issues from duplicate/style-only noise.
+- [x] Validate each actionable finding against the current codebase and external documentation
+  - Note: confirmed the RLS/request-scoped executor concern in code and checked PostgreSQL docs before changing request-path database behavior.
+- [x] Implement only safe fixes that improve correctness without reopening closed regressions
+  - Note: patched authenticated admin routes to prefer `getRequestDbExecutor(req, getDbExecutor())`, restored concise public-route comments, and replaced the stale TypeORM-era RLS memory note.
+- [x] Run targeted tests/build validation for all touched packages and files
+  - Note: `pnpm --filter @universo/admin-backend test` passed, then root `pnpm build` passed with 27/27 tasks.
+- [x] Update memory-bank status and summarize which review findings were accepted vs rejected
+  - Note: accepted the request-scoped executor and stale-doc findings; rejected the suggested `COUNT(*) OVER()` pagination rewrite because empty offset pages would collapse `total` to zero despite matching rows still existing.
+
 ### GitBook Editorial QA Remediation — 2026-03-11
 
 > **Status**: ✅ COMPLETE — the follow-up editorial QA pass is finished: the English GitBook layer now reads more directly, the Russian GitBook layer has localized headings/body copy across the remaining pages, EN/RU line parity is restored across the full docs tree, local docs links resolve, and the final root build is green.

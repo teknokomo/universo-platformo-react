@@ -1,6 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { uuid } from '@universo/utils'
-import type { DbExecutor } from '@universo/utils'
+import { getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { escapeLikeWildcards } from '../utils'
@@ -62,8 +61,8 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
     router.get(
         '/assignable',
         ensureGlobalAccess('roles', 'read'),
-        asyncHandler(async (_req, res) => {
-            const exec = getDbExecutor()
+        asyncHandler(async (req, res) => {
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const roles = await listAssignableRoles(exec)
 
             const data = roles.map((role) => ({
@@ -93,7 +92,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             }
 
             const { limit, offset, search, sortBy, sortOrder, includeSystem } = parsed.data
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const { items, total } = await listRoles(exec, {
                 limit,
@@ -129,7 +128,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const role = await findRoleById(exec, id)
 
             if (!role) {
@@ -157,7 +156,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             }
 
             const { codename, description, name, color, isSuperuser, permissions } = parsed.data
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const existing = await findRoleByCodename(exec, codename)
             if (existing) {
@@ -204,7 +203,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const role = await findRoleById(exec, id)
 
             if (!role) {
@@ -287,7 +286,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const role = await findRoleById(exec, id)
 
             if (!role) {
@@ -322,7 +321,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
         ensureGlobalAccess('roles', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const role = await findRoleById(exec, id)
             if (!role) {

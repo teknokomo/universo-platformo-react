@@ -19,6 +19,8 @@ export function createPublicLocalesRoutes(config: PublicLocalesRoutesConfig): Ro
     router.get(
         '/content',
         asyncHandler(async (_req, res) => {
+            // Public content locales feed consumed before admin/auth context exists.
+            // Cache for 5 minutes and return enabled content locales plus the default locale.
             const exec = getDbExecutor()
             const locales = await listEnabledContentLocales(exec)
 
@@ -38,6 +40,8 @@ export function createPublicLocalesRoutes(config: PublicLocalesRoutesConfig): Ro
     router.get(
         '/ui',
         asyncHandler(async (_req, res) => {
+            // Public UI locales feed consumed by shells and clients before authenticated bootstrap.
+            // Cache for 5 minutes and return enabled UI locales plus the default locale.
             const exec = getDbExecutor()
             const locales = await listEnabledUiLocales(exec)
 

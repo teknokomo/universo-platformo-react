@@ -1,5 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import type { DbExecutor } from '@universo/utils'
+import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
@@ -60,7 +60,7 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
             }
 
             const { limit, offset, search, sortBy, sortOrder } = parsed.data
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
 
             const { items, total } = await listInstances(exec, {
                 limit,
@@ -86,7 +86,7 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
         ensureGlobalAccess('instances', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const instance = await findInstanceById(exec, id)
 
             if (!instance) {
@@ -103,7 +103,7 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
         ensureGlobalAccess('instances', 'update'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const instance = await findInstanceById(exec, id)
 
             if (!instance) {
@@ -145,7 +145,7 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
         ensureGlobalAccess('instances', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const instance = await findInstanceById(exec, id)
 
             if (!instance) {

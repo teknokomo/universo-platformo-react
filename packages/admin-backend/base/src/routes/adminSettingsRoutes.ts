@@ -1,6 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { z } from 'zod'
-import type { DbExecutor } from '@universo/utils'
+import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
@@ -90,9 +90,9 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
     router.get(
         '/',
         ensureGlobalAccess('settings', 'read'),
-        asyncHandler(async (_req, res) => {
-            const exec = getDbExecutor()
-            const categoryFilter = (_req.query as { category?: string }).category
+        asyncHandler(async (req, res) => {
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const categoryFilter = (req.query as { category?: string }).category
             const settings = await listSettings(exec, categoryFilter)
 
             res.json({
@@ -115,7 +115,7 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const settings = await listSettings(exec, parsed.data.category)
 
             res.json({
@@ -138,7 +138,7 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const setting = await findSetting(exec, parsed.data.category, parsed.data.key)
 
             if (!setting) {
@@ -183,7 +183,7 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 }
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const updatedSettings = await bulkUpsertSettings(exec, category, entries)
 
             res.json({
@@ -219,7 +219,7 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const setting = await upsertSetting(exec, category, key, bodyParsed.data.value)
 
             res.json({ success: true, data: transformSettingRow(setting) })
@@ -236,7 +236,7 @@ export function createAdminSettingsRoutes(config: AdminSettingsRoutesConfig): Ro
                 return
             }
 
-            const exec = getDbExecutor()
+            const exec = getRequestDbExecutor(req, getDbExecutor())
             const setting = await findSetting(exec, parsed.data.category, parsed.data.key)
 
             if (!setting) {
