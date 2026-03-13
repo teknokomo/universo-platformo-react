@@ -184,6 +184,19 @@ vi.mock('@universo/template-mui', async () => {
                                 isLoading: false,
                                 errors: dialogProps?.validate?.(dialogProps?.initialExtraValues ?? {}) ?? {}
                             })
+                            void dialogProps?.onSave?.({
+                                ...(dialogProps?.initialExtraValues ?? {}),
+                                nameVlc: {
+                                    _schema: 'v1',
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Edited Connector' } }
+                                },
+                                descriptionVlc: {
+                                    _schema: 'v1',
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Edited Description' } }
+                                }
+                            })
                         }}
                     >
                         edit
@@ -207,7 +220,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { SnackbarProvider } from 'notistack'
 
 import ConnectorList from '../ConnectorList'
@@ -220,6 +233,11 @@ const createTestQueryClient = () =>
         }
     })
 
+const LocationDisplay = () => {
+    const location = useLocation()
+    return <div data-testid='location-display'>{location.pathname}</div>
+}
+
 const renderWithProviders = (route: string) => {
     const queryClient = createTestQueryClient()
 
@@ -229,8 +247,13 @@ const renderWithProviders = (route: string) => {
                 <MemoryRouter initialEntries={[route]}>
                     <Routes>
                         <Route path='/a/:applicationId/admin/connectors' element={<ConnectorList />} />
+                        <Route
+                            path='/a/:applicationId/admin/connector/:connectorId'
+                            element={<div data-testid='connector-detail-route' />}
+                        />
                         <Route path='/connectors' element={<ConnectorList />} />
                     </Routes>
+                    <LocationDisplay />
                 </MemoryRouter>
             </SnackbarProvider>
         </QueryClientProvider>
@@ -238,6 +261,10 @@ const renderWithProviders = (route: string) => {
 }
 
 beforeEach(() => {
+    createConnectorMutate.mockReset()
+    updateConnectorMutateAsync.mockReset()
+    updateConnectorMutateAsync.mockResolvedValue({})
+    deleteConnectorMutate.mockReset()
     mockUsePaginatedResult = {
         data: [
             {
@@ -265,6 +292,29 @@ beforeEach(() => {
 })
 
 describe('ConnectorList page', () => {
+    it('submits localized connector create payload with the selected publication', async () => {
+        const user = userEvent.setup()
+        renderWithProviders('/a/app-1/admin/connectors')
+
+        await user.click(await screen.findByRole('button', { name: 'create' }))
+        expect(await screen.findByTestId('entity-form-dialog')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            expect(createConnectorMutate).toHaveBeenCalledWith({
+                applicationId: 'app-1',
+                data: {
+                    name: { en: 'Test Connector' },
+                    description: { en: 'Test Description' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en',
+                    publicationId: 'publication-1'
+                }
+            })
+        })
+    })
+
     it('renders connectors and can open create + delete flows (smoke)', async () => {
         const user = userEvent.setup()
         renderWithProviders('/a/app-1/admin/connectors')
@@ -308,6 +358,43 @@ describe('ConnectorList page', () => {
         await user.click(screen.getByRole('button', { name: 'connectors.deleteDialog.confirm' }))
         await waitFor(() => {
             expect(deleteConnectorMutate).toHaveBeenCalledWith({ applicationId: 'app-1', connectorId: 'conn-1' })
+        })
+    })
+
+    it('submits localized connector update payload from the page action menu', async () => {
+        const user = userEvent.setup()
+        renderWithProviders('/a/app-1/admin/connectors')
+
+        await user.click(await screen.findByRole('button', { name: 'edit' }))
+
+        await waitFor(() => {
+            expect(updateConnectorMutateAsync).toHaveBeenCalledWith({
+                applicationId: 'app-1',
+                connectorId: 'conn-1',
+                data: {
+                    name: { en: 'Edited Connector' },
+                    description: { en: 'Edited Description' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en',
+                    expectedVersion: undefined
+                }
+            })
+        })
+    })
+
+    it('navigates to the connector admin route from the rendered connector link', async () => {
+        const user = userEvent.setup()
+        renderWithProviders('/a/app-1/admin/connectors')
+
+        expect(await screen.findByTestId('location-display')).toHaveTextContent('/a/app-1/admin/connectors')
+
+        await user.click(screen.getByRole('button', { name: 'table' }))
+        expect(await screen.findByTestId('flow-list-table')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('link', { name: 'Connector One' }))
+
+        await waitFor(() => {
+            expect(screen.getByTestId('location-display')).toHaveTextContent('/a/app-1/admin/connector/conn-1')
         })
     })
 

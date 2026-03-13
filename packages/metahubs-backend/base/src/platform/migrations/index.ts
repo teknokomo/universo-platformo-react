@@ -1,2 +1,6 @@
-export { createMetahubsSchemaMigrationDefinition } from './1766351182000-CreateMetahubsSchema.sql'
-export { addTemplateDefinitionTypeMigrationDefinition } from './1800000000100-AddTemplateDefinitionType.sql'
+export {
+    createMetahubsSchemaMigrationDefinition,
+    finalizeMetahubsSchemaSupportMigrationDefinition,
+    prepareMetahubsSchemaSupportMigrationDefinition
+} from './1766351182000-CreateMetahubsSchema.sql'
+export { seedBuiltinTemplatesMigration } from './1800000000200-SeedBuiltinTemplates'

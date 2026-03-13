@@ -20,12 +20,12 @@ export interface SoftDeleteFilterOptions {
 
 export function activeMetahubRowCondition(alias?: string): string {
     const prefix = alias ? `${alias}.` : ''
-    return `${prefix}_upl_deleted = false AND ${prefix}_mhb_deleted = false`
+    return `${prefix}_upl_deleted = false AND ${prefix}_app_deleted = false`
 }
 
 export function deletedMetahubRowCondition(alias?: string): string {
     const prefix = alias ? `${alias}.` : ''
-    return `${prefix}_upl_deleted = true AND ${prefix}_mhb_deleted = true`
+    return `${prefix}_upl_deleted = true AND ${prefix}_app_deleted = true`
 }
 
 /**
@@ -34,10 +34,10 @@ export function deletedMetahubRowCondition(alias?: string): string {
  *
  * @example
  * const where = softDeleteCondition({ alias: 'm' })
- * // Returns: "m._upl_deleted = false AND m._mhb_deleted = false"
+ * // Returns: "m._upl_deleted = false AND m._app_deleted = false"
  *
  * const trashWhere = softDeleteCondition({ alias: 'm', onlyDeleted: true })
- * // Returns: "m._upl_deleted = true AND m._mhb_deleted = true"
+ * // Returns: "m._upl_deleted = true AND m._app_deleted = true"
  */
 export function softDeleteCondition(options: SoftDeleteFilterOptions = {}): string {
     const { includeDeleted = false, onlyDeleted = false, alias } = options
@@ -53,7 +53,7 @@ export function softDeleteCondition(options: SoftDeleteFilterOptions = {}): stri
 
 /**
  * Soft delete a metahub-domain record by setting both _upl_deleted=true and
- * _mhb_deleted=true plus audit fields.
+ * _app_deleted=true plus audit fields.
  *
  * @param exec - SQL executor (DbExecutor, EntityManager, etc.)
  * @param schema - Schema name (e.g. 'metahubs')
@@ -68,14 +68,14 @@ export async function softDelete(exec: SqlQueryable, schema: string, table: stri
          SET _upl_deleted = true,
              _upl_deleted_at = NOW(),
              _upl_deleted_by = $2,
-                         _mhb_deleted = true,
-                         _mhb_deleted_at = NOW(),
-                         _mhb_deleted_by = $2,
+             _app_deleted = true,
+             _app_deleted_at = NOW(),
+             _app_deleted_by = $2,
              _upl_updated_at = NOW(),
              _upl_version = _upl_version + 1
          WHERE id = $1
-                     AND _upl_deleted = false
-                     AND _mhb_deleted = false
+           AND _upl_deleted = false
+           AND _app_deleted = false
          RETURNING id`,
         [id, userId ?? null]
     )
@@ -91,15 +91,15 @@ export async function restoreDeleted(exec: SqlQueryable, schema: string, table: 
          SET _upl_deleted = false,
              _upl_deleted_at = NULL,
              _upl_deleted_by = NULL,
-                         _mhb_deleted = false,
-                         _mhb_deleted_at = NULL,
-                         _mhb_deleted_by = NULL,
+             _app_deleted = false,
+             _app_deleted_at = NULL,
+             _app_deleted_by = NULL,
              _upl_purge_after = NULL,
              _upl_updated_at = NOW(),
              _upl_version = _upl_version + 1
          WHERE id = $1
-                     AND _upl_deleted = true
-                     AND _mhb_deleted = true
+           AND _upl_deleted = true
+           AND _app_deleted = true
          RETURNING id`,
         [id]
     )
@@ -131,7 +131,7 @@ export async function countDeleted(
     filterColumn?: string,
     filterValue?: string
 ): Promise<number> {
-    let sql = `SELECT COUNT(*)::text AS count FROM "${schema}"."${table}" WHERE _upl_deleted = true AND _mhb_deleted = true`
+    let sql = `SELECT COUNT(*)::text AS count FROM "${schema}"."${table}" WHERE _upl_deleted = true AND _app_deleted = true`
     const params: unknown[] = []
 
     if (filterColumn && filterValue) {
@@ -151,8 +151,8 @@ export async function setPurgeAfter(exec: SqlQueryable, schema: string, table: s
         `UPDATE "${schema}"."${table}"
          SET _upl_purge_after = $2
          WHERE id = $1
-                     AND _upl_deleted = true
-                     AND _mhb_deleted = true
+           AND _upl_deleted = true
+           AND _app_deleted = true
          RETURNING id`,
         [id, purgeAfter]
     )

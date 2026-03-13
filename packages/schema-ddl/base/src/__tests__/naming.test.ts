@@ -1,13 +1,21 @@
 import {
     generateSchemaName,
+    generateMetahubSchemaName,
     generateTableName,
     generateColumnName,
+    resolveFieldColumnName,
+    resolveEntityTableName,
     isValidSchemaName,
     buildFkConstraintName,
-    generateChildTableName
+    generateChildTableName,
+    qualifySchemaObjectName,
+    qualifyTableName
 } from '../naming'
 
 describe('DDL Naming Utilities', () => {
+    const testEntityId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    const expectedCleanId = 'a1b2c3d4e5f67890abcdef1234567890'
+
     describe('generateSchemaName', () => {
         it('should generate schema name with app_ prefix', () => {
             const applicationId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
@@ -29,10 +37,21 @@ describe('DDL Naming Utilities', () => {
         })
     })
 
-    describe('generateTableName', () => {
-        const testEntityId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-        const expectedCleanId = 'a1b2c3d4e5f67890abcdef1234567890'
+    describe('generateMetahubSchemaName', () => {
+        it('should generate schema name with mhb_ prefix', () => {
+            const metahubId = '018f8a78-7b8f-7c1d-a111-222233334444'
+            const result = generateMetahubSchemaName(metahubId)
+            expect(result).toBe('mhb_018f8a787b8f7c1da111222233334444')
+        })
 
+        it('should strip hyphens from metahub UUIDs', () => {
+            const metahubId = '12345678-1234-1234-1234-123456789abc'
+            const result = generateMetahubSchemaName(metahubId)
+            expect(result).toBe('mhb_12345678123412341234123456789abc')
+        })
+    })
+
+    describe('generateTableName', () => {
         it('should generate table name with cat_ prefix for catalog entities', () => {
             const result = generateTableName(testEntityId, 'catalog')
             expect(result).toBe(`cat_${expectedCleanId}`)
@@ -52,6 +71,37 @@ describe('DDL Naming Utilities', () => {
             const result = generateTableName(testEntityId, 'catalog')
             expect(result).not.toContain('-')
         })
+
+        it('should generate table name with rel_ prefix for relation entities', () => {
+            const result = generateTableName(testEntityId, 'relation')
+            expect(result).toBe(`rel_${expectedCleanId}`)
+        })
+
+        it('should generate table name with cfg_ prefix for settings entities', () => {
+            const result = generateTableName(testEntityId, 'settings')
+            expect(result).toBe(`cfg_${expectedCleanId}`)
+        })
+    })
+
+    describe('resolveEntityTableName', () => {
+        it('should prefer explicit physical table name when provided', () => {
+            expect(
+                resolveEntityTableName({
+                    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    kind: 'catalog',
+                    physicalTableName: 'cat_profiles'
+                })
+            ).toBe('cat_profiles')
+        })
+
+        it('should fallback to generated table name when physical override is absent', () => {
+            expect(
+                resolveEntityTableName({
+                    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    kind: 'catalog'
+                })
+            ).toBe(`cat_${expectedCleanId}`)
+        })
     })
 
     describe('generateColumnName', () => {
@@ -69,9 +119,39 @@ describe('DDL Naming Utilities', () => {
         })
     })
 
+    describe('resolveFieldColumnName', () => {
+        it('should prefer explicit physical column names when provided', () => {
+            expect(
+                resolveFieldColumnName({
+                    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    physicalColumnName: 'nickname'
+                })
+            ).toBe('nickname')
+        })
+
+        it('should fallback to generated attr_* names when override is absent', () => {
+            expect(
+                resolveFieldColumnName({
+                    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+                })
+            ).toBe('attr_a1b2c3d4e5f67890abcdef1234567890')
+        })
+    })
+
     describe('isValidSchemaName', () => {
         it('should return true for valid schema name', () => {
             expect(isValidSchemaName('app_a1b2c3d4e5f67890abcdef1234567890')).toBe(true)
+        })
+
+        it('should return true for fixed system schema names', () => {
+            expect(isValidSchemaName('metahubs')).toBe(true)
+            expect(isValidSchemaName('applications')).toBe(true)
+            expect(isValidSchemaName('profiles')).toBe(true)
+        })
+
+        it('should return true for managed custom schema names', () => {
+            expect(isValidSchemaName('custom_runtime')).toBe(true)
+            expect(isValidSchemaName('tenant_reports')).toBe(true)
         })
 
         it('should return true for short valid schema name', () => {
@@ -86,8 +166,12 @@ describe('DDL Naming Utilities', () => {
             expect(isValidSchemaName('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')).toBe(true)
         })
 
-        it('should return false for schema name without app_ prefix', () => {
-            expect(isValidSchemaName('schema_a1b2c3d4')).toBe(false)
+        it('should return true for simple custom schema names outside reserved managed prefixes', () => {
+            expect(isValidSchemaName('schema_a1b2c3d4')).toBe(true)
+        })
+
+        it('should return false for reserved synthetic platform scope keys', () => {
+            expect(isValidSchemaName('cross_schema')).toBe(false)
         })
 
         it('should return false for schema name with uppercase letters', () => {
@@ -113,6 +197,10 @@ describe('DDL Naming Utilities', () => {
         it('should return false for just prefix', () => {
             expect(isValidSchemaName('app_')).toBe(false)
         })
+
+        it('should return false for invalid managed metahub-style prefixes', () => {
+            expect(isValidSchemaName('mhb_invalid')).toBe(false)
+        })
     })
 
     describe('buildFkConstraintName', () => {
@@ -133,6 +221,13 @@ describe('DDL Naming Utilities', () => {
             const result = buildFkConstraintName('cat_short', 'attr_col')
             expect(result).toBe('fk_cat_short_attr_col')
             expect(result.length).toBeLessThan(63)
+        })
+    })
+
+    describe('schema qualification helpers', () => {
+        it('should qualify schema object names safely', () => {
+            expect(qualifySchemaObjectName('metahubs', 'publications')).toBe('"metahubs"."publications"')
+            expect(qualifyTableName('applications', 'connectors')).toBe('"applications"."connectors"')
         })
     })
 

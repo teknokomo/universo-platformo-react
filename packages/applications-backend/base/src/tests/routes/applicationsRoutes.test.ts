@@ -24,6 +24,14 @@ import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 
 describe('Applications Routes', () => {
+    interface TestDataSource {
+        query: jest.Mock
+        transaction: jest.Mock
+        manager: {
+            query: jest.Mock
+        }
+    }
+
     const normalizeMembershipRow = (membership: Record<string, unknown> | null) =>
         membership
             ? {
@@ -36,7 +44,7 @@ describe('Applications Routes', () => {
             : null
 
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
-        ;(req as any).user = { id: 'test-user-id' }
+        ;(req as Request & { user?: { id: string } }).user = { id: 'test-user-id' }
         next()
     }
 
@@ -46,7 +54,7 @@ describe('Applications Routes', () => {
     }) as RateLimitRequestHandler
 
     // Error handler middleware for http-errors compatibility
-    const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const errorHandler = (err: Error & { statusCode?: number; status?: number }, _req: Request, res: Response, _next: NextFunction) => {
         if (res.headersSent) {
             return _next(err)
         }
@@ -56,7 +64,7 @@ describe('Applications Routes', () => {
     }
 
     // Helper to build Express app with error handler
-    const buildApp = (dataSource: any) => {
+    const buildApp = (dataSource: TestDataSource) => {
         const app = express()
         app.use(express.json())
         app.use(
@@ -80,7 +88,7 @@ describe('Applications Routes', () => {
         })
 
         ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('FROM applications.applications_users')) {
+            if (sql.includes('FROM applications.rel_application_users')) {
                 const membership = normalizeMembershipRow(
                     await applicationUserRepo.findOne({
                         where: {
@@ -92,7 +100,7 @@ describe('Applications Routes', () => {
                 return membership ? [membership] : []
             }
 
-            if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.applications')) {
+            if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
                 const application = await applicationRepo.findOne({
                     where: {
                         id: params?.[0]
@@ -315,7 +323,7 @@ describe('Applications Routes', () => {
         })
 
         const configureCopyQueries = (
-            dataSource: any,
+            dataSource: TestDataSource,
             options: {
                 sourceApplication: Record<string, unknown>
                 slugChecks?: Record<string, Record<string, unknown> | null>
@@ -327,7 +335,7 @@ describe('Applications Routes', () => {
             const copiedApplication = options.copiedApplication ?? buildCopiedApplicationRow(options.generatedId)
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM applications.applications_users')) {
+                if (sql.includes('FROM applications.rel_application_users')) {
                     return [
                         {
                             id: 'membership-id',
@@ -339,11 +347,11 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('SELECT') && sql.includes('FROM applications.applications a') && sql.includes('schema_snapshot')) {
+                if (sql.includes('SELECT') && sql.includes('FROM applications.cat_applications a') && sql.includes('schema_snapshot')) {
                     return [options.sourceApplication]
                 }
 
-                if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.applications')) {
+                if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.cat_applications')) {
                     const slug = params?.[0] as string
                     const result = slugChecks[slug]
                     return result ? [result] : []
@@ -356,7 +364,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('INSERT INTO applications.applications (')) {
+                if (sql.includes('INSERT INTO applications.cat_applications (')) {
                     return [copiedApplication]
                 }
                 return []
@@ -419,17 +427,17 @@ describe('Applications Routes', () => {
             expect(mockCloneSchemaWithExecutor).not.toHaveBeenCalled()
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.applications_users')
+                    sql.includes('INSERT INTO applications.rel_application_users')
                 )
             ).toBe(true)
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.connectors (')
+                    sql.includes('INSERT INTO applications.cat_connectors (')
                 )
             ).toBe(true)
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.connectors_publications')
+                    sql.includes('INSERT INTO applications.rel_connector_publications')
                 )
             ).toBe(true)
         })
@@ -482,12 +490,12 @@ describe('Applications Routes', () => {
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334445')
             const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.applications (')
+                sql.includes('INSERT INTO applications.cat_applications (')
             )
             expect(insertApplicationCall?.[1]?.[6]).toBe('draft')
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.connectors (')
+                    sql.includes('INSERT INTO applications.cat_connectors (')
                 )
             ).toBe(false)
         })
@@ -536,7 +544,7 @@ describe('Applications Routes', () => {
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334447')
             const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.applications (')
+                sql.includes('INSERT INTO applications.cat_applications (')
             )
             expect(insertApplicationCall?.[1]?.[3]).toBe('source-app-copy-2')
         })
@@ -577,13 +585,13 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock)
                 .mockImplementationOnce(async (sql: string) => {
-                    if (sql.includes('INSERT INTO applications.applications (')) {
+                    if (sql.includes('INSERT INTO applications.cat_applications (')) {
                         throw slugRaceError
                     }
                     return []
                 })
                 .mockImplementation(async (sql: string) => {
-                    if (sql.includes('INSERT INTO applications.applications (')) {
+                    if (sql.includes('INSERT INTO applications.cat_applications (')) {
                         return [
                             buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334448', {
                                 slug: 'source-app-copy-2'
@@ -607,7 +615,7 @@ describe('Applications Routes', () => {
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334448')
             const insertCalls = (dataSource.manager.query as jest.Mock).mock.calls.filter(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.applications (')
+                sql.includes('INSERT INTO applications.cat_applications (')
             )
             expect(insertCalls).toHaveLength(2)
             expect(insertCalls[0][1][3]).toBe('source-app-copy')
@@ -653,7 +661,7 @@ describe('Applications Routes', () => {
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334449')
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.connectors (')
+                    sql.includes('INSERT INTO applications.cat_connectors (')
                 )
             ).toBe(false)
         })
@@ -720,7 +728,7 @@ describe('Applications Routes', () => {
                 role: 'owner'
             })
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM applications.applications_users')) {
+                if (sql.includes('FROM applications.rel_application_users')) {
                     return [
                         {
                             id: 'membership-id',
@@ -732,7 +740,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('UPDATE applications.applications')) {
+                if (sql.includes('UPDATE applications.cat_applications')) {
                     return [
                         {
                             id: 'application-1',
@@ -807,7 +815,7 @@ describe('Applications Routes', () => {
                 role: 'owner'
             })
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM applications.applications_users')) {
+                if (sql.includes('FROM applications.rel_application_users')) {
                     return [
                         {
                             id: 'membership-id',
@@ -877,7 +885,7 @@ describe('Applications Routes', () => {
                     role: 'admin'
                 })
                 ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                    if (sql.includes('COUNT(*) OVER()') && sql.includes('FROM applications.applications_users au')) {
+                    if (sql.includes('COUNT(*) OVER()') && sql.includes('FROM applications.rel_application_users au')) {
                         return [
                             {
                                 id: 'member-1',
@@ -893,7 +901,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('FROM applications.applications_users')) {
+                    if (sql.includes('FROM applications.rel_application_users')) {
                         const membership = normalizeMembershipRow(
                             await applicationUserRepo.findOne({
                                 where: {
@@ -950,7 +958,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('FROM applications.applications_users')) {
+                    if (sql.includes('FROM applications.rel_application_users')) {
                         const membership = normalizeMembershipRow(
                             await applicationUserRepo.findOne({
                                 where: {
@@ -997,7 +1005,7 @@ describe('Applications Routes', () => {
                         return [{ id: 'existing-id', email: 'existing@example.com' }]
                     }
 
-                    if (sql.includes('FROM applications.applications_users')) {
+                    if (sql.includes('FROM applications.rel_application_users')) {
                         const membership = normalizeMembershipRow(
                             await applicationUserRepo.findOne({
                                 where: {
@@ -1045,7 +1053,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('FROM applications.applications_users au') && sql.includes('au.id = $2')) {
+                    if (sql.includes('FROM applications.rel_application_users au') && sql.includes('au.id = $2')) {
                         return [
                             {
                                 id: 'member-id',
@@ -1060,7 +1068,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('FROM applications.applications_users')) {
+                    if (sql.includes('FROM applications.rel_application_users')) {
                         const membership = normalizeMembershipRow(
                             await applicationUserRepo.findOne({
                                 where: {
@@ -1095,11 +1103,11 @@ describe('Applications Routes', () => {
                     role: 'admin'
                 })
                 ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                    if (sql.includes('DELETE FROM applications.applications_users')) {
+                    if (sql.includes('DELETE FROM applications.rel_application_users')) {
                         return [{ id: 'member-id' }]
                     }
 
-                    if (sql.includes('FROM applications.applications_users au') && sql.includes('au.id = $2')) {
+                    if (sql.includes('FROM applications.rel_application_users au') && sql.includes('au.id = $2')) {
                         return [
                             {
                                 id: 'member-id',
@@ -1114,7 +1122,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('FROM applications.applications_users')) {
+                    if (sql.includes('FROM applications.rel_application_users')) {
                         const membership = normalizeMembershipRow(
                             await applicationUserRepo.findOne({
                                 where: {
@@ -1144,7 +1152,7 @@ describe('Applications Routes', () => {
                     role: 'admin'
                 })
                 ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                    if (sql.includes('FROM applications.applications_users au') && sql.includes('au.id = $2')) {
+                    if (sql.includes('FROM applications.rel_application_users au') && sql.includes('au.id = $2')) {
                         return [
                             {
                                 id: 'owner-id',
@@ -1159,7 +1167,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('FROM applications.applications_users')) {
+                    if (sql.includes('FROM applications.rel_application_users')) {
                         const membership = normalizeMembershipRow(
                             await applicationUserRepo.findOne({
                                 where: {

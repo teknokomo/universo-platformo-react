@@ -39,7 +39,10 @@ describe('createOnboardingRoutes', () => {
             campaigns: [],
             clusters: []
         })
-        expect(query).toHaveBeenCalledWith('SELECT onboarding_completed FROM public.profiles WHERE user_id = $1 LIMIT 1', ['user-1'])
+        expect(query).toHaveBeenCalledWith(
+            'SELECT onboarding_completed FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
+            ['user-1']
+        )
     })
 
     it('bootstraps a missing profile and completes onboarding successfully', async () => {
@@ -66,8 +69,12 @@ describe('createOnboardingRoutes', () => {
             removed: { projects: 0, campaigns: 0, clusters: 0 },
             onboardingCompleted: true
         })
-        expect(query).toHaveBeenNthCalledWith(1, 'SELECT * FROM public.profiles WHERE user_id = $1 LIMIT 1', ['user-1'])
-        expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO public.profiles'), [
+        expect(query).toHaveBeenNthCalledWith(
+            1,
+            'SELECT * FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
+            ['user-1']
+        )
+        expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.cat_profiles'), [
             'user-1',
             'user_user-1',
             null,
@@ -76,7 +83,7 @@ describe('createOnboardingRoutes', () => {
         ])
         expect(query).toHaveBeenNthCalledWith(
             3,
-            'UPDATE public.profiles SET onboarding_completed = $1, updated_at = NOW() WHERE user_id = $2 RETURNING *',
+            'UPDATE profiles.cat_profiles SET onboarding_completed = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
             [true, 'user-1']
         )
     })

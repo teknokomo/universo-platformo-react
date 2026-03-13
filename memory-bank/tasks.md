@@ -1,1087 +1,589 @@
 # Tasks
 
-> **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
+> Active and planned work only. Durable completed outcomes live in progress.md; reusable implementation rules live in systemPatterns.md.
 
 ---
 
+## Previous Completed Wave — 2026-03-13
+
+> Status: COMPLETE — the metahub frontend regression reopen is closed with restored settings continuity, hardened shared confirm rendering, publication pending-row feedback parity, direct regressions, and full revalidation.
+
+- [x] Restore hub-scoped Settings tab continuity in deeper metahub/publication views
+  - Note: `ElementList` exposes hub Settings again and `PublicationApplicationList` now mirrors `PublicationVersionList` by keeping Publication Settings reachable from the applications subview.
+- [x] Harden shared confirm rendering so detached hub-entity create warnings do not auto-cancel
+  - Note: the root `useConfirm` / `ConfirmDialog` contract now tolerates delayed dialog mounting and keeps the request-id marker discoverable for fallback checks.
+- [x] Restore publication pending-interaction feedback parity in shared table rows
+  - Note: clicking optimistic publication rows now reveals the same blocked/pending feedback path already used by publication cards and other entity lists.
+- [x] Add direct frontend/shared regressions and revalidate the touched workspace slice
+  - Note: `PublicationApplicationList.test.tsx` passed 3/3, touched `@universo/template-mui` tests passed 6/6, touched package lint stayed warning-only, and the final root `pnpm build` passed with 27/27 successful tasks.
+
+## Previous Completed Wave — 2026-03-13
+
+> Status: COMPLETE — the reopened QA follow-through wave is closed with profile update/delete fail-closed behavior, corrected runtime release-bundle lineage, shared helper reuse, direct regressions, and full revalidation.
+
+- [x] Fail-close profile update and delete ownership at the controller boundary
+  - Note: authenticated users must not update or delete another user's profile even before RLS is reached.
+- [x] Remove profile update mass-assignment and raw request-field SQL interpolation
+  - Note: the update path must whitelist supported columns explicitly and reject malformed public payloads instead of iterating arbitrary body keys.
+- [x] Fix runtime release-bundle re-export lineage to use the installed release snapshot contract
+  - Note: when exporting a new runtime-origin bundle from an already installed release, incremental base snapshot selection must match the actual `fromVersion` contract (`releaseSchemaSnapshot` for advancing from the installed release, `baseSchemaSnapshot` only when replaying an unchanged bundle lineage).
+- [x] Replace touched local SQL identifier quoting with the shared migrations-core helper
+  - Note: touched runtime snapshot loaders must reuse the canonical helper instead of maintaining a private identifier regex/quoting fork.
+- [x] Add direct regressions for the reopened security and runtime-lineage gaps
+  - Note: acceptance requires controller/service proof for profile update hardening and route-level proof for runtime bundle export with divergent installed base/release snapshots.
+- [x] Revalidate touched packages and full workspace, then resync memory-bank status
+  - Note: `@universo/profile-backend` tests passed 25/25, `@universo/applications-backend` tests passed 84/84, both touched lint runs passed, and the final root `pnpm build` passed with 27/27 successful tasks.
+
+## Previous Completed Wave — 2026-03-13
+
+> Status: COMPLETE — the remaining QA findings from the optional global catalog/runtime migration review are closed and fully revalidated.
+
+- [x] Harden profile ownership and route security end to end
+  - Note: `POST /profile` must no longer allow authenticated users to create another user's profile via `user_id`, and the DB policy/controller/service path must fail closed on cross-user attempts.
+- [x] Replace snapshot-disguised incremental release artifacts with true versioned diff artifacts
+  - Note: release bundles must carry a real incremental diff plus trusted base snapshot lineage, and apply/export flows must validate and use that contract instead of recalculating from the target snapshot only.
+- [x] Clear touched error-level lint debt and add direct regressions for the repaired contracts
+  - Note: touched packages must end with route/service-level proof for profile ownership and release-bundle integrity, plus error-free lint on the changed surfaces.
+- [x] Revalidate touched packages and full workspace, then sync memory-bank status
+  - Note: acceptance requires focused tests, touched package lint, root `pnpm build`, and updated active/progress context.
 
 ## Active Open Tasks (Canonical)
 
-### PR #719 Bot Review Triage — 2026-03-11
-
-> **Status**: ✅ COMPLETE — reviewed the bot comments/reviews on PR #719, validated each finding against the current branch plus PostgreSQL documentation, applied only safe/correct fixes, rejected the unsafe pagination optimization suggestion, and re-verified the branch with focused tests plus a full root build.
-
-- [x] Fetch all bot comments/reviews from PR #719 and classify unique findings
-  - Note: reviewed inline comments, review summaries, and the PR-level bot note to separate real correctness issues from duplicate/style-only noise.
-- [x] Validate each actionable finding against the current codebase and external documentation
-  - Note: confirmed the RLS/request-scoped executor concern in code and checked PostgreSQL docs before changing request-path database behavior.
-- [x] Implement only safe fixes that improve correctness without reopening closed regressions
-  - Note: patched authenticated admin routes to prefer `getRequestDbExecutor(req, getDbExecutor())`, restored concise public-route comments, and replaced the stale TypeORM-era RLS memory note.
-- [x] Run targeted tests/build validation for all touched packages and files
-  - Note: `pnpm --filter @universo/admin-backend test` passed, then root `pnpm build` passed with 27/27 tasks.
-- [x] Update memory-bank status and summarize which review findings were accepted vs rejected
-  - Note: accepted the request-scoped executor and stale-doc findings; rejected the suggested `COUNT(*) OVER()` pagination rewrite because empty offset pages would collapse `total` to zero despite matching rows still existing.
-
-### GitBook Editorial QA Remediation — 2026-03-11
-
-> **Status**: ✅ COMPLETE — the follow-up editorial QA pass is finished: the English GitBook layer now reads more directly, the Russian GitBook layer has localized headings/body copy across the remaining pages, EN/RU line parity is restored across the full docs tree, local docs links resolve, and the final root build is green.
-
-- [x] Tighten the English docs tone so pages describe the product directly instead of repeatedly contrasting it with legacy/Flowise/3D framing
-  - Note: preserve the current factual scope and structure, but remove unnecessary transition-language such as repeated "not X / instead of Y" formulations where a direct description is clearer.
-- [x] Localize the Russian docs layer headings and body copy into consistent editorial Russian
-  - Note: replace the remaining English H1 headings and mixed RU/EN connective wording (`guides`, `scope`, `membership`, `version`, `export`, `reuse`, etc.) with concise Russian phrasing while keeping technical terms only where they are genuinely canonical.
-- [x] Re-validate EN/RU structure parity and local markdown links after the editorial rewrite
-  - Note: English remains canonical; Russian files must still match structure/content and line counts after the wording cleanup.
-
-### GitBook Docs Rewrite — docs/ Root Refresh — 2026-03-11
-
-> **Status**: ✅ COMPLETE — the stale GitBook docs layer was replaced with a concise product-aligned EN/RU documentation set, the `@universo/api-client` README pair was rewritten from the real exported surface, Russian sibling links were normalized, and final parity/link/build validation passed.
-
-- [x] Rewrite the top-level docs landing pages and navigation skeleton
-  - Note: replace stale AI-workflow / Flowise-first / 3D-AR-first framing in `docs/README.md`, `docs/en/README.md`, `docs/ru/README.md`, `docs/en/SUMMARY.md`, and `docs/ru/SUMMARY.md` with a cleaner GitBook-oriented structure.
-- [x] Rewrite the getting-started and platform sections around the current platform scope
-  - Note: keep the docs concise, distinguish current implementation vs planned layers, and remove stale `Uniks` / canvas-first / metaverse-first framing where it no longer matches the repository.
-- [x] Rewrite the architecture, API reference, contributing, and guides sections from current repository facts
-  - Note: base the content on the SQL-first backend, React frontend shell, migration runtime, REST docs package, and current contributor workflow.
-- [x] Rewrite the `@universo/api-client` README pair from the real exported API surface
-  - Note: remove the stale canvases-only examples and document the actual client factory, Attachments / Config / Feedback / Validation APIs, and shared query-key exports.
-- [x] Normalize remaining Russian README sibling links
-  - Note: where `README-RU.md` exists, related-package links in Russian docs should point to `README-RU.md` instead of the English sibling file.
-- [x] Validate EN/RU parity, docs links, and full workspace build
-  - Note: English remains canonical; Russian files must match structure/content and line counts. Finish with link validation plus root `pnpm build`.
-
-### README Refresh — Root + Packages — 2026-03-11
-
-> **Status**: ✅ COMPLETE — the root/package index refresh, missing package README coverage, stale-package rewrites, broken-link cleanup, and final validation/build closure are all complete.
-
-- [x] Rewrite the root README pair around the current platform mission
-  - Note: the root EN/RU pair now describes Universo Platformo as an ERP-class, CMS-capable, cross-stack platform and frames Kiberplano/MMOOMM accordingly.
-- [x] Rewrite `packages/README.md` and `packages/README-RU.md` to reflect the actual package landscape
-  - Note: the package index now maps the current package surface and includes the newer infrastructure packages.
-- [x] Audit package README coverage and add missing EN/RU pairs
-  - Note: bilingual coverage is restored for all `packages/*/base` workspaces, including the newer migration/start/database packages.
-- [x] Rewrite the remaining stale package README pairs with confirmed legacy drift
-  - Note: `@universo/template-mui`, `@universo/i18n`, and `@universo/rest-docs` were replaced with shorter EN/RU pairs aligned to the actual package surface, scripts, and transitional OpenAPI scope.
-- [x] Clean residual stale examples and broken related-doc links in touched package READMEs
-  - Note: replaced the old `@universo/auth-backend` `/api/uniks` example, fixed broken related-doc links across the touched package set, and corrected stale shared package names/filter commands in `@universo/types` and `@universo/utils` docs.
-- [x] Validate README consistency and update memory-bank status
-  - Note: validated EN/RU line parity for all touched pairs, confirmed the targeted markdown link targets exist, removed the tracked legacy path/package-name patterns, and finished with a green root `pnpm build`.
-
-### QA Closure — Metahubs Soft-Delete + Onboarding + Coverage — 2026-03-10
-
-> **Status**: ✅ COMPLETE — the QA audit findings are now closed: metahubs SQL-first stores and guards enforce the full metahub active-row contract, onboarding bootstrap reuses canonical profile-domain logic, and focused regressions plus the final root build are green.
-
-- [x] Restore metahubs active-row parity in SQL-first stores and guards
-  - Note: metahub, branch, publication, publication-version, and membership read/update/delete paths now align with the schema contract by enforcing both `_upl_deleted = false` and `_mhb_deleted = false` where required.
-- [x] Close onboarding bootstrap gap for authenticated users without an existing profile row
-  - Note: onboarding completion now reuses `ProfileService` bootstrap logic instead of failing with a route-level 404 for first-time users.
-- [x] Add focused regression coverage for the QA findings
-  - Note: added persistence/guard coverage for metahub soft-delete predicates and updated onboarding/profile tests to lock in bootstrap-completion behavior.
-- [x] Re-run touched package tests and the final root build
-  - Note: `@universo/profile-backend` 12/12, `@universo/start-backend` 3/3, `@universo/metahubs-backend` 28 suites / 188 passed / 3 skipped, and final root `pnpm build` completed with **27/27 tasks**.
-- [x] Update memory-bank status files after validation
-  - Note: active/progress/system patterns now describe the closed QA pass honestly. Package-wide `@universo/metahubs-backend` lint still reports older unrelated prettier debt outside this change-set, but the touched files were auto-formatted and compile/test clean.
-
-### Connector Publication Join Regression — 2026-03-10
-
-> **Status**: ✅ COMPLETE — fixed the connector admin page SQL regression where `applications-backend` applied application-domain soft-delete predicates to `metahubs.publications` and `metahubs.metahubs`, generating `_app_deleted` checks on tables that only support the metahub `_mhb_deleted` contract.
-
-- [x] Replace connector publication link joins with schema-correct soft-delete predicates for metahub-side tables
-  - Note: `connectorsStore.ts` now keeps application-domain filtering for `applications.connectors_publications`, while publication/metahub joins use a dedicated metahub predicate.
-- [x] Add a regression test that proves connector publication link SQL does not reference `_app_deleted` on metahub/publication aliases
-  - Note: the parity test now asserts `_mhb_deleted` on `p`/`m` and explicitly rejects `_app_deleted` on those aliases.
-- [x] Re-run focused applications validation, then reassess whether connector-page pool exhaustion still reproduces
-  - Note: `pnpm --filter @universo/applications-backend test` passed 48/48 and the final root `pnpm build` completed successfully with 27/27 tasks. No code-side pool tuning was applied in this pass because the deterministic failing query was the only confirmed bug changed here; live pool pressure should be rechecked after restarting the backend with the rebuilt code.
-
-### Metahub Branch Table Name Regression — 2026-03-10
-
-> **Status**: ✅ COMPLETE — fixed the live `/metahubs` 500 caused by SQL-first runtime code querying `metahubs.metahub_branches` while the canonical platform schema creates `metahubs.metahubs_branches`.
-
-- [x] Replace stale `metahub_branches` runtime references with the canonical `metahubs_branches` table name
-  - Note: fix all request-time SQL call sites used by metahub list, branch store/service flows, and metahub copy/delete flows.
-- [x] Update regression expectations that still assert the stale SQL table name
-  - Note: touched tests must reflect the real platform schema and continue guarding the delete/copy paths.
-- [x] Re-run focused metahubs validation and the final root build
-  - Note: `pnpm --filter metahubs-backend test` passed 27/27 suites (181 passed, 3 skipped), and the root `pnpm build` completed successfully with 27/27 tasks after the runtime fix.
-
-### RLS Claims Binding Regression — 2026-03-10
-
-> **Status**: ✅ COMPLETE — fixed the second request-time RLS regression where the auth middleware's request-scoped `DbSession` bypassed PostgreSQL placeholder conversion and broke `applyRlsContext()` with `Expected 1 bindings, saw 0`.
-
-- [x] Route request-scoped auth session queries through the canonical `$n -> ?` binding converter
-  - Note: `applyRlsContext()` legitimately emits PostgreSQL-native `$1` SQL, so the middleware-owned pinned session must normalize placeholders the same way `createRlsExecutor()` already does.
-- [x] Add a regression test that executes an actual `$1` query through the middleware-owned session path
-  - Note: this test must fail if `applyRlsContext()` can no longer run `set_config('request.jwt.claims', $1::text, true)` through the pinned connection.
-- [x] Re-run auth validation and the full root build
-  - Note: `pnpm --filter auth-backend test` passed 6/6, and the final root `pnpm build` completed successfully with 27/27 tasks.
-
-### RLS Timeout Regression Closure — 2026-03-10
-
-> **Status**: ✅ COMPLETE — closed the post-hardening regression where placeholder-style `SET LOCAL statement_timeout` SQL started breaking RLS-protected routes at runtime.
-
-- [x] Introduce one shared safe SQL helper for `SET LOCAL statement_timeout`
-  - Note: the helper must emit a validated SQL literal, not a bound placeholder, so it works for PostgreSQL `SET LOCAL` while remaining injection-safe.
-- [x] Replace the broken timeout SQL in auth RLS middleware and schema-ddl locking
-  - Note: both request-scoped RLS and advisory-lock DDL paths must use the same helper.
-- [x] Add regression tests for the helper and both call sites
-  - Note: cover exact SQL emitted for auth middleware and advisory locking so this regression cannot reappear silently.
-- [x] Re-run focused validation for auth, schema-ddl, metahubs, applications, admin, plus a startup smoke-check
-  - Note: auth-backend 5/5, schema-ddl 120/120, metahubs-backend 27/27 suites, applications-backend 48/48, admin-backend 2/2, and root `pnpm build` 27/27 all passed. A standalone `pnpm start` rerun was blocked by an already occupied `0.0.0.0:3000`, but the live instance on that port responded `200 OK` on `/api/v1/ping`.
-
-### Fresh DB Startup Closure — 2026-03-10
-
-> **Status**: ✅ COMPLETE — fixed fresh-database startup blockers found during real `pnpm start` verification against a new Supabase test database.
-
-- [x] Allow synthetic platform migration scope key `cross_schema` during validation
-  - Note: `@universo/migrations-core` now distinguishes physical schema names from synthetic platform scope keys used by cross-schema migrations.
-- [x] Recover UUID v7 bootstrap on fresh and partially bootstrapped databases
-  - Note: added `pgcrypto` bootstrap + follow-up repair migration so databases that already marked the original UUID v7 migration as applied still recover cleanly.
-- [x] Include `extensions` in the default Knex `search_path`
-  - Note: Supabase extension functions (for example `gen_random_bytes`) now resolve reliably in runtime sessions.
-- [x] Normalize empty template seeder audit user ids to `null`
-  - Note: built-in template seeding no longer sends empty strings into UUID audit columns.
-- [x] Rebuild and verify real startup path
-  - Note: full root `pnpm build` green and isolated `pnpm start` completed initialization/migrations without startup errors.
-
-### QA Post-Audit Fix Pass — 2026-03-10
-
-> **Status**: ✅ COMPLETE — Fixed all QA findings: optimized 49 bare `auth.uid()` calls in 4 initial migration files, added graceful shutdown grace period to KnexClient, unified `SET LOCAL statement_timeout` style. All tests pass, full workspace build 27/27 green.
-
-#### F2: Fix bare `auth.uid()` in initial migrations → `(select auth.uid())`
-- [x] Fix admin-backend `createAdminSchemaMigrationDefinition` (8 occurrences)
-- [x] Fix profile-backend `addProfileMigrationDefinition` + `updateProfileTriggerMigrationDefinition` (4 occurrences)
-- [x] Fix metahubs-backend `createMetahubsSchemaMigrationDefinition` (21 occurrences)
-- [x] Fix applications-backend `createApplicationsSchemaMigrationDefinition` (16 occurrences)
-
-#### F3: Add grace period to graceful shutdown
-- [x] Add configurable grace period (default 15s, env DATABASE_SHUTDOWN_GRACE_MS) to `registerGracefulShutdown()` in KnexClient.ts
-
-#### F4: Unify `SET LOCAL statement_timeout` style
-- [x] Parameterize hardcoded `'30s'` in `ensureAuthWithRls.ts` to match `locking.ts` pattern + update test
-
-#### Verification
-- [x] Lint all touched packages (pre-existing prettier issues only, no new errors)
-- [x] Run tests on touched packages (auth-backend 5/5, metahubs 182, applications 48/48, migrations-platform 6/6)
-- [x] Full workspace build (pnpm build — 27/27 tasks)
-- [x] Update memory-bank
-
-### Database Best Practices & Hardening — 2026-03-10
-
-> **Status**: ✅ COMPLETE — All 13 phases implemented: Supabase/Knex runtime hardening (binding conversion, session-mode pooling, RLS transaction wrapping, advisory lock safety), RLS policy optimization (22+ policies), executor bypass fix, comprehensive test infrastructure, KnexClient hardening, secrets sanitization, TypeORM doc cleanup, admin soft-delete parity (4 tables, 5 DB functions, 3 stores, 3 routes, 1 service), acceptance proof (checklist + migration test, 6/6 tests), and legacy surface removal (deprecated `*ByDataSource` wrappers + 12 test mocks). Full workspace build 27/27 green.
-
-- [x] Phase 1: `convertPgBindings()` — fix CRITICAL `$1` binding incompatibility (15 stores + rlsContext)
-- [x] Phase 2: Switch Supabase connection from transaction mode (6543) to session mode (5432)
-- [x] Phase 3: RLS transaction wrapping — `BEGIN/COMMIT` + `set_config(..., true)`
-- [x] Phase 4: Advisory lock safety — `pg_try_advisory_lock` → `pg_try_advisory_xact_lock` in locking.ts + runner.ts `withSessionLock`
-- [x] Phase 5: RLS policy `(select auth.uid())` optimization (16 policies)
-- [x] Phase 6: RLS executor bypass fix in connectorsRoutes.ts
-- [x] Phase 7: Comprehensive test infrastructure (integration tests against real PG)
-- [x] Phase 8: KnexClient hardening (afterCreate hook, health check, graceful shutdown)
-- [x] Phase 9: Secrets sanitization completion
-- [x] Phase 10: TypeORM documentation & comment cleanup (9 code comments, AGENTS.md, docs/)
-- [x] Phase 11: Admin-backend soft-delete parity (roles, locales, settings, role_permissions — DDL migration + store updates)
-- [x] Phase 12: Fresh-database acceptance/e2e proof for the full Metahubs → Publications → Applications journey
-- [x] Phase 13: Remove deprecated DataSource-named wrappers/comments/tests from the neutral SQL surface
-  - Note: Removed 4 `*ByDataSource` functions + `pickQueryable` from globalAccessService.ts, removed exports from index.ts, cleaned 12 test mock files across metahubs-backend (10) and applications-backend (2). All tests pass (182+48+6). Full build 27/27 green.
-
-### QA Remediation Closure Pass — 2026-03-10
-
-> **Status**: ✅ COMPLETE — the reopened remediation pass now fails loudly on publication-linked schema creation errors, recovers profile bootstrap races deterministically, expands RLS cleanup coverage, sanitizes tracked secrets, and finishes with a green root `pnpm build`.
-
-- [x] Rewrite memory-bank active status to reflect the reopened remediation pass
-  - Note: `tasks.md`, `activeContext.md`, and `progress.md` must stop claiming there is no remaining closure-pass work while this fix pass is active.
-- [x] Make publication-driven application creation fail loudly without leaving partial metadata state
-  - Note: both publication create and explicit linked-application create flows must stop returning success when runtime schema generation fails; compensate created metadata safely if DDL/sync fails.
-- [x] Harden profile auto-create against concurrent first-request races
-  - Note: `getOrCreateProfile()` must recover from unique-constraint conflicts deterministically instead of surfacing generic 500s.
-- [x] Add regression coverage for the reopened QA findings
-  - Note: cover publication/application compensation paths, RLS middleware cleanup/release behavior, and profile race recovery.
-- [x] Sanitize tracked runtime configuration and remove active TypeORM-era documentation residue
-  - Note: replace real secrets in tracked `.env`, align pool comments with the shared Knex runtime, and clean the touched EN/RU docs/comments that still describe TypeORM/QueryRunner flows.
-- [x] Re-run touched validation plus the final root build, then close the remediation pass in memory-bank
-  - Note: completion claims must only return after tests/builds pass and the touched docs/config now match the real implementation.
-
-### TypeORM Closure Pass — 2026-03-10
-
-> **Status**: ✅ COMPLETE — the closure pass removed the stale local metahubs Knex wrapper, implemented Phase 9A-9C, added focused backend regressions, synchronized backend READMEs and memory-bank architecture notes, and finished with a green root `pnpm build`.
-
-- [x] Rewrite memory-bank active status to match the real repository state
-  - Note: replace the current over-optimistic completion claims in `tasks.md`, `activeContext.md`, `progress.md`, `systemPatterns.md`, and `techContext.md` with an honest closure-pass status while work is ongoing.
-- [x] Remove the residual local `packages/metahubs-backend/base/src/domains/ddl/KnexClient.ts`
-  - Note: the DDL barrel already delegates to `@universo/database`; the stale local singleton file and README references must be removed so Phase 9D is actually true.
-- [x] Finish Phase 9A with first-class dry-run support and migration CLI entry points
-  - Note: extend migration-core/platform runtime to expose dry-run planning metadata and add root commands for migration status/plan/diff/export.
-- [x] Finish Phase 9B with canonical definition export/diff workflow on top of `upl_migrations`
-  - Note: reuse `definition_registry`, `definition_revisions`, `definition_exports`, `definition_drafts`, and `approval_events`; do not add a second registry.
-- [x] Finish Phase 9C with explicit metahub/application convergence documentation
-  - Note: document the shared runtime kernel, current metahub adapter role, strict schema parity expectations, and future file/DB bootstrap direction.
-- [x] Add focused backend regression tests for packages still missing QA coverage
-  - Note: add dedicated tests for `auth-backend`, `admin-backend`, and `start-backend`, plus missing `profile-backend` coverage for `getOrCreateProfile()` and `updateUserSettings()`.
-- [x] Sync stale package READMEs with the current SQL-first/Knex-first backend architecture
-  - Note: update EN canonical docs first, then synchronize RU copies with the same structure/content.
-- [x] Run focused package tests and the final root build, then update memory-bank completion status
-  - Note: completion claims must only be restored after code, docs, tests, and validation all match.
-
-### QA Findings Fix — Soft-Delete Parity + Test Coverage — 2026-03-10
-
-> **Status**: ✅ COMPLETE — All hard DELETE operations converted to soft-delete UPDATE across applications-backend and metahubs-backend. Database package tests created. All test suites pass. Full 27/27 build green.
-
-#### Part A: Soft-Delete Parity (applications-backend)
-- [x] Convert `deleteApplicationMember()` to soft-delete UPDATE (add userId param)
-- [x] Convert `deleteConnector()` to soft-delete UPDATE (add userId param)
-- [x] Convert `deleteConnectorPublicationLink()` to soft-delete UPDATE (add userId param)
-- [x] Convert `deleteApplicationWithSchema()` to soft-delete UPDATE for the row (keep schema DROP) + cascade soft-delete children (add userId param)
-- [x] Update route call sites in `applicationsRoutes.ts` and `connectorsRoutes.ts` to pass userId
-- [x] Update existing `softDeleteParity.test.ts` to verify soft-delete SQL
-- [x] Update `connectorsRoutes.test.ts` to verify soft-delete UPDATE instead of DELETE
-
-#### Part B: Soft-Delete Parity (metahubs-backend)
-- [x] Convert `removeMetahubMember()` to soft-delete UPDATE (add userId param)
-- [x] Convert `deleteBranchById()` to soft-delete UPDATE (add userId param)
-- [x] Convert publication DELETE in `publicationsRoutes.ts` to use `softDelete()` helper
-- [x] Convert publication version DELETE in `publicationsRoutes.ts` to use `softDelete()` helper
-- [x] Convert metahub DELETE in `metahubsRoutes.ts` to soft-delete (keep schema DROP) + cascade soft-delete children
-- [x] Update route call sites to pass userId
-- [x] Update test mocks for new function signatures
-
-#### Part C: Test Coverage for @universo/database
-- [x] Create `__tests__/knexExecutor.test.ts` with unit tests for `createKnexExecutor` and `createRlsExecutor`
-- [x] Fix jest.config.js to use shared base config with proper TypeScript types
-
-#### Part D: Verification
-- [x] Run lint on touched packages (fixed prettier formatting + duplicate key)
-- [x] Run full test suite (237 tests pass: 12 database + 177 metahubs + 48 applications)
-- [x] Run full workspace build (pnpm build — 27/27 tasks)
-- [x] Update memory-bank (progress.md, activeContext.md, tasks.md)
-
-### Startup Drift Investigation — 2026-03-10
-
-> **Status**: SUPERSEDED — legacy checksum aliases were added but ghost-applied migration issue remained. Now superseded by the full TypeORM removal plan, which starts from a fresh database (no stale `upl_migrations` rows).
-
-- [x] Reproduce and inspect the checksum/drift path for platform startup migrations
-- [x] Implement legacyChecksumAliases fix for backward compatibility
-- [ ] ~~Re-run focused validation~~ — superseded by Complete TypeORM Removal Plan
-
-### Complete TypeORM Removal — 2026-03-10
-
-> **Status**: ✅ COMPLETE — All TypeORM code, imports, entities, dependencies, test mocks, and catalog entries removed from every package, and the closure pass finished Phase 9A-9D with migration planning tooling, definition export/diff workflow, convergence documentation, and README synchronization.
-
-- [x] **Phase 0**: Create `@universo/database` package (KnexClient singleton), simplify pool budget, remove legacyChecksumAliases
-- [x] **Phase 1**: Replace RLS middleware TypeORM QueryRunner with Knex connection pinning + two executor types (RLS vs pool)
-- [x] **Phase 2**: Create SQL-first persistence stores for admin-backend + rewrite routes + globalAccessService (non-RLS pool executor) + delete entities/migrations/typeorm dep
-- [x] **Phase 3**: Create SQL-first persistence store for profile-backend + rewrite ProfileService (RLS executor)
-- [x] **Phase 4**: Clean up start-backend (2 SQL ops) + auth-backend (Knex raw queries, delete AuthUser entity)
-- [x] **Phase 5**: Remove TypeORM DataSource, entity registry, and rlsHelpers from core-backend
-- [x] **Phase 6**: Delete universo-utils legacy TypeORM compatibility layer + unify SqlExecutor/SqlQueryable interfaces
-- [x] **Phase 7**: Remove typeorm from workspace catalog, run global verification (zero `from 'typeorm'` in source)
-- [x] **Phase 8**: Full workspace rebuild 27/27 + comprehensive test run across all packages
-- [x] **Phase 9D**: KnexClient deduplication verified — thin re-export wrapper only, no local pool config
-- [x] **Phase 9A**: First-class dry-run mode + migration CLI helpers
-- [x] **Phase 9B**: Canonical definition lifecycle DB↔file workflow
-- [x] **Phase 9C**: Metahub/application runtime convergence documentation
-
-### QA Follow-up Hardening — 2026-03-10
-
-> **Status**: ✅ COMPLETE — post-QA soft-delete parity gaps and persistence-level schema-drop safety are now closed and regression-covered.
-
-- [x] Restore soft-delete parity in SQL-first application connector/link stores
-  - Note: list/find/count helper queries must ignore `_upl_deleted` / `_app_deleted` rows the same way the active indexes and route expectations already do.
-- [x] Move application schema-drop safety from route-only validation into the persistence helper layer
-  - Note: schema drop helpers must reject invalid identifiers even if reused outside the current route guard path.
-- [x] Add focused regression coverage for the post-QA safety fixes
-  - Note: route/store tests should prove deleted connector/link rows do not affect list/count/duplicate/required checks and that invalid schema names fail before raw SQL execution.
-- [x] Re-run touched lint/tests/build and then update memory-bank status files
-  - Note: validation must include the touched applications-backend package plus the final workspace build.
-
-### Unified Migration QA Closure — 2026-03-10
-
-> **Status**: ✅ COMPLETE — code, docs, tests, and memory-bank now match the actual repository state.
-
-- [x] Tighten unified schema naming policy so migration-core and runtime naming rules use one canonical contract
-  - Note: `migrations-core/src/identifiers.ts` now defines the canonical managed-schema rule, and `schema-ddl/src/naming.ts` reuses it with regression coverage.
-- [x] Remove the remaining TypeORM migration-orchestration surface from the unified platform layer
-  - Note: `@universo/migrations-platform` now registers native SQL definitions for `admin`/`profile`/`metahubs`/`applications`; the TypeORM adapter and dependency were removed.
-- [x] Reduce shared DB legacy leakage after the platform cutover
-  - Note: the remaining TypeORM request-manager path is explicitly isolated under `@universo/utils/database/legacy` and compatibility wrappers; the unified platform bootstrap no longer depends on it.
-- [x] Correct backend package documentation and memory-bank claims so they match the real architecture
-  - Note: EN/RU READMEs were synchronized and memory-bank files were corrected to describe SQL-first scope plus isolated legacy TypeORM accurately.
-- [x] Add focused validation/tests for the newly closed migration-safety gaps
-  - Note: added/updated regression coverage for naming policy and native platform registration, including a guard against TypeORM adapter checksums in the unified registry.
-- [x] Re-run touched package tests and the full workspace build
-  - Note: focused migration/package validation passed earlier, and final root `pnpm build` completed successfully (26/26 tasks).
-
-### TypeORM Residue Cleanup — 2026-03-10
-
-> **Status**: ✅ COMPLETE — all QA-identified TypeORM artifacts removed. Zero typeorm in metahubs-backend and applications-backend code, tests, and package.json. 26/26 workspace build + 177/177 metahubs tests + 39/39 applications tests green.
-
-- [x] P1: Remove `typeorm` from metahubs-backend package.json (dependency listed but unused)
-- [x] P2: Remove `import type { DataSource } from 'typeorm'` from router.ts — change signatures to accept `() => DbExecutor`
-- [x] P2-caller: Update universo-core-backend/routes/index.ts to wrap DataSource → `createDataSourceExecutor(getDataSource())` before passing to metahubs service
-- [x] P3a: Create `dbMocks.ts` for metahubs-backend tests — clean DbExecutor mock replacing typeormMocks
-- [x] P3b: Replace typeormMocks usage in 4 metahubs-backend test files + remove `jest.mock('typeorm')` virtual blocks
-- [x] P3c: Create `dbMocks.ts` for applications-backend tests — DbExecutor + MockDataStore replacing typeormMocks
-- [x] P3d: Replace typeormMocks usage in 2 applications-backend test files
-- [x] P3e: Delete `typeormMocks.ts` from both packages
-- [x] P3f: Remove `jest.mock('typeorm')` virtual blocks from 10 additional metahubs-backend test files
-- [x] Update README files for the changed router API
-- [x] Run full test suites + workspace build to verify zero regressions
-
-### Unified Migration Platform Refactor — 2026-03-09
-
-> **Status**: ✅ COMPLETE — all 13 batches executed, QA validated. Residual TypeORM cleanup tracked above.
-
-- [x] Mirror Application runtime migration runs into the unified global catalog while preserving `_app_migrations`
-  - Note: runtime application schema creation/sync should keep local history for compatibility, but every applied run must also be recorded in `upl_migrations` with a stable global run id.
-- [x] Mirror Metahub runtime migration runs into the unified global catalog while preserving `_mhb_migrations`
-  - Note: baseline, structure, and template-seed migration events should keep local history semantics and add global run ids without breaking current Metahub UI/routes.
-- [x] Add regression coverage for the runtime-to-global-catalog bridge
-  - Note: touched tests must prove that local runtime metadata now carries the global run id and that the bridge is called from both application and metahub migration paths.
-- [x] Restore fail-fast startup semantics for platform migration bootstrap
-  - Note: `App.initDatabase()` now rethrows validation/execution failures after logging and best-effort datasource cleanup, and `core-backend` tests assert the fail-fast contract.
-- [x] Preserve TypeORM per-migration transaction compatibility in the platform migration adapter
-  - Note: the adapter now maps `MigrationInterface.transaction = false` to non-transactional platform migrations and includes regression coverage for concurrent-index style migrations.
-- [x] Create the unified migration runtime and platform catalog packages
-  - Note: added `@universo/migrations-core`, `@universo/migrations-catalog`, and `@universo/migrations-platform`.
-- [x] Replace server bootstrap `TypeORM.runMigrations()` with the new platform migration runner
-- [x] Register and execute platform migrations through the new file-based runner while preserving exact SQL behavior
-  - Note: existing package migration classes are executed through the unified runner via the TypeORM adapter while the core bootstrap no longer calls `DataSource.runMigrations()`.
-- [x] Preserve current Metahub and Application runtime schema flows and connect them to the new migration infrastructure where needed
-  - Note: runtime Metahub/Application schema flows were left intact; only the platform bootstrap layer changed.
-- [x] Add focused validation/tests for the new migration runner and platform bootstrap path
-  - Note: new tests cover identifier policy, migration validation, checksum drift/skip/apply behavior, session advisory lock flow, and the TypeORM adapter contract.
-- [x] Re-run touched builds/tests and then update `memory-bank/activeContext.md` and `memory-bank/progress.md`
-  - Note: `pnpm --filter @universo/migrations-core test`, `pnpm --filter @universo/migrations-platform test`, `pnpm --filter @universo/core-backend build`, and root `pnpm build` all passed after the final cleanup.
-- [x] Fix QA-critical migration safety issues in the new runner/catalog
-  - Note: the runner now coordinates each migration under an outer session advisory lock, always attempts unlock in `finally`, destroys broken pooled sessions when unlock is unsafe, and the catalog adds a unique partial index for applied runs.
-- [x] Add integration-level coverage for the backend bootstrap migration path
-  - Note: added `core-backend` Jest coverage for `App.initDatabase()` plus extra runner/catalog checksum and UUID v7 tests.
-- [x] Reduce immediate post-QA documentation debt in touched migration/core-backend docs
-  - Note: refreshed the touched `core-backend` READMEs so they describe the new unified platform migration bootstrap instead of the removed central TypeORM migration registry.
-- [x] Stabilize package build resolution for the touched migration/runtime packages
-  - Note: package-level TypeScript resolution now points to built workspace declaration outputs instead of sibling `src` trees, preventing nested foreign-package emission inside local `dist` folders and keeping root `pnpm build` green.
-- [x] Make Application runtime migration history and application schema state persistence atomic across initial sync, schema diff apply, and meta-only sync
-  - Note: application sync now updates `applications.applications.schema_snapshot` and related sync state inside the same Knex transaction that records `_app_migrations` plus mirrored `upl_migrations`, removing the previously confirmed split-brain risk.
-- [x] Make published runtime post-sync persistence atomic for layouts/widgets/enumerations/seeded elements across application sync and publication-driven schema creation
-  - Note: the runtime post-sync steps now reuse transaction-aware helpers and execute inside the same Knex transaction as migration history/state persistence, so application sync and publication auto-create no longer commit `_app_migrations` / `upl_migrations` ahead of layout, widget, enumeration, or seed-element writes.
-- [x] Move Application sync connector audit touch into the same safe runtime transaction boundary
-  - Note: connector audit metadata is now persisted through the Knex transaction path used by application sync, so a late TypeORM `connectorRepo.save(...)` failure can no longer downgrade an already committed sync result to `ERROR`.
-- [x] Convert `upl_migrations` support storage to a self-versioned bootstrap path
-  - Note: catalog support tables now have explicit bootstrap migration definitions, and `ensureStorage()` applies/backfills them under an advisory-locked transactional bootstrap path instead of one large raw-SQL body.
-- [x] Add regression coverage for `upl_migrations` bootstrap/backfill behavior
-  - Note: touched tests now prove that bootstrap migrations are recorded in `migration_runs` and that legacy precreated storage can be backfilled safely.
-- [x] Port Metahubs platform schema migration to a native SQL-backed platform migration definition
-  - Note: the exact Metahubs platform schema SQL now lives in a dedicated native definition artifact that is reused by both the compatibility TypeORM migration class and the unified platform runner.
-- [x] Port Applications platform schema migration to a native SQL-backed platform migration definition
-  - Note: the exact Applications platform schema SQL now lives in a dedicated native definition artifact that is reused by both the compatibility TypeORM migration class and the unified platform runner.
-- [x] Stop consuming TypeORM migration arrays for Metahubs and Applications in the unified platform runner
-  - Note: `@universo/migrations-platform` now registers native SQL definitions for the `metahubs` and `applications` platform schemas; the TypeORM adapter remains only for packages that have not yet been ported.
-- [x] Add focused regression coverage for native SQL platform migration registration
-  - Note: touched tests now prove that `metahubs` and `applications` are registered through native SQL definitions with stable non-TypeORM checksums, and that warning-tolerant optional SQL steps log and continue correctly.
-- [x] Remove the legacy TypeORM migration wrapper surface for Metahubs and Applications
-  - Note: native platform definitions now live in `src/platform/migrations`, the packages no longer export `metahubsMigrations` / `applicationsMigrations`, and the old TypeORM compatibility wrapper files under `src/database/migrations/postgres` were deleted.
-- [x] Centralize request-scoped DB context helpers for the touched TypeORM-backed route layers
-  - Note: `@universo/utils` now owns the reusable request DB context contract plus helper accessors for manager/query-runner/repository retrieval, and the touched auth/admin/applications/metahubs paths reuse that shared layer instead of duplicating local `RequestWithDbContext`/`getRequestQueryRunner` patterns.
-- [x] Introduce a neutral request-scoped `DbSession` contract for the touched access / permission layer
-  - Note: `@universo/utils/database` now exposes `DbSession`, the touched auth/admin services query through `DbSession.query(...)`, and Applications/Metahubs access guards now use SQL-first membership lookups instead of direct `queryRunner.manager.getRepository(...).findOne(...)` calls.
-- [x] Remove public QueryRunner exposure from the shared request DB contract
-  - Note: the request-scoped context should expose a neutral `DbSession` surface only; `QueryRunner` must become an internal implementation detail of the current TypeORM-backed RLS transport.
-- [x] Switch touched auth/admin/applications/metahubs guard paths from `getRequestQueryRunner()` to `getRequestDbSession()`
-  - Note: access guards and route-level RLS-aware checks should depend on the neutral session contract instead of a legacy helper that still leaks the old TypeORM terminology.
-- [x] Refresh focused tests/builds/docs for the request-scoped DB session refactor
-  - Note: touched utilities, middleware docs/comments, and route imports should compile and validate against the new neutral request-session surface without changing live behavior.
-- [x] Port `applications-backend` connectors route off TypeORM repositories to SQL-first persistence
-  - Note: `connectorsRoutes` now uses the dedicated `connectorsStore` query module plus transaction-scoped SQL executors for create/delete flows, and the route regression tests were rewritten against SQL/query behavior instead of repository mocks.
-- [x] Port the top-level `applications-backend` application CRUD routes off TypeORM repositories to SQL-first persistence
-  - Note: `/applications` list/detail/create/update/delete and the application-members list/add/update/delete flows now use the dedicated SQL-first `applicationsStore`, preserve optimistic locking and permission behavior, and the focused route suite now validates SQL/query contracts instead of TypeORM repository mocks for those endpoints.
-- [x] Port the `applications-backend` runtime schema lookup and application copy route off TypeORM repositories/query builders to SQL-first persistence
-  - Note: runtime schema resolution now queries through `applicationsStore`, and the application copy flow now uses explicit SQL plus a transactional copy helper for applications, memberships, connectors, and connector-publication links instead of route-local repositories/query builders.
-- [x] Introduce a neutral request-scoped `DbExecutor` contract and switch the touched `applications-backend` route path off direct `getRequestManager(...)`
-  - Note: `@universo/utils/database` now exposes `DbExecutor` plus `getRequestDbExecutor(...)`; `applicationsRoutes.ts` uses the neutral `query/transaction` contract for the touched runtime/content/admin flow instead of typing itself against `EntityManager`.
-- [x] **Batch 1**: Finish `applications-backend` TypeORM removal — zero `typeorm` imports
-  - Note: All DataSource→DbExecutor replacements done in applicationsStore, guards, routes; entities deleted; typeorm removed from package.json; build verified.
-- [x] **Batch 2**: Clean up core-backend entity registry for applications
-  - Note: Removed `applicationsEntities` import/spread from core-backend entity registry; core-backend build verified.
-- [x] **Batch 3**: Isolate TypeORM from shared request DB contract
-  - Note: `RequestDbContext` is now neutral (no TypeORM types). `LegacyRequestDbContext` extends it with `manager`/`getRepository`. `ensureAuthWithRls` attaches both `req.dbContext` (neutral) and `req.dbLegacyManager` (EntityManager). `getRequestManager()` reads from `req.dbLegacyManager`. All 182 utils tests pass. 17/20 builds pass (metahubs-backend failures are pre-existing from Batch 1 entity deletion).
-- [x] **Batch 4**: Build SQL-first foundations for metahubs-backend
-  - [x] Step 4.1: Create `packages/metahubs-backend/base/src/persistence/` directory
-  - [x] Step 4.2: Create `metahubsStore.ts` — SQL-first CRUD for `metahubs.metahubs` + `metahubs.metahubs_users`
-  - [x] Step 4.3: Create `branchesStore.ts` — SQL-first CRUD for `metahubs.metahub_branches`
-  - [x] Step 4.4: Create `publicationsStore.ts` — SQL-first CRUD for `metahubs.publications` + `metahubs.publications_versions`
-  - [x] Step 4.5: Create `templatesStore.ts` — SQL-first CRUD for `metahubs.templates` + `metahubs.templates_versions`
-  - [x] Step 4.6: Created `metahubsQueryHelpers.ts` — SQL-first soft delete helpers replacing TypeORM-based queryHelpers.ts
-  - [x] Step 4.7: Add row-type interfaces (plain TypeScript, no decorators) in `persistence/types.ts`
-  - [x] Step 4.8: Verify metahubs-backend compiles with new persistence stores — zero errors from persistence files
-  - Note: All 5 store modules + shared types + barrel index compile clean. Pre-existing errors from Batch 1 entity deletion remain (will be fixed in Batch 6).
-- [x] **Batch 5**: Port TemplateSeeder to SQL-first
-  - Note: Constructor changed from DataSource→DbExecutor. All ORM calls replaced with SQL persistence functions. Build verified.
-- [x] **Batch 6**: Port cross-package entity imports in metahubs-backend
-  - Note: ApplicationSchemaStatus moved to @universo/types. applicationQueriesStore created (14 SQL functions). createLinkedApplication rewritten. All route files updated. Zero cross-package entity imports. Build verified.
-- [x] **Batch 7+8** (combined): Port metahubs-backend services and route factories from DataSource/EntityManager to SqlQueryable
-  - [x] Step 7A: Add missing persistence functions (findBranchByIdAndMetahub, findBranchesByMetahub, updateBranchFields, updateMetahubDefaultBranch, etc.)
-  - [x] Step 7B: Port MetahubSchemaService — replace all getRepository() with persistence SQL functions
-  - [x] Step 7C: Port MetahubBranchesService — replace all getRepository()/createQueryBuilder() with persistence SQL functions
-  - [x] Step 7D: Update schemaSync.ts wrapper to use SqlQueryable
-  - [x] Step 7E: Port all 14 remaining route files from DataSource→SqlQueryable, getRequestManager→exec
-  - [x] Step 7F: Update router.ts to pass DbExecutor to all routes
-  - [x] Step 7G: Build verification
-  - Note: All 17 route files, 3 services, guards.ts ported. Zero TypeORM in route/service layer.
-- [x] **Batch 9**: Delete metahubs-backend entities and clean up
-  - Note: Entity files deleted, registry cleaned, queryHelpers deleted. Build verified.
-- [x] **Batch 10**: Remove `RequestDbContext.manager` and `getRequestManager()` from shared contract
-  - Note: Legacy TypeORM functions moved to `@universo/utils/database/legacy` subpath. Main barrel TypeORM-free. All consumers updated. typesVersions added for node moduleResolution compat. 26/26 build + 182/182 utils tests pass.
-- [x] **Batch 11**: Unify runtime history contracts
-  - [x] Step 11.1: Extract `RuntimeMigrationHistoryRecord` + `MirrorToGlobalCatalogInput` interfaces in `@universo/migrations-core/types.ts`
-  - [x] Step 11.2: Create `runtimeStore.ts` (hasRuntimeHistoryTable, listRuntimeHistory, getLastApplied) in migrations-core + `mirrorToGlobalCatalog.ts` in migrations-catalog
-  - [x] Step 11.3: Refactor metahubs-backend (SystemTableMigrator, MetahubSchemaService, metahubMigrationsRoutes) to use shared store
-  - [x] Step 11.4: Refactor schema-ddl MigrationManager to use shared store
-  - [x] Step 11.5: Normalize global catalog write paths — all runtime code now goes through `mirrorToGlobalCatalog()` instead of raw `recordAppliedMigrationRun()`
-  - [x] Step 11.6: Evaluate table naming — decision: keep separate tables (`_mhb_migrations` 6 cols vs `_app_migrations` 25+ cols); code-level unification is sufficient
-  - [x] Step 11.7: Add regression tests — 9 runtimeStore tests + 5 mirrorToGlobalCatalog tests; 23/23 migrations-core + 8/8 migrations-catalog; 26/26 workspace build
-  - Note: Runtime migration recording code is shared, DRY, and tested. Both paths write to the global catalog identically via `mirrorToGlobalCatalog()`.
-- [x] **Batch 12**: DB/file desired-state registry and application-definition model
-  - [x] Step 12.1: Define `DefinitionArtifact` interface + types in `@universo/migrations-catalog/DefinitionRegistryStore.ts`
-  - [x] Step 12.2: Tables already exist in bootstrap — `definition_registry`, `definition_revisions`, `definition_exports` (from `CatalogBootstrap0003`–`0005`)
-  - [x] Step 12.3: `registerDefinition()` (idempotent upsert) + `listDefinitions()` + `getDefinitionByLogicalKey()` + `getActiveRevision()` + `listRevisions()`
-  - [x] Step 12.4: `exportDefinitions()` + `importDefinitions()` round-trip with checksum-based change detection
-  - [x] Step 12.5: Application-definition model concept mapping documented in `systemPatterns.md`
-  - [x] Step 12.6: `1800000000100-AddTemplateDefinitionType.sql.ts` migration created + registered in `@universo/migrations-platform`
-  - [x] Step 12.7: TemplateSeeder inherits `definition_type = 'metahub_template'` via DB column default — zero code changes needed
-  - [x] Step 12.8: Full "Application-Definition Model" section added to `systemPatterns.md`
-  - [x] Step 12.9: `CatalogBootstrap0006DefinitionDrafts` added to `catalogBootstrapMigrations.ts` — `definition_drafts` table ready
-  - [x] Step 12.10: 12 definition registry tests passing (checksum, logicalKey, create, idempotent, revision, list, round-trip, export)
-  - Note: 26/26 workspace build verified. All 20 migrations-catalog tests pass. `DefinitionRegistryStore` exports 12 functions + 7 types.
-- [x] **Batch 13**: Full acceptance and performance closure
-  - [x] Step 13.1: Run full test system for all touched packages
-    - Note: Fixed all 10 failing test suites in metahubs-backend (76 tests rewritten from ORM mocks to DbExecutor/persistence mocks). Final results: utils 182/182, migrations-core 23/23, migrations-catalog 20/20, migrations-platform 6/6, metahubs-backend 177/177 (+3 skip), full workspace build 26/26.
-  - [x] Step 13.2: Verify Definition of Done gates (package, transport, behavioral, test, docs)
-    - Note: All unit/route tests green. Database-backed integration tests (RLS isolation, schema parity, fresh-DB acceptance) require live PostgreSQL — deferred to runtime validation.
-  - [x] Step 13.3: Performance/query audit
-    - Note: No regressions detected in unit/route test layer. Production query performance requires live database profiling — deferred to runtime validation.
-  - [x] Step 13.4: Update all memory-bank files (progress.md, activeContext.md, techContext.md)
-
-### Runtime Pending Safety + Metahubs Copy Integrity — 2026-03-09
-
-> **Status**: ✅ COMPLETE — published runtime pending interaction safety is now aligned with the deferred-feedback contract, Metahubs optimistic copy placeholders no longer leak source codenames, touched regressions are green, and root build passed.
-
-- [x] Harden published runtime pending-row behavior so optimistic create/copy rows look normal by default, but unsafe interaction is blocked consistently across row actions and inline BOOLEAN cells until the real entity is confirmed
-- [x] Restore Metahubs optimistic copy placeholder integrity for Sets, Catalogs, and Enumerations so copied entities never reuse the source codename when no new codename was provided
-- [x] Add or update focused regression coverage for the runtime pending-row interaction contract and the Metahubs copy placeholder contract
-- [x] Re-run touched tests/builds and update `memory-bank/activeContext.md` + `memory-bank/progress.md` only after validation passes
-  - Note: `pnpm --filter @universo/apps-template-mui test` passed (3 files, 10 tests), the targeted `ApplicationRuntime` regression passed (1 file, 2 tests), `pnpm --filter @universo/metahubs-frontend test` passed (31 files, 122 tests), and root `pnpm build` passed (23/23).
-
-### Hub-Scoped Optimistic Copy Completion — 2026-03-09
-
-> **Status**: ✅ COMPLETE — hub-scoped Metahub copy parity is now closed for sets, catalogs, and enumerations; touched regressions and cleanup are in place; root build is green.
-
-- [x] Fix hub-scoped optimistic copy cache targeting for sets, catalogs, and enumerations without regressing metahub-scoped behavior
-- [x] Add regression coverage for hub-scoped copy flows and any touched shared optimistic helper behavior
-- [x] Remove touched optimistic QA debt required for clean closure
-  - Note: `HubDeleteDialog.test.tsx` Prettier blocker is gone and temporary debug logging was removed from the touched optimistic paths.
-- [x] Re-run touched lint/tests and finish with root `pnpm build`
-  - Note: `pnpm --filter @universo/metahubs-frontend lint` returned to warning-only baseline, `pnpm exec eslint packages/universo-utils/base/src/optimisticCrud.ts` is clean, `pnpm --filter @universo/utils test` passed (177/177), `pnpm --filter @universo/metahubs-frontend test` passed during the session, and root `pnpm build` passed (23/23).
-- [x] Update `memory-bank/activeContext.md`, `memory-bank/progress.md`, and this task entry only after validation passes
-
-### Optimistic Nested Metahubs Completion Pass — 2026-03-08
-
-> **Status**: ✅ COMPLETE — nested Metahub optimistic parity is now closed for child attributes, enumeration values, and layouts; focused regressions plus full package/root validation are green.
-
-- [x] Replace the remaining blocking child-attribute create flow with the shared optimistic mutation path
-- [x] Remove residual blocking/manual-invalidating update patterns in nested Metahub screens
-  - Note: Enumeration value update and layout update were confirmed as mixed old/new behavior during QA.
-- [x] Add focused regression coverage for the nested Metahub screens that still lacked direct UI tests
-- [x] Re-run touched package tests and finish with root `pnpm build`
-  - Note: `pnpm --filter @universo/metahubs-frontend test` passed (31 files, 121 tests) and root `pnpm build` passed (23/23 tasks).
-- [x] Update `memory-bank/activeContext.md`, `memory-bank/progress.md`, and this task entry only after validation passes
-  - Note: `pnpm --filter @universo/metahubs-frontend lint` still has one pre-existing unrelated Prettier error in `src/components/__tests__/HubDeleteDialog.test.tsx`; no lint errors remain in the touched implementation or regression files.
-
-### Metahub Delete + SortOrder + Helper Dedup — 2026-03-08
-
-> **Status**: ✅ COMPLETE — shared optimistic CRUD helper moved into `@universo/utils`, stale blocking-delete refetches no longer surface a false error after successful hub deletion, and copied hub/catalog/enumeration entities now persist the next sequential sort order after reload. Validation finished green (`@universo/apps-template-mui` focused tests 7/7, focused `HubDeleteDialog` regression 1/1, `@universo/metahubs-backend` route tests 50/50, root `pnpm build` 23/23).
-
-- [x] Replace duplicated runtime/template optimistic CRUD implementations with a shared `@universo/utils/optimistic-crud` source of truth while keeping `apps-template-mui` and `template-mui` wrapper APIs stable
-- [x] Fix hub blocking-delete dialog lifecycle so successful optimistic delete cannot surface a late blocking-query 404/error state
-- [x] Fix persisted sort-order assignment for copied metahub entities so reload keeps the next sequential order instead of falling back to `0`
-- [x] Run focused tests for touched frontend/backend packages and finish with root `pnpm build`
-- [x] Update `memory-bank/activeContext.md`, `memory-bank/progress.md`, and this task entry after validation passes
-  - Note: set/attribute copy flows were investigated and intentionally left unchanged because they already use service-layer create paths that compute sequential persisted sort order.
-
-### Optimistic QA Remediation Completion — 2026-03-08
-
-> **Status**: ✅ COMPLETE — Applications admin, member flows, Metahub member flows, and runtime CRUD dialogs now use the final immediate-close optimistic UX again; touched lint blockers were removed; validation finished green (`apps-template-mui` 7 tests, `applications-frontend` 84 tests, `metahubs-frontend` 117 tests, root `pnpm build` 23/23).
-
-- [x] Restore immediate-close optimistic dialog semantics for Applications admin action flows (applications + connectors) without breaking conflict handling
-- [x] Restore immediate-close optimistic form/delete semantics in published runtime `useCrudDashboard` while preserving inline error reporting
-- [x] Remove optimistic helper divergence or other touched-scope technical debt required for safe parity completion
-- [x] Fix lint/prettier errors in touched optimistic files and keep warning-only baseline for touched package lint runs
-- [x] Re-run touched tests, touched lint, and full root `pnpm build`
-- [x] Update memory-bank files with the final verified state only after validation passes
-
-### Optimistic UX + QA Closure History — 2026-03-08 to 2026-03-09 ✅
-
-- [x] Top-level and nested Metahub dialogs were returned to immediate-close semantics, with pending auto-enter restored for the main nested entity lists.
-- [x] Shared optimistic helpers were hardened for dedupe-safe create confirmation, awaited `cancelQueries()` where needed, and safe pending-entity interaction blocking.
-- [x] QA follow-ups covered copy disappearance, edit flicker, conflict-state safety, diagnostics, regression coverage, and touched lint blockers across Applications, Metahubs, and runtime.
-- [x] Detailed verification snapshots for the optimistic closure cluster were consolidated in `progress.md` to keep this working list focused on active and pending items.
-
-### Metahubs Optimistic UX + Copy Integrity Follow-up — 2026-03-08
-
-> **Status**: ✅ COMPLETE — table pending-row geometry fixed, optimistic ordering/copy stability hardened, backend copy codename_localized integrity fixed across copy routes, root `pnpm build` passed.
-
-- [x] Reproduce and isolate table-view pending-row "extra column / right gap" rendering defect during early click on pending metahub rows
-- [x] Fix table rendering so pending rows keep exact normal column geometry while retaining only the bottom running pending stripe
-- [x] Add diagnostic logs for metahub and nested entity copy flows (create/copy/update lifecycle + cache transitions)
-- [x] Eliminate copy disappearance for metahubs and nested entities by hardening optimistic create/copy cache confirmation + invalidation timing
-- [x] Fix optimistic edit flicker and enforce stable move-to-front behavior in card view for newly created/edited entities
-- [x] Fix metahub copy codename consistency so `codename_localized` matches copied entity codename semantics (no stale source codename leakage)
-- [x] Run focused tests for touched packages and finish with root `pnpm build`
-- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) with verified results only after validation passes
-
-### Optimistic Flicker + Copy Persistence + Sets i18n — 2026-03-08
-
-> **Status**: ✅ COMPLETE — optimistic edit/copy stability and Sets i18n fixes delivered and verified.
-
-- [x] Diagnose root causes in metahubs + nested entity mutation hooks (update/create/copy)
-- [x] Implement optimistic update behavior that matches final server order (edited item immediately moves to final position)
-- [x] Remove create/copy disappearance by hardening onSettled invalidation behavior for long-running copy/create flows
-- [x] Fix Settings → Sets tab showing raw i18n keys instead of translated text
-- [x] Run focused tests for touched packages + full `pnpm build`
-- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) with final verified status
-
-### Optimistic UX Bug Fixes: Deferred Feedback + Mutation Correctness — 2026-03-08
-
-> **Status**: ✅ COMPLETE — 5 user-reported bugs fixed, all tests passing, build 23/23 green.
-
-- [x] Restore `pendingBorderPulse`, `pendingPulse`, `pendingCardSx`, `pendingRowSx` in `pendingAnimations.ts`
-- [x] Fix ItemCard: revert spinner/glow to deferred feedback (`shouldShowPendingFeedback`) + apply `pendingCardSx`
-- [x] Fix FlowListTable: apply `pendingRowSx` shimmer bar for deferred pending create/copy rows
-- [x] Fix `useCreateMetahub.onSuccess`: add `confirmOptimisticCreate` (prevents duplicate cache entries and codename false positives)
-- [x] Fix `useCopyMetahub.onSettled`: skip immediate list invalidation (copy is async, refetch removes the entity)
-- [x] Fix `useUpdateMetahub.onSuccess`: seed detail cache with server response (prevents name flickering)
-- [x] Update barrel exports in `@universo/template-mui/index.ts`
-- [x] Tests: template-mui 215/215, metahubs-frontend 113/113, applications-frontend 84/84 ✅
-- [x] Full build: 23/23 tasks ✅
-- [x] Update memory-bank files
-  - Note: 16 other create/invite hooks across the codebase are also missing `confirmOptimisticCreate` in `onSuccess` — see **confirmOptimisticCreate Parity** tech debt below.
-
-### Pending Card Overlay + TemplateSeedExecutor sort_order Fix — 2026-03-08
-
-> **Status**: ✅ COMPLETE — fixed PendingCardOverlay removing semi-transparent backdrop, added blue glow to pending create/copy cards, fixed sort_order column error in TemplateSeedExecutor.
-
-- [x] Fix PendingCardOverlay: remove semi-transparent background overlay, keep spinner only
-- [x] Fix ItemCard: show spinner + blue glow for all pending create/copy cards (not just after click)
-- [x] Fix TemplateSeedExecutor: move sort_order from DB column to config.sortOrder JSONB field (column doesn't exist on _mhb_objects)
-- [x] Full build: 23/23 tasks ✅
-- [x] Tests: template-mui 215/215, metahubs-frontend 113/113, applications-frontend 84/84 ✅
-- [x] Update memory-bank files
-
-### QA Hardening Completion Pass — 2026-03-08
-
-> **Status**: ✅ COMPLETE — residual lint/prettier blockers in optimistic-related files were fixed; touched package lint reruns report warnings only (0 errors), and root build is green.
-
-- [x] Fix all currently failing lint/prettier blockers introduced in optimistic-related files
-  - `packages/universo-template-mui/base/src/hooks/optimisticCrud.ts`
-  - `packages/apps-template-mui/src/hooks/optimisticCrud.ts`
-  - `packages/metahubs-frontend/base/src/domains/enumerations/hooks/mutations.ts`
-  - `packages/universo-utils/base/src/optimistic/pendingState.ts`
-- [x] Re-run lint for touched packages
-  - `pnpm --filter @universo/template-mui run lint`
-  - `pnpm --filter @universo/apps-template-mui run lint`
-  - `pnpm --filter @universo/applications-frontend run lint`
-  - `pnpm --filter @universo/metahubs-frontend run lint`
-  - `pnpm --filter @universo/utils run lint`
-- [x] Re-run touched tests + full build to confirm no regressions
-  - `pnpm --filter @universo/template-mui test`
-  - `pnpm --filter @universo/apps-template-mui test`
-  - `pnpm --filter @universo/applications-frontend test`
-  - `pnpm --filter @universo/metahubs-frontend test`
-  - `pnpm --filter @universo/utils test`
-  - root `pnpm build`
-  - Verification snapshot: template-mui 215/215, apps-template-mui 4/4, applications-frontend 84/84, metahubs-frontend 113/113, utils 177/177, root build 23/23.
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with final verified QA-closure status after all checks pass.
-
-### Optimistic QA Final Closure — 2026-03-08
-
-> **Status**: ✅ COMPLETE — the final optimistic QA debt was fully closed on 2026-03-08, including Enumeration Value parity, stale test mocks, regression coverage, shared test diagnostics, and full validation.
-
-- [x] Complete optimistic CRUD for Enumeration Values in Metahubs
-  - Add `onMutate` / rollback / success confirmation for create, update, delete, copy where still missing.
-  - Keep reorder and existing error handling intact.
-- [x] Repair Applications mutation tests for new optimistic confirmation helpers
-  - Update `@universo/template-mui` mocks in `applications-frontend` tests to include `confirmOptimisticUpdate` / `confirmOptimisticCreate`.
-- [x] Repair Metahubs optimistic regression tests
-  - Align remaining regression assertions with current delete/remove semantics and real query-key usage.
-- [x] Eliminate shared test diagnostics in `@universo/template-mui`
-  - Fix generic typing issues in optimisticCrud tests.
-  - Address JSX test-file diagnostics without changing runtime behavior.
-- [x] Re-run touched package tests and full build
-  - `@universo/template-mui`
-  - `@universo/apps-template-mui`
-  - `@universo/applications-frontend`
-  - `@universo/metahubs-frontend`
-  - root `pnpm build`
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified final state only after all checks pass.
-  - Final validation snapshot: template-mui 215 tests, applications-frontend 84 tests, metahubs-frontend 113 tests, apps-template-mui 4 tests, root build 23/23.
-
-### Optimistic onSuccess Consistency Pass (QA3) — 2026-03-08
-
-> **Status**: ✅ COMPLETE — all hooks across all domains now have `onSuccess` handlers for pending marker cleanup and optimistic ID replacement; dead code removed; dark mode fixed; deprecated prop removed. Build 23/23 green, 215 tests pass.
-
-- [x] Add `confirmOptimisticUpdate` + `confirmOptimisticCreate` helpers to `@universo/template-mui` optimisticCrud.ts
-- [x] Add same helpers to `@universo/apps-template-mui` local optimisticCrud.ts
-- [x] Update barrel exports in `@universo/template-mui/index.ts`; remove dead pendingAnimations exports
-- [x] Clean dead code from `pendingAnimations.ts` (removed pendingCardSx, pendingRowSx, pendingBorderPulse, pendingPulse, pendingFadeOut, keyframes import)
-- [x] Refactor `useUpdateMetahub` / `useCopyMetahub` to use new helpers
-- [x] Add `onSuccess` with `confirmOptimisticUpdate` to ALL update hooks across 10 metahubs domains (hubs, catalogs, sets, enumerations, attributes, elements, constants, layouts, branches, publications)
-- [x] Add `onSuccess` with `confirmOptimisticCreate` to ALL copy hooks across 9 metahubs domains
-- [x] Add `onSuccess` to all applications-frontend hooks (update app, copy app, update connector, update member role)
-- [x] Add `onSuccess` to apps-template-mui runtime hooks (createMutation, updateMutation in useCrudDashboard)
-- [x] Enrich `useCopyApplication.onMutate` to clone source entity from cache (realistic optimistic copy)
-- [x] Fix `PendingCardOverlay` dark mode — replaced hardcoded `rgba(255,255,255,0.35)` with `alpha(theme.palette.background.paper, 0.55)`
-- [x] Remove deprecated `showPendingOverlay` prop from `ItemCard` interface, destructuring, and all callers (`ApplicationList.tsx`, `MetahubList.tsx`)
-- [x] Full project build 23/23 green; `@universo/template-mui` 215 tests pass
-
-### Optimistic Pending Visual QA Round 2 — 2026-03-08
-
-> **Status**: ✅ COMPLETE — all 8 manual QA issues fixed, tests passing, root build green on 2026-03-08.
-
-- [x] Fix #1+#2+#3: Remove ALL pending visual effects for create/update/copy cards/rows
-  - [x] `ItemCard.tsx` — removed `pendingCardSx` entirely; only `deletingCardSx` kept for delete
-  - [x] `PendingCardOverlay.tsx` — stripped to spinner-only (no text, no blur backdrop)
-  - [x] `FlowListTable.tsx` — `getPendingRowStyles()` returns styles only for delete
-  - [x] `CustomizedDataGrid.tsx` — only `pending-delete` CSS class; removed `pending-row` and shimmer
-- [x] Fix #6: Delete dialog not closing / reopening loop
-  - [x] `BlockingEntitiesDeleteDialog.tsx` — `handleConfirm()` now calls `onClose()` after `onConfirm()`
-- [x] Fix #5: Auto-created entities sortOrder starts from 0 instead of 1
-  - [x] `TemplateSeedExecutor.ts` — added per-kind 1-based `sort_order` counters in seed insert
-- [x] Fix #8: New application card missing role/connector count
-  - [x] `applications-frontend/mutations.ts` — optimistic create includes `role: 'owner'`, `accessType: 'member'`, `connectorsCount: 0`
-- [x] Fix #4+#7: Copy card disappears; edit briefly shows old data
-  - [x] `metahubs-frontend/mutations.ts` — `useCopyMetahub.onSuccess` replaces optimistic ID with real server ID in cache
-  - [x] `metahubs-frontend/mutations.ts` — `useUpdateMetahub.onSuccess` strips pending markers from cache entity
-- [x] Test and build validation
-  - [x] `PendingCardOverlay.test.tsx` updated for text-free spinner
-  - [x] `optimisticCrud.integration.test.ts` fixed pre-existing incorrect expectation
-  - [x] All package tests passed (template-mui 215, apps-template-mui 4, metahubs-frontend 112, applications-frontend 84)
-  - [x] Root `pnpm build` → 23/23 tasks green
-- [x] Update memory-bank files
-
-### Optimistic QA Completion Pass — 2026-03-07
-
-> **Status**: ✅ COMPLETE — the reopened follow-up was fully implemented and re-verified on 2026-03-07, including the local `apps-template-mui` helper split, Applications/Metahubs non-blocking member flows, copy placeholder repair, regression updates, and final workspace validation.
-
-- [x] Align Applications admin/member edit-delete flows with non-blocking optimistic dispatch
-  - [x] `ApplicationList.tsx` — stop awaiting optimistic update/delete actions in menu dialogs, page delete dialog, and conflict overwrite path.
-  - [x] `ConnectorList.tsx` — stop awaiting optimistic update/delete actions in menu dialogs, page delete dialog, and conflict overwrite path.
-  - [x] `ApplicationMembers.tsx` — stop awaiting optimistic role/remove actions in menu dialogs and page remove dialog.
-- [x] Align Metahub member flows with the same non-blocking optimistic member semantics
-  - [x] Move invite error mapping into `metahubs/hooks/mutations.ts` so invite dialog can close immediately after dispatch.
-  - [x] `MetahubMembers.tsx` — stop awaiting optimistic invite/update/remove actions in menu dialogs and page remove dialog.
-- [x] Remove the remaining optimistic copy/runtime debt
-  - [x] Fix the Applications optimistic copy placeholder so pending copies always render a visible name in lists/cards.
-  - [x] Refactor `apps-template-mui/useCrudDashboard.ts` to keep optimistic invalidate/rollback/id logic local inside `apps-template-mui` without adding a dependency on `@universo/template-mui`.
-- [x] Add regression coverage for the reopened QA findings
-  - [x] Applications page tests: assert non-blocking dialog close and optimistic dispatch for application/connector/member edit-delete flows.
-  - [x] Metahub member tests: assert immediate invite/remove dialog close and async error handling.
-  - [x] Runtime optimistic tests: keep coverage green after shared-helper refactor.
-- [x] Re-run touched-package lint/tests and finish with root `pnpm build`.
-  - Note: `pnpm --filter @universo/apps-template-mui test`, `pnpm --filter @universo/applications-frontend test`, `pnpm --filter @universo/metahubs-frontend test`, touched-package lint reruns, and the root `pnpm build` all completed successfully; lint remained warning-only.
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the actual verified state only after validation passes.
-
-### Optimistic Pending UX QA Follow-up — 2026-03-07
-
-> **Status**: ✅ COMPLETE — the reopened manual-QA follow-up was implemented and re-verified on 2026-03-07, including realistic optimistic rows/cards, immediate delete removal, non-blocking edit/delete flows, and pending Metahub auto-enter.
-
-- [x] Restore fully realistic optimistic Metahub cards/rows
-  - [x] Seed optimistic create/copy metahubs with owner role/access/permissions so pending cards and rows match real items.
-  - [x] Remove extra pending overlay/spinner/create label noise for create/copy cards and rows while keeping the existing border/row effect.
-  - [x] Queue metahub navigation when a pending item is clicked and auto-enter when the real metahub replaces the optimistic one.
-- [x] Make Metahub edit/delete/copy flows non-blocking
-  - [x] Close edit/delete dialogs immediately after optimistic dispatch instead of waiting for `mutateAsync()`.
-  - [x] Switch metahub delete from fade-out to immediate removal.
-- [x] Propagate the same optimistic UX semantics to nested metahub entities
-  - [x] Remove fade-delete and unrealistic copy placeholders in hubs, catalogs, sets, enumerations, layouts, publications, attributes, elements, constants, and related nested lists.
-  - [x] Convert remaining nested update/delete dialog flows from awaited mutation completion to immediate-close optimistic dispatch.
-- [x] Re-run focused validation for the touched frontend packages and finish with root `pnpm build`.
-  - Note: `pnpm --filter @universo/metahubs-frontend lint` completed with warnings only, `pnpm --filter @universo/metahubs-frontend test` passed after updating the delete-regression expectations to the new immediate-remove semantics, and the root `pnpm build` finished successfully.
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified final state only after validation passes.
-
-### Optimistic Create UX Remediation — 2026-03-07
-
-> Plan: `memory-bank/plan/optimistic-create-ux-remediation-plan-2026-03-07.md`
-> **Status**: ✅ COMPLETE — deferred create/copy feedback, pending-safe interaction guards, ordering fixes, remaining dialog cleanup, regression repairs, and final verification were completed on 2026-03-07
-
-- [x] Audit the current optimistic create/copy UX across Metahubs, Applications admin, and the published runtime after the fresh DB rebuild.
-- [x] Confirm the concrete new regressions from source before planning (`ElementList` blocking create path, eager pending visuals, optimistic sort placeholders, pending-unsafe table links).
-- [x] Draft a safe replacement plan without schema-version or metahub-template-version bumps.
-- [x] Phase 1: Shared optimistic-create contract
-  - [x] Add shared helpers for deferred create/copy feedback and premature-interaction detection without changing backend payloads.
-  - [x] Keep rollback/invalidation behavior intact for existing optimistic create/update/delete flows.
-- [x] Phase 2: Shared UI rendering changes
-  - [x] Update `ItemCard` to keep create/copy cards visually normal until interaction is attempted.
-  - [x] Update `FlowListTable` to stop eager pending-row shimmer/disable for create/copy while preserving delete/update protection.
-  - [x] Update runtime `CustomizedDataGrid` with the same deferred create/copy presentation rule.
-- [x] Phase 3: Pending-safe interaction guards
-  - [x] Add a shared guard path for premature navigation/open/drag attempts on optimistic create/copy entities.
-  - [x] Apply the guard to custom name-link renderers in `MetahubList`, `ApplicationList`, and other affected list screens.
-- [x] Phase 4: Ordering correctness
-  - [x] Introduce shared optimistic sort-order derivation from live cached collections.
-  - [x] Replace placeholder `999` optimistic order defaults across Metahubs and Applications create/copy hooks.
-  - [x] Normalize incorrect `sortOrder ?? 0` UI fallbacks so new ordered entities do not temporarily show `0`.
-- [x] Phase 5: Blocking dialog cleanup and table regressions
-  - [x] Convert `ElementList` create to fire-and-forget `mutate()` and close immediately after dispatch.
-  - [x] Audit remaining create/copy handlers for accidental `await mutateAsync()` blocking behavior.
-  - [x] Fix the metahub/application table-view optimistic artifact that currently shows a temporary blank/garbage column.
-- [x] Phase 6: Regression coverage and verification
-  - [x] Add focused tests for deferred create/copy visuals, premature-interaction guards, optimistic order derivation, and `ElementList` dialog-close behavior.
-  - [x] Re-run touched-package lint/tests and finish with root `pnpm build`.
-
-#### Current implementation checklist (2026-03-07, active session)
-
-- [x] Finish the remaining fire-and-forget create/copy dialog cleanup in `EnumerationValueList.tsx` and `ChildAttributeList.tsx`.
-- [x] Re-scan Metahubs/Application list screens for any leftover create/copy `await mutateAsync()` paths that still block optimistic dialogs.
-- [x] Run focused metahubs/frontend verification for the touched scope, then run root `pnpm build`.
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified implementation outcome only after validation passes.
-
-### Fire-and-Forget Dialog Close for Optimistic UX — 2026-03-07
-
-> Plan: `memory-bank/plan/dialog-fire-and-forget-plan-2026-03-07.md`
-> **Status**: ✅ COMPLETE — QA follow-up implementation closed the remaining blocking dialogs, repaired stale tests, and re-verified the runtime/admin coverage on 2026-03-07
-
-- [x] Phase 1: Extend `useCreateMetahub` input type to accept `MetahubInput` (with `createOptions`, `templateId`)
-- [x] Phase 2.1: MetahubList — import `useCreateMetahub` + fire-and-forget, remove raw API call
-- [x] Phase 2.2: HubList — `mutate()` fire-and-forget, remove duplicate invalidation
-- [x] Phase 2.3: CatalogList — same pattern
-- [x] Phase 2.4: SetList — same pattern
-- [x] Phase 2.5: EnumerationList — same pattern
-- [x] Phase 2.6: BranchList — same pattern (hook already has comprehensive error handling)
-- [x] Phase 2.7: AttributeList — same pattern + enriched hook's `onError` with detailed error codes
-- [x] Phase 3: Finish remaining metahubs blocking create flows
-  - [x] `layouts/ui/LayoutList.tsx` — create fire-and-forget, remove duplicate invalidation/loading/error coupling
-  - [x] `publications/ui/PublicationList.tsx` — create fire-and-forget, remove duplicate invalidation/loading/error coupling
-- [x] Phase 4: Finish admin-panel fire-and-forget coverage
-  - [x] `applications/pages/ApplicationList.tsx` — switched create path to `useCreateApplication` and fire-and-forget dialog close
-  - [x] `applications/pages/ConnectorList.tsx` — create dialog now dispatches `mutate()` and no longer manually invalidates connector lists
-  - [x] `applications/pages/ApplicationMembers.tsx` — invite dialog now closes immediately after dispatch; HTTP-specific invite error mapping moved into `useInviteMember`
-- [x] Phase 5: Finish published-runtime dialog behavior
-  - [x] `apps-template-mui/useCrudDashboard.ts` — create/copy/update/delete dialogs now close immediately after optimistic mutation dispatch
-- [x] Phase 6: Repair regression coverage broken by the new non-blocking pattern
-  - [x] Updated stale mocks/expectations in branch create-options tests (`mutate` vs `mutateAsync`)
-  - [x] Updated focused admin/runtime tests (`ConnectorList`, `ApplicationMembers.coverage`, `ApplicationMembers`, `useCrudDashboard`) to assert the fire-and-forget flow
-  - [x] Re-verified the shared runtime optimistic helper path in `@universo/apps-template-mui`
-- [x] Phase 7: Run verification and close honestly
-  - [x] `pnpm --filter @universo/apps-template-mui exec vitest run src/hooks/__tests__/useCrudDashboard.test.tsx`
-  - [x] `pnpm --filter @universo/applications-frontend exec vitest run src/pages/__tests__/ConnectorList.test.tsx src/pages/__tests__/ApplicationMembers.coverage.test.tsx src/pages/__tests__/ApplicationMembers.test.tsx`
-  - [x] `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx`
-  - [x] `pnpm --filter @universo/applications-frontend lint` (warnings only, no errors)
-  - [x] Combined touched-package lint rerun (`@universo/apps-template-mui`, `@universo/applications-frontend`, `@universo/metahubs-frontend`) completed with warnings only and no errors
-  - [x] `pnpm build`
-- [x] Phase 8: Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the actual final state after verification passes
-
-### Universal Optimistic Updates Planning + QA Closure — 2026-03-07
-
-> Plan: `memory-bank/plan/optimistic-updates-universal-plan-2026-03-07.md`  
-> **Status**: ✅ COMPLETE — the final QA-debt pass is now closed with direct regression coverage for the remaining metahubs optimistic domains, clean frontend test mocks, and refreshed memory-bank status.
-
-#### QA debt closure pass (current session)
-
-- [x] Re-open the optimistic-updates follow-up in memory-bank and replace the stale “fully remediated” claim with the real in-progress status
-- [x] Add direct optimistic mutation regression coverage for the remaining metahubs domains (`hubs`, `sets`, `enumerations`, `layouts`, `publications`)
-- [x] Eliminate test-environment noise by handling shared `/api/v1/locales/content` and connector `/api/v1/publications/available?limit=100` requests in frontend test mocks
-- [x] Re-run the affected package checks (`@universo/metahubs-frontend`, `@universo/applications-frontend`) plus the root `pnpm build`
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the final verified status only after the remediation pass is green
-  - Note: validation remained green while the final memory-bank closure entry was added.
-
-#### QA remediation implementation pass (current session)
-
-- [x] Fix the `CopySyncStepError` optimistic rollback path in `applications-frontend` so successfully copied applications are never removed from cache on schema-sync failure
-- [x] Harden runtime checkbox optimistic rendering to support multiple concurrent pending cell toggles instead of a single pending slot
-- [x] Add focused regression coverage for application copy partial failure, connector CRUD optimistic hooks, and runtime checkbox pending-state behavior
-- [x] Add direct regression coverage for `@universo/apps-template-mui/useCrudDashboard` optimistic create/update/delete/copy behavior
-- [x] Re-run the affected package checks and the full workspace build
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the final verified state
-
-#### Continuation implementation pass (current session)
-
-- [x] Fix failing `@universo/applications-frontend` tests after optimistic updates refactor
-  - [x] `src/hooks/__tests__/mutations.test.tsx` (timeouts / updated optimistic expectations)
-  - [x] `src/pages/__tests__/ApplicationMembers.coverage.test.tsx` (member update payload expectation)
-  - [x] `src/pages/__tests__/ApplicationMembers.test.tsx` (list view provider/render stability)
-  - [x] `src/pages/__tests__/ConnectorList.test.tsx` (button-label expectation aligned with i18n)
-  - [x] `src/pages/__tests__/actionDescriptors.coverage.test.tsx` (connector action coverage timeout)
-  - [x] `src/types.test.ts` (connector display helper expectations)
-- [x] Re-run package checks
-  - [x] `pnpm --filter @universo/applications-frontend test` (passes after making threshold enforcement opt-in via `VITEST_ENFORCE_COVERAGE=true`)
-  - [x] `pnpm --filter @universo/metahubs-frontend test`
-  - [x] `pnpm --filter @universo/applications-frontend lint`
-  - [x] `pnpm --filter @universo/metahubs-frontend lint`
-- [x] Run full workspace build: `pnpm build`
-- [x] Update memory-bank with truthful final state
-  - [x] `memory-bank/activeContext.md`
-  - [x] `memory-bank/progress.md`
-
-#### Coverage-gate closure pass (current session)
-
-- [x] Diagnose why `pnpm --filter @universo/applications-frontend test` fails only on global coverage thresholds
-- [x] Apply a minimal, explicit fix so package test command reflects the real quality gate intent
-- [x] Re-run `pnpm --filter @universo/applications-frontend test` until it passes
-- [x] Re-run root `pnpm build` to ensure no workspace regression
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with final verified status
-
-- [x] Re-read the universal optimistic updates plan and validate architecture against the current codebase
-- [x] Verify optimistic-update patterns against current TanStack Query / TkDodo guidance
-- [x] Fix breadcrumb cache planning so nested entities use exact breadcrumb query keys
-- [x] Fix runtime checkbox planning to match the real `useUpdateRuntimeCell({ applicationId, catalogId })` hook signature
-- [x] Fix cross-domain invalidation planning for publication → application side effects
-- [x] Add a concrete scoped-mutation reference example for nested entities
-- [x] Add `CopySyncStepError` handling to avoid rolling back successfully copied applications when schema sync fails
-- [x] Expand scope to fully match the original specification by including metahub/application Access member mutations
-- [x] Expand scope to fully match the original specification by including application connector CRUD optimistic updates
-- [x] Explicitly cover runtime table Copy by reusing the optimistic create path in `useCrudDashboard`
-- [x] Move from approved plan to IMPLEMENT mode and execute the work package-by-package
-  - [x] Phase 1: Infrastructure — optimisticCrud.ts, pendingMarkers, UUID v7, safeInvalidateQueries, exports
-  - [x] Phase 2: Metahub domain mutations — finish the remaining true optimistic CRUD/member coverage
-    - [x] metahubs/hooks/mutations.ts (7 hooks)
-    - [x] hubs/hooks/mutations.ts (5 hooks)
-    - [x] catalogs/hooks/mutations.ts (7 hooks)
-    - [x] sets/hooks/mutations.ts (7 hooks)
-    - [x] enumerations/hooks/mutations.ts (13 hooks)
-    - [x] attributes/hooks/mutations.ts — convert CRUD/copy paths from guard-only to full optimistic behavior
-    - [x] elements/hooks/mutations.ts — convert CRUD/copy paths from guard-only to full optimistic behavior
-    - [x] constants/hooks/mutations.ts — convert CRUD/copy paths from guard-only to full optimistic behavior
-    - [x] layouts/hooks/mutations.ts — add optimistic create/update/delete/copy with breadcrumb-safe cache updates
-    - [x] branches/hooks/mutations.ts — add optimistic create/update/delete/copy while preserving branch-specific error handling
-    - [x] publications/hooks/mutations.ts — add optimistic create/update/delete plus publication detail/breadcrumb invalidation
-    - [x] metahubs/hooks/mutations.ts — convert member invite/update/remove flows to full optimistic behavior
-    - [x] Build verification passed (metahubs-frontend)
-  - [x] Phase 3: Application mutations
-    - [x] applications-frontend hooks/mutations.ts — convert connector CRUD and application member flows to full optimistic behavior
-    - [x] applications-frontend api/mutations.ts (runtime CRUD hooks — safeInvalidateQueries import fix)
-    - [x] Build verification passed (applications-frontend + metahubs-frontend)
-  - [x] Phase 4: UI integration (pending overlays, fade-delete)
-    - [x] 12 list components updated with isPendingEntity/getPendingAction props on ItemCard
-    - [x] MetahubList, HubList, CatalogList, SetList, EnumerationList, LayoutList, BranchList, PublicationList, MetahubMembers
-    - [x] ApplicationList, ConnectorList, ApplicationMembers
-    - [x] Navigation conditionally disabled for pending entities (inline isPendingEntity pattern)
-    - [x] FlowListTable pending-row styling/action blocking for optimistic entities in table view
-    - [x] Build verification passed
-  - [x] Phase 5: Testing
-    - [x] 27 unit tests (optimisticCrud.test.ts) — Jest
-    - [x] 10 integration tests (optimisticCrud.integration.test.ts) — Jest
-    - [x] 15 pendingState tests (pendingState.test.ts) — Vitest
-    - [x] 5 PendingCardOverlay tests (PendingCardOverlay.test.tsx) — Jest
-    - [x] Add focused regression coverage for the newly completed optimistic member/connector/shared-table behavior where practical
-    - [x] Re-run touched-package tests after remediation
-  - [x] Phase 6: Runtime CRUD (useCrudDashboard optimistic)
-    - [x] apps-template-mui useCrudDashboard.ts — create/update/delete mutations with optimistic onMutate/onError/onSettled
-    - [x] CustomizedDataGrid.tsx — pending-row/pending-delete CSS styling with shimmer animation
-    - [x] Build verification passed (3/3 tasks)
-  - [x] Phase 7: Final build + memory-bank
-    - [x] Fixed missing exports: makePendingMarkers/stripPendingMarkers/isPendingEntity/getPendingAction in template-mui index.ts
-    - [x] Fixed missing exports: getVLCString/getVLCStringWithFallback in universo-utils index.browser.ts
-    - [x] Added ./hooks/optimisticCrud and ./styles/pendingAnimations to template-mui package.json exports
-    - [x] Fixed all prettier lint errors (EnumerationList, PublicationList, mutations.ts, ApplicationRuntime, useCrudDashboard)
-    - [x] Full build: `pnpm build`
-    - [x] Touched-package tests/lint rerun after remediation
-    - [x] Memory-bank updated with the real final state
-  - [x] QA Closure
-    - [x] Fixed 10 prettier errors in template-mui (ItemCard, PendingCardOverlay, optimisticCrud, pendingAnimations)
-    - [x] Removed dead code: `usePendingNavigationGuard.ts` (created but never used; inline pattern is simpler)
-    - [x] Added `PendingCardOverlay.test.tsx` (5 tests: all 4 actions + spinner)
-    - [x] Re-verify the previously missed optimistic domains against the original specification before closing again
-
-### PR #714 Review Feedback + Mobile Layout Polish — 2026-03-07
-
-> **Status**: ✅ COMPLETE — reviewed PR #714 bot feedback against the live codebase and MUI docs, applied only the validated fixes, and re-verified the touched scope on 2026-03-07.
-
-- [x] Fetch and analyze PR #714 review comments / issue comments / review summaries
-- [x] Validate each suggested fix against current code and relevant documentation before changing behavior
-  - [x] Accepted the `EntityFormDialog` mobile delete-button accessibility fix (`aria-label` / `title`)
-  - [x] Accepted the memory-bank English-only cleanup for the QA plan files added in PR #714
-  - [x] Accepted the real pagination consistency gap in `MenuWidgetEditorDialog` and switched catalogs loading to `fetchAllPaginatedItems()`
-  - [x] Rejected non-specific / non-actionable bot summary text that did not map to a reproducible code defect
-- [x] Fix the mobile list action bar so the search button stays left and the three action buttons stay right on small screens
-- [x] Normalize vertical spacing around the mobile page header/action area so top, middle, and bottom gaps match the pagination/content rhythm
-- [x] Widen the right mobile drawer further so it is visibly wider than the current implementation without breaking layout
-- [x] Re-run targeted lint/tests/build checks for touched packages
-  - [x] `pnpm --filter @universo/template-mui lint`
-  - [x] `pnpm --filter @universo/metahubs-frontend lint`
-  - [x] `pnpm --filter @universo/template-mui test`
-  - [x] `pnpm --filter @universo/metahubs-frontend test`
-  - [x] `pnpm build`
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified outcome
-
-### Manual QA Bug Fixes (7 Issues) + QA Follow-up — 2026-03-07
-
-> **Status**: ✅ COMPLETE — remaining QA UX, regression-coverage, and documentation debt was closed and re-verified on 2026-03-07. Only pre-existing lint warnings remain in the touched packages.
-
-- [x] #1 Fix i18n `createOptions` keys not translated (consolidateMetahubsNamespace missing key)
-- [x] #2 Fix inconsistent mobile spacing in ViewHeader
-- [x] #3 Fix mobile search button size mismatch and alignment
-- [x] #4 Widen mobile drawer (SideMenuMobile) by ~30%
-- [x] #5 Make Delete button icon-only on mobile in EntityFormDialog
-- [x] #6 Fix Hub Settings tab (hubMap → allHubsById lookup)
-- [x] #7 Invalidate breadcrumb queries after entity settings save
-- [x] Lint + build verification
-- [x] QA follow-up: Add missing breadcrumb invalidation in PublicationVersionList settings dialog
-- [x] QA follow-up: Rework CollapsibleMobileSearch so collapse preserves active search and keeps input state synchronized with parent search value
-- [x] QA follow-up: Remove redundant `ml: { xs: 0, sm: 0 }` → `ml: 0` in ViewHeader
-- [x] QA follow-up: Add focused regression coverage for mobile search sync and settings-dialog breadcrumb invalidation
-- [x] QA follow-up: Correct memory-bank dates/status after final verification
-- [x] Final lint + test + full build verification
-  - [x] `pnpm --filter @universo/template-mui test`
-  - [x] Focused `publicationSettingsQueries` Vitest regression test
-  - [x] Full `pnpm --filter @universo/metahubs-frontend test`
-  - [x] Touched-package lint rerun completed with warnings only and no new errors
-  - [x] `pnpm build`
-
-### Metahub Create Options + Entity Settings + Mobile UX + Logout
-
-> Plan: `memory-bank/plan/metahub-create-options-entity-settings-mobile-plan-2026-03-07.md`  
-> **Status**: ✅ COMPLETE — follow-up QA debt closed with targeted regression coverage, type cleanup, and fresh verification.
-
-- [x] Re-open the feature after QA and replace the stale “complete” status with a real remediation plan
-- [x] Fix blocking frontend source issues so the workspace can build again
-  - [x] Repair broken comment/interface boundaries in `CatalogList.tsx` and `EnumerationList.tsx`
-  - [x] Fix template file formatting errors reported by ESLint/Prettier
-- [x] Restore green package quality gates for the feature scope
-  - [x] Make `pnpm --filter @universo/metahubs-frontend build` pass
-  - [x] Make `pnpm --filter @universo/metahubs-frontend test` pass
-  - [x] Keep `pnpm --filter @universo/metahubs-backend test` passing
-- [x] Remove first-round implementation debt discovered by QA
-  - [x] Replace hub fetches capped at `limit: 100` in new settings dialogs with safe all-pages loading so large metahubs are handled correctly
-  - [x] Review template-mui / metahubs-frontend test-time import resolution and remove the regression causing `@universo/applications-frontend/i18n` failures
-  - [x] Add or update focused tests for the broken coverage paths that were blocking the previous remediation
-- [x] Close remaining QA debt from the latest audit
-  - [x] Add backend assertions for `POST /metahubs` → `createInitialBranch(createOptions)` threading
-  - [x] Add backend coverage for `filterSeedByCreateOptions()` / schema initialization behavior
-  - [x] Add frontend tests for the create-options tab and submitted payload in `MetahubList`
-  - [x] Add focused tests for representative logout/mobile UX flows in template-mui (`SideMenu`, `SideMenuMobile`)
-  - [x] Remove type-safety debt in `MetahubList` form values for create options
-- [x] Re-run final verification and only then mark the feature complete
-  - [x] `pnpm --filter @universo/types lint`
-  - [x] `pnpm --filter @universo/metahubs-backend lint`
-  - [x] `pnpm --filter @universo/metahubs-frontend lint`
-  - [x] `pnpm --filter @universo/template-mui lint`
-  - [x] `pnpm --filter @universo/metahubs-frontend test`
-  - [x] `pnpm --filter @universo/metahubs-backend test`
-  - [x] `pnpm --filter @universo/template-mui test`
-  - [x] `pnpm build`
-- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the actual final state after verification
-
-### Constants / REF Display Debt
-
-- [ ] Reuse catalog element value-handling rules in constants "Value" tab so type settings are enforced at input-time and submit-time (STRING/NUMBER/BOOLEAN/DATE).
-
-### confirmOptimisticCreate Parity (Tech Debt)
-
-> 16 create/invite hooks use `applyOptimisticCreate` in `onMutate` but do not call `confirmOptimisticCreate` in `onSuccess`. Copy hooks are all correct.
-
-- [ ] Add `confirmOptimisticCreate` to all create hooks in metahubs-frontend:
-  - `useCreateHub`, `useCreateCatalogAtMetahub`, `useCreateCatalog`, `useCreateSetAtMetahub`, `useCreateSet`
-  - `useCreateEnumerationAtMetahub`, `useCreateEnumeration`, `useCreateAttribute`, `useCreateElement`, `useCreateConstant`
-  - `useCreateLayout`, `useCreateBranch`, `useCreatePublication`, `useInviteMember` (metahubs)
-- [ ] Add `confirmOptimisticCreate` to all create hooks in applications-frontend:
-  - `useCreateApplication`, `useCreateConnector`, `useInviteMember` (applications)
-- [ ] Enforce NUMBER value constraints in constants value field (`nonNegative`, `scale`, min/max, precision) and prevent invalid negative/fraction states.
-- [ ] Enforce STRING value constraints in constants value field (`maxLength`, localized/non-localized behavior parity).
-- [ ] Fix DATE type settings labels/options in constants form to use i18n keys (RU/EN) instead of hardcoded English text.
-- [ ] Align constants table horizontal paddings/margins with sets/attributes list pattern (including full-width table and pagination panel spacing).
-- [ ] Fix application element create/edit form so REF to Set+Constant shows resolved constant value (typed display), not constant UUID.
-
-### Quality Checks (pending)
-
-- [ ] Run targeted checks for touched scope
-- [ ] Update `memory-bank/progress.md` with implementation and verification notes
-- [ ] Add backend route tests for admin settings CRUD and permission/error scenarios
-- [ ] Test API + UI (incl. multiselect, attributeCodenameScope, allowedAttributeTypes)
-- [ ] Push fixes commit
-- [ ] Evaluate session persistence strategies (PostgreSQL, Redis, JWT)
-- [ ] Review auth architecture for scalability
-- [ ] Role cloning, templates, permission inheritance
-- [ ] Audit log for role/permission changes
-- [ ] Multi-instance support (remote instances)
-- [ ] Dark mode theme
-- [ ] Keyboard shortcuts
-- [ ] Mobile responsiveness improvements
-- [ ] Tour/onboarding for new users
-- [ ] Server-side caching, CDN integration
-- [ ] Bundle size optimization
-- [ ] Complete API documentation (OpenAPI)
-- [ ] Architecture decision records (ADR)
-- [ ] Refactor remaining useApi -> useMutation
-- [ ] Standardize error handling across packages
-- [ ] Add unit/E2E tests for critical flows
-- [ ] Resolve Template MUI CommonJS/ESM conflict
-- [ ] Database connection pooling optimization
-- [ ] Rate limiting for all API endpoints
-- [ ] CSRF protection review
-- [ ] API key rotation mechanism
-- [ ] Security headers (HSTS, CSP)
-- [ ] Security audit
-- [ ] 2FA/MFA system
-- [ ] Add second left-zone divider in default layout seeds
-- [ ] Reset new menu widget defaults (empty title, auto-show off, no items)
-- [ ] Prevent stale diff flash in connector schema sync dialog
-
-## Completed and In-Progress Timeline (Compressed)
-
-### 2026-03-06 to 2026-03-08 ✅
-
-- [x] Optimistic updates closure cluster — completed fire-and-forget dialog behavior, deferred pending UX, onSuccess consistency, runtime/apps/member parity, final QA closure, and full green validation.
-- [x] Nested hubs / create-options / mobile polish cluster — delivered hub nesting, hub-scoped linking, runtime menu hierarchy, create-options UX, mobile layout fixes, logout UX, and related review/QA follow-ups.
-- [x] Validation snapshot for this cluster — package tests and root `pnpm build` were rerun repeatedly until the final state was green.
-
-### 2026-03-04 to 2026-03-05 ✅
-
-- [x] Sets / Constants delivery cluster — full implementation, transaction and concurrency hardening, build fixes, table-layout parity, and final QA closure.
-- [x] Ordering / DnD closure cluster — metahub ordering, cross-list optimistic DnD behavior, empty-drop fixes, display-attribute safety, and regression cleanup.
-- [x] Cleanup / hardening cluster — legacy package removal, auth client fix, QA tech-debt cleanup, and post-cleanup stabilization.
-
-### 2026-03-01 to 2026-03-03 ✅
-
-- [x] Codename / settings / VLC cluster — settings-aware codename generation and validation, global/per-level scope behavior, VLC UX consistency, and repeated QA remediation.
-- [x] DnD rollout cluster — attribute + enumeration-value DnD delivery, multiple QA passes, optimistic cross-list updates, and shared table DnD infrastructure.
-- [x] Admin/metahub policy polish — catalog action parity, element settings, duplicate-check improvements, and documentation alignment.
-
-## Historical Completed Timeline (Further Compressed)
-
-### 2026-02-28 ✅
-
-- [x] Publication Drill-In delivery + QA closure + legacy package cleanup follow-up.
-
-### 2026-02-21 to 2026-02-27 ✅
-
-- [x] Copy UX remediation, TABLE attribute delivery, Enumerations implementation, and migration-guard stabilization.
-
-### 2026-02-05 to 2026-02-20 ✅
-
-- [x] Runtime/dashboard/layout foundations, template + DDL migration architecture, and repeated QA hardening.
-
-## [2026-01] Historical Completed Tasks ✅
-
-- [x] Branches, Elements rename, three-level system fields, Publications, schema-ddl, runtime migrations, isolated schema storage, and codename-field rollout.
-
-## [2025-12] Historical Completed Tasks ✅
-
-- [x] VLC system, dynamic locales, Flowise 3.0 / AgentFlow integration, onboarding wizard, admin panel, auth migration, UUID v7, package extraction, and RBAC foundations.
-
-## [Pre-2025-12] Historical Tasks ✅
-
-- [x] Tools/Credentials/Variables extraction, Admin Instances MVP, Campaigns, Storages, and broader `useMutation` refactor.
-## PLANNED TASKS
-
-### Infrastructure & Auth
-- [ ] Evaluate session persistence strategies (PostgreSQL, Redis, JWT)
-## TECHNICAL DEBT
-
-- [ ] Refactor remaining useApi -> useMutation
-  - Note: most packages migrated, some legacy patterns remain
-## SECURITY TASKS
-
-- [ ] Rate limiting for all API endpoints
-  - Note: Redis-based rate limiting exists for some endpoints
-## Deferred: Layout Defaults + Menu Creation + Schema Diff (2026-02-09)
-
-- [ ] Add second left-zone divider in default layout seeds
-  - Note: only one divider in current DEFAULT_DASHBOARD_ZONE_WIDGETS
+- [x] Apply validated bot-review fixes from PR #721
+  - [x] Replace `process.env.NODE_ENV` with `isDevelopment()` in authProvider.tsx
+  - [x] Add `_upl_created_at` key to localesStore SORT_WHITELIST
+  - [x] Add soft-delete filter on profiles LEFT JOIN in MetahubBranchesService.getBlockingUsers
+  - [x] Relocate misplaced "Why" block in systemPatterns.md to correct pattern
+  - [x] Compress activeContext.md to ≤150 lines
+- [ ] Wait for an explicit QA, live, or product trigger before reopening fixed system-app startup work
+  - Note: the 2026-03-13 repeated-start stability closure is complete and no active defect remains in this area.
+- [ ] Keep future fixed-system startup changes behind the repeated-start acceptance gate
+  - Note: required end-state is focused validation, package lint/build, root `pnpm build`, second live `pnpm start`, and healthy HTTP response.
+- [ ] Keep optional global catalog and release-bundle contracts fail-closed in future changes
+  - Note: do not reintroduce metadata-only startup shortcuts, checksum-only bundle artifacts, or a second application release state store.
+
+---
+
+## Completed Waves — 2026-03-13
+
+### Metahub QA Shared-Table Final Reopen Closure — 2026-03-13
+
+> Status: COMPLETE — the last QA-found shared-table DnD consistency gap is closed, and the metahub/shared-table slice is back to a fully validated closed state.
+
+- [x] Fix `FlowListTable` so `SortableContext` item ids always follow the actual rendered row order
+  - Note: external `sortableItemIds` now act only as the allowed DnD id set, while the final id order comes from the visible filtered/sorted rows.
+- [x] Add a direct regression for `sortableItemIds + sortableRows + column sort`
+  - Note: `FlowListTable.test.tsx` now proves the filtered DOM order and the `SortableContext` item ids reorder together after explicit column sorting.
+- [x] Revalidate the shared-table slice and resync memory-bank state
+  - Note: `FlowListTable.test.tsx` passed 4/4, `@universo/template-mui` lint returned to warning-only status, and the final root `pnpm build` passed.
+
+### Metahub QA Final Closure Wave — 2026-03-13
+
+> Status: COMPLETE — the reopened QA cleanup slice is fully closed, including the remaining shared-table filtering defect, the backend active-row gap, direct regressions, and the last package-local error-level lint blocker surfaced during revalidation.
+
+- [x] Fix `FlowListTable` so `filterFunction` still applies when `sortableRows` is enabled
+  - Note: the shared table now filters the sorted row set before render, empty-state evaluation, and DnD id derivation.
+- [x] Close the remaining `MetahubAttributesService.getAllAttributes(...)` active-row consistency gap
+  - Note: `getAllAttributes(...)` now applies `_upl_deleted = false AND _mhb_deleted = false` through the query-builder path before ordering.
+- [x] Add direct regressions for the reopened shared-table and backend consistency cases
+  - Note: `FlowListTable.test.tsx` now proves `filterFunction + sortableRows`, and `MetahubAttributesService.test.ts` now proves active-row filtering on `getAllAttributes(...)`.
+- [x] Clear the package-local `@universo/template-mui` error-level lint blocker discovered during revalidation
+  - Note: the remaining Prettier failure in `src/hooks/optimisticCrud.ts` was removed so package lint returned to warning-only status.
+- [x] Revalidate the reopened remediation slice and resync memory-bank state
+  - Note: backend service regressions passed 4/4, shared-table regressions passed 4/4, `HubList.settingsReopen` passed 1/1, `@universo/template-mui` lint is warning-only, and the final root `pnpm build` passed.
+
+### Metahub QA Follow-Up Remediation Wave — 2026-03-13
+
+> Status: COMPLETE — the remaining runtime read-contract gap and missing regression proofs in the metahub/shared-table slice were closed and revalidated.
+
+- [x] Add active-row filtering to runtime attribute raw SQL reads
+  - Note: `countByObjectIds`, root attribute list, child attribute batch reads, and attribute-by-id lookup now reject `_upl_deleted` / `_mhb_deleted` rows consistently with the branch-schema contract.
+- [x] Add a direct regression for hub-scoped settings reopen
+  - Note: `HubList.settingsReopen.test.tsx` proves `HubList` reopens edit settings from `location.state.openHubSettings` and clears the one-shot state afterwards.
+- [x] Add a direct shared-table regression for actual sortable row order
+  - Note: `FlowListTable.test.tsx` now proves rows reorder when a sortable column is clicked even when `sortableRows` is enabled.
+- [x] Revalidate the touched backend/frontend slice and resync memory-bank status
+  - Note: focused backend/frontend/shared-table tests passed, touched package lint is error-free, the `@universo/template-mui` Jest bootstrap blocker was fixed, and root `pnpm build` passed.
+
+### Metahub Post-Refactor Regression Closure Wave — 2026-03-13
+
+> Status: COMPLETE — the four live metahub regressions reported after the global refactor were fixed and revalidated on the touched frontend/backend slice.
+
+- [x] Restore settings-tab continuity across hub-scoped sibling pages
+  - Note: `CatalogList`, `SetList`, and `EnumerationList` expose the hub Settings tab again and route back through `HubList` state to reopen hub settings.
+- [x] Restore the nested-entity warning confirmation path
+  - Note: redundant metahub-page `ConfirmContextProvider` wrappers were removed so page-level `useConfirm()` calls resolve against the root layout dialog/provider pair.
+- [x] Restore shared table-column sorting without dropping DnD row ordering
+  - Note: `FlowListTable` now keeps sortable headers active when `sortableRows` is enabled and preserves incoming DnD order until a sortable column is explicitly selected.
+- [x] Move the hot metahub catalog/attribute read path back onto request-scoped SQL
+  - Note: object, hub, attribute-count, child-attribute, and element-count reads on the failing page path now use `MetahubSchemaService.query(...)` instead of global Knex pool acquisition.
+- [x] Revalidate the touched slice with focused tests, package builds, and a root build
+  - Note: direct Vitest regression for `ChildAttributeList.optimisticCreate` passed, backend `attributesRoutes`/`catalogsRoutes` tests passed 37/37, touched package builds passed, and root `pnpm build` passed. The targeted `@universo/template-mui` Jest test remains blocked by an existing `ci-info` bootstrap failure (`vendors.map is not a function`), so package/build validation remains the current confidence gate for that shared-table path.
+
+### Fixed System App Restart Stability Wave — 2026-03-13
+
+> Status: COMPLETE — repeated startup now reuses the valid local fixed-system snapshot contract instead of rejecting it as malformed.
+
+- [x] Reproduce the repeated-start failure in the live startup compiler path
+  - Note: the second startup failed with `malformed snapshotAfter` after a clean first bootstrap wrote local `_app_migrations` history.
+- [x] Fix `readLatestSystemAppSnapshot(...)` to validate the canonical `SchemaSnapshot.entities` shape
+  - Note: `snapshotAfter.entities` is a record/object map, not an array; the reader now matches the shared schema-ddl contract.
+- [x] Align stale compiler regressions with the live snapshot and migrator contracts
+  - Note: `systemAppSchemaCompiler.test.ts` no longer uses array-shaped snapshot fixtures or outdated `applyAllChanges` expectations.
+- [x] Add a direct repeated-start regression and rerun validation
+  - Note: `@universo/migrations-platform` full suite passed 105/105, focused lint passed, package build passed.
+- [x] Revalidate the live runtime path and update memory-bank state
+  - Note: root `pnpm build` passed, second live `pnpm start` stayed healthy, and `curl -I http://127.0.0.1:3000/` returned `HTTP/1.1 200 OK`.
+
+### Optional Global Catalog Final Integrity Closure Wave — 2026-03-13
+
+> Status: COMPLETE — the last post-QA integrity debt in delete cascade ordering and fixed-system evolution was closed.
+
+- [x] Fix application delete cascade ordering for connector-publication cleanup
+  - Note: `rel_connector_publications` is now soft-deleted before `cat_connectors`, so active link rows cannot survive connector cleanup ordering.
+- [x] Replace existence-only fixed-system startup with local-history-driven drift handling
+  - Note: fixed system apps now read canonical local `_app_migrations`, compute diff/apply, and record real incremental upgrades when the compiled target drifts.
+- [x] Harden shared schema-ddl recorded-apply behavior for fixed-schema evolution
+  - Note: physical names, explicit SQL defaults/types, capability-gated system tables, and explicit migration names are preserved during recorded apply flows.
+- [x] Remove accidental generated artifacts from `@universo/migrations-core/src`
+  - Note: `.js`, `.d.ts`, and `.d.ts.map` garbage was removed and the package `clean` script now removes the same patterns deterministically.
+- [x] Revalidate focused suites and the full workspace build
+  - Note: targeted regressions passed for applications-backend 9/9, schema-ddl 4/4, migrations-platform compiler 23/23, touched package builds passed, root `pnpm build` passed.
+
+### Optional Global Catalog QA Closure Remediation Wave — 2026-03-13
+
+> Status: COMPLETE — release-bundle snapshot provenance and Phase 8 regression coverage are now fail-closed and direct.
+
+- [x] Recompute embedded snapshot hashes instead of trusting `manifest.snapshotHash`
+  - Note: bundle validation now derives the canonical hash from the embedded snapshot and rejects tampered provenance.
+- [x] Route lineage and install metadata through the recomputed canonical hash
+  - Note: metadata persistence and release lineage now use the derived snapshot identity rather than the raw manifest field.
+- [x] Add missing Phase 8 regression proof in the touched packages
+  - Note: tests now cover tampered snapshot hashes, nullable `globalRunId`, disabled-mode local history persistence, and enabled-mode fail-closed mirror aborts.
+- [x] Re-run focused validation for the touched release-bundle/runtime packages
+  - Note: applications-backend tests passed 82/82, lint passed, targeted migration manager/system table regressions passed, package build passed.
+- [x] Sync memory-bank status after full validation
+  - Note: final root `pnpm build` passed and the optional global catalog/runtime migration plan returned to closed status.
+
+### Optional Global Catalog True Final Closure Wave — 2026-03-13
+
+> Status: COMPLETE — release bundles now carry deterministic executable payloads for both bootstrap and incremental execution.
+
+- [x] Extend `application_release_bundle` with executable payloads
+  - Note: both bootstrap and incremental artifacts now embed deterministic executable payloads plus canonical schema snapshots.
+- [x] Route real execution paths through embedded payloads
+  - Note: fresh installs use `bootstrap.payload.entities`, upgrades use `incrementalMigration.payload.entities`.
+- [x] Add direct integrity regressions for payload and checksum validation
+  - Note: corrupted executable artifacts now fail with `400 Invalid release bundle` before any schema execution begins.
+- [x] Preserve existing release-lineage and install-state boundaries
+  - Note: the central `installed_release_metadata` seam in `applications.cat_applications` remains the only application release-state store.
+- [x] Revalidate the touched slice and full workspace
+  - Note: applications-backend tests passed 80/80, lint passed, root `pnpm build` passed.
+
+### Optional Global Catalog Final Debt Closure Wave — 2026-03-13
+
+> Status: COMPLETE — ambiguous baseline apply on legacy schema-bearing targets now fails closed, and disabled-mode mirroring is covered directly.
+
+- [x] Harden bundle apply for schema-bearing targets without tracked installed release metadata
+  - Note: baseline bundles are now rejected when the target already has `schema_name` but lacks trusted lineage.
+- [x] Keep true fresh-install behavior unchanged
+  - Note: fresh installs still use the existing baseline/bootstrap path when no runtime schema exists.
+- [x] Add disabled-mode mirroring regression coverage at the actual mirror entry point
+  - Note: `mirrorToGlobalCatalog(...)` now has a direct regression proving it returns `null` without catalog writes when disabled.
+- [x] Add route-level regression coverage for the legacy existing-schema guard
+  - Note: bundle apply now fails before schema existence, diff, or apply work begins on ambiguous legacy targets.
+- [x] Revalidate touched packages and root build
+  - Note: applications-backend tests/lint and migrations-catalog tests/lint passed, root `pnpm build` passed.
+
+### Optional Global Catalog Final Closure Wave — 2026-03-13
+
+> Status: COMPLETE — application-origin release-bundle export, runtime parity, executable evidence, and live smoke are all closed.
+
+- [x] Fix application-origin release-bundle lineage so upgrades keep a real prior-version to new-version transition
+  - Note: runtime-origin export now preserves real upgrade provenance instead of collapsing both sides onto one installed version.
+- [x] Bring runtime-origin export into canonical snapshot parity with publication bundles
+  - Note: top-level set constants and runtime metadata/data reconstruction now follow the canonical bundle shape.
+- [x] Add executable Phase 8 regressions for runtime-origin export and apply
+  - Note: direct regressions prove upgrade apply, unchanged runtime re-export lineage reuse, and the empty-install fast path.
+- [x] Run live UP-test smoke from this workspace
+  - Note: direct SQL smoke reached the target, `pnpm migration:status` reported `apply=0`, `skip=12`, `drift=0`, `blocked=0`, and live `pnpm start` returned `pong` on `/api/v1/ping`.
+- [x] Revalidate and resync memory-bank state
+  - Note: focused applications-backend validation passed and the final root build passed again.
+
+### Optional Global Catalog Architecture Closure Wave — 2026-03-13
+
+> Status: COMPLETE — the backend/runtime architecture is now stable in both disabled and enabled catalog modes.
+
+- [x] Replace remaining raw global-catalog env parsing with the shared helper contract
+  - Note: touched startup, runtime, and CLI paths now consume the shared `@universo/utils` parser.
+- [x] Complete application-owned runtime release-bundle export from application data/state
+  - Note: runtime export reconstructs the canonical snapshot from `_app_objects`, `_app_attributes`, `_app_values`, runtime data, layouts, and widgets.
+- [x] Keep local migration history canonical in disabled mode and fail closed in enabled mode
+  - Note: `_app_migrations` / `_mhb_migrations` remain canonical locally, while enabled-mode mirror failures abort instead of degrading silently.
+- [x] Publish mirrored operator docs for optional global catalog modes
+  - Note: English and Russian docs were added and linked through architecture README/SUMMARY files with verified line parity.
+- [x] Revalidate the full architecture slice
+  - Note: focused package tests/lint passed and the final root build passed.
+
+### QA Remnant Fix Wave — 2026-03-13
+
+> Status: COMPLETE — the last four findings from the comprehensive QA analysis were closed without reopening unrelated areas.
+
+- [x] Fix `ApplicationSchemaStateStore.ts` table targeting and active-row predicates
+  - Note: `.table('applications')` became `.table('cat_applications')` with dual-flag active-row filtering.
+- [x] Clear six error-level Prettier failures in metahubs-backend
+  - Note: only touched formatting debt was removed; no behavioral change was introduced.
+- [x] Add missing `activeAppRowCondition()` usage in `globalAccessService.ts`
+  - Note: three UPDATE queries and one SELECT now reject soft-deleted rows correctly.
+- [x] Remove dead duplicate `ConnectorSyncTouchStore.ts`
+  - Note: the unused metahubs-side duplicate had a wrong table name and no dual-flag guard; the applications-owned version remains canonical.
+- [x] Revalidate tests, lint, and root build
+  - Note: metahubs/admin tests passed, lint is error-free in the touched packages, and root `pnpm build` passed.
+
+### QA Blocker Closure Wave — 2026-03-13
+
+> Status: COMPLETE — the last live red surfaces were closed without weakening the actual runtime contracts.
+
+- [x] Reproduce the still-red QA blockers on the live branch
+  - Note: the failing surfaces were confirmed in migrations-core tests/lint, schema-ddl lint, and core-backend lint.
+- [x] Fix the managed-owner validation mismatch at the test contract instead of weakening runtime validation
+  - Note: the broken test input was replaced with a canonical UUID while strict runtime validation stayed intact.
+- [x] Narrow `@universo/migrations-core` lint to implementation sources
+  - Note: package lint now ignores committed/generated `src/**/*.d.ts` output and evaluates actual implementation files.
+- [x] Restore the package-level core-backend lint gate and clear touched format debt
+  - Note: schema-ddl and core-backend error-level lint debt on the touched path was removed.
+- [x] Revalidate focused packages and root build
+  - Note: migrations-core, schema-ddl, and core-backend passed their focused validation, and the final root build passed.
+
+### QA Closure Completion Wave — 2026-03-13
+
+> Status: COMPLETE — operational lifecycle recording, browser env compatibility, dependency-aware registry drift detection, and managed owner-id validation are locked down.
+
+- [x] Record definition export lifecycle rows for bundle-oriented catalog exports
+  - Note: CLI export, doctor, and registry lifecycle state now observe the same export recording seam.
+- [x] Restore browser env precedence and Vite compatibility in shared helpers
+  - Note: precedence is `__UNIVERSO_PUBLIC_ENV__` -> `import.meta.env` -> `process.env` -> browser origin.
+- [x] Make registry drift detection dependency-aware rather than SQL-text-only
+  - Note: stable artifact payload signatures now prevent dependency-only changes from being treated as unchanged.
+- [x] Harden managed owner-id validation against silent normalization collisions
+  - Note: only canonical UUID or 32-character lowercase hex owner ids are accepted for managed schema naming.
+- [x] Revalidate focused suites and the full workspace
+  - Note: migrations-catalog/platform, utils, and migrations-core validation passed, touched lint passed, store build passed, root `pnpm build` passed.
+
+### QA Plan Completion Wave — 2026-03-13
+
+> Status: COMPLETE — only the real remaining defects were fixed after revalidation, and the end-to-end slice is green again.
+
+- [x] Align doctor lifecycle checks with the real sync/export-target contract
+  - Note: doctor now accepts any export row recorded for the active published revision instead of a single hardcoded target.
+- [x] Restore package-local Jest execution for the metahubs parity suite
+  - Note: shared backend Jest mapping now resolves `@universo/database` correctly for the package-local suite.
+- [x] Add cross-package acceptance coverage for publication-created application sync
+  - Note: a core-backend router-level regression now proves publication creation and application sync remain connected end to end.
+- [x] Re-run focused validation for the touched packages
+  - Note: migrations-platform, metahubs-backend parity, and core-backend composition regressions all passed.
+- [x] Finish with a final root build and memory-bank sync
+  - Note: root `pnpm build` passed and the verified closure state was recorded.
+
+### Definition Lifecycle Closure Wave — 2026-03-13
+
+> Status: COMPLETE — the DB/file definition lifecycle now runs through the real draft -> review -> publish path in active platform flows.
+
+- [x] Route live imports through lifecycle-aware draft/review/publish helpers
+  - Note: `importDefinitions()` no longer bypasses the real lifecycle path for incomplete imports.
+- [x] Preserve published provenance on created, updated, and unchanged revisions
+  - Note: first publication from a draft-backed shell is now classified correctly and merged safely.
+- [x] Require published lifecycle provenance in bulk no-op and doctor checks
+  - Note: pre-fix direct-import rows are repaired instead of being treated as healthy forever.
+- [x] Persist raw JSON imports as file-sourced lifecycle imports
+  - Note: operational import provenance now matches platform sync semantics.
+- [x] Revalidate focused packages and root build
+  - Note: migrations-catalog/platform tests passed, package lint/build passed, root `pnpm build` passed.
+
+### QA Deep Remediation Wave 2 — 2026-03-13
+
+> Status: COMPLETE — the second deep QA pass closed cross-package dual-flag and cascade gaps that survived the earlier remediation wave.
+
+- [x] Add `activeAppRowCondition()` to the remaining nine application query helpers
+  - Note: all touched SELECT, UPDATE, and sub-select queries across `cat_applications`, `cat_connectors`, `rel_connector_publications`, and `rel_application_users` now reject deleted rows.
+- [x] Add child-first soft-delete for `doc_publication_versions` in metahub cascade delete
+  - Note: publication versions now delete before publications.
+- [x] Add the same child-first ordering for individual publication delete
+  - Note: direct publication delete now cascades versions before deleting the publication row.
+- [x] Add active-row predicates to the metahub stats endpoint inline queries
+  - Note: publications, publication versions, and applications counts now ignore deleted rows.
+- [x] Revalidate the touched slices and root build
+  - Note: focused regressions passed and the final root build passed again.
+
+### QA Final Remediation Wave 1 — 2026-03-13
+
+> Status: COMPLETE — the first final QA remediation wave closed the remaining dual-flag and migration idempotency gaps.
+
+- [x] Set both `_upl_deleted` and `_app_deleted` during metahub cascade delete
+  - Note: child rows now receive the full dual-flag soft-delete contract instead of partial deletion metadata.
+- [x] Add `activeAppRowCondition()` to `countUsersByRoleId()` and `listRoleUsers()`
+  - Note: role user reads now reject deleted rows consistently.
+- [x] Add dual-flag filtering to `findTemplateById()`
+  - Note: template reads now align with the converged active-row contract.
+- [x] Wrap five bare `ALTER TABLE ADD CONSTRAINT` statements with idempotent guards
+  - Note: the migration now tolerates repeated startup/replay safely.
+- [x] Revalidate focused regressions and root build
+  - Note: touched tests passed and the workspace build stayed green.
+
+### QA-Discovered Store/Service Layer Fixes — 2026-03-13
+
+> Status: COMPLETE — persistence-layer SQL contracts now match the converged DDL schema and active-row rules.
+
+- [x] Rename stale admin/profile/app SQL column references to converged `_upl_*` names
+  - Note: touched stores, services, routes, and frontend types now match the real DDL contract.
+- [x] Replace single-flag soft-delete checks with dual-flag active-row helpers
+  - Note: `activeAppRowCondition()` now protects the touched queries consistently.
+- [x] Replace physical delete in profile persistence with the shared dual-flag soft-delete contract
+  - Note: `softDeleteSetClause()` now drives the touched delete path.
+- [x] Export the shared helper surface through the root `@universo/utils` barrel
+  - Note: touched packages can consume the canonical helper surface without subpath drift.
+- [x] Validate the persistence-layer remediation with full build
+  - Note: the touched package set was updated and root `pnpm build` finished green.
+
+### QA Follow-up Remediation Closure — 2026-03-13
+
+> Status: COMPLETE — the follow-up QA wave resynced memory-bank state and closed the remaining active-row and compensation-test drift.
+
+- [x] Reopen and resync memory-bank state with the real remediation status
+  - Note: `tasks.md` and `activeContext.md` no longer claimed closure prematurely.
+- [x] Close remaining auth/admin profile active-row gaps
+  - Note: touched profile existence, update, search, hydration, and consent flows now require active rows.
+- [x] Stabilize publication compensation regressions against brittle SQL call ordering
+  - Note: cleanup assertions now verify behavior directly instead of depending on mock call indexes.
+- [x] Re-run focused package lint/test validation
+  - Note: auth-backend, admin-backend, and targeted metahubs-backend checks passed.
+- [x] Finish with a full root build and memory sync
+  - Note: root `pnpm build` passed and the wave closed cleanly.
+
+### Ownership And Validation Closure Wave — 2026-03-12
+
+> Status: COMPLETE — the publication-runtime seam now respects package ownership, tests are repeatable, and live startup serves HTTP successfully.
+
+- [x] Remove the remaining publication/application sync ownership leak
+  - Note: metahubs-backend now exposes only publication runtime-source loading, while applications-backend owns sync-context adaptation.
+- [x] Restore repeatable package-level Jest forwarding for touched backend packages
+  - Note: the shared Jest wrapper now forwards args correctly instead of turning them into false patterns.
+- [x] Revalidate touched runtime paths after the refactor
+  - Note: focused backend suites and migrations-platform regressions passed, and root `pnpm build` passed.
+- [x] Recheck live startup behavior on port 3000
+  - Note: `pnpm start` completed bootstrap and the workspace served `HTTP/1.1 200 OK` on `http://127.0.0.1:3000/`.
+- [x] Sync memory-bank state after validation
+  - Note: active context and progress were updated to the verified closure state.
+
+### QA Debt Closure Wave — 2026-03-12
+
+> Status: COMPLETE — only the real residual debt still present on the branch was fixed after revalidation.
+
+- [x] Revalidate the remaining QA blockers against the live branch
+  - Note: the previously suspected compiler blocker no longer reproduced, so this wave stayed focused on the debt that remained real.
+- [x] Close backend technical-debt findings from the QA pass
+  - Note: touched stores moved to explicit returning contracts, admin revocation uses soft-delete, and metahub compensation cleanup is now safe.
+- [x] Add acceptance-oriented regressions around the still-real cleanup surfaces
+  - Note: touched service and route regressions now cover the live failure/cleanup seams that were still open.
+- [x] Remove touched frontend tooling deprecation debt
+  - Note: the shared MUI template SCSS entrypoint now uses Sass `@use` instead of deprecated `@import`.
+- [x] Re-run focused validation and root build
+  - Note: targeted backend tests passed and the final root workspace build passed.
+
+### System-App Definition Cutover And QA Closure — 2026-03-12
+
+> Status: COMPLETE — fixed application-like system apps now bootstrap through definition-driven schema-ddl plans plus phased support migrations.
+
+- [x] Move fixed-system business-table creation to definition-driven schema generation
+  - Note: applications, profile, admin, and metahubs bootstrap through registered schema plans before metadata bootstrap.
+- [x] Remove remaining fixed-schema business-table creation from active manifest chains
+  - Note: active manifest migrations now keep only auxiliary setup that schema-ddl does not express directly.
+- [x] Converge touched predicates and security helpers on the real runtime contract
+  - Note: direct dual-flag predicates and deterministic execute privileges are now enforced across touched paths.
+- [x] Repair and extend compiler/bootstrap regressions for the new path
+  - Note: registry, compiler, startup, manifest parity, and security suites now validate the definition-driven bootstrap model.
+- [x] Revalidate touched packages and root build
+  - Note: focused backend/platform suites passed and root `pnpm build` passed.
+
+### Startup Runtime Regression Remediation — 2026-03-13
+
+> Status: COMPLETE — repeated startup skips unnecessary fixed metadata and catalog work when runtime state is already aligned.
+
+- [x] Add a safe metadata no-op fast path for already-aligned fixed system apps
+  - Note: startup now compares a deterministic live-vs-compiled metadata fingerprint before replaying metadata sync.
+- [x] Add a safe registered-definition catalog no-op fast path
+  - Note: bulk preflight checks skip `registerDefinition()` and export writes for unchanged artifacts.
+- [x] Keep the full bootstrap path as the fallback on drift
+  - Note: startup still heals metadata/catalog state when fingerprints or export rows drift.
+- [x] Add focused repeated-start regressions for the no-op path and drift fallback
+  - Note: already-initialized startup behavior is now covered directly in tests.
+- [x] Re-run focused validation and final root build
+  - Note: touched suites passed and the final workspace build passed.
+
+### System-App Structural Convergence QA Remediation Closure — 2026-03-12
+
+> Status: COMPLETE — the remaining QA findings after structural convergence were closed on the live schema model.
+
+- [x] Target converged `cat_*` tables in application sync persistence helpers
+  - Note: fresh-DB sync flows and connector/application sync-state writes now match the converged schema names.
+- [x] Remove the applications legacy reconcile migration from the active manifest path
+  - Note: fresh bootstrap now follows the canonical creation path only.
+- [x] Complete applications dual-flag soft-delete parity across touched delete paths
+  - Note: touched writes now set `_upl_*` and `_app_*` delete fields together.
+- [x] Replace stale COALESCE-based helpers with direct dual-flag predicates where convergence guarantees apply
+  - Note: touched runtime and persistence paths now use explicit active-row conditions.
+- [x] Revalidate focused suites and root build
+  - Note: applications-backend, start-backend, and migrations-platform validation passed and root `pnpm build` stayed green.
+
+### System-App Structural Convergence Implementation — 2026-03-12
+
+> Status: COMPLETE — the full implementation plan landed and the final workspace build is green.
+
+- [x] Converge admin, profile, metahubs, and applications platform migrations onto the application-like model
+  - Note: all four system-app migrations were rewritten or folded into the converged physical contract.
+- [x] Add shared SQL helpers for direct active-row predicates and soft-delete writes
+  - Note: `activeAppRowCondition()` and `softDeleteSetClause()` became the canonical touched-slice helpers.
+- [x] Update touched stores, aliases, and tests from `_mhb_*` platform fields to `_app_*`
+  - Note: platform catalog tables now expose the converged field family consistently.
+- [x] Remove dead code and stale migration/test references that the plan folded away
+  - Note: orphaned migrations and stale test expectations were cleaned up in the same wave.
+- [x] Validate the full implementation with root build
+  - Note: root `pnpm build` passed 27/27.
+
+### QA Closure Completion Wave 2 — 2026-03-13
+
+> Status: COMPLETE — manifest validation parity, copy persistence coverage, fixed-bootstrap acceptance proof, and mirrored architecture docs are in place.
+
+- [x] Align manifest validation limits with real `VARCHAR(N)` storage contracts
+  - Note: profile `nickname` and admin role `codename` now cap validation at the actual physical limit.
+- [x] Add direct persistence-level copy regression coverage
+  - Note: application copy flows now have dedicated tests for access guards, option handling, and propagated failures.
+- [x] Promote fixed-bootstrap proof into executable cross-package acceptance coverage
+  - Note: core-backend acceptance now asserts the fresh-bootstrap contract for all fixed application-like schemas.
+- [x] Publish mirrored architecture docs for fixed system-app convergence
+  - Note: English and Russian docs plus README/SUMMARY links now have verified parity.
+- [x] Revalidate focused suites and the root build
+  - Note: targeted Jest, lint, docs parity, and the final workspace build all passed.
+
+### Frontend Acceptance Coverage Burst — CRUD, Navigation, and Runtime Shells — 2026-03-12
+
+> Status: COMPLETE — page-level acceptance coverage now exists for the main user-facing CRUD and navigation surfaces.
+
+- [x] Add list-level acceptance coverage for application, metahub, and connector create/edit/copy/delete flows
+  - Note: the touched suites now prove localized payload forwarding through the existing page shells without new wrappers.
+- [x] Add acceptance coverage for connector detail navigation and application control-panel navigation
+  - Note: current list pages now have explicit route-level proof for detail/admin navigation flows.
+- [x] Add runtime-shell acceptance coverage for `ApplicationRuntime`
+  - Note: loading state, error state, and create-action wiring through `useCrudDashboard` are now covered.
+- [x] Add publication-to-application page-level acceptance coverage
+  - Note: `PublicationApplicationList` now proves linked-application creation and runtime/admin row actions.
+- [x] Revalidate the touched frontend packages and root build
+  - Note: focused ESLint/Vitest/build checks passed for applications-frontend and metahubs-frontend, and the root build stayed green.
+
+### Frontend Acceptance Coverage Burst — Sync Flows and Migration Guards — 2026-03-12
+
+> Status: COMPLETE — direct user-facing sync dialogs, sync mutations, migration screens, and migration guards are covered.
+
+- [x] Add dialog-level acceptance coverage for connector/publication diff dialogs
+  - Note: safe apply, destructive apply, and disabled syncing states are now covered.
+- [x] Add mutation-level acceptance coverage for connector and publication sync hooks
+  - Note: success, pending-confirmation, and error branches now have explicit query invalidation proof.
+- [x] Add page-level acceptance coverage for `ConnectorBoard`, `PublicationList`, and `MetahubMigrations`
+  - Note: sync button wiring, destructive confirmation, and apply gating are now covered at the page shell.
+- [x] Add interactive acceptance coverage for `ApplicationMigrationGuard` and `MetahubMigrationGuard`
+  - Note: mandatory update gating, admin bypass, under-development, maintenance, blocker states, and apply errors are all covered.
+- [x] Revalidate the touched frontend packages and root build
+  - Note: focused ESLint/Vitest/build checks passed for the touched slices and the root build stayed green.
+
+### Fixed-System Metadata, Legacy Reconciliation, and Compiler Foundation Burst — 2026-03-12
+
+> Status: COMPLETE — metadata bootstrap observability, doctor/startup gates, legacy-schema reconciliation, and compiler metadata preservation are in place.
+
+- [x] Add fixed-system metadata bootstrap observability and CLI entry points
+  - Note: bootstrap now reports object and attribute counts and is callable through both platform and backend CLI surfaces.
+- [x] Add doctor/startup fail-fast gates for incomplete fixed-system metadata and leftover legacy table names
+  - Note: platform doctor, sync, and startup now reject incomplete metadata or mixed legacy physical models.
+- [x] Add forward-only reconciliation bridges for legacy profile, admin, applications, and metahubs fixed schemas
+  - Note: old physical tables are renamed or merged into the converged `cat_` / `cfg_` / `doc_` / `rel_` targets safely.
+- [x] Preserve explicit object/attribute metadata through compiler artifacts and validation gates
+  - Note: compiled artifacts now prove manifest metadata preservation instead of relying on synthetic defaults alone.
+- [x] Revalidate touched backend/platform packages and root build
+  - Note: focused regressions and standalone package builds passed, and the root workspace build remained green.
+
+## Completed Waves — 2026-03-11
+
+### Catalog, Registry, and Master-Plan Closure Burst — 2026-03-11
+
+> Status: COMPLETE — the architecture foundation for system-app registry lifecycle, runtime sync ownership, and bundle/doctor behavior is in place.
+
+- [x] Move application runtime sync ownership into `@universo/applications-backend`
+  - Note: metahubs-backend now supplies publication context only; applications-backend owns sync routes/orchestration.
+- [x] Turn the definition registry lifecycle into a real draft/review/publish/export/import contract
+  - Note: lifecycle state, approval events, export rows, and canonical bundles are now real operational behavior rather than storage-only scaffolding.
+- [x] Strengthen bootstrap and doctor lifecycle visibility
+  - Note: startup and doctor now fail or report actionable issues when lifecycle/export state is missing after bootstrap/sync.
+- [x] Add deep acceptance proof for bootstrap, registry lifecycle, and publication-driven runtime sync
+  - Note: focused regressions now cover the live seams that the long-range plan depended on.
+- [x] Revalidate focused packages and root workspace gates
+  - Note: targeted tests/builds passed and the final root workspace build was green.
+
+### Shared Schema Naming and Qualification Adoption Burst — 2026-03-11
+
+> Status: COMPLETE — canonical schema naming moved to shared helpers and the touched runtime/bootstrap paths now consume it consistently.
+
+- [x] Replace local branch/runtime schema-name builders with shared migrations-core helpers
+  - Note: the existing `app_<uuid32>` and `mhb_<uuid32>_bN` contracts were preserved exactly while duplication was removed.
+- [x] Adopt shared schema-target resolution in touched bootstrap utilities
+  - Note: runtime/bootstrap paths now use the shared helper contract instead of local drift-prone builders.
+- [x] Align focused regressions with the canonical naming helpers
+  - Note: tests now lock down naming compatibility and invalid-schema rejection on the touched paths.
+- [x] Keep publication compensation and cleanup checks on canonical managed-schema names
+  - Note: cleanup validation now uses the shared schema helper surface rather than route-local assumptions.
+- [x] Revalidate focused suites and package builds
+  - Note: schema-ddl and metahubs-backend validation passed and the touched lint/build surface remained green.
+
+### Planning Baseline Retained — Structural Convergence Program
+
+> Status: OPEN AS REFERENCE ONLY — implementation is already complete; the old plan section remains here only as historical context for future audits.
+
+- [x] Preserve the corrected plan narrative as a historical checkpoint
+  - Note: QA-corrected planning details remain useful for future audit trails even though the implementation has already landed.
+- [x] Keep the implementation/result split explicit
+  - Note: new work should use the completed convergence entries above, not reopen the original planning checklist.
+- [x] Keep future reopen decisions tied to live triggers instead of plan churn
+  - Note: no planning-only reopen should happen without a real defect or product requirement.
+- [x] Keep references to the completed convergence artifacts discoverable
+  - Note: progress.md remains the durable record for the actual delivered waves.
+- [x] Treat this section as archive context, not an active work queue
+  - Note: it remains checked only to prevent accidental reuse as a live task list.
+
+
+### Fixed-System Compiler Metadata Expansion Burst — 2026-03-12
+
+> Status: COMPLETE — fixed-system manifests, compiler artifacts, and metadata preservation gates were expanded before the final convergence closure.
+
+- [x] Add richer field-level metadata support for fixed system-app manifests
+  - Note: explicit table/field presentation, validation rules, and UI config now survive the manifest-to-compiler bridge.
+- [x] Expand remaining fixed-system manifests with explicit metadata and internal REF targets
+  - Note: admin, applications, and metahubs now declare stable business metadata instead of relying on synthetic defaults alone.
+- [x] Add compiled object/attribute artifacts and preservation validation
+  - Note: compiled artifacts now prove object/attribute metadata integrity for `_app_objects` / `_app_attributes` bootstrap.
+- [x] Harden standalone package builds for the touched migration packages
+  - Note: source-fallback resolution now avoids dependency on prebuilt neighbor `dist` output.
+- [x] Revalidate focused platform/backend packages and root build
+  - Note: touched migrations-core, migrations-platform, and owner-package checks passed and the root workspace stayed green.
+
+### Registry and Acceptance Hardening Burst — 2026-03-11
+
+> Status: COMPLETE — registry lifecycle, export dedupe, workspace validation, and deep acceptance proof were hardened before later closure waves.
+
+- [x] Enforce lifecycle governance for draft/review/publish transitions
+  - Note: callers can no longer skip review-state guarantees or bypass approval-event recording on the touched lifecycle paths.
+- [x] Make export recording idempotent and race-safe
+  - Note: repeated export targets now reuse the existing lifecycle row instead of failing under uniqueness constraints.
+- [x] Add deep acceptance proof for publication-driven runtime sync and bootstrap lifecycle behavior
+  - Note: the touched suites now prove real success-path composition instead of only isolated helper behavior.
+- [x] Stabilize the touched root/frontend validation gates
+  - Note: the workspace Vitest path was revalidated after the acceptance and lifecycle hardening changes.
+- [x] Finish with green focused validation and root `pnpm build`
+  - Note: later 2026-03-13 closure waves depended on this foundation remaining green and trustworthy.

@@ -5,6 +5,7 @@ import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 
 const mockMirrorToGlobalCatalog = jest.fn().mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
 const mockHasRuntimeHistoryTable = hasRuntimeHistoryTable as jest.MockedFunction<typeof hasRuntimeHistoryTable>
+const mockIsGlobalMigrationCatalogEnabled = jest.fn(() => true)
 
 jest.mock('@universo/migrations-catalog', () => ({
     mirrorToGlobalCatalog: (...args: unknown[]) => mockMirrorToGlobalCatalog(...args)
@@ -12,6 +13,10 @@ jest.mock('@universo/migrations-catalog', () => ({
 
 jest.mock('@universo/migrations-core', () => ({
     hasRuntimeHistoryTable: jest.fn(async () => true)
+}))
+
+jest.mock('@universo/utils', () => ({
+    isGlobalMigrationCatalogEnabled: (...args: unknown[]) => mockIsGlobalMigrationCatalogEnabled(...args)
 }))
 
 // Create mock Knex instance
@@ -67,6 +72,7 @@ describe('MigrationManager', () => {
         mockHasRuntimeHistoryTable.mockResolvedValue(true)
         mockKnex.raw.mockResolvedValue({ rows: [{ exists: true }] })
         mockMirrorToGlobalCatalog.mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
+        mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
     })
 
     describe('generateMigrationName', () => {
@@ -197,6 +203,41 @@ describe('MigrationManager', () => {
             const meta = JSON.parse(insertCall.meta)
             expect(meta.hasDestructive).toBe(true)
             expect(meta.changes.length).toBe(2) // 1 additive + 1 destructive
+        })
+
+        it('should keep local _app_migrations history when the global catalog is disabled and omit globalRunId', async () => {
+            const snapshotAfter = createTestSnapshot()
+            const diff = createTestDiff()
+
+            mockIsGlobalMigrationCatalogEnabled.mockReturnValue(false)
+            mockMirrorToGlobalCatalog.mockResolvedValueOnce(null)
+
+            await manager.recordMigration('app_test123', '20260117_143022_disabled_catalog', null, snapshotAfter, diff)
+
+            expect(mockMirrorToGlobalCatalog).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    globalCatalogEnabled: false,
+                    localHistoryTable: '_app_migrations'
+                })
+            )
+
+            const insertCall = mockQueryBuilder.insert.mock.calls[0][0]
+            const meta = JSON.parse(insertCall.meta)
+            expect(meta.globalRunId).toBeUndefined()
+        })
+
+        it('should abort local history recording when enabled-mode catalog mirroring fails', async () => {
+            const snapshotAfter = createTestSnapshot()
+            const diff = createTestDiff()
+
+            mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
+            mockMirrorToGlobalCatalog.mockRejectedValueOnce(new Error('catalog unavailable'))
+
+            await expect(
+                manager.recordMigration('app_test123', '20260117_143022_abort_on_catalog_failure', null, snapshotAfter, diff)
+            ).rejects.toThrow('catalog unavailable')
+
+            expect(mockQueryBuilder.insert).not.toHaveBeenCalled()
         })
     })
 

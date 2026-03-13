@@ -6,6 +6,8 @@
         "outDir": "./dist",
         "baseUrl": ".",
         "paths": {
+            "@universo/admin-backend": ["../../admin-backend/base/dist/index.d.ts"],
+            "@universo/migrations-core": ["../../universo-migrations-core/base/dist/index.d.ts"],
             "@universo/schema-ddl": ["../../schema-ddl/base/dist/index.d.ts"]
         },
         "strict": true,

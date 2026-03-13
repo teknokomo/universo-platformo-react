@@ -16,7 +16,9 @@ export const calculateMigrationChecksum = (migration: PlatformMigrationFile): st
             lockMode: migration.lockMode ?? 'transaction_advisory',
             summary: migration.summary ?? null,
             isDestructive: migration.isDestructive ?? false,
-            requiresReview: migration.requiresReview ?? false
+            requiresReview: migration.requiresReview ?? false,
+            deliveryStage: migration.deliveryStage ?? 'one_shot',
+            executionBudget: migration.executionBudget ?? null
         }) ?? ''
 
     const source = migration.checksumSource ?? serialized

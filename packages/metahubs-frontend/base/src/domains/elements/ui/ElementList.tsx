@@ -1654,8 +1654,14 @@ const ElementList = () => {
         setCopyDialogError(null)
     }
 
-    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements') => {
-        if (!metahubId || !catalogId || nextTab === 'elements') return
+    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements' | 'settings') => {
+        if (!metahubId || !catalogId) return
+        if (nextTab === 'elements') return
+        if (nextTab === 'settings') {
+            if (!hubIdParam) return
+            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/hubs`, { state: { openHubSettings: true } })
+            return
+        }
         if (hubIdParam) {
             navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/attributes`)
             return
@@ -1865,6 +1871,7 @@ const ElementList = () => {
                         >
                             <Tab value='attributes' label={t('attributes.title')} />
                             <Tab value='elements' label={t('elements.title')} />
+                            {hubIdParam ? <Tab value='settings' label={t('settings.title')} /> : null}
                         </Tabs>
                     </Box>
 

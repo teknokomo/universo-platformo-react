@@ -71,7 +71,7 @@ jest.mock('../../domains/ddl', () => ({
     releaseAdvisoryLock: jest.fn(async () => undefined)
 }))
 
-jest.mock('../../domains/applications/routes/applicationSyncRoutes', () => ({
+jest.mock('@universo/applications-backend', () => ({
     __esModule: true,
     runPublishedApplicationRuntimeSync: (...args: unknown[]) => mockRunPublishedApplicationRuntimeSync(...args)
 }))
@@ -133,12 +133,16 @@ jest.mock('../../domains/shared/setConstantRefs', () => ({
 }))
 
 import { createPublicationsRoutes } from '../../domains/publications/routes/publicationsRoutes'
+import { ApplicationSchemaStatus } from '@universo/types'
+import { TARGET_APP_STRUCTURE_VERSION } from '../../domains/applications/constants'
 
 type MockTx = {
     query: jest.Mock
     transaction: jest.Mock
     isReleased: jest.Mock
 }
+
+const TEST_APP_SCHEMA_NAME = 'app_019ccefc2f7b7b3682f485cdb1312268'
 
 const createResponseErrorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction) => {
     res.status(500).json({ error: err.message })
@@ -173,7 +177,10 @@ describe('Publications Routes', () => {
     const buildApp = () => {
         const app = express()
         app.use(express.json())
-        app.use('/', createPublicationsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter))
+        app.use(
+            '/',
+            createPublicationsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter)
+        )
         app.use(createResponseErrorHandler)
         return app
     }
@@ -184,7 +191,7 @@ describe('Publications Routes', () => {
 
         mockExec = {
             query: jest.fn(async (sql: string) => {
-                if (sql.includes('COUNT(*)::int AS count FROM metahubs.publications')) {
+                if (sql.includes('COUNT(*)::int AS count FROM metahubs.doc_publications')) {
                     return [{ count: 0 }]
                 }
                 return []
@@ -244,7 +251,7 @@ describe('Publications Routes', () => {
                 schemaStatus: 'draft'
             },
             connector: { id: 'connector-1' },
-            appSchemaName: 'app_publication_1'
+            appSchemaName: TEST_APP_SCHEMA_NAME
         })
 
         const app = buildApp()
@@ -258,11 +265,159 @@ describe('Publications Routes', () => {
             .expect(500)
 
         expect(response.body).toEqual({ error: 'Failed to create publication schema: ddl exploded' })
-        expect(mockSoftDelete).toHaveBeenNthCalledWith(1, transactionExecutors[1], 'metahubs', 'publications_versions', 'version-1', 'user-1')
-        expect(mockSoftDelete).toHaveBeenNthCalledWith(2, transactionExecutors[1], 'metahubs', 'publications', 'publication-1', 'user-1')
-        expect(transactionExecutors[1].query.mock.calls[0][0]).toContain('DROP SCHEMA IF EXISTS "app_publication_1" CASCADE')
-        expect(transactionExecutors[1].query.mock.calls[1][0]).toContain('UPDATE applications.connectors')
-        expect(transactionExecutors[1].query.mock.calls[3][0]).toContain('UPDATE applications.applications')
+        expect(mockSoftDelete).toHaveBeenNthCalledWith(
+            1,
+            transactionExecutors[1],
+            'metahubs',
+            'doc_publication_versions',
+            'version-1',
+            'user-1'
+        )
+        expect(mockSoftDelete).toHaveBeenNthCalledWith(
+            2,
+            transactionExecutors[1],
+            'metahubs',
+            'doc_publications',
+            'publication-1',
+            'user-1'
+        )
+        const compensationSql = transactionExecutors[1].query.mock.calls.map(([sql]) => String(sql))
+
+        expect(compensationSql).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining(`DROP SCHEMA IF EXISTS "${TEST_APP_SCHEMA_NAME}" CASCADE`),
+                expect.stringContaining('UPDATE applications.cat_connectors'),
+                expect.stringContaining('UPDATE applications.rel_connector_publications'),
+                expect.stringContaining('UPDATE applications.rel_application_users'),
+                expect.stringContaining('UPDATE applications.cat_applications')
+            ])
+        )
+    })
+
+    it('runs published application runtime sync and persists synced state after successful schema generation', async () => {
+        const persistedSnapshot = { entities: [], version: 1 }
+        const ddlTransaction = createMockTransaction()
+
+        mockCreatePublication.mockResolvedValue({
+            id: 'publication-1',
+            name: { en: 'Publication' },
+            description: null,
+            schemaName: 'mhb_publication-1',
+            schemaStatus: 'draft',
+            schemaError: null,
+            schemaSyncedAt: null,
+            accessMode: 'private',
+            autoCreateApplication: true,
+            activeVersionId: null,
+            _uplVersion: 1,
+            _uplCreatedAt: new Date(),
+            _uplUpdatedAt: new Date()
+        })
+        mockCreatePublicationVersion.mockResolvedValue({ id: 'version-1', snapshotHash: 'snapshot-hash' })
+        mockCreateLinkedApplication.mockResolvedValue({
+            application: {
+                id: 'application-1',
+                name: { en: 'Application' },
+                description: null,
+                slug: 'application-1',
+                schemaStatus: 'draft'
+            },
+            connector: { id: 'connector-1' },
+            appSchemaName: TEST_APP_SCHEMA_NAME
+        })
+        mockGenerateFullSchema.mockImplementation(async (_schemaName: string, _definitions: unknown, options?: any) => {
+            await options.afterMigrationRecorded({
+                trx: ddlTransaction,
+                schemaName: TEST_APP_SCHEMA_NAME,
+                snapshotBefore: null,
+                snapshotAfter: persistedSnapshot,
+                diff: {
+                    hasChanges: true,
+                    additive: [],
+                    destructive: [],
+                    summary: 'Initial schema creation with 0 table(s)'
+                },
+                migrationName: 'initial_schema_from_publication',
+                migrationId: 'migration-1'
+            })
+
+            return {
+                success: true,
+                schemaName: TEST_APP_SCHEMA_NAME,
+                tablesCreated: [],
+                errors: []
+            }
+        })
+
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/publications')
+            .send({
+                name: { en: 'Publication' },
+                autoCreateApplication: true,
+                createApplicationSchema: true
+            })
+            .expect(201)
+
+        expect(response.body).toEqual(
+            expect.objectContaining({
+                id: 'publication-1',
+                activeVersionId: 'version-1',
+                autoCreateApplication: true
+            })
+        )
+        expect(mockGenerateFullSchema).toHaveBeenCalledWith(
+            TEST_APP_SCHEMA_NAME,
+            [],
+            expect.objectContaining({
+                recordMigration: true,
+                migrationDescription: 'initial_schema_from_publication',
+                migrationManager: {},
+                migrationMeta: {
+                    publicationSnapshotHash: 'snapshot-hash',
+                    publicationId: 'publication-1',
+                    publicationVersionId: 'version-1'
+                },
+                publicationSnapshot: expect.objectContaining({
+                    entities: [],
+                    layouts: [],
+                    layoutZoneWidgets: [],
+                    defaultLayoutId: null,
+                    layoutConfig: {}
+                }),
+                userId: 'user-1',
+                afterMigrationRecorded: expect.any(Function)
+            })
+        )
+        expect(mockRunPublishedApplicationRuntimeSync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trx: ddlTransaction,
+                schemaName: TEST_APP_SCHEMA_NAME,
+                snapshot: expect.objectContaining({
+                    entities: [],
+                    layouts: [],
+                    layoutZoneWidgets: [],
+                    defaultLayoutId: null,
+                    layoutConfig: {}
+                }),
+                entities: [],
+                migrationId: 'migration-1',
+                userId: 'user-1'
+            })
+        )
+        expect(mockPersistApplicationSchemaSyncState).toHaveBeenCalledWith(
+            ddlTransaction,
+            expect.objectContaining({
+                applicationId: 'application-1',
+                schemaStatus: ApplicationSchemaStatus.SYNCED,
+                schemaError: null,
+                schemaSnapshot: persistedSnapshot,
+                lastSyncedPublicationVersionId: 'version-1',
+                appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                userId: 'user-1'
+            })
+        )
+        expect(mockSoftDelete).not.toHaveBeenCalled()
     })
 
     it('returns 500 and compensates a linked application when schema generation fails', async () => {
@@ -287,7 +442,7 @@ describe('Publications Routes', () => {
                 slug: 'application-1'
             },
             connector: { id: 'connector-1' },
-            appSchemaName: 'app_publication_1'
+            appSchemaName: TEST_APP_SCHEMA_NAME
         })
 
         const app = buildApp()
@@ -300,9 +455,59 @@ describe('Publications Routes', () => {
             .expect(500)
 
         expect(response.body).toEqual({ error: 'Failed to create linked application schema: ddl exploded' })
-        expect(transactionExecutors[1].query.mock.calls[0][0]).toContain('DROP SCHEMA IF EXISTS "app_publication_1" CASCADE')
-        expect(transactionExecutors[1].query.mock.calls[1][0]).toContain('UPDATE applications.connectors')
-        expect(transactionExecutors[1].query.mock.calls[3][0]).toContain('UPDATE applications.applications')
+        const compensationSql = transactionExecutors[1].query.mock.calls.map(([sql]) => String(sql))
+
+        expect(compensationSql).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining(`DROP SCHEMA IF EXISTS "${TEST_APP_SCHEMA_NAME}" CASCADE`),
+                expect.stringContaining('UPDATE applications.cat_connectors'),
+                expect.stringContaining('UPDATE applications.rel_connector_publications'),
+                expect.stringContaining('UPDATE applications.rel_application_users'),
+                expect.stringContaining('UPDATE applications.cat_applications')
+            ])
+        )
         expect(mockSoftDelete).not.toHaveBeenCalled()
+    })
+
+    it('cascades soft-delete to publication versions when deleting a publication', async () => {
+        mockFindPublicationById.mockResolvedValue({
+            id: 'publication-1',
+            metahubId: 'metahub-1',
+            schemaName: null,
+            name: { en: 'Publication' },
+            description: null
+        })
+
+        const tx = createMockTransaction()
+        tx.query.mockImplementation(async (sql: string) => {
+            if (typeof sql === 'string' && sql.includes('FOR UPDATE') && sql.includes('cat_metahubs')) {
+                return [{ id: 'metahub-1' }]
+            }
+            if (typeof sql === 'string' && sql.includes('FOR UPDATE') && sql.includes('doc_publications')) {
+                return [{ id: 'publication-1', schemaName: null }]
+            }
+            return []
+        })
+
+        mockExec.transaction.mockImplementation(async (cb: (t: MockTx) => Promise<unknown>) => {
+            return cb(tx)
+        })
+
+        const app = buildApp()
+        await request(app).delete('/metahub/metahub-1/publication/publication-1?confirm=true').expect(200)
+
+        // Verify cascade soft-delete of publication versions
+        const versionsCascadeSql = tx.query.mock.calls.find(
+            ([sql]: [string]) => typeof sql === 'string' && sql.includes('UPDATE metahubs.doc_publication_versions')
+        )
+        expect(versionsCascadeSql).toBeDefined()
+        const sql = String(versionsCascadeSql![0])
+        expect(sql).toContain('_upl_deleted = true')
+        expect(sql).toContain('_app_deleted = true')
+        expect(sql).toContain('publication_id = $1')
+        expect(sql).toContain('_upl_deleted = false AND _app_deleted = false')
+
+        // Verify parent publication soft-delete follows
+        expect(mockSoftDelete).toHaveBeenCalledWith(tx, 'metahubs', 'doc_publications', 'publication-1', 'user-1')
     })
 })

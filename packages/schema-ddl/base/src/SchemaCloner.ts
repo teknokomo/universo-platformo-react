@@ -1,14 +1,6 @@
 import type { Knex } from 'knex'
+import { assertCanonicalIdentifier, quoteIdentifier } from '@universo/migrations-core'
 import { isValidSchemaName } from './naming'
-
-const IDENTIFIER_REGEX = /^[a-z_][a-z0-9_]*$/
-
-const quoteIdentifier = (identifier: string): string => {
-    if (!IDENTIFIER_REGEX.test(identifier)) {
-        throw new Error(`Unsafe identifier: ${identifier}`)
-    }
-    return `"${identifier}"`
-}
 
 const toRows = <T>(result: unknown): T[] => {
     if (Array.isArray(result)) return result as T[]
@@ -21,9 +13,10 @@ const toRows = <T>(result: unknown): T[] => {
 }
 
 const ensureSafeSchemaName = (schemaName: string): void => {
-    if (!isValidSchemaName(schemaName) || !IDENTIFIER_REGEX.test(schemaName)) {
+    if (!isValidSchemaName(schemaName)) {
         throw new Error(`Invalid schema name format: ${schemaName}`)
     }
+    assertCanonicalIdentifier(schemaName)
 }
 
 const mapPgBindingsToKnex = (sql: string, params: unknown[]): { sql: string; params: unknown[] } => {

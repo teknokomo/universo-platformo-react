@@ -1,28 +1,52 @@
-## Current Focus
+# Active Context
 
-**PR #719 bot-review triage is complete and the follow-up fixes are ready to ship on the active branch.**
+> Current-focus memory only. Completed implementation detail belongs in progress.md; active and follow-up checklists belong in tasks.md.
 
-### Summary
+---
 
-The current session reviewed bot comments on PR #719 after the TypeORM-to-Knex migration work. The valid findings were concentrated around request-scoped RLS execution in authenticated admin routes plus one stale memory-bank architecture note that still described the removed TypeORM flow.
+## Current Focus: PR #721 Review Remediation
 
-The fix set stayed narrow and architecture-safe: authenticated admin routes now prefer `getRequestDbExecutor(req, getDbExecutor())`, a regression test locks that behavior in, and `memory-bank/rls-integration-pattern.md` now describes the real Knex/request-scoped RLS lifecycle instead of the legacy TypeORM model.
+- Date: 2026-03-13.
+- Status: applying bot-review fixes from PR #721 (System App Structural Convergence).
+- Scope: address validated review comments from Copilot and Gemini Code Assist bots.
 
-### What Was Accepted
+## Fixes Applied
 
-- Authenticated admin routes must use request-scoped executors under `ensureAuthWithRls` so SQL runs on the pinned connection carrying `request.jwt.claims`.
-- The old `memory-bank/rls-integration-pattern.md` was stale and had to be rewritten around `DbSession` / `DbExecutor` and the current middleware lifecycle.
-- Minor readability/docs comments were safe to accept where they clarified route intent without changing behavior.
+1. **authProvider.tsx**: replaced bare `process.env.NODE_ENV` with `isDevelopment()` to avoid Vite browser ReferenceError.
+2. **localesStore.ts**: added `_upl_created_at` key to SORT_WHITELIST so the Zod-validated `sortBy` value maps correctly.
+3. **MetahubBranchesService.ts**: added `_upl_deleted = false AND _app_deleted = false` to the LEFT JOIN on `profiles.cat_profiles` in `getBlockingUsers()`.
+4. **systemPatterns.md**: relocated the misplaced "Why" block from Explicit RETURNING pattern back to Repeated-Startup Fast-Path Pattern.
+5. **activeContext.md**: compressed to ≤150 lines (was 215) per memory-bank rules.
 
-### What Was Rejected
+## Review Comments Dismissed (With Justification)
 
-- The suggested `COUNT(*) OVER()` pagination rewrite for the instances list path was not applied because an empty page produced by `OFFSET` would incorrectly collapse `total` to zero even when matching rows still exist.
+- **connectorsStore.ts double assignment**: `softDeleteSetClause()` does NOT include `_upl_version` — no duplication exists.
+- **createApplicationsServiceRoutes breaking change**: internal monorepo function, caller already updated — no external breaking change.
+- **tsconfig.json path mappings to dist/**: valid architectural suggestion for future improvement, not a bug for this PR.
 
-### Validation State
+## Operational Posture
 
-- `pnpm --filter @universo/admin-backend test` passed, including the new request-scoped executor regression test.
-- Root `pnpm build` passed with 27/27 tasks.
+- The System App Structural Convergence wave is complete.
+- All previous completed waves are documented in `progress.md`.
+- Active tasks and follow-up checklists are in `tasks.md`.
+- Keep converged system app definitions, manifest-only migration loading, and relocated application sync routes stable.
+- Prefer shared-layer fixes when regressions originate in root confirm infrastructure, shared table behavior, or request-scoped database seams.
 
-### Immediate Next Step
+## Constraints
 
-- Push the follow-up commit to the existing PR branch and wait for the next review cycle or user-directed work.
+- Branch schemas `mhb_<uuid>_bN` intentionally keep `_mhb_*` fields.
+- Dynamic application schemas `app_<uuid>` intentionally keep `_app_*` fields.
+- Fixed application-like system schemas are the only target of the convergence.
+- Monolithic fixed-schema SQL definitions remain reference parity contracts, not the active bootstrap source.
+
+## Working Rules For Next Reopen
+
+- Reproduce first with live repeated startup or concrete route path.
+- Verify snapshot shape at the read boundary before changing migrator behavior.
+- Finish with focused tests, touched lint/build, full root build, and health check.
+
+## References
+
+- Progress details: `memory-bank/progress.md`.
+- Active tasks: `memory-bank/tasks.md`.
+- Architecture patterns: `memory-bank/systemPatterns.md`.

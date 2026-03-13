@@ -103,8 +103,8 @@ function transformRole(apiRole: Record<string, unknown>): RoleListItem {
         isSuperuser: apiRole.is_superuser as boolean,
         canAccessAdmin: apiRole.can_access_admin as boolean,
         isSystem: apiRole.is_system as boolean,
-        createdAt: apiRole.created_at as string,
-        updatedAt: apiRole.updated_at as string,
+        createdAt: apiRole._upl_created_at as string,
+        updatedAt: apiRole._upl_updated_at as string,
         permissions: ((apiRole.permissions as Record<string, unknown>[] | undefined) || []).map((p) => ({
             subject: p.subject as string,
             action: p.action as string,

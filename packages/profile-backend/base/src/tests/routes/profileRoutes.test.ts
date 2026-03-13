@@ -19,6 +19,8 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createProfileRoutes } from '../../routes/profileRoutes'
 
+type AuthenticatedRequest = Request & { user?: { sub: string } }
+
 function createMockExec() {
     return { query: jest.fn().mockResolvedValue([]), transaction: jest.fn(), isReleased: jest.fn(() => false) }
 }
@@ -27,12 +29,20 @@ describe('profile routes', () => {
     beforeEach(() => {
         jest.clearAllMocks()
 
-        mockControllerMethods.getProfile.mockImplementation(async (_req: any, res: any) => res.status(200).json({ id: 'profile-1' }))
-        mockControllerMethods.createProfile.mockImplementation(async (_req: any, res: any) => res.status(201).json({ id: 'profile-1' }))
-        mockControllerMethods.updateProfile.mockImplementation(async (_req: any, res: any) => res.status(200).json({ id: 'profile-1' }))
-        mockControllerMethods.deleteProfile.mockImplementation(async (_req: any, res: any) => res.status(204).send())
-        mockControllerMethods.getAllProfiles.mockImplementation(async (_req: any, res: any) => res.status(200).json([]))
-        mockControllerMethods.checkNickname.mockImplementation(async (_req: any, res: any) => res.status(200).json({ available: true }))
+        mockControllerMethods.getProfile.mockImplementation(async (_req: Request, res: Response) =>
+            res.status(200).json({ id: 'profile-1' })
+        )
+        mockControllerMethods.createProfile.mockImplementation(async (_req: Request, res: Response) =>
+            res.status(201).json({ id: 'profile-1' })
+        )
+        mockControllerMethods.updateProfile.mockImplementation(async (_req: Request, res: Response) =>
+            res.status(200).json({ id: 'profile-1' })
+        )
+        mockControllerMethods.deleteProfile.mockImplementation(async (_req: Request, res: Response) => res.status(204).send())
+        mockControllerMethods.getAllProfiles.mockImplementation(async (_req: Request, res: Response) => res.status(200).json([]))
+        mockControllerMethods.checkNickname.mockImplementation(async (_req: Request, res: Response) =>
+            res.status(200).json({ available: true })
+        )
     })
 
     const buildApp = () => {
@@ -41,11 +51,11 @@ describe('profile routes', () => {
 
         const router = createProfileRoutes(
             {
-                getDbExecutor: () => poolExec as any,
-                getRequestDbExecutor: () => rlsExec as any
+                getDbExecutor: () => poolExec as never,
+                getRequestDbExecutor: () => rlsExec as never
             },
             (_req: Request, _res: Response, next: NextFunction) => {
-                ;(_req as any).user = { sub: 'user-1' }
+                ;(_req as AuthenticatedRequest).user = { sub: 'user-1' }
                 next()
             }
         )

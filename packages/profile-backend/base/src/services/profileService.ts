@@ -7,16 +7,13 @@ import {
     profileExistsByUserId,
     findAllProfiles,
     deleteProfileByUserId,
-    type ProfileRow
+    type ProfileRow,
+    type ProfileUpdateRowInput
 } from '../persistence/profileStore'
-import { CreateProfileDto, UpdateProfileDto, UserSettingsData } from '../types'
+import { CreateProfileInput, UpdateProfileDto, UserSettingsData } from '../types'
 
-/**
- * Generate a unique nickname based on email or user ID
- */
 function generateNickname(userId: string, email?: string): string {
     if (email) {
-        // Use email prefix, sanitized for nickname rules
         const prefix = email
             .split('@')[0]
             .replace(/[^a-zA-Z0-9_]/g, '_')
@@ -24,8 +21,26 @@ function generateNickname(userId: string, email?: string): string {
         const suffix = userId.substring(0, 8)
         return `${prefix}_${suffix}`
     }
-    // Fallback to user ID based nickname
+
     return `user_${userId.substring(0, 16).replace(/-/g, '')}`
+}
+
+function sanitizePublicProfileUpdate(data: UpdateProfileDto): ProfileUpdateRowInput {
+    const sanitized: ProfileUpdateRowInput = {}
+
+    if (typeof data.nickname === 'string') {
+        sanitized.nickname = data.nickname
+    }
+
+    if (typeof data.first_name === 'string') {
+        sanitized.first_name = data.first_name
+    }
+
+    if (typeof data.last_name === 'string') {
+        sanitized.last_name = data.last_name
+    }
+
+    return sanitized
 }
 
 export class ProfileService {
@@ -44,7 +59,6 @@ export class ProfileService {
                     nickname,
                     settings: {}
                 })
-                console.log(`[ProfileService] Auto-created profile for user ${userId} with nickname ${nickname}`)
                 return profile
             } catch (error) {
                 if (!isUniqueViolation(error)) {
@@ -61,17 +75,10 @@ export class ProfileService {
         throw new Error(`Failed to auto-create profile for user ${userId} after ${maxAttempts} attempts`)
     }
 
-    /**
-     * Get user profile by user ID
-     */
     async getUserProfile(userId: string): Promise<ProfileRow | null> {
         return findProfileByUserId(this.exec, userId)
     }
 
-    /**
-     * Get or create user profile.
-     * If profile doesn't exist, creates one with auto-generated nickname.
-     */
     async getOrCreateProfile(userId: string, email?: string): Promise<ProfileRow> {
         let profile = await findProfileByUserId(this.exec, userId)
 
@@ -82,73 +89,52 @@ export class ProfileService {
         return profile
     }
 
-    /**
-     * Create a new profile for a user
-     */
-    async createProfile(data: CreateProfileDto): Promise<ProfileRow> {
+    async createProfile(data: CreateProfileInput): Promise<ProfileRow> {
         return createProfileRow(this.exec, data)
     }
 
-    /**
-     * Check if nickname is available
-     */
     async checkNicknameAvailable(nickname: string, excludeUserId?: string): Promise<boolean> {
         try {
             return await checkNickname(this.exec, nickname, excludeUserId)
         } catch {
-            // If query fails (e.g., table doesn't exist in local DB), assume nickname is available.
             return true
         }
     }
 
-    /**
-     * Update existing user profile
-     */
     async updateProfile(userId: string, data: UpdateProfileDto): Promise<ProfileRow | null> {
-        // Check nickname uniqueness if being updated
-        if (data.nickname) {
-            const isAvailable = await this.checkNicknameAvailable(data.nickname, userId)
+        const sanitizedData = sanitizePublicProfileUpdate(data)
+
+        if (Object.keys(sanitizedData).length === 0) {
+            throw new Error('No supported profile fields provided for update')
+        }
+
+        if (sanitizedData.nickname) {
+            const isAvailable = await this.checkNicknameAvailable(sanitizedData.nickname, userId)
             if (!isAvailable) {
                 throw new Error('Nickname is already taken')
             }
         }
 
-        return updateProfileByUserId(this.exec, userId, data as Record<string, unknown>)
+        return updateProfileByUserId(this.exec, userId, sanitizedData)
     }
 
-    /**
-     * Check if profile exists for user
-     */
     async profileExists(userId: string): Promise<boolean> {
         return profileExistsByUserId(this.exec, userId)
     }
 
-    /**
-     * Get all profiles (admin function)
-     */
     async getAllProfiles(): Promise<ProfileRow[]> {
         return findAllProfiles(this.exec)
     }
 
-    /**
-     * Delete user profile
-     */
-    async deleteProfile(userId: string): Promise<boolean> {
-        return deleteProfileByUserId(this.exec, userId)
+    async deleteProfile(userId: string, deletedBy?: string | null): Promise<boolean> {
+        return deleteProfileByUserId(this.exec, userId, deletedBy ?? undefined)
     }
 
-    /**
-     * Get user settings
-     */
     async getUserSettings(userId: string): Promise<UserSettingsData> {
         const profile = await findProfileByUserId(this.exec, userId)
         return profile?.settings || {}
     }
 
-    /**
-     * Update user settings (deep merge).
-     * Auto-creates profile if it doesn't exist.
-     */
     async updateUserSettings(userId: string, settingsUpdate: Partial<UserSettingsData>, email?: string): Promise<UserSettingsData> {
         let profile = await findProfileByUserId(this.exec, userId)
 
@@ -156,7 +142,6 @@ export class ProfileService {
             profile = await this.createAutoProfile(userId, email)
         }
 
-        // Deep merge existing settings with update
         const currentSettings = profile.settings || {}
         const newSettings: UserSettingsData = {
             ...currentSettings,
@@ -170,7 +155,6 @@ export class ProfileService {
             }
         }
 
-        // Remove undefined keys
         if (newSettings.admin && Object.keys(newSettings.admin).length === 0) {
             delete newSettings.admin
         }
@@ -183,9 +167,6 @@ export class ProfileService {
         return newSettings
     }
 
-    /**
-     * Mark onboarding as completed, bootstrapping the profile when needed.
-     */
     async markOnboardingCompleted(userId: string, email?: string): Promise<ProfileRow> {
         let profile = await findProfileByUserId(this.exec, userId)
 

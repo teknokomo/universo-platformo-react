@@ -17,6 +17,7 @@ import {
 import { useTheme } from '@mui/material/styles'
 import { IconMail, IconLock } from '@tabler/icons-react'
 import { SmartCaptcha } from '@yandex/smart-captcha'
+import { isDevelopment } from '@universo/utils'
 
 export type AuthViewMode = 'login' | 'register'
 
@@ -155,16 +156,6 @@ export const AuthView = ({
     const siteKey = currentCaptchaConfig.siteKey ?? ''
     const testMode = currentCaptchaConfig.testMode ?? false
 
-    // Debug log for captcha configuration
-    console.info('[AuthView] Captcha config:', {
-        mode,
-        captchaEnabled,
-        siteKey: siteKey ? '***' : null,
-        testMode,
-        registrationEnabled: registrationCaptchaConfig.enabled,
-        loginEnabled: loginCaptchaConfig.enabled
-    })
-
     // Important: Yandex SmartCaptcha test mode does NOT bypass domain validation.
     // If you see a "key cannot be used on domain localhost" error, you must configure domains in Yandex Cloud
     // (or use a separate dev key / disable domain validation).
@@ -175,6 +166,7 @@ export const AuthView = ({
         const hostname = window.location.hostname
         const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
         if (!isLocalhost) return
+        if (!isDevelopment()) return
 
         console.warn(
             `[AuthView] SmartCaptcha (${mode}): testMode=true does not bypass domain validation. Configure Yandex Cloud CAPTCHA domains for localhost/127.0.0.1 or use a dedicated dev sitekey.`
@@ -435,7 +427,9 @@ export const AuthView = ({
                                             onSuccess={setCaptchaToken}
                                             onTokenExpired={() => setCaptchaToken('')}
                                             onNetworkError={() => {
-                                                console.error('[AuthView] SmartCaptcha network error')
+                                                if (isDevelopment()) {
+                                                    console.error('[AuthView] SmartCaptcha network error')
+                                                }
                                                 setError(
                                                     labels.captchaNetworkError ||
                                                         'Captcha service is temporarily unavailable. Please try again.'

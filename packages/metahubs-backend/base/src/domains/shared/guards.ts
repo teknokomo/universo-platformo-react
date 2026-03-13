@@ -83,8 +83,8 @@ const baseGuards = createAccessGuards<MetahubRole, MetahubUserRow, SqlQueryable>
             exec,
             `
                         SELECT ${MEMBERSHIP_SELECT('mu')}
-                        FROM metahubs.metahubs_users mu
-                        JOIN metahubs.metahubs m ON m.id = mu.metahub_id
+                        FROM metahubs.rel_metahub_users mu
+                        JOIN metahubs.cat_metahubs m ON m.id = mu.metahub_id
                         WHERE mu.metahub_id = $1
                             AND mu.user_id = $2
                             AND ${activeMetahubRowCondition('mu')}

@@ -17,6 +17,7 @@ const enforceCoverageThresholds = process.env.VITEST_ENFORCE_COVERAGE === 'true'
 export default mergeConfig(
   baseConfig,
   defineConfig({
+    root: __dirname,
     resolve: {
       alias: [
         {

@@ -1,5 +1,5 @@
 // color variants
-@import 'themes-vars.module.scss';
+@use 'themes-vars.module.scss' as *;
 
 // third-party
 @import 'react-perfect-scrollbar/dist/css/styles.css';

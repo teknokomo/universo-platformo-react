@@ -15,12 +15,46 @@ interface QueryOptions {
 
 type MetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub' | 'document'
 
+export type MetahubObjectRow = {
+    id: string
+    kind: MetahubObjectKind | string
+    codename: string
+    table_name?: any
+    presentation?: any
+    config?: any
+    _upl_version?: number
+    _upl_created_at?: unknown
+    _upl_updated_at?: unknown
+    _mhb_deleted_at?: unknown
+    _mhb_deleted_by?: unknown
+} & Record<string, unknown>
+
 /**
  * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
  * Replaces the old TypeORM Catalog entity logic.
  */
 export class MetahubObjectsService {
     constructor(private schemaService: MetahubSchemaService) {}
+
+    private quoteSchemaName(schemaName: string): string {
+        return `"${schemaName.replace(/"/g, '""')}"`
+    }
+
+    private objectsTable(schemaName: string): string {
+        return `${this.quoteSchemaName(schemaName)}."_mhb_objects"`
+    }
+
+    private buildSoftDeleteSql(options: QueryOptions = {}, alias = ''): string {
+        const prefix = alias ? `${alias}.` : ''
+        const { includeDeleted = false, onlyDeleted = false } = options
+        if (onlyDeleted) {
+            return ` AND ${prefix}_mhb_deleted = TRUE AND ${prefix}_upl_deleted = FALSE`
+        }
+        if (!includeDeleted) {
+            return ` AND ${prefix}_mhb_deleted = FALSE AND ${prefix}_upl_deleted = FALSE`
+        }
+        return ''
+    }
 
     private get knex() {
         return KnexClient.getInstance()
@@ -75,11 +109,16 @@ export class MetahubObjectsService {
         return query
     }
 
-    async findAll(metahubId: string, userId?: string, options: QueryOptions = {}): Promise<any[]> {
+    async findAll(metahubId: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow[]> {
         return this.findAllByKind(metahubId, 'catalog', userId, options)
     }
 
-    async findAllByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<any[]> {
+    async findAllByKind(
+        metahubId: string,
+        kind: MetahubObjectKind,
+        userId?: string,
+        options: QueryOptions = {}
+    ): Promise<MetahubObjectRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const query = this.knex
             .withSchema(schemaName)
@@ -89,7 +128,7 @@ export class MetahubObjectsService {
             .orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ASC`)
             .orderBy('_upl_created_at', 'asc')
             .orderBy('id', 'asc')
-        return this.applySoftDeleteFilter(query, options)
+        return (await this.applySoftDeleteFilter(query, options)) as MetahubObjectRow[]
     }
 
     async countByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<number> {
@@ -100,20 +139,41 @@ export class MetahubObjectsService {
         return result ? parseInt(result.count as string, 10) : 0
     }
 
-    async findById(metahubId: string, id: string, userId?: string, options: QueryOptions = {}) {
+    async findById(metahubId: string, id: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ id })
-        return this.applySoftDeleteFilter(query, options).first()
+        const rows = await this.schemaService.query<MetahubObjectRow>(
+            `
+                SELECT *
+                FROM ${this.objectsTable(schemaName)}
+                WHERE id = $1${this.buildSoftDeleteSql(options)}
+                LIMIT 1
+            `,
+            [id]
+        )
+
+        return rows[0] ?? null
     }
 
-    async findByCodename(metahubId: string, codename: string, userId?: string, options: QueryOptions = {}) {
+    async findByCodename(
+        metahubId: string,
+        codename: string,
+        userId?: string,
+        options: QueryOptions = {}
+    ): Promise<MetahubObjectRow | null> {
         return this.findByCodenameAndKind(metahubId, codename, 'catalog', userId, options)
     }
 
-    async findByCodenameAndKind(metahubId: string, codename: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}) {
+    async findByCodenameAndKind(
+        metahubId: string,
+        codename: string,
+        kind: MetahubObjectKind,
+        userId?: string,
+        options: QueryOptions = {}
+    ): Promise<MetahubObjectRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind })
-        return this.applySoftDeleteFilter(query, options).first()
+        const row = (await this.applySoftDeleteFilter(query, options).first()) as MetahubObjectRow | undefined
+        return row ?? null
     }
 
     async createObject(

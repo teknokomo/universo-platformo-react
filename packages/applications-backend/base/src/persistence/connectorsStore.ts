@@ -1,5 +1,5 @@
 import type { VersionedLocalizedContent } from '@universo/types'
-import type { SqlQueryable } from '@universo/utils'
+import { activeAppRowCondition, softDeleteSetClause, type SqlQueryable } from '@universo/utils'
 
 export interface ConnectorListQuery {
     applicationId: string
@@ -63,13 +63,11 @@ interface ApplicationStatusRow {
 }
 
 const activeRowPredicate = (alias?: string): string => {
-    const prefix = alias ? `${alias}.` : ''
-    return `COALESCE(${prefix}_upl_deleted, false) = false AND COALESCE(${prefix}_app_deleted, false) = false`
+    return activeAppRowCondition(alias)
 }
 
 const metahubActiveRowPredicate = (alias?: string): string => {
-    const prefix = alias ? `${alias}.` : ''
-    return `COALESCE(${prefix}_upl_deleted, false) = false AND COALESCE(${prefix}_mhb_deleted, false) = false`
+    return activeAppRowCondition(alias)
 }
 
 const CONNECTOR_SELECT = `
@@ -127,7 +125,7 @@ export async function listConnectors(
         SELECT
             ${CONNECTOR_SELECT},
             COUNT(*) OVER() AS "windowTotal"
-        FROM applications.connectors
+        FROM applications.cat_connectors
         ${whereSql}
         ORDER BY ${orderColumn} ${direction}
         LIMIT $${parameters.length - 1}
@@ -146,7 +144,7 @@ export async function findConnector(executor: SqlQueryable, applicationId: strin
     const rows = await executor.query<ConnectorRecord>(
         `
         SELECT ${CONNECTOR_SELECT}
-        FROM applications.connectors
+        FROM applications.cat_connectors
         WHERE id = $1
           AND application_id = $2
                     AND ${activeRowPredicate()}
@@ -158,13 +156,29 @@ export async function findConnector(executor: SqlQueryable, applicationId: strin
     return rows[0] ?? null
 }
 
+export async function findFirstConnectorByApplicationId(executor: SqlQueryable, applicationId: string): Promise<ConnectorRecord | null> {
+    const rows = await executor.query<ConnectorRecord>(
+        `
+        SELECT ${CONNECTOR_SELECT}
+        FROM applications.cat_connectors
+        WHERE application_id = $1
+          AND ${activeRowPredicate()}
+        ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
+        LIMIT 1
+        `,
+        [applicationId]
+    )
+
+    return rows[0] ?? null
+}
+
 export async function findApplicationStatus(executor: SqlQueryable, applicationId: string): Promise<ApplicationStatusRow | null> {
     const rows = await executor.query<ApplicationStatusRow>(
         `
         SELECT
             id,
             schema_status AS "schemaStatus"
-        FROM applications.applications
+        FROM applications.cat_applications
         WHERE id = $1
                     AND ${activeRowPredicate()}
         LIMIT 1
@@ -187,7 +201,7 @@ export async function insertConnector(
 ): Promise<ConnectorRecord> {
     const rows = await executor.query<ConnectorRecord>(
         `
-        INSERT INTO applications.connectors (
+        INSERT INTO applications.cat_connectors (
             application_id,
             name,
             description,
@@ -249,7 +263,7 @@ export async function updateConnector(
 
     const rows = await executor.query<ConnectorRecord>(
         `
-        UPDATE applications.connectors
+        UPDATE applications.cat_connectors
         SET ${assignments.join(', ')}
         WHERE id = $${parameters.length - 1}
           AND application_id = $${parameters.length}
@@ -270,11 +284,8 @@ export async function deleteConnector(
 ): Promise<boolean> {
     const rows = await executor.query<{ id: string }>(
         `
-        UPDATE applications.connectors
-        SET _upl_deleted = true,
-            _upl_deleted_at = NOW(),
-            _upl_deleted_by = $3,
-            _upl_updated_at = NOW(),
+        UPDATE applications.cat_connectors
+                SET ${softDeleteSetClause('$3')},
             _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE id = $1
           AND application_id = $2
@@ -294,7 +305,7 @@ export async function touchApplicationSchemaSyncedIfUpdateAvailable(
 ): Promise<boolean> {
     const rows = await executor.query<{ id: string }>(
         `
-        UPDATE applications.applications
+        UPDATE applications.cat_applications
         SET schema_status = 'synced',
             _upl_updated_at = now(),
             _upl_updated_by = $2,
@@ -314,7 +325,7 @@ export async function countConnectorPublicationLinks(executor: SqlQueryable, con
     const rows = await executor.query<Array<{ count: string }>[number]>(
         `
         SELECT COUNT(*)::text AS count
-        FROM applications.connectors_publications
+        FROM applications.rel_connector_publications
         WHERE connector_id = $1
                     AND ${activeRowPredicate()}
         `,
@@ -339,13 +350,39 @@ export async function findConnectorPublicationLink(
             _upl_version AS "version",
             _upl_created_at AS "createdAt",
             _upl_updated_at AS "updatedAt"
-        FROM applications.connectors_publications
+        FROM applications.rel_connector_publications
         WHERE connector_id = $1
           AND publication_id = $2
                     AND ${activeRowPredicate()}
         LIMIT 1
         `,
         [connectorId, publicationId]
+    )
+
+    return rows[0] ?? null
+}
+
+export async function findFirstConnectorPublicationLinkByConnectorId(
+    executor: SqlQueryable,
+    connectorId: string
+): Promise<ConnectorLinkRecord | null> {
+    const rows = await executor.query<ConnectorLinkRecord>(
+        `
+        SELECT
+            id,
+            connector_id AS "connectorId",
+            publication_id AS "publicationId",
+            sort_order AS "sortOrder",
+            _upl_version AS "version",
+            _upl_created_at AS "createdAt",
+            _upl_updated_at AS "updatedAt"
+        FROM applications.rel_connector_publications
+        WHERE connector_id = $1
+          AND ${activeRowPredicate()}
+        ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
+        LIMIT 1
+        `,
+        [connectorId]
     )
 
     return rows[0] ?? null
@@ -366,7 +403,7 @@ export async function findConnectorPublicationLinkById(
             _upl_version AS "version",
             _upl_created_at AS "createdAt",
             _upl_updated_at AS "updatedAt"
-        FROM applications.connectors_publications
+        FROM applications.rel_connector_publications
         WHERE id = $1
           AND connector_id = $2
                     AND ${activeRowPredicate()}
@@ -389,7 +426,7 @@ export async function insertConnectorPublicationLink(
 ): Promise<ConnectorLinkRecord> {
     const rows = await executor.query<ConnectorLinkRecord>(
         `
-        INSERT INTO applications.connectors_publications (
+        INSERT INTO applications.rel_connector_publications (
             connector_id,
             publication_id,
             sort_order,
@@ -420,11 +457,8 @@ export async function deleteConnectorPublicationLink(
 ): Promise<boolean> {
     const rows = await executor.query<{ id: string }>(
         `
-        UPDATE applications.connectors_publications
-        SET _upl_deleted = true,
-            _upl_deleted_at = NOW(),
-            _upl_deleted_by = $3,
-            _upl_updated_at = NOW(),
+        UPDATE applications.rel_connector_publications
+                SET ${softDeleteSetClause('$3')},
             _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE id = $1
           AND connector_id = $2
@@ -466,10 +500,10 @@ export async function listConnectorPublicationLinks(executor: SqlQueryable, conn
             p.metahub_id AS "metahubId",
             m.codename AS metahub_codename,
             m.name AS metahub_name
-        FROM applications.connectors_publications cp
-                LEFT JOIN metahubs.publications p ON p.id = cp.publication_id
+        FROM applications.rel_connector_publications cp
+                LEFT JOIN metahubs.doc_publications p ON p.id = cp.publication_id
                     AND ${metahubActiveRowPredicate('p')}
-                LEFT JOIN metahubs.metahubs m ON m.id = p.metahub_id
+                LEFT JOIN metahubs.cat_metahubs m ON m.id = p.metahub_id
                     AND ${metahubActiveRowPredicate('m')}
         WHERE cp.connector_id = $1
                     AND ${activeRowPredicate('cp')}

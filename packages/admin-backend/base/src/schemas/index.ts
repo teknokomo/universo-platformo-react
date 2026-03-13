@@ -65,15 +65,7 @@ export function validateListQuery(query: unknown): ListQueryInput {
 /**
  * Available permission subjects (CASL standard terminology)
  */
-const PermissionSubjects = [
-    'publications',
-    'roles',
-    'instances',
-    'users',
-    'settings',
-    'admin',
-    '*'
-] as const
+const PermissionSubjects = ['publications', 'roles', 'instances', 'users', 'settings', 'admin', '*'] as const
 
 /**
  * Available permission actions
@@ -179,7 +171,7 @@ export type UpdateLocaleInput = z.infer<typeof UpdateLocaleSchema>
  */
 export const LocalesListQuerySchema = z.object({
     includeDisabled: z.coerce.boolean().default(false),
-    sortBy: z.enum(['code', 'sort_order', 'created_at']).default('sort_order'),
+    sortBy: z.enum(['code', 'sort_order', '_upl_created_at']).default('sort_order'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
     // Optional pagination (locales list is typically small)
     limit: z.coerce.number().int().min(1).max(100).optional(),

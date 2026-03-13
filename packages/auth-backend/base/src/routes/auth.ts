@@ -12,6 +12,7 @@ import {
     getLoginCaptchaConfig,
     isLoginCaptchaRequired
 } from '../services/captchaService'
+import { activeAppRowCondition } from '@universo/utils'
 import { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled } from '@universo/utils/auth'
 import type { Knex } from 'knex'
 
@@ -35,13 +36,46 @@ const RegisterSchema = z.object({
 
 type MiddlewareFn = (...args: any[]) => unknown
 
-type RouterFactoryOptions = {
-    csrfProtection: MiddlewareFn
-    loginLimiter: MiddlewareFn
-    getKnex?: () => Knex
+type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getKnex?: () => Knex) => Router
+
+const maskEmail = (email: string | null | undefined): string | null => {
+    if (!email) {
+        return null
+    }
+
+    const [localPart = '', domainPart = ''] = email.split('@')
+    if (!domainPart) {
+        return '***'
+    }
+
+    return `${localPart.slice(0, 2)}***@${domainPart}`
 }
 
-type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getKnex?: () => Knex) => Router
+const compactId = (value: string | null | undefined): string | null => {
+    if (!value) {
+        return null
+    }
+
+    if (value.length <= 12) {
+        return value
+    }
+
+    return `${value.slice(0, 8)}...${value.slice(-4)}`
+}
+
+const serializeErrorForLog = (error: unknown): Record<string, string> => {
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message
+        }
+    }
+
+    return {
+        name: 'UnknownError',
+        message: String(error)
+    }
+}
 
 export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getKnex) => {
     const router = Router()
@@ -147,60 +181,67 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                     return (result.rows ?? result) as T[]
                 }
 
-                console.info('[auth:profile] Starting profile consent save', { userId, email: data.user.email })
+                console.info('[auth:profile] Starting profile consent save', {
+                    userId: compactId(userId),
+                    email: maskEmail(data.user.email)
+                })
 
                 // Retry up to 5 times with increasing delays to wait for trigger to create profile
                 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                     try {
                         // First, check if profile exists
                         const existingProfile = await rawQuery(
-                            `SELECT user_id, nickname, terms_accepted FROM profiles WHERE user_id = $1`,
+                            `SELECT user_id, nickname, terms_accepted FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
                             [userId]
                         )
                         console.info('[auth:profile] Profile check result', {
-                            userId,
+                            userId: compactId(userId),
                             attempt,
-                            exists: existingProfile?.length > 0,
-                            profile: existingProfile?.[0] || null
+                            exists: existingProfile?.length > 0
                         })
 
                         // Use RETURNING to reliably check if UPDATE affected any rows
                         const returnedRows = await rawQuery<{ user_id: string }>(
-                            `UPDATE profiles 
+                            `UPDATE profiles.cat_profiles 
                              SET terms_accepted = $1, 
                                  terms_accepted_at = $2, 
                                  privacy_accepted = $3, 
                                  privacy_accepted_at = $4,
                                  terms_version = $5,
                                  privacy_version = $6
-                             WHERE user_id = $7
+                             WHERE user_id = $7 AND ${activeAppRowCondition()}
                              RETURNING user_id`,
                             [true, now, true, now, termsVersion, privacyVersion, userId]
                         )
                         const hasRows = returnedRows.length > 0
                         console.info('[auth:profile] UPDATE result', {
-                            userId,
+                            userId: compactId(userId),
                             attempt,
-                            returnedRows,
                             hasRows
                         })
 
                         if (hasRows) {
-                            console.info('[auth] consent saved via UPDATE', { userId, attempt })
+                            console.info('[auth] consent saved via UPDATE', {
+                                userId: compactId(userId),
+                                attempt
+                            })
                             consentSaved = true
                             break
                         }
                         // Profile not yet created by trigger, wait and retry
-                        console.info('[auth:profile] Profile not found, waiting before retry', { userId, attempt, waitMs: 200 * attempt })
+                        console.info('[auth:profile] Profile not found, waiting before retry', {
+                            userId: compactId(userId),
+                            attempt,
+                            waitMs: 200 * attempt
+                        })
                         if (attempt < maxAttempts) {
                             await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
                         }
                     } catch (dbError) {
                         console.warn('[auth] consent save attempt failed', {
-                            userId,
+                            userId: compactId(userId),
                             attempt,
-                            error: String(dbError),
-                            stack: (dbError as Error)?.stack
+                            ...serializeErrorForLog(dbError)
                         })
                         if (attempt < maxAttempts) {
                             await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
@@ -210,13 +251,15 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
 
                 // Fallback: if UPDATE never succeeded, INSERT profile with consent using UPSERT
                 if (!consentSaved) {
-                    console.info('[auth:profile] UPDATE failed after all attempts, trying UPSERT fallback', { userId })
+                    console.info('[auth:profile] UPDATE failed after all attempts, trying UPSERT fallback', {
+                        userId: compactId(userId)
+                    })
                     try {
                         const nickname = `user_${userId.substring(0, 8)}`
                         const upsertResult = await rawQuery(
-                            `INSERT INTO profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version)
+                            `INSERT INTO profiles.cat_profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version)
                              VALUES ($1, $2, '{}', $3, $4, $5, $6, $7, $8)
-                             ON CONFLICT (user_id) DO UPDATE
+                             ON CONFLICT (user_id) WHERE ${activeAppRowCondition()} DO UPDATE
                              SET terms_accepted = EXCLUDED.terms_accepted,
                                  terms_accepted_at = EXCLUDED.terms_accepted_at,
                                  privacy_accepted = EXCLUDED.privacy_accepted,
@@ -226,19 +269,24 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                              RETURNING user_id, nickname`,
                             [userId, nickname, true, now, true, now, termsVersion, privacyVersion]
                         )
-                        console.info('[auth] consent saved via UPSERT fallback', { userId, result: upsertResult })
+                        console.info('[auth] consent saved via UPSERT fallback', {
+                            userId: compactId(userId),
+                            returnedRows: upsertResult.length
+                        })
 
                         // Verify profile was created
                         const verifyProfile = await rawQuery(
-                            `SELECT user_id, nickname, terms_accepted, created_at FROM profiles WHERE user_id = $1`,
+                            `SELECT user_id, nickname, terms_accepted, _upl_created_at FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
                             [userId]
                         )
-                        console.info('[auth:profile] Verification after UPSERT', { userId, profile: verifyProfile?.[0] || null })
+                        console.info('[auth:profile] Verification after UPSERT', {
+                            userId: compactId(userId),
+                            found: verifyProfile.length > 0
+                        })
                     } catch (insertError) {
                         console.error('[auth] consent save fallback failed', {
-                            userId,
-                            error: String(insertError),
-                            stack: (insertError as Error)?.stack
+                            userId: compactId(userId),
+                            ...serializeErrorForLog(insertError)
                         })
                     }
                 }
@@ -246,10 +294,10 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                 console.warn('[auth:profile] getKnex not available, skipping profile consent save')
             }
 
-            console.info('[auth] register success', { email: data.user.email })
+            console.info('[auth] register success', { email: maskEmail(data.user.email), userId: compactId(data.user.id) })
             return res.status(201).json({ user: { id: data.user.id, email: data.user.email } })
         } catch (error) {
-            console.error('[auth] Registration failed', error)
+            console.error('[auth] Registration failed', serializeErrorForLog(error))
             return res.status(500).json({ error: 'Server error' })
         }
     })
@@ -283,7 +331,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                     if (info?.tokens) (request.session as any).tokens = info.tokens
                     console.info('[auth] login success', {
                         hasTokens: Boolean((request.session as any).tokens),
-                        user: (user as any)?.email
+                        email: maskEmail((user as any)?.email ?? null),
+                        userId: compactId((user as any)?.id ?? null)
                     })
                     return res.json({ user: { id: (user as any).id, email: (user as any).email } })
                 })
@@ -298,7 +347,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
         const { data, error } = await supa.auth.getUser(tokens?.access)
         if (error || !data?.user) return res.status(401).json({ error: 'Unauthorized' })
         console.info('[auth] /me success', {
-            email: data.user.email
+            email: maskEmail(data.user.email),
+            userId: compactId(data.user.id)
         })
         return res.json({ id: data.user.id, email: data.user.email })
     })
@@ -320,13 +370,13 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             }
         } catch (e) {
             // Log the error for debugging, but don't block the user logout.
-            console.error('[auth] Supabase signOut failed, proceeding with local logout', e)
+            console.error('[auth] Supabase signOut failed, proceeding with local logout', serializeErrorForLog(e))
         }
 
         await new Promise<void>((resolve) => {
             if (typeof request.logout !== 'function') return resolve()
             request.logout((err?: any) => {
-                if (err) console.error('[auth] passport logout failed, proceeding with session destroy', err)
+                if (err) console.error('[auth] passport logout failed, proceeding with session destroy', serializeErrorForLog(err))
                 resolve()
             })
         })
@@ -334,7 +384,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
         await new Promise<void>((resolve) => {
             if (typeof request.session?.destroy !== 'function') return resolve()
             request.session.destroy((err?: Error | null) => {
-                if (err) console.error('[auth] session destroy failed', err)
+                if (err) console.error('[auth] session destroy failed', serializeErrorForLog(err))
                 resolve()
             })
         })
@@ -362,7 +412,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             const fullPermissions = await permissionService.getFullPermissions(userId)
 
             console.info('[auth] /permissions success', {
-                userId,
+                userId: compactId(userId),
                 permissionsCount: fullPermissions.permissions.length,
                 globalRolesCount: fullPermissions.globalRoles.length,
                 hasAdminAccess: fullPermissions.hasAdminAccess
@@ -370,7 +420,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
 
             return res.json(fullPermissions)
         } catch (error) {
-            console.error('[auth] Failed to load permissions', error)
+            console.error('[auth] Failed to load permissions', serializeErrorForLog(error))
             return res.status(500).json({ error: 'Failed to load permissions' })
         }
     })

@@ -24,11 +24,21 @@ export {
     generateSchemaName,
     generateTableName,
     generateColumnName,
+    resolveFieldColumnName,
+    resolveEntityTableName,
     generateChildTableName,
     buildFkConstraintName,
     isValidSchemaName,
-    generateMetahubSchemaName
+    generateMetahubSchemaName,
+    qualifySchemaObjectName,
+    qualifyTableName
 } from './naming'
+export {
+    normalizeSystemTableCapabilities,
+    resolveSystemTableNames,
+    type ResolvedSystemTableCapabilityOptions,
+    type SystemTableName
+} from './systemTables'
 
 // Locking utilities
 export { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
@@ -37,6 +47,7 @@ export { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locki
 export type {
     EntityDefinition,
     FieldDefinition,
+    RuntimeEntityKind,
     SchemaSnapshot,
     SchemaEntitySnapshot,
     SchemaFieldSnapshot,
@@ -47,6 +58,7 @@ export type {
     MigrationChangeRecord,
     RollbackAnalysis
 } from './types'
+export type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 
 // Snapshot utilities
 export { buildSchemaSnapshot, CURRENT_SCHEMA_SNAPSHOT_VERSION } from './snapshot'

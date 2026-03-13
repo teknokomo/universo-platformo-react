@@ -13,12 +13,26 @@ import type { Knex } from 'knex'
 export class MetahubAttributesService {
     constructor(private schemaService: MetahubSchemaService) {}
 
+    private readonly activeBranchWhereSql = '_upl_deleted = false AND _mhb_deleted = false'
+
+    private quoteSchemaName(schemaName: string): string {
+        return `"${schemaName.replace(/"/g, '""')}"`
+    }
+
+    private attributesTable(schemaName: string): string {
+        return `${this.quoteSchemaName(schemaName)}."_mhb_attributes"`
+    }
+
     private get knex() {
         return KnexClient.getInstance()
     }
 
     private getRunner(trx?: Knex.Transaction) {
         return trx ?? this.knex
+    }
+
+    private applyActiveBranchFilter<TQuery extends Knex.QueryBuilder>(query: TQuery): TQuery {
+        return query.andWhere('_upl_deleted', false).andWhere('_mhb_deleted', false) as TQuery
     }
 
     private getMaxChildAttributesLimit(validationRules: unknown): number | null {
@@ -86,14 +100,17 @@ export class MetahubAttributesService {
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const result = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId })
-            .whereNull('parent_attribute_id')
-            .count('* as count')
-            .first()
-        return result ? parseInt(result.count as string, 10) : 0
+        const [result] = await this.schemaService.query<{ count: number | string }>(
+            `
+                SELECT COUNT(*)::int AS count
+                FROM ${this.attributesTable(schemaName)}
+                WHERE object_id = $1
+                  AND parent_attribute_id IS NULL
+                  AND ${this.activeBranchWhereSql}
+            `,
+            [objectId]
+        )
+        return result ? parseInt(String(result.count), 10) : 0
     }
 
     /**
@@ -102,11 +119,13 @@ export class MetahubAttributesService {
     async countTableAttributes(metahubId: string, objectId: string, userId?: string, trx?: Knex.Transaction): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const runner = this.getRunner(trx)
-        const result = await runner
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId, data_type: AttributeDataType.TABLE })
-            .whereNull('parent_attribute_id')
+        const result = await this.applyActiveBranchFilter(
+            runner
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ object_id: objectId, data_type: AttributeDataType.TABLE })
+                .whereNull('parent_attribute_id')
+        )
             .count('* as count')
             .first()
         return result ? parseInt(result.count as string, 10) : 0
@@ -118,10 +137,9 @@ export class MetahubAttributesService {
     async countChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, trx?: Knex.Transaction): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const runner = this.getRunner(trx)
-        const result = await runner
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ parent_attribute_id: parentAttributeId })
+        const result = await this.applyActiveBranchFilter(
+            runner.withSchema(schemaName).from('_mhb_attributes').where({ parent_attribute_id: parentAttributeId })
+        )
             .count('* as count')
             .first()
         return result ? parseInt(result.count as string, 10) : 0
@@ -134,13 +152,16 @@ export class MetahubAttributesService {
         if (objectIds.length === 0) return new Map()
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const results = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .whereIn('object_id', objectIds)
-            .select('object_id')
-            .count('* as count')
-            .groupBy('object_id')
+        const results = await this.schemaService.query<{ object_id: string; count: number | string }>(
+            `
+                SELECT object_id, COUNT(*)::int AS count
+                FROM ${this.attributesTable(schemaName)}
+                WHERE object_id = ANY($1::uuid[])
+                                    AND ${this.activeBranchWhereSql}
+                GROUP BY object_id
+            `,
+            [objectIds]
+        )
 
         const counts = new Map<string, number>()
         results.forEach((row: any) => {
@@ -155,13 +176,17 @@ export class MetahubAttributesService {
      */
     async findAll(metahubId: string, objectId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId })
-            .whereNull('parent_attribute_id')
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
+        const rows = await this.schemaService.query(
+            `
+                SELECT *
+                FROM ${this.attributesTable(schemaName)}
+                WHERE object_id = $1
+                  AND parent_attribute_id IS NULL
+                                    AND ${this.activeBranchWhereSql}
+                ORDER BY sort_order ASC, _upl_created_at ASC
+            `,
+            [objectId]
+        )
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -171,10 +196,9 @@ export class MetahubAttributesService {
      */
     async findAllFlat(metahubId: string, objectId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId })
+        const rows = await this.applyActiveBranchFilter(
+            this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+        )
             .orderBy('sort_order', 'asc')
             .orderBy('_upl_created_at', 'asc')
 
@@ -187,10 +211,9 @@ export class MetahubAttributesService {
     async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, trx?: Knex.Transaction) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const runner = this.getRunner(trx)
-        const rows = await runner
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ parent_attribute_id: parentAttributeId })
+        const rows = await this.applyActiveBranchFilter(
+            runner.withSchema(schemaName).from('_mhb_attributes').where({ parent_attribute_id: parentAttributeId })
+        )
             .orderBy('sort_order', 'asc')
             .orderBy('_upl_created_at', 'asc')
 
@@ -209,12 +232,16 @@ export class MetahubAttributesService {
         if (parentAttributeIds.length === 0) return result
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .whereIn('parent_attribute_id', parentAttributeIds)
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
+        const rows = await this.schemaService.query(
+            `
+                SELECT *
+                FROM ${this.attributesTable(schemaName)}
+                WHERE parent_attribute_id = ANY($1::uuid[])
+                                    AND ${this.activeBranchWhereSql}
+                ORDER BY sort_order ASC, _upl_created_at ASC
+            `,
+            [parentAttributeIds]
+        )
 
         for (const row of rows) {
             const attr = this.mapRowToAttribute(row)
@@ -228,9 +255,7 @@ export class MetahubAttributesService {
 
     async getAllAttributes(metahubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
+        const rows = await this.applyActiveBranchFilter(this.knex.withSchema(schemaName).from('_mhb_attributes'))
             .orderBy('sort_order', 'asc')
             .orderBy('_upl_created_at', 'asc')
 
@@ -239,8 +264,23 @@ export class MetahubAttributesService {
 
     async findById(metahubId: string, id: string, userId?: string, trx?: Knex.Transaction) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        if (!trx) {
+            const [row] = await this.schemaService.query(
+                `
+                    SELECT *
+                    FROM ${this.attributesTable(schemaName)}
+                    WHERE id = $1
+                      AND ${this.activeBranchWhereSql}
+                    LIMIT 1
+                `,
+                [id]
+            )
+
+            return row ? this.mapRowToAttribute(row) : null
+        }
+
         const runner = this.getRunner(trx)
-        const row = await runner.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
+        const row = await this.applyActiveBranchFilter(runner.withSchema(schemaName).from('_mhb_attributes').where({ id })).first()
 
         return row ? this.mapRowToAttribute(row) : null
     }

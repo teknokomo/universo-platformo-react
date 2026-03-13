@@ -27,26 +27,28 @@ export interface UplSystemFields {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Shared metahub-level system fields (_mhb_*)
+// Shared application-level system fields (_app_*)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface MhbSystemFields {
-    _mhbPublished: boolean
-    _mhbPublishedAt: Date | null
-    _mhbPublishedBy: string | null
-    _mhbArchived: boolean
-    _mhbArchivedAt: Date | null
-    _mhbArchivedBy: string | null
-    _mhbDeleted: boolean
-    _mhbDeletedAt: Date | null
-    _mhbDeletedBy: string | null
+export interface AppSystemFields {
+    _appPublished: boolean
+    _appPublishedAt: Date | null
+    _appPublishedBy: string | null
+    _appArchived: boolean
+    _appArchivedAt: Date | null
+    _appArchivedBy: string | null
+    _appDeleted: boolean
+    _appDeletedAt: Date | null
+    _appDeletedBy: string | null
+    _appOwnerId: string | null
+    _appAccessLevel: string
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Metahub row
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface MetahubRow extends UplSystemFields, MhbSystemFields {
+export interface MetahubRow extends UplSystemFields, AppSystemFields {
     id: string
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
@@ -64,7 +66,7 @@ export interface MetahubRow extends UplSystemFields, MhbSystemFields {
 // MetahubBranch row
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface MetahubBranchRow extends UplSystemFields, MhbSystemFields {
+export interface MetahubBranchRow extends UplSystemFields, AppSystemFields {
     id: string
     metahubId: string
     sourceBranchId: string | null
@@ -84,7 +86,7 @@ export interface MetahubBranchRow extends UplSystemFields, MhbSystemFields {
 // MetahubUser row
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface MetahubUserRow extends UplSystemFields, MhbSystemFields {
+export interface MetahubUserRow extends UplSystemFields, AppSystemFields {
     id: string
     metahubId: string
     userId: string
@@ -101,7 +103,7 @@ export type PublicationAccessMode = 'full' | 'restricted'
 
 export type PublicationSchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
 
-export interface PublicationRow extends UplSystemFields, MhbSystemFields {
+export interface PublicationRow extends UplSystemFields, AppSystemFields {
     id: string
     metahubId: string
     name: VersionedLocalizedContent<string>
@@ -121,7 +123,7 @@ export interface PublicationRow extends UplSystemFields, MhbSystemFields {
 // PublicationVersion row
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface PublicationVersionRow extends UplSystemFields, MhbSystemFields {
+export interface PublicationVersionRow extends UplSystemFields, AppSystemFields {
     id: string
     publicationId: string
     branchId: string | null
@@ -134,10 +136,10 @@ export interface PublicationVersionRow extends UplSystemFields, MhbSystemFields 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Template row (platform-level only, no _mhb_* fields)
+// Template row (platform-level, with _app_* system fields)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface TemplateRow extends UplSystemFields {
+export interface TemplateRow extends UplSystemFields, AppSystemFields {
     id: string
     codename: string
     name: VersionedLocalizedContent<string>
@@ -151,10 +153,10 @@ export interface TemplateRow extends UplSystemFields {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TemplateVersion row (platform-level only, no _mhb_* fields)
+// TemplateVersion row (platform-level, with _app_* system fields)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface TemplateVersionRow extends UplSystemFields {
+export interface TemplateVersionRow extends UplSystemFields, AppSystemFields {
     id: string
     templateId: string
     versionNumber: number
@@ -195,17 +197,19 @@ export function uplFieldAliases(alias: string): string {
 }
 
 /**
- * Common metahub-level system field aliases for SELECT statements.
+ * Common application-level system field aliases for SELECT statements.
  */
-export function mhbFieldAliases(alias: string): string {
+export function appFieldAliases(alias: string): string {
     return `
-    ${alias}._mhb_published AS "_mhbPublished",
-    ${alias}._mhb_published_at AS "_mhbPublishedAt",
-    ${alias}._mhb_published_by AS "_mhbPublishedBy",
-    ${alias}._mhb_archived AS "_mhbArchived",
-    ${alias}._mhb_archived_at AS "_mhbArchivedAt",
-    ${alias}._mhb_archived_by AS "_mhbArchivedBy",
-    ${alias}._mhb_deleted AS "_mhbDeleted",
-    ${alias}._mhb_deleted_at AS "_mhbDeletedAt",
-    ${alias}._mhb_deleted_by AS "_mhbDeletedBy"`.trim()
+    ${alias}._app_published AS "_appPublished",
+    ${alias}._app_published_at AS "_appPublishedAt",
+    ${alias}._app_published_by AS "_appPublishedBy",
+    ${alias}._app_archived AS "_appArchived",
+    ${alias}._app_archived_at AS "_appArchivedAt",
+    ${alias}._app_archived_by AS "_appArchivedBy",
+    ${alias}._app_deleted AS "_appDeleted",
+    ${alias}._app_deleted_at AS "_appDeletedAt",
+    ${alias}._app_deleted_by AS "_appDeletedBy",
+    ${alias}._app_owner_id AS "_appOwnerId",
+    ${alias}._app_access_level AS "_appAccessLevel"`.trim()
 }

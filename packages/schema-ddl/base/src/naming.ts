@@ -1,22 +1,28 @@
-import type { MetaEntityKind } from '@universo/types'
-import { isManagedDynamicSchemaName } from '@universo/migrations-core'
-
-type RuntimeEntityKind = MetaEntityKind | 'enumeration'
+import {
+    assertCanonicalIdentifier,
+    buildManagedDynamicSchemaName,
+    isCanonicalSchemaName,
+    isManagedCustomSchemaName,
+    quoteIdentifier
+} from '@universo/migrations-core'
+import type { RuntimeEntityKind } from './types'
 
 const ENTITY_TABLE_PREFIX: Record<string, string> = {
     catalog: 'cat',
     set: 'set',
     enumeration: 'enum',
     hub: 'hub',
-    document: 'doc'
+    document: 'doc',
+    relation: 'rel',
+    settings: 'cfg'
 }
 
 const SCHEMA_PREFIX = 'app'
 const FIELD_PREFIX = 'attr'
+const RESERVED_MANAGED_SCHEMA_PREFIX_PATTERN = /^(app|mhb)_/
 
 export const generateSchemaName = (applicationId: string): string => {
-    const cleanId = applicationId.replace(/-/g, '')
-    return `${SCHEMA_PREFIX}_${cleanId}`
+    return buildManagedDynamicSchemaName({ prefix: SCHEMA_PREFIX, ownerId: applicationId })
 }
 
 export const generateTableName = (entityId: string, kind: RuntimeEntityKind): string => {
@@ -25,17 +31,44 @@ export const generateTableName = (entityId: string, kind: RuntimeEntityKind): st
     return `${prefix}_${cleanId}`
 }
 
+export const resolveEntityTableName = (entity: { id: string; kind: RuntimeEntityKind; physicalTableName?: string | null }): string => {
+    if (typeof entity.physicalTableName === 'string' && entity.physicalTableName.trim().length > 0) {
+        assertCanonicalIdentifier(entity.physicalTableName)
+        return entity.physicalTableName
+    }
+
+    return generateTableName(entity.id, entity.kind)
+}
+
 export const generateColumnName = (fieldId: string): string => {
     const cleanId = fieldId.replace(/-/g, '')
     return `${FIELD_PREFIX}_${cleanId}`
 }
 
-export const generateMetahubSchemaName = (metahubId: string): string => {
-    const cleanId = metahubId.replace(/-/g, '')
-    return `mhb_${cleanId}`
+export const resolveFieldColumnName = (field: { id: string; physicalColumnName?: string | null }): string => {
+    if (typeof field.physicalColumnName === 'string' && field.physicalColumnName.trim().length > 0) {
+        assertCanonicalIdentifier(field.physicalColumnName)
+        return field.physicalColumnName
+    }
+
+    return generateColumnName(field.id)
 }
 
-export const isValidSchemaName = (schemaName: string): boolean => isManagedDynamicSchemaName(schemaName)
+export const generateMetahubSchemaName = (metahubId: string): string => {
+    return buildManagedDynamicSchemaName({ prefix: 'mhb', ownerId: metahubId })
+}
+
+export const isValidSchemaName = (schemaName: string): boolean => {
+    if (isCanonicalSchemaName(schemaName)) {
+        return true
+    }
+
+    if (!isManagedCustomSchemaName(schemaName)) {
+        return false
+    }
+
+    return !RESERVED_MANAGED_SCHEMA_PREFIX_PATTERN.test(schemaName)
+}
 
 /**
  * Generates independent table name for a child table (TABLE attribute).
@@ -52,3 +85,11 @@ export const generateChildTableName = (attributeId: string): string => {
 }
 
 export const buildFkConstraintName = (tableName: string, columnName: string): string => `fk_${tableName}_${columnName}`.substring(0, 63)
+
+export const qualifySchemaObjectName = (schemaName: string, objectName: string): string => {
+    assertCanonicalIdentifier(schemaName)
+    assertCanonicalIdentifier(objectName)
+    return `${quoteIdentifier(schemaName)}.${quoteIdentifier(objectName)}`
+}
+
+export const qualifyTableName = (schemaName: string, tableName: string): string => qualifySchemaObjectName(schemaName, tableName)

@@ -1,6 +1,7 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
+import { activeAppRowCondition } from '@universo/utils'
 import {
     findMetahubById,
     findMetahubByCodename,
@@ -28,6 +29,7 @@ import {
     type MetahubUserRow,
     type MetahubMemberListItem
 } from '../../../persistence'
+import { activeMetahubRowCondition } from '../../../persistence/metahubsQueryHelpers'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } from '../../shared/guards'
 import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -37,7 +39,7 @@ import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/ut
 import { codenameErrorMessage } from '../../shared/codenameStyleHelper'
 import type { CodenameStyle, CodenameAlphabet } from '@universo/types'
 import { OptimisticLockError } from '@universo/utils'
-import { isValidSchemaName } from '@universo/schema-ddl'
+import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
@@ -48,7 +50,7 @@ import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, release
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 
 // Default codename settings for metahub-level operations (CREATE, COPY, UPDATE).
-// These match the seeded defaults in admin.settings and act as a safe fallback.
+// These match the seeded defaults in admin.cfg_settings and act as a safe fallback.
 const DEFAULT_CODENAME_STYLE: CodenameStyle = 'pascal-case'
 const DEFAULT_CODENAME_ALPHABET: CodenameAlphabet = 'en-ru'
 const DEFAULT_CODENAME_ALLOW_MIXED = false
@@ -86,7 +88,7 @@ const getGlobalMetahubCodenameConfig = async (exec: SqlQueryable): Promise<Globa
         const rows = (await exec.query(
             `
                 SELECT key, value
-                FROM admin.settings
+                FROM admin.cfg_settings
                 WHERE category = $1
                                     AND key IN ('codenameStyle', 'codenameAlphabet', 'codenameAllowMixedAlphabets', 'codenameAutoConvertMixedAlphabets', 'codenameLocalizedEnabled')
             `,
@@ -128,13 +130,12 @@ const resolveUserId = (req: Request): string | undefined => {
     return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
-const IDENTIFIER_REGEX = /^[a-z_][a-z0-9_]*$/
+const isManagedMetahubSchemaName = (schemaName: string): boolean => schemaName.startsWith('mhb_') && isManagedDynamicSchemaName(schemaName)
 
-const quoteIdentifier = (identifier: string): string => {
-    if (!IDENTIFIER_REGEX.test(identifier)) {
-        throw new Error(`Unsafe identifier: ${identifier}`)
+const assertManagedMetahubSchemaName = (schemaName: string): void => {
+    if (!isManagedMetahubSchemaName(schemaName)) {
+        throw new Error(`Invalid metahub schema name: ${schemaName}`)
     }
-    return `"${identifier}"`
 }
 
 const safeErrorMessage = (error: unknown): string => {
@@ -554,7 +555,7 @@ export function createMetahubsRoutes(
                 const activeBranch = await findBranchByIdAndMetahub(exec, activeBranchId, metahubId)
                 const schemaName = activeBranch?.schemaName ?? null
 
-                if (schemaName && /^mhb_[a-f0-9]+_b\d+$/i.test(schemaName)) {
+                if (schemaName && isManagedMetahubSchemaName(schemaName)) {
                     const schemaIdent = quoteIdentifier(schemaName)
                     try {
                         const [hubsResult, catalogsResult] = await Promise.all([
@@ -577,26 +578,32 @@ export function createMetahubsRoutes(
             const [branchesCount, publicationsCount, membersCount] = await Promise.all([
                 countBranches(exec, metahubId),
                 exec
-                    .query<{ count: number }>(`SELECT COUNT(*)::int as count FROM metahubs.publications WHERE metahub_id = $1`, [metahubId])
+                    .query<{ count: number }>(
+                        `SELECT COUNT(*)::int as count FROM metahubs.doc_publications WHERE metahub_id = $1 AND ${activeMetahubRowCondition()}`,
+                        [metahubId]
+                    )
                     .then((r) => r[0]?.count ?? 0),
                 countMetahubMembers(exec, metahubId)
             ])
 
             const versionsResult = await exec.query<{ count: number }>(
                 `SELECT COUNT(*)::int as count
-                 FROM metahubs.publications_versions pv
-                 JOIN metahubs.publications p ON p.id = pv.publication_id
-                 WHERE p.metahub_id = $1`,
+                 FROM metahubs.doc_publication_versions pv
+                 JOIN metahubs.doc_publications p ON p.id = pv.publication_id
+                 WHERE p.metahub_id = $1
+                   AND ${activeMetahubRowCondition('p')} AND ${activeMetahubRowCondition('pv')}`,
                 [metahubId]
             )
 
             const applicationsResult = await exec.query<{ count: number }>(
                 `SELECT COUNT(DISTINCT a.id)::int as count
-                 FROM applications.applications a
-                 JOIN applications.connectors c ON c.application_id = a.id
-                 JOIN applications.connectors_publications cp ON cp.connector_id = c.id
-                 JOIN metahubs.publications p ON p.id = cp.publication_id
-                 WHERE p.metahub_id = $1`,
+                 FROM applications.cat_applications a
+                 JOIN applications.cat_connectors c ON c.application_id = a.id
+                 JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
+                 JOIN metahubs.doc_publications p ON p.id = cp.publication_id
+                 WHERE p.metahub_id = $1
+                   AND ${activeMetahubRowCondition('p')} AND ${activeAppRowCondition('a')}
+                   AND ${activeAppRowCondition('c')} AND ${activeAppRowCondition('cp')}`,
                 [metahubId]
             )
 
@@ -793,7 +800,18 @@ export function createMetahubsRoutes(
                 })
             } catch (error) {
                 // Cleanup: remove the metahub + membership created above (CASCADE deletes membership)
-                await exec.query('DELETE FROM metahubs.metahubs WHERE id = $1', [metahub.id]).catch(() => undefined)
+                try {
+                    const membership = await findMetahubMembership(exec, metahub.id, userId)
+                    if (membership) {
+                        await softDelete(exec, 'metahubs', 'rel_metahub_users', membership.id, userId)
+                    }
+                    await softDelete(exec, 'metahubs', 'cat_metahubs', metahub.id, userId)
+                } catch (cleanupError) {
+                    console.error('[metahubs] Failed to cleanup metahub after initial-branch failure', {
+                        metahubId: metahub.id,
+                        error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+                    })
+                }
                 throw error
             }
 
@@ -869,7 +887,7 @@ export function createMetahubsRoutes(
             }
 
             const allSourceBranches = await findBranchesByMetahub(exec, metahubId)
-            const sourceBranches = allSourceBranches.filter((b) => !b._uplDeleted && !b._mhbDeleted)
+            const sourceBranches = allSourceBranches.filter((b) => !b._uplDeleted && !b._appDeleted)
             if (sourceBranches.length === 0) {
                 return res.status(409).json({ error: 'Metahub has no branches to copy' })
             }
@@ -961,18 +979,11 @@ export function createMetahubsRoutes(
 
             const [{ id: newMetahubId }] = await exec.query<{ id: string }>(`SELECT public.uuid_generate_v7() AS id`)
 
-            const cleanMetahubId = newMetahubId.replace(/-/g, '')
             const branchClonePlan = selectedSourceBranches.map((sourceBranch, index) => ({
                 sourceBranch,
                 branchNumber: index + 1,
-                schemaName: `mhb_${cleanMetahubId}_b${index + 1}`
+                schemaName: buildManagedDynamicSchemaName({ prefix: 'mhb', ownerId: newMetahubId, branchNumber: index + 1 })
             }))
-
-            for (const planItem of branchClonePlan) {
-                if (!isValidSchemaName(planItem.schemaName) || !IDENTIFIER_REGEX.test(planItem.schemaName)) {
-                    return res.status(400).json({ error: 'Invalid generated schema name for copied branch' })
-                }
-            }
 
             const { cloner, generator } = getDDLServices()
             const createdSchemas: string[] = []
@@ -1046,11 +1057,10 @@ export function createMetahubsRoutes(
                         const branchId = branchIdMap.get(planItem.sourceBranch.id)
                         const mappedSourceId = branchIdMap.get(planItem.sourceBranch.sourceBranchId)
                         if (!branchId || !mappedSourceId) continue
-                        await tx.query(`UPDATE metahubs.metahubs_branches SET source_branch_id = $1, _upl_updated_by = $2 WHERE id = $3`, [
-                            mappedSourceId,
-                            userId,
-                            branchId
-                        ])
+                        await tx.query(
+                            `UPDATE metahubs.cat_metahub_branches SET source_branch_id = $1, _upl_updated_by = $2 WHERE id = $3`,
+                            [mappedSourceId, userId, branchId]
+                        )
                     }
 
                     const copiedDefaultBranchId = branchIdMap.get(defaultSourceBranch.id) ?? null
@@ -1076,7 +1086,7 @@ export function createMetahubsRoutes(
                             activeBranchId: string | null
                         }>(
                             `SELECT user_id AS "userId", role, comment, active_branch_id AS "activeBranchId"
-                             FROM metahubs.metahubs_users
+                             FROM metahubs.rel_metahub_users
                              WHERE metahub_id = $1 AND _upl_deleted = false`,
                             [metahubId]
                         )
@@ -1352,7 +1362,7 @@ export function createMetahubsRoutes(
 
                     const lockedBranches = await tx.query<{ schemaName: string | null }>(
                         `SELECT schema_name AS "schemaName"
-                         FROM metahubs.metahubs_branches
+                         FROM metahubs.cat_metahub_branches
                          WHERE metahub_id = $1
                          FOR UPDATE`,
                         [metahubId]
@@ -1363,9 +1373,7 @@ export function createMetahubsRoutes(
                         .filter((schemaName): schemaName is string => Boolean(schemaName))
 
                     for (const schemaName of schemasToDrop) {
-                        if (!schemaName.startsWith('mhb_') || !isValidSchemaName(schemaName) || !IDENTIFIER_REGEX.test(schemaName)) {
-                            throw new Error('Invalid metahub schema name')
-                        }
+                        assertManagedMetahubSchemaName(schemaName)
                     }
 
                     for (const schemaName of schemasToDrop) {
@@ -1375,47 +1383,73 @@ export function createMetahubsRoutes(
 
                     // Cascade soft-delete children before the metahub itself
                     await tx.query(
-                        `UPDATE metahubs.metahubs_branches
+                        `UPDATE metahubs.cat_metahub_branches
                          SET _upl_deleted = true,
                              _upl_deleted_at = NOW(),
                              _upl_deleted_by = $2,
+                             _app_deleted = true,
+                             _app_deleted_at = NOW(),
+                             _app_deleted_by = $2,
                              _upl_updated_at = NOW(),
                              _upl_version = _upl_version + 1
-                         WHERE metahub_id = $1 AND _upl_deleted = false`,
+                         WHERE metahub_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
                         [metahubId, userId]
                     )
 
                     await tx.query(
-                        `UPDATE metahubs.metahubs_users
+                        `UPDATE metahubs.rel_metahub_users
                          SET _upl_deleted = true,
                              _upl_deleted_at = NOW(),
                              _upl_deleted_by = $2,
+                             _app_deleted = true,
+                             _app_deleted_at = NOW(),
+                             _app_deleted_by = $2,
                              _upl_updated_at = NOW(),
                              _upl_version = _upl_version + 1
-                         WHERE metahub_id = $1 AND _upl_deleted = false`,
+                         WHERE metahub_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+                        [metahubId, userId]
+                    )
+
+                    // Soft-delete publication versions before their parent publications
+                    await tx.query(
+                        `UPDATE metahubs.doc_publication_versions
+                         SET _upl_deleted = true,
+                             _upl_deleted_at = NOW(),
+                             _upl_deleted_by = $2,
+                             _app_deleted = true,
+                             _app_deleted_at = NOW(),
+                             _app_deleted_by = $2,
+                             _upl_updated_at = NOW(),
+                             _upl_version = _upl_version + 1
+                         WHERE publication_id IN (
+                             SELECT id FROM metahubs.doc_publications WHERE metahub_id = $1
+                         ) AND _upl_deleted = false AND _app_deleted = false`,
                         [metahubId, userId]
                     )
 
                     await tx.query(
-                        `UPDATE metahubs.publications
+                        `UPDATE metahubs.doc_publications
                          SET _upl_deleted = true,
                              _upl_deleted_at = NOW(),
                              _upl_deleted_by = $2,
+                             _app_deleted = true,
+                             _app_deleted_at = NOW(),
+                             _app_deleted_by = $2,
                              _upl_updated_at = NOW(),
                              _upl_version = _upl_version + 1
-                         WHERE metahub_id = $1 AND _upl_deleted = false`,
+                         WHERE metahub_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
                         [metahubId, userId]
                     )
 
-                    await softDelete(tx, 'metahubs', 'metahubs', metahubId, userId)
+                    await softDelete(tx, 'metahubs', 'cat_metahubs', metahubId, userId)
                 })
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Failed to delete metahub'
                 if (message === 'Metahub not found') {
                     return res.status(404).json({ error: message })
                 }
-                if (message === 'Invalid metahub schema name') {
-                    return res.status(400).json({ error: message })
+                if (message.startsWith('Invalid metahub schema name:')) {
+                    return res.status(500).json({ error: message })
                 }
                 throw error
             } finally {

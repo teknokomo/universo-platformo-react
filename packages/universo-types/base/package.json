@@ -24,7 +24,7 @@
     "license": "Omsk Open License",
     "devDependencies": {
         "@types/node": "^20.11.17",
-        "eslint": "^8.56.0",
+        "eslint": "catalog:",
         "rimraf": "^5.0.5",
         "tsdown": "catalog:",
         "typescript": "catalog:",

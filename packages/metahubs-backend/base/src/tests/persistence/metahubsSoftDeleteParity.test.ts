@@ -16,22 +16,22 @@ function createExec() {
 
 describe('metahubs soft-delete parity', () => {
     it('builds the active-row condition with both delete flags', () => {
-        expect(softDeleteCondition({ alias: 'm' })).toBe('m._upl_deleted = false AND m._mhb_deleted = false')
-        expect(softDeleteCondition({ alias: 'm', onlyDeleted: true })).toBe('m._upl_deleted = true AND m._mhb_deleted = true')
+        expect(softDeleteCondition({ alias: 'm' })).toBe('m._upl_deleted = false AND m._app_deleted = false')
+        expect(softDeleteCondition({ alias: 'm', onlyDeleted: true })).toBe('m._upl_deleted = true AND m._app_deleted = true')
     })
 
     it('soft-deletes metahub-domain rows through both lifecycle columns', async () => {
         const exec = createExec()
         exec.query.mockResolvedValue([{ id: 'row-1' }])
 
-        await softDelete(exec as never, 'metahubs', 'publications', 'row-1', 'user-1')
+        await softDelete(exec as never, 'metahubs', 'doc_publications', 'row-1', 'user-1')
 
         const [sql, params] = exec.query.mock.calls[0]
         expect(sql).toContain('_upl_deleted = true')
-        expect(sql).toContain('_mhb_deleted = true')
-        expect(sql).toContain('_mhb_deleted_at = NOW()')
+        expect(sql).toContain('_app_deleted = true')
+        expect(sql).toContain('_app_deleted_at = NOW()')
         expect(sql).toContain('AND _upl_deleted = false')
-        expect(sql).toContain('AND _mhb_deleted = false')
+        expect(sql).toContain('AND _app_deleted = false')
         expect(params).toEqual(['row-1', 'user-1'])
     })
 
@@ -48,11 +48,11 @@ describe('metahubs soft-delete parity', () => {
         })
 
         const [sql] = exec.query.mock.calls[0]
-        expect(sql).toContain('membership._upl_deleted = false AND membership._mhb_deleted = false')
-        expect(sql).toContain('m._upl_deleted = false AND m._mhb_deleted = false')
-        expect(sql).toContain('FROM metahubs.metahubs_users')
-        expect(sql).toContain('FROM metahubs.metahubs_branches')
-        expect(sql).toContain('WHERE _upl_deleted = false AND _mhb_deleted = false')
+        expect(sql).toContain('membership._upl_deleted = false AND membership._app_deleted = false')
+        expect(sql).toContain('m._upl_deleted = false AND m._app_deleted = false')
+        expect(sql).toContain('FROM metahubs.rel_metahub_users')
+        expect(sql).toContain('FROM metahubs.cat_metahub_branches')
+        expect(sql).toContain('WHERE _upl_deleted = false AND _app_deleted = false')
     })
 
     it('filters deleted membership rows in listMetahubMembers', async () => {
@@ -65,7 +65,7 @@ describe('metahubs soft-delete parity', () => {
         })
 
         const [sql] = exec.query.mock.calls[0]
-        expect(sql).toContain('mu._upl_deleted = false AND mu._mhb_deleted = false')
+        expect(sql).toContain('mu._upl_deleted = false AND mu._app_deleted = false')
     })
 
     it('filters deleted branches when resolving schema-name collisions', async () => {
@@ -74,7 +74,7 @@ describe('metahubs soft-delete parity', () => {
         await findBranchBySchemaName(exec as never, 'mhb_example')
 
         const [sql] = exec.query.mock.calls[0]
-        expect(sql).toContain('b._upl_deleted = false AND b._mhb_deleted = false')
+        expect(sql).toContain('b._upl_deleted = false AND b._app_deleted = false')
     })
 
     it('filters deleted publications and publication versions in publication reads', async () => {
@@ -89,10 +89,10 @@ describe('metahubs soft-delete parity', () => {
 
         const [listSql] = exec.query.mock.calls[0]
         const [versionSql] = exec.query.mock.calls[1]
-        expect(listSql).toContain('p._upl_deleted = false AND p._mhb_deleted = false')
-        expect(listSql).toContain('FROM metahubs.publications_versions')
-        expect(listSql).toContain('WHERE _upl_deleted = false AND _mhb_deleted = false')
-        expect(versionSql).toContain('pv._upl_deleted = false AND pv._mhb_deleted = false')
+        expect(listSql).toContain('p._upl_deleted = false AND p._app_deleted = false')
+        expect(listSql).toContain('FROM metahubs.doc_publication_versions')
+        expect(listSql).toContain('WHERE _upl_deleted = false AND _app_deleted = false')
+        expect(versionSql).toContain('pv._upl_deleted = false AND pv._app_deleted = false')
     })
 
     it('filters deleted memberships and deleted parent metahubs in guard lookups', async () => {
@@ -111,9 +111,9 @@ describe('metahubs soft-delete parity', () => {
         await getMetahubMembership(exec as never, 'user-1', 'metahub-1')
 
         const [sql, params] = exec.query.mock.calls[0]
-        expect(sql).toContain('JOIN metahubs.metahubs m ON m.id = mu.metahub_id')
-        expect(sql).toContain('mu._upl_deleted = false AND mu._mhb_deleted = false')
-        expect(sql).toContain('m._upl_deleted = false AND m._mhb_deleted = false')
+        expect(sql).toContain('JOIN metahubs.cat_metahubs m ON m.id = mu.metahub_id')
+        expect(sql).toContain('mu._upl_deleted = false AND mu._app_deleted = false')
+        expect(sql).toContain('m._upl_deleted = false AND m._app_deleted = false')
         expect(params).toEqual(['metahub-1', 'user-1'])
     })
 })

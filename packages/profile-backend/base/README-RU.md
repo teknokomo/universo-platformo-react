@@ -53,7 +53,7 @@ app.use('/api/v1/profile', profileRoutes)
 
 ## Database Notes
 
-- Данные хранятся в `public.profiles`.
+- Данные хранятся в `profiles.cat_profiles`.
 - RLS policies ограничивают строки контекстом аутентифицированного пользователя.
 - SQL-функции поддерживают bootstrap профиля, обновление email и потоки проверки или смены пароля.
 - Platform bootstrap выполняет migration definitions пакета до монтирования роутов.

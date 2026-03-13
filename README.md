@@ -27,7 +27,7 @@
 
 **In this repository, a public initiative is currently underway to create a Universo Platformo implementation, with the goal of launching global teknokomization and saving humanity from ultimate enslavement and total annihilation.**
 
-Teknokomization entails the creation of the Technocomo Era, characterized by humanity's transition from the current fifth technological paradigm to the sixth technological paradigm, with a socio-economic structure in which the means of production will be maximally roboticized and owned by all working people. Human labor will thus consist of acquiring new knowledge, improving the social order, exploring the infinite universe, caring for their families, and so on.
+Teknokomization entails the creation of the Teknokomo Era, characterized by humanity's transition from the current fifth technological paradigm to the sixth technological paradigm, with a socio-economic structure in which the means of production will be maximally roboticized and owned by all working people. Human labor will thus consist of acquiring new knowledge, improving the social order, exploring the infinite universe, caring for their families, and so on.
 
 Teknokomization is a long-term, yet inevitable, and literally vitally necessary process of human development. This process is gradual and involves the need to create the necessary systems now, improve coordination, reduce waste, and gradually expand the scope of labor that can be planned, modeled, automated, and collectively regulated.
 

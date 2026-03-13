@@ -8,8 +8,8 @@ export interface PersistConnectorSyncTouchInput {
 export const persistConnectorSyncTouch = async (trx: Knex.Transaction, input: PersistConnectorSyncTouchInput): Promise<void> => {
     const result = await trx
         .withSchema('applications')
-        .table('connectors')
-        .where({ id: input.connectorId })
+        .table('cat_connectors')
+        .where({ id: input.connectorId, _upl_deleted: false, _app_deleted: false })
         .update({
             _upl_updated_at: trx.fn.now(),
             _upl_updated_by: input.userId ?? null,

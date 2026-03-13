@@ -6,9 +6,17 @@
         "outDir": "./dist",
         "baseUrl": ".",
         "paths": {
-            "@universo/database": ["../../universo-database/base/dist/index.d.ts"],
-            "@universo/migrations-core": ["../../universo-migrations-core/base/dist/index.d.ts"],
-            "@universo/migrations-catalog": ["../../universo-migrations-catalog/base/dist/index.d.ts"]
+            "@universo/database": ["../../universo-database/base/dist/index.d.ts", "../../universo-database/base/src/index.ts"],
+            "@universo/migrations-core": [
+                "../../universo-migrations-core/base/dist/index.d.ts",
+                "../../universo-migrations-core/base/src/index.ts"
+            ],
+            "@universo/migrations-catalog": [
+                "../../universo-migrations-catalog/base/dist/index.d.ts",
+                "../../universo-migrations-catalog/base/src/index.ts"
+            ],
+            "@universo/schema-ddl": ["../../schema-ddl/base/dist/index.d.ts", "../../schema-ddl/base/src/index.ts"],
+            "@universo/types": ["../../universo-types/base/dist/index"]
         },
         "strict": true,
         "esModuleInterop": true,

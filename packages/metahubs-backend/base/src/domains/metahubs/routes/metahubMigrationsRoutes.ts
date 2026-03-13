@@ -554,16 +554,9 @@ export function createMetahubMigrationsRoutes(
             try {
                 await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
                 const { metahub, branch } = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
-                const plan = await buildMigrationPlan(
-                    exec,
-                    metahub,
-                    branch,
-                    parsed.data.targetTemplateVersionId,
-                    parsed.data.cleanupMode,
-                    {
-                        includeTemplateSeedDryRun: false
-                    }
-                )
+                const plan = await buildMigrationPlan(exec, metahub, branch, parsed.data.targetTemplateVersionId, parsed.data.cleanupMode, {
+                    includeTemplateSeedDryRun: false
+                })
                 return res.json(toMigrationStatus(plan))
             } catch (error) {
                 const mapped = mapMigrationsRouteError(error, { metahubId })
@@ -665,13 +658,7 @@ export function createMetahubMigrationsRoutes(
             try {
                 await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
                 const { metahub, branch } = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
-                const plan = await buildMigrationPlan(
-                    exec,
-                    metahub,
-                    branch,
-                    parsed.data.targetTemplateVersionId,
-                    parsed.data.cleanupMode
-                )
+                const plan = await buildMigrationPlan(exec, metahub, branch, parsed.data.targetTemplateVersionId, parsed.data.cleanupMode)
                 return res.json(plan)
             } catch (error) {
                 const mapped = mapMigrationsRouteError(error, { metahubId })
@@ -860,7 +847,7 @@ export function createMetahubMigrationsRoutes(
                             throw new Error('Metahub not found')
                         }
                         await tx.query(
-                            `UPDATE metahubs.metahubs
+                            `UPDATE metahubs.cat_metahubs
                              SET template_version_id = $1,
                                  _upl_updated_by = $2,
                                  _upl_updated_at = NOW()

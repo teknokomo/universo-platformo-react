@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import { isPublicRoute } from '@universo/utils'
+import { isDevelopment, isPublicRoute } from '@universo/utils'
 
 export const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
 const CSRF_STORAGE_SYMBOL = Symbol.for('universo.auth.csrfStorageKey')
@@ -74,7 +74,9 @@ const getSessionStorage = () => {
     try {
         return window.sessionStorage
     } catch (error) {
-        console.warn('[auth] sessionStorage unavailable', error)
+        if (isDevelopment()) {
+            console.warn('[auth] sessionStorage unavailable', error)
+        }
         return undefined
     }
 }

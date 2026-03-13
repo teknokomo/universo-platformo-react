@@ -20,6 +20,8 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@universo/auth-backend$': path.join(repoRoot, 'packages/auth-backend/base/dist/index.js'),
     '^@universo/auth-backend/(.*)$': path.join(repoRoot, 'packages/auth-backend/base/dist/$1'),
+    '^@universo/database$': path.join(repoRoot, 'packages/universo-database/base/src/index.ts'),
+    '^@universo/database/(.*)$': path.join(repoRoot, 'packages/universo-database/base/src/$1'),
     '^@universo/utils/database$': path.join(repoRoot, 'packages/universo-utils/base/src/database/index.ts'),
     '^@universo/utils/database/(.*)$': path.join(repoRoot, 'packages/universo-utils/base/src/database/$1'),
     '^@universo/migrations-catalog$': path.join(repoRoot, 'packages/universo-migrations-catalog/base/src/index.ts'),

@@ -44,6 +44,7 @@ pnpm --filter @universo/i18n lint
 - Keep English and Russian locale files synchronized.
 - Add new base namespaces only when they are genuinely shared across multiple frontend packages.
 - Keep package-level docs focused on the shared runtime; feature-specific translation helpers belong in consumer docs.
+- Runtime debug logs are disabled by default; enable them only when needed via `UNIVERSO_I18N_DEBUG=1` (or `globalThis.__UNIVERSO_I18N_DEBUG__ = true` in browser diagnostics).
 
 ## Related Documentation
 

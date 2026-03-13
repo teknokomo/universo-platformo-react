@@ -4,13 +4,24 @@ import { generateSchemaName, generateTableName, generateColumnName } from '../na
 
 // Create mock Knex instance
 const mockTableBuilder = {
+    string: jest.fn().mockReturnThis(),
+    jsonb: jest.fn().mockReturnThis(),
+    boolean: jest.fn().mockReturnThis(),
+    integer: jest.fn().mockReturnThis(),
+    text: jest.fn().mockReturnThis(),
     uuid: jest.fn().mockReturnThis(),
     primary: jest.fn().mockReturnThis(),
     defaultTo: jest.fn().mockReturnThis(),
     timestamp: jest.fn().mockReturnThis(),
     notNullable: jest.fn().mockReturnThis(),
     nullable: jest.fn().mockReturnThis(),
-    specificType: jest.fn().mockReturnThis()
+    specificType: jest.fn().mockReturnThis(),
+    unique: jest.fn().mockReturnThis(),
+    index: jest.fn().mockReturnThis(),
+    foreign: jest.fn().mockReturnThis(),
+    references: jest.fn().mockReturnThis(),
+    inTable: jest.fn().mockReturnThis(),
+    onDelete: jest.fn().mockReturnThis()
 }
 
 const mockSchemaBuilder = {
@@ -142,12 +153,24 @@ describe('SchemaGenerator', () => {
             expect(mockKnex.raw).toHaveBeenCalledWith('CREATE SCHEMA IF NOT EXISTS ??', ['app_abc123def456'])
         })
 
+        it('should create fixed system schemas through the same validation boundary', async () => {
+            await generator.createSchema('metahubs')
+
+            expect(mockKnex.raw).toHaveBeenCalledWith('CREATE SCHEMA IF NOT EXISTS ??', ['metahubs'])
+        })
+
+        it('should create managed custom schemas through the same validation boundary', async () => {
+            await generator.createSchema('custom_runtime')
+
+            expect(mockKnex.raw).toHaveBeenCalledWith('CREATE SCHEMA IF NOT EXISTS ??', ['custom_runtime'])
+        })
+
         it('should throw error for invalid schema name', async () => {
             await expect(generator.createSchema('invalid-schema-name')).rejects.toThrow('Invalid schema name format: invalid-schema-name')
         })
 
-        it('should throw error for schema name without app_ prefix', async () => {
-            await expect(generator.createSchema('schema_abc123')).rejects.toThrow('Invalid schema name format')
+        it('should reject reserved synthetic platform scope keys', async () => {
+            await expect(generator.createSchema('cross_schema')).rejects.toThrow('Invalid schema name format')
         })
     })
 
@@ -158,8 +181,14 @@ describe('SchemaGenerator', () => {
             expect(mockKnex.raw).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS ?? CASCADE', ['app_abc123def456'])
         })
 
+        it('should drop fixed system schemas through the same validation boundary', async () => {
+            await generator.dropSchema('profiles')
+
+            expect(mockKnex.raw).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS ?? CASCADE', ['profiles'])
+        })
+
         it('should throw error for invalid schema name', async () => {
-            await expect(generator.dropSchema('invalid')).rejects.toThrow('Invalid schema name format')
+            await expect(generator.dropSchema('invalid-name')).rejects.toThrow('Invalid schema name format')
         })
     })
 
@@ -200,6 +229,72 @@ describe('SchemaGenerator', () => {
             const result = await generator.generateFullSchema('app_test123', testEntities)
 
             expect(result.schemaName).toBe('app_test123')
+        })
+
+        it('should create business tables using explicit physical table names when provided', async () => {
+            await generator.generateFullSchema('profiles', [
+                {
+                    id: 'profile-1111-2222-3333-444455556666',
+                    codename: 'profiles',
+                    kind: 'catalog',
+                    physicalTableName: 'cat_profiles',
+                    presentation: {
+                        name: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: {
+                                    content: 'Profiles',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                }
+                            }
+                        }
+                    },
+                    fields: []
+                }
+            ])
+
+            expect(mockSchemaBuilder.createTable).toHaveBeenCalledWith('cat_profiles', expect.any(Function))
+        })
+
+        it('should create business columns using explicit physical column names when provided', async () => {
+            await generator.generateFullSchema('profiles', [
+                {
+                    id: 'profile-1111-2222-3333-444455556666',
+                    codename: 'profiles',
+                    kind: 'catalog',
+                    physicalTableName: 'cat_profiles',
+                    presentation: {
+                        name: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: {
+                                    content: 'Profiles',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                }
+                            }
+                        }
+                    },
+                    fields: [
+                        {
+                            id: 'nickname-field-1111-2222-333344445555',
+                            codename: 'nickname',
+                            physicalColumnName: 'nickname',
+                            dataType: AttributeDataType.STRING,
+                            isRequired: true
+                        }
+                    ]
+                }
+            ])
+
+            expect(mockTableBuilder.specificType).toHaveBeenCalledWith('nickname', 'TEXT')
         })
     })
 
@@ -349,6 +444,113 @@ describe('SchemaGenerator', () => {
             expect(insertedRows).toHaveLength(1)
             expect(insertedRows[0]?.kind).toBe('hub')
             expect(insertedRows[0]?.table_name).toBe(generateTableName('hub-1', 'hub'))
+        })
+
+        it('passes capability gates to ensureSystemTables during metadata sync', async () => {
+            const objectsTable = createTableMock('_app_objects', [])
+            const attributesTable = createTableMock('_app_attributes', [])
+
+            const localKnex = {
+                fn: { now: jest.fn(() => 'NOW()') },
+                withSchema: jest.fn((_schemaName: string) => ({
+                    table: jest.fn((tableName: string) => {
+                        if (tableName === '_app_objects') return objectsTable
+                        if (tableName === '_app_attributes') return attributesTable
+                        throw new Error(`Unexpected table: ${tableName}`)
+                    })
+                }))
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            const ensureSystemTablesSpy = jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
+
+            await localGenerator.syncSystemMetadata('profiles', [], {
+                systemTableCapabilities: {
+                    includeAttributes: true,
+                    includeValues: false,
+                    includeLayouts: false,
+                    includeWidgets: false
+                }
+            })
+
+            expect(ensureSystemTablesSpy).toHaveBeenCalledWith('profiles', undefined, {
+                includeAttributes: true,
+                includeValues: false,
+                includeLayouts: false,
+                includeWidgets: false
+            })
+        })
+
+        it('stores explicit physical column names in _app_attributes metadata', async () => {
+            const objectsTable = createTableMock('_app_objects', [])
+            const attributesTable = createTableMock('_app_attributes', [])
+
+            const localKnex = {
+                fn: { now: jest.fn(() => 'NOW()') },
+                withSchema: jest.fn((_schemaName: string) => ({
+                    table: jest.fn((tableName: string) => {
+                        if (tableName === '_app_objects') return objectsTable
+                        if (tableName === '_app_attributes') return attributesTable
+                        throw new Error(`Unexpected table: ${tableName}`)
+                    })
+                }))
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
+            const emptyVlc = {
+                _schema: '1',
+                _primary: 'en',
+                locales: {}
+            } as unknown as import('@universo/types').VersionedLocalizedContent<string>
+
+            await localGenerator.syncSystemMetadata('profiles', [
+                {
+                    id: 'profile-object-1',
+                    kind: 'catalog',
+                    codename: 'profiles',
+                    physicalTableName: 'cat_profiles',
+                    presentation: { name: emptyVlc },
+                    fields: [
+                        {
+                            id: 'field-nickname-1',
+                            codename: 'nickname',
+                            physicalColumnName: 'nickname',
+                            dataType: AttributeDataType.STRING,
+                            isRequired: true,
+                            presentation: { name: emptyVlc }
+                        }
+                    ]
+                } as unknown as import('../types').EntityDefinition
+            ])
+
+            const insertedRows = attributesTable.insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
+            expect(insertedRows[0]?.column_name).toBe('nickname')
+        })
+    })
+
+    describe('ensureSystemTables', () => {
+        it('supports capability-based optional system table creation while keeping core tables', async () => {
+            await generator.ensureSystemTables('metahubs', undefined, {
+                includeLayouts: false,
+                includeWidgets: false,
+                includeValues: false
+            })
+
+            const createdTables = mockSchemaBuilder.createTable.mock.calls.map((call) => call[0])
+            expect(createdTables).toEqual(expect.arrayContaining(['_app_objects', '_app_attributes', '_app_migrations', '_app_settings']))
+            expect(createdTables).not.toContain('_app_layouts')
+            expect(createdTables).not.toContain('_app_widgets')
+            expect(createdTables).not.toContain('_app_values')
+        })
+
+        it('rejects invalid capability combinations where widgets are enabled without layouts', async () => {
+            await expect(
+                generator.ensureSystemTables('metahubs', undefined, {
+                    includeLayouts: false,
+                    includeWidgets: true
+                })
+            ).rejects.toThrow('System table capabilities cannot enable _app_widgets without _app_layouts')
         })
     })
 

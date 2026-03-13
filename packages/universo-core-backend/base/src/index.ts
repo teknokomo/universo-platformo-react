@@ -1,5 +1,5 @@
 import express from 'express'
-import { Request, Response, NextFunction } from 'express'
+import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
@@ -7,23 +7,32 @@ import session from 'express-session'
 import csurf from 'csurf'
 import rateLimit from 'express-rate-limit'
 const cookieParser = require('cookie-parser')
-import jwt from 'jsonwebtoken'
+import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { Telemetry } from './utils/telemetry'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import apiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
-import {
-    initializeRateLimiters as initializeMetahubsRateLimiters,
-    seedTemplates as seedMetahubTemplates
-} from '@universo/metahubs-backend'
-import { getKnex, destroyKnex, createKnexExecutor, checkDatabaseHealth, registerGracefulShutdown } from '@universo/database'
+import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
+import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown } from '@universo/database'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
-import { runRegisteredPlatformMigrations, validateRegisteredPlatformMigrations } from '@universo/migrations-platform'
+import {
+    ensureRegisteredSystemAppSchemaGenerationPlans,
+    bootstrapRegisteredSystemAppStructureMetadata,
+    inspectLegacyFixedSchemaTables,
+    inspectRegisteredSystemAppStructureMetadata,
+    runRegisteredPlatformPostSchemaMigrations,
+    runRegisteredPlatformPreludeMigrations,
+    syncRegisteredPlatformDefinitionsToCatalog,
+    validateRegisteredPlatformMigrations,
+    validateRegisteredSystemAppDefinitions,
+    validateRegisteredSystemAppSchemaGenerationPlans,
+    validateRegisteredSystemAppCompiledDefinitions
+} from '@universo/migrations-platform'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
-import { API_WHITELIST_URLS } from '@universo/utils'
+import { API_WHITELIST_URLS, isGlobalMigrationCatalogEnabled } from '@universo/utils'
 import 'global-agent/bootstrap'
 
 const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
@@ -32,6 +41,24 @@ const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
     if (['lax', 'strict', 'none'].includes(normalized)) return normalized as 'lax' | 'strict' | 'none'
     if (['true', 'false'].includes(normalized)) return normalized === 'true'
     return 'lax'
+}
+
+interface SessionTokens {
+    access?: string
+}
+
+type SessionWithTokens = session.Session &
+    Partial<session.SessionData> & {
+        tokens?: SessionTokens
+    }
+
+type VerifiedJwtClaims = JwtPayload & {
+    user_id?: string
+    uid?: string
+}
+
+type AuthenticatedRequest = Request & {
+    user?: VerifiedJwtClaims & { id?: string }
 }
 
 export class App {
@@ -45,13 +72,29 @@ export class App {
     async initDatabase() {
         try {
             logger.info('📦 [server]: Knex is initializing...')
+            const globalMigrationCatalogEnabled = isGlobalMigrationCatalogEnabled()
 
             const validation = validateRegisteredPlatformMigrations()
             if (!validation.ok) {
                 throw new Error(validation.issues.map((issue: { message: string }) => issue.message).join('; '))
             }
 
-            const migrationResult = await runRegisteredPlatformMigrations(getKnex(), {
+            const systemAppDefinitionsValidation = validateRegisteredSystemAppDefinitions()
+            if (!systemAppDefinitionsValidation.ok) {
+                throw new Error(systemAppDefinitionsValidation.issues.map((issue: { message: string }) => issue.message).join('; '))
+            }
+
+            const systemAppSchemaGenerationPlansValidation = validateRegisteredSystemAppSchemaGenerationPlans()
+            if (!systemAppSchemaGenerationPlansValidation.ok) {
+                throw new Error(systemAppSchemaGenerationPlansValidation.issues.join('; '))
+            }
+
+            const systemAppCompiledDefinitionsValidation = validateRegisteredSystemAppCompiledDefinitions()
+            if (!systemAppCompiledDefinitionsValidation.ok) {
+                throw new Error(systemAppCompiledDefinitionsValidation.issues.join('; '))
+            }
+
+            const preludeMigrationResult = await runRegisteredPlatformPreludeMigrations(getKnex(), {
                 info(message: string, meta?: Record<string, unknown>) {
                     logger.info(message, meta)
                 },
@@ -62,7 +105,51 @@ export class App {
                     logger.error(message, meta)
                 }
             })
-            logger.info('[server]: Unified platform migrations completed', migrationResult)
+            logger.info('[server]: Platform prelude migrations completed', preludeMigrationResult)
+
+            const ensuredSystemAppSchemasResult = await ensureRegisteredSystemAppSchemaGenerationPlans(getKnex(), {
+                stage: 'target'
+            })
+            logger.info('[server]: Fixed system app schema generation ensured', ensuredSystemAppSchemasResult)
+
+            const postSchemaMigrationResult = await runRegisteredPlatformPostSchemaMigrations(getKnex(), {
+                info(message: string, meta?: Record<string, unknown>) {
+                    logger.info(message, meta)
+                },
+                warn(message: string, meta?: Record<string, unknown>) {
+                    logger.warn(message, meta)
+                },
+                error(message: string, meta?: Record<string, unknown>) {
+                    logger.error(message, meta)
+                }
+            })
+            logger.info('[server]: Platform post-schema migrations completed', postSchemaMigrationResult)
+
+            const systemAppStructureBootstrapResult = await bootstrapRegisteredSystemAppStructureMetadata(getKnex(), {
+                stage: 'target'
+            })
+            logger.info('[server]: Fixed system app structure metadata synchronized', systemAppStructureBootstrapResult)
+
+            const legacyFixedSchemaTables = await inspectLegacyFixedSchemaTables(getKnex())
+            if (!legacyFixedSchemaTables.ok) {
+                throw new Error(`Legacy fixed schema tables remain after bootstrap: ${legacyFixedSchemaTables.issues.join('; ')}`)
+            }
+
+            const systemAppStructureMetadataInspection = await inspectRegisteredSystemAppStructureMetadata(getKnex())
+            if (!systemAppStructureMetadataInspection.ok) {
+                throw new Error(
+                    `Fixed system app structure metadata inspection failed: ${systemAppStructureMetadataInspection.issues.join('; ')}`
+                )
+            }
+
+            if (globalMigrationCatalogEnabled) {
+                const definitionSyncResult = await syncRegisteredPlatformDefinitionsToCatalog(getKnex(), {
+                    source: 'core-backend-initDatabase'
+                })
+                logger.info('[server]: Registered platform definitions synchronized to catalog', definitionSyncResult)
+            } else {
+                logger.info('[server]: Global migration catalog is disabled; skipping catalog definition sync')
+            }
 
             // Initialize telemetry
             this.telemetry = new Telemetry()
@@ -96,7 +183,7 @@ export class App {
             this.app.set('trust proxy', parseInt(process.env.NUMBER_OF_PROXIES))
 
         // Cookie-parser middleware (needed for refresh tokens)
-        this.app.use(cookieParser() as any)
+        this.app.use(cookieParser() as RequestHandler)
 
         const sessionSecret = process.env.SESSION_SECRET
         if (!sessionSecret) {
@@ -169,19 +256,19 @@ export class App {
         })
 
         const whitelistURLs = API_WHITELIST_URLS
-        const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
-        const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
+        const urlCaseInsensitiveRegex = /\/api\/v1\//i
+        const urlCaseSensitiveRegex = /\/api\/v1\//
 
         // ═══════════════════════════════════════════════════════════════
         // JWT Authentication Middleware (Supabase)
         // ═══════════════════════════════════════════════════════════════
         this.app.use('/api/v1', async (req: Request, res: Response, next: NextFunction) => {
             // If the path does not contain /api/v1, skip
-            if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
+            if (!urlCaseInsensitiveRegex.test(req.path)) {
                 return next()
             }
             // If the path case doesn't match, reject
-            if (!URL_CASE_SENSITIVE_REGEX.test(req.path)) {
+            if (!urlCaseSensitiveRegex.test(req.path)) {
                 return res.status(401).json({ error: 'Unauthorized Access' })
             }
             // If URL in whitelist, skip
@@ -191,28 +278,31 @@ export class App {
             }
 
             // Try session-based auth first
-            const sessionTokens = (req.session as any)?.tokens
-            const hasSession = Boolean(req.isAuthenticated?.() && sessionTokens?.access)
+            const sessionTokens = (req.session as SessionWithTokens | undefined)?.tokens
+            const sessionAccessToken = sessionTokens?.access ?? null
+            const hasSession = Boolean(req.isAuthenticated?.() && sessionAccessToken)
             if (hasSession) {
-                req.headers.authorization = `Bearer ${sessionTokens.access}`
+                req.headers.authorization = `Bearer ${sessionAccessToken}`
             }
 
             const headerValue = req.headers['authorization'] || req.headers['Authorization']
             const hasBearerToken = typeof headerValue === 'string' && headerValue.startsWith('Bearer ')
             const bearerToken = hasBearerToken ? headerValue.substring(7) : null
-            const tokenToVerify = bearerToken ?? (hasSession ? sessionTokens?.access : null)
+            const tokenToVerify = bearerToken ?? (hasSession ? sessionAccessToken : null)
 
             if (!tokenToVerify) {
                 return res.status(401).json({ error: 'Unauthorized Access: Missing token' })
             }
 
             try {
-                const decoded: any = jwt.verify(tokenToVerify, jwtSecret)
+                const verified = jwt.verify(tokenToVerify, jwtSecret)
+                const decoded: VerifiedJwtClaims = typeof verified === 'string' ? { sub: verified } : verified
                 const supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
+                const authenticatedRequest = req as AuthenticatedRequest
                 if (supabaseUserId) {
-                    ;(req as any).user = { id: supabaseUserId, ...decoded }
+                    authenticatedRequest.user = { id: supabaseUserId, ...decoded }
                 } else {
-                    ;(req as any).user = decoded
+                    authenticatedRequest.user = decoded
                 }
                 return next()
             } catch (error) {
@@ -225,13 +315,6 @@ export class App {
         await initializeMetahubsRateLimiters()
         await initializeApplicationsRateLimiters()
         await initializeStartRateLimiters()
-
-        // Seed metahub templates into DB (idempotent, non-fatal)
-        try {
-            await seedMetahubTemplates(createKnexExecutor(getKnex()))
-        } catch (error) {
-            logger.error('[server]: Failed to seed metahub templates:', error)
-        }
 
         // Mount API v1 routes
         this.app.use('/api/v1', apiV1Router)

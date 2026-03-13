@@ -17,7 +17,6 @@ import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRout
 import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
-import { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
 import { createSettingsRoutes } from './settings/routes/settingsRoutes'
 import { isMetahubDomainError } from './shared/domainErrors'
 
@@ -75,9 +74,6 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
 
     // Application migrations - runtime schema migration history and rollback
     router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDbExecutor, read, write))
-
-    // Application sync - schema creation and synchronization
-    router.use('/', createApplicationSyncRoutes(ensureAuth, getDbExecutor, read, write))
 
     // New metadata-driven routes
     router.use('/', createHubsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -141,6 +137,5 @@ export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRout
 export { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
-export { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
 export { createSettingsRoutes } from './settings/routes/settingsRoutes'
 export * from './shared/guards'

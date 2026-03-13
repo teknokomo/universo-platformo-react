@@ -168,9 +168,10 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                     query: <T = unknown>(sql: string, parameters?: unknown[]) => {
                         if (released) throw new Error('RLS session already released')
                         const { sql: knexSql, bindings } = convertPgBindings(sql, parameters)
-                        return knex.raw(knexSql, bindings as Knex.RawBinding[]).connection(connection).then(
-                            (result: any) => (result.rows ?? result) as T[]
-                        )
+                        return knex
+                            .raw(knexSql, bindings as Knex.RawBinding[])
+                            .connection(connection)
+                            .then((result: any) => (result.rows ?? result) as T[])
                     },
                     isReleased: () => released
                 })
@@ -202,7 +203,11 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 })
                 // ROLLBACK before releasing — setup failed, no data to commit
                 if (connection) {
-                    try { await knex.raw('ROLLBACK').connection(connection) } catch { /* best-effort */ }
+                    try {
+                        await knex.raw('ROLLBACK').connection(connection)
+                    } catch {
+                        /* best-effort */
+                    }
                     committed = true // prevent cleanup from attempting COMMIT
                 }
                 await cleanup()

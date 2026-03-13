@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { isDevelopment } from '@universo/utils'
 import { clearStoredCsrfToken, type AuthClient } from '../api/client'
 
 export interface AuthUser {
@@ -24,24 +25,22 @@ export const useSession = ({ client, fetchOnMount = true }: UseSessionOptions): 
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
 
-    console.log('[useSession] Current state:', { user, loading, error })
-
     /**
      * Fetch current user from /auth/me endpoint
      */
     const refresh = useCallback(async (): Promise<AuthUser | null> => {
-        console.log('[useSession] refresh() called')
         try {
             setLoading(true)
             setError(null)
 
             const response = await client.get<AuthUser>('/auth/me')
-            console.log('[useSession] /auth/me response:', response.data)
 
             setUser(response.data)
             return response.data
         } catch (err) {
-            console.error('[useSession] /auth/me error:', err)
+            if (isDevelopment()) {
+                console.error('[useSession] /auth/me error:', err)
+            }
 
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user'
             setError(errorMessage)
@@ -71,7 +70,9 @@ export const useSession = ({ client, fetchOnMount = true }: UseSessionOptions): 
     useEffect(() => {
         if (!fetchOnMount) return
         refresh().catch((err) => {
-            console.error('[auth] Failed to fetch session', err)
+            if (isDevelopment()) {
+                console.error('[auth] Failed to fetch session', err)
+            }
         })
     }, [fetchOnMount, refresh])
 

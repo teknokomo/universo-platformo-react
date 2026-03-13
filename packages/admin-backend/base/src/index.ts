@@ -1,5 +1,10 @@
 // Platform migration definitions (native SQL)
-export { createAdminSchemaMigrationDefinition, addCodenameAutoConvertMixedSettingMigrationDefinition, addAdminSoftDeleteColumnsMigrationDefinition } from './platform/migrations'
+export {
+    createAdminSchemaMigrationDefinition,
+    finalizeAdminSchemaSupportMigrationDefinition,
+    prepareAdminSchemaSupportMigrationDefinition
+} from './platform/migrations'
+export { adminSystemAppDefinition } from './platform/systemAppDefinition'
 
 // Services
 export {

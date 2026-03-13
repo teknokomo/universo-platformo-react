@@ -25,11 +25,7 @@ export class Telemetry {
         return this.cachedVersion || ''
     }
 
-    async sendTelemetry(
-        event: string,
-        properties: Record<string, unknown> = {},
-        orgId?: string
-    ): Promise<void> {
+    async sendTelemetry(event: string, properties: Record<string, unknown> = {}, orgId?: string): Promise<void> {
         if (!this.postHog) {
             return
         }
@@ -40,9 +36,7 @@ export class Telemetry {
         }
 
         const distinctId =
-            typeof orgId === 'string' && orgId.trim().length > 0
-                ? orgId
-                : this.anonymousId || (this.anonymousId = uuid.generateUuidV7())
+            typeof orgId === 'string' && orgId.trim().length > 0 ? orgId : this.anonymousId || (this.anonymousId = uuid.generateUuidV7())
 
         this.postHog.capture({
             event,

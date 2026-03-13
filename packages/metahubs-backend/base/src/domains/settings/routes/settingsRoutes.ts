@@ -81,7 +81,7 @@ const getContentLocaleCodes = async (ds: SqlQueryable): Promise<string[]> => {
         const rows = (await ds.query(
             `
                 SELECT code
-                FROM admin.locales
+                FROM admin.cfg_locales
                 WHERE is_enabled_content = true
                 ORDER BY sort_order ASC, code ASC
             `

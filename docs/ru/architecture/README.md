@@ -13,9 +13,13 @@ description: Архитектура репозитория Universo Platformo Re
 ## Базовые принципы
 
 - Держать бизнес-домены в сфокусированных пакетах.
-- Использовать PostgreSQL/Supabase с общими сервисами на базе Knex.
+- Использовать Supabase (PostgreSQL) с общими сервисами на базе Knex.
 - Предпочитать SQL-first stores и нейтральные executor-контракты.
 - Держать фронтенд-возможности модульными и собирать их core shell-пакетом.
 - Считать миграции, эволюцию схем и документацию требованиями первого класса.
+
+См. страницу [Конвергенция системных приложений](system-app-convergence.md) с описанием converged fixed-schema model для admin, profiles, metahubs и applications.
+
+См. страницу [Optional Global Catalog](optional-global-catalog.md) с описанием registry-режима, отключённого по умолчанию, workflow release bundles и recovery boundaries для операторов.
 
 Нижележащие страницы раскрывают детали по структуре, бэкенду, фронтенду, базе и аутентификации.

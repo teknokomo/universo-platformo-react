@@ -21,7 +21,6 @@ import {
     useDebouncedSearch,
     PaginationControls,
     FlowListTable,
-    ConfirmContextProvider,
     useConfirm,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
@@ -1652,12 +1651,6 @@ const AttributeListContent = () => {
     )
 }
 
-const AttributeList = () => {
-    return (
-        <ConfirmContextProvider>
-            <AttributeListContent />
-        </ConfirmContextProvider>
-    )
-}
+const AttributeList = () => <AttributeListContent />
 
 export default AttributeList

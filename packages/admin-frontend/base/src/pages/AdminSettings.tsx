@@ -3,7 +3,7 @@
  *
  * Platform-wide configuration settings organized by category.
  * Tabs: Metahubs (codename defaults), Applications (future).
- * Reads/writes admin.settings table via admin settings API.
+ * Reads/writes admin.cfg_settings table via admin settings API.
  */
 
 import { useState, useCallback, useMemo } from 'react'

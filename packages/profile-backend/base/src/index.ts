@@ -9,6 +9,7 @@ export * from './persistence'
 
 // Additional exports for standalone usage
 export * from './platform/migrations'
+export { profileSystemAppDefinition } from './platform/systemAppDefinition'
 export * from './services/profileService'
 export * from './controllers/profileController'
 export * from './types'

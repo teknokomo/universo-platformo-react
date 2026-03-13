@@ -26,6 +26,7 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
+import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 
 export interface BranchListOptions {
     limit?: number
@@ -66,17 +67,12 @@ export class MetahubBranchesService {
     }
 
     private buildSchemaName(metahubId: string, branchNumber: number): string {
-        const cleanId = metahubId.replace(/-/g, '')
-        return `mhb_${cleanId}_b${branchNumber}`
-    }
-
-    private quoteIdent(identifier: string): string {
-        return `"${identifier.replace(/"/g, '""')}"`
+        return buildManagedDynamicSchemaName({ prefix: 'mhb', ownerId: metahubId, branchNumber })
     }
 
     private assertSafeSchemaName(schemaName: string): void {
-        if (!/^[a-z_][a-z0-9_]*$/.test(schemaName)) {
-            throw new Error(`Unsafe schema name: ${schemaName}`)
+        if (!schemaName.startsWith('mhb_') || !isManagedDynamicSchemaName(schemaName)) {
+            throw new Error(`Invalid metahub schema name: ${schemaName}`)
         }
     }
 
@@ -96,7 +92,7 @@ export class MetahubBranchesService {
         if (keptKinds.length === 0 || removedKinds.length === 0) return
 
         this.assertSafeSchemaName(schemaName)
-        const schemaIdent = this.quoteIdent(schemaName)
+        const schemaIdent = quoteIdentifier(schemaName)
 
         const rows = await exec.query<{ target_kind: string | null }>(
             `
@@ -191,7 +187,7 @@ export class MetahubBranchesService {
 
     private async pruneClonedSchema(exec: SqlQueryable, schemaName: string, options: BranchCopyOptions): Promise<void> {
         this.assertSafeSchemaName(schemaName)
-        const schemaIdent = this.quoteIdent(schemaName)
+        const schemaIdent = quoteIdentifier(schemaName)
 
         if (!options.copyLayouts) {
             await exec.query(`DELETE FROM ${schemaIdent}._mhb_layouts`)
@@ -211,6 +207,24 @@ export class MetahubBranchesService {
 
         // Ensure hubs never keep dangling/self parent links after prune.
         await this.sanitizeHubParentReferences(exec, schemaIdent)
+    }
+
+    private async cleanupSchemaWithDiagnostics(schemaName: string, context: string): Promise<string | null> {
+        const { generator } = getDDLServices()
+        try {
+            await generator.dropSchema(schemaName)
+            return null
+        } catch (cleanupError) {
+            const message = cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+            process.stderr.write(
+                `[metahub-branches] Failed to cleanup schema after branch rollback: ${JSON.stringify({
+                    schemaName,
+                    context,
+                    cleanupError: message
+                })}\n`
+            )
+            return message
+        }
     }
 
     /**
@@ -301,14 +315,16 @@ export class MetahubBranchesService {
                 b._upl_purge_after AS "_uplPurgeAfter",
                 b._upl_locked AS "_uplLocked", b._upl_locked_at AS "_uplLockedAt",
                 b._upl_locked_by AS "_uplLockedBy", b._upl_locked_reason AS "_uplLockedReason",
-                b._mhb_published AS "_mhbPublished", b._mhb_published_at AS "_mhbPublishedAt",
-                b._mhb_published_by AS "_mhbPublishedBy",
-                b._mhb_archived AS "_mhbArchived", b._mhb_archived_at AS "_mhbArchivedAt",
-                b._mhb_archived_by AS "_mhbArchivedBy",
-                b._mhb_deleted AS "_mhbDeleted", b._mhb_deleted_at AS "_mhbDeletedAt",
-                b._mhb_deleted_by AS "_mhbDeletedBy",
+                b._app_published AS "_appPublished", b._app_published_at AS "_appPublishedAt",
+                b._app_published_by AS "_appPublishedBy",
+                b._app_archived AS "_appArchived", b._app_archived_at AS "_appArchivedAt",
+                b._app_archived_by AS "_appArchivedBy",
+                b._app_deleted AS "_appDeleted", b._app_deleted_at AS "_appDeletedAt",
+                b._app_deleted_by AS "_appDeletedBy",
+                b._app_owner_id AS "_appOwnerId",
+                b._app_access_level AS "_appAccessLevel",
                 COUNT(*) OVER() AS "windowTotal"
-             FROM metahubs.metahubs_branches b
+             FROM metahubs.cat_metahub_branches b
              WHERE ${conditions.join(' AND ')}
              ORDER BY ${orderColumn} ${orderDir}
              LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
@@ -366,13 +382,15 @@ export class MetahubBranchesService {
                 b._upl_purge_after AS "_uplPurgeAfter",
                 b._upl_locked AS "_uplLocked", b._upl_locked_at AS "_uplLockedAt",
                 b._upl_locked_by AS "_uplLockedBy", b._upl_locked_reason AS "_uplLockedReason",
-                b._mhb_published AS "_mhbPublished", b._mhb_published_at AS "_mhbPublishedAt",
-                b._mhb_published_by AS "_mhbPublishedBy",
-                b._mhb_archived AS "_mhbArchived", b._mhb_archived_at AS "_mhbArchivedAt",
-                b._mhb_archived_by AS "_mhbArchivedBy",
-                b._mhb_deleted AS "_mhbDeleted", b._mhb_deleted_at AS "_mhbDeletedAt",
-                b._mhb_deleted_by AS "_mhbDeletedBy"
-             FROM metahubs.metahubs_branches b
+                b._app_published AS "_appPublished", b._app_published_at AS "_appPublishedAt",
+                b._app_published_by AS "_appPublishedBy",
+                b._app_archived AS "_appArchived", b._app_archived_at AS "_appArchivedAt",
+                b._app_archived_by AS "_appArchivedBy",
+                b._app_deleted AS "_appDeleted", b._app_deleted_at AS "_appDeletedAt",
+                b._app_deleted_by AS "_appDeletedBy",
+                b._app_owner_id AS "_appOwnerId",
+                b._app_access_level AS "_appAccessLevel"
+             FROM metahubs.cat_metahub_branches b
              WHERE ${conditions.join(' AND ')}
              ORDER BY ${orderColumn} ${orderDir}`,
             params
@@ -467,8 +485,10 @@ export class MetahubBranchesService {
         } catch (error) {
             const existingBranch = await findBranchBySchemaName(this.exec, schemaName)
             if (!existingBranch) {
-                const { generator } = getDDLServices()
-                await generator.dropSchema(schemaName).catch(() => undefined)
+                const cleanupError = await this.cleanupSchemaWithDiagnostics(schemaName, 'createDefaultBranch')
+                if (cleanupError) {
+                    throw new Error(`Branch rollback cleanup failed for schema "${schemaName}": ${cleanupError}`)
+                }
             }
             throw error
         } finally {
@@ -578,8 +598,10 @@ export class MetahubBranchesService {
             return savedBranch
         } catch (error) {
             if (schemaName) {
-                const { generator } = getDDLServices()
-                await generator.dropSchema(schemaName).catch(() => undefined)
+                const cleanupError = await this.cleanupSchemaWithDiagnostics(schemaName, 'createBranch')
+                if (cleanupError) {
+                    throw new Error(`Branch rollback cleanup failed for schema "${schemaName}": ${cleanupError}`)
+                }
             }
             throw error
         } finally {
@@ -726,9 +748,9 @@ export class MetahubBranchesService {
                 au.email,
                 p.nickname,
                 mu.role
-             FROM metahubs.metahubs_users mu
+             FROM metahubs.rel_metahub_users mu
              LEFT JOIN auth.users au ON au.id = mu.user_id
-             LEFT JOIN public.profiles p ON p.user_id = mu.user_id
+             LEFT JOIN profiles.cat_profiles p ON p.user_id = mu.user_id AND p._upl_deleted = false AND p._app_deleted = false
              WHERE mu.metahub_id = $1
                AND mu.active_branch_id = $2
                ${excludeClause}`,
@@ -769,7 +791,7 @@ export class MetahubBranchesService {
 
                 // Drop schema and delete branch row in the same DB transaction to avoid divergent states.
                 this.assertSafeSchemaName(branch.schemaName)
-                await tx.query(`DROP SCHEMA IF EXISTS ${this.quoteIdent(branch.schemaName)} CASCADE`)
+                await tx.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(branch.schemaName)} CASCADE`)
                 await deleteBranchById(tx, branchId, metahubId, requesterId)
             })
 

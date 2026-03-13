@@ -7,9 +7,124 @@ vi.mock('remark-math', () => ({ default: () => () => {} }))
 
 vi.mock('@universo/template-mui', async () => {
     const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    const t = (key: string, defaultValue?: unknown) => (typeof defaultValue === 'string' ? defaultValue : key)
+
     return {
         ...actual,
-        LocalizedInlineField: () => <div data-testid='localized-inline-field' />
+        LocalizedInlineField: ({
+            label,
+            onChange
+        }: {
+            label: string
+            onChange?: (value: { _schema: string; _primary: string; locales: Record<string, { content: string }> }) => void
+        }) => (
+            <button
+                type='button'
+                onClick={() =>
+                    onChange?.({
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: {
+                            en: {
+                                content: label.toLowerCase().includes('name') ? 'New Application' : 'Created from acceptance'
+                            }
+                        }
+                    })
+                }
+            >
+                {`Fill ${label}`}
+            </button>
+        ),
+        BaseEntityMenu: (props: any) => {
+            const descriptors = Array.isArray(props?.descriptors) ? props.descriptors : []
+            const ctx = props?.createContext?.({ entity: props.entity, t }) ?? { entity: props.entity, t }
+            const controlPanel = descriptors.find((descriptor: any) => descriptor?.id === 'control-panel')
+            const edit = descriptors.find((descriptor: any) => descriptor?.id === 'edit')
+            const del = descriptors.find((descriptor: any) => descriptor?.id === 'delete')
+            const copy = descriptors.find((descriptor: any) => descriptor?.id === 'copy')
+
+            return (
+                <div data-testid='entity-menu'>
+                    {controlPanel ? (
+                        <button type='button' onClick={() => controlPanel.onSelect?.(ctx)}>
+                            control-panel
+                        </button>
+                    ) : null}
+                    {edit ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                const dialogProps = edit.dialog?.buildProps?.(ctx)
+                                dialogProps?.extraFields?.({
+                                    values: dialogProps?.initialExtraValues ?? {},
+                                    setValue: () => undefined,
+                                    isLoading: false,
+                                    errors: dialogProps?.validate?.(dialogProps?.initialExtraValues ?? {}) ?? {}
+                                })
+                                void dialogProps?.onSave?.({
+                                    ...(dialogProps?.initialExtraValues ?? {}),
+                                    nameVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Edited Application' } }
+                                    },
+                                    descriptionVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Edited Application Description' } }
+                                    }
+                                })
+                            }}
+                        >
+                            edit
+                        </button>
+                    ) : null}
+                    {copy ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                const dialogProps = copy.dialog?.buildProps?.(ctx)
+                                dialogProps?.tabs?.({
+                                    values: dialogProps?.initialExtraValues ?? {},
+                                    setValue: () => undefined,
+                                    isLoading: false,
+                                    errors: dialogProps?.validate?.(dialogProps?.initialExtraValues ?? {}) ?? {}
+                                })
+                                void dialogProps?.onSave?.({
+                                    ...(dialogProps?.initialExtraValues ?? {}),
+                                    nameVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Copied Application' } }
+                                    },
+                                    descriptionVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Copied Application Description' } }
+                                    },
+                                    copyConnector: true,
+                                    createSchema: false,
+                                    copyAccess: true
+                                })
+                            }}
+                        >
+                            copy
+                        </button>
+                    ) : null}
+                    {del ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                const dialogProps = del.dialog?.buildProps?.(ctx)
+                                void dialogProps?.onConfirm?.()
+                            }}
+                        >
+                            delete
+                        </button>
+                    ) : null}
+                </div>
+            )
+        }
     }
 })
 
@@ -17,7 +132,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { SnackbarProvider } from 'notistack'
 import { I18nextProvider } from 'react-i18next'
 import { Provider } from 'react-redux'
@@ -37,7 +152,8 @@ vi.mock('../../api/applications', () => ({
     listApplications: vi.fn(),
     createApplication: vi.fn(),
     updateApplication: vi.fn(),
-    deleteApplication: vi.fn()
+    deleteApplication: vi.fn(),
+    copyApplication: vi.fn()
 }))
 
 // Mock useAuth hook
@@ -156,6 +272,11 @@ const makePaginatedResponse = <T,>(items: T[], params?: { total?: number; limit?
             hasMore: offset + count < total
         }
     }
+}
+
+const LocationDisplay = () => {
+    const location = useLocation()
+    return <div data-testid='location-display'>{location.pathname}</div>
 }
 
 const renderWithProviders = (ui: React.ReactElement) => {
@@ -441,6 +562,280 @@ describe('ApplicationList', () => {
                     expect(dialog).toBeTruthy()
                 })
             }
+        })
+
+        it('submits localized create payload from the page dialog', async () => {
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText(/no applications/i) || screen.getByText(/get started/i)).toBeInTheDocument()
+            })
+
+            const addButtons = screen.getAllByRole('button')
+            const addButton = addButtons.find(
+                (btn) => btn.querySelector('[data-testid="AddRoundedIcon"]') || btn.textContent?.includes('Add')
+            )
+
+            expect(addButton).toBeTruthy()
+
+            await user.click(addButton!)
+
+            await waitFor(() => {
+                expect(screen.getByRole('dialog')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'Fill Name' }))
+            await user.click(screen.getByRole('button', { name: 'Fill Description' }))
+            await user.click(screen.getByRole('button', { name: 'Create' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.createApplication).toHaveBeenCalledWith({
+                    name: { en: 'New Application' },
+                    description: { en: 'Created from acceptance' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en'
+                })
+            })
+        })
+    })
+
+    describe('Control Panel Navigation', () => {
+        beforeEach(() => {
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'navigable-application',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Navigable Application' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Can open control panel' }
+                                }
+                            },
+                            role: 'admin',
+                            membersCount: 2,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+        })
+
+        it('routes to the admin panel from the page action menu', async () => {
+            const { user } = renderWithProviders(
+                <>
+                    <ApplicationList />
+                    <LocationDisplay />
+                </>
+            )
+
+            await waitFor(() => {
+                expect(screen.getByText('Navigable Application')).toBeInTheDocument()
+            })
+
+            expect(screen.getByTestId('location-display')).toHaveTextContent('/applications')
+
+            await user.click(screen.getByRole('button', { name: 'control-panel' }))
+
+            await waitFor(() => {
+                expect(screen.getByTestId('location-display')).toHaveTextContent('/a/navigable-application/admin')
+            })
+        })
+    })
+
+    describe('Update Application', () => {
+        beforeEach(() => {
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'editable-application',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Editable Application' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Editable application description' }
+                                }
+                            },
+                            role: 'admin',
+                            membersCount: 2,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(applicationsApi.updateApplication).mockResolvedValue({
+                data: {
+                    id: 'editable-application',
+                    name: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Edited Application' }
+                        }
+                    },
+                    description: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Edited Application Description' }
+                        }
+                    }
+                }
+            } as any)
+        })
+
+        it('submits localized update payload from the page action menu', async () => {
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Editable Application')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'edit' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.updateApplication).toHaveBeenCalledWith('editable-application', {
+                    name: { en: 'Edited Application' },
+                    description: { en: 'Edited Application Description' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en'
+                })
+            })
+        })
+    })
+
+    describe('Copy Application', () => {
+        beforeEach(() => {
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'copyable-application',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Copyable Application' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Copy source description' }
+                                }
+                            },
+                            role: 'admin',
+                            membersCount: 2,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(applicationsApi.copyApplication).mockResolvedValue({
+                data: {
+                    id: 'copied-application',
+                    name: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Copied Application' }
+                        }
+                    }
+                }
+            } as any)
+        })
+
+        it('submits localized copy payload from the page action menu', async () => {
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Copyable Application')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'copy' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.copyApplication).toHaveBeenCalledWith('copyable-application', {
+                    name: { en: 'Copied Application' },
+                    description: { en: 'Copied Application Description' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en',
+                    copyConnector: true,
+                    createSchema: false,
+                    copyAccess: true
+                })
+            })
+        })
+    })
+
+    describe('Delete Application', () => {
+        beforeEach(() => {
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'deletable-application',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Deletable Application' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Delete me' }
+                                }
+                            },
+                            role: 'owner',
+                            membersCount: 2,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(applicationsApi.deleteApplication).mockResolvedValue(undefined as any)
+        })
+
+        it('submits the page action-menu delete flow into the existing delete mutation', async () => {
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Deletable Application')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'delete' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.deleteApplication).toHaveBeenCalledWith('deletable-application')
+            })
         })
     })
 

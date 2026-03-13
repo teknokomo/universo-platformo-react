@@ -82,6 +82,7 @@ jest.mock('../../domains/ddl', () => ({
 
 import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
 import type { DbExecutor } from '@universo/utils/database'
+import type { VersionedLocalizedContent } from '@universo/types'
 
 function createMockExecutor(queryFn?: jest.Mock): DbExecutor {
     const qFn = queryFn ?? jest.fn(async () => [])
@@ -99,6 +100,18 @@ function createMockExecutor(queryFn?: jest.Mock): DbExecutor {
     }
 }
 
+const createLocalizedName = (value: string): VersionedLocalizedContent<string> => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: value }
+    }
+})
+
+const TEST_METAHUB_ID = '018f8a78-7b8f-7c1d-a111-222233334444'
+const TEST_METAHUB_BRANCH_SCHEMA_1 = 'mhb_018f8a787b8f7c1da111222233334444_b1'
+const TEST_METAHUB_BRANCH_SCHEMA_2 = 'mhb_018f8a787b8f7c1da111222233334444_b2'
+
 describe('MetahubBranchesService', () => {
     beforeEach(() => {
         jest.clearAllMocks()
@@ -114,7 +127,7 @@ describe('MetahubBranchesService', () => {
         mockInitializeSchema.mockRejectedValueOnce(new Error('init failed'))
 
         mockFindMetahubById.mockResolvedValue({
-            id: 'metahub-1',
+            id: TEST_METAHUB_ID,
             defaultBranchId: null,
             templateVersionId: null
         })
@@ -125,19 +138,44 @@ describe('MetahubBranchesService', () => {
 
         await expect(
             service.createInitialBranch({
-                metahubId: 'metahub-1',
+                metahubId: TEST_METAHUB_ID,
                 codename: 'main',
-                name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Main' } } } as any
+                name: createLocalizedName('Main')
             })
         ).rejects.toThrow('init failed')
 
         expect(exec.transaction).not.toHaveBeenCalled()
-        expect(mockDropSchema).toHaveBeenCalledWith('mhb_metahub1_b1')
+        expect(mockDropSchema).toHaveBeenCalledWith(TEST_METAHUB_BRANCH_SCHEMA_1)
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
 
+    it('createInitialBranch throws explicit rollback cleanup error when schema cleanup fails', async () => {
+        mockInitializeSchema.mockRejectedValueOnce(new Error('init failed'))
+        mockDropSchema.mockRejectedValueOnce(new Error('drop failed'))
+
+        mockFindMetahubById.mockResolvedValue({
+            id: TEST_METAHUB_ID,
+            defaultBranchId: null,
+            templateVersionId: null
+        })
+        mockFindBranchBySchemaName.mockResolvedValue(null)
+
+        const exec = createMockExecutor()
+        const service = new MetahubBranchesService(exec)
+
+        await expect(
+            service.createInitialBranch({
+                metahubId: TEST_METAHUB_ID,
+                codename: 'main',
+                name: createLocalizedName('Main')
+            })
+        ).rejects.toThrow(`Branch rollback cleanup failed for schema "${TEST_METAHUB_BRANCH_SCHEMA_1}": drop failed`)
+
+        expect(mockDropSchema).toHaveBeenCalledWith(TEST_METAHUB_BRANCH_SCHEMA_1)
+    })
+
     it('uses manifest minStructureVersion for branch created without source', async () => {
-        const metahubId = 'metahub-1'
+        const metahubId = TEST_METAHUB_ID
 
         mockFindMetahubForUpdate.mockResolvedValue({
             id: metahubId,
@@ -164,22 +202,22 @@ describe('MetahubBranchesService', () => {
         const created = await service.createBranch({
             metahubId,
             codename: 'dev',
-            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Dev' } } } as any,
+            name: createLocalizedName('Dev'),
             sourceBranchId: null
         })
 
-        expect(mockInitializeSchema).toHaveBeenCalledWith('mhb_metahub1_b2', expect.objectContaining({ minStructureVersion: '0.1.0' }))
-        expect(mockCreateBranchRow).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.objectContaining({ structureVersion: '0.1.0' })
+        expect(mockInitializeSchema).toHaveBeenCalledWith(
+            TEST_METAHUB_BRANCH_SCHEMA_2,
+            expect.objectContaining({ minStructureVersion: '0.1.0' })
         )
-        expect((created as any).structureVersion).toBe('0.1.0')
+        expect(mockCreateBranchRow).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ structureVersion: '0.1.0' }))
+        expect(created.structureVersion).toBe('0.1.0')
         expect(mockAcquireAdvisoryLock).toHaveBeenCalled()
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
 
     it('throws BRANCH_COPY_DANGLING_REFERENCES when partial copy removes referenced object groups', async () => {
-        const metahubId = 'metahub-1'
+        const metahubId = TEST_METAHUB_ID
 
         mockFindMetahubForUpdate.mockResolvedValue({
             id: metahubId,
@@ -191,7 +229,7 @@ describe('MetahubBranchesService', () => {
         const sourceBranch = {
             id: 'source-branch-1',
             metahubId,
-            schemaName: 'mhb_metahub1_b1',
+            schemaName: TEST_METAHUB_BRANCH_SCHEMA_1,
             structureVersion: '0.1.0',
             lastTemplateVersionId: null,
             lastTemplateVersionLabel: null,
@@ -210,7 +248,7 @@ describe('MetahubBranchesService', () => {
                 metahubId,
                 sourceBranchId: sourceBranch.id,
                 codename: 'dev-partial',
-                name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Dev Partial' } } } as any,
+                name: createLocalizedName('Dev Partial'),
                 copyOptions: {
                     fullCopy: false,
                     copyHubs: true,
@@ -221,12 +259,12 @@ describe('MetahubBranchesService', () => {
             })
         ).rejects.toThrow('BRANCH_COPY_DANGLING_REFERENCES')
 
-        expect(mockDropSchema).toHaveBeenCalledWith('mhb_metahub1_b2')
+        expect(mockDropSchema).toHaveBeenCalledWith(TEST_METAHUB_BRANCH_SCHEMA_2)
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
 
-    it('clears hub references from kept object configs when hubs are excluded from partial copy', async () => {
-        const metahubId = 'metahub-1'
+    it('createBranch throws explicit rollback cleanup error when schema cleanup fails', async () => {
+        const metahubId = TEST_METAHUB_ID
 
         mockFindMetahubForUpdate.mockResolvedValue({
             id: metahubId,
@@ -238,7 +276,58 @@ describe('MetahubBranchesService', () => {
         const sourceBranch = {
             id: 'source-branch-1',
             metahubId,
-            schemaName: 'mhb_metahub1_b1',
+            schemaName: TEST_METAHUB_BRANCH_SCHEMA_1,
+            structureVersion: '0.1.0',
+            lastTemplateVersionId: null,
+            lastTemplateVersionLabel: null,
+            lastTemplateSyncedAt: null
+        }
+        mockFindBranchByIdAndMetahub.mockResolvedValue(sourceBranch)
+        mockDropSchema.mockRejectedValueOnce(new Error('drop failed'))
+
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind')) {
+                return [{ target_kind: 'catalog' }]
+            }
+            return []
+        })
+
+        const exec = createMockExecutor(queryMock)
+        const service = new MetahubBranchesService(exec)
+
+        await expect(
+            service.createBranch({
+                metahubId,
+                sourceBranchId: sourceBranch.id,
+                codename: 'dev-partial',
+                name: createLocalizedName('Dev Partial'),
+                copyOptions: {
+                    fullCopy: false,
+                    copyHubs: true,
+                    copyCatalogs: false,
+                    copyEnumerations: true,
+                    copyLayouts: true
+                }
+            })
+        ).rejects.toThrow(`Branch rollback cleanup failed for schema "${TEST_METAHUB_BRANCH_SCHEMA_2}": drop failed`)
+
+        expect(mockDropSchema).toHaveBeenCalledWith(TEST_METAHUB_BRANCH_SCHEMA_2)
+    })
+
+    it('clears hub references from kept object configs when hubs are excluded from partial copy', async () => {
+        const metahubId = TEST_METAHUB_ID
+
+        mockFindMetahubForUpdate.mockResolvedValue({
+            id: metahubId,
+            lastBranchNumber: 1,
+            templateVersionId: null
+        })
+        mockGetMaxBranchNumber.mockResolvedValue(1)
+
+        const sourceBranch = {
+            id: 'source-branch-1',
+            metahubId,
+            schemaName: TEST_METAHUB_BRANCH_SCHEMA_1,
             structureVersion: '0.1.0',
             lastTemplateVersionId: null,
             lastTemplateVersionLabel: null,
@@ -265,7 +354,7 @@ describe('MetahubBranchesService', () => {
             metahubId,
             sourceBranchId: sourceBranch.id,
             codename: 'dev-partial-hubs',
-            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Dev Partial Hubs' } } } as any,
+            name: createLocalizedName('Dev Partial Hubs'),
             copyOptions: {
                 fullCopy: false,
                 copyHubs: false,
@@ -275,9 +364,11 @@ describe('MetahubBranchesService', () => {
             }
         })
 
-        expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('UPDATE "mhb_metahub1_b2"._mhb_objects'), [['catalog', 'set']])
+        expect(queryMock).toHaveBeenCalledWith(expect.stringContaining(`UPDATE "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects`), [
+            ['catalog', 'set']
+        ])
         expect(queryMock).toHaveBeenCalledWith(
-            expect.stringContaining('DELETE FROM "mhb_metahub1_b2"._mhb_objects WHERE kind = ANY($1::text[])'),
+            expect.stringContaining(`DELETE FROM "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects WHERE kind = ANY($1::text[])`),
             [['hub', 'enumeration']]
         )
         expect(queryMock).toHaveBeenCalledWith(

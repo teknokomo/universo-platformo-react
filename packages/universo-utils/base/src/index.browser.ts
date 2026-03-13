@@ -7,11 +7,11 @@ export * as serialization from './serialization'
 export * as math from './math'
 export * as updl from './updl'
 export * as publish from './publish'
-export * as env from './env'
+export * as env from './env/index.browser'
 export * as localizedContent from './vlc'
 export * as routes from './routes'
 export { UPDLProcessor } from './updl/UPDLProcessor'
-export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env'
+export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env/index.browser'
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'

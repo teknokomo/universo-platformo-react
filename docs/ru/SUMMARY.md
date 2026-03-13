@@ -31,6 +31,8 @@
 ## Архитектура
 
 * [Обзор](architecture/README.md)
+* [Конвергенция системных приложений](architecture/system-app-convergence.md)
+* [Optional Global Catalog](architecture/optional-global-catalog.md)
 * [Структура монорепозитория](architecture/monorepo-structure.md)
 * [Архитектура бэкенда](architecture/backend.md)
 * [Архитектура фронтенда](architecture/frontend.md)

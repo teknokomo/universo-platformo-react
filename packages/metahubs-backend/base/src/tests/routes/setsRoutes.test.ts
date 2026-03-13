@@ -61,8 +61,6 @@ const mockConstantsService = {
     ensureUniqueCodenameWithRetries: jest.fn()
 }
 
-
-
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
     MetahubSchemaService: jest.fn().mockImplementation(() => ({}))

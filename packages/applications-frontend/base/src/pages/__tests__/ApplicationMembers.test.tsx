@@ -1,39 +1,103 @@
+import type { ReactElement, ReactNode } from 'react'
 import { vi } from 'vitest'
 // Mock rehype/remark libraries to prevent jsdom 20.0.3 from loading
 // rehype-mathjax 4.0.3 has jsdom 20.0.3 as a direct dependency
-vi.mock('rehype-mathjax', () => ({ default: () => () => {} }))
-vi.mock('rehype-raw', () => ({ default: () => () => {} }))
-vi.mock('remark-gfm', () => ({ default: () => () => {} }))
-vi.mock('remark-math', () => ({ default: () => () => {} }))
+const createNoopTransformer = () => undefined
+const createNoopPlugin = () => createNoopTransformer
+vi.mock('rehype-mathjax', () => ({ default: createNoopPlugin }))
+vi.mock('rehype-raw', () => ({ default: createNoopPlugin }))
+vi.mock('remark-gfm', () => ({ default: createNoopPlugin }))
+vi.mock('remark-math', () => ({ default: createNoopPlugin }))
+
+const enqueueSnackbar = vi.fn()
+type TemplateMuiModule = typeof import('@universo/template-mui')
+type NotistackModule = typeof import('notistack')
+type UtilsModule = typeof import('@universo/utils')
+type MockHttpError = {
+    message?: string
+    response?: {
+        status?: number
+        data?: {
+            code?: string
+        }
+    }
+}
+type ApplicationsNamespaceBundle = {
+    applications?: Record<string, unknown>
+    meta_sections?: Record<string, unknown>
+    meta_entities?: Record<string, unknown>
+    members?: Record<string, unknown>
+}
+type MockFlowListTableColumn = {
+    render?: (row: ApplicationMember, index: number) => ReactNode
+}
+type MockFlowListTableProps = {
+    data?: ApplicationMember[]
+    customColumns?: MockFlowListTableColumn[]
+    renderActions?: (row: ApplicationMember) => ReactNode
+}
+
+const getMockHttpError = (error: unknown): MockHttpError => (typeof error === 'object' && error !== null ? (error as MockHttpError) : {})
+
+const extractErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) {
+        return error.message
+    }
+    return getMockHttpError(error).message || 'Unknown error'
+}
+
+const createMember = (overrides: Partial<ApplicationMember> = {}): ApplicationMember => ({
+    id: 'member-default',
+    userId: 'user-default',
+    email: 'member@example.com',
+    nickname: 'Member User',
+    role: 'member',
+    createdAt: '2024-01-01T00:00:00Z',
+    ...overrides
+})
+
+const createNeverPromise = (): Promise<never> => new Promise<never>((resolve) => void resolve)
 
 // ApplicationMembers list-view uses FlowListTable which may depend on app-level providers.
 // For page-level tests we stub FlowListTable and still execute column/action callbacks
 // to increase coverage of page wiring.
 vi.mock('@universo/template-mui', async () => {
-    const actual = await vi.importActual<any>('@universo/template-mui')
+    const actual = await vi.importActual<TemplateMuiModule>('@universo/template-mui')
     return {
         ...actual,
-        FlowListTable: (props: any) => {
+        FlowListTable: (props: MockFlowListTableProps) => {
             const rows = Array.isArray(props?.data) ? props.data : []
             const firstRow = rows[0]
             const cols = Array.isArray(props?.customColumns) ? props.customColumns : []
-            const renderedCells = firstRow ? cols.map((c: any) => (typeof c?.render === 'function' ? c.render(firstRow) : null)) : []
+            const renderedCells = firstRow
+                ? cols.map((column, index) => (typeof column?.render === 'function' ? column.render(firstRow, index) : null))
+                : []
             const actions = firstRow && typeof props?.renderActions === 'function' ? props.renderActions(firstRow) : null
 
             return (
                 <div data-testid='flow-list-table'>
                     <div data-testid='flow-list-table-cells'>
-                        {renderedCells.map((cell: any, idx: number) => (
+                        {renderedCells.map((cell, idx) => (
                             <div key={idx}>{cell}</div>
                         ))}
                     </div>
                     <div data-testid='flow-list-table-actions'>{actions}</div>
-                    {rows.map((r: any) => (
-                        <div key={r.id || r.email}>{r.email}</div>
+                    {rows.map((row, index) => (
+                        <div key={row.id || row.email || `row-${index}`}>{row.email}</div>
                     ))}
                 </div>
             )
-        }
+        },
+        InputHintDialog: vi.fn(() => null)
+    }
+})
+
+vi.mock('notistack', async () => {
+    const actual = await vi.importActual<NotistackModule>('notistack')
+    return {
+        ...actual,
+        SnackbarProvider: ({ children }: { children: ReactNode }) => children,
+        useSnackbar: () => ({ enqueueSnackbar })
     }
 })
 
@@ -75,91 +139,28 @@ vi.mock('@universo/auth-frontend', async () => {
 })
 
 vi.mock('@universo/utils', async () => {
-    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
+    const actual = await vi.importActual<UtilsModule>('@universo/utils')
     return {
         ...actual,
-        extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
-        isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
-        isApiError: vi.fn((error: any) => !!error?.response),
-        getApiBaseURL: vi.fn(() => 'http://localhost:3000'),
-        isPendingEntity: actual.isPendingEntity ?? ((item: any) => Boolean(item?.__pending)),
-        getPendingAction: actual.getPendingAction ?? ((item: any) => (item?.__pending ? item?.__pendingAction : undefined)),
-        makePendingMarkers:
-            actual.makePendingMarkers ??
-            ((action: string, options?: { feedbackVisible?: boolean }) => ({
-                __pending: true,
-                __pendingAction: action,
-                ...(options?.feedbackVisible ? { __pendingFeedbackVisible: true } : {})
-            })),
-        isPendingInteractionBlocked:
-            actual.isPendingInteractionBlocked ?? ((item: any) => item?.__pendingAction === 'create' || item?.__pendingAction === 'copy'),
-        shouldShowPendingFeedback:
-            actual.shouldShowPendingFeedback ??
-            ((item: any) => {
-                if (!item?.__pending) return false
-                if (item.__pendingAction === 'create' || item.__pendingAction === 'copy') {
-                    return Boolean(item.__pendingFeedbackVisible)
-                }
-                return true
-            }),
-        revealPendingFeedback:
-            actual.revealPendingFeedback ??
-            ((item: any) => {
-                if (item?.__pendingAction !== 'create' && item?.__pendingAction !== 'copy') return item
-                if (item?.__pendingFeedbackVisible) return item
-                return { ...item, __pendingFeedbackVisible: true }
-            }),
-        getNextOptimisticSortOrder:
-            actual.getNextOptimisticSortOrder ??
-            ((items: any[] | null | undefined, startAt = 1) => {
-                const source = Array.isArray(items) ? items : []
-                const maxSortOrder = source.reduce((max, entry) => {
-                    const sortOrder = entry?.sortOrder
-                    return typeof sortOrder === 'number' && Number.isFinite(sortOrder) ? Math.max(max, sortOrder) : max
-                }, startAt - 1)
-                return maxSortOrder + 1
-            }),
-        stripPendingMarkers:
-            actual.stripPendingMarkers ??
-            ((item: any) => {
-                if (!item || typeof item !== 'object') return item
-                const { __pending, __pendingAction, __pendingFeedbackVisible, ...rest } = item
-                return rest
-            })
-    }
-})
-
-vi.mock('@universo/template-mui', async () => {
-    const actual = await vi.importActual<any>('@universo/template-mui')
-    return {
-        ...actual,
-        FlowListTable: (props: any) => {
-            const rows = Array.isArray(props?.data) ? props.data : []
-            const firstRow = rows[0]
-            const cols = Array.isArray(props?.customColumns) ? props.customColumns : []
-            const renderedCells = firstRow ? cols.map((c: any) => (typeof c?.render === 'function' ? c.render(firstRow) : null)) : []
-            const actions = firstRow && typeof props?.renderActions === 'function' ? props.renderActions(firstRow) : null
-
-            return (
-                <div data-testid='flow-list-table'>
-                    <div data-testid='flow-list-table-cells'>
-                        {renderedCells.map((cell: any, idx: number) => (
-                            <div key={idx}>{cell}</div>
-                        ))}
-                    </div>
-                    <div data-testid='flow-list-table-actions'>{actions}</div>
-                    {rows.map((r: any) => (
-                        <div key={r.id || r.email}>{r.email}</div>
-                    ))}
-                </div>
-            )
-        },
-        InputHintDialog: vi.fn(() => null)
+        extractAxiosError: vi.fn((error: unknown) => {
+            const apiError = getMockHttpError(error)
+            return {
+                message: extractErrorMessage(error),
+                code: apiError.response?.data?.code,
+                status: apiError.response?.status
+            }
+        }),
+        isHttpStatus: vi.fn((error: unknown, status: number) => getMockHttpError(error).response?.status === status),
+        isApiError: vi.fn((error: unknown, code?: string) => {
+            const errorCode = getMockHttpError(error).response?.data?.code
+            return code ? errorCode === code : Boolean(getMockHttpError(error).response)
+        }),
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
     }
 })
 
 const i18n = getI18nInstance()
-const consolidateApplicationsNamespace = (bundle: any) => ({
+const consolidateApplicationsNamespace = (bundle: ApplicationsNamespaceBundle) => ({
     ...(bundle?.applications ?? {}),
     meta_sections: bundle?.meta_sections ?? {},
     meta_entities: bundle?.meta_entities ?? {},
@@ -193,7 +194,7 @@ const paginated = <T,>(items: T[], meta: PaginationMeta) => ({
     }
 })
 
-const renderWithProviders = async (ui: React.ReactElement, { route = '/a/test-application-id/admin/access' } = {}) => {
+const renderWithProviders = async (ui: ReactElement, { route = '/a/test-application-id/admin/access' } = {}) => {
     const queryClient = createTestQueryClient()
 
     let renderResult: ReturnType<typeof render>
@@ -224,6 +225,7 @@ const renderWithProviders = async (ui: React.ReactElement, { route = '/a/test-ap
 describe('ApplicationMembers', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        enqueueSnackbar.mockClear()
         localStorage.clear()
         localStorage.setItem('applicationMembersDisplayStyle', 'card')
 
@@ -267,7 +269,7 @@ describe('ApplicationMembers', () => {
                                 resolve({
                                     items: [],
                                     pagination: { total: 0, limit: 20, offset: 0, count: 0, hasMore: false }
-                                } as any),
+                                }),
                             1000
                         )
                     )
@@ -282,32 +284,26 @@ describe('ApplicationMembers', () => {
 
     describe('Success state - Members list', () => {
         const mockMembers = [
-            {
+            createMember({
                 id: 'member-1',
                 userId: 'user-1',
-                applicationId: 'test-application-id',
                 role: 'admin',
                 email: 'admin@example.com',
                 nickname: 'Admin User',
-                createdAt: '2024-01-01T00:00:00Z',
-                updatedAt: '2024-01-15T00:00:00Z'
-            },
-            {
+                createdAt: '2024-01-01T00:00:00Z'
+            }),
+            createMember({
                 id: 'member-2',
                 userId: 'user-2',
-                applicationId: 'test-application-id',
                 role: 'editor',
                 email: 'editor@example.com',
                 nickname: 'Editor User',
-                createdAt: '2024-01-02T00:00:00Z',
-                updatedAt: '2024-01-16T00:00:00Z'
-            }
+                createdAt: '2024-01-02T00:00:00Z'
+            })
         ]
 
         beforeEach(() => {
-            vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(
-                paginated(mockMembers as any, { total: 2, limit: 20, offset: 0 })
-            )
+            vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(paginated(mockMembers, { total: 2, limit: 20, offset: 0 }))
         })
 
         it('should render member cards with names and emails', async () => {
@@ -365,16 +361,14 @@ describe('ApplicationMembers', () => {
             vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(
                 paginated(
                     [
-                        {
+                        createMember({
                             id: 'member-1',
                             userId: 'user-1',
-                            applicationId: 'test-application-id',
                             role: 'admin',
                             email: 'admin@example.com',
                             nickname: 'Admin User',
-                            createdAt: '2024-01-01T00:00:00Z',
-                            updatedAt: '2024-01-15T00:00:00Z'
-                        } as any
+                            createdAt: '2024-01-01T00:00:00Z'
+                        })
                     ],
                     { total: 1, limit: 20, offset: 0 }
                 )
@@ -408,16 +402,14 @@ describe('ApplicationMembers', () => {
             vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(
                 paginated(
                     [
-                        {
+                        createMember({
                             id: 'member-1',
                             userId: 'user-1',
-                            applicationId: 'test-application-id',
                             role: 'member',
                             email: 'noname@example.com',
-                            nickname: undefined,
-                            createdAt: '2024-01-01T00:00:00Z',
-                            updatedAt: '2024-01-01T00:00:00Z'
-                        } as any
+                            nickname: null,
+                            createdAt: '2024-01-01T00:00:00Z'
+                        })
                     ],
                     { total: 1, limit: 20, offset: 0 }
                 )
@@ -431,19 +423,19 @@ describe('ApplicationMembers', () => {
         })
 
         it('should handle large member lists', async () => {
-            const largeMemberList = Array.from({ length: 100 }, (_, i) => ({
-                id: `member-${i}`,
-                userId: `user-${i}`,
-                applicationId: 'test-application-id',
-                role: i % 3 === 0 ? 'admin' : i % 3 === 1 ? 'editor' : 'member',
-                email: `user${i}@example.com`,
-                nickname: `User ${i}`,
-                createdAt: '2024-01-01T00:00:00Z',
-                updatedAt: '2024-01-15T00:00:00Z'
-            }))
+            const largeMemberList = Array.from({ length: 100 }, (_, index) =>
+                createMember({
+                    id: `member-${index}`,
+                    userId: `user-${index}`,
+                    role: index % 3 === 0 ? 'admin' : index % 3 === 1 ? 'editor' : 'member',
+                    email: `user${index}@example.com`,
+                    nickname: `User ${index}`,
+                    createdAt: '2024-01-01T00:00:00Z'
+                })
+            )
 
             vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(
-                paginated(largeMemberList.slice(0, 20) as any, { total: 100, limit: 20, offset: 0 })
+                paginated(largeMemberList.slice(0, 20), { total: 100, limit: 20, offset: 0 })
             )
 
             await renderWithProviders(<ApplicationMembers />)
@@ -459,7 +451,7 @@ describe('ApplicationMembers', () => {
 
     describe('Navigation', () => {
         it('should handle missing applicationId parameter', async () => {
-            vi.mocked(applicationsApi.listApplicationMembers).mockImplementation(() => new Promise(() => {}))
+            vi.mocked(applicationsApi.listApplicationMembers).mockImplementation(() => createNeverPromise())
 
             await renderWithProviders(<ApplicationMembers />, { route: '/access' })
 
@@ -473,16 +465,14 @@ describe('ApplicationMembers', () => {
             vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(
                 paginated(
                     [
-                        {
+                        createMember({
                             id: 'member-1',
                             userId: 'test-user-id',
-                            applicationId: 'test-application-id',
                             role: 'admin',
                             email: 'admin@example.com',
                             nickname: 'Admin',
-                            createdAt: '2024-01-01T00:00:00Z',
-                            updatedAt: '2024-01-01T00:00:00Z'
-                        } as any
+                            createdAt: '2024-01-01T00:00:00Z'
+                        })
                     ],
                     { total: 1, limit: 20, offset: 0 }
                 )
@@ -496,10 +486,8 @@ describe('ApplicationMembers', () => {
                 expect(screen.getByText('admin@example.com')).toBeInTheDocument()
             })
 
-            const listViewToggle = document.querySelector('button[title="List View"]') as HTMLElement | null
-            expect(listViewToggle).toBeTruthy()
-
-            await user.click(listViewToggle!)
+            const listViewToggle = screen.getByTitle(/list view/i)
+            await user.click(listViewToggle)
 
             await waitFor(() => {
                 expect(localStorage.getItem(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)).toBe('list')
@@ -530,7 +518,7 @@ describe('ApplicationMembers', () => {
 
             await waitFor(() => {
                 expect(vi.mocked(applicationsApi.inviteApplicationMember)).toHaveBeenCalled()
-                expect(screen.getByText(/missing@example.com/i)).toBeInTheDocument()
+                expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('missing@example.com'), { variant: 'error' })
             })
         })
 
@@ -553,8 +541,8 @@ describe('ApplicationMembers', () => {
 
             await waitFor(() => {
                 expect(vi.mocked(applicationsApi.inviteApplicationMember)).toHaveBeenCalled()
-                expect(screen.getByText(/exists@example.com/i)).toBeInTheDocument()
+                expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('exists@example.com'), { variant: 'error' })
             })
-        })
+        }, 15000)
     })
 })

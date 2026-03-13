@@ -61,7 +61,9 @@ export {
     getAppDeleteConditions,
     getDeleteFieldsByLevel,
     getRestoreFieldsByLevel,
-    getDeletedFieldName
+    getDeletedFieldName,
+    activeAppRowCondition,
+    softDeleteSetClause
 } from './softDelete'
 
 // User lookup utilities

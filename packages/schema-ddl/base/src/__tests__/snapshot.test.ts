@@ -60,6 +60,19 @@ describe('DDL Snapshot Utilities', () => {
             expect(snapshotEntity.tableName).toBe('cat_e1000000000000000000000001')
         })
 
+        it('should preserve explicit physical table names in snapshots', () => {
+            const entity = createTestEntity({
+                id: 'profile-0000-0000-0000-000000000001',
+                codename: 'profiles',
+                kind: 'catalog',
+                physicalTableName: 'cat_profiles'
+            })
+
+            const snapshot = buildSchemaSnapshot([entity])
+
+            expect(snapshot.entities['profile-0000-0000-0000-000000000001'].tableName).toBe('cat_profiles')
+        })
+
         it('should generate correct table names for different entity kinds', () => {
             const entities: EntityDefinition[] = [
                 createTestEntity({ id: 'cat-0000-0000-0000-000000000001', kind: 'catalog' }),
@@ -126,6 +139,25 @@ describe('DDL Snapshot Utilities', () => {
             const fkField = snapshot.entities[entity.id].fields['fk-field-1111-2222-333344445555']
 
             expect(fkField.targetEntityId).toBe('target-entity-1111-222233334444')
+        })
+
+        it('should preserve explicit physical column names in snapshots', () => {
+            const entity = createTestEntity({
+                fields: [
+                    {
+                        id: 'field-physical-1111-2222-333344445555',
+                        codename: 'nickname',
+                        dataType: 'text',
+                        physicalColumnName: 'nickname',
+                        isRequired: true
+                    }
+                ]
+            })
+
+            const snapshot = buildSchemaSnapshot([entity])
+            const field = snapshot.entities[entity.id].fields['field-physical-1111-2222-333344445555']
+
+            expect(field.columnName).toBe('nickname')
         })
 
         it('should set targetEntityId to null when not provided', () => {

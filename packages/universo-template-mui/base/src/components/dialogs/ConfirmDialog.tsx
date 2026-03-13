@@ -66,7 +66,7 @@ export const ConfirmDialog = () => {
             <DialogTitle id='confirm-dialog-title' sx={{ fontSize: '1rem' }}>
                 {confirmState.title || t('common:confirm.title')}
             </DialogTitle>
-            <DialogContent id='confirm-dialog-description'>
+            <DialogContent id='confirm-dialog-description' data-confirm-dialog-request-id={confirmState.requestId || undefined}>
                 <span>{confirmState.description}</span>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>

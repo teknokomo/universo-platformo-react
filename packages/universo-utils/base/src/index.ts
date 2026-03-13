@@ -44,8 +44,10 @@ export {
     isSuperuserEnabled,
     isGlobalAdminEnabled,
     getAdminConfig,
+    getGlobalMigrationCatalogConfig,
+    isGlobalMigrationCatalogEnabled,
     type AdminConfig
-} from './env/adminConfig'
+} from './env'
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
@@ -132,7 +134,9 @@ export {
     getAppDeleteConditions,
     getDeleteFieldsByLevel,
     getRestoreFieldsByLevel,
-    getDeletedFieldName
+    getDeletedFieldName,
+    activeAppRowCondition,
+    softDeleteSetClause
 } from './database'
 
 // Auth feature toggles utilities

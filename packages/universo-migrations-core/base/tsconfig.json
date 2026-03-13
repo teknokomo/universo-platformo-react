@@ -4,6 +4,10 @@
         "module": "CommonJS",
         "lib": ["ES2020"],
         "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@universo/types": ["../../universo-types/base/dist/index.d.ts", "../../universo-types/base/src/index.ts"]
+        },
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,

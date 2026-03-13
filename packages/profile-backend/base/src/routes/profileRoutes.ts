@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type RequestHandler } from 'express'
 import rateLimit from 'express-rate-limit'
 import { ProfileController } from '../controllers/profileController'
 import { ProfileService } from '../services/profileService'
@@ -9,7 +9,7 @@ export interface ProfileRouteDeps {
     getRequestDbExecutor: (req: unknown) => DbExecutor
 }
 
-export function createProfileRoutes(deps: ProfileRouteDeps, authMiddleware?: any): Router {
+export function createProfileRoutes(deps: ProfileRouteDeps, authMiddleware?: RequestHandler): Router {
     const router = Router()
 
     // Public route: check nickname availability (with basic rate limiting)

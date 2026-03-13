@@ -1,9 +1,12 @@
-import { useContext } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import ConfirmContext from '../contexts/ConfirmContext'
 import { HIDE_CONFIRM, SHOW_CONFIRM, ConfirmPayload } from '../store/actions'
 
 const pendingResolvers = new Map<string, (value: boolean) => void>()
 const pendingFallbackTimers = new Map<string, number>()
+const INITIAL_RENDER_WAIT_MS = 2000
+const RETRY_RENDER_WAIT_MS = 400
+const MAX_RENDER_WAIT_RETRIES = 5
 let requestCounter = 0
 
 const nextRequestId = () => {
@@ -34,6 +37,11 @@ const nextRequestId = () => {
  */
 export const useConfirm = () => {
     const [confirmState, dispatch] = useContext(ConfirmContext)
+    const latestConfirmStateRef = useRef(confirmState)
+
+    useEffect(() => {
+        latestConfirmStateRef.current = confirmState
+    }, [confirmState])
 
     const closeConfirm = () => {
         dispatch({ type: HIDE_CONFIRM })
@@ -106,40 +114,57 @@ export const useConfirm = () => {
         return new Promise((resolve) => {
             pendingResolvers.set(requestId, resolve)
 
-            if (typeof window !== 'undefined') {
-                const fallbackTimerId = window.setTimeout(() => {
-                    if (!pendingResolvers.has(requestId)) {
-                        return
-                    }
+            const scheduleFallbackCheck = (retryCount = 0) => {
+                if (typeof window === 'undefined') return
 
-                    const dialogRendered =
-                        typeof document !== 'undefined' &&
-                        Boolean(document.querySelector(`[data-confirm-dialog-request-id="${requestId}"]`))
+                const fallbackTimerId = window.setTimeout(
+                    () => {
+                        if (!pendingResolvers.has(requestId)) {
+                            return
+                        }
 
-                    if (dialogRendered) {
-                        pendingFallbackTimers.delete(requestId)
-                        return
-                    }
+                        const dialogRendered =
+                            typeof document !== 'undefined' &&
+                            Boolean(document.querySelector(`[data-confirm-dialog-request-id="${requestId}"]`))
 
-                    const activeDialogRequestId =
-                        typeof document !== 'undefined'
-                            ? document.querySelector<HTMLElement>('[data-confirm-dialog-request-id]')?.dataset.confirmDialogRequestId ?? ''
-                            : ''
+                        if (dialogRendered) {
+                            pendingFallbackTimers.delete(requestId)
+                            return
+                        }
 
-                    // eslint-disable-next-line no-console
-                    console.error('[useConfirm] custom confirm dialog did not render, auto-cancel confirmation', {
-                        requestId,
-                        title: confirmPayload.title
-                    })
+                        const latestConfirmState = latestConfirmStateRef.current
+                        const activeStateMatches = latestConfirmState.show && latestConfirmState.requestId === requestId
 
-                    if (activeDialogRequestId === requestId) {
-                        dispatch({ type: HIDE_CONFIRM })
-                    }
-                    cancelPendingRequest(requestId, false)
-                }, 2000)
+                        if (activeStateMatches && retryCount < MAX_RENDER_WAIT_RETRIES) {
+                            pendingFallbackTimers.delete(requestId)
+                            scheduleFallbackCheck(retryCount + 1)
+                            return
+                        }
+
+                        const activeDialogRequestId =
+                            typeof document !== 'undefined'
+                                ? document.querySelector<HTMLElement>('[data-confirm-dialog-request-id]')?.dataset.confirmDialogRequestId ??
+                                  ''
+                                : ''
+
+                        // eslint-disable-next-line no-console
+                        console.error('[useConfirm] custom confirm dialog did not render, auto-cancel confirmation', {
+                            requestId,
+                            title: confirmPayload.title
+                        })
+
+                        if (activeDialogRequestId === requestId) {
+                            dispatch({ type: HIDE_CONFIRM })
+                        }
+                        cancelPendingRequest(requestId, false)
+                    },
+                    retryCount === 0 ? INITIAL_RENDER_WAIT_MS : RETRY_RENDER_WAIT_MS
+                )
 
                 pendingFallbackTimers.set(requestId, fallbackTimerId)
             }
+
+            scheduleFallbackCheck()
         })
     }
 

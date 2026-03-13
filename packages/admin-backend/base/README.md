@@ -86,7 +86,7 @@ if (hasAccess) {
 
 ## Database Schema
 
-### admin.roles
+### admin.cat_roles
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -96,13 +96,13 @@ if (hasAccess) {
 | has_global_access | BOOLEAN | Grants platform-wide access |
 | is_system | BOOLEAN | Protected from deletion |
 
-### admin.user_roles
+### admin.rel_user_roles
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUID | Primary key |
 | user_id | UUID | Reference to auth.users |
-| role_id | UUID | Reference to admin.roles |
+| role_id | UUID | Reference to admin.cat_roles |
 | granted_by | UUID | Admin who assigned the role |
 | comment | TEXT | Assignment notes |
 

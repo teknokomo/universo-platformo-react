@@ -181,7 +181,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns migration list and safely handles invalid JSON meta payloads', async () => {
-        
         const metahubId = 'metahub-1'
         const branchId = 'branch-1'
 
@@ -231,7 +230,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns 409 when apply lock cannot be acquired', async () => {
-        
         const metahubId = 'metahub-2'
         const branchId = 'branch-2'
 
@@ -262,7 +260,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns structured migration plan payload for v1 baseline', async () => {
-        
         const metahubId = 'metahub-3'
         const branchId = 'branch-3'
 
@@ -311,7 +308,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('uses branch last synced template version as current template source in migration plan', async () => {
-        
         const metahubId = 'metahub-branch-template-source'
         const branchId = 'branch-template-source'
         const templateId = 'template-basic'
@@ -360,7 +356,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('returns up-to-date migration status payload for route-level guard checks', async () => {
-        
         const metahubId = 'metahub-3-status'
         const branchId = 'branch-3-status'
 
@@ -396,7 +391,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('does not execute template seed dry-run in migrations status endpoint', async () => {
-        
         const metahubId = 'metahub-status-lightweight'
         const branchId = 'branch-status-lightweight'
         const templateId = 'template-basic'
@@ -449,7 +443,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations status endpoint', async () => {
-        
         const metahubId = 'metahub-status-timeout'
 
         mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
@@ -463,7 +456,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations list endpoint', async () => {
-        
         const metahubId = 'metahub-list-timeout'
 
         mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
@@ -477,7 +469,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations plan endpoint', async () => {
-        
         const metahubId = 'metahub-plan-timeout'
 
         mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('timeout exceeded when trying to connect'))
@@ -491,7 +482,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('maps DB timeout to deterministic 503 for migrations apply endpoint pre-plan phase', async () => {
-        
         const metahubId = 'metahub-apply-timeout'
         const branchId = 'branch-apply-timeout'
 
@@ -517,7 +507,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('blocks apply when cleanup mode is dry_run and cleanup has pending destructive changes', async () => {
-        
         const metahubId = 'metahub-4'
         const branchId = 'branch-4'
 
@@ -558,7 +547,6 @@ describe('Metahub Migrations Routes', () => {
     })
 
     it('does not update metahub template pointer when branch template sync is not confirmed', async () => {
-        
         const metahubId = 'metahub-template-sync-check'
         const branchId = 'branch-template-sync-check'
         const templateId = 'template-basic'

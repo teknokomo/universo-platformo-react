@@ -196,3 +196,40 @@ export function getDeletedFieldName(level: DeleteLevel): string {
             return APP_FIELDS.DELETED
     }
 }
+
+// ---------------------------------------------------------------------------
+// String-based SQL helpers for raw executor.query() stores
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the standard active-row SQL predicate for application-like tables
+ * (all fixed system-app schemas: admin, profiles, metahubs, applications).
+ *
+ * @example
+ * const sql = `SELECT * FROM admin.cat_roles r WHERE ${activeAppRowCondition('r')}`
+ * // → "r._upl_deleted = false AND r._app_deleted = false"
+ */
+export function activeAppRowCondition(alias?: string): string {
+    const prefix = alias ? `${alias}.` : ''
+    return `${prefix}_upl_deleted = false AND ${prefix}_app_deleted = false`
+}
+
+/**
+ * Returns soft-delete SET clause for UPDATE-based deletion (dual-flag).
+ *
+ * @example
+ * const sql = `UPDATE ... SET ${softDeleteSetClause('$2')} WHERE ...`
+ * // → "_upl_deleted = true, _upl_deleted_at = now(), _upl_deleted_by = $2, _upl_updated_at = now(), _upl_updated_by = $2, _app_deleted = true, _app_deleted_at = now(), _app_deleted_by = $2"
+ */
+export function softDeleteSetClause(deletedByParam: string): string {
+    return [
+        '_upl_deleted = true',
+        '_upl_deleted_at = now()',
+        `_upl_deleted_by = ${deletedByParam}`,
+        '_upl_updated_at = now()',
+        `_upl_updated_by = ${deletedByParam}`,
+        '_app_deleted = true',
+        '_app_deleted_at = now()',
+        `_app_deleted_by = ${deletedByParam}`
+    ].join(', ')
+}

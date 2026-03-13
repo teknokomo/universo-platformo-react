@@ -1,7 +1,21 @@
 import type { AttributeDataType, MetaEntityDefinition, MetaEntityKind, MetaFieldDefinition, MetaPresentation } from '@universo/types'
 
-export type EntityDefinition = MetaEntityDefinition
-export type FieldDefinition = MetaFieldDefinition
+export type RuntimeEntityKind = MetaEntityKind | 'enumeration' | 'relation' | 'settings'
+
+export interface FieldDefinition extends Omit<MetaFieldDefinition, 'targetEntityKind' | 'childFields'> {
+    targetEntityKind?: RuntimeEntityKind | null
+    childFields?: FieldDefinition[]
+    physicalColumnName?: string | null
+    physicalDataType?: string
+    defaultSqlExpression?: string
+}
+
+export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'fields'> {
+    kind: RuntimeEntityKind
+    fields: FieldDefinition[]
+    physicalTableName?: string
+    config?: Record<string, unknown>
+}
 
 export interface SchemaFieldSnapshot {
     codename: string
@@ -13,13 +27,13 @@ export interface SchemaFieldSnapshot {
     /** ID of the target entity for REF field type */
     targetEntityId?: string | null
     /** Kind of the target entity for REF field type (polymorphic discriminator) */
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: RuntimeEntityKind | null
     /** Child field snapshots for TABLE data type, keyed by child field ID */
     childFields?: Record<string, SchemaFieldSnapshot>
 }
 
 export interface SchemaEntitySnapshot {
-    kind: MetaEntityKind
+    kind: RuntimeEntityKind
     codename: string
     tableName: string
     fields: Record<string, SchemaFieldSnapshot>
@@ -34,7 +48,7 @@ export interface SchemaSnapshot {
 
 export interface SysObjectRecord {
     id: string
-    kind: MetaEntityKind
+    kind: RuntimeEntityKind
     codename: string
     tableName: string
     presentation: MetaPresentation

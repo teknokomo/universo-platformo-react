@@ -166,9 +166,7 @@ describe('getLastApplied', () => {
     })
 
     it('returns the first record from listRuntimeHistory', async () => {
-        const rows: StoredRow[] = [
-            { id: 'r1', name: 'mig_latest', applied_at: new Date().toISOString(), meta: JSON.stringify({}) }
-        ]
+        const rows: StoredRow[] = [{ id: 'r1', name: 'mig_latest', applied_at: new Date().toISOString(), meta: JSON.stringify({}) }]
         const { knex } = createMockKnex({ tableExists: true, rows })
 
         const result = await getLastApplied(knex as never, 'mhb_abc', '_mhb_migrations')

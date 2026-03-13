@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useMemo, useRef, type ReactNode } from 'react'
+import { isDevelopment } from '@universo/utils'
 import { useSession, type AuthUser } from '../hooks/useSession'
 import { clearStoredCsrfToken, type AuthClient } from '../api/client'
+
+declare global {
+    interface Window {
+        __UNIVERSO_AUTH_FRT_SINGLETON__?: boolean
+    }
+}
 
 /**
  * Universo Platformo | Authentication context value
@@ -31,20 +38,6 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 
 AuthContext.displayName = 'AuthContext'
 
-// Debug identifier to verify module instance identity across provider/consumer.
-// If multiple copies of this module are bundled, the ID will differ.
-const AUTH_DEBUG_ID = (() => {
-    try {
-        // Prefer a stable hash based on module URL when available
-        const src = typeof import.meta?.url === 'string' ? import.meta.url : Math.random().toString(36)
-        let hash = 0
-        for (let i = 0; i < src.length; i++) hash = (hash * 31 + src.charCodeAt(i)) | 0
-        return `auth-frontend:${(hash >>> 0).toString(16)}`
-    } catch {
-        return `auth-frontend:${Math.random().toString(36).slice(2)}`
-    }
-})()
-
 /**
  * Hook to use the authentication context
  * @throws {Error} If used outside of AuthProvider
@@ -52,13 +45,10 @@ const AUTH_DEBUG_ID = (() => {
 export const useAuth = (): AuthContextValue => {
     const context = useContext(AuthContext)
     if (!context) {
-        // Log even in production: this is a fatal usage error helpful for diagnostics
-        // eslint-disable-next-line no-console
-        console.error('[auth] useAuth invoked without provider', {
-            moduleId: import.meta.url,
-            debugId: AUTH_DEBUG_ID,
-            contextValue: context
-        })
+        if (isDevelopment()) {
+            // eslint-disable-next-line no-console
+            console.error('[auth] useAuth invoked without provider')
+        }
         throw new Error('useAuth must be used within AuthProvider')
     }
     return context
@@ -91,30 +81,17 @@ export interface AuthProviderProps {
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) => {
     // Development-only duplicate module warning. Helps catch multiple copies of this package.
-    // Do not change runtime behavior; logs only in dev.
-    if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = window as any
+    if (isDevelopment() && typeof window !== 'undefined') {
         const KEY = '__UNIVERSO_AUTH_FRT_SINGLETON__'
-        if (w[KEY]) {
+        if (window[KEY]) {
             // eslint-disable-next-line no-console
-            console.warn('[auth] Multiple copies of @universo/auth-frontend detected', { moduleId: import.meta.url })
+            console.warn('[auth] Multiple copies of @universo/auth-frontend detected')
         }
-        w[KEY] = true
+        window[KEY] = true
     }
 
     const session = useSession({ client })
     const logoutInProgress = useRef(false)
-
-    // DEBUG: Log session state and module identity (kept even in production; low volume)
-    // eslint-disable-next-line no-console
-    console.log('[AuthProvider] Session state:', {
-        moduleId: import.meta.url,
-        debugId: AUTH_DEBUG_ID,
-        user: session.user,
-        loading: session.loading,
-        error: session.error
-    })
 
     const value = useMemo<AuthContextValue>(() => {
         const login = async (email: string, password: string, captchaToken?: string): Promise<void> => {
@@ -124,8 +101,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) 
 
             try {
                 await doLogin()
-            } catch (err: any) {
-                const status = err?.response?.status
+            } catch (err: unknown) {
+                const status =
+                    typeof err === 'object' && err !== null && 'response' in err
+                        ? (err.response as { status?: number } | undefined)?.status
+                        : undefined
                 if (status === 419) {
                     // CSRF token expired (e.g., after server restart with MemoryStore)
                     // Clear stale token and retry once
@@ -155,7 +135,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) 
                     await session.logout()
                 }
             } catch (error) {
-                console.error('[auth] logout failed', error)
+                if (isDevelopment()) {
+                    console.error('[auth] logout failed', error)
+                }
             } finally {
                 logoutInProgress.current = false
                 // No redirect - let React re-render with guest content based on isAuthenticated state

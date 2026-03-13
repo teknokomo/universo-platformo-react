@@ -1,4 +1,5 @@
 import type { DbExecutor } from '@universo/utils'
+import { activeAppRowCondition, softDeleteSetClause } from '@universo/utils'
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -13,9 +14,12 @@ export interface LocaleRow {
     is_default_ui: boolean
     is_system: boolean
     sort_order: number
-    created_at: string
-    updated_at: string
+    _upl_created_at: string
+    _upl_updated_at: string
 }
+
+const LOCALE_RETURNING_COLUMNS =
+    'id, code, name, native_name, is_enabled_content, is_enabled_ui, is_default_content, is_default_ui, is_system, sort_order, _upl_created_at, _upl_updated_at'
 
 /**
  * Transform raw DB row to camelCase API response
@@ -32,8 +36,8 @@ export function transformLocaleRow(row: LocaleRow) {
         isDefaultUi: row.is_default_ui,
         isSystem: row.is_system,
         sortOrder: row.sort_order,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
+        createdAt: row._upl_created_at,
+        updatedAt: row._upl_updated_at
     }
 }
 
@@ -42,7 +46,8 @@ export function transformLocaleRow(row: LocaleRow) {
 const SORT_WHITELIST: Record<string, string> = {
     code: 'code',
     sort_order: 'sort_order',
-    created_at: 'created_at'
+    created_at: '_upl_created_at',
+    _upl_created_at: '_upl_created_at'
 }
 
 export async function listLocales(
@@ -63,13 +68,13 @@ export async function listLocales(
         conditions.push('(is_enabled_content = true OR is_enabled_ui = true)')
     }
 
-    conditions.push('_upl_deleted = false')
+    conditions.push(activeAppRowCondition())
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
     const sortCol = SORT_WHITELIST[sortBy] ?? 'sort_order'
     const dir = sortOrder === 'desc' ? 'DESC' : 'ASC'
 
-    let sql = `SELECT *, COUNT(*) OVER() AS _total FROM admin.locales ${where} ORDER BY ${sortCol} ${dir}`
+    let sql = `SELECT *, COUNT(*) OVER() AS _total FROM admin.cfg_locales ${where} ORDER BY ${sortCol} ${dir}`
 
     if (limit !== undefined) {
         params.push(limit)
@@ -86,12 +91,14 @@ export async function listLocales(
 }
 
 export async function findLocaleById(exec: DbExecutor, id: string): Promise<LocaleRow | null> {
-    const rows = await exec.query<LocaleRow>(`SELECT * FROM admin.locales WHERE id = $1 AND _upl_deleted = false LIMIT 1`, [id])
+    const rows = await exec.query<LocaleRow>(`SELECT * FROM admin.cfg_locales WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`, [id])
     return rows[0] ?? null
 }
 
 export async function findLocaleByCode(exec: DbExecutor, code: string): Promise<LocaleRow | null> {
-    const rows = await exec.query<LocaleRow>(`SELECT * FROM admin.locales WHERE code = $1 AND _upl_deleted = false LIMIT 1`, [code])
+    const rows = await exec.query<LocaleRow>(`SELECT * FROM admin.cfg_locales WHERE code = $1 AND ${activeAppRowCondition()} LIMIT 1`, [
+        code
+    ])
     return rows[0] ?? null
 }
 
@@ -110,16 +117,18 @@ export async function createLocale(
 ): Promise<LocaleRow> {
     return exec.transaction(async (tx) => {
         if (data.isDefaultContent) {
-            await tx.query(`UPDATE admin.locales SET is_default_content = false WHERE is_default_content = true AND _upl_deleted = false`)
+            await tx.query(
+                `UPDATE admin.cfg_locales SET is_default_content = false WHERE is_default_content = true AND ${activeAppRowCondition()}`
+            )
         }
         if (data.isDefaultUi) {
-            await tx.query(`UPDATE admin.locales SET is_default_ui = false WHERE is_default_ui = true AND _upl_deleted = false`)
+            await tx.query(`UPDATE admin.cfg_locales SET is_default_ui = false WHERE is_default_ui = true AND ${activeAppRowCondition()}`)
         }
 
         const rows = await tx.query<LocaleRow>(
-            `INSERT INTO admin.locales (code, name, native_name, is_enabled_content, is_enabled_ui, is_default_content, is_default_ui, is_system, sort_order)
+            `INSERT INTO admin.cfg_locales (code, name, native_name, is_enabled_content, is_enabled_ui, is_default_content, is_default_ui, is_system, sort_order)
              VALUES ($1, $2, $3, $4, $5, $6, $7, false, $8)
-             RETURNING *`,
+             RETURNING ${LOCALE_RETURNING_COLUMNS}`,
             [
                 data.code,
                 JSON.stringify(data.name),
@@ -152,7 +161,7 @@ export async function updateLocale(
         // Business rule: cannot disable the last enabled content locale
         if (data.isEnabledContent === false) {
             const countRows = await tx.query<{ count: string }>(
-                `SELECT COUNT(*) AS count FROM admin.locales WHERE is_enabled_content = true AND _upl_deleted = false`
+                `SELECT COUNT(*) AS count FROM admin.cfg_locales WHERE is_enabled_content = true AND ${activeAppRowCondition()}`
             )
             if (parseInt(countRows[0]?.count ?? '0', 10) <= 1) {
                 throw new Error('LAST_ENABLED_LOCALE')
@@ -161,10 +170,16 @@ export async function updateLocale(
 
         // Clear existing defaults atomically
         if (data.isDefaultContent === true) {
-            await tx.query(`UPDATE admin.locales SET is_default_content = false WHERE is_default_content = true AND id != $1 AND _upl_deleted = false`, [id])
+            await tx.query(
+                `UPDATE admin.cfg_locales SET is_default_content = false WHERE is_default_content = true AND id != $1 AND ${activeAppRowCondition()}`,
+                [id]
+            )
         }
         if (data.isDefaultUi === true) {
-            await tx.query(`UPDATE admin.locales SET is_default_ui = false WHERE is_default_ui = true AND id != $1 AND _upl_deleted = false`, [id])
+            await tx.query(
+                `UPDATE admin.cfg_locales SET is_default_ui = false WHERE is_default_ui = true AND id != $1 AND ${activeAppRowCondition()}`,
+                [id]
+            )
         }
 
         const sets: string[] = []
@@ -201,15 +216,17 @@ export async function updateLocale(
         }
 
         if (sets.length === 0) {
-            const rows = await tx.query<LocaleRow>(`SELECT * FROM admin.locales WHERE id = $1 AND _upl_deleted = false`, [id])
+            const rows = await tx.query<LocaleRow>(`SELECT * FROM admin.cfg_locales WHERE id = $1 AND ${activeAppRowCondition()}`, [id])
             return rows[0]
         }
 
-        sets.push(`updated_at = NOW()`)
+        sets.push(`_upl_updated_at = NOW()`)
         params.push(id)
 
         const rows = await tx.query<LocaleRow>(
-            `UPDATE admin.locales SET ${sets.join(', ')} WHERE id = $${idx} AND _upl_deleted = false RETURNING *`,
+            `UPDATE admin.cfg_locales SET ${sets.join(
+                ', '
+            )} WHERE id = $${idx} AND ${activeAppRowCondition()} RETURNING ${LOCALE_RETURNING_COLUMNS}`,
             params
         )
         return rows[0]
@@ -218,9 +235,9 @@ export async function updateLocale(
 
 export async function deleteLocale(exec: DbExecutor, id: string, deletedBy?: string): Promise<boolean> {
     const rows = await exec.query<{ id: string }>(
-        `UPDATE admin.locales
-         SET _upl_deleted = true, _upl_deleted_at = NOW(), _upl_deleted_by = $2
-         WHERE id = $1 AND _upl_deleted = false
+        `UPDATE admin.cfg_locales
+         SET ${softDeleteSetClause('$2')}
+         WHERE id = $1 AND ${activeAppRowCondition()}
          RETURNING id`,
         [id, deletedBy ?? null]
     )
@@ -229,14 +246,18 @@ export async function deleteLocale(exec: DbExecutor, id: string, deletedBy?: str
 
 // ─── Public (no auth) queries ────────────────────────────────────────────
 
-export async function listEnabledContentLocales(exec: DbExecutor): Promise<Array<{ code: string; native_name: string | null; is_default_content: boolean }>> {
+export async function listEnabledContentLocales(
+    exec: DbExecutor
+): Promise<Array<{ code: string; native_name: string | null; is_default_content: boolean }>> {
     return exec.query(
-        `SELECT code, native_name, is_default_content FROM admin.locales WHERE is_enabled_content = true AND _upl_deleted = false ORDER BY sort_order ASC`
+        `SELECT code, native_name, is_default_content FROM admin.cfg_locales WHERE is_enabled_content = true AND ${activeAppRowCondition()} ORDER BY sort_order ASC`
     )
 }
 
-export async function listEnabledUiLocales(exec: DbExecutor): Promise<Array<{ code: string; native_name: string | null; is_default_ui: boolean }>> {
+export async function listEnabledUiLocales(
+    exec: DbExecutor
+): Promise<Array<{ code: string; native_name: string | null; is_default_ui: boolean }>> {
     return exec.query(
-        `SELECT code, native_name, is_default_ui FROM admin.locales WHERE is_enabled_ui = true AND _upl_deleted = false ORDER BY sort_order ASC`
+        `SELECT code, native_name, is_default_ui FROM admin.cfg_locales WHERE is_enabled_ui = true AND ${activeAppRowCondition()} ORDER BY sort_order ASC`
     )
 }
