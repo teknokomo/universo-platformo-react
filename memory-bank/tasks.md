@@ -49,6 +49,12 @@
 
 ## Active Open Tasks (Canonical)
 
+- [x] Apply validated bot-review fixes from PR #721
+  - [x] Replace `process.env.NODE_ENV` with `isDevelopment()` in authProvider.tsx
+  - [x] Add `_upl_created_at` key to localesStore SORT_WHITELIST
+  - [x] Add soft-delete filter on profiles LEFT JOIN in MetahubBranchesService.getBlockingUsers
+  - [x] Relocate misplaced "Why" block in systemPatterns.md to correct pattern
+  - [x] Compress activeContext.md to ≤150 lines
 - [ ] Wait for an explicit QA, live, or product trigger before reopening fixed system-app startup work
   - Note: the 2026-03-13 repeated-start stability closure is complete and no active defect remains in this area.
 - [ ] Keep future fixed-system startup changes behind the repeated-start acceptance gate

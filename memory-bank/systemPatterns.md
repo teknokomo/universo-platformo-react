@@ -415,6 +415,8 @@ return applicationsStore.listApplications(executor, userId)
 - Registered definition catalog sync must bulk-load registry active revisions and export rows, then skip `registerDefinition()` entirely when every artifact checksum and export target already matches.
 - Both fast paths must preserve self-healing behavior by falling back to the canonical full sync path whenever fingerprint/checksum/export drift is detected.
 
+**Why**: Idempotent startup is not enough for operational safety in this repository. Replaying hundreds of registry writes and metadata upserts on every clean boot makes startup slow and obscures real drift behind noisy repeated synchronization.
+
 ## Explicit RETURNING + Soft-Delete Compensation Pattern (IMPORTANT)
 
 **Rule**: Touched SQL-first stores on platform catalog tables should return explicit column lists, and cleanup/rollback paths should prefer dual-flag soft delete over raw `DELETE` whenever the rows belong to normal soft-deletable platform metadata.
@@ -425,8 +427,6 @@ return applicationsStore.listApplications(executor, userId)
 - If associated child metadata is created in the same flow, compensate it explicitly as well unless an existing hard database cascade is still part of the intended contract.
 
 **Why**: Explicit `RETURNING` clauses prevent silent shape drift when schema support fields change, and soft-delete compensation preserves the repository-wide lifecycle/audit contract even on rollback paths.
-
-**Why**: Idempotent startup is not enough for operational safety in this repository. Replaying hundreds of registry writes and metadata upserts on every clean boot makes startup slow and obscures real drift behind noisy repeated synchronization.
 
 ## Statement Timeout Helper Pattern (CRITICAL)
 

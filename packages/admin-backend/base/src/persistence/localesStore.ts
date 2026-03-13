@@ -46,7 +46,8 @@ export function transformLocaleRow(row: LocaleRow) {
 const SORT_WHITELIST: Record<string, string> = {
     code: 'code',
     sort_order: 'sort_order',
-    created_at: '_upl_created_at'
+    created_at: '_upl_created_at',
+    _upl_created_at: '_upl_created_at'
 }
 
 export async function listLocales(

@@ -81,7 +81,7 @@ export interface AuthProviderProps {
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) => {
     // Development-only duplicate module warning. Helps catch multiple copies of this package.
-    if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+    if (isDevelopment() && typeof window !== 'undefined') {
         const KEY = '__UNIVERSO_AUTH_FRT_SINGLETON__'
         if (window[KEY]) {
             // eslint-disable-next-line no-console

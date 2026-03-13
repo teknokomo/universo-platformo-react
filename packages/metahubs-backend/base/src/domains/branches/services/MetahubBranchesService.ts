@@ -750,7 +750,7 @@ export class MetahubBranchesService {
                 mu.role
              FROM metahubs.rel_metahub_users mu
              LEFT JOIN auth.users au ON au.id = mu.user_id
-             LEFT JOIN profiles.cat_profiles p ON p.user_id = mu.user_id
+             LEFT JOIN profiles.cat_profiles p ON p.user_id = mu.user_id AND p._upl_deleted = false AND p._app_deleted = false
              WHERE mu.metahub_id = $1
                AND mu.active_branch_id = $2
                ${excludeClause}`,
