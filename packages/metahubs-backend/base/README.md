@@ -30,7 +30,7 @@ packages/metahubs-backend/base/
 - Expose authenticated CRUD routes for metahub design-time resources.
 - Expose public read-only endpoints for published metahubs.
 - Initialize package rate limiters and compose the full metahubs service router.
-- Seed built-in metahub templates during backend startup.
+- Seed built-in metahub templates through the unified platform migration flow.
 - Provide metahub migration history, dry-run, apply, rollback, and application sync endpoints.
 - Re-export DDL services from `@universo/schema-ddl` preconfigured with the shared Knex runtime.
 

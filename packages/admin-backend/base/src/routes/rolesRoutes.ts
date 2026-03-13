@@ -353,7 +353,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 id: ur.user_id,
                 email: ur.email,
                 full_name: ur.full_name,
-                assigned_at: ur.created_at,
+                assigned_at: ur._upl_created_at,
                 assigned_by: ur.granted_by ?? null,
                 status: ur.status
             }))

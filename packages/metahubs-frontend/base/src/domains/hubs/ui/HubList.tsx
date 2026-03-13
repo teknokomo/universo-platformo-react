@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -20,7 +20,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmContextProvider,
     useConfirm,
     LocalizedInlineField,
     useCodenameAutoFill,
@@ -214,6 +213,7 @@ const HubFormFields = ({
 const HubListContent = () => {
     const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
+    const location = useLocation()
     const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
@@ -365,6 +365,14 @@ const HubListContent = () => {
         setPendingHubNavigation(null)
         navigate(`/metahub/${metahubId}/hub/${resolvedHub.id}/hubs`)
     }, [metahubId, navigate, pendingHubNavigation, sortedHubs])
+
+    useEffect(() => {
+        const state = location.state as { openHubSettings?: boolean } | null
+        if (!isHubScoped || !state?.openHubSettings) return
+
+        setEditDialogOpen(true)
+        navigate(location.pathname, { replace: true, state: null })
+    }, [isHubScoped, location.pathname, location.state, navigate])
 
     const allHubsById = useMemo(() => {
         const map = new Map<string, Hub>()
@@ -1452,12 +1460,6 @@ const HubListContent = () => {
     )
 }
 
-const HubList = () => {
-    return (
-        <ConfirmContextProvider>
-            <HubListContent />
-        </ConfirmContextProvider>
-    )
-}
+const HubList = () => <HubListContent />
 
 export default HubList

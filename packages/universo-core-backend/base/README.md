@@ -32,8 +32,7 @@ packages/universo-core-backend/base/
 3. Validate and run registered platform migrations through `@universo/migrations-platform`.
 4. Configure sessions, CSRF, CORS, JWT auth, sanitization, and request logging.
 5. Initialize rate limiters for downstream service packages.
-6. Seed metahub templates through `@universo/metahubs-backend`.
-7. Mount `/api/v1` routers and serve the frontend bundle from `@universo/core-frontend`.
+6. Mount `/api/v1` routers and serve the frontend bundle from `@universo/core-frontend`.
 
 ## Key Integrations
 

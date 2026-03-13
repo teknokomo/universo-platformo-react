@@ -1,4 +1,4 @@
-import { createTemplate, createTemplateVersion } from '../../persistence/templatesStore'
+import { createTemplate, createTemplateVersion, findTemplateById } from '../../persistence/templatesStore'
 
 const createExec = () => ({
     query: jest.fn().mockResolvedValue([{ id: 'row-1' }])
@@ -33,16 +33,7 @@ describe('templatesStore audit user normalization', () => {
             userId: ''
         })
 
-        expect(exec.query).toHaveBeenCalledWith(expect.any(String), [
-            'basic',
-            JSON.stringify(baseName),
-            null,
-            null,
-            true,
-            true,
-            0,
-            null
-        ])
+        expect(exec.query).toHaveBeenCalledWith(expect.any(String), ['basic', JSON.stringify(baseName), null, null, true, true, 0, null])
     })
 
     it('stores null audit user ids when template version creation receives an empty system user id', async () => {
@@ -77,5 +68,17 @@ describe('templatesStore audit user normalization', () => {
             null,
             null
         ])
+    })
+})
+
+describe('templatesStore dual-flag active-row predicates', () => {
+    it('findTemplateById includes dual-flag predicate', async () => {
+        const exec = createExec()
+
+        await findTemplateById(exec as never, 'template-1')
+
+        const sql = String(exec.query.mock.calls[0][0])
+        expect(sql).toContain('_upl_deleted = false')
+        expect(sql).toContain('_app_deleted = false')
     })
 })

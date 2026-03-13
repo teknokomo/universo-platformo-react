@@ -10,6 +10,7 @@ const mockDropSchema = jest.fn(async () => undefined)
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn((value: string) => value)
+const mockSoftDelete = jest.fn(async () => true)
 const mockCreateInitialBranch = jest.fn(async () => ({
     id: 'branch-main',
     metahubId: 'metahub-1',
@@ -110,7 +111,7 @@ jest.mock('../../persistence', () => ({
     countBranches: (...args: any[]) => mockCountBranches(...args),
     findTemplateByIdNotDeleted: (...args: any[]) => mockFindTemplateByIdNotDeleted(...args),
     findTemplateByCodename: (...args: any[]) => mockFindTemplateByCodename(...args),
-    softDelete: jest.fn(async () => true)
+    softDelete: (...args: any[]) => mockSoftDelete(...args)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -164,6 +165,7 @@ describe('Metahubs Routes', () => {
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
+        mockSoftDelete.mockResolvedValue(true)
         mockCreateInitialBranch.mockResolvedValue({
             id: 'branch-main',
             metahubId: 'metahub-1',
@@ -545,7 +547,7 @@ describe('Metahubs Routes', () => {
             })
 
             const txQuery = jest.fn(async (sql: string) => {
-                if (sql.includes('metahubs_branches')) {
+                if (sql.includes('cat_metahub_branches')) {
                     return [
                         { schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
                         { schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2' }
@@ -568,19 +570,67 @@ describe('Metahubs Routes', () => {
             expect(txQuery).toHaveBeenCalledWith(
                 expect.stringContaining('DROP SCHEMA IF EXISTS "mhb_a1b2c3d4e5f67890abcdef1234567890_b2" CASCADE')
             )
-            // Cascade soft-delete children
+            // Cascade soft-delete children — must set both _upl_deleted and _app_deleted
             expect(txQuery).toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE metahubs.metahubs_branches'),
+                expect.stringContaining('UPDATE metahubs.cat_metahub_branches'),
                 expect.arrayContaining(['metahub-1'])
             )
             expect(txQuery).toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE metahubs.metahubs_users'),
+                expect.stringContaining('UPDATE metahubs.rel_metahub_users'),
                 expect.arrayContaining(['metahub-1'])
             )
             expect(txQuery).toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE metahubs.publications'),
+                expect.stringContaining('UPDATE metahubs.doc_publication_versions'),
                 expect.arrayContaining(['metahub-1'])
             )
+            expect(txQuery).toHaveBeenCalledWith(
+                expect.stringContaining('UPDATE metahubs.doc_publications'),
+                expect.arrayContaining(['metahub-1'])
+            )
+
+            // Verify dual-flag contract on cascade children
+            const cascadeCalls = txQuery.mock.calls.filter(
+                ([sql]: [string]) =>
+                    typeof sql === 'string' &&
+                    (sql.includes('UPDATE metahubs.cat_metahub_branches') ||
+                        sql.includes('UPDATE metahubs.rel_metahub_users') ||
+                        sql.includes('UPDATE metahubs.doc_publication_versions') ||
+                        sql.includes('UPDATE metahubs.doc_publications')) &&
+                    sql.includes('_upl_deleted')
+            )
+            for (const [sql] of cascadeCalls) {
+                expect(sql).toContain('_app_deleted = true')
+                expect(sql).toContain('_app_deleted_at')
+                expect(sql).toContain('_app_deleted_by')
+            }
+        })
+
+        it('rejects invalid stored branch schema names before drop', async () => {
+            mockFindMetahubById.mockResolvedValue({
+                id: 'metahub-1',
+                codename: 'source-hub'
+            })
+
+            mockFindMetahubForUpdate.mockResolvedValue({
+                id: 'metahub-1',
+                codename: 'source-hub'
+            })
+
+            const txQuery = jest.fn(async (sql: string) => {
+                if (sql.includes('cat_metahub_branches')) {
+                    return [{ schemaName: 'public' }]
+                }
+                return []
+            })
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: txQuery, transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/metahub-1').expect(500)
+
+            expect(response.body).toMatchObject({ error: 'Invalid metahub schema name: public' })
         })
     })
 
@@ -1117,6 +1167,47 @@ describe('Metahubs Routes', () => {
                         createEnumeration: true
                     }
                 })
+            )
+        })
+
+        it('soft-deletes created metahub metadata when initial branch bootstrap fails', async () => {
+            mockFindMetahubByCodename.mockResolvedValue(null)
+            mockCreateMetahub.mockResolvedValue({
+                id: 'mock-id',
+                name: 'New Hub',
+                description: null,
+                codename: 'NewHub',
+                codenameLocalized: null,
+                slug: null,
+                isPublic: false,
+                templateId: null,
+                templateVersionId: null,
+                _uplVersion: 1,
+                _uplCreatedAt: new Date(),
+                _uplUpdatedAt: new Date()
+            })
+            mockFindMetahubMembership.mockResolvedValue({
+                id: 'membership-owner',
+                metahubId: 'mock-id',
+                userId: 'test-user-id',
+                role: 'owner',
+                _uplCreatedAt: new Date()
+            })
+            mockCreateInitialBranch.mockRejectedValueOnce(new Error('branch bootstrap failed'))
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'NewHub' }).expect(500)
+
+            expect(response.body).toMatchObject({ error: 'branch bootstrap failed' })
+            expect(mockSoftDelete).toHaveBeenNthCalledWith(1, mockExec, 'metahubs', 'rel_metahub_users', 'membership-owner', 'test-user-id')
+            expect(mockSoftDelete).toHaveBeenNthCalledWith(2, mockExec, 'metahubs', 'cat_metahubs', 'mock-id', 'test-user-id')
+            expect(mockExec.query.mock.calls.some(([sql]: [string]) => String(sql).includes('DELETE FROM metahubs.cat_metahubs'))).toBe(
+                false
             )
         })
 

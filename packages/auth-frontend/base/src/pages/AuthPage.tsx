@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { BoxProps } from '@mui/material'
+import { isDevelopment } from '@universo/utils'
 
 import { clearStoredCsrfToken } from '../api/client'
 import { useAuth } from '../providers/authProvider'
@@ -108,8 +109,10 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
                 try {
                     await onLoginSuccess()
                 } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : String(err)
-                    console.warn('[AuthPage] onLoginSuccess callback failed:', errorMessage)
+                    if (isDevelopment()) {
+                        const errorMessage = err instanceof Error ? err.message : String(err)
+                        console.warn('[AuthPage] onLoginSuccess callback failed:', errorMessage)
+                    }
                 }
             }
 
@@ -168,20 +171,22 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
 
             // Handle captcha config result
             if (captchaResult.status === 'fulfilled') {
-                console.info('[AuthPage] Captcha config received:', captchaResult.value.data)
                 setCaptchaConfig(captchaResult.value.data)
             } else {
-                console.warn('[AuthPage] Failed to fetch captcha config:', captchaResult.reason)
+                if (isDevelopment()) {
+                    console.warn('[AuthPage] Failed to fetch captcha config:', captchaResult.reason)
+                }
                 // Default to disabled if fetch fails
                 setCaptchaConfig({ enabled: false, siteKey: null, testMode: false })
             }
 
             // Handle auth feature config result
             if (authResult.status === 'fulfilled') {
-                console.info('[AuthPage] Auth feature config received:', authResult.value.data)
                 setAuthFeatureConfig(authResult.value.data)
             } else {
-                console.warn('[AuthPage] Failed to fetch auth feature config:', authResult.reason)
+                if (isDevelopment()) {
+                    console.warn('[AuthPage] Failed to fetch auth feature config:', authResult.reason)
+                }
                 // Default to all enabled if fetch fails (backwards compatibility)
                 setAuthFeatureConfig({
                     registrationEnabled: true,

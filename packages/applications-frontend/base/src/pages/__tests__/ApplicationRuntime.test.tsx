@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, waitFor, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -9,7 +10,8 @@ const runtimeMocks = vi.hoisted(() => ({
     mutate: vi.fn(),
     handlePendingInteractionAttempt: vi.fn(() => false),
     handleOpenCreate: vi.fn(),
-    setPaginationModel: vi.fn()
+    setPaginationModel: vi.fn(),
+    dashboardStateOverrides: {} as Record<string, unknown>
 }))
 
 vi.mock('react-i18next', () => ({
@@ -36,7 +38,12 @@ vi.mock('@universo/apps-template-mui', async () => {
 
     return {
         ...actual,
-        AppsDashboard: () => <div data-testid='apps-dashboard' />,
+        AppsDashboard: ({ details }: { details?: { title?: string; actions?: ReactNode } }) => (
+            <div data-testid='apps-dashboard'>
+                <div data-testid='apps-dashboard-title'>{details?.title}</div>
+                <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
+            </div>
+        ),
         CrudDialogs: () => null,
         RowActionsMenu: () => null,
         useCrudDashboard: (options: any) => {
@@ -92,7 +99,8 @@ vi.mock('@universo/apps-template-mui', async () => {
                 menuAnchorEl: null,
                 menuRowId: null,
                 handleOpenMenu: vi.fn(),
-                handleCloseMenu: vi.fn()
+                handleCloseMenu: vi.fn(),
+                ...runtimeMocks.dashboardStateOverrides
             }
         }
     }
@@ -137,6 +145,41 @@ describe('ApplicationRuntime pending interaction safety', () => {
         vi.clearAllMocks()
         runtimeMocks.capturedCellRenderers = null
         runtimeMocks.handlePendingInteractionAttempt.mockReturnValue(false)
+        runtimeMocks.dashboardStateOverrides = {}
+    })
+
+    it('shows loading state before runtime data is available', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            isLoading: true,
+            appData: null
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByRole('progressbar')).toBeInTheDocument()
+        expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
+    })
+
+    it('shows error state when runtime data fails to load', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            isError: true,
+            appData: null
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByRole('alert')).toHaveTextContent('Failed to load runtime data')
+    })
+
+    it('renders runtime details title and wires the create action button to the dashboard state', async () => {
+        renderRuntimePage()
+
+        expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Details')
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+
+        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
     })
 
     it('blocks inline BOOLEAN mutation attempts for pending rows', async () => {

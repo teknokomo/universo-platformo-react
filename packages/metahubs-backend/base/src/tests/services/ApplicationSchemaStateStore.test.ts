@@ -28,8 +28,8 @@ describe('ApplicationSchemaStateStore', () => {
         })
 
         expect(withSchema).toHaveBeenCalledWith('applications')
-        expect(table).toHaveBeenCalledWith('applications')
-        expect(where).toHaveBeenCalledWith({ id: 'app-1' })
+        expect(table).toHaveBeenCalledWith('cat_applications')
+        expect(where).toHaveBeenCalledWith({ id: 'app-1', _upl_deleted: false, _app_deleted: false })
         expect(raw).toHaveBeenCalledWith('COALESCE(_upl_version, 1) + 1')
         expect(update).toHaveBeenCalledWith(
             expect.objectContaining({

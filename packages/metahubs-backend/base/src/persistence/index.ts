@@ -2,7 +2,7 @@
 export type {
     SqlQueryable,
     UplSystemFields,
-    MhbSystemFields,
+    AppSystemFields,
     MetahubRow,
     MetahubBranchRow,
     MetahubUserRow,
@@ -13,7 +13,7 @@ export type {
     TemplateRow,
     TemplateVersionRow
 } from './types'
-export { uplFieldAliases, mhbFieldAliases } from './types'
+export { uplFieldAliases, appFieldAliases } from './types'
 
 // Metahub + MetahubUser store
 export {
@@ -36,13 +36,7 @@ export {
     removeMetahubMember,
     countMetahubMembers
 } from './metahubsStore'
-export type {
-    MetahubListItem,
-    CreateMetahubInput,
-    UpdateMetahubInput,
-    MetahubMemberListItem,
-    AddMetahubMemberInput
-} from './metahubsStore'
+export type { MetahubListItem, CreateMetahubInput, UpdateMetahubInput, MetahubMemberListItem, AddMetahubMemberInput } from './metahubsStore'
 
 // Branch store
 export {
@@ -63,11 +57,7 @@ export {
     countMembersOnBranch,
     clearMemberActiveBranch
 } from './branchesStore'
-export type {
-    BranchListItem,
-    CreateBranchInput,
-    UpdateBranchInput
-} from './branchesStore'
+export type { BranchListItem, CreateBranchInput, UpdateBranchInput } from './branchesStore'
 
 // Publication + PublicationVersion store
 export {
@@ -108,22 +98,10 @@ export {
     createTemplateVersion,
     deactivateTemplateVersions
 } from './templatesStore'
-export type {
-    TemplateCatalogItem,
-    TemplateListItem,
-    CreateTemplateInput,
-    CreateTemplateVersionInput
-} from './templatesStore'
+export type { TemplateCatalogItem, TemplateListItem, CreateTemplateInput, CreateTemplateVersionInput } from './templatesStore'
 
 // SQL-first soft delete helpers
-export {
-    softDeleteCondition,
-    softDelete,
-    restoreDeleted,
-    purgeOldDeleted,
-    countDeleted,
-    setPurgeAfter
-} from './metahubsQueryHelpers'
+export { softDeleteCondition, softDelete, restoreDeleted, purgeOldDeleted, countDeleted, setPurgeAfter } from './metahubsQueryHelpers'
 export type { SoftDeleteFilterOptions } from './metahubsQueryHelpers'
 
 // Cross-package application queries (SQL-first, no entity imports)
@@ -142,9 +120,4 @@ export {
     notifyLinkedAppsUpdateAvailable,
     resetLinkedAppsToSynced
 } from './applicationQueriesStore'
-export type {
-    AppRow,
-    AppUserRow,
-    ConnectorRow,
-    ConnectorPublicationRow
-} from './applicationQueriesStore'
+export type { AppRow, AppUserRow, ConnectorRow, ConnectorPublicationRow } from './applicationQueriesStore'

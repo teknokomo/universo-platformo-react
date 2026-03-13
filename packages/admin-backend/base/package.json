@@ -4,12 +4,35 @@
     "description": "Backend for Admin Panel - global user management in Universo Platformo",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "require": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./platform-definition": {
+            "types": "./dist/platform/systemAppDefinition.d.ts",
+            "require": "./dist/platform/systemAppDefinition.js",
+            "default": "./dist/platform/systemAppDefinition.js"
+        },
+        "./platform-migrations": {
+            "types": "./dist/platform/migrations/index.d.ts",
+            "require": "./dist/platform/migrations/index.js",
+            "default": "./dist/platform/migrations/index.js"
+        }
+    },
+    "typesVersions": {
+        "*": {
+            "platform-definition": ["./dist/platform/systemAppDefinition.d.ts"],
+            "platform-migrations": ["./dist/platform/migrations/index.d.ts"]
+        }
+    },
     "scripts": {
         "clean": "rimraf dist tsconfig.tsbuildinfo",
         "build": "pnpm run clean && tsc",
         "dev": "tsc -w",
         "lint": "eslint --ext .ts src/",
-        "test": "jest --config ./jest.config.js"
+        "test": "node ../../../tools/testing/backend/run-jest.cjs --config ./jest.config.js"
     },
     "keywords": [
         "universo",
@@ -22,21 +45,22 @@
     "license": "Omsk Open License",
     "dependencies": {
         "@universo/auth-backend": "workspace:*",
+        "@universo/migrations-core": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "http-errors": "catalog:",
-        "zod": "^3.25.76"
+        "zod": "catalog:"
     },
     "devDependencies": {
         "@types/express": "^4.17.21",
         "@types/http-errors": "catalog:",
         "@types/jest": "^29.5.12",
-        "@types/node": "^20.11.17",
+        "@types/node": "catalog:",
         "eslint": "catalog:",
         "jest": "^29.7.0",
         "rimraf": "^5.0.5",
         "ts-jest": "^29.1.2",
-        "typescript": "^5.4.5"
+        "typescript": "catalog:"
     }
 }

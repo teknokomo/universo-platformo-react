@@ -37,6 +37,9 @@ interface SortableTableRowProps {
     /** Accessible label for the drag handle */
     dragHandleAriaLabel?: string
     sx?: SxProps<Theme>
+    rowStyle?: React.CSSProperties
+    onClickCapture?: React.MouseEventHandler<HTMLTableRowElement>
+    onMouseDownCapture?: React.MouseEventHandler<HTMLTableRowElement>
 }
 
 export const SortableTableRow: React.FC<SortableTableRowProps> = ({
@@ -45,7 +48,10 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
     children,
     hasExpansion = false,
     dragHandleAriaLabel,
-    sx
+    sx,
+    rowStyle,
+    onClickCapture,
+    onMouseDownCapture
 }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled })
 
@@ -55,7 +61,8 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
         opacity: isDragging ? 0.4 : 1,
         cursor: disabled ? 'default' : 'grab',
         position: 'relative',
-        zIndex: isDragging ? 1 : 'auto'
+        zIndex: isDragging ? 1 : 'auto',
+        ...rowStyle
     }
 
     const rowSx: SxProps<Theme> = hasExpansion
@@ -67,7 +74,7 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
         : sx ?? {}
 
     return (
-        <StyledTableRow ref={setNodeRef} style={style} sx={rowSx}>
+        <StyledTableRow ref={setNodeRef} style={style} sx={rowSx} onClickCapture={onClickCapture} onMouseDownCapture={onMouseDownCapture}>
             {/* Drag handle column — attributes + listeners must be on the same focusable element for keyboard DnD */}
             <StyledTableCell
                 align='center'

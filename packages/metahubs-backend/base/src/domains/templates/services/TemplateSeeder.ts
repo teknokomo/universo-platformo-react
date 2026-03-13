@@ -15,6 +15,16 @@ import type { SqlQueryable, TemplateRow } from '../../../persistence'
 import { validateTemplateManifest } from './TemplateManifestValidator'
 import { builtinTemplates } from '../data'
 
+export interface TemplateSeederLogger {
+    info(message: string, ...meta: unknown[]): void
+    error(message: string, ...meta: unknown[]): void
+}
+
+export interface TemplateSeederOptions {
+    failFast?: boolean
+    logger?: TemplateSeederLogger
+}
+
 /**
  * Calculates SHA-256 hash of a template manifest for deduplication.
  * Uses json-stable-stringify for deterministic serialization.
@@ -34,12 +44,13 @@ function calculateManifestHash(manifest: MetahubTemplateManifest): string {
  * Non-fatal: logs errors but does NOT crash the server if seeding fails.
  */
 export class TemplateSeeder {
-    constructor(private executor: DbExecutor) {}
+    constructor(private executor: DbExecutor, private options: TemplateSeederOptions = {}) {}
 
     /**
      * Seed all built-in templates. Call once at application startup.
      */
     async seed(): Promise<void> {
+        const logger = this.options.logger ?? console
         const stats = { created: 0, updated: 0, skipped: 0, errors: 0 }
 
         for (const manifest of builtinTemplates) {
@@ -51,11 +62,14 @@ export class TemplateSeeder {
                 stats[result]++
             } catch (error) {
                 stats.errors++
-                console.error(`[TemplateSeeder] Error seeding template "${manifest.codename}":`, error)
+                logger.error(`[TemplateSeeder] Error seeding template "${manifest.codename}":`, error)
+                if (this.options.failFast) {
+                    throw error
+                }
             }
         }
 
-        console.info(
+        logger.info(
             `[TemplateSeeder] Seed complete: ${stats.created} created, ${stats.updated} updated, ${stats.skipped} skipped, ${stats.errors} errors`
         )
     }
@@ -103,8 +117,7 @@ export class TemplateSeeder {
             await updateTemplate(tx, savedTemplate.id, {
                 activeVersionId: savedVersion.id
             })
-
-            console.info(`[TemplateSeeder] Created template "${manifest.codename}" v${manifest.version}`)
+            ;(this.options.logger ?? console).info(`[TemplateSeeder] Created template "${manifest.codename}" v${manifest.version}`)
             return 'created' as const
         })
     }
@@ -149,8 +162,9 @@ export class TemplateSeeder {
                 icon: manifest.meta?.icon ?? null,
                 activeVersionId: savedVersion.id
             })
-
-            console.info(`[TemplateSeeder] Updated template "${manifest.codename}" → v${manifest.version} (version #${nextVersionNumber})`)
+            ;(this.options.logger ?? console).info(
+                `[TemplateSeeder] Updated template "${manifest.codename}" → v${manifest.version} (version #${nextVersionNumber})`
+            )
             return 'updated' as const
         })
     }
@@ -159,7 +173,7 @@ export class TemplateSeeder {
 /**
  * Convenience function to seed templates. Use in server startup.
  */
-export async function seedTemplates(executor: DbExecutor): Promise<void> {
-    const seeder = new TemplateSeeder(executor)
+export async function seedTemplates(executor: DbExecutor, options?: TemplateSeederOptions): Promise<void> {
+    const seeder = new TemplateSeeder(executor, options)
     await seeder.seed()
 }

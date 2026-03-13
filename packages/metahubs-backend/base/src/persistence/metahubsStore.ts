@@ -1,6 +1,6 @@
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { SqlQueryable, MetahubRow, MetahubUserRow } from './types'
-import { uplFieldAliases, mhbFieldAliases } from './types'
+import { uplFieldAliases, appFieldAliases } from './types'
 import { activeMetahubRowCondition, softDelete } from './metahubsQueryHelpers'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ const METAHUB_SELECT = (alias: string) =>
     ${alias}.template_id AS "templateId",
     ${alias}.template_version_id AS "templateVersionId",
     ${uplFieldAliases(alias)},
-    ${mhbFieldAliases(alias)}
+    ${appFieldAliases(alias)}
 `.trim()
 
 const METAHUB_USER_SELECT = (alias: string) =>
@@ -33,7 +33,7 @@ const METAHUB_USER_SELECT = (alias: string) =>
     ${alias}.role,
     ${alias}.comment,
     ${uplFieldAliases(alias)},
-    ${mhbFieldAliases(alias)}
+    ${appFieldAliases(alias)}
 `.trim()
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -43,7 +43,7 @@ const METAHUB_USER_SELECT = (alias: string) =>
 export async function findMetahubById(exec: SqlQueryable, id: string): Promise<MetahubRow | null> {
     const rows = await exec.query<MetahubRow>(
         `SELECT ${METAHUB_SELECT('m')}
-         FROM metahubs.metahubs m
+         FROM metahubs.cat_metahubs m
          WHERE m.id = $1
            AND ${activeMetahubRowCondition('m')}
          LIMIT 1`,
@@ -55,7 +55,7 @@ export async function findMetahubById(exec: SqlQueryable, id: string): Promise<M
 export async function findMetahubForUpdate(exec: SqlQueryable, id: string): Promise<MetahubRow | null> {
     const rows = await exec.query<MetahubRow>(
         `SELECT ${METAHUB_SELECT('m')}
-         FROM metahubs.metahubs m
+         FROM metahubs.cat_metahubs m
          WHERE m.id = $1
            AND ${activeMetahubRowCondition('m')}
          FOR UPDATE
@@ -88,7 +88,7 @@ export async function updateMetahubFieldsRaw(
 
     params.push(id)
     await exec.query(
-        `UPDATE metahubs.metahubs
+        `UPDATE metahubs.cat_metahubs
          SET ${setClauses.join(', ')}
          WHERE id = $${params.length}
            AND ${activeMetahubRowCondition()}`,
@@ -99,7 +99,7 @@ export async function updateMetahubFieldsRaw(
 export async function findMetahubByIdNotDeleted(exec: SqlQueryable, id: string): Promise<MetahubRow | null> {
     const rows = await exec.query<MetahubRow>(
         `SELECT ${METAHUB_SELECT('m')}
-         FROM metahubs.metahubs m
+         FROM metahubs.cat_metahubs m
          WHERE m.id = $1
                      AND ${activeMetahubRowCondition('m')}
          LIMIT 1`,
@@ -111,7 +111,7 @@ export async function findMetahubByIdNotDeleted(exec: SqlQueryable, id: string):
 export async function findMetahubByCodename(exec: SqlQueryable, codename: string): Promise<MetahubRow | null> {
     const rows = await exec.query<MetahubRow>(
         `SELECT ${METAHUB_SELECT('m')}
-         FROM metahubs.metahubs m
+         FROM metahubs.cat_metahubs m
          WHERE m.codename = $1
                      AND ${activeMetahubRowCondition('m')}
          LIMIT 1`,
@@ -123,7 +123,7 @@ export async function findMetahubByCodename(exec: SqlQueryable, codename: string
 export async function findMetahubBySlug(exec: SqlQueryable, slug: string): Promise<Pick<MetahubRow, 'id' | 'slug'> | null> {
     const rows = await exec.query<Pick<MetahubRow, 'id' | 'slug'>>(
         `SELECT id, slug
-         FROM metahubs.metahubs
+         FROM metahubs.cat_metahubs
          WHERE slug = $1
                      AND ${activeMetahubRowCondition()}
          LIMIT 1`,
@@ -135,7 +135,7 @@ export async function findMetahubBySlug(exec: SqlQueryable, slug: string): Promi
 export async function findPublicMetahubBySlug(exec: SqlQueryable, slug: string): Promise<MetahubRow | null> {
     const rows = await exec.query<MetahubRow>(
         `SELECT ${METAHUB_SELECT('m')}
-         FROM metahubs.metahubs m
+         FROM metahubs.cat_metahubs m
          WHERE m.slug = $1
            AND m.is_public = true
                      AND ${activeMetahubRowCondition('m')}
@@ -206,20 +206,20 @@ export async function listMetahubs(
             COALESCE(branch_counts.count, 0)::int AS "branchesCount",
             membership.role AS "membershipRole",
             COUNT(*) OVER() AS "windowTotal"
-         FROM metahubs.metahubs m
-         LEFT JOIN metahubs.metahubs_users membership
+         FROM metahubs.cat_metahubs m
+         LEFT JOIN metahubs.rel_metahub_users membership
              ON membership.metahub_id = m.id
             AND membership.user_id = $1
             AND ${activeMetahubRowCondition('membership')}
          LEFT JOIN (
              SELECT metahub_id, COUNT(*)::int AS count
-             FROM metahubs.metahubs_users
+             FROM metahubs.rel_metahub_users
              WHERE ${activeMetahubRowCondition()}
              GROUP BY metahub_id
          ) member_counts ON member_counts.metahub_id = m.id
          LEFT JOIN (
              SELECT metahub_id, COUNT(*)::int AS count
-             FROM metahubs.metahubs_branches
+             FROM metahubs.cat_metahub_branches
              WHERE ${activeMetahubRowCondition()}
              GROUP BY metahub_id
          ) branch_counts ON branch_counts.metahub_id = m.id
@@ -289,9 +289,9 @@ export async function createMetahub(exec: SqlQueryable, input: CreateMetahubInpu
 
     const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ')
     const rows = await exec.query<MetahubRow>(
-        `INSERT INTO metahubs.metahubs (${cols.join(', ')})
+        `INSERT INTO metahubs.cat_metahubs (${cols.join(', ')})
          VALUES (${placeholders})
-         RETURNING ${METAHUB_SELECT('metahubs.metahubs')}`,
+         RETURNING ${METAHUB_SELECT('metahubs.cat_metahubs')}`,
         vals
     )
     return rows[0]
@@ -356,10 +356,10 @@ export async function updateMetahub(exec: SqlQueryable, id: string, input: Updat
     }
 
     const rows = await exec.query<MetahubRow>(
-        `UPDATE metahubs.metahubs
+        `UPDATE metahubs.cat_metahubs
          SET ${setClauses.join(', ')}
          WHERE ${conditions.join(' AND ')}
-         RETURNING ${METAHUB_SELECT('metahubs.metahubs')}`,
+         RETURNING ${METAHUB_SELECT('metahubs.cat_metahubs')}`,
         params
     )
     return rows[0] ?? null
@@ -370,7 +370,7 @@ export async function updateMetahub(exec: SqlQueryable, id: string, input: Updat
  */
 export async function incrementBranchNumber(exec: SqlQueryable, metahubId: string): Promise<number> {
     const rows = await exec.query<{ last_branch_number: number }>(
-        `UPDATE metahubs.metahubs
+        `UPDATE metahubs.cat_metahubs
          SET last_branch_number = last_branch_number + 1,
              _upl_updated_at = NOW()
          WHERE id = $1
@@ -388,8 +388,8 @@ export async function incrementBranchNumber(exec: SqlQueryable, metahubId: strin
 export async function findMetahubMembership(exec: SqlQueryable, metahubId: string, userId: string): Promise<MetahubUserRow | null> {
     const rows = await exec.query<MetahubUserRow>(
         `SELECT ${METAHUB_USER_SELECT('mu')}
-         FROM metahubs.metahubs_users mu
-         JOIN metahubs.metahubs m ON m.id = mu.metahub_id
+         FROM metahubs.rel_metahub_users mu
+         JOIN metahubs.cat_metahubs m ON m.id = mu.metahub_id
          WHERE mu.metahub_id = $1 AND mu.user_id = $2
            AND ${activeMetahubRowCondition('mu')}
            AND ${activeMetahubRowCondition('m')}
@@ -402,7 +402,7 @@ export async function findMetahubMembership(exec: SqlQueryable, metahubId: strin
 export async function findMetahubMemberById(exec: SqlQueryable, memberId: string): Promise<MetahubUserRow | null> {
     const rows = await exec.query<MetahubUserRow>(
         `SELECT ${METAHUB_USER_SELECT('mu')}
-         FROM metahubs.metahubs_users mu
+         FROM metahubs.rel_metahub_users mu
          WHERE mu.id = $1
            AND ${activeMetahubRowCondition('mu')}
          LIMIT 1`,
@@ -452,9 +452,9 @@ export async function listMetahubMembers(
             u.email,
             p.nickname,
             COUNT(*) OVER() AS "windowTotal"
-         FROM metahubs.metahubs_users mu
+         FROM metahubs.rel_metahub_users mu
          LEFT JOIN auth.users u ON u.id = mu.user_id
-         LEFT JOIN public.profiles p ON p.user_id = mu.user_id
+         LEFT JOIN profiles.cat_profiles p ON p.user_id = mu.user_id
          WHERE ${conditions.join(' AND ')}
          ORDER BY ${orderCol} ${orderDir}
          LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
@@ -477,12 +477,12 @@ export interface AddMetahubMemberInput {
 
 export async function addMetahubMember(exec: SqlQueryable, input: AddMetahubMemberInput): Promise<MetahubUserRow> {
     const rows = await exec.query<MetahubUserRow>(
-        `INSERT INTO metahubs.metahubs_users (
+        `INSERT INTO metahubs.rel_metahub_users (
             metahub_id, user_id, role, active_branch_id, comment,
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1, $2, $3, $4, $5, $6, $6)
-         RETURNING ${METAHUB_USER_SELECT('metahubs.metahubs_users')}`,
+         RETURNING ${METAHUB_USER_SELECT('metahubs.rel_metahub_users')}`,
         [
             input.metahubId,
             input.userId,
@@ -536,24 +536,24 @@ export async function updateMetahubMember(
     params.push(memberId)
 
     const rows = await exec.query<MetahubUserRow>(
-        `UPDATE metahubs.metahubs_users
+        `UPDATE metahubs.rel_metahub_users
          SET ${setClauses.join(', ')}
          WHERE id = $${params.length}
            AND ${activeMetahubRowCondition()}
-         RETURNING ${METAHUB_USER_SELECT('metahubs.metahubs_users')}`,
+         RETURNING ${METAHUB_USER_SELECT('metahubs.rel_metahub_users')}`,
         params
     )
     return rows[0] ?? null
 }
 
 export async function removeMetahubMember(exec: SqlQueryable, memberId: string, userId?: string | null): Promise<boolean> {
-    return softDelete(exec, 'metahubs', 'metahubs_users', memberId, userId)
+    return softDelete(exec, 'metahubs', 'rel_metahub_users', memberId, userId)
 }
 
 export async function countMetahubMembers(exec: SqlQueryable, metahubId: string): Promise<number> {
     const rows = await exec.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count
-         FROM metahubs.metahubs_users
+         FROM metahubs.rel_metahub_users
          WHERE metahub_id = $1
            AND ${activeMetahubRowCondition()}`,
         [metahubId]

@@ -11,7 +11,7 @@ import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/v
 import { getVLCString } from '@universo/utils/vlc'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
-import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
+import { activeAppRowCondition, database, normalizeApplicationCopyOptions, OptimisticLockError, softDeleteSetClause } from '@universo/utils'
 import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '../utils'
 import {
     type ApplicationMemberRecord,
@@ -454,8 +454,8 @@ export function createApplicationsRoutes(
                     SELECT id, codename, table_name, presentation
                     FROM ${schemaIdent}._app_objects
                     WHERE kind = 'catalog'
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                     ORDER BY codename ASC
                 `
             )
@@ -495,8 +495,8 @@ export function createApplicationsRoutes(
                                 SELECT id
                                 FROM ${schemaIdent}._app_layouts
                                 WHERE (is_default = true OR is_active = true)
-                                  AND COALESCE(_upl_deleted, false) = false
-                                  AND COALESCE(_app_deleted, false) = false
+                                  AND _upl_deleted = false
+                                  AND _app_deleted = false
                                 ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
                                 LIMIT 1
                             `
@@ -511,8 +511,8 @@ export function createApplicationsRoutes(
                                     WHERE layout_id = $1
                                       AND zone = 'left'
                                       AND widget_key = 'menuWidget'
-                                      AND COALESCE(_upl_deleted, false) = false
-                                      AND COALESCE(_app_deleted, false) = false
+                                      AND _upl_deleted = false
+                                      AND _app_deleted = false
                                     ORDER BY sort_order ASC, _upl_created_at ASC
                                 `,
                                 [activeLayoutId]
@@ -531,8 +531,8 @@ export function createApplicationsRoutes(
                                         SELECT id
                                         FROM ${schemaIdent}._app_objects
                                         WHERE kind = 'catalog'
-                                          AND COALESCE(_upl_deleted, false) = false
-                                          AND COALESCE(_app_deleted, false) = false
+                                          AND _upl_deleted = false
+                                          AND _app_deleted = false
                                           AND config->'hubs' @> $1::jsonb
                                         ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC, codename ASC
                                         LIMIT 1
@@ -574,8 +574,8 @@ export function createApplicationsRoutes(
                     WHERE object_id = $1
                       AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE')
                       AND parent_attribute_id IS NULL
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                     ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
                 `,
                 [activeCatalog.id]
@@ -611,8 +611,8 @@ export function createApplicationsRoutes(
                                target_object_id, target_object_kind, parent_attribute_id
                         FROM ${schemaIdent}._app_attributes
                         WHERE parent_attribute_id = ANY($1::uuid[])
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
                     `,
                     [tableAttrIds]
@@ -649,8 +649,8 @@ export function createApplicationsRoutes(
                         SELECT id, object_id, codename, presentation, sort_order, is_default
                         FROM ${schemaIdent}._app_values
                         WHERE object_id = ANY($1::uuid[])
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         ORDER BY object_id ASC, sort_order ASC, codename ASC
                     `,
                     [enumTargetObjectIds]
@@ -695,8 +695,8 @@ export function createApplicationsRoutes(
                         FROM ${schemaIdent}._app_objects
                         WHERE id = ANY($1::uuid[])
                           AND kind = 'catalog'
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                     `,
                     [catalogTargetObjectIds]
                 )) as Array<{
@@ -711,8 +711,8 @@ export function createApplicationsRoutes(
                         FROM ${schemaIdent}._app_attributes
                         WHERE object_id = ANY($1::uuid[])
                                                     AND parent_attribute_id IS NULL
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         ORDER BY object_id ASC, is_display_attribute DESC, sort_order ASC, codename ASC
                     `,
                     [catalogTargetObjectIds]
@@ -752,8 +752,8 @@ export function createApplicationsRoutes(
                         `
                             SELECT id, ${selectLabelSql}
                             FROM ${schemaIdent}.${quoteIdentifier(targetCatalog.table_name)}
-                            WHERE COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                            WHERE _upl_deleted = false
+                              AND _app_deleted = false
                             ORDER BY _upl_created_at ASC NULLS LAST, id ASC
                             LIMIT 1000
                         `
@@ -798,7 +798,7 @@ export function createApplicationsRoutes(
                 if (!IDENTIFIER_REGEX.test(tabTableName)) continue
                 const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
                 selectColumns.push(
-                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false) AS ${quoteIdentifier(
+                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND _upl_deleted = false AND _app_deleted = false) AS ${quoteIdentifier(
                         tAttr.column_name
                     )}`
                 )
@@ -808,8 +808,8 @@ export function createApplicationsRoutes(
                 `
                     SELECT COUNT(*)::int AS total
                     FROM ${dataTableIdent}
-                    WHERE COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                    WHERE _upl_deleted = false
+                      AND _app_deleted = false
                 `
             )) as Array<{ total: number }>
 
@@ -817,8 +817,8 @@ export function createApplicationsRoutes(
                 `
                     SELECT ${selectColumns.join(', ')}
                     FROM ${dataTableIdent}
-                    WHERE COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                    WHERE _upl_deleted = false
+                      AND _app_deleted = false
                     ORDER BY _upl_created_at ASC NULLS LAST, id ASC
                     LIMIT $1 OFFSET $2
                 `,
@@ -863,8 +863,8 @@ export function createApplicationsRoutes(
                             SELECT config
                             FROM ${schemaIdent}._app_layouts
                             WHERE (is_default = true OR is_active = true)
-                              AND COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                              AND _upl_deleted = false
+                              AND _app_deleted = false
                             ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
                             LIMIT 1
                         `
@@ -892,8 +892,8 @@ export function createApplicationsRoutes(
                                 SELECT value
                                 FROM ${schemaIdent}._app_settings
                                 WHERE key = 'layout'
-                                  AND COALESCE(_upl_deleted, false) = false
-                                  AND COALESCE(_app_deleted, false) = false
+                                  AND _upl_deleted = false
+                                  AND _app_deleted = false
                                 LIMIT 1
                             `
                         )) as Array<{ value: Record<string, unknown> | null }>
@@ -945,8 +945,8 @@ export function createApplicationsRoutes(
                             SELECT id
                             FROM ${schemaIdent}._app_layouts
                             WHERE (is_default = true OR is_active = true)
-                              AND COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                              AND _upl_deleted = false
+                              AND _app_deleted = false
                             ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
                             LIMIT 1
                         `
@@ -960,8 +960,8 @@ export function createApplicationsRoutes(
                                 FROM ${schemaIdent}._app_widgets
                                 WHERE layout_id = $1
                                   AND zone IN ('left', 'right', 'center')
-                                  AND COALESCE(_upl_deleted, false) = false
-                                  AND COALESCE(_app_deleted, false) = false
+                                  AND _upl_deleted = false
+                                  AND _app_deleted = false
                                 ORDER BY sort_order ASC, _upl_created_at ASC
                             `,
                             [activeLayoutId]
@@ -1044,8 +1044,8 @@ export function createApplicationsRoutes(
                         SELECT id, kind, codename, presentation, config
                         FROM ${schemaIdent}._app_objects
                         WHERE kind IN ('hub', 'catalog')
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                     `
                 )) as Array<{
                     id: string
@@ -1525,8 +1525,8 @@ export function createApplicationsRoutes(
                 SELECT id, codename, table_name
                 FROM ${schemaIdent}._app_objects
                 WHERE kind = 'catalog'
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
                 ORDER BY codename ASC
             `
         )) as Array<{ id: string; codename: string; table_name: string }>
@@ -1544,8 +1544,8 @@ export function createApplicationsRoutes(
                 FROM ${schemaIdent}._app_attributes
                 WHERE object_id = $1
                   AND parent_attribute_id IS NULL
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
             `,
             [catalog.id]
         )) as Array<{
@@ -1712,8 +1712,8 @@ export function createApplicationsRoutes(
                 FROM ${schemaIdent}._app_values
                 WHERE id = $1
                   AND object_id = $2
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
                 LIMIT 1
             `,
             [enumValueId, targetEnumerationId]
@@ -1813,8 +1813,8 @@ export function createApplicationsRoutes(
                         _upl_updated_by = $2,
                         _upl_version = COALESCE(_upl_version, 1) + 1
                     WHERE id = $3
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                       AND COALESCE(_upl_locked, false) = false
                       ${versionCheckClause}
                     RETURNING id
@@ -1825,7 +1825,7 @@ export function createApplicationsRoutes(
             if (updated.length === 0) {
                 // Distinguish locked from not-found
                 const exists = (await ctx.manager.query(
-                    `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
+                    `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
                     [rowId]
                 )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
                 if (exists.length > 0 && exists[0]._upl_locked) {
@@ -1967,8 +1967,8 @@ export function createApplicationsRoutes(
                                target_object_id, target_object_kind, ui_config
                         FROM ${ctx.schemaIdent}._app_attributes
                         WHERE parent_attribute_id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         ORDER BY sort_order ASC
                     `,
                     [tAttr.id]
@@ -2121,8 +2121,8 @@ export function createApplicationsRoutes(
                         UPDATE ${dataTableIdent}
                         SET ${setClauses.join(', ')}
                         WHERE id = $${rowIdParamIndex}
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                           AND COALESCE(_upl_locked, false) = false
                           ${versionCheckClause}
                         RETURNING id
@@ -2132,7 +2132,7 @@ export function createApplicationsRoutes(
 
                 if (updated.length === 0) {
                     const exists = (await mgr.query(
-                        `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
+                        `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
                         [rowId]
                     )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
 
@@ -2160,14 +2160,10 @@ export function createApplicationsRoutes(
                     await mgr.query(
                         `
                             UPDATE ${tabTableIdent}
-                            SET _upl_deleted = true,
-                                _upl_deleted_at = NOW(),
-                                _upl_deleted_by = $1,
-                                _upl_updated_at = NOW(),
+                                                        SET ${softDeleteSetClause('$1')},
                                 _upl_version = COALESCE(_upl_version, 1) + 1
                             WHERE _tp_parent_id = $2
-                              AND COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                                                            AND ${activeAppRowCondition()}
                         `,
                         [ctx.userId, rowId]
                     )
@@ -2388,8 +2384,8 @@ export function createApplicationsRoutes(
                                                                      target_object_id, target_object_kind, ui_config
                             FROM ${ctx.schemaIdent}._app_attributes
                             WHERE parent_attribute_id = $1
-                              AND COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                              AND _upl_deleted = false
+                              AND _app_deleted = false
                             ORDER BY sort_order ASC
                         `,
                         [tAttr.id]
@@ -2599,8 +2595,8 @@ export function createApplicationsRoutes(
                     SELECT *
                     FROM ${dataTableIdent}
                     WHERE id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                 `,
                 [rowId]
             )) as Array<Record<string, unknown>>
@@ -2640,8 +2636,8 @@ export function createApplicationsRoutes(
                                 SELECT codename, column_name
                                 FROM ${ctx.schemaIdent}._app_attributes
                                 WHERE parent_attribute_id = $1
-                                  AND COALESCE(_upl_deleted, false) = false
-                                  AND COALESCE(_app_deleted, false) = false
+                                  AND _upl_deleted = false
+                                  AND _app_deleted = false
                                 ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST
                             `,
                             [tableAttr.id]
@@ -2660,8 +2656,8 @@ export function createApplicationsRoutes(
                                        _tp_sort_order
                                 FROM ${tabTableIdent}
                                 WHERE _tp_parent_id = $1
-                                  AND COALESCE(_upl_deleted, false) = false
-                                  AND COALESCE(_app_deleted, false) = false
+                                  AND _upl_deleted = false
+                                  AND _app_deleted = false
                                 ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
                             `,
                             [rowId]
@@ -2747,8 +2743,8 @@ export function createApplicationsRoutes(
                     SELECT ${selectColumns.join(', ')}
                     FROM ${dataTableIdent}
                     WHERE id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                 `,
                 [rowId]
             )) as Array<Record<string, unknown>>
@@ -2794,14 +2790,10 @@ export function createApplicationsRoutes(
                 const deleted = (await mgr.query(
                     `
                         UPDATE ${dataTableIdent}
-                        SET _upl_deleted = true,
-                            _upl_deleted_at = NOW(),
-                            _upl_deleted_by = $1,
-                            _upl_updated_at = NOW(),
+                                                SET ${softDeleteSetClause('$1')},
                             _upl_version = COALESCE(_upl_version, 1) + 1
                         WHERE id = $2
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                                                    AND ${activeAppRowCondition()}
                           AND COALESCE(_upl_locked, false) = false
                         RETURNING id
                     `,
@@ -2810,7 +2802,7 @@ export function createApplicationsRoutes(
 
                 if (deleted.length === 0) {
                     const exists = (await mgr.query(
-                        `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
+                        `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND ${activeAppRowCondition()}`,
                         [rowId]
                     )) as Array<{ id: string; _upl_locked?: boolean }>
                     if (exists.length > 0 && exists[0]._upl_locked) {
@@ -2831,14 +2823,10 @@ export function createApplicationsRoutes(
                     await mgr.query(
                         `
                             UPDATE ${tabTableIdent}
-                            SET _upl_deleted = true,
-                                _upl_deleted_at = NOW(),
-                                _upl_deleted_by = $1,
-                                _upl_updated_at = NOW(),
+                                                        SET ${softDeleteSetClause('$1')},
                                 _upl_version = COALESCE(_upl_version, 1) + 1
                             WHERE _tp_parent_id = $2
-                              AND COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                                                            AND ${activeAppRowCondition()}
                         `,
                         [ctx.userId, rowId]
                     )
@@ -2879,8 +2867,8 @@ export function createApplicationsRoutes(
                 SELECT id, codename, table_name
                 FROM ${schemaIdent}._app_objects
                 WHERE id = $1 AND kind = 'catalog'
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
             `,
             [catalogId]
         )) as Array<{ id: string; codename: string; table_name: string }>
@@ -2897,8 +2885,8 @@ export function createApplicationsRoutes(
                 FROM ${schemaIdent}._app_attributes
                 WHERE id = $1 AND object_id = $2 AND data_type = 'TABLE'
                   AND parent_attribute_id IS NULL
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
             `,
             [attributeId, catalogId]
         )) as Array<{ id: string; codename: string; column_name: string; data_type: string; validation_rules?: Record<string, unknown> }>
@@ -2920,8 +2908,8 @@ export function createApplicationsRoutes(
                                              target_object_id, target_object_kind, ui_config
                 FROM ${schemaIdent}._app_attributes
                 WHERE parent_attribute_id = $1
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
                 ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST
             `,
             [attributeId]
@@ -2979,8 +2967,8 @@ export function createApplicationsRoutes(
                     SELECT COUNT(*)::int AS total
                     FROM ${tc.tabTableIdent}
                     WHERE _tp_parent_id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                 `,
                 [recordId]
             )) as Array<{ total: number }>
@@ -2991,8 +2979,8 @@ export function createApplicationsRoutes(
                     SELECT ${selectCols.join(', ')}
                     FROM ${tc.tabTableIdent}
                     WHERE _tp_parent_id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                     ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
                     LIMIT $2 OFFSET $3
                 `,
@@ -3138,8 +3126,8 @@ export function createApplicationsRoutes(
                         SELECT id, _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         FOR UPDATE
                     `,
                     [recordId]
@@ -3160,8 +3148,8 @@ export function createApplicationsRoutes(
                         SELECT COUNT(*)::int AS cnt
                         FROM ${tc.tabTableIdent}
                         WHERE _tp_parent_id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                     `,
                     [recordId]
                 )) as Array<{ cnt: number }>
@@ -3222,8 +3210,8 @@ export function createApplicationsRoutes(
                     SELECT id, _upl_locked
                     FROM ${tc.parentTableIdent}
                     WHERE id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                 `,
                 [recordId]
             )) as Array<{ id: string; _upl_locked?: boolean }>
@@ -3329,8 +3317,8 @@ export function createApplicationsRoutes(
                     SET ${setClauses.join(', ')}
                     WHERE id = $${childIdParam}
                       AND _tp_parent_id = $${parentIdParam}
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
                       AND NOT EXISTS (SELECT 1 FROM ${
                           tc.parentTableIdent
                       } WHERE id = $${parentIdParam} AND COALESCE(_upl_locked, false) = true)
@@ -3346,8 +3334,8 @@ export function createApplicationsRoutes(
                         SELECT _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         LIMIT 1
                     `,
                     [recordId]
@@ -3363,8 +3351,8 @@ export function createApplicationsRoutes(
                         FROM ${tc.tabTableIdent}
                         WHERE id = $1
                           AND _tp_parent_id = $2
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         LIMIT 1
                     `,
                     [childRowId, recordId]
@@ -3417,8 +3405,8 @@ export function createApplicationsRoutes(
                         SELECT id, _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         FOR UPDATE
                     `,
                     [recordId]
@@ -3439,8 +3427,8 @@ export function createApplicationsRoutes(
                         FROM ${tc.tabTableIdent}
                         WHERE id = $1
                           AND _tp_parent_id = $2
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         LIMIT 1
                     `,
                     [childRowId, recordId]
@@ -3459,8 +3447,8 @@ export function createApplicationsRoutes(
                         SELECT COUNT(*)::int AS cnt
                         FROM ${tc.tabTableIdent}
                         WHERE _tp_parent_id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                     `,
                     [recordId]
                 )) as Array<{ cnt: number }>
@@ -3478,8 +3466,8 @@ export function createApplicationsRoutes(
                             _upl_updated_at = NOW(),
                             _upl_version = COALESCE(_upl_version, 1) + 1
                         WHERE _tp_parent_id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                           AND _tp_sort_order > $2
                     `,
                     [recordId, sourceSortOrder]
@@ -3540,8 +3528,8 @@ export function createApplicationsRoutes(
                         SELECT id, _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         FOR UPDATE
                     `,
                     [recordId]
@@ -3562,8 +3550,8 @@ export function createApplicationsRoutes(
                         FROM ${tc.tabTableIdent}
                         WHERE id = $1
                           AND _tp_parent_id = $2
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                          AND _upl_deleted = false
+                          AND _app_deleted = false
                         LIMIT 1
                     `,
                     [childRowId, recordId]
@@ -3581,8 +3569,8 @@ export function createApplicationsRoutes(
                             SELECT COUNT(*)::int AS cnt
                             FROM ${tc.tabTableIdent}
                             WHERE _tp_parent_id = $1
-                              AND COALESCE(_upl_deleted, false) = false
-                              AND COALESCE(_app_deleted, false) = false
+                              AND _upl_deleted = false
+                              AND _app_deleted = false
                         `,
                         [recordId]
                     )) as Array<{ cnt: number }>
@@ -3597,15 +3585,11 @@ export function createApplicationsRoutes(
                 const deleted = (await ctx.manager.query(
                     `
                         UPDATE ${tc.tabTableIdent}
-                        SET _upl_deleted = true,
-                            _upl_deleted_at = NOW(),
-                            _upl_deleted_by = $1,
-                            _upl_updated_at = NOW(),
+                                                SET ${softDeleteSetClause('$1')},
                             _upl_version = COALESCE(_upl_version, 1) + 1
                         WHERE id = $2
                           AND _tp_parent_id = $3
-                          AND COALESCE(_upl_deleted, false) = false
-                          AND COALESCE(_app_deleted, false) = false
+                                                    AND ${activeAppRowCondition()}
                         RETURNING id
                     `,
                     [ctx.userId, childRowId, recordId]

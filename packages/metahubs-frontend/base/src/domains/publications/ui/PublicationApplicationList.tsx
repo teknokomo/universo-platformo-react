@@ -27,6 +27,8 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSnackbar } from 'notistack'
 
 // project imports
 import {
@@ -41,13 +43,26 @@ import {
 } from '@universo/template-mui'
 import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
+import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
 import { usePublicationApplications } from '../hooks/usePublicationApplications'
 import { useCreatePublicationApplication } from '../hooks/applicationMutations'
+import { usePublicationDetails } from '../hooks/usePublicationDetails'
+import { useUpdatePublication } from '../hooks/mutations'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
-import type { LinkedApplication } from '../api'
+import type { LinkedApplication, Publication } from '../api'
+import {
+    buildInitialValues as buildPubInitialValues,
+    buildFormTabs as buildPubFormTabs,
+    validatePublicationForm,
+    canSavePublicationForm,
+    toPayload as pubToPayload
+} from './PublicationActions'
+import type { PublicationLocalizedPayload } from './PublicationActions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import { invalidatePublicationSettingsQueries } from './publicationSettingsQueries'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -70,12 +85,25 @@ export const PublicationApplicationList: React.FC = () => {
     const { metahubId, publicationId } = useParams<{ metahubId: string; publicationId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { t: tc } = useCommonTranslations()
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
+    const updatePublicationMutation = useUpdatePublication()
+
+    const { data: publicationData } = usePublicationDetails(metahubId!, publicationId!)
 
     // ── Tab navigation ─────────────────────────────────────────────────
+    const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
+
     const handlePublicationTabChange = useCallback(
         (_event: unknown, nextTab: string) => {
             if (nextTab === 'versions' && metahubId && publicationId) {
                 navigate(`/metahub/${metahubId}/publication/${publicationId}/versions`)
+                return
+            }
+
+            if (nextTab === 'settings') {
+                setSettingsDialogOpen(true)
             }
         },
         [navigate, metahubId, publicationId]
@@ -302,6 +330,7 @@ export const PublicationApplicationList: React.FC = () => {
                         >
                             <Tab value='versions' label={t('metahubs:publications.versions.title', 'Versions')} />
                             <Tab value='applications' label={t('metahubs:publications.applications.title', 'Applications')} />
+                            <Tab value='settings' label={t('settings.title', 'Settings')} />
                         </Tabs>
                     </Box>
 
@@ -432,6 +461,74 @@ export const PublicationApplicationList: React.FC = () => {
                     <ListItemText>{t('metahubs:publications.applications.appDashboard', 'Application dashboard')}</ListItemText>
                 </MenuItem>
             </Menu>
+
+            {publicationData &&
+                metahubId &&
+                publicationId &&
+                (() => {
+                    const pubDisplay = {
+                        id: publicationData.id,
+                        name: getVLCString(publicationData.name, preferredVlcLocale) || '',
+                        description: getVLCString(publicationData.description, preferredVlcLocale) || '',
+                        accessMode: publicationData.accessMode ?? ('full' as const)
+                    }
+                    const publicationMap = new Map<string, Publication>([[publicationData.id, publicationData]])
+                    const settingsCtx = {
+                        entity: pubDisplay,
+                        entityKind: 'publication' as const,
+                        t,
+                        publicationMap,
+                        uiLocale: preferredVlcLocale,
+                        api: {
+                            updateEntity: (id: string, patch: PublicationLocalizedPayload) => {
+                                if (!metahubId) return Promise.resolve()
+                                updatePublicationMutation.mutate({
+                                    metahubId,
+                                    publicationId: id,
+                                    data: { ...patch, expectedVersion: publicationData.version }
+                                })
+
+                                return Promise.resolve()
+                            }
+                        },
+                        helpers: {
+                            refreshList: async () => {
+                                if (metahubId && publicationId) {
+                                    await invalidatePublicationSettingsQueries(queryClient, metahubId, publicationId)
+                                }
+                            },
+                            enqueueSnackbar: (payload: {
+                                message: string
+                                options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                            }) => {
+                                if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                            }
+                        }
+                    }
+
+                    return (
+                        <EntityFormDialog
+                            open={settingsDialogOpen}
+                            mode='edit'
+                            title={t('publications.editTitle', 'Edit Publication')}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            saveButtonText={tc('actions.save', 'Save')}
+                            savingButtonText={tc('actions.saving', 'Saving...')}
+                            cancelButtonText={tc('actions.cancel', 'Cancel')}
+                            hideDefaultFields
+                            initialExtraValues={buildPubInitialValues(settingsCtx)}
+                            tabs={buildPubFormTabs(settingsCtx, metahubId)}
+                            validate={(values: Record<string, any>) => validatePublicationForm(settingsCtx, values)}
+                            canSave={canSavePublicationForm}
+                            onSave={(data: Record<string, any>) => {
+                                const payload = pubToPayload(data)
+                                void settingsCtx.api.updateEntity(publicationData.id, payload)
+                            }}
+                            onClose={() => setSettingsDialogOpen(false)}
+                        />
+                    )
+                })()}
         </MainCard>
     )
 }

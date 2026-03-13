@@ -1,5 +1,6 @@
 import { getInstance } from './instance'
 import type { NamespaceTranslations } from './types'
+import { debugI18n } from './debug'
 
 /**
  * Registers a new namespace with translations for EN and RU languages
@@ -14,8 +15,7 @@ export function registerNamespace(namespace: string, translations: NamespaceTran
         i18n.addResourceBundle('en', namespace, translations.en, true, true)
         i18n.addResourceBundle('ru', namespace, translations.ru, true, true)
 
-        // Debug: confirm registration
-        console.log(`[registry] Registered namespace '${namespace}':`, {
+        debugI18n(`[registry] Registered namespace '${namespace}'`, {
             currentLang: i18n.language,
             hasEn: i18n.hasResourceBundle('en', namespace),
             hasRu: i18n.hasResourceBundle('ru', namespace),

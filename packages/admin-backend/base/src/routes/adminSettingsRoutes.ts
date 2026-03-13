@@ -4,7 +4,14 @@ import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
-import { listSettings, findSetting, upsertSetting, bulkUpsertSettings, deleteSetting, transformSettingRow } from '../persistence/settingsStore'
+import {
+    listSettings,
+    findSetting,
+    upsertSetting,
+    bulkUpsertSettings,
+    deleteSetting,
+    transformSettingRow
+} from '../persistence/settingsStore'
 import { formatZodError } from '../schemas'
 
 export interface AdminSettingsRoutesConfig {

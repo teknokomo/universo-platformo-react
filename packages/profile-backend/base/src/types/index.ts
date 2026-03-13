@@ -1,10 +1,13 @@
 // Profile System Types
 
 export interface CreateProfileDto {
-    user_id: string
     nickname: string
     first_name?: string
     last_name?: string
+}
+
+export interface CreateProfileInput extends CreateProfileDto {
+    user_id: string
 }
 
 export interface UpdateProfileDto {
@@ -19,11 +22,11 @@ export interface ProfileResponse {
     nickname: string
     first_name: string | null
     last_name: string | null
-    created_at: Date
-    updated_at: Date
+    _upl_created_at: Date
+    _upl_updated_at: Date
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
     success: boolean
     data?: T
     message?: string

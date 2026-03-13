@@ -3,8 +3,10 @@ import { calculateMigrationChecksum } from './checksum'
 import { consoleMigrationLogger } from './logger'
 import { sortPlatformMigrations, validatePlatformMigrations } from './validate'
 import type {
+    DdlExecutionBudget,
     MigrationCatalogRecord,
     MigrationExecutionContext,
+    MigrationDeliveryStage,
     PlatformMigrationFile,
     PlannedPlatformMigration,
     RunPlatformMigrationsOptions,
@@ -16,6 +18,7 @@ const advisoryLockKeySql = `
 `
 const advisoryLockAcquireTimeoutMs = 30_000
 const advisoryLockPollIntervalMs = 150
+const maxExecutionBudgetTimeoutMs = 300_000
 
 const createExecutionContext = (
     knexLike: Knex | Knex.Transaction,
@@ -66,6 +69,21 @@ const getBooleanField = (result: unknown, fieldName: string): boolean => {
     if (!Array.isArray(rows) || rows.length === 0) return false
 
     return rows[0]?.[fieldName] === true
+}
+
+const formatExecutionBudgetTimeoutLiteral = (timeoutMs: number, fieldName: keyof DdlExecutionBudget): string => {
+    if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > maxExecutionBudgetTimeoutMs) {
+        throw new Error(`Invalid ${fieldName}: must be a positive integer <= ${maxExecutionBudgetTimeoutMs}ms`)
+    }
+
+    return `${timeoutMs}ms`
+}
+
+const applyExecutionBudget = async (trx: Knex.Transaction, budget: DdlExecutionBudget): Promise<void> => {
+    await trx.raw(`SET LOCAL lock_timeout TO '${formatExecutionBudgetTimeoutLiteral(budget.lockTimeoutMs, 'lockTimeoutMs')}'`)
+    await trx.raw(
+        `SET LOCAL statement_timeout TO '${formatExecutionBudgetTimeoutLiteral(budget.statementTimeoutMs, 'statementTimeoutMs')}'`
+    )
 }
 
 const withTransactionLock = async <T>(trx: Knex.Transaction, lockKey: string, task: () => Promise<T>): Promise<T> => {
@@ -138,6 +156,9 @@ const executeMigration = async (
     const executeInTransaction = async () => {
         await knex.transaction(async (trx) => {
             const executeInside = async () => {
+                if (migration.executionBudget) {
+                    await applyExecutionBudget(trx, migration.executionBudget)
+                }
                 const context = createExecutionContext(trx, migration, runId, logger)
                 await migration.up(context)
             }
@@ -198,7 +219,9 @@ const createPlanEntry = (
     reason,
     existingRunId: existing?.id ?? null,
     existingStatus: existing?.status ?? null,
-    existingChecksum: existing?.checksum ?? null
+    existingChecksum: existing?.checksum ?? null,
+    deliveryStage: (migration.deliveryStage ?? 'one_shot') as MigrationDeliveryStage,
+    executionBudget: (migration.executionBudget ?? null) as DdlExecutionBudget | null
 })
 
 export const runPlatformMigrations = async (options: RunPlatformMigrationsOptions): Promise<RunPlatformMigrationsResult> => {
@@ -232,7 +255,13 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
             if (isDryRun) {
                 result.blocked.push(migration.id)
                 result.planned.push(
-                    createPlanEntry(migration, calculateMigrationChecksum(migration), 'blocked', null, 'Migration is destructive and allowDestructive=false')
+                    createPlanEntry(
+                        migration,
+                        calculateMigrationChecksum(migration),
+                        'blocked',
+                        null,
+                        'Migration is destructive and allowDestructive=false'
+                    )
                 )
                 continue
             }
@@ -258,8 +287,8 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
                 !catalogStorageReady && !prepareCatalogStorage
                     ? 'Catalog storage is not bootstrapped yet; plan assumes no prior applied runs'
                     : action === 'drift'
-                      ? 'Applied checksum differs from the registered migration definition'
-                      : null
+                    ? 'Applied checksum differs from the registered migration definition'
+                    : null
 
             result.planned.push(createPlanEntry(migration, checksum, action, existing, reason))
 
@@ -281,7 +310,13 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
             if (action === 'drift') {
                 result.drifted.push(migration.id)
                 result.planned.push(
-                    createPlanEntry(migration, checksum, action, existing, 'Applied checksum differs from the registered migration definition')
+                    createPlanEntry(
+                        migration,
+                        checksum,
+                        action,
+                        existing,
+                        'Applied checksum differs from the registered migration definition'
+                    )
                 )
                 throw new Error(`Migration drift detected for ${migration.id}: checksum mismatch`)
             }

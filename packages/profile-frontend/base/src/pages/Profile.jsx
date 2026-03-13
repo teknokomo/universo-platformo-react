@@ -1,5 +1,5 @@
 // Universo Platformo | User profile page
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from '@universo/i18n'
 import { useAuth } from '@universo/auth-frontend'
 import { MainCard } from '@universo/template-mui'
@@ -105,7 +105,7 @@ const Profile = () => {
             } else {
                 setProfileError(data.error || t('updateError'))
             }
-        } catch (error) {
+        } catch {
             setProfileError(t('networkError'))
         } finally {
             setProfileLoading(false)
@@ -265,7 +265,7 @@ const Profile = () => {
 
                     <Box component='form' onSubmit={updateProfile}>
                         <Grid container spacing={2}>
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                                 <TextField
                                     fullWidth
                                     label={t('nickname')}
@@ -276,7 +276,7 @@ const Profile = () => {
                                     helperText={t('nicknameHelp')}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <TextField
                                     fullWidth
                                     label={t('firstName')}
@@ -285,7 +285,7 @@ const Profile = () => {
                                     disabled={profileLoading}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <TextField
                                     fullWidth
                                     label={t('lastName')}
@@ -294,7 +294,7 @@ const Profile = () => {
                                     disabled={profileLoading}
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                                 <Button type='submit' variant='contained' disabled={profileLoading}>
                                     {profileLoading ? t('updating') : t('updateProfile')}
                                 </Button>

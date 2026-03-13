@@ -1,5 +1,12 @@
 import type { RoleMetadata, GlobalRoleInfo, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
-import { isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled, type DbSession, type DbExecutor } from '@universo/utils'
+import {
+    isGlobalRolesEnabled,
+    isSuperuserEnabled,
+    type DbSession,
+    type DbExecutor,
+    activeAppRowCondition,
+    softDeleteSetClause
+} from '@universo/utils'
 
 /**
  * Raw role row from database
@@ -12,8 +19,8 @@ interface RoleRow {
     color: string
     is_superuser: boolean
     is_system: boolean
-    created_at: Date
-    updated_at: Date
+    _upl_created_at: Date
+    _upl_updated_at: Date
 }
 
 /**
@@ -25,7 +32,7 @@ interface UserRoleRow {
     role_id: string
     granted_by: string | null
     comment: string | null
-    created_at: Date
+    _upl_created_at: Date
 }
 
 /**
@@ -106,9 +113,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function getAllRoles(): Promise<RoleMetadata[]> {
         const rows = await getDbExecutor().query<RoleRow>(
-            `SELECT id, codename, description, name, color, is_superuser, is_system, created_at, updated_at
-             FROM admin.roles
-             WHERE _upl_deleted = false
+            `SELECT id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at
+             FROM admin.cat_roles
+             WHERE ${activeAppRowCondition()}
              ORDER BY is_system DESC, codename ASC`
         )
 
@@ -120,8 +127,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function getRoleByCodename(codename: string): Promise<RoleMetadata | null> {
         const rows = await getDbExecutor().query<RoleRow>(
-            `SELECT id, codename, description, name, color, is_superuser, is_system, created_at, updated_at
-             FROM admin.roles WHERE codename = $1 AND _upl_deleted = false`,
+            `SELECT id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at
+             FROM admin.cat_roles WHERE codename = $1 AND ${activeAppRowCondition()}`,
             [codename]
         )
 
@@ -248,7 +255,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         if (search) {
             conditions.push(`(
                 EXISTS (SELECT 1 FROM auth.users u WHERE u.id = ur.user_id AND LOWER(u.email) LIKE $${paramIndex})
-                OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.user_id = ur.user_id AND LOWER(p.nickname) LIKE $${paramIndex})
+                OR EXISTS (SELECT 1 FROM profiles.cat_profiles p WHERE p.user_id = ur.user_id AND ${activeAppRowCondition(
+                    'p'
+                )} AND LOWER(p.nickname) LIKE $${paramIndex})
             )`)
             queryParams.push(`%${search.toLowerCase()}%`)
             paramIndex++
@@ -259,19 +268,19 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
         // Build ORDER BY
         const sortExpressions: Record<string, string> = {
-            created: 'ur.created_at',
+            created: 'ur._upl_created_at',
             role: 'r.codename',
             email: '(SELECT u.email FROM auth.users u WHERE u.id = ur.user_id)'
         }
-        const orderBy = sortExpressions[sortBy] || 'ur.created_at'
+        const orderBy = sortExpressions[sortBy] || 'ur._upl_created_at'
         const direction = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
         // Get total count
         const countResult = await exec.query<{ count: string }>(
             `
             SELECT COUNT(*) as count
-            FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
+            FROM admin.rel_user_roles ur
+            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
             WHERE ${whereClause}
         `,
             queryParams
@@ -291,13 +300,13 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 ur.role_id,
                 ur.granted_by,
                 ur.comment,
-                ur.created_at,
+                ur._upl_created_at,
                 r.codename as role_codename,
                 r.name,
                 r.color,
                 r.is_superuser
-            FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
+            FROM admin.rel_user_roles ur
+            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
             WHERE ${whereClause}
             ORDER BY ${orderBy} ${direction}
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -318,7 +327,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         )
 
         const profiles = await exec.query<{ user_id: string; nickname: string | null }>(
-            `SELECT user_id, nickname FROM public.profiles WHERE user_id = ANY($1::uuid[])`,
+            `SELECT user_id, nickname FROM profiles.cat_profiles WHERE user_id = ANY($1::uuid[]) AND ${activeAppRowCondition()}`,
             [userIds]
         )
 
@@ -339,7 +348,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             },
             comment: row.comment ?? null,
             grantedBy: row.granted_by ?? null,
-            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at)
+            createdAt: row._upl_created_at instanceof Date ? row._upl_created_at.toISOString() : String(row._upl_created_at)
         }))
 
         return { users, total }
@@ -349,10 +358,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      * Find user by email
      */
     async function findUserIdByEmail(email: string): Promise<string | null> {
-        const rows = await getDbExecutor().query<{ id: string }>(
-            `SELECT id FROM auth.users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
-            [email]
-        )
+        const rows = await getDbExecutor().query<{ id: string }>(`SELECT id FROM auth.users WHERE LOWER(email) = LOWER($1) LIMIT 1`, [
+            email
+        ])
         return rows[0]?.id ?? null
     }
 
@@ -366,8 +374,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const roleResult = await exec.query<{ id: string; name: VersionedLocalizedContent<string>; color: string; is_superuser: boolean }>(
             `
             SELECT id, name, color, is_superuser
-            FROM admin.roles
-            WHERE codename = $1 AND _upl_deleted = false
+            FROM admin.cat_roles
+            WHERE codename = $1 AND ${activeAppRowCondition()}
         `,
             [roleCodename]
         )
@@ -381,8 +389,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         // Check if user already has this role
         const existing = await exec.query<UserRoleRow>(
             `
-            SELECT id FROM admin.user_roles
-            WHERE user_id = $1 AND role_id = $2
+            SELECT id FROM admin.rel_user_roles
+            WHERE user_id = $1 AND role_id = $2 AND ${activeAppRowCondition()}
         `,
             [userId, roleId]
         )
@@ -393,9 +401,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             // Update existing assignment
             await exec.query(
                 `
-                UPDATE admin.user_roles
+                UPDATE admin.rel_user_roles
                 SET granted_by = $1, comment = $2
-                WHERE user_id = $3 AND role_id = $4
+                WHERE user_id = $3 AND role_id = $4 AND ${activeAppRowCondition()}
             `,
                 [grantedBy, comment ?? null, userId, roleId]
             )
@@ -404,7 +412,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             // Insert new assignment (allowing multiple roles per user)
             const insertResult = await exec.query<{ id: string }>(
                 `
-                INSERT INTO admin.user_roles (user_id, role_id, granted_by, comment)
+                INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
                 VALUES ($1, $2, $3, $4)
                 RETURNING id
             `,
@@ -414,12 +422,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         }
 
         // Get user info
-        const authUsers = await exec.query<{ id: string; email: string | null }>(
-            `SELECT id, email FROM auth.users WHERE id = $1`,
-            [userId]
-        )
+        const authUsers = await exec.query<{ id: string; email: string | null }>(`SELECT id, email FROM auth.users WHERE id = $1`, [userId])
         const profileRows = await exec.query<{ user_id: string; nickname: string | null }>(
-            `SELECT user_id, nickname FROM public.profiles WHERE user_id = $1`,
+            `SELECT user_id, nickname FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
             [userId]
         )
 
@@ -454,9 +459,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const current = await exec.query<UserRoleRow & { role_codename: string }>(
             `
             SELECT ur.*, r.codename as role_codename
-            FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
-            WHERE ur.id = $1
+            FROM admin.rel_user_roles ur
+            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
+            WHERE ur.id = $1 AND ${activeAppRowCondition('ur')}
         `,
             [assignmentId]
         )
@@ -471,8 +476,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             // Get new role ID (allow any role)
             const newRole = await exec.query<{ id: string }>(
                 `
-                SELECT id FROM admin.roles
-                WHERE codename = $1 AND _upl_deleted = false
+                SELECT id FROM admin.cat_roles
+                WHERE codename = $1 AND ${activeAppRowCondition()}
             `,
                 [updates.roleCodename]
             )
@@ -483,18 +488,18 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
             await exec.query(
                 `
-                UPDATE admin.user_roles
+                UPDATE admin.rel_user_roles
                 SET role_id = $1, comment = $2
-                WHERE id = $3
+                WHERE id = $3 AND ${activeAppRowCondition()}
             `,
                 [newRole[0].id, updates.comment ?? assignment.comment, assignmentId]
             )
         } else if (updates.comment !== undefined) {
             await exec.query(
                 `
-                UPDATE admin.user_roles
+                UPDATE admin.rel_user_roles
                 SET comment = $1
-                WHERE id = $2
+                WHERE id = $2 AND ${activeAppRowCondition()}
             `,
                 [updates.comment, assignmentId]
             )
@@ -509,8 +514,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 r.name,
                 r.color,
                 r.is_superuser
-            FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
+            FROM admin.rel_user_roles ur
+            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
             WHERE ur.id = $1
         `,
             [assignmentId]
@@ -521,12 +526,11 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         }
 
         const row = result[0]
-        const authUsers = await exec.query<{ id: string; email: string | null }>(
-            `SELECT id, email FROM auth.users WHERE id = $1`,
-            [row.user_id]
-        )
+        const authUsers = await exec.query<{ id: string; email: string | null }>(`SELECT id, email FROM auth.users WHERE id = $1`, [
+            row.user_id
+        ])
         const profileRows = await exec.query<{ user_id: string; nickname: string | null }>(
-            `SELECT user_id, nickname FROM public.profiles WHERE user_id = $1`,
+            `SELECT user_id, nickname FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
             [row.user_id]
         )
 
@@ -544,7 +548,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             },
             comment: row.comment ?? null,
             grantedBy: row.granted_by ?? null,
-            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at)
+            createdAt: row._upl_created_at instanceof Date ? row._upl_created_at.toISOString() : String(row._upl_created_at)
         }
     }
 
@@ -554,11 +558,13 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     async function revokeGlobalAccess(userId: string): Promise<boolean> {
         const result = await getDbExecutor().query<{ id: string }>(
             `
-            DELETE FROM admin.user_roles
+            UPDATE admin.rel_user_roles
+            SET ${softDeleteSetClause('$2')}
             WHERE user_id = $1
+              AND ${activeAppRowCondition()}
             RETURNING id
         `,
-            [userId]
+            [userId, null]
         )
         return result.length > 0
     }
@@ -568,8 +574,12 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function revokeAssignment(assignmentId: string): Promise<boolean> {
         const result = await getDbExecutor().query<{ id: string }>(
-            `DELETE FROM admin.user_roles WHERE id = $1 RETURNING id`,
-            [assignmentId]
+            `UPDATE admin.rel_user_roles
+             SET ${softDeleteSetClause('$2')}
+             WHERE id = $1
+               AND ${activeAppRowCondition()}
+             RETURNING id`,
+            [assignmentId, null]
         )
         return result.length > 0
     }
@@ -583,8 +593,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     }> {
         const stats = await getDbExecutor().query<{ role_name: string; count: string }>(`
             SELECT r.name as role_name, COUNT(ur.id)::text as count
-            FROM admin.user_roles ur
-            JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
+            FROM admin.rel_user_roles ur
+            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
             GROUP BY r.name
         `)
 
@@ -639,10 +649,7 @@ interface SqlQueryable {
  */
 export async function isSuperuser(queryable: SqlQueryable, userId: string): Promise<boolean> {
     if (!isSuperuserEnabled()) return false
-    const result = await queryable.query<{ is_super: boolean }>(
-        `SELECT admin.is_superuser($1::uuid) as is_super`,
-        [userId]
-    )
+    const result = await queryable.query<{ is_super: boolean }>(`SELECT admin.is_superuser($1::uuid) as is_super`, [userId])
     return result[0]?.is_super ?? false
 }
 
@@ -652,9 +659,9 @@ export async function isSuperuser(queryable: SqlQueryable, userId: string): Prom
 export async function getGlobalRoleCodename(queryable: SqlQueryable, userId: string): Promise<string | null> {
     const result = await queryable.query<{ role_codename: string }>(
         `SELECT r.codename as role_codename
-         FROM admin.user_roles ur
-         JOIN admin.roles r ON ur.role_id = r.id AND r._upl_deleted = false
-         WHERE ur.user_id = $1
+         FROM admin.rel_user_roles ur
+         JOIN admin.cat_roles r ON ur.role_id = r.id AND r._upl_deleted = false AND r._app_deleted = false
+         WHERE ur.user_id = $1 AND ur._upl_deleted = false AND ur._app_deleted = false
          LIMIT 1`,
         [userId]
     )
@@ -665,12 +672,7 @@ export async function getGlobalRoleCodename(queryable: SqlQueryable, userId: str
  * Check if user has permission for a specific subject using a neutral queryable.
  * Returns false if GLOBAL_ROLES_ENABLED=false.
  */
-export async function hasSubjectPermission(
-    queryable: SqlQueryable,
-    userId: string,
-    subject: string,
-    action = 'read'
-): Promise<boolean> {
+export async function hasSubjectPermission(queryable: SqlQueryable, userId: string, subject: string, action = 'read'): Promise<boolean> {
     if (!isGlobalRolesEnabled()) return false
     const result = await queryable.query<{ has_perm: boolean }>(
         `SELECT admin.has_permission($1::uuid, $2::varchar, $3::varchar) as has_perm`,

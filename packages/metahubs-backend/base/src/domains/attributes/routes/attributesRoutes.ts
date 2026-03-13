@@ -498,8 +498,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } =
-                services(req)
+            const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify catalog exists
@@ -869,7 +868,12 @@ export function createAttributesRoutes(
                           parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en'
                       )
                     : source.codenameLocalized
-            const codenamePrimaryLocale = (parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en')
+            const codenamePrimaryLocale = (
+                parsed.data.codenamePrimaryLocale ??
+                parsed.data.namePrimaryLocale ??
+                source.name?._primary ??
+                'en'
+            )
                 .split('-')[0]
                 .split('_')[0]
                 .toLowerCase()
@@ -1093,8 +1097,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } =
-                services(req)
+            const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -1842,8 +1845,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } =
-                services(req)
+            const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             // Verify parent TABLE attribute exists

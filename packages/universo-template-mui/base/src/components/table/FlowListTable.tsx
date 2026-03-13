@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
 import { formatDate, getPendingAction, isPendingEntity, isPendingInteractionBlocked, shouldShowPendingFeedback } from '@universo/utils'
 import { alpha, styled } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 import {
     Box,
     Chip,
@@ -28,7 +29,6 @@ import { pendingRowSx } from '../../styles/pendingAnimations'
 
 import type { StyledComponent } from '@emotion/styled'
 import type { TableCellProps, TableRowProps } from '@mui/material'
-import type { Theme } from '@mui/material/styles'
 
 export const StyledTableCell: StyledComponent<TableCellProps & { theme?: Theme }> = styled(TableCell)(({ theme }) => ({
     borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
@@ -199,26 +199,26 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     const resolveUpdatedDate = (item: T): string | undefined => item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
 
     const columnsToRender = !isUnikTable && Array.isArray(customColumns) && customColumns.length > 0 ? customColumns : null
+    const activeSortableColumn = columnsToRender?.find((column) => column.sortable && column.id === orderBy) ?? null
 
-    // When sortableRows is enabled, data order is controlled externally (by sortOrder),
-    // so we skip internal sorting and filtering.
-    const sortedData = sortableRows
-        ? data ?? []
-        : data
+    const sortedData = data
         ? [...data].sort((a, b) => {
-              if (columnsToRender) {
-                  const sortableColumn = columnsToRender.find((column) => column.sortable && column.id === orderBy)
-                  if (sortableColumn) {
-                      const rawA = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(a) : (a as any)?.[sortableColumn.id]
-                      const rawB = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(b) : (b as any)?.[sortableColumn.id]
-                      const valueA = typeof rawA === 'string' ? rawA.toLowerCase() : rawA ?? ''
-                      const valueB = typeof rawB === 'string' ? rawB.toLowerCase() : rawB ?? ''
-                      if (valueA < valueB) return order === 'asc' ? -1 : 1
-                      if (valueA > valueB) return order === 'asc' ? 1 : -1
-                      return 0
-                  }
-                  // If no matching sortable column found (e.g., stale localStorage value),
-                  // fall through to default name/updatedDate sorting below
+              if (activeSortableColumn) {
+                  const rawA = activeSortableColumn.sortAccessor
+                      ? activeSortableColumn.sortAccessor(a)
+                      : (a as any)?.[activeSortableColumn.id]
+                  const rawB = activeSortableColumn.sortAccessor
+                      ? activeSortableColumn.sortAccessor(b)
+                      : (b as any)?.[activeSortableColumn.id]
+                  const valueA = typeof rawA === 'string' ? rawA.toLowerCase() : rawA ?? ''
+                  const valueB = typeof rawB === 'string' ? rawB.toLowerCase() : rawB ?? ''
+                  if (valueA < valueB) return order === 'asc' ? -1 : 1
+                  if (valueA > valueB) return order === 'asc' ? 1 : -1
+                  return 0
+              }
+
+              if (sortableRows) {
+                  return 0
               }
 
               const resolvedOrderBy = orderBy === 'name' || orderBy === 'updatedDate' ? orderBy : 'updatedDate'
@@ -236,9 +236,6 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
           })
         : []
 
-    // Effective item IDs for DnD SortableContext
-    const effectiveSortableIds = sortableRows ? sortableItemIds ?? sortedData.map((d) => d.id) : []
-
     const buildEntityLink = (row: T): string | undefined => {
         if (typeof getRowLink === 'function') {
             return getRowLink(row)
@@ -254,6 +251,12 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
 
     const activeFilter = typeof filterFunction === 'function' ? filterFunction : () => true
+    const filteredSortedData = (sortedData || []).filter(activeFilter)
+    // Effective item IDs for SortableContext must follow the actual rendered row order.
+    // When callers pass sortableItemIds, treat them as the allowed DnD set, but preserve the table's visible order.
+    const effectiveSortableIds = sortableRows
+        ? filteredSortedData.map((row) => row.id).filter((id) => !sortableItemIds || sortableItemIds.includes(id))
+        : []
 
     const getPendingRowStyles = (row: T) => {
         if (!isPendingEntity(row)) return undefined
@@ -304,7 +307,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                 className={compact ? 'FlowListTable-compact' : undefined}
             >
                 {/* Hide table header when showing empty state placeholder */}
-                {!(emptyStateMessage && !isLoading && (sortedData ?? []).length === 0) && (
+                {!(emptyStateMessage && !isLoading && filteredSortedData.length === 0) && (
                     <TableHead
                         sx={{
                             backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
@@ -322,7 +325,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                             style={{ width: column.width || '25%' }}
                                             align={column.align || 'left'}
                                         >
-                                            {column.sortable && !sortableRows ? (
+                                            {column.sortable ? (
                                                 <TableSortLabel
                                                     active={orderBy === column.id}
                                                     direction={order}
@@ -400,7 +403,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                 {/* ── Table Body ─────────────────────────────────────── */}
                 {(() => {
                     // Shared rendering logic for row cells (used by both normal and sortable paths)
-                    const displayData = sortableRows ? sortedData : (sortedData || []).filter(activeFilter)
+                    const displayData = filteredSortedData
 
                     const renderRowCells = (row: T, index: number) => {
                         const rowPending = isPendingEntity(row)
@@ -659,8 +662,25 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                     // Data rows
                     const dataRows = displayData.map((row, index) => {
                         const rowPending = isPendingEntity(row)
+                        const interactionBlocked = isPendingInteractionBlocked(row)
                         const expansionContent = renderRowExpansion ? renderRowExpansion(row, index) : null
                         const hasExpansion = Boolean(expansionContent)
+                        const pendingRowInteractionProps =
+                            interactionBlocked && onPendingInteractionAttempt
+                                ? {
+                                      onClickCapture: (event: React.MouseEvent<HTMLTableRowElement>) => {
+                                          event.preventDefault()
+                                          event.stopPropagation()
+                                          onPendingInteractionAttempt(row)
+                                      },
+                                      onMouseDownCapture: (event: React.MouseEvent<HTMLTableRowElement>) => {
+                                          event.preventDefault()
+                                          event.stopPropagation()
+                                      }
+                                  }
+                                : undefined
+                        const rowPendingStyles = getPendingRowStyles(row)
+                        const blockedPendingRowStyle = interactionBlocked ? { cursor: 'wait' as const } : undefined
 
                         const rowContent = (
                             <React.Fragment key={row.id}>
@@ -670,16 +690,22 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                         disabled={dragDisabled || rowPending}
                                         hasExpansion={hasExpansion}
                                         dragHandleAriaLabel={dragHandleAriaLabel}
-                                        sx={getPendingRowStyles(row)}
+                                        sx={rowPendingStyles}
+                                        rowStyle={blockedPendingRowStyle}
+                                        onClickCapture={pendingRowInteractionProps?.onClickCapture}
+                                        onMouseDownCapture={pendingRowInteractionProps?.onMouseDownCapture}
                                     >
                                         {renderRowCells(row, index)}
                                     </SortableTableRow>
                                 ) : (
                                     <StyledTableRow
+                                        style={blockedPendingRowStyle}
+                                        onClickCapture={pendingRowInteractionProps?.onClickCapture}
+                                        onMouseDownCapture={pendingRowInteractionProps?.onMouseDownCapture}
                                         sx={
                                             hasExpansion
-                                                ? { '& td, & th': { borderBottom: 0 }, ...(getPendingRowStyles(row) ?? {}) }
-                                                : getPendingRowStyles(row)
+                                                ? { '& td, & th': { borderBottom: 0 }, ...(rowPendingStyles ?? {}) }
+                                                : rowPendingStyles
                                         }
                                     >
                                         {renderRowCells(row, index)}

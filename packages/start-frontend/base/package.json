@@ -71,7 +71,7 @@
     "devDependencies": {
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "eslint": "^8.56.0",
+        "eslint": "catalog:",
         "rimraf": "^5.0.5",
         "tsdown": "catalog:"
     }

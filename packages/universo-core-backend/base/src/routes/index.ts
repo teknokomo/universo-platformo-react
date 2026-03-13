@@ -4,18 +4,15 @@ import pingRouter from './ping'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
-import { ensureAuth, createEnsureAuthWithRls, createPermissionService } from '@universo/auth-backend'
+import { createEnsureAuthWithRls, createPermissionService } from '@universo/auth-backend'
 // Universo Platformo | Metahubs
 import {
-    initializeRateLimiters as initializeMetahubsRateLimiters,
     createMetahubsServiceRoutes,
-    createPublicMetahubsServiceRoutes
+    createPublicMetahubsServiceRoutes,
+    loadPublishedPublicationRuntimeSource
 } from '@universo/metahubs-backend'
 // Universo Platformo | Applications
-import {
-    initializeRateLimiters as initializeApplicationsRateLimiters,
-    createApplicationsServiceRoutes
-} from '@universo/applications-backend'
+import { createApplicationsServiceRoutes } from '@universo/applications-backend'
 // Universo Platformo | Start (Onboarding)
 import { createStartServiceRoutes } from '@universo/start-backend'
 // Universo Platformo | Admin
@@ -90,7 +87,11 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 let applicationsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!applicationsRouter) {
-        applicationsRouter = createApplicationsServiceRoutes(ensureAuthWithRls, () => createKnexExecutor(getKnex()))
+        applicationsRouter = createApplicationsServiceRoutes(
+            ensureAuthWithRls,
+            () => createKnexExecutor(getKnex()),
+            loadPublishedPublicationRuntimeSource
+        )
     }
     if (applicationsRouter) {
         applicationsRouter(req, res, next)
@@ -121,25 +122,44 @@ const permissionService = createPermissionService({ getKnex })
 const globalUsersRouter = createGlobalUsersRoutes({ globalAccessService, permissionService })
 router.use('/admin/global-users', ensureAuthWithRls, globalUsersRouter)
 
-const instancesRouter = createInstancesRoutes({ globalAccessService, permissionService, getDbExecutor: () => createKnexExecutor(getKnex()) })
+const instancesRouter = createInstancesRoutes({
+    globalAccessService,
+    permissionService,
+    getDbExecutor: () => createKnexExecutor(getKnex())
+})
 router.use('/admin/instances', ensureAuthWithRls, instancesRouter)
 
-const rolesRouter = createRolesRoutes({ globalAccessService, permissionService, getDbExecutor: () => createKnexExecutor(getKnex()) })
+const rolesRouter = createRolesRoutes({
+    globalAccessService,
+    permissionService,
+    getDbExecutor: () => createKnexExecutor(getKnex())
+})
 router.use('/admin/roles', ensureAuthWithRls, rolesRouter)
 
-const localesRouter = createLocalesRoutes({ globalAccessService, permissionService, getDbExecutor: () => createKnexExecutor(getKnex()) })
+const localesRouter = createLocalesRoutes({
+    globalAccessService,
+    permissionService,
+    getDbExecutor: () => createKnexExecutor(getKnex())
+})
 router.use('/admin/locales', ensureAuthWithRls, localesRouter)
 
-const adminSettingsRouter = createAdminSettingsRoutes({ globalAccessService, permissionService, getDbExecutor: () => createKnexExecutor(getKnex()) })
+const adminSettingsRouter = createAdminSettingsRoutes({
+    globalAccessService,
+    permissionService,
+    getDbExecutor: () => createKnexExecutor(getKnex())
+})
 router.use('/admin/settings', ensureAuthWithRls, adminSettingsRouter)
 
 // ═══════════════════════════════════════════════════════════════════════
 // Profile routes
 // ═══════════════════════════════════════════════════════════════════════
-const profileRouter = createProfileRoutes({
-    getDbExecutor: () => createKnexExecutor(getKnex()),
-    getRequestDbExecutor: (req) => getRequestDbExecutor(req, createKnexExecutor(getKnex()))
-}, ensureAuthWithRls)
+const profileRouter = createProfileRoutes(
+    {
+        getDbExecutor: () => createKnexExecutor(getKnex()),
+        getRequestDbExecutor: (req) => getRequestDbExecutor(req, createKnexExecutor(getKnex()))
+    },
+    ensureAuthWithRls
+)
 router.use('/profile', profileRouter)
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -176,11 +196,7 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
 
     // Determine HTTP status code
     const statusCode =
-        err.statusCode && err.statusCode >= 400 && err.statusCode < 600
-            ? err.statusCode
-            : isDatabaseConnectTimeoutError(err)
-              ? 503
-              : 500
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : isDatabaseConnectTimeoutError(err) ? 503 : 500
 
     if (statusCode !== 404) {
         logger.error('[API Error Handler]', {

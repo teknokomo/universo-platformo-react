@@ -8,17 +8,17 @@
 
 **Rule**: All entities use prefixed system fields for cascade soft delete and audit tracking.
 **Levels**:
-- `_upl_*` (Platform): Base fields for all entities — `created_at`, `created_by`, `updated_at`, `updated_by`, `version`, `deleted`, `deleted_at`, `deleted_by`.
-- `_mhb_*` (Metahub): Design-Time fields — `published`, `published_at`, `unpublished_at`, `archived`, `archived_at`.
-- `_app_*` (Application): Run-Time fields — `published`, `published_at`, `unpublished_at`, `archived`, `archived_at`, `deleted`, `deleted_at`, `deleted_by`.
+- `_upl_*` (Platform): Base fields for all entities — `created_at`, `created_by`, `updated_at`, `updated_by`, `version`, `deleted`, `deleted_at`, `deleted_by`, `archived`, `archived_at`, `archived_by`, `purge_after`, `locked`, `locked_at`, `locked_by`, `locked_reason` (16 fields).
+- `_app_*` (Application): Run-Time fields for ALL platform catalog tables — `published`, `published_at`, `published_by`, `archived`, `archived_at`, `archived_by`, `deleted`, `deleted_at`, `deleted_by`, `owner_id`, `access_level` (11 fields).
+- `_mhb_*` (Metahub Branch): Design-Time fields ONLY inside dynamic branch schemas (`mhb_<uuid>_bN`) — kept separate from `_app_*`.
 
-**Cascade Delete Logic**: `_app_deleted` → `_mhb_deleted` → `_upl_deleted` (three-level cascade).
+**Active row predicate (platform tables)**: `_upl_deleted = false AND _app_deleted = false`
+**Active row predicate (branch schemas)**: `_upl_deleted = false AND _mhb_deleted = false`
+**Cascade Delete Logic**: `_app_deleted` → `_upl_deleted` (platform), `_mhb_deleted` → `_upl_deleted` (branch).
+**Total system fields per business table**: 27 (16 `_upl_*` + 11 `_app_*`).
 **Required**: Always pass `createdBy`/`updatedBy` or `_uplCreatedBy`/`_uplUpdatedBy` when creating/updating entities.
 **Detection**: `rg "_uplCreatedBy" packages`.
-**Symptoms**:
-- NULL values in `_upl_created_by`/`_upl_updated_by` columns.
-- Version incrementing unexpectedly (use `createQueryBuilder().update()` instead of `repository.update()`).
-**Why**: Consistent audit trail and soft delete cascade across platform, metahub, and application layers.
+**Why**: Consistent audit trail and soft delete cascade across platform and application layers.
 
 ---
 
@@ -96,6 +96,150 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 
 **Why**: Workspace consumers resolve exported package subpaths during package builds; stable dist outputs are required for TypeScript and bundlers to agree on the same module surface.
 
+## Browser Env Precedence Pattern (IMPORTANT)
+
+**Rule**: Shared browser-facing env helpers must resolve runtime config in this order: host-provided public env → Vite `import.meta.env` → `process.env` → browser origin.
+
+**Required**:
+- `@universo/utils` browser consumers must use the dedicated browser env entry instead of the Node/shared env module.
+- Host-provided `__UNIVERSO_PUBLIC_ENV__` overrides remain the highest-precedence runtime source.
+- Browser helpers may fall back to `window.location.origin` only when no explicit base URL is provided.
+- Browser-oriented packages that mirror env access outside `@universo/utils` must preserve the same precedence order.
+
+**Detection**:
+- `rg "__UNIVERSO_PUBLIC_ENV__|import.meta.env|getBrowserOrigin" packages/universo-utils/base/src packages/universo-store/base/src`
+
+**Why**: Browser bundles need to preserve Vite runtime configuration without regressing host-level override injection or Node/test fallbacks.
+
+## Fixed-System-App Validation Length Parity Pattern (IMPORTANT)
+
+**Rule**: When a fixed system-app manifest declares `physicalDataType: 'VARCHAR(N)'` for a string field, the manifest `validationRules.maxLength` must not exceed `N` in either the current or target business-table model.
+
+**Required**:
+- Keep profile/admin/application/metahub manifest validation metadata aligned with the physical fixed-schema contract.
+- Preserve the same limits in compiled schema-plan and compiler-artifact tests, not only in package-local manifest tests.
+- Treat UI/manifest metadata that permits longer values than the database column as a correctness bug, not as a soft documentation mismatch.
+
+**Detection**:
+- `rg "maxLength:|physicalDataType: 'VARCHAR" packages/*/base/src/platform packages/universo-migrations-platform/base/src/__tests__`
+
+**Why**: Manifest metadata now drives compiler artifacts, docs, and UI validation. If it allows longer values than PostgreSQL accepts, the system can report input as valid and then fail on write.
+
+## Definition Artifact Equivalence Pattern (CRITICAL)
+
+**Rule**: Registered-definition no-op detection must compare the full stable artifact payload signature, not only the compiled SQL checksum.
+
+**Required**:
+- `registerDefinition()` may return `unchanged` only when checksum parity and full artifact-equivalence both hold.
+- Startup/catalog preflight checks in `@universo/migrations-platform` must compare stored active payload artifacts to the incoming artifacts before skipping sync.
+- Dependency lists and other artifact metadata that can change independently of SQL text must be part of the equivalence signature.
+
+**Detection**:
+- `rg "areDefinitionArtifactsEquivalent|buildDefinitionArtifactComparisonSignature" packages/universo-migrations-catalog/base/src packages/universo-migrations-platform/base/src`
+
+**Why**: Dependency-only changes are operationally meaningful. Checksum-only parity can leave the active registry payload stale even though the platform reports a false green no-op state.
+
+## Bundle Export Lifecycle Recording Pattern (CRITICAL)
+
+**Rule**: Bundle-oriented catalog exports must record the same published revision export rows as non-bundle export paths.
+
+**Required**:
+- After `exportDefinitionBundle(...)`, the platform must record `definition_exports` rows for every exported active published revision.
+- Doctor and sync health may rely on the recorded revision lifecycle, not on whether the export was bundle or non-bundle shaped.
+- Bundle export metadata should preserve the operational source/target context used to create the bundle.
+
+**Detection**:
+- `rg "recordCatalogDefinitionExports|exportDefinitionBundle" packages/universo-migrations-platform/base/src`
+
+**Why**: CLI and operational export paths increasingly use bundles. If bundle exports skip lifecycle recording, doctor/export health drifts from the actual artifacts users generated.
+
+## Definition Lifecycle Import Pattern (CRITICAL)
+
+**Rule**: Active catalog imports must use the real definition lifecycle (`draft` → `review` → `published`) instead of registering active revisions directly.
+
+**Required**:
+- `importDefinitions()` must go through lifecycle helpers that create a draft, request review, and publish the draft unless the current active revision already carries published lifecycle provenance.
+- `registerDefinition()` must preserve/merge published lifecycle provenance even for unchanged revisions, because repeated imports are allowed to refresh provenance without changing the checksum.
+- Platform catalog-state no-op checks and doctor output must treat published lifecycle provenance as part of lifecycle completeness, not only registry/checksum/export parity.
+
+**Detection**:
+- `rg "importDefinitions\(|publishDefinitionDraft\(|requestDefinitionReview\(" packages/universo-migrations-catalog/base/src`
+- `rg "hasPublishedLifecycle|missingPublishedLifecycleKeys" packages/universo-migrations-platform/base/src`
+
+**Why**: The plan requires real lifecycle operations for drafts, review, publish, export, and import metadata. If active sync/import bypasses that lifecycle, the platform can report a green checksum/export state while still missing the approval-ready lifecycle contract.
+
+## Optional Global Catalog Capability Pattern (CRITICAL)
+
+**Rule**: Global migration catalog features must be explicitly gated by `UPL_GLOBAL_MIGRATION_CATALOG_ENABLED`; disabled mode must preserve local canonical migration history and only keep the minimal platform migration kernel.
+
+**Required**:
+- Runtime application and metahub writes keep `_app_migrations` / `_mhb_migrations` as canonical history and may mirror to the global catalog only when the feature flag is enabled.
+- Platform execution in disabled mode must use only `upl_migrations.migration_runs` through `PlatformMigrationKernelCatalog`; it must not auto-bootstrap definition-registry tables.
+- Catalog-backed commands such as definition sync/import/export must fail explicitly when the feature flag is disabled instead of silently degrading.
+- Enabled mode remains fail-closed: if global mirroring or catalog lifecycle work is requested and the catalog path fails, the write must fail.
+
+**Detection**:
+- `rg "UPL_GLOBAL_MIGRATION_CATALOG_ENABLED|PlatformMigrationKernelCatalog|globalMigrationCatalogEnabled" packages`
+
+**Why**: The repository now supports two valid operational modes. Reintroducing unconditional full-catalog bootstrap into startup or runtime paths would recreate the original cold-start dependency that this wave removed.
+
+## Release-Bundle Canonical Snapshot-Hash Pattern (CRITICAL)
+
+**Rule**: `application_release_bundle` validation must recompute a canonical embedded snapshot hash before trusting `manifest.snapshotHash` for artifact checksums, installation metadata, or runtime lineage decisions.
+
+**Required**:
+- Publication bundles derive the canonical hash from the normalized publication snapshot contract; application-origin bundles derive it from the runtime snapshot checksum contract.
+- Bundle validation must fail closed when `manifest.snapshotHash` does not match the embedded snapshot, even if bundle artifact checksums were recomputed to match the tampered manifest.
+- Bundle-apply routes and `installed_release_metadata` persistence must use the recomputed canonical hash, not the unchecked manifest field.
+
+**Detection**:
+- `rg "calculateCanonicalApplicationReleaseSnapshotHash|resolveApplicationReleaseSnapshotHash|validateApplicationReleaseBundleArtifacts" packages/applications-backend/base/src`
+
+**Why**: `manifest.snapshotHash` drives idempotency and release lineage. Trusting it without recomputation allows a structurally valid but semantically tampered bundle to alter no-op decisions and stored release provenance.
+
+## Application Release Bundle Sync-State Pattern (CRITICAL)
+
+**Rule**: Publication-backed sync and file-bundle install/update for applications must share the same schema sync engine and the same central persistence seam in `applications.cat_applications`.
+
+**Required**:
+- `@universo/applications-backend` owns the canonical `application_release_bundle` contract plus the application release-bundle export/apply routes.
+- Successful publication sync and successful bundle apply must both persist `installed_release_metadata` through the existing application schema sync-state contract, not through a second per-app or per-schema metadata store.
+- Incremental bundle artifacts must carry a trusted `baseSchemaSnapshot` plus a precomputed `diff`; validation must recompute that diff from the embedded base snapshot and target payload before apply.
+- Bundle apply may use release-version checks against `installed_release_metadata`, but for trusted incremental artifacts it must apply the embedded validated diff and reject tracked-schema/base-snapshot mismatches instead of recalculating an opportunistic runtime diff.
+
+**Detection**:
+- `rg "release-bundle|installedReleaseMetadata|application_release_bundle" packages/applications-backend/base/src`
+
+**Why**: The optional-catalog architecture explicitly keeps application release/install state centralized. If bundle installs diverge into a separate metadata path, the platform loses one-source-of-truth behavior for sync status, release provenance, and recovery decisions.
+
+## Fixed System-App Baseline Recording Pattern (CRITICAL)
+
+**Rule**: Fixed system-app schema generation must record deterministic local baseline rows in `_app_migrations`, and repeated startup must backfill the baseline row when business tables already exist but local history is missing.
+
+**Required**:
+- Baseline migration names must be deterministic and derived from the registered system-app structure version (`baseline_<definition>_structure_<version>` with dots replaced by underscores).
+- `SchemaGenerator.generateFullSchema(...)` must accept an explicit `migrationName` so fixed schemas do not depend on timestamp-generated baseline names.
+- Repeated startup may backfill only the missing deterministic baseline row; it must not invent a second baseline or overwrite existing local history.
+
+**Detection**:
+- `rg "baseline_.*_structure_|migrationName\?: string|baseline_backfilled" packages/universo-migrations-platform/base packages/schema-ddl/base`
+
+**Why**: Fixed schemas already own local `_app_migrations` tables. Without deterministic baseline recording, disabled-mode local history stays empty and repeated startup cannot distinguish a healthy preexisting schema from missing migration history.
+
+## Doctor Lifecycle Export-Health Pattern (CRITICAL)
+
+**Rule**: Registered-platform doctor checks must treat any export row on the active published revision as healthy; only sync/export operations themselves should care about a specific explicit export target.
+
+**Required**:
+- Doctor lifecycle inspection for registered platform definitions and system-app artifacts must accept any export recorded for the active revision.
+- Sync/export commands must continue to record their explicit `exportTarget` values for provenance and replayability.
+- Regression coverage must prove that doctor stays green when the active revision was exported by a non-bootstrap target such as CLI `migration sync`.
+
+**Detection**:
+- `rg "any-active-revision-export|inspectDefinitionCatalogLifecycle" packages/universo-migrations-platform/base/src`
+
+**Why**: Doctor is a lifecycle-health check, not a command-origin filter. If it hardcodes a single bootstrap export target, valid active revisions exported by other stable operational paths will appear falsely unhealthy.
+
 ## Request-Scoped DB Contract Pattern (CRITICAL)
 
 **Rule**: All new or refactored DB access must use the neutral request-scoped contract (`DbExecutor` / `DbSession`) or package-level SQL-first persistence stores built on top of it.
@@ -164,6 +308,40 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 
 **Why**: Route-level checks are not a sufficient safety boundary for reusable persistence helpers. The helper itself must enforce managed-schema rules so future callers cannot accidentally bypass the invariant.
 
+## Managed Dynamic Schema Naming Pattern (CRITICAL)
+
+**Rule**: Runtime and bootstrap code must build and validate managed schema names through the shared `@universo/migrations-core` helpers, not with local string templates or local regex checks.
+
+**Required**:
+- Use `buildManagedDynamicSchemaName(...)` for canonical managed application and metahub schema names.
+- Use `isManagedDynamicSchemaName(...)` when validating incoming/stored managed schema names before DDL or raw SQL.
+- Preserve current naming contracts exactly: `app_<uuid32>` for managed application schemas and `mhb_<uuid32>_bN` for metahub branch schemas.
+- Align tests/mocks with those canonical names instead of placeholder strings such as `app_publication_1`.
+
+**Why**: Centralizing managed-schema naming eliminates drift between schema-ddl, metahub runtime code, publication compensation paths, and regression fixtures, while keeping the live naming contract stable.
+
+## Fresh-Bootstrap System-App Manifest Pattern (CRITICAL)
+
+**Rule**: On recreatable environments, active system-app manifests must bootstrap only the canonical fresh-schema migration chain and must not keep table-rename reconciliation migrations in the live manifest path.
+
+**Required**:
+- The active applications fixed-schema manifest keeps only `CreateApplicationsSchema1800000000000` in its migration chain.
+- Fresh bootstrap creates canonical `cat_*` / `rel_*` table names directly.
+- Legacy reconcile migrations may exist only as historical references outside the active manifest path, or be deleted when no longer needed.
+
+**Why**: Keeping rename-based reconciliation inside the active manifest hides fresh-DB regressions and violates the expected bootstrap contract for disposable environments.
+
+## Applications Sync Persistence Target Pattern (CRITICAL)
+
+**Rule**: Application runtime sync persistence helpers must write only to the converged fixed-schema tables `applications.cat_applications` and `applications.cat_connectors`, and they must refuse to update soft-deleted rows.
+
+**Required**:
+- `persistApplicationSchemaSyncState(...)` targets `cat_applications` with `_upl_deleted = false AND _app_deleted = false`.
+- `persistConnectorSyncTouch(...)` targets `cat_connectors` with the same active-row guard.
+- Direct service-level regression tests must cover these helpers because route tests may mock them.
+
+**Why**: Route-level application sync tests often stub helper calls; without direct service coverage, stale pre-convergence table names can survive unnoticed until fresh-bootstrap runtime sync executes.
+
 ## TypeORM Residue Boundary Pattern (TRANSITIONAL)
 
 **Rule**: Treat TypeORM as removed from the live architecture. No new package, route, service, or helper may introduce `DataSource`, repositories, entities, or TypeORM-specific request helpers.
@@ -187,6 +365,68 @@ return applicationsStore.listApplications(executor, userId)
 **Avoid**: Deprecated static wrappers (use naming utilities directly) and unsafe raw string interpolation in `knex.raw`.
 **Compensation Rule**: If metadata creation commits before a runtime DDL step runs, the caller must fail loudly and compensate the fresh metadata immediately when DDL/runtime sync fails.
 **Why**: Consistent DI simplifies testing and reduces SQL injection risk.
+
+## Application Runtime Sync Ownership Boundary (CRITICAL)
+
+**Rule**: Application runtime schema sync and diff endpoints belong to `@universo/applications-backend`; metahubs only supplies publication-derived sync context as a narrow seam.
+
+**Required**:
+- Mount `/application/:applicationId/sync` and `/application/:applicationId/diff` from `createApplicationsServiceRoutes(...)`.
+- Keep publication compilation and snapshot deserialization inside `@universo/metahubs-backend`, but expose them only through `loadPublishedPublicationRuntimeSource(...)`.
+- Build the final application sync context inside `@universo/applications-backend` through `createLoadPublishedApplicationSyncContext(...)`.
+- Inject the metahubs publication-runtime seam from `@universo/core-backend` instead of making `@universo/applications-backend` import metahubs internals directly.
+
+**Why**: This preserves application-owned runtime orchestration, avoids cross-package architecture drift, and keeps the HTTP contract stable while separating publication authoring from application runtime schema ownership.
+
+## Fixed-System-App Bootstrap Phase Boundary (CRITICAL)
+
+**Rule**: Platform migrations that read or mutate generated fixed-system-app tables must run only in `post_schema_generation`, never in the prelude wave.
+
+**Required**:
+- Keep schema/extension/setup work that does not require generated business tables in `pre_schema_generation`.
+- Register `OptimizeRlsPolicies1800000000200` in `post_schema_generation` because it recreates policies on generated fixed tables.
+- Register `SeedBuiltinMetahubTemplates1800000000250` in `post_schema_generation` because it writes to `metahubs.cat_templates` after fixed schema generation.
+- When adding future platform migrations, classify them by the earliest bootstrap phase in which all referenced schemas/tables definitely exist.
+
+**Why**: Focused tests can miss fresh-start ordering bugs. The live bootstrap contract is `prelude -> fixed schema generation -> post-schema migrations`; violating that boundary produces startup failures even when individual migrations are otherwise correct.
+
+## Publication Bootstrap Runtime Sync Sequencing (CRITICAL)
+
+**Rule**: When publication routes create an application schema from a publication snapshot, runtime sync must execute inside the DDL generator's `afterMigrationRecorded(...)` hook, and synced schema state must be persisted in that same post-recording step.
+
+**Required**:
+- Call `runPublishedApplicationRuntimeSync(...)` from the publication route only after the initial schema migration record exists.
+- Persist application schema sync state immediately after runtime sync via `persistApplicationSchemaSyncState(...)` using the same transaction context supplied to `afterMigrationRecorded(...)`.
+- Keep compensation logic outside the metadata transaction and run it only when DDL/runtime sync fails after publication or linked-application metadata already exists.
+
+**Avoid**:
+- Running runtime sync before migration history is recorded.
+- Persisting `SYNCED` application schema state before runtime sync finishes.
+- Treating success-path proof as implied by failure-compensation tests alone.
+
+**Why**: Publication-driven bootstrap must preserve a truthful migration history boundary. The runtime sync contract depends on the recorded migration id and snapshot, and premature state persistence would create false synced metadata after partial DDL success.
+
+## Repeated-Startup Fast-Path Pattern For Fixed Metadata And Catalog Sync (CRITICAL)
+
+**Rule**: `App.initDatabase()` may validate registered migrations and definitions on every startup, but it must skip heavy fixed metadata writes and definition-registry churn when the live state already matches the compiled target state.
+
+**Required**:
+- Fixed system-app metadata bootstrap must compare the live `_app_objects` / `_app_attributes` state against the compiled target fingerprint and only call `syncSystemMetadata(...)` when tables, rows, or payloads drift.
+- Registered definition catalog sync must bulk-load registry active revisions and export rows, then skip `registerDefinition()` entirely when every artifact checksum and export target already matches.
+- Both fast paths must preserve self-healing behavior by falling back to the canonical full sync path whenever fingerprint/checksum/export drift is detected.
+
+## Explicit RETURNING + Soft-Delete Compensation Pattern (IMPORTANT)
+
+**Rule**: Touched SQL-first stores on platform catalog tables should return explicit column lists, and cleanup/rollback paths should prefer dual-flag soft delete over raw `DELETE` whenever the rows belong to normal soft-deletable platform metadata.
+
+**Required**:
+- Prefer `RETURNING id, ...` with the exact row contract expected by the store instead of `RETURNING *`.
+- When compensating partially created platform metadata such as role assignments or provisional metahub catalog rows, update both `_upl_*` and `_app_*` delete fields through the shared soft-delete helpers instead of issuing a physical delete.
+- If associated child metadata is created in the same flow, compensate it explicitly as well unless an existing hard database cascade is still part of the intended contract.
+
+**Why**: Explicit `RETURNING` clauses prevent silent shape drift when schema support fields change, and soft-delete compensation preserves the repository-wide lifecycle/audit contract even on rollback paths.
+
+**Why**: Idempotent startup is not enough for operational safety in this repository. Replaying hundreds of registry writes and metadata upserts on every clean boot makes startup slow and obscures real drift behind noisy repeated synchronization.
 
 ## Statement Timeout Helper Pattern (CRITICAL)
 

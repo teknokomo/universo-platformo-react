@@ -1,17 +1,11 @@
-import type { MigrationExecutionContext, PlatformMigrationFile } from '@universo/migrations-core'
+import type {
+    MigrationExecutionContext,
+    PlatformMigrationFile,
+    SqlMigrationStatement,
+    SqlPlatformMigrationDefinition
+} from '@universo/migrations-core'
 
-export interface SqlMigrationStatement {
-    sql: string
-    warningMessage?: string
-}
-
-export interface SqlPlatformMigrationDefinition {
-    id: string
-    version: string
-    summary: string
-    up: readonly SqlMigrationStatement[]
-    down?: readonly SqlMigrationStatement[]
-}
+export type { SqlMigrationStatement, SqlPlatformMigrationDefinition } from '@universo/migrations-core'
 
 const buildChecksumSource = (scopeKey: string, definition: SqlPlatformMigrationDefinition) =>
     JSON.stringify({

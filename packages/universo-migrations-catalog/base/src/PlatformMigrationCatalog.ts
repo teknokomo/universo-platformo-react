@@ -112,7 +112,7 @@ const migrationRunsTableExists = async (knexLike: Knex | Knex.Transaction): Prom
 }
 
 export class PlatformMigrationCatalog implements MigrationCatalogRepository {
-    constructor(private readonly knex: Knex | Knex.Transaction) {}
+    constructor(protected readonly knex: Knex | Knex.Transaction) {}
 
     async isStorageReady(): Promise<boolean> {
         return migrationRunsTableExists(this.knex)
@@ -263,6 +263,35 @@ export class PlatformMigrationCatalog implements MigrationCatalogRepository {
                 plan: patch.plan ?? current.plan,
                 _upl_updated_at: new Date().toISOString()
             })
+    }
+}
+
+export class PlatformMigrationKernelCatalog extends PlatformMigrationCatalog {
+    async ensureStorage(): Promise<void> {
+        const kernelBootstrapMigration = catalogBootstrapMigrations[0]
+        if (!kernelBootstrapMigration) {
+            throw new Error('Missing upl_migrations migration kernel bootstrap migration')
+        }
+
+        const ensureWithin = async (trx: Knex.Transaction): Promise<void> => {
+            await trx.raw(`SELECT pg_advisory_xact_lock(${advisoryLockKeySql})`, [catalogBootstrapLockKey])
+
+            const hasMigrationRuns = await migrationRunsTableExists(trx)
+            if (hasMigrationRuns) {
+                return
+            }
+
+            await kernelBootstrapMigration.up(createExecutionContext(trx, kernelBootstrapMigration, 'catalog-kernel-bootstrap'))
+        }
+
+        if (isTransaction(this.knex)) {
+            await ensureWithin(this.knex)
+            return
+        }
+
+        await this.knex.transaction(async (trx) => {
+            await ensureWithin(trx)
+        })
     }
 }
 

@@ -9,7 +9,7 @@
         "build": "pnpm run clean && tsc",
         "dev": "tsc -w",
         "lint": "eslint --ext .ts src/",
-        "test": "jest --config ./jest.config.js"
+        "test": "node ../../../tools/testing/backend/run-jest.cjs --config ./jest.config.js"
     },
     "keywords": [
         "universo",
@@ -27,6 +27,9 @@
         "@universo/migrations-core": "workspace:*",
         "@universo/metahubs-backend": "workspace:*",
         "@universo/profile-backend": "workspace:*",
+        "@universo/schema-ddl": "workspace:*",
+        "@universo/utils": "workspace:*",
+        "@universo/types": "workspace:*",
         "knex": "catalog:"
     },
     "devDependencies": {

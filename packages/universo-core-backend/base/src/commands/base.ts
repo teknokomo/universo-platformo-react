@@ -82,7 +82,8 @@ export abstract class BaseCommand extends Command {
         REDIS_TLS: Flags.string(),
         REDIS_CERT: Flags.string(),
         REDIS_KEY: Flags.string(),
-        REDIS_CA: Flags.string()
+        REDIS_CA: Flags.string(),
+        UPL_GLOBAL_MIGRATION_CATALOG_ENABLED: Flags.string()
     }
 
     protected async stopProcess() {
@@ -187,8 +188,7 @@ export abstract class BaseCommand extends Command {
         if (flags.LANGCHAIN_PROJECT) process.env.LANGCHAIN_PROJECT = flags.LANGCHAIN_PROJECT
 
         // Telemetry
-        if (flags.POSTHOG_PUBLIC_API_KEY)
-            process.env.POSTHOG_PUBLIC_API_KEY = flags.POSTHOG_PUBLIC_API_KEY
+        if (flags.POSTHOG_PUBLIC_API_KEY) process.env.POSTHOG_PUBLIC_API_KEY = flags.POSTHOG_PUBLIC_API_KEY
         if (flags.DISABLE_FLOWISE_TELEMETRY) process.env.DISABLE_FLOWISE_TELEMETRY = flags.DISABLE_FLOWISE_TELEMETRY
 
         // Model list config
@@ -225,5 +225,8 @@ export abstract class BaseCommand extends Command {
         if (flags.QUEUE_REDIS_EVENT_STREAM_MAX_LEN) process.env.QUEUE_REDIS_EVENT_STREAM_MAX_LEN = flags.QUEUE_REDIS_EVENT_STREAM_MAX_LEN
         if (flags.REMOVE_ON_AGE) process.env.REMOVE_ON_AGE = flags.REMOVE_ON_AGE
         if (flags.REMOVE_ON_COUNT) process.env.REMOVE_ON_COUNT = flags.REMOVE_ON_COUNT
+        if (flags.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED) {
+            process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = flags.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED
+        }
     }
 }

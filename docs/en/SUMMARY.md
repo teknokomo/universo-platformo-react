@@ -31,6 +31,8 @@
 ## Architecture
 
 * [Overview](architecture/README.md)
+* [Fixed System-App Convergence](architecture/system-app-convergence.md)
+* [Optional Global Catalog](architecture/optional-global-catalog.md)
 * [Monorepo Structure](architecture/monorepo-structure.md)
 * [Backend Architecture](architecture/backend.md)
 * [Frontend Architecture](architecture/frontend.md)

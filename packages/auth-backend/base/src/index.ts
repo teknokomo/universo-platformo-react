@@ -23,7 +23,9 @@ export interface AuthUserRow {
 /**
  * Compute user status from raw auth row fields.
  */
-export function computeAuthUserStatus(row: Pick<AuthUserRow, 'confirmed_at' | 'last_sign_in_at' | 'banned_until'>): 'active' | 'inactive' | 'pending' | 'banned' {
+export function computeAuthUserStatus(
+    row: Pick<AuthUserRow, 'confirmed_at' | 'last_sign_in_at' | 'banned_until'>
+): 'active' | 'inactive' | 'pending' | 'banned' {
     const now = new Date()
     if (row.banned_until && new Date(row.banned_until as unknown as string) > now) return 'banned'
     if (!row.confirmed_at) return 'pending'

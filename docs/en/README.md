@@ -8,10 +8,6 @@ description: >-
 Universo Platformo React is the current public React / Express / Supabase
 reference implementation of Universo Platformo.
 
-This documentation is structured as a GitBook product manual: short landing
-pages, clear sidebar sections, and factual content tied to the current
-repository.
-
 ## What This Documentation Covers
 
 | Area | Purpose |

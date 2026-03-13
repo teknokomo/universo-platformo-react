@@ -24,6 +24,14 @@ export class MetahubElementsService {
         private attributesService: MetahubAttributesService
     ) {}
 
+    private quoteSchemaName(schemaName: string): string {
+        return `"${schemaName.replace(/"/g, '""')}"`
+    }
+
+    private elementsTable(schemaName: string): string {
+        return `${this.quoteSchemaName(schemaName)}."_mhb_elements"`
+    }
+
     private get knex() {
         return KnexClient.getInstance()
     }
@@ -102,12 +110,17 @@ export class MetahubElementsService {
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const result = await this.applyActiveRowsFilter(
-            this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: objectId })
+        const [result] = await this.schemaService.query<{ count: number | string }>(
+            `
+                SELECT COUNT(*)::int AS count
+                FROM ${this.elementsTable(schemaName)}
+                WHERE object_id = $1
+                  AND _upl_deleted = FALSE
+                  AND _mhb_deleted = FALSE
+            `,
+            [objectId]
         )
-            .count('* as count')
-            .first()
-        return result ? parseInt(result.count as string, 10) : 0
+        return result ? parseInt(String(result.count), 10) : 0
     }
 
     /**
@@ -117,12 +130,17 @@ export class MetahubElementsService {
         if (objectIds.length === 0) return new Map()
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const results = await this.applyActiveRowsFilter(
-            this.knex.withSchema(schemaName).from('_mhb_elements').whereIn('object_id', objectIds)
+        const results = await this.schemaService.query<{ object_id: string; count: number | string }>(
+            `
+                SELECT object_id, COUNT(*)::int AS count
+                FROM ${this.elementsTable(schemaName)}
+                WHERE object_id = ANY($1::uuid[])
+                  AND _upl_deleted = FALSE
+                  AND _mhb_deleted = FALSE
+                GROUP BY object_id
+            `,
+            [objectIds]
         )
-            .select('object_id')
-            .count('* as count')
-            .groupBy('object_id')
 
         const counts = new Map<string, number>()
         results.forEach((row: any) => {

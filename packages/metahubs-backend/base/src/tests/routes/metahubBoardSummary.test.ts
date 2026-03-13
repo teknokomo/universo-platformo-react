@@ -126,13 +126,13 @@ describe('Metahub Board Summary', () => {
             if (sql.includes('_mhb_objects') && sql.includes("kind = 'catalog'")) {
                 return [{ count: 4 }]
             }
-            if (sql.includes('publications_versions')) {
+            if (sql.includes('doc_publication_versions')) {
                 return [{ count: 7 }]
             }
-            if (sql.includes('applications.applications')) {
+            if (sql.includes('applications.cat_applications')) {
                 return [{ count: 1 }]
             }
-            if (sql.includes('metahubs.publications')) {
+            if (sql.includes('metahubs.doc_publications')) {
                 return [{ count: 2 }]
             }
             return [{ count: 0 }]
@@ -153,5 +153,44 @@ describe('Metahub Board Summary', () => {
             publicationVersionsCount: 7,
             applicationsCount: 1
         })
+    })
+
+    it('skips metahub object counting for invalid branch schema names', async () => {
+        const metahubId = 'metahub-1'
+        const branchId = 'branch-1'
+
+        mockFindMetahubById.mockResolvedValue({
+            id: metahubId,
+            defaultBranchId: branchId
+        })
+
+        mockFindMetahubMembership.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            role: 'owner',
+            activeBranchId: branchId
+        })
+
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
+            id: branchId,
+            metahubId,
+            schemaName: 'public'
+        })
+
+        mockCountBranches.mockResolvedValue(1)
+        mockCountMetahubMembers.mockResolvedValue(2)
+
+        mockExec.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('_mhb_objects')) {
+                throw new Error('should not query invalid schema')
+            }
+            return [{ count: 0 }]
+        })
+
+        const app = buildApp()
+        const response = await request(app).get(`/metahub/${metahubId}/board/summary`).expect(200)
+
+        expect(response.body.hubsCount).toBe(0)
+        expect(response.body.catalogsCount).toBe(0)
     })
 })

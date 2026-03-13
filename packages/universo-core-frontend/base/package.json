@@ -21,7 +21,7 @@
         "@mui/x-charts": "catalog:",
         "@mui/x-data-grid": "catalog:",
         "@tabler/icons-react": "^3.30.0",
-        "@tanstack/react-query": "^5.90.3",
+        "@tanstack/react-query": "catalog:",
         "@universo/api-client": "workspace:*",
         "@universo/applications-frontend": "workspace:*",
         "@universo/auth-frontend": "workspace:*",

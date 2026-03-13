@@ -1,7 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
-import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { escapeLikeWildcards } from '../utils'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'

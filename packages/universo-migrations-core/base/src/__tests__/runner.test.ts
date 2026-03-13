@@ -215,7 +215,9 @@ describe('runPlatformMigrations', () => {
         expect(result.planned).toEqual([
             expect.objectContaining({
                 id: 'CreateMetahubsSchema1766351182000',
-                action: 'apply'
+                action: 'apply',
+                deliveryStage: 'one_shot',
+                executionBudget: null
             })
         ])
         expect(catalog.ensureStorage).not.toHaveBeenCalled()
@@ -311,6 +313,30 @@ describe('runPlatformMigrations', () => {
         expect(client.acquireConnection).toHaveBeenCalledTimes(2)
         expect(client.releaseConnection).toHaveBeenCalledTimes(2)
         expect(up).toHaveBeenCalledTimes(1)
+    })
+
+    it('applies execution budget timeouts inside transactional migration execution', async () => {
+        const catalog = createCatalog()
+        const { knex, trx } = createConnectionAwareKnex()
+
+        await runPlatformMigrations({
+            knex,
+            migrations: [
+                createMigration({
+                    id: 'BudgetedMigration1800000000004',
+                    version: '1800000000004',
+                    executionBudget: {
+                        lockTimeoutMs: 1000,
+                        statementTimeoutMs: 5000,
+                        riskLevel: 'medium'
+                    }
+                })
+            ],
+            catalog
+        })
+
+        expect(trx.raw).toHaveBeenCalledWith("SET LOCAL lock_timeout TO '1000ms'")
+        expect(trx.raw).toHaveBeenCalledWith("SET LOCAL statement_timeout TO '5000ms'")
     })
 
     it('rolls back and releases connection on migration error with session lock', async () => {

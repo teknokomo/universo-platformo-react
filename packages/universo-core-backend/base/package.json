@@ -25,7 +25,8 @@
     },
     "scripts": {
         "build": "tsc",
-        "test": "jest --config ./jest.config.js",
+        "lint": "eslint --ext .ts src/",
+        "test": "node ../../../tools/testing/backend/run-jest.cjs --config ./jest.config.js",
         "start": "run-script-os",
         "clean": "rimraf dist",
         "nuke": "rimraf dist node_modules .turbo",

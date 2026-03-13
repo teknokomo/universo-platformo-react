@@ -72,7 +72,26 @@ if (!userId) return
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
+-   **Optional global catalog flag**: `UPL_GLOBAL_MIGRATION_CATALOG_ENABLED` now controls whether runtime/platform flows use the full catalog lifecycle or only local canonical history plus the minimal platform kernel.
+-   **Managed schema naming**: canonical managed schema name generation/validation now comes from `@universo/migrations-core` (`buildManagedDynamicSchemaName`, `isManagedDynamicSchemaName`) and is reused by schema-ddl plus touched metahub/publication runtime paths.
+-   **Managed owner validation**: managed schema owner ids must now be canonical UUID or 32-character lowercase hex only; malformed values are rejected instead of being normalized by stripping characters.
+-   **Kernel-only platform history**: disabled catalog mode uses `PlatformMigrationKernelCatalog` so `upl_migrations.migration_runs` remains available for platform prelude/post-schema history without bootstrapping the definition registry stack.
+-   **Runtime mirror contract**: `mirrorToGlobalCatalog(...)` can now return `null` when the flag is disabled; runtime metadata builders must tolerate missing `globalRunId` in that mode.
+-   **Fixed baseline recording**: `SchemaGenerator.generateFullSchema(...)` now accepts an explicit `migrationName`, which `systemAppSchemaCompiler` uses to record deterministic fixed-system baseline rows and backfill missing `_app_migrations` baselines on repeated startup.
 -   **Safety**: `knex.raw` calls should use parameterized queries by default, but PostgreSQL `SET LOCAL statement_timeout` is the explicit exception here and must go through `buildSetLocalStatementTimeoutSql()` from `@universo/utils/database`.
+-   **Runtime sync ownership seam**: `@universo/applications-backend` owns application runtime sync/diff routes and the adapter that builds application sync context; `@universo/metahubs-backend` exposes only `loadPublishedPublicationRuntimeSource(...)`, and `@universo/core-backend` injects that source into the applications-owned adapter.
+-   **Applications fixed-schema bootstrap**: the active applications system-app manifest now bootstraps only the canonical `CreateApplicationsSchema1800000000000` migration; fresh databases do not rely on a legacy table-rename reconciliation step.
+-   **Central install metadata seam**: application release/install state now extends `applications.cat_applications` with `installed_release_metadata` instead of introducing a parallel release metadata store.
+-   **Application release bundle API**: `@universo/applications-backend` now exposes publication-backed release-bundle export and bundle-apply routes that reuse the existing schema sync engine and persist release state through the same central sync-state contract.
+-   **Canonical bundle snapshot hash**: `application_release_bundle` now recomputes a canonical embedded snapshot hash per `sourceKind` (`publication` normalized snapshot contract, `application` runtime checksum contract) and rejects any bundle whose manifest hash does not match the embedded snapshot state.
+-   **Manifest validation parity**: fixed-system-app string validation rules must stay within the backing `VARCHAR(N)` contract; shared migrations-platform regressions now enforce that rule across registered definitions.
+-   **Architecture docs location**: the converged fixed-system-app model is now documented in `docs/en/architecture/system-app-convergence.md` and `docs/ru/architecture/system-app-convergence.md` in addition to memory-bank planning files.
+-   **Repeated-start optimization**: `@universo/migrations-platform` now avoids replaying unchanged fixed metadata synchronization and unchanged catalog registry sync on clean startup by using a live metadata fingerprint check plus a bulk registry/export preflight that also requires published lifecycle provenance on the active revision.
+-   **Doctor export health**: `@universo/migrations-platform` doctor checks now treat any export row on the active published revision as healthy; explicit export-target matching remains an operational sync/export concern, not a doctor constraint.
+-   **Bundle export lifecycle parity**: bundle-style catalog exports now also persist definition export rows for the active published revisions they contain.
+-   **Bootstrap phase discipline**: platform migrations that depend on generated fixed tables now live in `post_schema_generation`; the latest verified examples are `OptimizeRlsPolicies1800000000200` and metahubs builtin-template seeding.
+-   **Definition lifecycle execution**: `@universo/migrations-catalog` now routes active `importDefinitions()` calls through draft/review/publish helpers and keeps lifecycle provenance merged on unchanged revisions, so file/bundle imports and platform sync share the same approval-oriented lifecycle contract.
+-   **Definition drift detection**: platform/catalog no-op detection now compares stable artifact payload signatures, not only SQL checksum parity, so dependency-only changes re-run the canonical import/export path.
 
 #### 4. UPDL Nodes & Multi-Technology Export
 
@@ -173,6 +192,11 @@ if (!userId) return
 **Primary Tool**: tsdown v0.15.7 (Rolldown + Oxc), 100% coverage (15 custom packages).  
 **Output**: Dual-format (ESM + CJS), TypeScript declarations (.d.ts/.d.mts), tree-shaking, ~50% faster than tsc.  
 **Pattern**: Single `tsdown.config.ts`, platform neutral/node, manual package.json exports control.
+
+### Browser env entrypoint note
+
+- `@universo/utils` now emits a dedicated browser env sub-entry (`dist/env/index.browser.*`) and maps the browser export for `./env` to that entry.
+- Current root build is green, but rolldown emits a non-failing warning that `import.meta` is empty in the CJS output of that browser-only env entry; the intended browser/Vite consumption path is the ESM/browser export.
 
 ## UPDL Core System (v0.21.0-alpha)
 

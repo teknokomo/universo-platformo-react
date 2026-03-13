@@ -38,7 +38,7 @@ export type LocalizedContentSchemaVersion = '1'
  * Locale code type (dynamic, validated at runtime via API)
  * Format: 2-letter ISO 639-1 code, optionally with region (e.g., 'en', 'ru', 'en-US')
  *
- * Note: Available locales are now managed dynamically in admin.locales table.
+ * Note: Available locales are now managed dynamically in admin.cfg_locales table.
  * Use the public API /api/v1/locales/content to get available locales.
  */
 export type LocaleCode = string

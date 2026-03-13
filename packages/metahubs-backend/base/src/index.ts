@@ -1,4 +1,4 @@
-// Template seeder (call at startup after shared Knex initialization)
+// Template seeder and platform bootstrap helpers
 export { seedTemplates } from './domains/templates/services/TemplateSeeder'
 
 // Route exports
@@ -13,13 +13,20 @@ export { createElementsRoutes } from './domains/elements/routes/elementsRoutes'
 export { createPublicMetahubsRoutes } from './domains/metahubs/routes/publicMetahubsRoutes'
 export { createMetahubMigrationsRoutes } from './domains/metahubs/routes/metahubMigrationsRoutes'
 export { createApplicationMigrationsRoutes } from './domains/applications/routes/applicationMigrationsRoutes'
+export { loadPublishedPublicationRuntimeSource } from './domains/publications/services/loadPublishedPublicationRuntimeSource'
 export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './domains/router'
 
 // Guard exports
 export { ensureMetahubAccess, ensureHubAccess, assertNotOwner } from './domains/shared/guards'
 
 // Platform migration exports
-export { createMetahubsSchemaMigrationDefinition, addTemplateDefinitionTypeMigrationDefinition } from './platform/migrations'
+export {
+    createMetahubsSchemaMigrationDefinition,
+    finalizeMetahubsSchemaSupportMigrationDefinition,
+    prepareMetahubsSchemaSupportMigrationDefinition,
+    seedBuiltinTemplatesMigration
+} from './platform/migrations'
+export { metahubsSystemAppDefinition } from './platform/systemAppDefinition'
 
 // DDL exports (runtime schema management)
 // Re-export from @universo/schema-ddl for convenience

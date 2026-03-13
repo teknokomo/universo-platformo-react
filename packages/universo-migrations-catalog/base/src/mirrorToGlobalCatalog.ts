@@ -10,9 +10,13 @@ import { recordAppliedMigrationRun } from './PlatformMigrationCatalog'
  * catalog `meta` field so every recorded run can be traced back to its
  * per-schema history table.
  *
- * @returns The global catalog run ID (UUID v7).
+ * @returns The global catalog run ID (UUID v7), or null when the catalog is disabled.
  */
-export async function mirrorToGlobalCatalog(input: MirrorToGlobalCatalogInput): Promise<string> {
+export async function mirrorToGlobalCatalog(input: MirrorToGlobalCatalogInput): Promise<string | null> {
+    if (input.globalCatalogEnabled === false) {
+        return null
+    }
+
     return recordAppliedMigrationRun({
         knex: input.knex,
         scopeKind: input.scopeKind,

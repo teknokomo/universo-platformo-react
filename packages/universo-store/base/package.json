@@ -32,7 +32,7 @@
     "react-redux": "^9.1.0"
   },
   "devDependencies": {
-    "tsdown": "^0.15.7",
-    "typescript": "^5.8.3"
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
   }
 }

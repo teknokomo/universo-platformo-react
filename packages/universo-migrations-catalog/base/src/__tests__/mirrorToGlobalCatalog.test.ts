@@ -30,6 +30,22 @@ describe('mirrorToGlobalCatalog', () => {
         expect(mockRecordAppliedMigrationRun).toHaveBeenCalledTimes(1)
     })
 
+    it('returns null and skips catalog writes when the global catalog is disabled', async () => {
+        const runId = await mirrorToGlobalCatalog({
+            knex: mockKnex,
+            scopeKind: 'metahub_sync',
+            scopeKey: 'mhb_abc',
+            sourceKind: 'system_sync',
+            migrationName: 'MetahubStructure_v2',
+            migrationVersion: '2',
+            localHistoryTable: '_mhb_migrations',
+            globalCatalogEnabled: false
+        })
+
+        expect(runId).toBeNull()
+        expect(mockRecordAppliedMigrationRun).not.toHaveBeenCalled()
+    })
+
     it('merges localHistoryTable into meta', async () => {
         await mirrorToGlobalCatalog({
             knex: mockKnex,

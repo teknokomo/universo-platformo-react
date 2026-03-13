@@ -19,8 +19,8 @@ export interface Instance {
     url?: string
     status: InstanceStatus
     is_local: boolean
-    created_at: string
-    updated_at: string
+    _upl_created_at: string
+    _upl_updated_at: string
 }
 
 /**

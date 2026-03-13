@@ -17,10 +17,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
-import {
-    ensureApplicationAccess,
-    type ApplicationRole
-} from '@universo/applications-backend'
+import { ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
 import { ApplicationSchemaStatus, type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import {

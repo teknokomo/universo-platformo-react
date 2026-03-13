@@ -166,5 +166,26 @@ export const catalogBootstrapMigrations: PlatformMigrationFile[] = [
                 )
             `)
         }
+    },
+    {
+        id: 'CatalogBootstrap0007DefinitionExportUniqueIndexes',
+        version: '0007',
+        scope: catalogScope,
+        sourceKind: 'file',
+        transactionMode: 'single',
+        lockMode: 'transaction_advisory',
+        summary: 'Bootstrap unique indexes for race-safe definition export dedupe',
+        async up(ctx) {
+            await ctx.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_definition_exports_registry_revision_target
+                ON upl_migrations.definition_exports(registry_id, revision_id, export_target)
+                WHERE revision_id IS NOT NULL
+            `)
+            await ctx.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_definition_exports_registry_target_null_revision
+                ON upl_migrations.definition_exports(registry_id, export_target)
+                WHERE revision_id IS NULL
+            `)
+        }
     }
 ]

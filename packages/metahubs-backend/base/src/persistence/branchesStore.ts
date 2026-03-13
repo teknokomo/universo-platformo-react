@@ -1,6 +1,6 @@
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { SqlQueryable, MetahubBranchRow } from './types'
-import { uplFieldAliases, mhbFieldAliases } from './types'
+import { uplFieldAliases, appFieldAliases } from './types'
 import { activeMetahubRowCondition } from './metahubsQueryHelpers'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -23,7 +23,7 @@ const BRANCH_SELECT = (alias: string) =>
     ${alias}.last_template_version_label AS "lastTemplateVersionLabel",
     ${alias}.last_template_synced_at AS "lastTemplateSyncedAt",
     ${uplFieldAliases(alias)},
-    ${mhbFieldAliases(alias)}
+    ${appFieldAliases(alias)}
 `.trim()
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -33,7 +33,7 @@ const BRANCH_SELECT = (alias: string) =>
 export async function findBranchById(exec: SqlQueryable, id: string): Promise<MetahubBranchRow | null> {
     const rows = await exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
          WHERE b.id = $1
            AND ${activeMetahubRowCondition('b')}
          LIMIT 1`,
@@ -45,7 +45,7 @@ export async function findBranchById(exec: SqlQueryable, id: string): Promise<Me
 export async function findBranchByIdNotDeleted(exec: SqlQueryable, id: string): Promise<MetahubBranchRow | null> {
     const rows = await exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
          WHERE b.id = $1
                      AND ${activeMetahubRowCondition('b')}
          LIMIT 1`,
@@ -57,7 +57,7 @@ export async function findBranchByIdNotDeleted(exec: SqlQueryable, id: string): 
 export async function findBranchByCodename(exec: SqlQueryable, metahubId: string, codename: string): Promise<MetahubBranchRow | null> {
     const rows = await exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
          WHERE b.metahub_id = $1
            AND b.codename = $2
                      AND ${activeMetahubRowCondition('b')}
@@ -70,7 +70,7 @@ export async function findBranchByCodename(exec: SqlQueryable, metahubId: string
 export async function findBranchBySchemaName(exec: SqlQueryable, schemaName: string): Promise<MetahubBranchRow | null> {
     const rows = await exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
          WHERE b.schema_name = $1
                      AND ${activeMetahubRowCondition('b')}
          LIMIT 1`,
@@ -122,8 +122,8 @@ export async function listBranches(
             ${BRANCH_SELECT('b')},
             (b.id = m.default_branch_id) AS "isDefault",
             COUNT(*) OVER() AS "windowTotal"
-         FROM metahubs.metahubs_branches b
-            JOIN metahubs.metahubs m ON m.id = b.metahub_id AND ${activeMetahubRowCondition('m')}
+         FROM metahubs.cat_metahub_branches b
+            JOIN metahubs.cat_metahubs m ON m.id = b.metahub_id AND ${activeMetahubRowCondition('m')}
          WHERE ${conditions.join(' AND ')}
          ORDER BY ${orderCol} ${orderDir}
          LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
@@ -138,7 +138,7 @@ export async function listBranches(
 export async function listAllBranches(exec: SqlQueryable, metahubId: string): Promise<MetahubBranchRow[]> {
     return exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
          WHERE b.metahub_id = $1
                      AND ${activeMetahubRowCondition('b')}
          ORDER BY b.branch_number ASC`,
@@ -168,7 +168,7 @@ export interface CreateBranchInput {
 
 export async function createBranch(exec: SqlQueryable, input: CreateBranchInput): Promise<MetahubBranchRow> {
     const rows = await exec.query<MetahubBranchRow>(
-        `INSERT INTO metahubs.metahubs_branches (
+        `INSERT INTO metahubs.cat_metahub_branches (
             metahub_id, source_branch_id, name, description,
             codename, codename_localized, branch_number, schema_name,
             structure_version,
@@ -176,7 +176,7 @@ export async function createBranch(exec: SqlQueryable, input: CreateBranchInput)
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
-         RETURNING ${BRANCH_SELECT('metahubs.metahubs_branches')}`,
+         RETURNING ${BRANCH_SELECT('metahubs.cat_metahub_branches')}`,
         [
             input.metahubId,
             input.sourceBranchId ?? null,
@@ -248,10 +248,10 @@ export async function updateBranch(exec: SqlQueryable, id: string, input: Update
     }
 
     const rows = await exec.query<MetahubBranchRow>(
-        `UPDATE metahubs.metahubs_branches
+        `UPDATE metahubs.cat_metahub_branches
          SET ${setClauses.join(', ')}
          WHERE ${conditions.join(' AND ')}
-         RETURNING ${BRANCH_SELECT('metahubs.metahubs_branches')}`,
+         RETURNING ${BRANCH_SELECT('metahubs.cat_metahub_branches')}`,
         params
     )
     return rows[0] ?? null
@@ -260,7 +260,7 @@ export async function updateBranch(exec: SqlQueryable, id: string, input: Update
 export async function countBranches(exec: SqlQueryable, metahubId: string): Promise<number> {
     const rows = await exec.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count
-         FROM metahubs.metahubs_branches
+         FROM metahubs.cat_metahub_branches
                  WHERE metahub_id = $1
                      AND ${activeMetahubRowCondition()}`,
         [metahubId]
@@ -271,7 +271,7 @@ export async function countBranches(exec: SqlQueryable, metahubId: string): Prom
 export async function findBranchByIdAndMetahub(exec: SqlQueryable, id: string, metahubId: string): Promise<MetahubBranchRow | null> {
     const rows = await exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
                  WHERE b.id = $1 AND b.metahub_id = $2
                      AND ${activeMetahubRowCondition('b')}
          LIMIT 1`,
@@ -283,7 +283,7 @@ export async function findBranchByIdAndMetahub(exec: SqlQueryable, id: string, m
 export async function findBranchesByMetahub(exec: SqlQueryable, metahubId: string): Promise<MetahubBranchRow[]> {
     return exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
          WHERE b.metahub_id = $1
            AND ${activeMetahubRowCondition('b')}
          ORDER BY b.branch_number ASC`,
@@ -294,7 +294,7 @@ export async function findBranchesByMetahub(exec: SqlQueryable, metahubId: strin
 export async function findBranchForUpdate(exec: SqlQueryable, id: string, metahubId: string): Promise<MetahubBranchRow | null> {
     const rows = await exec.query<MetahubBranchRow>(
         `SELECT ${BRANCH_SELECT('b')}
-         FROM metahubs.metahubs_branches b
+         FROM metahubs.cat_metahub_branches b
                  WHERE b.id = $1 AND b.metahub_id = $2
                      AND ${activeMetahubRowCondition('b')}
          FOR UPDATE
@@ -306,18 +306,18 @@ export async function findBranchForUpdate(exec: SqlQueryable, id: string, metahu
 
 export async function deleteBranchById(exec: SqlQueryable, id: string, metahubId: string, userId?: string | null): Promise<boolean> {
     const rows = await exec.query<{ id: string }>(
-        `UPDATE metahubs.metahubs_branches
+        `UPDATE metahubs.cat_metahub_branches
          SET _upl_deleted = true,
              _upl_deleted_at = NOW(),
              _upl_deleted_by = $3,
-                         _mhb_deleted = true,
-                         _mhb_deleted_at = NOW(),
-                         _mhb_deleted_by = $3,
+             _app_deleted = true,
+             _app_deleted_at = NOW(),
+             _app_deleted_by = $3,
              _upl_updated_at = NOW(),
              _upl_version = _upl_version + 1
          WHERE id = $1 AND metahub_id = $2
            AND _upl_deleted = false
-                     AND _mhb_deleted = false
+           AND _app_deleted = false
          RETURNING id`,
         [id, metahubId, userId ?? null]
     )
@@ -327,7 +327,7 @@ export async function deleteBranchById(exec: SqlQueryable, id: string, metahubId
 export async function getMaxBranchNumber(exec: SqlQueryable, metahubId: string): Promise<number> {
     const rows = await exec.query<{ max: string | null }>(
         `SELECT COALESCE(MAX(branch_number), 0)::text AS max
-         FROM metahubs.metahubs_branches
+         FROM metahubs.cat_metahub_branches
          WHERE metahub_id = $1`,
         [metahubId]
     )
@@ -343,7 +343,7 @@ export async function countMembersOnBranch(
     if (excludeUserId) {
         const rows = await exec.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count
-             FROM metahubs.metahubs_users
+             FROM metahubs.rel_metahub_users
                          WHERE metahub_id = $1 AND active_branch_id = $2 AND user_id <> $3
                              AND ${activeMetahubRowCondition()}`,
             [metahubId, branchId, excludeUserId]
@@ -352,7 +352,7 @@ export async function countMembersOnBranch(
     }
     const rows = await exec.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count
-         FROM metahubs.metahubs_users
+         FROM metahubs.rel_metahub_users
                  WHERE metahub_id = $1 AND active_branch_id = $2
                      AND ${activeMetahubRowCondition()}`,
         [metahubId, branchId]
@@ -362,7 +362,7 @@ export async function countMembersOnBranch(
 
 export async function clearMemberActiveBranch(exec: SqlQueryable, metahubId: string, userId: string, branchId: string): Promise<void> {
     await exec.query(
-        `UPDATE metahubs.metahubs_users
+        `UPDATE metahubs.rel_metahub_users
          SET active_branch_id = NULL, _upl_updated_at = NOW()
          WHERE metahub_id = $1 AND user_id = $2 AND active_branch_id = $3
            AND ${activeMetahubRowCondition()}`,

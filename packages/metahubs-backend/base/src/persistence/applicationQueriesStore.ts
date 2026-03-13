@@ -7,6 +7,7 @@
  * Connector, and ConnectorPublication records.
  */
 import type { VersionedLocalizedContent, ApplicationSchemaStatus } from '@universo/types'
+import { activeAppRowCondition } from '@universo/utils'
 import type { SqlQueryable } from './types'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +98,7 @@ const CONNECTOR_PUB_SELECT = `
 
 export async function findApplicationById(exec: SqlQueryable, id: string): Promise<AppRow | null> {
     const rows = await exec.query<AppRow>(
-        `SELECT ${APP_SELECT} FROM applications.applications WHERE id = $1 LIMIT 1`,
+        `SELECT ${APP_SELECT} FROM applications.cat_applications WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
         [id]
     )
     return rows[0] ?? null
@@ -135,7 +136,8 @@ export async function updateApplicationFields(
     if (fields.schemaSyncedAt !== undefined) push('schema_synced_at', fields.schemaSyncedAt)
     if (fields.schemaSnapshot !== undefined) push('schema_snapshot', fields.schemaSnapshot ? JSON.stringify(fields.schemaSnapshot) : null)
     if (fields.appStructureVersion !== undefined) push('app_structure_version', fields.appStructureVersion)
-    if (fields.lastSyncedPublicationVersionId !== undefined) push('last_synced_publication_version_id', fields.lastSyncedPublicationVersionId)
+    if (fields.lastSyncedPublicationVersionId !== undefined)
+        push('last_synced_publication_version_id', fields.lastSyncedPublicationVersionId)
     if (fields.userId !== undefined) push('_upl_updated_by', fields.userId)
 
     if (setClauses.length === 0) return findApplicationById(exec, id)
@@ -146,9 +148,9 @@ export async function updateApplicationFields(
     params.push(id)
 
     const rows = await exec.query<AppRow>(
-        `UPDATE applications.applications
+        `UPDATE applications.cat_applications
          SET ${setClauses.join(', ')}
-         WHERE id = $${params.length}
+         WHERE id = $${params.length} AND ${activeAppRowCondition()}
          RETURNING ${APP_SELECT}`,
         params
     )
@@ -164,7 +166,7 @@ export async function createApplication(
     }
 ): Promise<AppRow> {
     const rows = await exec.query<AppRow>(
-        `INSERT INTO applications.applications (name, description, _upl_created_by, _upl_updated_by)
+        `INSERT INTO applications.cat_applications (name, description, _upl_created_by, _upl_updated_by)
          VALUES ($1, $2, $3, $3)
          RETURNING ${APP_SELECT}`,
         [JSON.stringify(input.name), input.description ? JSON.stringify(input.description) : null, input.userId]
@@ -176,14 +178,10 @@ export async function createApplication(
 // ApplicationUser queries
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function findApplicationUser(
-    exec: SqlQueryable,
-    applicationId: string,
-    userId: string
-): Promise<AppUserRow | null> {
+export async function findApplicationUser(exec: SqlQueryable, applicationId: string, userId: string): Promise<AppUserRow | null> {
     const rows = await exec.query<AppUserRow>(
-        `SELECT ${APP_USER_SELECT} FROM applications.applications_users
-         WHERE application_id = $1 AND user_id = $2
+        `SELECT ${APP_USER_SELECT} FROM applications.rel_application_users
+         WHERE application_id = $1 AND user_id = $2 AND ${activeAppRowCondition()}
          LIMIT 1`,
         [applicationId, userId]
     )
@@ -195,7 +193,7 @@ export async function createApplicationUser(
     input: { applicationId: string; userId: string; role: string }
 ): Promise<AppUserRow> {
     const rows = await exec.query<AppUserRow>(
-        `INSERT INTO applications.applications_users (application_id, user_id, role, _upl_created_by, _upl_updated_by)
+        `INSERT INTO applications.rel_application_users (application_id, user_id, role, _upl_created_by, _upl_updated_by)
          VALUES ($1, $2, $3, $2, $2)
          RETURNING ${APP_USER_SELECT}`,
         [input.applicationId, input.userId, input.role]
@@ -207,24 +205,18 @@ export async function createApplicationUser(
 // Connector queries
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function findConnectorsByApplicationId(
-    exec: SqlQueryable,
-    applicationId: string
-): Promise<ConnectorRow[]> {
+export async function findConnectorsByApplicationId(exec: SqlQueryable, applicationId: string): Promise<ConnectorRow[]> {
     return exec.query<ConnectorRow>(
-        `SELECT ${CONNECTOR_SELECT} FROM applications.connectors
-         WHERE application_id = $1`,
+        `SELECT ${CONNECTOR_SELECT} FROM applications.cat_connectors
+         WHERE application_id = $1 AND ${activeAppRowCondition()}`,
         [applicationId]
     )
 }
 
-export async function findFirstConnectorByApplicationId(
-    exec: SqlQueryable,
-    applicationId: string
-): Promise<ConnectorRow | null> {
+export async function findFirstConnectorByApplicationId(exec: SqlQueryable, applicationId: string): Promise<ConnectorRow | null> {
     const rows = await exec.query<ConnectorRow>(
-        `SELECT ${CONNECTOR_SELECT} FROM applications.connectors
-         WHERE application_id = $1
+        `SELECT ${CONNECTOR_SELECT} FROM applications.cat_connectors
+         WHERE application_id = $1 AND ${activeAppRowCondition()}
          LIMIT 1`,
         [applicationId]
     )
@@ -242,7 +234,7 @@ export async function createConnector(
     }
 ): Promise<ConnectorRow> {
     const rows = await exec.query<ConnectorRow>(
-        `INSERT INTO applications.connectors (application_id, name, description, sort_order, _upl_created_by, _upl_updated_by)
+        `INSERT INTO applications.cat_connectors (application_id, name, description, sort_order, _upl_created_by, _upl_updated_by)
          VALUES ($1, $2, $3, $4, $5, $5)
          RETURNING ${CONNECTOR_SELECT}`,
         [
@@ -260,24 +252,18 @@ export async function createConnector(
 // ConnectorPublication queries
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function findConnectorPublications(
-    exec: SqlQueryable,
-    connectorId: string
-): Promise<ConnectorPublicationRow[]> {
+export async function findConnectorPublications(exec: SqlQueryable, connectorId: string): Promise<ConnectorPublicationRow[]> {
     return exec.query<ConnectorPublicationRow>(
-        `SELECT ${CONNECTOR_PUB_SELECT} FROM applications.connectors_publications
-         WHERE connector_id = $1`,
+        `SELECT ${CONNECTOR_PUB_SELECT} FROM applications.rel_connector_publications
+         WHERE connector_id = $1 AND ${activeAppRowCondition()}`,
         [connectorId]
     )
 }
 
-export async function findFirstConnectorPublication(
-    exec: SqlQueryable,
-    connectorId: string
-): Promise<ConnectorPublicationRow | null> {
+export async function findFirstConnectorPublication(exec: SqlQueryable, connectorId: string): Promise<ConnectorPublicationRow | null> {
     const rows = await exec.query<ConnectorPublicationRow>(
-        `SELECT ${CONNECTOR_PUB_SELECT} FROM applications.connectors_publications
-         WHERE connector_id = $1
+        `SELECT ${CONNECTOR_PUB_SELECT} FROM applications.rel_connector_publications
+         WHERE connector_id = $1 AND ${activeAppRowCondition()}
          LIMIT 1`,
         [connectorId]
     )
@@ -294,7 +280,7 @@ export async function createConnectorPublication(
     }
 ): Promise<ConnectorPublicationRow> {
     const rows = await exec.query<ConnectorPublicationRow>(
-        `INSERT INTO applications.connectors_publications (connector_id, publication_id, sort_order, _upl_created_by, _upl_updated_by)
+        `INSERT INTO applications.rel_connector_publications (connector_id, publication_id, sort_order, _upl_created_by, _upl_updated_by)
          VALUES ($1, $2, $3, $4, $4)
          RETURNING ${CONNECTOR_PUB_SELECT}`,
         [input.connectorId, input.publicationId, input.sortOrder ?? 0, input.userId]
@@ -318,16 +304,18 @@ export async function notifyLinkedAppsUpdateAvailable(
         versionFilter = ` AND (a.last_synced_publication_version_id IS NULL OR a.last_synced_publication_version_id != $${params.length})`
     }
     const rows = await exec.query<{ id: string }>(
-        `UPDATE applications.applications a
+        `UPDATE applications.cat_applications a
          SET schema_status = 'update_available',
              _upl_updated_at = NOW(),
              _upl_version = COALESCE(a._upl_version, 1) + 1
          WHERE a.id IN (
              SELECT c.application_id
-             FROM applications.connectors c
-             INNER JOIN applications.connectors_publications cp ON cp.connector_id = c.id
+             FROM applications.cat_connectors c
+             INNER JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
              WHERE cp.publication_id = $1
+               AND ${activeAppRowCondition('c')} AND ${activeAppRowCondition('cp')}
          )
+         AND ${activeAppRowCondition('a')}
          AND a.schema_status = 'synced'${versionFilter}
          RETURNING a.id`,
         params
@@ -339,21 +327,20 @@ export async function notifyLinkedAppsUpdateAvailable(
  * Reset UPDATE_AVAILABLE status to SYNCED for all applications linked to a publication.
  * Used when a publication is being deleted.
  */
-export async function resetLinkedAppsToSynced(
-    exec: SqlQueryable,
-    publicationId: string
-): Promise<void> {
+export async function resetLinkedAppsToSynced(exec: SqlQueryable, publicationId: string): Promise<void> {
     await exec.query(
-        `UPDATE applications.applications a
+        `UPDATE applications.cat_applications a
          SET schema_status = 'synced',
              _upl_updated_at = NOW(),
              _upl_version = COALESCE(a._upl_version, 1) + 1
          WHERE a.id IN (
              SELECT c.application_id
-             FROM applications.connectors c
-             INNER JOIN applications.connectors_publications cp ON cp.connector_id = c.id
+             FROM applications.cat_connectors c
+             INNER JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
              WHERE cp.publication_id = $1
+               AND ${activeAppRowCondition('c')} AND ${activeAppRowCondition('cp')}
          )
+         AND ${activeAppRowCondition('a')}
          AND a.schema_status = 'update_available'`,
         [publicationId]
     )

@@ -1,6 +1,6 @@
 import { MetaEntityKind } from '@universo/types'
-import type { EntityDefinition, SchemaSnapshot } from './types'
-import { generateColumnName, generateTableName, generateChildTableName } from './naming'
+import type { EntityDefinition, RuntimeEntityKind, SchemaSnapshot } from './types'
+import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
 
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
@@ -28,7 +28,7 @@ export enum ChangeType {
 export interface SchemaChange {
     type: ChangeType
     entityId?: string
-    entityKind?: MetaEntityKind
+    entityKind?: RuntimeEntityKind
     entityCodename?: string
     tableName?: string
     fieldId?: string
@@ -63,7 +63,7 @@ const buildSummary = (diff: SchemaDiff): string => {
 const shouldHavePhysicalForeignKey = (field: {
     dataType?: unknown
     targetEntityId?: string | null
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: RuntimeEntityKind | null
 }): boolean => {
     if (field.dataType !== 'REF') return false
     if (!field.targetEntityId) return false
@@ -97,7 +97,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                 entityId: entity.id,
                 entityKind: entity.kind,
                 entityCodename: entity.codename,
-                tableName: generateTableName(entity.id, entity.kind),
+                tableName: resolveEntityTableName(entity),
                 isDestructive: false,
                 description: `Create table "${entity.codename}"`
             })
@@ -118,7 +118,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                 entityId: entity.id,
                 entityKind: entity.kind,
                 entityCodename: entity.codename,
-                tableName: generateTableName(entity.id, entity.kind),
+                tableName: resolveEntityTableName(entity),
                 isDestructive: false,
                 description: `Create table "${entity.codename}"`
             })
@@ -148,7 +148,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         if (!oldEntity) continue
         const newFieldIds = new Set(entity.fields.filter((f) => !f.parentAttributeId).map((field) => field.id))
         const oldFieldIds = new Set(Object.keys(oldEntity.fields))
-        const tableName = generateTableName(entity.id, entity.kind)
+        const tableName = resolveEntityTableName(entity)
 
         if (oldEntity.kind !== entity.kind) {
             diff.destructive.push({
@@ -211,7 +211,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                             tableName: tabularTableName,
                             fieldId: childField.id,
                             fieldCodename: childField.codename,
-                            columnName: generateColumnName(childField.id),
+                            columnName: resolveFieldColumnName(childField),
                             newValue: childField.targetEntityId,
                             isDestructive: false,
                             description: `Add FK on tabular field "${field.codename}.${childField.codename}"`
@@ -226,7 +226,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         tableName,
                         fieldId: field.id,
                         fieldCodename: field.codename,
-                        columnName: generateColumnName(field.id),
+                        columnName: resolveFieldColumnName(field),
                         newValue: field.dataType,
                         isDestructive: false,
                         description: `Add column "${field.codename}" (${field.dataType}) to "${entity.codename}"`
@@ -296,7 +296,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         tableName: tabularTableName,
                         fieldId: child.id,
                         fieldCodename: child.codename,
-                        columnName: generateColumnName(child.id),
+                        columnName: resolveFieldColumnName(child),
                         newValue: child.dataType,
                         isDestructive: false,
                         description: `Add column "${child.codename}" (${child.dataType}) to tabular "${field.codename}"`
@@ -311,7 +311,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                             tableName: tabularTableName,
                             fieldId: child.id,
                             fieldCodename: child.codename,
-                            columnName: generateColumnName(child.id),
+                            columnName: resolveFieldColumnName(child),
                             newValue: child.targetEntityId,
                             isDestructive: false,
                             description: `Add FK on tabular field "${field.codename}.${child.codename}"`
@@ -393,7 +393,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                             tableName: tabularTableName,
                             fieldId: child.id,
                             fieldCodename: child.codename,
-                            columnName: generateColumnName(child.id),
+                            columnName: resolveFieldColumnName(child),
                             newValue: child.targetEntityId,
                             isDestructive: false,
                             description: `Add FK on tabular field "${field.codename}.${child.codename}"`
@@ -508,7 +508,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         entityCodename: entity.codename,
                         tableName,
                         fieldId: field.id,
-                        columnName: generateColumnName(field.id),
+                        columnName: resolveFieldColumnName(field),
                         newValue: field.targetEntityId,
                         isDestructive: false,
                         description: `Add FK on "${field.codename}"`
@@ -541,7 +541,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         entityCodename: entity.codename,
                         tableName,
                         fieldId: field.id,
-                        columnName: generateColumnName(field.id),
+                        columnName: resolveFieldColumnName(field),
                         oldValue: oldField.targetEntityKind ?? null,
                         newValue: field.targetEntityKind,
                         isDestructive: false,

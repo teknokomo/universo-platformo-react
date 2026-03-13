@@ -7,6 +7,7 @@ import { SYSTEM_TABLE_VERSIONS, buildColumnOnTable, buildIndexSQL, buildSystemSt
 import { buildStructureMigrationMeta } from './metahubMigrationMeta'
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
 import { hasRuntimeHistoryTable } from '@universo/migrations-core'
+import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
 
 /**
  * Result of a system table migration.
@@ -358,6 +359,7 @@ export class SystemTableMigrator {
         const snapshotAfter = buildSystemStructureSnapshot(toVersion)
         const globalRunId = await mirrorToGlobalCatalog({
             knex: trx,
+            globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
             scopeKind: 'runtime_schema',
             scopeKey: this.schemaName,
             sourceKind: 'system_sync',
@@ -389,7 +391,7 @@ export class SystemTableMigrator {
             skippedDestructive,
             snapshotBefore,
             snapshotAfter,
-            globalRunId
+            globalRunId: globalRunId ?? undefined
         })
         await trx.withSchema(this.schemaName).into('_mhb_migrations').insert({
             name,

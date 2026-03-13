@@ -1,8 +1,9 @@
 import type { Knex } from 'knex'
+import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import { AttributeDataType, MetaEntityKind, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildSchemaSnapshot } from './snapshot'
-import { buildFkConstraintName, generateColumnName, generateTableName, generateChildTableName, isValidSchemaName } from './naming'
+import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName, generateChildTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
@@ -19,6 +20,8 @@ const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEnti
 export interface GenerateFullSchemaOptions {
     /** Record initial migration in _app_migrations table */
     recordMigration?: boolean
+    /** Exact migration name to persist when recordMigration is enabled */
+    migrationName?: string
     /** Description for migration name generation */
     migrationDescription?: string
     /** MigrationManager instance for recording migrations (required if recordMigration is true) */
@@ -29,6 +32,8 @@ export interface GenerateFullSchemaOptions {
     publicationSnapshot?: Record<string, unknown> | null
     /** User ID for audit fields */
     userId?: string | null
+    /** Optional capability gates for application-like system tables */
+    systemTableCapabilities?: SystemTableCapabilityOptions
     /** Optional hook executed inside the schema transaction after migration history is recorded */
     afterMigrationRecorded?: (context: {
         trx: Knex.Transaction
@@ -39,6 +44,28 @@ export interface GenerateFullSchemaOptions {
         migrationName: string
         migrationId: string
     }) => Promise<void>
+}
+
+interface NormalizedSystemTableCapabilityOptions {
+    includeAttributes: boolean
+    includeValues: boolean
+    includeLayouts: boolean
+    includeWidgets: boolean
+}
+
+const normalizeSystemTableCapabilities = (options?: SystemTableCapabilityOptions): NormalizedSystemTableCapabilityOptions => {
+    const normalized: NormalizedSystemTableCapabilityOptions = {
+        includeAttributes: options?.includeAttributes ?? true,
+        includeValues: options?.includeValues ?? true,
+        includeLayouts: options?.includeLayouts ?? true,
+        includeWidgets: options?.includeWidgets ?? true
+    }
+
+    if (normalized.includeWidgets && !normalized.includeLayouts) {
+        throw new Error('System table capabilities cannot enable _app_widgets without _app_layouts')
+    }
+
+    return normalized
 }
 
 /**
@@ -67,6 +94,35 @@ export class SchemaGenerator {
         }
         const info = getPhysicalDataType(dataType, config)
         return formatPhysicalType(info)
+    }
+
+    private static resolveFieldPhysicalType(field: FieldDefinition): string {
+        if (typeof field.physicalDataType === 'string' && field.physicalDataType.trim().length > 0) {
+            return field.physicalDataType.trim()
+        }
+
+        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<AttributeValidationRules> | undefined)
+    }
+
+    private static applyFieldColumn(table: Knex.CreateTableBuilder, knex: Knex | Knex.Transaction, field: FieldDefinition): void {
+        const columnName = resolveFieldColumnName(field)
+        const pgType = SchemaGenerator.resolveFieldPhysicalType(field)
+        const column = table.specificType(columnName, pgType)
+
+        if (field.isRequired) {
+            column.notNullable()
+        } else {
+            column.nullable()
+        }
+
+        if (typeof field.defaultSqlExpression === 'string' && field.defaultSqlExpression.trim().length > 0) {
+            column.defaultTo(knex.raw(field.defaultSqlExpression))
+            return
+        }
+
+        if (!field.isRequired && field.dataType === AttributeDataType.BOOLEAN) {
+            column.defaultTo(false)
+        }
     }
 
     public async createSchema(schemaName: string, trx?: Knex.Transaction): Promise<void> {
@@ -120,14 +176,14 @@ export class SchemaGenerator {
                     const tableFields = entity.fields.filter((f) => f.dataType === AttributeDataType.TABLE && !f.parentAttributeId)
                     for (const tableField of tableFields) {
                         const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
-                        const parentTableName = generateTableName(entity.id, entity.kind)
+                        const parentTableName = resolveEntityTableName(entity)
                         await this.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
                         result.tablesCreated.push(`${entity.codename}__tbl__${tableField.codename}`)
                     }
                 }
 
                 // Ensure system tables before adding REF FKs that may target _app_values.
-                await this.ensureSystemTables(schemaName, trx)
+                await this.ensureSystemTables(schemaName, trx, options?.systemTableCapabilities)
 
                 for (const entity of entities) {
                     const rootRefFields = entity.fields.filter(
@@ -151,13 +207,17 @@ export class SchemaGenerator {
                             continue
                         }
 
-                        const parentTableName = generateTableName(entity.id, entity.kind)
+                        const parentTableName = resolveEntityTableName(entity)
                         const tabularTableName = generateChildTableName(tableParentField.id)
                         await this.addForeignKeyToTable(schemaName, tabularTableName, childRefField, entities, trx)
                     }
                 }
 
-                await this.syncSystemMetadata(schemaName, entities, { trx, userId: options?.userId })
+                await this.syncSystemMetadata(schemaName, entities, {
+                    trx,
+                    userId: options?.userId,
+                    systemTableCapabilities: options?.systemTableCapabilities
+                })
 
                 // Record initial migration if requested
                 if (options?.recordMigration) {
@@ -167,7 +227,7 @@ export class SchemaGenerator {
                     const migrationManager = options.migrationManager
                     const snapshot = this.generateSnapshot(entities)
                     const description = options.migrationDescription || 'initial_schema'
-                    const migrationName = generateMigrationName(description)
+                    const migrationName = options.migrationName || generateMigrationName(description)
 
                     // Initial migration: snapshotBefore is null, snapshotAfter is current state
                     const initialDiff: SchemaDiff = {
@@ -216,7 +276,7 @@ export class SchemaGenerator {
             return
         }
 
-        const tableName = generateTableName(entity.id, entity.kind)
+        const tableName = resolveEntityTableName(entity)
         console.log(`[SchemaGenerator] Creating table: ${schemaName}.${tableName} (entity: ${entity.codename})`)
 
         const knex = trx ?? this.knex
@@ -230,20 +290,7 @@ export class SchemaGenerator {
                 // Child fields belong to tabular tables, not the parent entity table
                 if (field.parentAttributeId) continue
 
-                const columnName = generateColumnName(field.id)
-                const pgType = SchemaGenerator.mapDataType(
-                    field.dataType,
-                    field.validationRules as Partial<AttributeValidationRules> | undefined
-                )
-                if (field.isRequired) {
-                    table.specificType(columnName, pgType).notNullable()
-                } else {
-                    const col = table.specificType(columnName, pgType).nullable()
-                    // BOOLEAN columns default to false to prevent NULL → indeterminate checkbox state
-                    if (field.dataType === AttributeDataType.BOOLEAN) {
-                        col.defaultTo(false)
-                    }
-                }
+                SchemaGenerator.applyFieldColumn(table, knex, field)
             }
 
             // ═══════════════════════════════════════════════════════════════════════
@@ -334,19 +381,7 @@ export class SchemaGenerator {
 
             // Child attribute columns
             for (const child of childFields) {
-                const columnName = generateColumnName(child.id)
-                const pgType = SchemaGenerator.mapDataType(
-                    child.dataType,
-                    child.validationRules as Partial<AttributeValidationRules> | undefined
-                )
-                if (child.isRequired) {
-                    table.specificType(columnName, pgType).notNullable()
-                } else {
-                    const col = table.specificType(columnName, pgType).nullable()
-                    if (child.dataType === AttributeDataType.BOOLEAN) {
-                        col.defaultTo(false)
-                    }
-                }
+                SchemaGenerator.applyFieldColumn(table, knex, child)
             }
 
             // ═══════════════════════════════════════════════════════════════════════
@@ -430,7 +465,7 @@ export class SchemaGenerator {
         entities: EntityDefinition[],
         trx?: Knex.Transaction
     ): Promise<void> {
-        const sourceTableName = generateTableName(entity.id, entity.kind)
+        const sourceTableName = resolveEntityTableName(entity)
         await this.addForeignKeyToTable(schemaName, sourceTableName, field, entities, trx)
     }
 
@@ -445,7 +480,7 @@ export class SchemaGenerator {
             return
         }
 
-        const columnName = generateColumnName(field.id)
+        const columnName = resolveFieldColumnName(field)
         const constraintName = buildFkConstraintName(sourceTableName, columnName)
         const knex = trx ?? this.knex
 
@@ -478,7 +513,7 @@ export class SchemaGenerator {
             return
         }
 
-        const targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
+        const targetTableName = resolveEntityTableName(targetEntity)
 
         console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> ${targetTableName}.id`)
         await knex.raw(
@@ -500,8 +535,9 @@ export class SchemaGenerator {
         return hasObjects && hasAttributes
     }
 
-    public async ensureSystemTables(schemaName: string, trx?: Knex.Transaction): Promise<void> {
+    public async ensureSystemTables(schemaName: string, trx?: Knex.Transaction, options?: SystemTableCapabilityOptions): Promise<void> {
         const knex = trx ?? this.knex
+        const capabilities = normalizeSystemTableCapabilities(options)
 
         console.log(`[SchemaGenerator] Ensuring system tables in schema: ${schemaName}`)
 
@@ -565,10 +601,10 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_objects created`)
         }
 
-        const hasAttributes = await knex.schema.withSchema(schemaName).hasTable('_app_attributes')
-        console.log(`[SchemaGenerator] _app_attributes exists: ${hasAttributes}`)
+        const hasAttributes = capabilities.includeAttributes ? await knex.schema.withSchema(schemaName).hasTable('_app_attributes') : true
+        console.log(`[SchemaGenerator] _app_attributes enabled=${capabilities.includeAttributes} exists: ${hasAttributes}`)
 
-        if (!hasAttributes) {
+        if (capabilities.includeAttributes && !hasAttributes) {
             console.log(`[SchemaGenerator] Creating _app_attributes...`)
             await knex.schema.withSchema(schemaName).createTable('_app_attributes', (table) => {
                 table.uuid('id').primary()
@@ -710,10 +746,10 @@ export class SchemaGenerator {
         const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
         console.log(`[SchemaGenerator] _app_settings exists: ${hasSettings}`)
 
-        const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
-        console.log(`[SchemaGenerator] _app_layouts exists: ${hasLayouts}`)
+        const hasLayouts = capabilities.includeLayouts ? await knex.schema.withSchema(schemaName).hasTable('_app_layouts') : true
+        console.log(`[SchemaGenerator] _app_layouts enabled=${capabilities.includeLayouts} exists: ${hasLayouts}`)
 
-        if (!hasLayouts) {
+        if (capabilities.includeLayouts && !hasLayouts) {
             console.log(`[SchemaGenerator] Creating _app_layouts...`)
             await knex.schema.withSchema(schemaName).createTable('_app_layouts', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
@@ -779,9 +815,9 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_layouts created`)
         }
 
-        const hasWidgets = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
-        console.log(`[SchemaGenerator] _app_widgets exists: ${hasWidgets}`)
-        if (!hasWidgets) {
+        const hasWidgets = capabilities.includeWidgets ? await knex.schema.withSchema(schemaName).hasTable('_app_widgets') : true
+        console.log(`[SchemaGenerator] _app_widgets enabled=${capabilities.includeWidgets} exists: ${hasWidgets}`)
+        if (capabilities.includeWidgets && !hasWidgets) {
             console.log(`[SchemaGenerator] Creating _app_widgets...`)
             await knex.schema.withSchema(schemaName).createTable('_app_widgets', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
@@ -824,9 +860,9 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_widgets created`)
         }
 
-        const hasEnumValues = await knex.schema.withSchema(schemaName).hasTable('_app_values')
-        console.log(`[SchemaGenerator] _app_values exists: ${hasEnumValues}`)
-        if (!hasEnumValues) {
+        const hasEnumValues = capabilities.includeValues ? await knex.schema.withSchema(schemaName).hasTable('_app_values') : true
+        console.log(`[SchemaGenerator] _app_values enabled=${capabilities.includeValues} exists: ${hasEnumValues}`)
+        if (capabilities.includeValues && !hasEnumValues) {
             console.log(`[SchemaGenerator] Creating _app_values...`)
             await knex.schema.withSchema(schemaName).createTable('_app_values', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
@@ -869,22 +905,24 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_values created`)
         }
 
-        await this.normalizeAppEnumValueDefaults(schemaName, knex)
-        await knex.raw(`
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_values_object_codename_active
-            ON "${schemaName}"._app_values (object_id, codename)
-            WHERE _upl_deleted = false AND _app_deleted = false
-        `)
-        await knex.raw(`
-            CREATE INDEX IF NOT EXISTS idx_app_values_default_active
-            ON "${schemaName}"._app_values (object_id, is_default)
-            WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
-        `)
-        await knex.raw(`
-            CREATE UNIQUE INDEX IF NOT EXISTS uidx_app_values_default_active
-            ON "${schemaName}"._app_values (object_id)
-            WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
-        `)
+        if (capabilities.includeValues) {
+            await this.normalizeAppEnumValueDefaults(schemaName, knex)
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_values_object_codename_active
+                ON "${schemaName}"._app_values (object_id, codename)
+                WHERE _upl_deleted = false AND _app_deleted = false
+            `)
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS idx_app_values_default_active
+                ON "${schemaName}"._app_values (object_id, is_default)
+                WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
+            `)
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS uidx_app_values_default_active
+                ON "${schemaName}"._app_values (object_id)
+                WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
+            `)
+        }
 
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
@@ -972,11 +1010,12 @@ export class SchemaGenerator {
             removeMissing?: boolean
             trx?: Knex.Transaction
             userId?: string | null
+            systemTableCapabilities?: SystemTableCapabilityOptions
         }
     ): Promise<void> {
         const knex = options?.trx ?? this.knex
         const userId = options?.userId ?? null
-        await this.ensureSystemTables(schemaName, options?.trx)
+        await this.ensureSystemTables(schemaName, options?.trx, options?.systemTableCapabilities)
 
         if (options?.removeMissing) {
             const entityIds = entities.map((entity) => entity.id)
@@ -1001,7 +1040,7 @@ export class SchemaGenerator {
             id: entity.id,
             kind: entity.kind,
             codename: entity.codename,
-            table_name: generateTableName(entity.id, entity.kind),
+            table_name: resolveEntityTableName(entity),
             presentation: entity.presentation,
             config: (entity as { config?: Record<string, unknown> }).config ?? {},
             _upl_created_at: knex.fn.now(),
@@ -1020,14 +1059,14 @@ export class SchemaGenerator {
         }
 
         const attributeRows = entities.flatMap((entity) => {
-            const entityTableName = generateTableName(entity.id, entity.kind)
+            const entityTableName = resolveEntityTableName(entity)
             return entity.fields.map((field) => {
                 // For TABLE fields, column_name stores the tabular table name
                 // For child fields, column_name is the physical column in the tabular table
                 const columnName =
                     field.dataType === AttributeDataType.TABLE && !field.parentAttributeId
                         ? generateChildTableName(field.id)
-                        : generateColumnName(field.id)
+                        : resolveFieldColumnName(field)
                 const baseUiConfig = ((field.uiConfig as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
                 const setTargetConstantId =
                     field.targetEntityKind === 'set' && typeof field.targetConstantId === 'string' ? field.targetConstantId : null

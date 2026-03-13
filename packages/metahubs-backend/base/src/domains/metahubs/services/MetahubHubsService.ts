@@ -16,6 +16,14 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 export class MetahubHubsService {
     constructor(private schemaService: MetahubSchemaService) {}
 
+    private quoteSchemaName(schemaName: string): string {
+        return `"${schemaName.replace(/"/g, '""')}"`
+    }
+
+    private objectsTable(schemaName: string): string {
+        return `${this.quoteSchemaName(schemaName)}."_mhb_objects"`
+    }
+
     private get knex() {
         return KnexClient.getInstance()
     }
@@ -123,7 +131,15 @@ export class MetahubHubsService {
     async findById(metahubId: string, hubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const row = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).first()
+        const [row] = await this.schemaService.query<Record<string, unknown>>(
+            `
+                SELECT *
+                FROM ${this.objectsTable(schemaName)}
+                WHERE id = $1 AND kind = 'hub'
+                LIMIT 1
+            `,
+            [hubId]
+        )
 
         return row ? this.mapHubFromObject(row) : null
     }
@@ -147,7 +163,15 @@ export class MetahubHubsService {
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const rows = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind: 'hub' }).whereIn('id', hubIds)
+        const rows = await this.schemaService.query<Record<string, unknown>>(
+            `
+                SELECT *
+                FROM ${this.objectsTable(schemaName)}
+                WHERE kind = 'hub'
+                  AND id = ANY($1::uuid[])
+            `,
+            [hubIds]
+        )
 
         return rows.map((row: Record<string, unknown>) => this.mapHubFromObject(row))
     }

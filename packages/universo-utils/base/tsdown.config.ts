@@ -6,6 +6,7 @@ export default defineConfig({
         'index.browser': './src/index.browser.ts',
         optimisticCrud: './src/optimisticCrud.ts',
         'env/index': './src/env/index.ts',
+        'env/index.browser': './src/env/index.browser.ts',
         'ui-utils': './src/ui-utils/index.js',
         'rate-limiting': './src/rate-limiting/index.ts',
         'captcha/index': './src/captcha/index.ts',

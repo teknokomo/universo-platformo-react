@@ -1,4 +1,11 @@
-import { useTranslation, UseTranslationOptions } from 'react-i18next'
+import type { KeyPrefix } from 'i18next'
+import { useTranslation, type UseTranslationOptions } from 'react-i18next'
+
+type CommonKeyPrefix = KeyPrefix<'common'>
+type HeaderKeyPrefix = KeyPrefix<'header'>
+type SpacesKeyPrefix = KeyPrefix<'spaces'>
+
+type TranslationOptions<KPrefix> = Omit<UseTranslationOptions<KPrefix>, 'keyPrefix'>
 
 /**
  * Hook for accessing common translations with keyPrefix support
@@ -15,7 +22,10 @@ import { useTranslation, UseTranslationOptions } from 'react-i18next'
  * t('role') // -> "Role"
  * t('description') // -> "Description"
  */
-export function useCommonTranslations(keyPrefix?: string, options?: Omit<UseTranslationOptions<undefined>, 'keyPrefix'>) {
+export function useCommonTranslations<KPrefix extends CommonKeyPrefix = undefined>(
+    keyPrefix?: KPrefix,
+    options?: TranslationOptions<KPrefix>
+) {
     return useTranslation('common', {
         ...options,
         keyPrefix
@@ -25,7 +35,10 @@ export function useCommonTranslations(keyPrefix?: string, options?: Omit<UseTran
 /**
  * Hook for accessing header translations
  */
-export function useHeaderTranslations(keyPrefix?: string, options?: Omit<UseTranslationOptions<undefined>, 'keyPrefix'>) {
+export function useHeaderTranslations<KPrefix extends HeaderKeyPrefix = undefined>(
+    keyPrefix?: KPrefix,
+    options?: TranslationOptions<KPrefix>
+) {
     return useTranslation('header', {
         ...options,
         keyPrefix
@@ -35,7 +48,10 @@ export function useHeaderTranslations(keyPrefix?: string, options?: Omit<UseTran
 /**
  * Hook for accessing spaces translations
  */
-export function useSpacesTranslations(keyPrefix?: string, options?: Omit<UseTranslationOptions<undefined>, 'keyPrefix'>) {
+export function useSpacesTranslations<KPrefix extends SpacesKeyPrefix = undefined>(
+    keyPrefix?: KPrefix,
+    options?: TranslationOptions<KPrefix>
+) {
     return useTranslation('spaces', {
         ...options,
         keyPrefix

@@ -1,4 +1,5 @@
 import type { DbExecutor } from '@universo/utils'
+import { activeAppRowCondition } from '@universo/utils'
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -10,15 +11,17 @@ export interface InstanceRow {
     url: string | null
     status: string
     is_local: boolean
-    created_at: string
-    updated_at: string
+    _upl_created_at: string
+    _upl_updated_at: string
 }
+
+const INSTANCE_RETURNING_COLUMNS = 'id, codename, name, description, url, status, is_local, _upl_created_at, _upl_updated_at'
 
 // ─── Queries ─────────────────────────────────────────────────────────────
 
 const SORT_WHITELIST: Record<string, string> = {
     codename: 'codename',
-    created: 'created_at',
+    created: '_upl_created_at',
     status: 'status'
 }
 
@@ -30,22 +33,24 @@ export async function listInstances(
     const conditions: string[] = []
     const params: unknown[] = []
 
+    conditions.push(activeAppRowCondition())
+
     if (search) {
         params.push(`%${search.toLowerCase()}%`)
         conditions.push(`(LOWER(codename) LIKE $${params.length} OR name::text ILIKE $${params.length})`)
     }
 
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-    const sortCol = SORT_WHITELIST[sortBy] ?? 'created_at'
+    const where = `WHERE ${conditions.join(' AND ')}`
+    const sortCol = SORT_WHITELIST[sortBy] ?? '_upl_created_at'
     const dir = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
-    const countRows = await exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.instances ${where}`, params)
+    const countRows = await exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.cfg_instances ${where}`, params)
     const total = parseInt(countRows[0]?.count ?? '0', 10)
 
     if (total === 0) return { items: [], total: 0 }
 
     const items = await exec.query<InstanceRow>(
-        `SELECT * FROM admin.instances ${where} ORDER BY ${sortCol} ${dir} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        `SELECT * FROM admin.cfg_instances ${where} ORDER BY ${sortCol} ${dir} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset]
     )
 
@@ -53,7 +58,9 @@ export async function listInstances(
 }
 
 export async function findInstanceById(exec: DbExecutor, id: string): Promise<InstanceRow | null> {
-    const rows = await exec.query<InstanceRow>(`SELECT * FROM admin.instances WHERE id = $1 LIMIT 1`, [id])
+    const rows = await exec.query<InstanceRow>(`SELECT * FROM admin.cfg_instances WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`, [
+        id
+    ])
     return rows[0] ?? null
 }
 
@@ -89,11 +96,13 @@ export async function updateInstance(
 
     if (sets.length === 0) return null
 
-    sets.push(`updated_at = NOW()`)
+    sets.push(`_upl_updated_at = NOW()`)
     params.push(id)
 
     const rows = await exec.query<InstanceRow>(
-        `UPDATE admin.instances SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+        `UPDATE admin.cfg_instances SET ${sets.join(
+            ', '
+        )} WHERE id = $${idx} AND ${activeAppRowCondition()} RETURNING ${INSTANCE_RETURNING_COLUMNS}`,
         params
     )
     return rows[0] ?? null
@@ -106,8 +115,8 @@ export async function getInstanceStats(exec: DbExecutor): Promise<{
 }> {
     const [usersResult, globalUsersResult, rolesResult] = await Promise.all([
         exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM auth.users`),
-        exec.query<{ count: string }>(`SELECT COUNT(DISTINCT user_id) AS count FROM admin.user_roles`),
-        exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.roles`)
+        exec.query<{ count: string }>(`SELECT COUNT(DISTINCT user_id) AS count FROM admin.rel_user_roles WHERE ${activeAppRowCondition()}`),
+        exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.cat_roles WHERE ${activeAppRowCondition()}`)
     ])
 
     return {

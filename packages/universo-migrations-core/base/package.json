@@ -5,11 +5,11 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "clean": "rimraf dist tsconfig.tsbuildinfo",
+        "clean": "rimraf dist tsconfig.tsbuildinfo src/*.js src/*.js.map src/*.d.ts src/*.d.ts.map",
         "build": "pnpm run clean && tsc",
         "dev": "tsc -w",
-        "lint": "eslint --ext .ts src/",
-        "test": "jest --config ./jest.config.js"
+        "lint": "eslint --ext .ts src/ --ignore-pattern '**/*.d.ts'",
+        "test": "node ../../../tools/testing/backend/run-jest.cjs --config ./jest.config.js"
     },
     "keywords": [
         "universo",
@@ -21,6 +21,7 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@universo/types": "workspace:*",
         "json-stable-stringify": "catalog:",
         "knex": "catalog:",
         "uuidv7": "catalog:"

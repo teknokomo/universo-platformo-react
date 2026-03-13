@@ -78,7 +78,6 @@ const mockHubsService = {
     findByIds: jest.fn()
 }
 
-
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
     MetahubSchemaService: jest.fn().mockImplementation(() => ({

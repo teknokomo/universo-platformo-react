@@ -27,8 +27,6 @@ import supportedLanguages from './supported-languages.json'
 // Import views
 import adminEn from './locales/en/views/admin.json'
 import adminRu from './locales/ru/views/admin.json'
-
-
 import authEn from './locales/en/views/auth.json'
 import authRu from './locales/ru/views/auth.json'
 
@@ -37,8 +35,6 @@ import canvasRu from './locales/ru/views/canvas.json'
 
 import canvasesEn from './locales/en/views/canvases.json'
 import canvasesRu from './locales/ru/views/canvases.json'
-
-
 import flowListEn from './locales/en/views/flowList.json'
 import flowListRu from './locales/ru/views/flowList.json'
 
@@ -124,6 +120,7 @@ import promptGeneratorRu from './locales/ru/features/prompt-generator.json'
 
 import speechToTextEn from './locales/en/features/speech-to-text.json'
 import speechToTextRu from './locales/ru/features/speech-to-text.json'
+import { debugI18n, isI18nDebugEnabled } from './debug'
 
 declare global {
     // eslint-disable-next-line no-var
@@ -237,7 +234,7 @@ export function getInstance(): typeof i18n {
                 defaultNS: 'common',
                 fallbackNS: ['common', 'header', 'spaces'],
                 load: 'languageOnly', // Use only 'ru' instead of 'ru-RU'
-                debug: false,
+                debug: isI18nDebugEnabled(),
                 interpolation: {
                     escapeValue: false
                 }
@@ -251,10 +248,9 @@ export function getInstance(): typeof i18n {
             instance.changeLanguage(baseLang)
         }
 
-        // Debug: log language detection
-        console.log('[i18n-instance] Initialized:', {
+        debugI18n('[i18n-instance] Initialized', {
             detectedLanguage: detectedLang,
-            baseLang: baseLang,
+            baseLang,
             currentLanguage: instance.language,
             resolvedLanguage: instance.resolvedLanguage,
             languages: instance.languages,

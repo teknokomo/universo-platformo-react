@@ -3,6 +3,10 @@
     "compilerOptions": {
         "outDir": "./dist",
         "rootDir": "./src",
+        "baseUrl": ".",
+        "paths": {
+            "@universo/migrations-core": ["../../universo-migrations-core/base/dist/index.d.ts"]
+        },
         "declaration": true,
         "declarationMap": true,
         "composite": true,

@@ -4,7 +4,7 @@ import { basicDemoTemplate } from './basic-demo.template'
 
 /**
  * Registry of all built-in template manifests.
- * Add new templates here — the seeder will process all of them at startup.
+ * Add new templates here — the platform migration seeder will process them.
  */
 export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basicDemoTemplate]
 

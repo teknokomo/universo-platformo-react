@@ -1,7 +1,8 @@
 import type { Knex } from 'knex'
+import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import { AttributeDataType, MetaEntityKind } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
-import { buildFkConstraintName, generateColumnName, generateTableName } from './naming'
+import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
 import { calculateSchemaDiff, ChangeType } from './diff'
 import type { SchemaDiff, SchemaChange } from './diff'
@@ -19,6 +20,8 @@ const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEnti
 export interface ApplyChangesOptions {
     /** Record migration in _app_migrations table */
     recordMigration?: boolean
+    /** Exact migration name to persist when recording history */
+    migrationName?: string
     /** Description for migration name generation */
     migrationDescription?: string
     /** Optional metadata to store in migration record */
@@ -27,6 +30,8 @@ export interface ApplyChangesOptions {
     publicationSnapshot?: Record<string, unknown> | null
     /** User ID for audit fields */
     userId?: string | null
+    /** Optional capability gates for application-like system tables */
+    systemTableCapabilities?: SystemTableCapabilityOptions
     /** Optional hook executed inside the migration transaction after migration history is recorded */
     afterMigrationRecorded?: (context: {
         trx: Knex.Transaction
@@ -60,6 +65,14 @@ export class SchemaMigrator {
         return calculateSchemaDiff(oldSnapshot, newEntities)
     }
 
+    private static resolveFieldPhysicalType(field: FieldDefinition): string {
+        if (typeof field.physicalDataType === 'string' && field.physicalDataType.trim().length > 0) {
+            return field.physicalDataType.trim()
+        }
+
+        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<AttributeValidationRules> | undefined)
+    }
+
     public async applyAdditiveChanges(schemaName: string, diff: SchemaDiff, entities: EntityDefinition[]): Promise<MigrationResult> {
         const result: MigrationResult = {
             success: false,
@@ -89,7 +102,8 @@ export class SchemaMigrator {
 
                 await this.generator.syncSystemMetadata(schemaName, entities, {
                     trx,
-                    removeMissing: true
+                    removeMissing: true,
+                    systemTableCapabilities: undefined
                 })
             })
 
@@ -145,7 +159,7 @@ export class SchemaMigrator {
             await this.knex.transaction(async (trx) => {
                 for (const change of this.orderChangesForApply(diff.destructive, 'destructive')) {
                     try {
-                        await this.applyChange(schemaName, change, entities, trx)
+                        await this.applyChange(schemaName, change, entities, trx, options)
                         result.changesApplied++
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error)
@@ -155,7 +169,7 @@ export class SchemaMigrator {
 
                 for (const change of this.orderChangesForApply(diff.additive, 'additive')) {
                     try {
-                        await this.applyChange(schemaName, change, entities, trx)
+                        await this.applyChange(schemaName, change, entities, trx, options)
                         result.changesApplied++
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error)
@@ -166,14 +180,15 @@ export class SchemaMigrator {
                 await this.generator.syncSystemMetadata(schemaName, entities, {
                     trx,
                     removeMissing: true,
-                    userId: options?.userId
+                    userId: options?.userId,
+                    systemTableCapabilities: options?.systemTableCapabilities
                 })
 
                 // Record migration if requested
                 if (options?.recordMigration && result.changesApplied > 0) {
                     const snapshotAfter = this.generator.generateSnapshot(entities)
                     const description = options.migrationDescription || 'schema_sync'
-                    const migrationName = generateMigrationName(description)
+                    const migrationName = options.migrationName || generateMigrationName(description)
 
                     const migrationId = await this.migrationManager.recordMigration(
                         schemaName,
@@ -237,7 +252,8 @@ export class SchemaMigrator {
         schemaName: string,
         change: SchemaChange,
         entities: EntityDefinition[],
-        trx: Knex.Transaction
+        trx: Knex.Transaction,
+        options?: ApplyChangesOptions
     ): Promise<void> {
         console.log(`[SchemaMigrator] Applying: ${change.description}`)
 
@@ -256,14 +272,15 @@ export class SchemaMigrator {
 
             case ChangeType.ADD_COLUMN: {
                 const field = this.findField(entities, change.entityId!, change.fieldId!)
-                const pgType = SchemaGenerator.mapDataType(
-                    field.dataType,
-                    field.validationRules as Partial<AttributeValidationRules> | undefined
-                )
-                const columnName = change.columnName ?? generateColumnName(field.id)
+                const pgType = SchemaMigrator.resolveFieldPhysicalType(field)
+                const columnName = change.columnName ?? resolveFieldColumnName(field)
 
                 await trx.schema.withSchema(schemaName).alterTable(change.tableName!, (table: Knex.AlterTableBuilder) => {
                     const col = table.specificType(columnName, pgType).nullable()
+                    if (typeof field.defaultSqlExpression === 'string' && field.defaultSqlExpression.trim().length > 0) {
+                        col.defaultTo(trx.raw(field.defaultSqlExpression))
+                        return
+                    }
                     // BOOLEAN columns default to false to prevent NULL → indeterminate checkbox state
                     if (field.dataType === AttributeDataType.BOOLEAN) {
                         col.defaultTo(false)
@@ -310,13 +327,13 @@ export class SchemaMigrator {
                 const targetEntityId = field.targetEntityId ?? (typeof change.newValue === 'string' ? change.newValue : null)
                 const targetEntity = targetEntityId ? entities.find((item) => item.id === targetEntityId) : null
                 const targetEntityKind = field.targetEntityKind ?? targetEntity?.kind ?? null
-                const columnName = change.columnName ?? generateColumnName(change.fieldId!)
+                const columnName = change.columnName ?? resolveFieldColumnName(field)
                 const constraintName = buildFkConstraintName(change.tableName!, columnName)
                 const onDelete = change.onDeleteAction ?? 'SET NULL'
 
                 let targetTableName: string
                 if (targetEntityKind === ENUMERATION_KIND) {
-                    await this.generator.ensureSystemTables(schemaName, trx)
+                    await this.generator.ensureSystemTables(schemaName, trx, options?.systemTableCapabilities)
                     targetTableName = '_app_values'
                 } else if (targetEntityKind === SET_KIND) {
                     // Set references are mapped to constant IDs in data rows and are resolved via ui_config metadata.
@@ -327,7 +344,7 @@ export class SchemaMigrator {
                         console.warn(`[SchemaMigrator] Target entity ${targetEntityId ?? change.newValue} not found for FK`)
                         return
                     }
-                    targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
+                    targetTableName = resolveEntityTableName(targetEntity)
                 }
 
                 await trx.raw(`ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE ${onDelete}`, [
@@ -370,7 +387,7 @@ export class SchemaMigrator {
                 const tableField = entity.fields.find((f) => f.id === change.fieldId)
                 if (!tableField) throw new Error(`TABLE field ${change.fieldId} not found`)
                 const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
-                const parentTableName = generateTableName(entity.id, entity.kind)
+                const parentTableName = resolveEntityTableName(entity)
                 await this.generator.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
                 break
             }
@@ -387,14 +404,15 @@ export class SchemaMigrator {
                 if (!entity) throw new Error(`Entity ${change.entityId} not found`)
                 const field = entity.fields.find((f) => f.id === change.fieldId)
                 if (!field) throw new Error(`Child field ${change.fieldId} not found`)
-                const pgType = SchemaGenerator.mapDataType(
-                    field.dataType,
-                    field.validationRules as Partial<AttributeValidationRules> | undefined
-                )
-                const columnName = change.columnName ?? generateColumnName(field.id)
+                const pgType = SchemaMigrator.resolveFieldPhysicalType(field)
+                const columnName = change.columnName ?? resolveFieldColumnName(field)
 
                 await trx.schema.withSchema(schemaName).alterTable(change.tableName!, (table: Knex.AlterTableBuilder) => {
                     const col = table.specificType(columnName, pgType).nullable()
+                    if (typeof field.defaultSqlExpression === 'string' && field.defaultSqlExpression.trim().length > 0) {
+                        col.defaultTo(trx.raw(field.defaultSqlExpression))
+                        return
+                    }
                     if (field.dataType === AttributeDataType.BOOLEAN) {
                         col.defaultTo(false)
                     }

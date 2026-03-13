@@ -20,6 +20,7 @@ const sanitizedBaseConfig = {
 export default mergeConfig(
   sanitizedBaseConfig,
   defineConfig({
+    root: __dirname,
     resolve: {
       alias: {
         ...tsconfigAliases,

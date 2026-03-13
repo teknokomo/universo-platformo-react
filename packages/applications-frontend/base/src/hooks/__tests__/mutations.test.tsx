@@ -376,4 +376,205 @@ describe('applications mutation hooks', () => {
         expect(partialFailureCall?.[1]).toMatchObject({ variant: 'warning' })
         expect(templateMuiMock.rollbackOptimisticSnapshots).not.toHaveBeenCalled()
     })
+
+    it('shows warning snackbar and invalidates application queries when sync requires confirmation', async () => {
+        const enqueueSnackbar = vi.fn()
+
+        vi.doMock('notistack', () => ({
+            useSnackbar: () => ({ enqueueSnackbar })
+        }))
+
+        vi.doMock('react-i18next', () => ({
+            initReactI18next: { type: '3rdParty', init: () => {} },
+            useTranslation: () => ({
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                i18n: { language: 'en' }
+            })
+        }))
+
+        vi.doMock('@universo/i18n', () => ({
+            useCommonTranslations: () => ({
+                t: (key: string) => key
+            })
+        }))
+
+        vi.doMock('@universo/template-mui', () => ({
+            applyOptimisticCreate: vi.fn(),
+            applyOptimisticUpdate: vi.fn(),
+            applyOptimisticDelete: vi.fn(),
+            rollbackOptimisticSnapshots: vi.fn(),
+            confirmOptimisticUpdate: vi.fn(),
+            confirmOptimisticCreate: vi.fn(),
+            generateOptimisticId: vi.fn(() => 'opt-1'),
+            getNextOptimisticSortOrderFromQueries: vi.fn(() => 1),
+            safeInvalidateQueries: vi.fn(),
+            safeInvalidateQueriesInactive: vi.fn(),
+            makePendingMarkers: vi.fn(() => ({}))
+        }))
+
+        const connectorsApi = {
+            syncApplication: vi.fn().mockResolvedValue({ status: 'pending_confirmation' })
+        }
+
+        vi.doMock('../../api/applications', () => ({}))
+        vi.doMock('../../api/connectors', () => connectorsApi)
+
+        const hooks = await import('../mutations')
+
+        const queryClient = createTestQueryClient()
+        const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+        let syncConnector: ReturnType<typeof hooks.useSyncConnector> | undefined
+
+        function Probe() {
+            syncConnector = hooks.useSyncConnector()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await syncConnector!.mutateAsync({ applicationId: 'app-1', confirmDestructive: false })
+        })
+
+        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-1', false)
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1'] })
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1', 'diff'] })
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1', 'connectors'] })
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Destructive changes detected. Confirm to proceed.', { variant: 'warning' })
+    })
+
+    it('shows success snackbar when connector sync completes without confirmation step', async () => {
+        const enqueueSnackbar = vi.fn()
+
+        vi.doMock('notistack', () => ({
+            useSnackbar: () => ({ enqueueSnackbar })
+        }))
+
+        vi.doMock('react-i18next', () => ({
+            initReactI18next: { type: '3rdParty', init: () => {} },
+            useTranslation: () => ({
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                i18n: { language: 'en' }
+            })
+        }))
+
+        vi.doMock('@universo/i18n', () => ({
+            useCommonTranslations: () => ({
+                t: (key: string) => key
+            })
+        }))
+
+        vi.doMock('@universo/template-mui', () => ({
+            applyOptimisticCreate: vi.fn(),
+            applyOptimisticUpdate: vi.fn(),
+            applyOptimisticDelete: vi.fn(),
+            rollbackOptimisticSnapshots: vi.fn(),
+            confirmOptimisticUpdate: vi.fn(),
+            confirmOptimisticCreate: vi.fn(),
+            generateOptimisticId: vi.fn(() => 'opt-1'),
+            getNextOptimisticSortOrderFromQueries: vi.fn(() => 1),
+            safeInvalidateQueries: vi.fn(),
+            safeInvalidateQueriesInactive: vi.fn(),
+            makePendingMarkers: vi.fn(() => ({}))
+        }))
+
+        const connectorsApi = {
+            syncApplication: vi.fn().mockResolvedValue({ status: 'synced' })
+        }
+
+        vi.doMock('../../api/applications', () => ({}))
+        vi.doMock('../../api/connectors', () => connectorsApi)
+
+        const hooks = await import('../mutations')
+
+        const queryClient = createTestQueryClient()
+        let syncConnector: ReturnType<typeof hooks.useSyncConnector> | undefined
+
+        function Probe() {
+            syncConnector = hooks.useSyncConnector()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await syncConnector!.mutateAsync({ applicationId: 'app-2', confirmDestructive: true })
+        })
+
+        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-2', true)
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Schema synchronized', { variant: 'success' })
+    })
+
+    it('shows sync error snackbar when connector sync fails', async () => {
+        const enqueueSnackbar = vi.fn()
+
+        vi.doMock('notistack', () => ({
+            useSnackbar: () => ({ enqueueSnackbar })
+        }))
+
+        vi.doMock('react-i18next', () => ({
+            initReactI18next: { type: '3rdParty', init: () => {} },
+            useTranslation: () => ({
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                i18n: { language: 'en' }
+            })
+        }))
+
+        vi.doMock('@universo/i18n', () => ({
+            useCommonTranslations: () => ({
+                t: (key: string) => key
+            })
+        }))
+
+        vi.doMock('@universo/template-mui', () => ({
+            applyOptimisticCreate: vi.fn(),
+            applyOptimisticUpdate: vi.fn(),
+            applyOptimisticDelete: vi.fn(),
+            rollbackOptimisticSnapshots: vi.fn(),
+            confirmOptimisticUpdate: vi.fn(),
+            confirmOptimisticCreate: vi.fn(),
+            generateOptimisticId: vi.fn(() => 'opt-1'),
+            getNextOptimisticSortOrderFromQueries: vi.fn(() => 1),
+            safeInvalidateQueries: vi.fn(),
+            safeInvalidateQueriesInactive: vi.fn(),
+            makePendingMarkers: vi.fn(() => ({}))
+        }))
+
+        const connectorsApi = {
+            syncApplication: vi.fn().mockRejectedValue(new Error('sync failed'))
+        }
+
+        vi.doMock('../../api/applications', () => ({}))
+        vi.doMock('../../api/connectors', () => connectorsApi)
+
+        const hooks = await import('../mutations')
+
+        const queryClient = createTestQueryClient()
+        let syncConnector: ReturnType<typeof hooks.useSyncConnector> | undefined
+
+        function Probe() {
+            syncConnector = hooks.useSyncConnector()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await expect(syncConnector!.mutateAsync({ applicationId: 'app-3' })).rejects.toThrow('sync failed')
+        })
+
+        expect(enqueueSnackbar).toHaveBeenCalledWith('sync failed', { variant: 'error' })
+    })
 })

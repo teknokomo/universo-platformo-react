@@ -3,7 +3,9 @@ import type { DbExecutor } from '@universo/utils'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createApplicationsRoutes } from './applicationsRoutes'
+import { createApplicationSyncRoutes } from './applicationSyncRoutes'
 import { createConnectorsRoutes } from './connectorsRoutes'
+import { createLoadPublishedApplicationSyncContext, type LoadPublishedPublicationRuntimeSource } from '../services'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
@@ -33,13 +35,21 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 /**
  * Create all applications service routes
  */
-export function createApplicationsServiceRoutes(ensureAuth: RequestHandler, getDbExecutor: () => DbExecutor): Router {
+export function createApplicationsServiceRoutes(
+    ensureAuth: RequestHandler,
+    getDbExecutor: () => DbExecutor,
+    loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource
+): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
+    const loadPublishedApplicationSyncContext = createLoadPublishedApplicationSyncContext(loadPublishedPublicationRuntimeSource)
 
     // Core applications CRUD
     router.use('/applications', createApplicationsRoutes(ensureAuth, getDbExecutor, read, write))
+
+    // Application runtime schema sync and diff
+    router.use('/', createApplicationSyncRoutes(ensureAuth, getDbExecutor, loadPublishedApplicationSyncContext, read, write))
 
     // Connectors routes
     router.use('/', createConnectorsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -48,5 +58,6 @@ export function createApplicationsServiceRoutes(ensureAuth: RequestHandler, getD
 }
 
 export { createApplicationsRoutes } from './applicationsRoutes'
+export { createApplicationSyncRoutes } from './applicationSyncRoutes'
 export { createConnectorsRoutes } from './connectorsRoutes'
 export * from './guards'

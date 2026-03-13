@@ -33,6 +33,7 @@ import {
     MetahubSchemaLockTimeoutError,
     isKnexPoolTimeoutError
 } from '../../shared/domainErrors'
+import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
 
 /**
  * In-memory cache for schema existence.
@@ -94,6 +95,10 @@ interface EnsureSchemaOptions {
  */
 export class MetahubSchemaService {
     constructor(private exec: SqlQueryable, private branchIdOverride?: string) {}
+
+    query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]> {
+        return this.exec.query<T>(sql, parameters)
+    }
 
     private get knex() {
         return KnexClient.getInstance()
@@ -647,6 +652,7 @@ export class MetahubSchemaService {
 
             const globalRunId = await mirrorToGlobalCatalog({
                 knex: trx,
+                globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
                 scopeKind: 'runtime_schema',
                 scopeKey: schemaName,
                 sourceKind: 'system_sync',
@@ -677,7 +683,7 @@ export class MetahubSchemaService {
                 .into('_mhb_migrations')
                 .where({ id: localMigrationId })
                 .update({
-                    meta: buildBaselineMigrationMeta(snapshotAfter, templateVersionLabel, globalRunId)
+                    meta: buildBaselineMigrationMeta(snapshotAfter, templateVersionLabel, globalRunId ?? undefined)
                 })
         })
     }
@@ -750,6 +756,7 @@ export class MetahubSchemaService {
         await this.knex.transaction(async (trx) => {
             const globalRunId = await mirrorToGlobalCatalog({
                 knex: trx,
+                globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
                 scopeKind: 'runtime_schema',
                 scopeKey: schemaName,
                 sourceKind: 'template_seed',
@@ -785,7 +792,7 @@ export class MetahubSchemaService {
                 skipped: seedResult.skipped,
                 templateVersionId: templateVersionInfo?.templateVersionId ?? null,
                 templateVersionLabel: templateVersionInfo?.templateVersionLabel ?? null,
-                globalRunId
+                globalRunId: globalRunId ?? undefined
             })
 
             await trx.withSchema(schemaName).into('_mhb_migrations').insert({

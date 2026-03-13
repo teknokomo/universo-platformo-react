@@ -61,7 +61,7 @@
         "@dnd-kit/sortable": "^8.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@universo/store": "workspace:*",
-        "@tanstack/react-query": "^5.62.13",
+        "@tanstack/react-query": "catalog:",
         "@mui/material": "catalog:",
         "@mui/icons-material": "catalog:",
         "@mui/x-charts": "catalog:",

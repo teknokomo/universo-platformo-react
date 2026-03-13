@@ -6,7 +6,8 @@ import { uplFieldAliases } from './types'
 // SELECT fragments (templates are platform-level — no _mhb_* fields)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const TEMPLATE_SELECT = (alias: string) => `
+const TEMPLATE_SELECT = (alias: string) =>
+    `
     ${alias}.id,
     ${alias}.codename,
     ${alias}.name,
@@ -20,7 +21,8 @@ const TEMPLATE_SELECT = (alias: string) => `
     ${uplFieldAliases(alias)}
 `.trim()
 
-const TEMPLATE_VERSION_SELECT = (alias: string) => `
+const TEMPLATE_VERSION_SELECT = (alias: string) =>
+    `
     ${alias}.id,
     ${alias}.template_id AS "templateId",
     ${alias}.version_number AS "versionNumber",
@@ -37,44 +39,36 @@ const TEMPLATE_VERSION_SELECT = (alias: string) => `
 // Template queries
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function findTemplateById(
-    exec: SqlQueryable,
-    id: string
-): Promise<TemplateRow | null> {
+export async function findTemplateById(exec: SqlQueryable, id: string): Promise<TemplateRow | null> {
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
-         FROM metahubs.templates t
+         FROM metahubs.cat_templates t
          WHERE t.id = $1
+           AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
         [id]
     )
     return rows[0] ?? null
 }
 
-export async function findTemplateByCodename(
-    exec: SqlQueryable,
-    codename: string
-): Promise<TemplateRow | null> {
+export async function findTemplateByCodename(exec: SqlQueryable, codename: string): Promise<TemplateRow | null> {
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
-         FROM metahubs.templates t
+         FROM metahubs.cat_templates t
          WHERE t.codename = $1
-           AND t._upl_deleted = false
+           AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
         [codename]
     )
     return rows[0] ?? null
 }
 
-export async function findTemplateByIdNotDeleted(
-    exec: SqlQueryable,
-    id: string
-): Promise<TemplateRow | null> {
+export async function findTemplateByIdNotDeleted(exec: SqlQueryable, id: string): Promise<TemplateRow | null> {
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
-         FROM metahubs.templates t
+         FROM metahubs.cat_templates t
          WHERE t.id = $1
-           AND t._upl_deleted = false
+           AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
         [id]
     )
@@ -94,24 +88,24 @@ export interface TemplateCatalogItem extends TemplateRow {
     } | null
 }
 
-export async function listActiveTemplatesForCatalog(
-    exec: SqlQueryable
-): Promise<TemplateCatalogItem[]> {
-    const rows = await exec.query<TemplateRow & {
-        avId: string | null
-        avVersionNumber: number | null
-        avVersionLabel: string | null
-        avChangelog: VersionedLocalizedContent<string> | null
-    }>(
+export async function listActiveTemplatesForCatalog(exec: SqlQueryable): Promise<TemplateCatalogItem[]> {
+    const rows = await exec.query<
+        TemplateRow & {
+            avId: string | null
+            avVersionNumber: number | null
+            avVersionLabel: string | null
+            avChangelog: VersionedLocalizedContent<string> | null
+        }
+    >(
         `SELECT
             ${TEMPLATE_SELECT('t')},
             av.id AS "avId",
             av.version_number AS "avVersionNumber",
             av.version_label AS "avVersionLabel",
             av.changelog AS "avChangelog"
-         FROM metahubs.templates t
-         LEFT JOIN metahubs.templates_versions av ON av.id = t.active_version_id
-         WHERE t.is_active = true AND t._upl_deleted = false
+         FROM metahubs.cat_templates t
+         LEFT JOIN metahubs.doc_template_versions av ON av.id = t.active_version_id
+         WHERE t.is_active = true AND t._upl_deleted = false AND t._app_deleted = false
          ORDER BY t.sort_order ASC, t._upl_created_at ASC`,
         []
     )
@@ -148,7 +142,7 @@ export async function listTemplates(
     }
 ): Promise<{ items: TemplateListItem[]; total: number }> {
     const params: unknown[] = []
-    const conditions: string[] = ['t._upl_deleted = false']
+    const conditions: string[] = ['t._upl_deleted = false AND t._app_deleted = false']
 
     if (input.activeOnly) {
         conditions.push('t.is_active = true')
@@ -162,8 +156,8 @@ export async function listTemplates(
         input.sortBy === 'name'
             ? `COALESCE(t.name->>(t.name->>'_primary'), t.name->>'en', '')`
             : input.sortBy === 'sortOrder'
-              ? 't.sort_order'
-              : 't._upl_created_at'
+            ? 't.sort_order'
+            : 't._upl_created_at'
     const orderDir = (input.sortOrder ?? 'asc').toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
 
     const rows = await exec.query<TemplateListRow>(
@@ -172,13 +166,13 @@ export async function listTemplates(
             COALESCE(vc.count, 0)::int AS "versionsCount",
             av.version_label AS "activeVersionLabel",
             COUNT(*) OVER() AS "windowTotal"
-         FROM metahubs.templates t
+         FROM metahubs.cat_templates t
          LEFT JOIN (
              SELECT template_id, COUNT(*)::int AS count
-             FROM metahubs.templates_versions
+             FROM metahubs.doc_template_versions
              GROUP BY template_id
          ) vc ON vc.template_id = t.id
-         LEFT JOIN metahubs.templates_versions av
+         LEFT JOIN metahubs.doc_template_versions av
              ON av.id = t.active_version_id
          WHERE ${conditions.join(' AND ')}
          ORDER BY ${orderCol} ${orderDir}
@@ -211,19 +205,16 @@ const normalizeAuditUserId = (userId: string): string | null => {
     return trimmed.length > 0 ? trimmed : null
 }
 
-export async function createTemplate(
-    exec: SqlQueryable,
-    input: CreateTemplateInput
-): Promise<TemplateRow> {
+export async function createTemplate(exec: SqlQueryable, input: CreateTemplateInput): Promise<TemplateRow> {
     const auditUserId = normalizeAuditUserId(input.userId)
     const rows = await exec.query<TemplateRow>(
-        `INSERT INTO metahubs.templates (
+        `INSERT INTO metahubs.cat_templates (
             codename, name, description, icon,
             is_system, is_active, sort_order,
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
-         RETURNING ${TEMPLATE_SELECT('metahubs.templates')}`,
+         RETURNING ${TEMPLATE_SELECT('metahubs.cat_templates')}`,
         [
             input.codename,
             JSON.stringify(input.name),
@@ -275,10 +266,10 @@ export async function updateTemplate(
     params.push(id)
 
     const rows = await exec.query<TemplateRow>(
-        `UPDATE metahubs.templates
+        `UPDATE metahubs.cat_templates
          SET ${setClauses.join(', ')}
          WHERE id = $${params.length}
-         RETURNING ${TEMPLATE_SELECT('metahubs.templates')}`,
+         RETURNING ${TEMPLATE_SELECT('metahubs.cat_templates')}`,
         params
     )
     return rows[0] ?? null
@@ -288,13 +279,10 @@ export async function updateTemplate(
 // TemplateVersion queries
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function findTemplateVersionById(
-    exec: SqlQueryable,
-    id: string
-): Promise<TemplateVersionRow | null> {
+export async function findTemplateVersionById(exec: SqlQueryable, id: string): Promise<TemplateVersionRow | null> {
     const rows = await exec.query<TemplateVersionRow>(
         `SELECT ${TEMPLATE_VERSION_SELECT('tv')}
-         FROM metahubs.templates_versions tv
+         FROM metahubs.doc_template_versions tv
          WHERE tv.id = $1
          LIMIT 1`,
         [id]
@@ -302,13 +290,10 @@ export async function findTemplateVersionById(
     return rows[0] ?? null
 }
 
-export async function findActiveTemplateVersion(
-    exec: SqlQueryable,
-    templateId: string
-): Promise<TemplateVersionRow | null> {
+export async function findActiveTemplateVersion(exec: SqlQueryable, templateId: string): Promise<TemplateVersionRow | null> {
     const rows = await exec.query<TemplateVersionRow>(
         `SELECT ${TEMPLATE_VERSION_SELECT('tv')}
-         FROM metahubs.templates_versions tv
+         FROM metahubs.doc_template_versions tv
          WHERE tv.template_id = $1
            AND tv.is_active = true
          LIMIT 1`,
@@ -317,26 +302,20 @@ export async function findActiveTemplateVersion(
     return rows[0] ?? null
 }
 
-export async function listTemplateVersions(
-    exec: SqlQueryable,
-    templateId: string
-): Promise<TemplateVersionRow[]> {
+export async function listTemplateVersions(exec: SqlQueryable, templateId: string): Promise<TemplateVersionRow[]> {
     return exec.query<TemplateVersionRow>(
         `SELECT ${TEMPLATE_VERSION_SELECT('tv')}
-         FROM metahubs.templates_versions tv
+         FROM metahubs.doc_template_versions tv
          WHERE tv.template_id = $1
          ORDER BY tv.version_number DESC`,
         [templateId]
     )
 }
 
-export async function getMaxTemplateVersionNumber(
-    exec: SqlQueryable,
-    templateId: string
-): Promise<number> {
+export async function getMaxTemplateVersionNumber(exec: SqlQueryable, templateId: string): Promise<number> {
     const rows = await exec.query<{ max: string | null }>(
         `SELECT MAX(version_number)::text AS max
-         FROM metahubs.templates_versions
+         FROM metahubs.doc_template_versions
          WHERE template_id = $1`,
         [templateId]
     )
@@ -355,20 +334,17 @@ export interface CreateTemplateVersionInput {
     userId: string
 }
 
-export async function createTemplateVersion(
-    exec: SqlQueryable,
-    input: CreateTemplateVersionInput
-): Promise<TemplateVersionRow> {
+export async function createTemplateVersion(exec: SqlQueryable, input: CreateTemplateVersionInput): Promise<TemplateVersionRow> {
     const auditUserId = normalizeAuditUserId(input.userId)
     const rows = await exec.query<TemplateVersionRow>(
-        `INSERT INTO metahubs.templates_versions (
+        `INSERT INTO metahubs.doc_template_versions (
             template_id, version_number, version_label,
             min_structure_version, manifest_json, manifest_hash,
             is_active, changelog,
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-         RETURNING ${TEMPLATE_VERSION_SELECT('metahubs.templates_versions')}`,
+         RETURNING ${TEMPLATE_VERSION_SELECT('metahubs.doc_template_versions')}`,
         [
             input.templateId,
             input.versionNumber,
@@ -384,12 +360,9 @@ export async function createTemplateVersion(
     return rows[0]
 }
 
-export async function deactivateTemplateVersions(
-    exec: SqlQueryable,
-    templateId: string
-): Promise<void> {
+export async function deactivateTemplateVersions(exec: SqlQueryable, templateId: string): Promise<void> {
     await exec.query(
-        `UPDATE metahubs.templates_versions
+        `UPDATE metahubs.doc_template_versions
          SET is_active = false
          WHERE template_id = $1 AND is_active = true`,
         [templateId]

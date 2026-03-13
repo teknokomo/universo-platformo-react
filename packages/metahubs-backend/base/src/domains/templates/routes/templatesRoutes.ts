@@ -1,10 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import {
-    listActiveTemplatesForCatalog,
-    findTemplateByIdNotDeleted,
-    listTemplateVersions
-} from '../../../persistence'
+import { listActiveTemplatesForCatalog, findTemplateByIdNotDeleted, listTemplateVersions } from '../../../persistence'
 import type { SqlQueryable } from '../../../persistence'
 
 /**

@@ -1,4 +1,4 @@
-import type { DbExecutor, SqlQueryable } from '@universo/utils'
+import { activeAppRowCondition, softDeleteSetClause, type DbExecutor, type SqlQueryable } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { quoteIdentifier } from '@universo/migrations-core'
 import { isValidSchemaName } from '@universo/schema-ddl'
@@ -50,6 +50,7 @@ export interface ApplicationCopySourceRecord extends ApplicationRecord {
     schemaSnapshot: Record<string, unknown> | null
     appStructureVersion: number | null
     lastSyncedPublicationVersionId: string | null
+    installedReleaseMetadata?: Record<string, unknown> | null
 }
 
 export interface ApplicationCopyMemberRecord {
@@ -87,13 +88,7 @@ interface ApplicationMemberListRow extends ApplicationMemberRecord {
 }
 
 const activeRowPredicate = (alias?: string): string => {
-    const prefix = alias ? `${alias}.` : ''
-    return `COALESCE(${prefix}_upl_deleted, false) = false AND COALESCE(${prefix}_app_deleted, false) = false`
-}
-
-const activeUplRowPredicate = (alias?: string): string => {
-    const prefix = alias ? `${alias}.` : ''
-    return `COALESCE(${prefix}_upl_deleted, false) = false`
+    return activeAppRowCondition(alias)
 }
 
 const assertManagedApplicationSchemaName = (schemaName: string): void => {
@@ -143,13 +138,13 @@ const APPLICATION_RETURNING = `
 const DETAILS_JOIN_SQL = `
     LEFT JOIN (
         SELECT application_id, COUNT(*)::int AS count
-        FROM applications.connectors
+        FROM applications.cat_connectors
         WHERE ${activeRowPredicate()}
         GROUP BY application_id
     ) connector_counts ON connector_counts.application_id = a.id
     LEFT JOIN (
         SELECT application_id, COUNT(*)::int AS count
-        FROM applications.applications_users
+        FROM applications.rel_application_users
         WHERE ${activeRowPredicate()}
         GROUP BY application_id
     ) member_counts ON member_counts.application_id = a.id
@@ -168,7 +163,7 @@ const APPLICATION_MEMBER_SELECT = `
 
 const APPLICATION_MEMBER_JOIN_SQL = `
     LEFT JOIN auth.users u ON u.id = au.user_id
-    LEFT JOIN public.profiles p ON p.user_id = au.user_id
+    LEFT JOIN profiles.cat_profiles p ON p.user_id = au.user_id
 `
 
 const resolveSortDirection = (sortOrder: 'asc' | 'desc'): 'ASC' | 'DESC' => (sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC')
@@ -228,8 +223,8 @@ export async function listApplications(
             COALESCE(member_counts.count, 0)::int AS "membersCount",
             membership.role AS "membershipRole",
             COUNT(*) OVER() AS "windowTotal"
-        FROM applications.applications a
-        LEFT JOIN applications.applications_users membership
+        FROM applications.cat_applications a
+        LEFT JOIN applications.rel_application_users membership
             ON membership.application_id = a.id
            AND membership.user_id = $1
               AND ${activeRowPredicate('membership')}
@@ -252,7 +247,7 @@ export async function findApplicationDetails(executor: SqlQueryable, application
         `
         SELECT
             ${APPLICATION_DETAIL_SELECT}
-        FROM applications.applications a
+        FROM applications.cat_applications a
         ${DETAILS_JOIN_SQL}
         WHERE a.id = $1
                     AND ${activeRowPredicate('a')}
@@ -271,10 +266,9 @@ export async function findApplicationSchemaInfo(
     const rows = await executor.query<ApplicationSchemaInfoRecord>(
         `
         SELECT id, schema_name AS "schemaName"
-        FROM applications.applications
+        FROM applications.cat_applications
         WHERE id = $1
-          AND COALESCE(_upl_deleted, false) = false
-          AND COALESCE(_app_deleted, false) = false
+                    AND ${activeRowPredicate()}
         LIMIT 1
         `,
         [applicationId]
@@ -293,11 +287,11 @@ export async function findApplicationCopySource(
             ${APPLICATION_SELECT},
             a.schema_snapshot AS "schemaSnapshot",
             a.app_structure_version AS "appStructureVersion",
-            a.last_synced_publication_version_id AS "lastSyncedPublicationVersionId"
-        FROM applications.applications a
+            a.last_synced_publication_version_id AS "lastSyncedPublicationVersionId",
+            a.installed_release_metadata AS "installedReleaseMetadata"
+        FROM applications.cat_applications a
         WHERE a.id = $1
-          AND COALESCE(a._upl_deleted, false) = false
-          AND COALESCE(a._app_deleted, false) = false
+                    AND ${activeRowPredicate('a')}
         LIMIT 1
         `,
         [applicationId]
@@ -310,9 +304,9 @@ export async function findApplicationBySlug(executor: SqlQueryable, slug: string
     const rows = await executor.query<Pick<ApplicationRecord, 'id' | 'slug'>>(
         `
         SELECT id, slug
-        FROM applications.applications
+        FROM applications.cat_applications
         WHERE slug = $1
-                    AND ${activeUplRowPredicate()}
+                    AND ${activeRowPredicate()}
         LIMIT 1
         `,
         [slug]
@@ -335,8 +329,7 @@ export async function listApplicationMembers(
     const parameters: unknown[] = [input.applicationId]
     let whereSql = `
         WHERE au.application_id = $1
-          AND COALESCE(au._upl_deleted, false) = false
-          AND COALESCE(au._app_deleted, false) = false
+            AND ${activeRowPredicate('au')}
     `
 
     if (input.search) {
@@ -356,7 +349,7 @@ export async function listApplicationMembers(
         SELECT
             ${APPLICATION_MEMBER_SELECT},
             COUNT(*) OVER() AS "windowTotal"
-        FROM applications.applications_users au
+        FROM applications.rel_application_users au
         ${APPLICATION_MEMBER_JOIN_SQL}
         ${whereSql}
         ORDER BY ${resolveApplicationMemberOrderColumn(input.sortBy ?? 'created')} ${resolveSortDirection(input.sortOrder ?? 'desc')}
@@ -378,12 +371,11 @@ export async function findApplicationMemberById(
     const rows = await executor.query<ApplicationMemberRecord>(
         `
         SELECT ${APPLICATION_MEMBER_SELECT}
-        FROM applications.applications_users au
+        FROM applications.rel_application_users au
         ${APPLICATION_MEMBER_JOIN_SQL}
         WHERE au.application_id = $1
           AND au.id = $2
-          AND COALESCE(au._upl_deleted, false) = false
-          AND COALESCE(au._app_deleted, false) = false
+                    AND ${activeRowPredicate('au')}
         LIMIT 1
         `,
         [input.applicationId, input.memberId]
@@ -399,12 +391,11 @@ export async function findApplicationMemberByUserId(
     const rows = await executor.query<ApplicationMemberRecord>(
         `
         SELECT ${APPLICATION_MEMBER_SELECT}
-        FROM applications.applications_users au
+        FROM applications.rel_application_users au
         ${APPLICATION_MEMBER_JOIN_SQL}
         WHERE au.application_id = $1
           AND au.user_id = $2
-          AND COALESCE(au._upl_deleted, false) = false
-          AND COALESCE(au._app_deleted, false) = false
+                    AND ${activeRowPredicate('au')}
         LIMIT 1
         `,
         [input.applicationId, input.userId]
@@ -434,10 +425,9 @@ export async function listApplicationMembersForCopy(executor: SqlQueryable, appl
             user_id AS "userId",
             role,
             comment
-        FROM applications.applications_users
+        FROM applications.rel_application_users
         WHERE application_id = $1
-          AND COALESCE(_upl_deleted, false) = false
-          AND COALESCE(_app_deleted, false) = false
+                    AND ${activeRowPredicate()}
         ORDER BY _upl_created_at ASC, id ASC
         `,
         [applicationId]
@@ -454,10 +444,9 @@ export async function listApplicationConnectorsForCopy(executor: SqlQueryable, a
             sort_order AS "sortOrder",
             is_single_metahub AS "isSingleMetahub",
             is_required_metahub AS "isRequiredMetahub"
-        FROM applications.connectors
+        FROM applications.cat_connectors
         WHERE application_id = $1
-          AND COALESCE(_upl_deleted, false) = false
-          AND COALESCE(_app_deleted, false) = false
+                    AND ${activeRowPredicate()}
         ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
         `,
         [applicationId]
@@ -478,10 +467,9 @@ export async function listConnectorPublicationsForCopy(
             connector_id AS "connectorId",
             publication_id AS "publicationId",
             sort_order AS "sortOrder"
-        FROM applications.connectors_publications
+        FROM applications.rel_connector_publications
         WHERE connector_id = ANY($1::uuid[])
-          AND COALESCE(_upl_deleted, false) = false
-          AND COALESCE(_app_deleted, false) = false
+                    AND ${activeRowPredicate()}
         ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
         `,
         [connectorIds]
@@ -502,7 +490,7 @@ export async function insertApplicationMember(
     const rows = await executor.query<ApplicationMemberRecord>(
         `
         WITH inserted AS (
-            INSERT INTO applications.applications_users (
+            INSERT INTO applications.rel_application_users (
                 application_id,
                 user_id,
                 role,
@@ -524,7 +512,7 @@ export async function insertApplicationMember(
             p.nickname
         FROM inserted
         LEFT JOIN auth.users u ON u.id = inserted.user_id
-        LEFT JOIN public.profiles p ON p.user_id = inserted.user_id
+        LEFT JOIN profiles.cat_profiles p ON p.user_id = inserted.user_id
         `,
         [input.applicationId, input.userId, input.role, JSON.stringify(input.comment), input.createdBy, input.updatedBy]
     )
@@ -565,7 +553,7 @@ export async function updateApplicationMember(
     const rows = await executor.query<ApplicationMemberRecord>(
         `
         WITH updated AS (
-            UPDATE applications.applications_users
+            UPDATE applications.rel_application_users
             SET ${assignments.join(', ')}
             WHERE application_id = $${parameters.length - 1}
               AND id = $${parameters.length}
@@ -583,7 +571,7 @@ export async function updateApplicationMember(
             p.nickname
         FROM updated
         LEFT JOIN auth.users u ON u.id = updated.user_id
-        LEFT JOIN public.profiles p ON p.user_id = updated.user_id
+        LEFT JOIN profiles.cat_profiles p ON p.user_id = updated.user_id
         `,
         parameters
     )
@@ -597,11 +585,8 @@ export async function deleteApplicationMember(
 ): Promise<boolean> {
     const rows = await executor.query<{ id: string }>(
         `
-        UPDATE applications.applications_users
-        SET _upl_deleted = true,
-            _upl_deleted_at = NOW(),
-            _upl_deleted_by = $3,
-            _upl_updated_at = NOW(),
+        UPDATE applications.rel_application_users
+                SET ${softDeleteSetClause('$3')},
             _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE application_id = $1
           AND id = $2
@@ -635,7 +620,7 @@ export async function createApplicationWithOwner(
 
         const insertedRows = await trx.query<ApplicationRecord>(
             `
-            INSERT INTO applications.applications (
+            INSERT INTO applications.cat_applications (
                 id,
                 name,
                 description,
@@ -662,7 +647,7 @@ export async function createApplicationWithOwner(
 
         await trx.query(
             `
-            INSERT INTO applications.applications_users (
+            INSERT INTO applications.rel_application_users (
                 application_id,
                 user_id,
                 role,
@@ -698,7 +683,7 @@ export async function copyApplicationWithOptions(
     return executor.transaction(async (trx) => {
         const insertedRows = await trx.query<ApplicationRecord>(
             `
-            INSERT INTO applications.applications (
+            INSERT INTO applications.cat_applications (
                 id,
                 name,
                 description,
@@ -732,7 +717,7 @@ export async function copyApplicationWithOptions(
 
         await trx.query(
             `
-            INSERT INTO applications.applications_users (
+            INSERT INTO applications.rel_application_users (
                 application_id,
                 user_id,
                 role,
@@ -747,7 +732,7 @@ export async function copyApplicationWithOptions(
         if (input.copyAccess) {
             await trx.query(
                 `
-                INSERT INTO applications.applications_users (
+                INSERT INTO applications.rel_application_users (
                     application_id,
                     user_id,
                     role,
@@ -762,11 +747,10 @@ export async function copyApplicationWithOptions(
                     comment,
                     $2,
                     $3
-                FROM applications.applications_users
+                FROM applications.rel_application_users
                 WHERE application_id = $4
                   AND user_id <> $5
-                  AND COALESCE(_upl_deleted, false) = false
-                  AND COALESCE(_app_deleted, false) = false
+                                    AND ${activeRowPredicate()}
                 `,
                 [input.newApplicationId, input.actorUserId, input.actorUserId, input.sourceApplicationId, input.actorUserId]
             )
@@ -784,14 +768,13 @@ export async function copyApplicationWithOptions(
                         sort_order,
                         is_single_metahub,
                         is_required_metahub
-                    FROM applications.connectors
+                    FROM applications.cat_connectors
                     WHERE application_id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
+                                            AND ${activeRowPredicate()}
                     ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
                 ),
                 inserted_connectors AS (
-                    INSERT INTO applications.connectors (
+                    INSERT INTO applications.cat_connectors (
                         id,
                         application_id,
                         name,
@@ -814,7 +797,7 @@ export async function copyApplicationWithOptions(
                         $4
                     FROM source_connectors
                 )
-                INSERT INTO applications.connectors_publications (
+                INSERT INTO applications.rel_connector_publications (
                     connector_id,
                     publication_id,
                     sort_order,
@@ -828,9 +811,8 @@ export async function copyApplicationWithOptions(
                     $3,
                     $4
                 FROM source_connectors sc
-                JOIN applications.connectors_publications cp ON cp.connector_id = sc.source_id
-                WHERE COALESCE(cp._upl_deleted, false) = false
-                  AND COALESCE(cp._app_deleted, false) = false
+                JOIN applications.rel_connector_publications cp ON cp.connector_id = sc.source_id
+                                WHERE ${activeRowPredicate('cp')}
                 `,
                 [input.sourceApplicationId, input.newApplicationId, input.actorUserId, input.actorUserId]
             )
@@ -891,10 +873,94 @@ export async function updateApplication(
 
     const rows = await executor.query<ApplicationRecord>(
         `
-        UPDATE applications.applications
+        UPDATE applications.cat_applications
         SET ${assignments.join(', ')}
         ${whereSql}
         RETURNING ${APPLICATION_RETURNING}
+        `,
+        parameters
+    )
+
+    return rows[0] ?? null
+}
+
+export async function updateApplicationSyncFields(
+    executor: SqlQueryable,
+    input: {
+        applicationId: string
+        schemaName?: string | null
+        schemaStatus?: string | null
+        schemaSyncedAt?: Date | null
+        schemaError?: string | null
+        schemaSnapshot?: Record<string, unknown> | null
+        lastSyncedPublicationVersionId?: string | null
+        appStructureVersion?: number | null
+        installedReleaseMetadata?: Record<string, unknown> | null
+        userId?: string | null
+    }
+): Promise<ApplicationCopySourceRecord | null> {
+    const assignments: string[] = []
+    const parameters: unknown[] = []
+
+    if (input.schemaName !== undefined) {
+        parameters.push(input.schemaName)
+        assignments.push(`schema_name = $${parameters.length}`)
+    }
+
+    if (input.schemaStatus !== undefined) {
+        parameters.push(input.schemaStatus)
+        assignments.push(`schema_status = $${parameters.length}::applications.application_schema_status`)
+    }
+
+    if (input.schemaSyncedAt !== undefined) {
+        parameters.push(input.schemaSyncedAt)
+        assignments.push(`schema_synced_at = $${parameters.length}`)
+    }
+
+    if (input.schemaError !== undefined) {
+        parameters.push(input.schemaError)
+        assignments.push(`schema_error = $${parameters.length}`)
+    }
+
+    if (input.schemaSnapshot !== undefined) {
+        parameters.push(JSON.stringify(input.schemaSnapshot))
+        assignments.push(`schema_snapshot = $${parameters.length}::jsonb`)
+    }
+
+    if (input.lastSyncedPublicationVersionId !== undefined) {
+        parameters.push(input.lastSyncedPublicationVersionId)
+        assignments.push(`last_synced_publication_version_id = $${parameters.length}`)
+    }
+
+    if (input.appStructureVersion !== undefined) {
+        parameters.push(input.appStructureVersion)
+        assignments.push(`app_structure_version = $${parameters.length}`)
+    }
+
+    if (input.installedReleaseMetadata !== undefined) {
+        parameters.push(JSON.stringify(input.installedReleaseMetadata))
+        assignments.push(`installed_release_metadata = $${parameters.length}::jsonb`)
+    }
+
+    parameters.push(input.userId ?? null)
+    assignments.push(`_upl_updated_by = $${parameters.length}`)
+    assignments.push(`_upl_updated_at = NOW()`)
+    assignments.push(`_upl_version = COALESCE(_upl_version, 1) + 1`)
+
+    parameters.push(input.applicationId)
+
+    const rows = await executor.query<ApplicationCopySourceRecord>(
+        `
+        UPDATE applications.cat_applications
+        SET ${assignments.join(', ')}
+        WHERE id = $${parameters.length}
+          AND ${activeRowPredicate()}
+        RETURNING
+            ${APPLICATION_RETURNING},
+            schema_snapshot AS "schemaSnapshot",
+            app_structure_version AS "appStructureVersion",
+            last_synced_publication_version_id AS "lastSyncedPublicationVersionId",
+            installed_release_metadata AS "installedReleaseMetadata"
         `,
         parameters
     )
@@ -915,11 +981,21 @@ export async function deleteApplicationWithSchema(
         // Cascade soft-delete child rows (connectors, publication links, members)
         await trx.query(
             `
-            UPDATE applications.connectors
-            SET _upl_deleted = true,
-                _upl_deleted_at = NOW(),
-                _upl_deleted_by = $2,
-                _upl_updated_at = NOW(),
+            UPDATE applications.rel_connector_publications cp
+                        SET ${softDeleteSetClause('$2')},
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            FROM applications.cat_connectors c
+            WHERE cp.connector_id = c.id
+              AND c.application_id = $1
+                            AND ${activeRowPredicate('cp')}
+            `,
+            [input.applicationId, input.userId ?? null]
+        )
+
+        await trx.query(
+            `
+            UPDATE applications.cat_connectors
+                        SET ${softDeleteSetClause('$2')},
                 _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE application_id = $1
               AND ${activeRowPredicate()}
@@ -929,26 +1005,8 @@ export async function deleteApplicationWithSchema(
 
         await trx.query(
             `
-            UPDATE applications.connectors_publications cp
-            SET _upl_deleted = true,
-                _upl_deleted_at = NOW(),
-                _upl_deleted_by = $2,
-                _upl_updated_at = NOW(),
-                _upl_version = COALESCE(_upl_version, 1) + 1
-            FROM applications.connectors c
-            WHERE cp.connector_id = c.id
-              AND c.application_id = $1
-            `,
-            [input.applicationId, input.userId ?? null]
-        )
-
-        await trx.query(
-            `
-            UPDATE applications.applications_users
-            SET _upl_deleted = true,
-                _upl_deleted_at = NOW(),
-                _upl_deleted_by = $2,
-                _upl_updated_at = NOW(),
+            UPDATE applications.rel_application_users
+                        SET ${softDeleteSetClause('$2')},
                 _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE application_id = $1
               AND ${activeRowPredicate()}
@@ -959,11 +1017,8 @@ export async function deleteApplicationWithSchema(
         // Soft-delete the application itself
         const rows = await trx.query<{ id: string }>(
             `
-            UPDATE applications.applications
-            SET _upl_deleted = true,
-                _upl_deleted_at = NOW(),
-                _upl_deleted_by = $2,
-                _upl_updated_at = NOW(),
+            UPDATE applications.cat_applications
+                        SET ${softDeleteSetClause('$2')},
                 _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE id = $1
               AND ${activeRowPredicate()}

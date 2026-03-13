@@ -1,18 +1,26 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { UpdateSeverity } from '@universo/types'
 import MetahubMigrationGuard from '../MetahubMigrationGuard'
 import { useMetahubMigrationsStatus } from '../../hooks'
+import { applyMetahubMigrations } from '../../api'
 
 vi.mock('../../hooks', () => ({
     useMetahubMigrationsStatus: vi.fn()
 }))
 
+vi.mock('../../api', () => ({
+    applyMetahubMigrations: vi.fn()
+}))
+
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key
+        t: (_key: string, fallback?: string | { defaultValue?: string }) =>
+            typeof fallback === 'string' ? fallback : fallback?.defaultValue ?? _key
     })
 }))
 
@@ -20,7 +28,9 @@ vi.mock('@universo/utils', async () => {
     const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
     return {
         ...actual,
-        extractAxiosError: (error: unknown) => (error instanceof Error ? error.message : String(error)),
+        extractAxiosError: (error: unknown) => ({
+            message: error instanceof Error ? error.message : String(error)
+        }),
         isPendingEntity: actual.isPendingEntity ?? ((item: any) => Boolean(item?.__pending)),
         getPendingAction: actual.getPendingAction ?? ((item: any) => (item?.__pending ? item?.__pendingAction : undefined)),
         makePendingMarkers:
@@ -97,6 +107,10 @@ const renderGuard = (route: string) => {
 }
 
 describe('MetahubMigrationGuard', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
     it('blocks non-migration routes when migration is required', () => {
         vi.mocked(useMetahubMigrationsStatus).mockReturnValue({
             isLoading: false,
@@ -109,6 +123,7 @@ describe('MetahubMigrationGuard', () => {
                 structureUpgradeRequired: true,
                 templateUpgradeRequired: false,
                 migrationRequired: true,
+                severity: UpdateSeverity.MANDATORY,
                 blockers: [],
                 status: 'requires_migration',
                 code: 'MIGRATION_REQUIRED',
@@ -138,6 +153,7 @@ describe('MetahubMigrationGuard', () => {
                 structureUpgradeRequired: true,
                 templateUpgradeRequired: false,
                 migrationRequired: true,
+                severity: UpdateSeverity.MANDATORY,
                 blockers: [],
                 status: 'requires_migration',
                 code: 'MIGRATION_REQUIRED',
@@ -166,6 +182,7 @@ describe('MetahubMigrationGuard', () => {
                 structureUpgradeRequired: false,
                 templateUpgradeRequired: false,
                 migrationRequired: false,
+                severity: UpdateSeverity.OPTIONAL,
                 blockers: [],
                 status: 'up_to_date',
                 code: 'UP_TO_DATE',
@@ -180,5 +197,108 @@ describe('MetahubMigrationGuard', () => {
         renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
 
         expect(screen.getByTestId('guard-content')).toBeInTheDocument()
+    })
+
+    it('applies migrations with keep cleanup and refetches status', async () => {
+        const user = userEvent.setup()
+        const refetch = vi.fn().mockResolvedValue(undefined)
+
+        vi.mocked(useMetahubMigrationsStatus).mockReturnValue({
+            isLoading: false,
+            error: null,
+            data: {
+                branchId: 'branch-1',
+                schemaName: 'mhb_schema',
+                currentStructureVersion: 1,
+                targetStructureVersion: 2,
+                structureUpgradeRequired: true,
+                templateUpgradeRequired: false,
+                migrationRequired: true,
+                severity: UpdateSeverity.MANDATORY,
+                blockers: [],
+                status: 'requires_migration',
+                code: 'MIGRATION_REQUIRED',
+                currentTemplateVersionId: null,
+                currentTemplateVersionLabel: null,
+                targetTemplateVersionId: null,
+                targetTemplateVersionLabel: null
+            },
+            refetch
+        } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
+        vi.mocked(applyMetahubMigrations).mockResolvedValue(undefined)
+
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+
+        await user.click(screen.getByRole('button', { name: 'Apply (keep user data)' }))
+
+        await waitFor(() => {
+            expect(applyMetahubMigrations).toHaveBeenCalledWith('019c4ea1-d889-705b-9798-1d28ba55a603', { cleanupMode: 'keep' })
+        })
+        expect(refetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows apply error when migration apply fails', async () => {
+        const user = userEvent.setup()
+        const refetch = vi.fn().mockResolvedValue(undefined)
+
+        vi.mocked(useMetahubMigrationsStatus).mockReturnValue({
+            isLoading: false,
+            error: null,
+            data: {
+                branchId: 'branch-1',
+                schemaName: 'mhb_schema',
+                currentStructureVersion: 1,
+                targetStructureVersion: 2,
+                structureUpgradeRequired: true,
+                templateUpgradeRequired: false,
+                migrationRequired: true,
+                severity: UpdateSeverity.MANDATORY,
+                blockers: [],
+                status: 'requires_migration',
+                code: 'MIGRATION_REQUIRED',
+                currentTemplateVersionId: null,
+                currentTemplateVersionLabel: null,
+                targetTemplateVersionId: null,
+                targetTemplateVersionLabel: null
+            },
+            refetch
+        } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
+        vi.mocked(applyMetahubMigrations).mockRejectedValue(new Error('apply exploded'))
+
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+
+        await user.click(screen.getByRole('button', { name: 'Apply (keep user data)' }))
+
+        expect(await screen.findByText('apply exploded')).toBeInTheDocument()
+        expect(refetch).not.toHaveBeenCalled()
+    })
+
+    it('disables apply action when blockers are present', () => {
+        vi.mocked(useMetahubMigrationsStatus).mockReturnValue({
+            isLoading: false,
+            error: null,
+            data: {
+                branchId: 'branch-1',
+                schemaName: 'mhb_schema',
+                currentStructureVersion: 1,
+                targetStructureVersion: 2,
+                structureUpgradeRequired: true,
+                templateUpgradeRequired: false,
+                migrationRequired: true,
+                severity: UpdateSeverity.MANDATORY,
+                blockers: [{ code: 'ACTIVE_EDITORS', message: 'Active editors detected', params: {} }],
+                status: 'requires_migration',
+                code: 'MIGRATION_REQUIRED',
+                currentTemplateVersionId: null,
+                currentTemplateVersionLabel: null,
+                targetTemplateVersionId: null,
+                targetTemplateVersionLabel: null
+            },
+            refetch: vi.fn()
+        } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
+
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+
+        expect(screen.getByRole('button', { name: 'Apply (keep user data)' })).toBeDisabled()
     })
 })

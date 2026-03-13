@@ -86,7 +86,7 @@ if (hasAccess) {
 
 ## Схема базы данных
 
-### admin.roles
+### admin.cat_roles
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
@@ -96,13 +96,13 @@ if (hasAccess) {
 | has_global_access | BOOLEAN | Предоставляет доступ ко всей платформе |
 | is_system | BOOLEAN | Защита от удаления |
 
-### admin.user_roles
+### admin.rel_user_roles
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
 | id | UUID | Первичный ключ |
 | user_id | UUID | Ссылка на auth.users |
-| role_id | UUID | Ссылка на admin.roles |
+| role_id | UUID | Ссылка на admin.cat_roles |
 | granted_by | UUID | Админ, назначивший роль |
 | comment | TEXT | Примечания к назначению |
 

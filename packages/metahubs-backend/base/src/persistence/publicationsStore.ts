@@ -1,6 +1,6 @@
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { SqlQueryable, PublicationRow, PublicationVersionRow, PublicationAccessMode, PublicationSchemaStatus } from './types'
-import { uplFieldAliases, mhbFieldAliases } from './types'
+import { uplFieldAliases, appFieldAliases } from './types'
 import { activeMetahubRowCondition } from './metahubsQueryHelpers'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -23,7 +23,7 @@ const PUBLICATION_SELECT = (alias: string) =>
     ${alias}.auto_create_application AS "autoCreateApplication",
     ${alias}.active_version_id AS "activeVersionId",
     ${uplFieldAliases(alias)},
-    ${mhbFieldAliases(alias)}
+    ${appFieldAliases(alias)}
 `.trim()
 
 const PUB_VERSION_SELECT = (alias: string) =>
@@ -38,7 +38,7 @@ const PUB_VERSION_SELECT = (alias: string) =>
     ${alias}.snapshot_hash AS "snapshotHash",
     ${alias}.is_active AS "isActive",
     ${uplFieldAliases(alias)},
-    ${mhbFieldAliases(alias)}
+    ${appFieldAliases(alias)}
 `.trim()
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -48,7 +48,7 @@ const PUB_VERSION_SELECT = (alias: string) =>
 export async function findPublicationById(exec: SqlQueryable, id: string): Promise<PublicationRow | null> {
     const rows = await exec.query<PublicationRow>(
         `SELECT ${PUBLICATION_SELECT('p')}
-         FROM metahubs.publications p
+         FROM metahubs.doc_publications p
          WHERE p.id = $1
            AND ${activeMetahubRowCondition('p')}
          LIMIT 1`,
@@ -60,7 +60,7 @@ export async function findPublicationById(exec: SqlQueryable, id: string): Promi
 export async function findPublicationByIdNotDeleted(exec: SqlQueryable, id: string): Promise<PublicationRow | null> {
     const rows = await exec.query<PublicationRow>(
         `SELECT ${PUBLICATION_SELECT('p')}
-         FROM metahubs.publications p
+         FROM metahubs.doc_publications p
          WHERE p.id = $1
                      AND ${activeMetahubRowCondition('p')}
          LIMIT 1`,
@@ -112,10 +112,10 @@ export async function listPublications(
             ${PUBLICATION_SELECT('p')},
             COALESCE(vc.count, 0)::int AS "versionsCount",
             COUNT(*) OVER() AS "windowTotal"
-         FROM metahubs.publications p
+         FROM metahubs.doc_publications p
          LEFT JOIN (
              SELECT publication_id, COUNT(*)::int AS count
-             FROM metahubs.publications_versions
+             FROM metahubs.doc_publication_versions
              WHERE ${activeMetahubRowCondition()}
              GROUP BY publication_id
          ) vc ON vc.publication_id = p.id
@@ -133,7 +133,7 @@ export async function listPublications(
 export async function listPublicationsByMetahub(exec: SqlQueryable, metahubId: string): Promise<PublicationRow[]> {
     return exec.query<PublicationRow>(
         `SELECT ${PUBLICATION_SELECT('p')}
-         FROM metahubs.publications p
+         FROM metahubs.doc_publications p
          WHERE p.metahub_id = $1
                      AND ${activeMetahubRowCondition('p')}
          ORDER BY p._upl_created_at ASC`,
@@ -157,13 +157,13 @@ export interface CreatePublicationInput {
 
 export async function createPublication(exec: SqlQueryable, input: CreatePublicationInput): Promise<PublicationRow> {
     const rows = await exec.query<PublicationRow>(
-        `INSERT INTO metahubs.publications (
+        `INSERT INTO metahubs.doc_publications (
             metahub_id, name, description, access_mode, access_config,
             auto_create_application,
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-         RETURNING ${PUBLICATION_SELECT('metahubs.publications')}`,
+         RETURNING ${PUBLICATION_SELECT('metahubs.doc_publications')}`,
         [
             input.metahubId,
             JSON.stringify(input.name),
@@ -234,10 +234,10 @@ export async function updatePublication(exec: SqlQueryable, id: string, input: U
     }
 
     const rows = await exec.query<PublicationRow>(
-        `UPDATE metahubs.publications
+        `UPDATE metahubs.doc_publications
          SET ${setClauses.join(', ')}
          WHERE ${conditions.join(' AND ')}
-         RETURNING ${PUBLICATION_SELECT('metahubs.publications')}`,
+         RETURNING ${PUBLICATION_SELECT('metahubs.doc_publications')}`,
         params
     )
     return rows[0] ?? null
@@ -250,7 +250,7 @@ export async function updatePublication(exec: SqlQueryable, id: string, input: U
 export async function findPublicationVersionById(exec: SqlQueryable, id: string): Promise<PublicationVersionRow | null> {
     const rows = await exec.query<PublicationVersionRow>(
         `SELECT ${PUB_VERSION_SELECT('pv')}
-         FROM metahubs.publications_versions pv
+         FROM metahubs.doc_publication_versions pv
          WHERE pv.id = $1
            AND ${activeMetahubRowCondition('pv')}
          LIMIT 1`,
@@ -262,7 +262,7 @@ export async function findPublicationVersionById(exec: SqlQueryable, id: string)
 export async function findActivePublicationVersion(exec: SqlQueryable, publicationId: string): Promise<PublicationVersionRow | null> {
     const rows = await exec.query<PublicationVersionRow>(
         `SELECT ${PUB_VERSION_SELECT('pv')}
-         FROM metahubs.publications_versions pv
+         FROM metahubs.doc_publication_versions pv
          WHERE pv.publication_id = $1
            AND pv.is_active = true
                      AND ${activeMetahubRowCondition('pv')}
@@ -275,7 +275,7 @@ export async function findActivePublicationVersion(exec: SqlQueryable, publicati
 export async function listPublicationVersions(exec: SqlQueryable, publicationId: string): Promise<PublicationVersionRow[]> {
     return exec.query<PublicationVersionRow>(
         `SELECT ${PUB_VERSION_SELECT('pv')}
-         FROM metahubs.publications_versions pv
+         FROM metahubs.doc_publication_versions pv
          WHERE pv.publication_id = $1
            AND ${activeMetahubRowCondition('pv')}
          ORDER BY pv.version_number DESC`,
@@ -286,7 +286,7 @@ export async function listPublicationVersions(exec: SqlQueryable, publicationId:
 export async function getMaxPublicationVersionNumber(exec: SqlQueryable, publicationId: string): Promise<number> {
     const rows = await exec.query<{ max: string | null }>(
         `SELECT MAX(version_number)::text AS max
-         FROM metahubs.publications_versions
+         FROM metahubs.doc_publication_versions
          WHERE publication_id = $1`,
         [publicationId]
     )
@@ -307,14 +307,14 @@ export interface CreatePublicationVersionInput {
 
 export async function createPublicationVersion(exec: SqlQueryable, input: CreatePublicationVersionInput): Promise<PublicationVersionRow> {
     const rows = await exec.query<PublicationVersionRow>(
-        `INSERT INTO metahubs.publications_versions (
+        `INSERT INTO metahubs.doc_publication_versions (
             publication_id, branch_id, version_number,
             name, description,
             snapshot_json, snapshot_hash, is_active,
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-         RETURNING ${PUB_VERSION_SELECT('metahubs.publications_versions')}`,
+         RETURNING ${PUB_VERSION_SELECT('metahubs.doc_publication_versions')}`,
         [
             input.publicationId,
             input.branchId ?? null,
@@ -332,7 +332,7 @@ export async function createPublicationVersion(exec: SqlQueryable, input: Create
 
 export async function deactivatePublicationVersions(exec: SqlQueryable, publicationId: string): Promise<void> {
     await exec.query(
-        `UPDATE metahubs.publications_versions
+        `UPDATE metahubs.doc_publication_versions
          SET is_active = false
          WHERE publication_id = $1
            AND is_active = true
@@ -343,7 +343,7 @@ export async function deactivatePublicationVersions(exec: SqlQueryable, publicat
 
 export async function activatePublicationVersion(exec: SqlQueryable, versionId: string): Promise<void> {
     await exec.query(
-        `UPDATE metahubs.publications_versions
+        `UPDATE metahubs.doc_publication_versions
          SET is_active = true
          WHERE id = $1
            AND ${activeMetahubRowCondition()}`,

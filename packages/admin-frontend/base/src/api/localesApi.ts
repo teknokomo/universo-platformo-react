@@ -55,7 +55,7 @@ export interface UpdateLocalePayload {
  */
 export interface LocalesListParams {
     includeDisabled?: boolean
-    sortBy?: 'code' | 'sort_order' | 'created_at'
+    sortBy?: 'code' | 'sort_order' | '_upl_created_at'
     sortOrder?: 'asc' | 'desc'
 }
 

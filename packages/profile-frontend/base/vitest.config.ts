@@ -13,6 +13,7 @@ const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.js
 export default mergeConfig(
   baseConfig,
   defineConfig({
+    root: __dirname,
     resolve: {
       alias: {
         ...tsconfigAliases,

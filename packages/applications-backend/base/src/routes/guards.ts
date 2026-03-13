@@ -1,4 +1,4 @@
-import type { DbExecutor } from '@universo/utils'
+import { activeAppRowCondition, type DbExecutor } from '@universo/utils'
 import * as httpErrors from 'http-errors'
 import { createAccessGuards } from '@universo/auth-backend'
 import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
@@ -66,11 +66,10 @@ const baseGuards = createAccessGuards<ApplicationRole, ApplicationMembershipReco
             executor,
             `
             SELECT *
-            FROM applications.applications_users
+            FROM applications.rel_application_users
             WHERE application_id = $1
               AND user_id = $2
-                            AND COALESCE(_upl_deleted, false) = false
-                            AND COALESCE(_app_deleted, false) = false
+                                                        AND ${activeAppRowCondition()}
             LIMIT 1
             `,
             [applicationId, userId]
@@ -195,10 +194,9 @@ export async function ensureConnectorAccess(
         executor,
         `
         SELECT *
-        FROM applications.connectors
+        FROM applications.cat_connectors
         WHERE id = $1
-                    AND COALESCE(_upl_deleted, false) = false
-                    AND COALESCE(_app_deleted, false) = false
+                    AND ${activeAppRowCondition()}
         LIMIT 1
         `,
         [connectorId]

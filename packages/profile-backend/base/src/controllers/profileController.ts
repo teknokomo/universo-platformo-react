@@ -1,13 +1,78 @@
 import { Request, Response } from 'express'
 import { ProfileService } from '../services/profileService'
-import { CreateProfileDto, UpdateProfileDto, ApiResponse, UpdateSettingsDto } from '../types'
+import { CreateProfileDto, CreateProfileInput, UpdateProfileDto, ApiResponse, UpdateSettingsDto } from '../types'
+
+interface AuthenticatedUser {
+    id?: string
+    sub?: string
+    email?: string
+}
+
+interface AuthenticatedRequest extends Request {
+    user?: AuthenticatedUser
+}
+
+const PUBLIC_PROFILE_UPDATE_FIELDS = ['nickname', 'first_name', 'last_name'] as const
+
+type PublicProfileUpdateField = (typeof PUBLIC_PROFILE_UPDATE_FIELDS)[number]
+
+const resolveAuthenticatedUserId = (req: Request): string | null => {
+    const user = (req as AuthenticatedRequest).user
+    const candidate = user?.id ?? user?.sub
+    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate.trim() : null
+}
+
+const resolveAuthenticatedEmail = (req: Request): string | undefined => {
+    const email = (req as AuthenticatedRequest).user?.email
+    return typeof email === 'string' && email.trim().length > 0 ? email.trim() : undefined
+}
+
+const resolveRequestedUserId = (body: unknown): string | null => {
+    if (!body || typeof body !== 'object') {
+        return null
+    }
+
+    const candidate = (body as { user_id?: unknown }).user_id
+    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate.trim() : null
+}
+
+function sanitizePublicProfileUpdate(body: unknown): { data?: UpdateProfileDto; error?: string } {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return { error: 'Profile update payload must be an object' }
+    }
+
+    const rawBody = body as Record<string, unknown>
+    const allowedFields = new Set<string>(PUBLIC_PROFILE_UPDATE_FIELDS)
+    const unexpectedFields = Object.keys(rawBody).filter((field) => !allowedFields.has(field))
+
+    if (unexpectedFields.length > 0) {
+        return { error: `Unsupported profile fields: ${unexpectedFields.join(', ')}` }
+    }
+
+    const sanitized: UpdateProfileDto = {}
+    for (const field of PUBLIC_PROFILE_UPDATE_FIELDS) {
+        const value = rawBody[field]
+        if (value === undefined) {
+            continue
+        }
+
+        if (typeof value !== 'string') {
+            return { error: `${field} must be a string` }
+        }
+
+        sanitized[field as PublicProfileUpdateField] = value
+    }
+
+    if (Object.keys(sanitized).length === 0) {
+        return { error: 'At least one profile field is required' }
+    }
+
+    return { data: sanitized }
+}
 
 export class ProfileController {
     constructor(private profileService: ProfileService) {}
 
-    /**
-     * GET /profile/:userId - Get user profile
-     */
     async getProfile(req: Request, res: Response): Promise<void> {
         try {
             const { userId } = req.params
@@ -42,13 +107,10 @@ export class ProfileController {
         }
     }
 
-    /**
-     * GET /profile/check-nickname/:nickname - Check if nickname is available
-     */
     async checkNickname(req: Request, res: Response): Promise<void> {
         try {
             const { nickname } = req.params
-            const userId = (req as any).user?.id // From authentication middleware
+            const userId = resolveAuthenticatedUserId(req)
 
             if (!nickname) {
                 res.status(400).json({
@@ -58,7 +120,7 @@ export class ProfileController {
                 return
             }
 
-            const isAvailable = await this.profileService.checkNicknameAvailable(nickname, userId)
+            const isAvailable = await this.profileService.checkNicknameAvailable(nickname, userId ?? undefined)
 
             res.json({
                 success: true,
@@ -72,17 +134,24 @@ export class ProfileController {
         }
     }
 
-    /**
-     * POST /profile - Create new profile
-     */
     async createProfile(req: Request, res: Response): Promise<void> {
         try {
+            const authenticatedUserId = resolveAuthenticatedUserId(req)
             const profileData: CreateProfileDto = req.body
+            const requestedUserId = resolveRequestedUserId(req.body)
 
-            if (!profileData.user_id) {
-                res.status(400).json({
+            if (!authenticatedUserId) {
+                res.status(401).json({
                     success: false,
-                    error: 'User ID is required'
+                    error: 'Authentication required'
+                } as ApiResponse)
+                return
+            }
+
+            if (requestedUserId && requestedUserId !== authenticatedUserId) {
+                res.status(403).json({
+                    success: false,
+                    error: 'Cannot create a profile for another user'
                 } as ApiResponse)
                 return
             }
@@ -95,8 +164,14 @@ export class ProfileController {
                 return
             }
 
-            // Check if profile already exists
-            const exists = await this.profileService.profileExists(profileData.user_id)
+            const createInput: CreateProfileInput = {
+                user_id: authenticatedUserId,
+                nickname: profileData.nickname,
+                first_name: profileData.first_name,
+                last_name: profileData.last_name
+            }
+
+            const exists = await this.profileService.profileExists(createInput.user_id)
             if (exists) {
                 res.status(409).json({
                     success: false,
@@ -105,7 +180,6 @@ export class ProfileController {
                 return
             }
 
-            // Check nickname availability
             const isAvailable = await this.profileService.checkNicknameAvailable(profileData.nickname)
             if (!isAvailable) {
                 res.status(409).json({
@@ -115,7 +189,7 @@ export class ProfileController {
                 return
             }
 
-            const profile = await this.profileService.createProfile(profileData)
+            const profile = await this.profileService.createProfile(createInput)
 
             res.status(201).json({
                 success: true,
@@ -130,18 +204,40 @@ export class ProfileController {
         }
     }
 
-    /**
-     * PUT /profile/:userId - Update user profile
-     */
     async updateProfile(req: Request, res: Response): Promise<void> {
         try {
             const { userId } = req.params
-            const updateData: UpdateProfileDto = req.body
+            const authenticatedUserId = resolveAuthenticatedUserId(req)
 
             if (!userId) {
                 res.status(400).json({
                     success: false,
                     error: 'User ID is required'
+                } as ApiResponse)
+                return
+            }
+
+            if (!authenticatedUserId) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Authentication required'
+                } as ApiResponse)
+                return
+            }
+
+            if (authenticatedUserId !== userId) {
+                res.status(403).json({
+                    success: false,
+                    error: 'Cannot update another user profile'
+                } as ApiResponse)
+                return
+            }
+
+            const { data: updateData, error: updateError } = sanitizePublicProfileUpdate(req.body)
+            if (updateError || !updateData) {
+                res.status(400).json({
+                    success: false,
+                    error: updateError ?? 'Invalid profile update payload'
                 } as ApiResponse)
                 return
             }
@@ -162,9 +258,16 @@ export class ProfileController {
                 message: 'Profile updated successfully'
             } as ApiResponse)
         } catch (error) {
-            // Handle nickname uniqueness error specifically
             if (error instanceof Error && error.message.includes('already taken')) {
                 res.status(409).json({
+                    success: false,
+                    error: error.message
+                } as ApiResponse)
+                return
+            }
+
+            if (error instanceof Error && error.message === 'No supported profile fields provided for update') {
+                res.status(400).json({
                     success: false,
                     error: error.message
                 } as ApiResponse)
@@ -178,12 +281,10 @@ export class ProfileController {
         }
     }
 
-    /**
-     * DELETE /profile/:userId - Delete user profile
-     */
     async deleteProfile(req: Request, res: Response): Promise<void> {
         try {
             const { userId } = req.params
+            const authenticatedUserId = resolveAuthenticatedUserId(req)
 
             if (!userId) {
                 res.status(400).json({
@@ -193,7 +294,23 @@ export class ProfileController {
                 return
             }
 
-            const deleted = await this.profileService.deleteProfile(userId)
+            if (!authenticatedUserId) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Authentication required'
+                } as ApiResponse)
+                return
+            }
+
+            if (authenticatedUserId !== userId) {
+                res.status(403).json({
+                    success: false,
+                    error: 'Cannot delete another user profile'
+                } as ApiResponse)
+                return
+            }
+
+            const deleted = await this.profileService.deleteProfile(userId, authenticatedUserId)
 
             if (!deleted) {
                 res.status(404).json({
@@ -215,9 +332,6 @@ export class ProfileController {
         }
     }
 
-    /**
-     * GET /profiles - Get all profiles (admin endpoint)
-     */
     async getAllProfiles(req: Request, res: Response): Promise<void> {
         try {
             const profiles = await this.profileService.getAllProfiles()
@@ -234,12 +348,9 @@ export class ProfileController {
         }
     }
 
-    /**
-     * GET /profile/settings - Get current user's settings
-     */
     async getSettings(req: Request, res: Response): Promise<void> {
         try {
-            const userId = (req as any).user?.id
+            const userId = resolveAuthenticatedUserId(req)
 
             if (!userId) {
                 res.status(401).json({
@@ -263,14 +374,10 @@ export class ProfileController {
         }
     }
 
-    /**
-     * GET /profile/me - Get or create current user's profile
-     * Auto-creates profile if it doesn't exist
-     */
     async getOrCreateCurrentProfile(req: Request, res: Response): Promise<void> {
         try {
-            const userId = (req as any).user?.id
-            const email = (req as any).user?.email
+            const userId = resolveAuthenticatedUserId(req)
+            const email = resolveAuthenticatedEmail(req)
 
             if (!userId) {
                 res.status(401).json({
@@ -294,14 +401,10 @@ export class ProfileController {
         }
     }
 
-    /**
-     * PUT /profile/settings - Update current user's settings
-     * Auto-creates profile if it doesn't exist
-     */
     async updateSettings(req: Request, res: Response): Promise<void> {
         try {
-            const userId = (req as any).user?.id
-            const email = (req as any).user?.email
+            const userId = resolveAuthenticatedUserId(req)
+            const email = resolveAuthenticatedEmail(req)
             const { settings }: UpdateSettingsDto = req.body
 
             if (!userId) {
@@ -328,8 +431,6 @@ export class ProfileController {
                 message: 'Settings updated successfully'
             } as ApiResponse)
         } catch (error) {
-            // Profile not found error should not happen now (auto-created)
-            // but keep for safety
             if (error instanceof Error && error.message === 'Profile not found') {
                 res.status(404).json({
                     success: false,

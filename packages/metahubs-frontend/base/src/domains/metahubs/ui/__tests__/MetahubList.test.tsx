@@ -7,6 +7,8 @@ vi.mock('remark-math', () => ({ default: () => () => {} }))
 
 vi.mock('@universo/template-mui', async () => {
     const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    const t = (key: string, defaultValue?: unknown) => (typeof defaultValue === 'string' ? defaultValue : key)
+
     return {
         ...actual,
         LocalizedInlineField: ({ label, value, onChange }: any) => {
@@ -32,6 +34,89 @@ vi.mock('@universo/template-mui', async () => {
                         }}
                     />
                 </label>
+            )
+        },
+        BaseEntityMenu: (props: any) => {
+            const descriptors = Array.isArray(props?.descriptors) ? props.descriptors : []
+            const ctx = props?.createContext?.({ entity: props.entity, t }) ?? { entity: props.entity, t }
+            const edit = descriptors.find((descriptor: any) => descriptor?.id === 'edit')
+            const del = descriptors.find((descriptor: any) => descriptor?.id === 'delete')
+            const copy = descriptors.find((descriptor: any) => descriptor?.id === 'copy')
+
+            return (
+                <div data-testid='entity-menu'>
+                    {edit ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                const dialogProps = edit.dialog?.buildProps?.(ctx)
+                                dialogProps?.tabs?.({
+                                    values: dialogProps?.initialExtraValues ?? {},
+                                    setValue: () => undefined,
+                                    isLoading: false,
+                                    errors: dialogProps?.validate?.(dialogProps?.initialExtraValues ?? {}) ?? {}
+                                })
+                                void dialogProps?.onSave?.({
+                                    ...(dialogProps?.initialExtraValues ?? {}),
+                                    nameVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Edited Metahub' } }
+                                    },
+                                    descriptionVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Edited Description' } }
+                                    }
+                                })
+                            }}
+                        >
+                            edit
+                        </button>
+                    ) : null}
+                    {copy ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                const dialogProps = copy.dialog?.buildProps?.(ctx)
+                                dialogProps?.tabs?.({
+                                    values: dialogProps?.initialExtraValues ?? {},
+                                    setValue: () => undefined,
+                                    isLoading: false,
+                                    errors: dialogProps?.validate?.(dialogProps?.initialExtraValues ?? {}) ?? {}
+                                })
+                                void dialogProps?.onSave?.({
+                                    ...(dialogProps?.initialExtraValues ?? {}),
+                                    nameVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Copied Metahub' } }
+                                    },
+                                    descriptionVlc: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Copied Metahub Description' } }
+                                    },
+                                    copyDefaultBranchOnly: false,
+                                    copyAccess: true
+                                })
+                            }}
+                        >
+                            copy
+                        </button>
+                    ) : null}
+                    {del ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                const dialogProps = del.dialog?.buildProps?.(ctx)
+                                void dialogProps?.onConfirm?.()
+                            }}
+                        >
+                            delete
+                        </button>
+                    ) : null}
+                </div>
             )
         }
     }
@@ -135,7 +220,8 @@ vi.mock('../../api', () => ({
     listMetahubs: vi.fn(),
     createMetahub: vi.fn(),
     updateMetahub: vi.fn(),
-    deleteMetahub: vi.fn()
+    deleteMetahub: vi.fn(),
+    copyMetahub: vi.fn()
 }))
 
 // Mock useAuth hook
@@ -570,6 +656,242 @@ describe('MetahubList', () => {
                         }
                     })
                 )
+            })
+        })
+
+        it('submits localized create payload with codename and template selection', async () => {
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await openCreateDialog(user)
+
+            await user.type(screen.getByLabelText('Name'), 'Metahub Acceptance')
+            await user.type(screen.getByLabelText('Description'), 'Created from page acceptance')
+            await user.selectOptions(screen.getByLabelText('Template'), 'template-1')
+            await user.type(screen.getByLabelText('Codename'), 'MetahubAcceptance')
+
+            const createButton = within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' })
+            await waitFor(() => {
+                expect(createButton).toBeEnabled()
+            })
+            await user.click(createButton)
+
+            await waitFor(() => {
+                expect(metahubsApi.createMetahub).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        codename: 'MetahubAcceptance',
+                        name: { en: 'Metahub Acceptance' },
+                        description: { en: 'Created from page acceptance' },
+                        namePrimaryLocale: 'en',
+                        descriptionPrimaryLocale: 'en',
+                        templateId: 'template-1',
+                        createOptions: {
+                            createHub: true,
+                            createCatalog: true,
+                            createSet: true,
+                            createEnumeration: true
+                        }
+                    })
+                )
+            })
+        })
+    })
+
+    describe('Update Metahub', () => {
+        beforeEach(() => {
+            vi.mocked(metahubsApi.listMetahubs).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'editable-metahub',
+                            codename: 'EditableMetahub',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Editable Metahub' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Editable description' }
+                                }
+                            },
+                            role: 'admin',
+                            permissions: { manageMetahub: true },
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(metahubsApi.updateMetahub).mockResolvedValue({
+                data: {
+                    id: 'editable-metahub',
+                    codename: 'EditableMetahub',
+                    name: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Edited Metahub' }
+                        }
+                    },
+                    description: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Edited Description' }
+                        }
+                    }
+                }
+            } as any)
+        })
+
+        it('submits localized update payload from the page action menu', async () => {
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Editable Metahub')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'edit' }))
+
+            await waitFor(() => {
+                expect(metahubsApi.updateMetahub).toHaveBeenCalledWith('editable-metahub', {
+                    codename: 'EditableMetahub',
+                    codenameInput: { en: 'EditableMetahub' },
+                    codenamePrimaryLocale: 'en',
+                    name: { en: 'Edited Metahub' },
+                    description: { en: 'Edited Description' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en',
+                    expectedVersion: undefined
+                })
+            })
+        })
+    })
+
+    describe('Copy Metahub', () => {
+        beforeEach(() => {
+            vi.mocked(metahubsApi.listMetahubs).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'copyable-metahub',
+                            codename: 'CopyableMetahub',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Copyable Metahub' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Copy source description' }
+                                }
+                            },
+                            role: 'admin',
+                            permissions: { manageMetahub: true },
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(metahubsApi.copyMetahub).mockResolvedValue({
+                data: {
+                    id: 'copied-metahub',
+                    codename: 'CopyableMetahub',
+                    name: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Copied Metahub' }
+                        }
+                    }
+                }
+            } as any)
+        })
+
+        it('submits localized copy payload from the page action menu', async () => {
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Copyable Metahub')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'copy' }))
+
+            await waitFor(() => {
+                expect(metahubsApi.copyMetahub).toHaveBeenCalledWith('copyable-metahub', {
+                    codename: 'CopyableMetahub',
+                    codenameInput: undefined,
+                    codenamePrimaryLocale: undefined,
+                    name: { en: 'Copied Metahub' },
+                    description: { en: 'Copied Metahub Description' },
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: 'en',
+                    copyDefaultBranchOnly: false,
+                    copyAccess: true
+                })
+            })
+        })
+    })
+
+    describe('Delete Metahub', () => {
+        beforeEach(() => {
+            vi.mocked(metahubsApi.listMetahubs).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'deletable-metahub',
+                            codename: 'DeletableMetahub',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Deletable Metahub' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Delete me' }
+                                }
+                            },
+                            role: 'admin',
+                            permissions: { manageMetahub: true },
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(metahubsApi.deleteMetahub).mockResolvedValue(undefined as any)
+        })
+
+        it('submits the page action-menu delete flow into the existing delete mutation', async () => {
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Deletable Metahub')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'delete' }))
+
+            await waitFor(() => {
+                expect(metahubsApi.deleteMetahub).toHaveBeenCalledWith('deletable-metahub')
             })
         })
     })

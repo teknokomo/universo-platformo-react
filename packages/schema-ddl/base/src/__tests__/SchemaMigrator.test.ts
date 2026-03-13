@@ -63,12 +63,25 @@ describe('SchemaMigrator', () => {
             schemaName: string,
             change: SchemaChange,
             entities: EntityDefinition[],
-            trx: import('knex').Knex.Transaction
+            trx: import('knex').Knex.Transaction,
+            options?: { systemTableCapabilities?: Record<string, boolean> }
         ) => Promise<void>
 
-        await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
+        await applyChange.call(migrator, 'app_test_schema', change, entities, trx, {
+            systemTableCapabilities: {
+                includeAttributes: false,
+                includeValues: true,
+                includeLayouts: false,
+                includeWidgets: false
+            }
+        })
 
-        expect(generator.ensureSystemTables).toHaveBeenCalledWith('app_test_schema', trx)
+        expect(generator.ensureSystemTables).toHaveBeenCalledWith('app_test_schema', trx, {
+            includeAttributes: false,
+            includeValues: true,
+            includeLayouts: false,
+            includeWidgets: false
+        })
         expect(trx.raw).toHaveBeenCalledWith(
             'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL',
             ['app_test_schema', 'cat_orders', 'fk_cat_orders_attr_status', 'attr_status', 'app_test_schema', '_app_values']
@@ -118,7 +131,8 @@ describe('SchemaMigrator', () => {
             schemaName: string,
             change: SchemaChange,
             entities: EntityDefinition[],
-            trx: import('knex').Knex.Transaction
+            trx: import('knex').Knex.Transaction,
+            options?: { systemTableCapabilities?: Record<string, boolean> }
         ) => Promise<void>
 
         await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
@@ -203,5 +217,76 @@ describe('SchemaMigrator', () => {
         )
         expect(recordMigration.mock.invocationCallOrder[0]).toBeLessThan(afterMigrationRecorded.mock.invocationCallOrder[0])
         expect(applyChangeMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('uses physical column types and explicit SQL defaults when adding columns', async () => {
+        const columnBuilder = {
+            nullable: jest.fn().mockReturnThis(),
+            defaultTo: jest.fn().mockReturnThis()
+        }
+        const alterTable = jest.fn((_: string, callback: (table: { specificType: typeof specificType }) => void) => {
+            callback({
+                specificType
+            })
+        })
+        const specificType = jest.fn(() => columnBuilder)
+        const trx = {
+            raw: jest.fn((sql: string) => ({ rawSql: sql })),
+            schema: {
+                withSchema: jest.fn(() => ({
+                    alterTable
+                }))
+            }
+        } as unknown as import('knex').Knex.Transaction
+
+        const migrator = new SchemaMigrator(
+            {} as import('knex').Knex,
+            {} as import('../SchemaGenerator').SchemaGenerator,
+            {} as import('../MigrationManager').MigrationManager
+        )
+
+        const field: FieldDefinition = {
+            id: 'field-string-0000-0000-0000-000000000010',
+            codename: 'timezone',
+            dataType: AttributeDataType.STRING,
+            isRequired: false,
+            physicalColumnName: 'profile_timezone',
+            physicalDataType: 'citext',
+            defaultSqlExpression: `'UTC'::citext`
+        }
+        const entities: EntityDefinition[] = [
+            {
+                id: 'catalog-0000-0000-0000-000000000010',
+                codename: 'profiles',
+                kind: 'catalog',
+                physicalTableName: 'cat_profiles',
+                fields: [field]
+            }
+        ]
+
+        const change: SchemaChange = {
+            type: ChangeType.ADD_COLUMN,
+            entityId: entities[0].id,
+            fieldId: field.id,
+            tableName: 'cat_profiles',
+            isDestructive: false,
+            description: 'Add column "timezone"'
+        }
+
+        const applyChange = Reflect.get(migrator as object, 'applyChange') as (
+            schemaName: string,
+            change: SchemaChange,
+            entities: EntityDefinition[],
+            trx: import('knex').Knex.Transaction
+        ) => Promise<void>
+
+        await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
+
+        expect(trx.schema.withSchema).toHaveBeenCalledWith('app_test_schema')
+        expect(alterTable).toHaveBeenCalledWith('cat_profiles', expect.any(Function))
+        expect(specificType).toHaveBeenCalledWith('profile_timezone', 'citext')
+        expect(columnBuilder.nullable).toHaveBeenCalledTimes(1)
+        expect(trx.raw).toHaveBeenCalledWith(`'UTC'::citext`)
+        expect(columnBuilder.defaultTo).toHaveBeenCalledWith({ rawSql: `'UTC'::citext` })
     })
 })

@@ -1,7 +1,7 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { quoteIdentifier } from '@universo/migrations-core'
+import { isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { localizedContent, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
@@ -26,12 +26,12 @@ import {
     type AppRow
 } from '../../../persistence'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
-import { getDDLServices, generateSchemaName, isValidSchemaName, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getDDLServices, generateSchemaName, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
+import { runPublishedApplicationRuntimeSync, type PublishedApplicationSnapshot } from '@universo/applications-backend'
 import { ApplicationSchemaStatus } from '@universo/types'
 import { createLinkedApplication } from '../helpers/createLinkedApplication'
 import { TARGET_APP_STRUCTURE_VERSION } from '../../applications/constants'
-import { runPublishedApplicationRuntimeSync } from '../../applications/routes/applicationSyncRoutes'
 import { persistApplicationSchemaSyncState } from '../../applications/services/ApplicationSchemaStateStore'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -64,7 +64,7 @@ const activeApplicationRowPredicate = (alias?: string): string => {
 const getErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 const assertManagedApplicationSchemaName = (schemaName: string): void => {
-    if (!schemaName.startsWith('app_') || !isValidSchemaName(schemaName)) {
+    if (!schemaName.startsWith('app_') || !isManagedDynamicSchemaName(schemaName)) {
         throw new Error(`Invalid application schema name: ${schemaName}`)
     }
 }
@@ -78,7 +78,7 @@ const markCreatedApplicationDeleted = async (
 
     await executor.query(
         `
-        UPDATE applications.connectors
+        UPDATE applications.cat_connectors
         SET _upl_deleted = true,
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
@@ -92,13 +92,13 @@ const markCreatedApplicationDeleted = async (
 
     await executor.query(
         `
-        UPDATE applications.connectors_publications cp
+        UPDATE applications.rel_connector_publications cp
         SET _upl_deleted = true,
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
             _upl_updated_at = NOW(),
             _upl_version = COALESCE(_upl_version, 1) + 1
-        FROM applications.connectors c
+        FROM applications.cat_connectors c
         WHERE cp.connector_id = c.id
           AND c.application_id = $1
           AND ${activeApplicationRowPredicate('cp')}
@@ -108,7 +108,7 @@ const markCreatedApplicationDeleted = async (
 
     await executor.query(
         `
-        UPDATE applications.applications_users
+        UPDATE applications.rel_application_users
         SET _upl_deleted = true,
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
@@ -122,7 +122,7 @@ const markCreatedApplicationDeleted = async (
 
     await executor.query(
         `
-        UPDATE applications.applications
+        UPDATE applications.cat_applications
         SET _upl_deleted = true,
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
@@ -162,8 +162,8 @@ const compensateCreatedPublication = async (
             })
         }
 
-        await softDelete(tx, 'metahubs', 'publications_versions', input.publicationVersionId, input.userId)
-        await softDelete(tx, 'metahubs', 'publications', input.publicationId, input.userId)
+        await softDelete(tx, 'metahubs', 'doc_publication_versions', input.publicationVersionId, input.userId)
+        await softDelete(tx, 'metahubs', 'doc_publications', input.publicationId, input.userId)
     })
 }
 
@@ -420,9 +420,9 @@ export function createPublicationsRoutes(
                     m.id as "metahubId",
                     COALESCE(m.codename, m.slug, m.id::text) as "metahubCodename",
                     m.name as "metahubName"
-                FROM metahubs.publications p
-                JOIN metahubs.metahubs m ON m.id = p.metahub_id
-                JOIN metahubs.metahubs_users mu ON mu.metahub_id = m.id
+                FROM metahubs.doc_publications p
+                JOIN metahubs.cat_metahubs m ON m.id = p.metahub_id
+                JOIN metahubs.rel_metahub_users mu ON mu.metahub_id = m.id
                 WHERE mu.user_id = $1
                 ORDER BY p._upl_created_at DESC
                 LIMIT $2 OFFSET $3
@@ -448,9 +448,9 @@ export function createPublicationsRoutes(
             const countResult = await exec.query<{ total: string }>(
                 `
                 SELECT COUNT(*) as total
-                FROM metahubs.publications p
-                JOIN metahubs.metahubs m ON m.id = p.metahub_id
-                JOIN metahubs.metahubs_users mu ON mu.metahub_id = m.id
+                FROM metahubs.doc_publications p
+                JOIN metahubs.cat_metahubs m ON m.id = p.metahub_id
+                JOIN metahubs.rel_metahub_users mu ON mu.metahub_id = m.id
                 WHERE mu.user_id = $1
             `,
                 [userId]
@@ -546,7 +546,7 @@ export function createPublicationsRoutes(
             }
 
             const existingCountRows = await exec.query<{ count: number }>(
-                'SELECT COUNT(*)::int AS count FROM metahubs.publications WHERE metahub_id = $1',
+                'SELECT COUNT(*)::int AS count FROM metahubs.doc_publications WHERE metahub_id = $1',
                 [metahubId]
             )
             if ((existingCountRows[0]?.count ?? 0) > 0) {
@@ -604,7 +604,7 @@ export function createPublicationsRoutes(
 
                 // 2. Generate schema name (use raw update to avoid version increment)
                 const schemaName = generateSchemaName(publication.id)
-                await tx.query('UPDATE metahubs.publications SET schema_name = $1 WHERE id = $2', [schemaName, publication.id])
+                await tx.query('UPDATE metahubs.doc_publications SET schema_name = $1 WHERE id = $2', [schemaName, publication.id])
 
                 // 3. Auto-create Application via shared helper
                 let applicationData: { application: AppRow; appSchemaName: string } | null = null
@@ -654,7 +654,10 @@ export function createPublicationsRoutes(
                 })
 
                 // Update activeVersionId using raw update to avoid version increment
-                await tx.query('UPDATE metahubs.publications SET active_version_id = $1 WHERE id = $2', [firstVersion.id, publication.id])
+                await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [
+                    firstVersion.id,
+                    publication.id
+                ])
 
                 return {
                     publication: { ...publication, schemaName, activeVersionId: firstVersion.id },
@@ -686,7 +689,7 @@ export function createPublicationsRoutes(
                             await runPublishedApplicationRuntimeSync({
                                 trx,
                                 schemaName: result.applicationData!.appSchemaName,
-                                snapshot,
+                                snapshot: snapshot as unknown as PublishedApplicationSnapshot,
                                 entities: catalogDefs,
                                 migrationManager,
                                 migrationId,
@@ -734,7 +737,9 @@ export function createPublicationsRoutes(
                     } catch (cleanupError) {
                         console.error('Publication compensation failed after DDL error:', cleanupError)
                         throw new Error(
-                            `Failed to create publication schema and cleanup also failed: ${getErrorMessage(ddlError)} | cleanup: ${getErrorMessage(cleanupError)}`
+                            `Failed to create publication schema and cleanup also failed: ${getErrorMessage(
+                                ddlError
+                            )} | cleanup: ${getErrorMessage(cleanupError)}`
                         )
                     }
 
@@ -937,7 +942,7 @@ export function createPublicationsRoutes(
             try {
                 await exec.transaction(async (tx) => {
                     // Lock metahub row
-                    const metahubLocked = await tx.query<{ id: string }>('SELECT id FROM metahubs.metahubs WHERE id = $1 FOR UPDATE', [
+                    const metahubLocked = await tx.query<{ id: string }>('SELECT id FROM metahubs.cat_metahubs WHERE id = $1 FOR UPDATE', [
                         metahubId
                     ])
                     if (metahubLocked.length === 0) {
@@ -946,7 +951,7 @@ export function createPublicationsRoutes(
 
                     // Lock publication row
                     const publicationLocked = await tx.query<{ id: string; schemaName: string | null }>(
-                        'SELECT id, schema_name AS "schemaName" FROM metahubs.publications WHERE id = $1 AND metahub_id = $2 FOR UPDATE',
+                        'SELECT id, schema_name AS "schemaName" FROM metahubs.doc_publications WHERE id = $1 AND metahub_id = $2 FOR UPDATE',
                         [publicationId, metahubId]
                     )
                     if (publicationLocked.length === 0) {
@@ -962,7 +967,22 @@ export function createPublicationsRoutes(
                     // Reset UPDATE_AVAILABLE → SYNCED on linked applications before delete
                     await resetLinkedAppsToSynced(tx, publicationId)
 
-                    await softDelete(tx, 'metahubs', 'publications', publicationId, userId)
+                    // Cascade soft-delete publication versions before the publication itself
+                    await tx.query(
+                        `UPDATE metahubs.doc_publication_versions
+                         SET _upl_deleted = true,
+                             _upl_deleted_at = NOW(),
+                             _upl_deleted_by = $2,
+                             _app_deleted = true,
+                             _app_deleted_at = NOW(),
+                             _app_deleted_by = $2,
+                             _upl_updated_at = NOW(),
+                             _upl_version = _upl_version + 1
+                         WHERE publication_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+                        [publicationId, userId]
+                    )
+
+                    await softDelete(tx, 'metahubs', 'doc_publications', publicationId, userId)
                 })
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Failed to delete publication'
@@ -1012,9 +1032,9 @@ export function createPublicationsRoutes(
             }>(
                 `
                 SELECT DISTINCT a.id, a.name, a.description, a.slug, a._upl_created_at as "createdAt"
-                FROM applications.applications a
-                JOIN applications.connectors c ON c.application_id = a.id
-                JOIN applications.connectors_publications cp ON cp.connector_id = c.id
+                FROM applications.cat_applications a
+                JOIN applications.cat_connectors c ON c.application_id = a.id
+                JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
                 WHERE cp.publication_id = $1
                 ORDER BY a._upl_created_at DESC
             `,
@@ -1133,7 +1153,7 @@ export function createPublicationsRoutes(
                             await runPublishedApplicationRuntimeSync({
                                 trx,
                                 schemaName: result.appSchemaName,
-                                snapshot: snapshotData,
+                                snapshot: snapshotData as unknown as PublishedApplicationSnapshot,
                                 entities: catalogDefs,
                                 migrationManager,
                                 migrationId,
@@ -1174,7 +1194,9 @@ export function createPublicationsRoutes(
                     } catch (cleanupError) {
                         console.error('Linked application compensation failed after DDL error:', cleanupError)
                         throw new Error(
-                            `Failed to create application schema and cleanup also failed: ${getErrorMessage(ddlError)} | cleanup: ${getErrorMessage(cleanupError)}`
+                            `Failed to create application schema and cleanup also failed: ${getErrorMessage(
+                                ddlError
+                            )} | cleanup: ${getErrorMessage(cleanupError)}`
                         )
                     }
 
@@ -1538,7 +1560,7 @@ export function createPublicationsRoutes(
                 })
 
                 // Update publication's activeVersionId
-                await tx.query('UPDATE metahubs.publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
+                await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
 
                 return version
             })
@@ -1583,7 +1605,7 @@ export function createPublicationsRoutes(
 
                 // Activate this version
                 await activatePublicationVersion(tx, versionId)
-                await tx.query('UPDATE metahubs.publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
+                await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
             })
 
             // Notify linked applications about new active version
@@ -1656,7 +1678,7 @@ export function createPublicationsRoutes(
                 setClauses.push('_upl_version = COALESCE(_upl_version, 1) + 1')
 
                 params.push(versionId)
-                await exec.query(`UPDATE metahubs.publications_versions SET ${setClauses.join(', ')} WHERE id = $${idx}`, params)
+                await exec.query(`UPDATE metahubs.doc_publication_versions SET ${setClauses.join(', ')} WHERE id = $${idx}`, params)
             }
 
             const updatedVersion = await findPublicationVersionById(exec, versionId)
@@ -1691,7 +1713,7 @@ export function createPublicationsRoutes(
                 return res.status(400).json({ error: 'Cannot delete an active version' })
             }
 
-            await softDelete(exec, 'metahubs', 'publications_versions', versionId, userId)
+            await softDelete(exec, 'metahubs', 'doc_publication_versions', versionId, userId)
 
             return res.json({ success: true })
         })

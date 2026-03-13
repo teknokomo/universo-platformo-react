@@ -20,7 +20,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmContextProvider,
     useConfirm,
     LocalizedInlineField,
     useCodenameAutoFill,
@@ -1219,10 +1218,14 @@ const CatalogListContent = () => {
         setView(nextView as 'card' | 'table')
     }
 
-    const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations') => {
+    const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations' | 'settings') => {
         if (!metahubId || !hubId) return
         if (tabValue === 'hubs') {
             navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
+            return
+        }
+        if (tabValue === 'settings') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`, { state: { openHubSettings: true } })
             return
         }
         if (tabValue === 'sets') {
@@ -1366,6 +1369,7 @@ const CatalogListContent = () => {
                                     <Tab value='catalogs' label={t('catalogs.title')} />
                                     <Tab value='sets' label={t('sets.title')} />
                                     <Tab value='enumerations' label={t('enumerations.title')} />
+                                    <Tab value='settings' label={t('settings.title')} />
                                 </Tabs>
                             </Box>
                         )}
@@ -1727,12 +1731,6 @@ const CatalogListContent = () => {
     )
 }
 
-const CatalogList = () => {
-    return (
-        <ConfirmContextProvider>
-            <CatalogListContent />
-        </ConfirmContextProvider>
-    )
-}
+const CatalogList = () => <CatalogListContent />
 
 export default CatalogList

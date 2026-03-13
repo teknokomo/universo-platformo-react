@@ -20,49 +20,49 @@ interface PolicyRewrite {
 
 const adminPolicies: PolicyRewrite[] = [
     {
-        table: 'admin.roles',
+        table: 'admin.cat_roles',
         name: 'admin_access_manage_roles',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'admin.role_permissions',
+        table: 'admin.rel_role_permissions',
         name: 'admin_access_manage_role_permissions',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'admin.user_roles',
+        table: 'admin.rel_user_roles',
         name: 'users_read_own_roles',
         forClause: 'FOR SELECT',
         using: 'user_id = (select auth.uid())'
     },
     {
-        table: 'admin.user_roles',
+        table: 'admin.rel_user_roles',
         name: 'admin_access_manage_user_roles',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'admin.instances',
+        table: 'admin.cfg_instances',
         name: 'instances_select_admin_access',
         forClause: 'FOR SELECT',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'admin.instances',
+        table: 'admin.cfg_instances',
         name: 'instances_manage_admin_access',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'admin.locales',
+        table: 'admin.cfg_locales',
         name: 'admin_access_manage_locales',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'admin.settings',
+        table: 'admin.cfg_settings',
         name: 'admin_access_manage_settings',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
@@ -71,105 +71,105 @@ const adminPolicies: PolicyRewrite[] = [
 
 const profilePolicies: PolicyRewrite[] = [
     {
-        table: 'public.profiles',
+        table: 'profiles.cat_profiles',
         name: 'Allow users to view own profile',
         forClause: 'FOR SELECT',
         using: '(select auth.uid()) = user_id'
     },
     {
-        table: 'public.profiles',
+        table: 'profiles.cat_profiles',
         name: 'Allow users to update own profile',
         forClause: 'FOR UPDATE',
         using: '(select auth.uid()) = user_id'
     },
     {
-        table: 'public.profiles',
-        name: 'Allow users to insert own profile',
+        table: 'profiles.cat_profiles',
+        name: 'Allow profile creation for existing users',
         forClause: 'FOR INSERT',
-        withCheck: '(select auth.uid()) = user_id'
+        withCheck: 'EXISTS (SELECT 1 FROM auth.users WHERE id = user_id)'
     }
 ]
 
 const metahubsPolicies: PolicyRewrite[] = [
     {
-        table: 'metahubs.templates',
+        table: 'metahubs.cat_templates',
         name: 'templates_write_superuser',
         forClause: 'FOR ALL',
         using: '(select admin.is_superuser((select auth.uid())))',
         withCheck: '(select admin.is_superuser((select auth.uid())))'
     },
     {
-        table: 'metahubs.templates_versions',
+        table: 'metahubs.doc_template_versions',
         name: 'template_versions_write_superuser',
         forClause: 'FOR ALL',
         using: '(select admin.is_superuser((select auth.uid())))',
         withCheck: '(select admin.is_superuser((select auth.uid())))'
     },
     {
-        table: 'metahubs.metahubs_users',
+        table: 'metahubs.rel_metahub_users',
         name: 'Allow users to manage their metahub memberships',
         forClause: 'FOR ALL',
         using: `user_id = (select auth.uid()) OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `user_id = (select auth.uid()) OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'metahubs.metahubs',
+        table: 'metahubs.cat_metahubs',
         name: 'Allow users to manage their own metahubs',
         forClause: 'FOR ALL',
         using: `is_public = true
                     OR EXISTS (
-                        SELECT 1 FROM metahubs.metahubs_users mu
-                        WHERE mu.metahub_id = metahubs.metahubs.id AND mu.user_id = (select auth.uid())
+                        SELECT 1 FROM metahubs.rel_metahub_users mu
+                        WHERE mu.metahub_id = metahubs.cat_metahubs.id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM metahubs.metahubs_users mu
-                        WHERE mu.metahub_id = metahubs.metahubs.id AND mu.user_id = (select auth.uid())
+                        SELECT 1 FROM metahubs.rel_metahub_users mu
+                        WHERE mu.metahub_id = metahubs.cat_metahubs.id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'metahubs.metahubs_branches',
+        table: 'metahubs.cat_metahub_branches',
         name: 'branches_access_via_metahub',
         forClause: 'FOR ALL',
         using: `EXISTS (
-                        SELECT 1 FROM metahubs.metahubs_users mu
-                        WHERE mu.metahub_id = metahubs.metahubs_branches.metahub_id AND mu.user_id = (select auth.uid())
+                        SELECT 1 FROM metahubs.rel_metahub_users mu
+                        WHERE mu.metahub_id = metahubs.cat_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM metahubs.metahubs_users mu
-                        WHERE mu.metahub_id = metahubs.metahubs_branches.metahub_id AND mu.user_id = (select auth.uid())
+                        SELECT 1 FROM metahubs.rel_metahub_users mu
+                        WHERE mu.metahub_id = metahubs.cat_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'metahubs.publications',
+        table: 'metahubs.doc_publications',
         name: 'pub_access_via_metahub',
         forClause: 'FOR ALL',
         using: `EXISTS (
-                        SELECT 1 FROM metahubs.metahubs_users mu
-                        WHERE mu.metahub_id = metahubs.publications.metahub_id AND mu.user_id = (select auth.uid())
+                        SELECT 1 FROM metahubs.rel_metahub_users mu
+                        WHERE mu.metahub_id = metahubs.doc_publications.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM metahubs.metahubs_users mu
-                        WHERE mu.metahub_id = metahubs.publications.metahub_id AND mu.user_id = (select auth.uid())
+                        SELECT 1 FROM metahubs.rel_metahub_users mu
+                        WHERE mu.metahub_id = metahubs.doc_publications.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'metahubs.publications_versions',
+        table: 'metahubs.doc_publication_versions',
         name: 'publications_versions_policy',
         forClause: 'FOR ALL',
         using: `publication_id IN (
-                        SELECT p.id FROM metahubs.publications p
-                        JOIN metahubs.metahubs_users mu ON p.metahub_id = mu.metahub_id
+                        SELECT p.id FROM metahubs.doc_publications p
+                        JOIN metahubs.rel_metahub_users mu ON p.metahub_id = mu.metahub_id
                         WHERE mu.user_id = (select auth.uid())
                     )`,
         withCheck: `publication_id IN (
-                        SELECT p.id FROM metahubs.publications p
-                        JOIN metahubs.metahubs_users mu ON p.metahub_id = mu.metahub_id
+                        SELECT p.id FROM metahubs.doc_publications p
+                        JOIN metahubs.rel_metahub_users mu ON p.metahub_id = mu.metahub_id
                         WHERE mu.user_id = (select auth.uid())
                     )`
     }
@@ -177,70 +177,97 @@ const metahubsPolicies: PolicyRewrite[] = [
 
 const applicationsPolicies: PolicyRewrite[] = [
     {
-        table: 'applications.applications_users',
+        table: 'applications.rel_application_users',
         name: 'Allow users to manage their application memberships',
         forClause: 'FOR ALL',
         using: `user_id = (select auth.uid()) OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `user_id = (select auth.uid()) OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'applications.applications',
+        table: 'applications.cat_applications',
         name: 'Allow users to manage their own applications',
         forClause: 'FOR ALL',
         using: `is_public = true
                     OR EXISTS (
-                        SELECT 1 FROM applications.applications_users au
-                        WHERE au.application_id = applications.applications.id AND au.user_id = (select auth.uid())
+                        SELECT 1 FROM applications.rel_application_users au
+                        WHERE au.application_id = applications.cat_applications.id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM applications.applications_users au
-                        WHERE au.application_id = applications.applications.id AND au.user_id = (select auth.uid())
+                        SELECT 1 FROM applications.rel_application_users au
+                        WHERE au.application_id = applications.cat_applications.id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'applications.connectors',
+        table: 'applications.cat_connectors',
         name: 'Allow users to manage connectors in their applications',
         forClause: 'FOR ALL',
         using: `EXISTS (
-                        SELECT 1 FROM applications.applications a
-                        LEFT JOIN applications.applications_users au ON a.id = au.application_id
-                        WHERE a.id = applications.connectors.application_id
+                        SELECT 1 FROM applications.cat_applications a
+                        LEFT JOIN applications.rel_application_users au ON a.id = au.application_id
+                        WHERE a.id = applications.cat_connectors.application_id
                         AND (a.is_public = true OR au.user_id = (select auth.uid()))
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM applications.applications_users au
-                        WHERE au.application_id = applications.connectors.application_id AND au.user_id = (select auth.uid())
+                        SELECT 1 FROM applications.rel_application_users au
+                        WHERE au.application_id = applications.cat_connectors.application_id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'applications.connectors_publications',
+        table: 'applications.rel_connector_publications',
         name: 'Allow users to manage connector-publication links',
         forClause: 'FOR ALL',
         using: `EXISTS (
-                        SELECT 1 FROM applications.connectors c
-                        JOIN applications.applications_users au ON c.application_id = au.application_id
-                        WHERE c.id = applications.connectors_publications.connector_id AND au.user_id = (select auth.uid())
+                        SELECT 1 FROM applications.cat_connectors c
+                        JOIN applications.rel_application_users au ON c.application_id = au.application_id
+                        WHERE c.id = applications.rel_connector_publications.connector_id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM applications.connectors c
-                        JOIN applications.applications_users au ON c.application_id = au.application_id
-                        WHERE c.id = applications.connectors_publications.connector_id AND au.user_id = (select auth.uid())
+                        SELECT 1 FROM applications.cat_connectors c
+                        JOIN applications.rel_application_users au ON c.application_id = au.application_id
+                        WHERE c.id = applications.rel_connector_publications.connector_id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     }
 ]
 
-const allPolicies: PolicyRewrite[] = [
-    ...adminPolicies,
-    ...profilePolicies,
-    ...metahubsPolicies,
-    ...applicationsPolicies
-]
+const allPolicies: PolicyRewrite[] = [...adminPolicies, ...profilePolicies, ...metahubsPolicies, ...applicationsPolicies]
+
+const resolveQualifiedTable = (table: string): { schemaName: string; tableName: string } => {
+    const [schemaName, tableName, ...rest] = table.split('.')
+
+    if (!schemaName || !tableName || rest.length > 0) {
+        throw new Error(`[OptimizeRlsPolicies] Expected schema-qualified table name, received: ${table}`)
+    }
+
+    return { schemaName, tableName }
+}
+
+const buildSafeDropPolicySql = (policy: PolicyRewrite): string => {
+    const { schemaName, tableName } = resolveQualifiedTable(policy.table)
+
+    return `
+DO $$
+BEGIN
+    IF to_regclass('${schemaName}.${tableName}') IS NOT NULL THEN
+        BEGIN
+            EXECUTE format(
+                'DROP POLICY IF EXISTS %I ON %I.%I',
+                '${policy.name}',
+                '${schemaName}',
+                '${tableName}'
+            );
+        EXCEPTION
+            WHEN undefined_table THEN NULL;
+        END;
+    END IF;
+END $$;
+    `
+}
 
 const buildCreatePolicy = (policy: PolicyRewrite): string => {
     const parts = [`CREATE POLICY "${policy.name}" ON ${policy.table}`, policy.forClause]
@@ -266,7 +293,7 @@ export const optimizeRlsPoliciesMigration: PlatformMigrationFile = {
     summary: 'Wrap auth.uid() and admin function calls in (SELECT ...) subqueries for RLS policy evaluation performance',
     async up(ctx: MigrationExecutionContext) {
         for (const policy of allPolicies) {
-            await ctx.raw(`DROP POLICY IF EXISTS "${policy.name}" ON ${policy.table}`)
+            await ctx.raw(buildSafeDropPolicySql(policy))
             await ctx.raw(buildCreatePolicy(policy))
         }
     },
@@ -276,11 +303,11 @@ export const optimizeRlsPoliciesMigration: PlatformMigrationFile = {
         // re-run the original schema migrations for admin/profile/metahubs/applications.
         ctx.logger.warn(
             '[OptimizeRlsPolicies] Down migration drops optimized policies. ' +
-            'Original policies must be restored by re-running their source migrations.',
+                'Original policies must be restored by re-running their source migrations.',
             { migrationId: 'OptimizeRlsPolicies1800000000200' }
         )
         for (const policy of allPolicies) {
-            await ctx.raw(`DROP POLICY IF EXISTS "${policy.name}" ON ${policy.table}`)
+            await ctx.raw(buildSafeDropPolicySql(policy))
         }
     }
 }

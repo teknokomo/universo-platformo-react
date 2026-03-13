@@ -4,11 +4,7 @@ import type { RuntimeMigrationHistoryRecord } from './types'
 /**
  * Check whether a runtime migration history table exists in the given schema.
  */
-export async function hasRuntimeHistoryTable(
-    knex: Knex | Knex.Transaction,
-    schemaName: string,
-    tableName: string
-): Promise<boolean> {
+export async function hasRuntimeHistoryTable(knex: Knex | Knex.Transaction, schemaName: string, tableName: string): Promise<boolean> {
     return knex.schema.withSchema(schemaName).hasTable(tableName)
 }
 
@@ -32,11 +28,7 @@ export async function listRuntimeHistory(
 
     const { limit = 50, offset = 0 } = options ?? {}
 
-    const countRow = await knex
-        .withSchema(schemaName)
-        .from(tableName)
-        .count<{ count: string }[]>('* as count')
-        .first()
+    const countRow = await knex.withSchema(schemaName).from(tableName).count<{ count: string }[]>('* as count').first()
     const total = Number(countRow?.count ?? 0)
 
     const selectCols = options?.columns ?? ['id', 'name', 'applied_at', 'meta']
@@ -54,7 +46,7 @@ export async function listRuntimeHistory(
             id: row.id,
             name: row.name,
             appliedAt: new Date(row.applied_at),
-            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : (row.meta ?? {})
+            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta ?? {}
         }))
     }
 }

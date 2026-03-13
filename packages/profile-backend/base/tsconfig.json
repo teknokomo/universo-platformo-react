@@ -5,6 +5,13 @@
         "lib": ["ES2020"],
         "outDir": "./dist",
         "rootDir": "./src",
+        "baseUrl": ".",
+        "paths": {
+            "@universo/migrations-core": [
+                "../../universo-migrations-core/base/dist/index.d.ts",
+                "../../universo-migrations-core/base/src/index.ts"
+            ]
+        },
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,

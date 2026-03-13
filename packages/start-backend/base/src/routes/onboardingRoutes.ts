@@ -47,7 +47,7 @@ export function createOnboardingRoutes(
 
         try {
             const rows = await exec.query<{ onboarding_completed: boolean }>(
-                'SELECT onboarding_completed FROM public.profiles WHERE user_id = $1 LIMIT 1',
+                'SELECT onboarding_completed FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
                 [userId]
             )
             const onboardingCompleted = rows[0]?.onboarding_completed ?? false
