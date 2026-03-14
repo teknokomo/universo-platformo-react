@@ -10,12 +10,11 @@ const cookieParser = require('cookie-parser')
 import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
-import { Telemetry } from './utils/telemetry'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import apiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
-import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown } from '@universo/database'
+import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo/database'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
 import {
     ensureRegisteredSystemAppSchemaGenerationPlans,
@@ -63,7 +62,6 @@ type AuthenticatedRequest = Request & {
 
 export class App {
     app: express.Application
-    telemetry: Telemetry
 
     constructor() {
         this.app = express()
@@ -151,8 +149,6 @@ export class App {
                 logger.info('[server]: Global migration catalog is disabled; skipping catalog definition sync')
             }
 
-            // Initialize telemetry
-            this.telemetry = new Telemetry()
             logger.info('📦 [server]: Database has been initialized!')
         } catch (error) {
             logger.error('❌ [server]: Error during database initialization:', error)
@@ -176,7 +172,7 @@ export class App {
         }
 
         // Limit is needed to allow sending/receiving base64 encoded string
-        const fileSizeLimit = process.env.FILE_SIZE_LIMIT || process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
+        const fileSizeLimit = process.env.FILE_SIZE_LIMIT || '50mb'
         this.app.use(express.json({ limit: fileSizeLimit }))
         this.app.use(express.urlencoded({ limit: fileSizeLimit, extended: true }))
         if (process.env.NUMBER_OF_PROXIES && parseInt(process.env.NUMBER_OF_PROXIES) > 0)
@@ -247,7 +243,7 @@ export class App {
         this.app.use(sanitizeMiddleware)
 
         // Auth routes (login, logout, CSRF, refresh, etc.)
-        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getKnex))
+        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getPoolExecutor))
 
         // Health check endpoint (no auth required)
         this.app.get('/api/v1/health/db', async (_req: Request, res: Response) => {
@@ -338,11 +334,7 @@ export class App {
     }
 
     async stopApp() {
-        try {
-            await this.telemetry.flush()
-        } catch (e) {
-            logger.error(`❌[server]: Server shut down error: ${e}`)
-        }
+        // Reserved for future cleanup tasks
     }
 }
 

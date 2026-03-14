@@ -33,12 +33,12 @@ import type { AppRow } from '../../../persistence'
 import { findPublicationById } from '../../../persistence'
 import {
     getDDLServices,
-    KnexClient,
     ChangeType,
     buildFkConstraintName,
     uuidToLockKey,
-    acquireAdvisoryLock,
-    releaseAdvisoryLock
+    acquirePoolAdvisoryLock,
+    releasePoolAdvisoryLock,
+    poolKnexTransaction
 } from '../../ddl'
 import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl'
 import { TARGET_APP_STRUCTURE_VERSION } from '../constants'
@@ -451,7 +451,7 @@ export function createApplicationMigrationsRoutes(
 
             // Acquire advisory lock
             const lockKey = uuidToLockKey(`application-migration-rollback:${schemaName}`)
-            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            const lockAcquired = await acquirePoolAdvisoryLock(lockKey)
 
             if (!lockAcquired) {
                 return res.status(409).json({
@@ -460,8 +460,6 @@ export function createApplicationMigrationsRoutes(
             }
 
             try {
-                const knex = KnexClient.getInstance()
-
                 // Get all migrations to rollback
                 const { migrations } = await migrationManager.listMigrations(schemaName, { limit: 1000 })
                 const targetAppliedAt = targetMigration.appliedAt.getTime()
@@ -474,7 +472,7 @@ export function createApplicationMigrationsRoutes(
 
                 let changesApplied = 0
 
-                await knex.transaction(async (trx) => {
+                await poolKnexTransaction(async (trx) => {
                     // Apply rollback changes for each migration in reverse order
                     for (const migration of migrationsToRollback) {
                         for (const change of migration.meta.changes ?? []) {
@@ -523,7 +521,7 @@ export function createApplicationMigrationsRoutes(
                     message
                 })
             } finally {
-                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
+                await releasePoolAdvisoryLock(lockKey)
             }
         })
     )

@@ -4,7 +4,6 @@
  * Loads user permissions from admin.get_user_permissions() and builds CASL ability.
  * Also provides global role information with metadata for frontend display.
  */
-import type { Knex } from 'knex'
 import type {
     AppAbility,
     DbPermission,
@@ -16,7 +15,7 @@ import type {
 } from '@universo/types'
 import { defineAbilitiesFor } from '@universo/types'
 import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled, type DbSession } from '@universo/utils'
-import { createKnexExecutor } from '@universo/database'
+import type { DbExecutor } from '@universo/utils/database'
 
 /**
  * Raw permission row from database (with metadata)
@@ -56,8 +55,8 @@ export interface FullPermissionsResponse {
  * Configuration for permission service
  */
 export interface PermissionServiceOptions {
-    /** Function to get Knex instance */
-    getKnex: () => Knex
+    /** Function to get DbExecutor instance */
+    getDbExecutor: () => DbExecutor
 }
 
 /**
@@ -86,15 +85,14 @@ export interface IPermissionService {
  * Creates permission service
  */
 export function createPermissionService(options: PermissionServiceOptions): IPermissionService {
-    const { getKnex } = options
+    const { getDbExecutor } = options
 
     const runQuery = async <T = unknown>(sql: string, params: unknown[], dbSession?: DbSession): Promise<T[]> => {
         if (dbSession && !dbSession.isReleased()) {
             return dbSession.query<T>(sql, params)
         }
 
-        // Use executor so $1-style bindings are converted to Knex ? format
-        const exec = createKnexExecutor(getKnex())
+        const exec = getDbExecutor()
         return exec.query<T>(sql, params)
     }
 

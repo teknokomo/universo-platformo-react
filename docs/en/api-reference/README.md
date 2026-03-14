@@ -5,16 +5,19 @@ description: Overview of the current REST and OpenAPI documentation surface.
 # API Reference
 
 The public API surface in this repository is REST-oriented and documented through
-modular route packages plus the `@universo/rest-docs` package.
+the live backend route packages plus the standalone `@universo/rest-docs` package.
 
 ## What This Section Covers
 
-- The base URL and shape of the public API surface.
-- How authentication affects API requests.
-- The current status of webhook-style integrations.
+- The base URL and shape of the mounted REST API surface.
+- How authentication changes request requirements.
+- Where to find and how to run the interactive OpenAPI and Swagger docs.
 
-## Important Scope Note
+## Current Scope
 
-The exact route surface depends on which feature packages are mounted by the
-current build, but the repository already exposes platform APIs for auth,
-profiles, metahubs, publications, applications, admin flows, and related config.
+The current repository exposes platform APIs for auth, locales, profile,
+onboarding, applications, connectors, admin flows, public metahub routes, and
+the metahub design-time domains.
+
+Use the interactive docs guide when you need the generated current-state route
+inventory instead of a hand-maintained static summary.

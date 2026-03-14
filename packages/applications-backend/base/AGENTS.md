@@ -1,50 +1,42 @@
 # Applications Backend — AI Agent Guide
 
-## Overview
+## Scope
 
-This package (`@universo/applications-backend`) provides the backend API for standalone application management, including CRUD operations, runtime data access, and role-based access control.
+This package owns application metadata, connector and membership flows, runtime sync orchestration, and release-bundle routes.
+Treat it as a SQL-first backend package with one narrow Tier 3 DDL boundary.
 
-## Key Routes
+## Database Access Rules
 
-### Application Routes (`src/routes/applicationsRoutes.ts`)
+- Use Tier 1 request executors for authenticated route work.
+- Use Tier 2 `getPoolExecutor()` for admin, bootstrap, or public non-RLS work.
+- Keep raw Knex only behind `src/ddl/index.ts`.
+- Route handlers and persistence stores must not call `getKnex()` directly.
+- Dynamic identifiers must use shared identifier helpers.
 
-Main application CRUD and runtime endpoints:
-- `GET /application/:id` — get application details
-- `PUT /application/:id` — update application
-- `DELETE /application/:id` — delete application
-- `GET /application/:id/dashboard` — runtime dashboard data (layouts, widgets, settings)
+## Persistence Rules
 
-**Dashboard endpoint** reads from application schema tables:
-- `_app_layouts` — layout templates
-- `_app_widgets` — zone widgets per layout (renamed from `_app_layout_zone_widgets`)
-- `_app_settings` — key-value settings
+- Stores and service helpers should use parameterized schema-qualified SQL.
+- Application-domain active rows require `_upl_deleted = false AND _app_deleted = false`.
+- Mutating helpers should use `RETURNING id` when the caller needs row confirmation.
+- Zero-row writes should fail closed with explicit errors instead of silently succeeding.
+- Release metadata belongs in `applications.cat_applications`, not in parallel state tables.
 
-Uses raw SQL with `information_schema` existence checks before querying dynamic schema tables.
+## Runtime Sync Rules
 
-### Access Control
+- Publication sync and file-bundle install reuse the same schema sync engine.
+- Maintenance and error states are persisted through the central sync-state store.
+- Advisory locking serializes per-application sync work before schema mutation begins.
+- Runtime DDL orchestration stays in the package DDL boundary, not in route code.
 
-- `ensureApplicationAccess` middleware — validates user role for application
-- Roles: `owner`, `admin`, `editor`, `member`
-- Exported for use by other packages (e.g., `metahubs-backend`)
+## Testing Expectations
 
-## Key Entities
+- Prefer direct tests for SQL-first stores and sync-state helpers.
+- Route tests may mock services, but critical persistence contracts still need direct unit coverage.
+- When a route composes sync flows, verify both success and fail-closed error paths.
 
-- `Application` — core entity with `schemaName`, `schemaStatus`, `appStructureVersion`
-- `ApplicationUser` — user-role mapping
-- `ApplicationSchemaStatus` enum: `DRAFT`, `PENDING`, `SYNCED`, `OUTDATED`, `UPDATE_AVAILABLE`, `MAINTENANCE`, `ERROR`
+## References
 
-## Schema Tables (Dynamic)
-
-Application schemas (`app_{uuid}`) contain:
-- `_app_layouts` — UI layout definitions
-- `_app_widgets` — widgets placed in layout zones
-- `_app_settings` — configuration key-value pairs
-- User-defined entity tables (from metahub catalog)
-
-Tables are created by `SchemaGenerator` from `@universo/schema-ddl`.
-
-## Dependencies
-
-- `@universo/types` — shared type definitions
-- SQL-first persistence stores on top of the shared Knex runtime
-- Express for routing
+- `README.md`
+- `src/ddl/index.ts`
+- `src/services/`
+- `src/persistence/`

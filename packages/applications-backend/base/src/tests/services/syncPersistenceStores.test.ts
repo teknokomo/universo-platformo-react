@@ -1,35 +1,24 @@
 import { persistApplicationSchemaSyncState } from '../../services/ApplicationSchemaSyncStateStore'
 import { persistConnectorSyncTouch } from '../../services/ConnectorSyncTouchStore'
+import { ApplicationSchemaStatus } from '@universo/types'
 
 function createMockTransaction() {
-    const update = jest.fn()
-    const where = jest.fn(() => ({ update }))
-    const table = jest.fn(() => ({ where }))
-    const withSchema = jest.fn(() => ({ table }))
+    const query = jest.fn()
 
     return {
-        trx: {
-            withSchema,
-            fn: {
-                now: jest.fn(() => 'NOW')
-            },
-            raw: jest.fn((value: string) => value)
-        },
-        withSchema,
-        table,
-        where,
-        update
+        trx: { query },
+        query
     }
 }
 
 describe('sync persistence helpers', () => {
     it('persists application schema sync state into the converged cat_applications table', async () => {
         const mock = createMockTransaction()
-        mock.update.mockResolvedValue(1)
+        mock.query.mockResolvedValue([{ id: 'application-1' }])
 
         await persistApplicationSchemaSyncState(mock.trx as never, {
             applicationId: 'application-1',
-            schemaStatus: 'synced' as never,
+            schemaStatus: ApplicationSchemaStatus.SYNCED,
             schemaError: null,
             schemaSyncedAt: new Date('2026-03-12T12:00:00.000Z'),
             schemaSnapshot: { entities: [] },
@@ -38,32 +27,32 @@ describe('sync persistence helpers', () => {
             userId: 'user-1'
         })
 
-        expect(mock.withSchema).toHaveBeenCalledWith('applications')
-        expect(mock.table).toHaveBeenCalledWith('cat_applications')
-        expect(mock.where).toHaveBeenCalledWith({
-            id: 'application-1',
-            _upl_deleted: false,
-            _app_deleted: false
-        })
-        expect(mock.update).toHaveBeenCalledWith(
-            expect.objectContaining({
-                schema_status: 'synced',
-                last_synced_publication_version_id: 'publication-version-1',
-                app_structure_version: 53,
-                _upl_updated_by: 'user-1',
-                _upl_version: 'COALESCE(_upl_version, 1) + 1'
-            })
-        )
+        expect(mock.query).toHaveBeenCalledTimes(1)
+        const [sql, params] = mock.query.mock.calls[0]
+        expect(sql).toContain('UPDATE applications.cat_applications')
+        expect(sql).toContain('RETURNING id')
+        expect(sql).toContain('WHERE id = $9 AND _upl_deleted = false AND _app_deleted = false')
+        expect(params).toEqual([
+            ApplicationSchemaStatus.SYNCED,
+            null,
+            new Date('2026-03-12T12:00:00.000Z'),
+            JSON.stringify({ entities: [] }),
+            'publication-version-1',
+            53,
+            null,
+            'user-1',
+            'application-1'
+        ])
     })
 
     it('fails loudly when the application sync state update touches no active rows', async () => {
         const mock = createMockTransaction()
-        mock.update.mockResolvedValue(0)
+        mock.query.mockResolvedValue([])
 
         await expect(
             persistApplicationSchemaSyncState(mock.trx as never, {
                 applicationId: 'missing-application',
-                schemaStatus: 'failed' as never,
+                schemaStatus: ApplicationSchemaStatus.FAILED,
                 schemaError: 'boom',
                 schemaSyncedAt: null,
                 schemaSnapshot: null,
@@ -76,31 +65,24 @@ describe('sync persistence helpers', () => {
 
     it('touches connector sync audit fields in the converged cat_connectors table', async () => {
         const mock = createMockTransaction()
-        mock.update.mockResolvedValue(1)
+        mock.query.mockResolvedValue([{ id: 'connector-1' }])
 
         await persistConnectorSyncTouch(mock.trx as never, {
             connectorId: 'connector-1',
             userId: 'user-1'
         })
 
-        expect(mock.withSchema).toHaveBeenCalledWith('applications')
-        expect(mock.table).toHaveBeenCalledWith('cat_connectors')
-        expect(mock.where).toHaveBeenCalledWith({
-            id: 'connector-1',
-            _upl_deleted: false,
-            _app_deleted: false
-        })
-        expect(mock.update).toHaveBeenCalledWith(
-            expect.objectContaining({
-                _upl_updated_by: 'user-1',
-                _upl_version: 'COALESCE(_upl_version, 1) + 1'
-            })
-        )
+        expect(mock.query).toHaveBeenCalledTimes(1)
+        const [sql, params] = mock.query.mock.calls[0]
+        expect(sql).toContain('UPDATE applications.cat_connectors')
+        expect(sql).toContain('RETURNING id')
+        expect(sql).toContain('WHERE id = $2 AND _upl_deleted = false AND _app_deleted = false')
+        expect(params).toEqual(['user-1', 'connector-1'])
     })
 
     it('fails loudly when the connector touch update misses the active connector row', async () => {
         const mock = createMockTransaction()
-        mock.update.mockResolvedValue(0)
+        mock.query.mockResolvedValue([])
 
         await expect(
             persistConnectorSyncTouch(mock.trx as never, {

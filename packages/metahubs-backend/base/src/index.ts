@@ -34,7 +34,6 @@ export {
     SchemaGenerator,
     SchemaMigrator,
     MigrationManager,
-    KnexClient,
     getDDLServices,
     ChangeType,
     calculateSchemaDiff,

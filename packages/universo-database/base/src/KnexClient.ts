@@ -115,14 +115,14 @@ export function initKnex(): Knex {
     if (isTransactionPooler) {
         console.error(
             '[KnexClient] ❌ Transaction pooler (port 6543) is NOT compatible with RLS session ' +
-            'variables and advisory locks. Switch to session mode (port 5432 via pooler) or direct connection. ' +
-            'Set ALLOW_TRANSACTION_POOLER=true to bypass this check (NOT recommended for production).'
+                'variables and advisory locks. Switch to session mode (port 5432 via pooler) or direct connection. ' +
+                'Set ALLOW_TRANSACTION_POOLER=true to bypass this check (NOT recommended for production).'
         )
         if (process.env.ALLOW_TRANSACTION_POOLER !== 'true') {
             throw new Error(
                 '[KnexClient] Transaction pooler (port 6543) detected. ' +
-                'This is incompatible with RLS set_config() and advisory locks. ' +
-                'Switch DATABASE_PORT to 5432 (session mode) or set ALLOW_TRANSACTION_POOLER=true.'
+                    'This is incompatible with RLS set_config() and advisory locks. ' +
+                    'Switch DATABASE_PORT to 5432 (session mode) or set ALLOW_TRANSACTION_POOLER=true.'
             )
         }
     }

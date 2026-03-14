@@ -38,6 +38,6 @@
     "dist",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "../../../packages/flowise-core-frontend/base/**/*"
+    "../../../packages/universo-core-frontend/base/**/*"
   ]
 }

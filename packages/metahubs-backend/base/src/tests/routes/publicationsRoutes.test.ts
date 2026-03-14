@@ -52,6 +52,19 @@ jest.mock('../../domains/publications/helpers/createLinkedApplication', () => ({
     createLinkedApplication: (...args: unknown[]) => mockCreateLinkedApplication(...args)
 }))
 
+jest.mock('@universo/database', () => ({
+    __esModule: true,
+    getKnex: jest.fn(() => ({})),
+    getPoolExecutor: jest.fn(() => ({
+        query: jest.fn(async () => [])
+    })),
+    createKnexExecutor: jest.fn((knex: unknown) => knex),
+    qSchema: jest.requireActual('@universo/database').qSchema,
+    qTable: jest.requireActual('@universo/database').qTable,
+    qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
+    qColumn: jest.requireActual('@universo/database').qColumn
+}))
+
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
     getDDLServices: () => ({
@@ -63,12 +76,9 @@ jest.mock('../../domains/ddl', () => ({
     }),
     generateSchemaName: jest.fn((id: string) => `mhb_${id}`),
     isValidSchemaName: jest.fn(() => true),
-    KnexClient: {
-        getInstance: jest.fn(() => ({}))
-    },
     uuidToLockKey: jest.fn((value: string) => value),
-    acquireAdvisoryLock: jest.fn(async () => true),
-    releaseAdvisoryLock: jest.fn(async () => undefined)
+    acquirePoolAdvisoryLock: jest.fn(async () => true),
+    releasePoolAdvisoryLock: jest.fn(async () => undefined)
 }))
 
 jest.mock('@universo/applications-backend', () => ({

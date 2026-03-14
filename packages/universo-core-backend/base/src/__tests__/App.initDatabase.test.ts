@@ -74,18 +74,11 @@ const mockIsGlobalMigrationCatalogEnabled = jest.fn(() => true)
 const mockKnex = { tag: 'knex' }
 const mockGetKnex = jest.fn(() => mockKnex)
 const mockDestroyKnex = jest.fn().mockResolvedValue(undefined)
-const mockTelemetry = jest.fn(function MockTelemetry(this: { ready: boolean }) {
-    this.ready = true
-})
 
 jest.mock('../utils/logger', () => ({
     __esModule: true,
     default: mockLogger,
     expressRequestLogger: jest.fn((_req, _res, next) => next())
-}))
-
-jest.mock('../utils/telemetry', () => ({
-    Telemetry: mockTelemetry
 }))
 
 jest.mock('../utils/XSS', () => ({
@@ -293,7 +286,6 @@ describe('App.initDatabase', () => {
                 source: 'core-backend-initDatabase'
             })
         )
-        expect(mockTelemetry).toHaveBeenCalledTimes(1)
         expect(mockDestroyKnex).not.toHaveBeenCalled()
     })
 
@@ -310,7 +302,6 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -328,7 +319,6 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -347,7 +337,6 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -366,7 +355,6 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -377,7 +365,6 @@ describe('App.initDatabase', () => {
 
         await expect(app.initDatabase()).rejects.toThrow('platform migration failed')
 
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).not.toHaveBeenCalled()
@@ -397,7 +384,6 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPostSchemaMigrations).toHaveBeenCalledTimes(1)
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -428,7 +414,6 @@ describe('App.initDatabase', () => {
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockInspectLegacyFixedSchemaTables).toHaveBeenCalledTimes(1)
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -450,7 +435,6 @@ describe('App.initDatabase', () => {
         expect(mockInspectLegacyFixedSchemaTables).toHaveBeenCalledTimes(1)
         expect(mockInspectRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -466,7 +450,6 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPostSchemaMigrations).toHaveBeenCalledTimes(1)
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).toHaveBeenCalledTimes(1)
-        expect(mockTelemetry).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -483,7 +466,6 @@ describe('App.initDatabase', () => {
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
         expect(mockLogger.info).toHaveBeenCalledWith('[server]: Global migration catalog is disabled; skipping catalog definition sync')
-        expect(mockTelemetry).toHaveBeenCalledTimes(1)
         expect(mockDestroyKnex).not.toHaveBeenCalled()
     })
 })

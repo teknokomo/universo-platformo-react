@@ -1,69 +1,73 @@
 # Metahubs Backend (@universo/metahubs-backend)
 
-Backend-пакет для design-time операций metahub, metadata publication, seed шаблонов и orchestration runtime schema в Universo Platformo.
+Backend-пакет для design-time ресурсов metahub, metadata publication, seed встроенных шаблонов и контролируемой orchestration runtime schema.
 
 ## Overview
 
-Этот пакет отвечает за metadata authoring-сторону платформы: metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, templates, settings, publications и migration control endpoints.
-Он интегрируется с shared Knex runtime, unified platform migration catalog и schema DDL toolkit.
+Этот пакет владеет design-time стороной платформы: metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, templates, publications и маршрутами управления миграциями.
+Он объединяет SQL-first domain services с изолированными DDL boundaries, template seeding, publication export flows и metahub-специфичной coordination runtime schema.
 
-## Package Structure
+## Architecture
 
-```text
-packages/metahubs-backend/base/
-├── src/
-│   ├── domains/             # Domain modules, routes, services, guards, DDL facade
-│   ├── persistence/         # Shared SQL-first persistence helpers
-│   ├── platform/migrations/ # Native SQL platform migration definitions
-│   ├── services/            # Cross-domain services
-│   ├── tests/               # Package regression tests
-│   ├── types/               # Shared metahub contracts
-│   ├── utils/               # Package utilities
-│   └── index.ts             # Public package surface
-├── jest.config.js
-├── package.json
-└── tsconfig.json
-```
+- Доменные routes и services используют `DbExecutor` или `SqlQueryable` вместо raw Knex builder-ов.
+- Чтения и записи в branch schema соблюдают metahub active-row predicate `_upl_deleted = false AND _mhb_deleted = false`.
+- Tier 3 raw Knex остаётся изолированным в package DDL seams и путях интеграции schema-ddl.
+- Publication-driven application sync компонуется через package boundaries вместо дублирования runtime ownership внутри этого пакета.
+- Service-level mutations fail closed и используют `RETURNING`, когда нужно подтверждение затронутой строки.
 
-## Responsibilities
+## Main Responsibilities
 
-- Экспортировать authenticated CRUD routes для design-time ресурсов metahub.
-- Экспортировать public read-only endpoints для опубликованных metahub.
-- Инициализировать package rate limiters и собирать полный metahubs service router.
-- Выполнять seed встроенных metahub templates при старте backend.
-- Предоставлять metahub migration history, dry-run, apply, rollback и application sync endpoints.
-- Переэкспортировать DDL services из `@universo/schema-ddl`, заранее настроенные на shared Knex runtime.
+- Экспортировать authenticated CRUD routes для design-time metahub resources.
+- Экспортировать public read-only routes для опубликованных данных metahub.
+- Инициализировать rate limiters и собирать полное дерево маршрутов metahubs.
+- Выполнять seed встроенных templates через unified platform migration flow.
+- Предоставлять metahub migration history, dry-run, apply, rollback и publication-linked sync seams.
+- Держать DDL orchestration за выделенными package-local boundaries.
 
-## Migration And DDL Model
+## Database Access Rules
+
+- Видимая пользователю доменная работа использует request или pool executor-ы, а не прямые импорты Knex.
+- Динамические identifiers схем, таблиц и колонок проходят через shared quoting helpers.
+- Доменный SQL остаётся schema-qualified и parameterized с PostgreSQL-style bindings.
+- Потоки copy, delete, restore и reorder обязаны сохранять active-row и fail-closed contracts.
+- Package-local DDL helpers являются единственным допустимым местом для raw Knex и transport wiring schema-ddl.
+
+## DDL And Publication Boundaries
 
 - Native SQL platform migration definitions находятся в `src/platform/migrations/`.
-- Controlled migration execution отслеживается через `@universo/migrations-core` и `@universo/migrations-catalog`.
-- Primitive для runtime schema generation, diff и rollback приходят из `@universo/schema-ddl`.
-- Пакет больше не владеет private Knex singleton; DDL helpers используют shared runtime из `@universo/database`.
+- Primitive runtime schema generation, diff и rollback приходят из `@universo/schema-ddl`.
+- Пакет использует shared runtime из `@universo/database`; private Knex singleton здесь не допускается.
+- Publication routes могут запускать downstream application sync seams, но ownership runtime routes приложений остаётся в `@universo/applications-backend`.
 
 ## Router Composition
 
-`createMetahubsServiceRoutes()` монтирует:
+- `createMetahubsServiceRoutes()` монтирует metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, publications и migration endpoints.
+- `createPublicMetahubsServiceRoutes()` предоставляет публичное чтение опубликованных metahub без аутентификации.
+- Package services и persistence helpers остаются переиспользуемыми вне top-level router composition.
+- Tests напрямую доказывают service-level contracts там, где route tests используют mocks.
 
-- metahubs и branches
-- publications
-- endpoints истории и управления migration metahub
-- endpoints migration и sync приложений
-- hubs, catalogs, sets, enumerations, attributes, constants, elements и layouts
-- routes для settings и template catalog
-
-`createPublicMetahubsServiceRoutes()` предоставляет публичное чтение опубликованных metahub без аутентификации.
-
-## Build And Test
+## Development
 
 ```bash
-pnpm --filter @universo/metahubs-backend build
+pnpm --filter @universo/metahubs-backend lint
 pnpm --filter @universo/metahubs-backend test
+pnpm --filter @universo/metahubs-backend build
 ```
+
+## Related References
+
+- [Стандарт доступа к базе данных](../../../docs/ru/architecture/database-access-standard.md)
+- [Чеклист ревью кода базы данных](../../../docs/ru/contributing/database-code-review-checklist.md)
+- [Создание пакетов](../../../docs/ru/contributing/creating-packages.md)
+- [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ## Related Packages
 
-- `@universo/database` поставляет shared Knex runtime.
-- `@universo/migrations-core` и `@universo/migrations-catalog` поставляют migration tracking и dry-run planning.
-- `@universo/schema-ddl` поставляет primitive генерации схем и миграций.
-- `@universo/applications-backend` downstream-потребляет publication и runtime schema outputs.
+- `@universo/database` для владения Knex runtime и фабрик executor-ов.
+- `@universo/migrations-core` и `@universo/migrations-catalog` для planning миграций и lifecycle tracking.
+- `@universo/schema-ddl` для runtime-генерации схем и DDL execution.
+- `@universo/applications-backend` для downstream ownership runtime sync приложений.
+
+## License
+
+Omsk Open License

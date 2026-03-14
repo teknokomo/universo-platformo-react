@@ -1,16 +1,33 @@
-import type { Knex } from 'knex'
+import type { SqlQueryable, DbExecutor } from '@universo/utils/database'
+import { queryOneOrThrow } from '@universo/utils/database'
+import { qColumn, qSchemaTable } from '@universo/database'
 import { OptimisticLockError, type ConflictInfo } from '@universo/utils'
 
 export type EntityType = ConflictInfo['entityType']
 
 export interface VersionedUpdateOptions {
-    knex: Knex
+    executor: DbExecutor
     schemaName: string
     tableName: string
     entityId: string
     entityType: EntityType
     expectedVersion: number
     updateData: Record<string, unknown>
+}
+
+function buildUpdateAssignments(updateData: Record<string, unknown>): {
+    setClauses: string[]
+    params: unknown[]
+} {
+    const setClauses: string[] = []
+    const params: unknown[] = []
+
+    for (const [key, value] of Object.entries(updateData)) {
+        setClauses.push(`${qColumn(key)} = $${params.length + 1}`)
+        params.push(value)
+    }
+
+    return { setClauses, params }
 }
 
 /**
@@ -25,15 +42,18 @@ export interface VersionedUpdateOptions {
  * @throws Error if entity not found
  */
 export async function updateWithVersionCheck(options: VersionedUpdateOptions): Promise<Record<string, unknown>> {
-    const { knex, schemaName, tableName, entityId, entityType, expectedVersion, updateData } = options
+    const { executor, schemaName, tableName, entityId, entityType, expectedVersion, updateData } = options
+    const qt = qSchemaTable(schemaName, tableName)
 
-    return knex.transaction(async (trx) => {
+    return executor.transaction(async (tx) => {
         // 1. Lock row and fetch current state
-        const current = await trx.withSchema(schemaName).from(tableName).where({ id: entityId }).forUpdate().first()
-
-        if (!current) {
-            throw new Error(`${entityType} not found`)
-        }
+        const current = await queryOneOrThrow<Record<string, unknown>>(
+            tx,
+            `SELECT * FROM ${qt} WHERE id = $1 FOR UPDATE`,
+            [entityId],
+            undefined,
+            `${entityType} not found`
+        )
 
         const actualVersion = current._upl_version as number
 
@@ -44,22 +64,26 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
                 entityType,
                 expectedVersion,
                 actualVersion,
-                updatedAt: current._upl_updated_at,
-                updatedBy: current._upl_updated_by
+                updatedAt: new Date(current._upl_updated_at as string),
+                updatedBy: current._upl_updated_by as string
             }
             throw new OptimisticLockError(conflict)
         }
 
         // 3. Apply update with version increment
-        const [updated] = await trx
-            .withSchema(schemaName)
-            .from(tableName)
-            .where({ id: entityId })
-            .update({
-                ...updateData,
-                _upl_version: actualVersion + 1
-            })
-            .returning('*')
+        const assignments = buildUpdateAssignments(updateData)
+        const setClauses: string[] = ['_upl_version = _upl_version + 1', ...assignments.setClauses]
+        const params: unknown[] = [...assignments.params]
+        const paramIdx = params.length + 1
+
+        params.push(entityId)
+        const updated = await queryOneOrThrow<Record<string, unknown>>(
+            tx,
+            `UPDATE ${qt} SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
+            params,
+            undefined,
+            `${entityType} not found after update`
+        )
 
         return updated
     })
@@ -70,21 +94,26 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
  * Use this when expectedVersion is not provided by the client.
  */
 export async function incrementVersion(
-    knex: Knex,
+    db: SqlQueryable,
     schemaName: string,
     tableName: string,
     entityId: string,
     updateData: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-    const [updated] = await knex
-        .withSchema(schemaName)
-        .from(tableName)
-        .where({ id: entityId })
-        .update({
-            ...updateData,
-            _upl_version: knex.raw('_upl_version + 1')
-        })
-        .returning('*')
+    const qt = qSchemaTable(schemaName, tableName)
+    const assignments = buildUpdateAssignments(updateData)
+    const setClauses: string[] = ['_upl_version = _upl_version + 1', ...assignments.setClauses]
+    const params: unknown[] = [...assignments.params]
+    const paramIdx = params.length + 1
+
+    params.push(entityId)
+    const updated = await queryOneOrThrow<Record<string, unknown>>(
+        db,
+        `UPDATE ${qt} SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
+        params,
+        undefined,
+        'Entity not found'
+    )
 
     return updated
 }

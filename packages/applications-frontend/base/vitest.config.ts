@@ -7,7 +7,7 @@ import { loadTsconfigAliases } from '../../../tools/testing/frontend/loadTsconfi
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
-const coreFrontendSrcDir = path.resolve(__dirname, '../../flowise-core-frontend/base/src')
+const coreFrontendSrcDir = path.resolve(__dirname, '../../universo-core-frontend/base/src')
 const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 const coverageEnabled = process.env.VITEST_COVERAGE !== 'false'

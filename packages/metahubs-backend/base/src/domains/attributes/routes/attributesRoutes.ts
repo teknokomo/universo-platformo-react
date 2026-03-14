@@ -2,7 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
-import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
 import { localizedContent } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
@@ -31,7 +31,7 @@ import {
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
-import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -304,12 +304,12 @@ export function createAttributesRoutes(
         const schemaService = new MetahubSchemaService(exec)
         return {
             exec,
-            attributesService: new MetahubAttributesService(schemaService),
-            objectsService: new MetahubObjectsService(schemaService),
-            enumerationValuesService: new MetahubEnumerationValuesService(schemaService),
-            constantsService: new MetahubConstantsService(schemaService),
+            attributesService: new MetahubAttributesService(exec, schemaService),
+            objectsService: new MetahubObjectsService(exec, schemaService),
+            enumerationValuesService: new MetahubEnumerationValuesService(exec, schemaService),
+            constantsService: new MetahubConstantsService(exec, schemaService),
             schemaService,
-            settingsService: new MetahubSettingsService(schemaService)
+            settingsService: new MetahubSettingsService(exec, schemaService)
         }
     }
 
@@ -709,7 +709,7 @@ export function createAttributesRoutes(
             let globalCodenameLockKey: string | null = null
             if (codenameScope === 'global') {
                 globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
-                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                const lockAcquired = await acquirePoolAdvisoryLock(globalCodenameLockKey)
                 if (!lockAcquired) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
@@ -777,7 +777,7 @@ export function createAttributesRoutes(
                 throw error
             } finally {
                 if (globalCodenameLockKey) {
-                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                    await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
 
@@ -915,7 +915,6 @@ export function createAttributesRoutes(
                 }
             }
 
-            const knex = KnexClient.getInstance()
             let copyResult:
                 | {
                       copiedAttribute: Awaited<ReturnType<MetahubAttributesService['create']>>
@@ -926,7 +925,7 @@ export function createAttributesRoutes(
             let globalCodenameLockKey: string | null = null
             if (codenameScope === 'global') {
                 globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
-                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                const lockAcquired = await acquirePoolAdvisoryLock(globalCodenameLockKey)
                 if (!lockAcquired) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
@@ -936,7 +935,7 @@ export function createAttributesRoutes(
                 for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS && !copyResult; attempt++) {
                     const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                     try {
-                        copyResult = await knex.transaction(async (trx) => {
+                        copyResult = await exec.transaction(async (trx: SqlQueryable) => {
                             const existing = await attributesService.findByCodename(
                                 metahubId,
                                 catalogId,
@@ -1064,7 +1063,7 @@ export function createAttributesRoutes(
                 throw error
             } finally {
                 if (globalCodenameLockKey) {
-                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                    await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
 
@@ -1377,7 +1376,7 @@ export function createAttributesRoutes(
             let globalCodenameLockKey: string | null = null
             if (updateData.codename && codenameScope === 'global') {
                 globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
-                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                const lockAcquired = await acquirePoolAdvisoryLock(globalCodenameLockKey)
                 if (!lockAcquired) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
@@ -1403,7 +1402,7 @@ export function createAttributesRoutes(
                 updated = await attributesService.update(metahubId, attributeId, updateData, userId)
             } finally {
                 if (globalCodenameLockKey) {
-                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                    await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
 
@@ -2033,7 +2032,7 @@ export function createAttributesRoutes(
             let globalCodenameLockKey: string | null = null
             if (codenameScope === 'global') {
                 globalCodenameLockKey = uuidToLockKey(`attribute-codename-global:${metahubId}:${catalogId}`)
-                const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                const lockAcquired = await acquirePoolAdvisoryLock(globalCodenameLockKey)
                 if (!lockAcquired) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
@@ -2082,7 +2081,7 @@ export function createAttributesRoutes(
                 throw error
             } finally {
                 if (globalCodenameLockKey) {
-                    await releaseAdvisoryLock(KnexClient.getInstance(), globalCodenameLockKey)
+                    await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
 

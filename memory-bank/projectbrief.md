@@ -20,7 +20,7 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 ## Current Status: Alpha Achieved (v0.21.0-alpha, July 2025)
 
 **Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
-**Base Platform**: Flowise AI 2.2.8 with enhanced ASSISTANT support
+**Base Platform**: Legacy upstream shell 2.2.8 with enhanced ASSISTANT support
 **Architecture**: 6 working APPs applications with template-first design
 
 ## UPDL Architecture
@@ -58,7 +58,7 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 -   **PNPM** (>=9) - **IMPORTANT: Use PNPM, not npm!**
 -   **React** with Material-UI components
 -   **Supabase** for authentication and data storage
--   **Flowise AI 2.2.8** as base framework
+-   **Legacy upstream shell 2.2.8** as base framework
 -   **TypeScript** for type safety
 -   **Operational reliability**: pool budgets aligned with Supabase Pool Size and pool error telemetry enabled
 
@@ -95,7 +95,7 @@ packages/
 
 -   **Template-First**: Reusable export templates across multiple technologies
 -   **Production Ready**: Alpha-grade stability with complete UPDL system
--   **Minimal Core Changes**: Original Flowise code preserved
+-   **Minimal Core Changes**: Original upstream code preserved where still useful
 -   **Extensible**: Easy addition of new technologies and features
 
 ### Environment Setup
@@ -114,7 +114,7 @@ SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 
 -   **Language**: Concise English comments for code, preserve existing patterns
 -   **Efficiency**: Fewer lines of code is better, maintain readability
--   **Compatibility**: Maintain backwards compatibility with Flowise
+-   **Compatibility**: Maintain backwards compatibility with the inherited upstream shell where required
 -   **Package Management**: PNPM workspaces only, no npm/yarn usage
 
 ## Key Resources & Documentation
@@ -130,7 +130,7 @@ SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 
 **Dual Licensing Structure:**
 
--   **Original Flowise Code** (`packages/` directory): Apache License 2.0
+-   **Original upstream code** (`packages/` directory): Apache License 2.0
 -   **Universo Platformo Extensions** (`packages/` directory): Omsk Open License
 
 The Omsk Open License is similar to MIT but includes additional provisions for creating meaningful public domain while protecting traditional values.

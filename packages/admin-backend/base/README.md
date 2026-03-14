@@ -118,6 +118,21 @@ This module uses SQL-first services and neutral database contracts:
 
 This design ensures that permission checks in application code match the database-level permission functions exactly.
 
+### Platform Schema Definition
+
+The admin schema shape is declared in `src/platform/systemAppDefinition.ts` as a
+`SystemAppDefinition` manifest. This manifest lists every business table, field,
+data type, and FK reference that must exist in the `admin` PostgreSQL schema.
+
+At server startup the platform compares`targetBusinessTables` from the manifest
+against the last recorded migration snapshot and applies only the necessary DDL
+changes. No hand-written SQL migrations are needed — add or remove fields in
+the manifest and restart the server.
+
+See [System App Migration Lifecycle](../../../docs/en/architecture/system-app-migration-lifecycle.md)
+and [Updating System App Schemas](../../../docs/en/guides/updating-system-app-schemas.md)
+for the full workflow.
+
 ## Troubleshooting
 
 ### Admin roles list hangs after direct navigation

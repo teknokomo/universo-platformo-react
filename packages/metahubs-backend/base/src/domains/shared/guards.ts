@@ -2,7 +2,7 @@ import * as httpErrors from 'http-errors'
 import { MetahubRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
 import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
-import type { DbSession } from '@universo/utils'
+import type { DbSession, DbExecutor } from '@universo/utils'
 import type { SqlQueryable, MetahubUserRow } from '../../persistence/types'
 import { activeMetahubRowCondition } from '../../persistence/metahubsQueryHelpers'
 
@@ -218,7 +218,7 @@ export interface HubAccessContext extends MetahubMembershipContext {
  * should use MetahubHubsService directly after ensureMetahubAccess.
  */
 export async function ensureHubAccess(
-    exec: SqlQueryable,
+    exec: DbExecutor,
     userId: string,
     metahubId: string,
     hubId: string,
@@ -233,7 +233,7 @@ export async function ensureHubAccess(
     const { MetahubHubsService } = await import('../metahubs/services/MetahubHubsService.js')
 
     const schemaService = new MetahubSchemaService(exec)
-    const hubsService = new MetahubHubsService(schemaService)
+    const hubsService = new MetahubHubsService(exec, schemaService)
 
     const hubData = await hubsService.findById(metahubId, hubId)
 

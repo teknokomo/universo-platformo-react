@@ -17,13 +17,20 @@ const mockCreateInitialBranch = jest.fn(async () => ({
     codename: 'main'
 }))
 
+jest.mock('@universo/database', () => ({
+    __esModule: true,
+    getKnex: jest.fn(() => ({})),
+    qSchema: jest.requireActual('@universo/database').qSchema,
+    qTable: jest.requireActual('@universo/database').qTable,
+    qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
+    qColumn: jest.requireActual('@universo/database').qColumn,
+    createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
+
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
-    KnexClient: {
-        getInstance: jest.fn(() => ({}))
-    },
-    acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
-    releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
+    acquirePoolAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
+    releasePoolAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
     uuidToLockKey: (...args: unknown[]) => mockUuidToLockKey(...args),
     getDDLServices: () => ({
         cloner: { clone: (...args: unknown[]) => mockClone(...args) },

@@ -1,9 +1,10 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { Knex } from 'knex'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
+import { queryMany, queryOne } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
@@ -21,7 +22,6 @@ import {
     CODENAME_RETRY_MAX_ATTEMPTS,
     CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT
 } from '../../shared/codenameStyleHelper'
-import { KnexClient } from '../../ddl'
 
 type RequestUser = {
     id?: string
@@ -179,9 +179,9 @@ export function createHubsRoutes(
     const services = (req: Request) => {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
-        const objectsService = new MetahubObjectsService(schemaService)
-        const hubsService = new MetahubHubsService(schemaService)
-        const settingsService = new MetahubSettingsService(schemaService)
+        const objectsService = new MetahubObjectsService(exec, schemaService)
+        const hubsService = new MetahubHubsService(exec, schemaService)
+        const settingsService = new MetahubSettingsService(exec, schemaService)
         return {
             exec,
             schemaService,
@@ -204,31 +204,38 @@ export function createHubsRoutes(
      * - config.isRequiredHub=true
      * - exactly one hub association (this hub only)
      */
-    const findBlockingHubObjects = async (metahubId: string, hubId: string, schemaService: MetahubSchemaService, userId?: string) => {
+    const findBlockingHubObjects = async (
+        metahubId: string,
+        hubId: string,
+        schemaService: MetahubSchemaService,
+        userId: string | undefined,
+        db: SqlQueryable
+    ) => {
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
-        const knex = KnexClient.getInstance()
+        const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const objects = await knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION])
-            .whereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
-            .whereRaw(`jsonb_typeof(config->'hubs') = 'array'`)
-            .whereRaw(`COALESCE((config->>'isRequiredHub')::boolean, false) = true`)
-            .whereRaw(`jsonb_array_length(config->'hubs') = 1`)
-            .select('id', 'kind', 'codename', 'presentation')
+        const objects = await queryMany<{
+            id: string
+            kind: string
+            codename: string
+            presentation?: { name?: unknown }
+        }>(
+            db,
+            `SELECT id, kind, codename, presentation FROM ${objQt}
+             WHERE kind IN ($1, $2, $3)
+               AND config->'hubs' @> $4::jsonb
+               AND jsonb_typeof(config->'hubs') = 'array'
+               AND COALESCE((config->>'isRequiredHub')::boolean, false) = true
+               AND jsonb_array_length(config->'hubs') = 1`,
+            [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION, JSON.stringify([hubId])]
+        )
 
         const blockingCatalogs: BlockingHubObject[] = []
         const blockingSets: BlockingHubObject[] = []
         const blockingEnumerations: BlockingHubObject[] = []
         const blockingChildHubs: BlockingHubObject[] = []
 
-        for (const objectRow of objects as Array<{
-            id: string
-            kind: string
-            codename: string
-            presentation?: { name?: unknown }
-        }>) {
+        for (const objectRow of objects) {
             const mapped: BlockingHubObject = {
                 id: objectRow.id,
                 name: objectRow.presentation?.name,
@@ -248,18 +255,17 @@ export function createHubsRoutes(
             }
         }
 
-        const childHubs = (await knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: MetaEntityKind.HUB })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .andWhereRaw(`config->>'parentHubId' = ?`, [hubId])
-            .select('id', 'codename', 'presentation')) as Array<{
+        const childHubs = await queryMany<{
             id: string
             codename: string
             presentation?: { name?: unknown }
-        }>
+        }>(
+            db,
+            `SELECT id, codename, presentation FROM ${objQt}
+             WHERE kind = $1 AND _upl_deleted = false AND _mhb_deleted = false
+               AND config->>'parentHubId' = $2`,
+            [MetaEntityKind.HUB, hubId]
+        )
 
         for (const childHub of childHubs) {
             blockingChildHubs.push({
@@ -281,21 +287,22 @@ export function createHubsRoutes(
         metahubId: string,
         hubId: string,
         schemaService: MetahubSchemaService,
-        userId?: string
+        userId: string | undefined,
+        hubExec: DbExecutor
     ) => {
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
-        const knex = KnexClient.getInstance()
+        const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
-        await knex.transaction(async (trx) => {
-            const linkedObjects = (await trx
-                .withSchema(schemaName)
-                .from('_mhb_objects')
-                .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION])
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .andWhereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
-                .forUpdate()
-                .select('id', 'config')) as Array<{ id: string; config?: Record<string, unknown> }>
+        await hubExec.transaction(async (trx: SqlQueryable) => {
+            const linkedObjects = await queryMany<{ id: string; config?: Record<string, unknown> }>(
+                trx,
+                `SELECT id, config FROM ${objQt}
+                 WHERE kind IN ($1, $2, $3)
+                   AND _upl_deleted = false AND _mhb_deleted = false
+                   AND config->'hubs' @> $4::jsonb
+                 FOR UPDATE`,
+                [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION, JSON.stringify([hubId])]
+            )
 
             if (linkedObjects.length === 0) return
 
@@ -311,16 +318,12 @@ export function createHubsRoutes(
 
                 currentConfig.hubs = filteredHubIds
 
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_objects')
-                    .where({ id: objectRow.id })
-                    .update({
-                        config: currentConfig,
-                        _upl_updated_at: now,
-                        _upl_updated_by: userId ?? null,
-                        _upl_version: knex.raw('_upl_version + 1')
-                    })
+                await trx.query(
+                    `UPDATE ${objQt}
+                     SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
+                     WHERE id = $4`,
+                    [JSON.stringify(currentConfig), now, userId ?? null, objectRow.id]
+                )
             }
         })
     }
@@ -335,20 +338,17 @@ export function createHubsRoutes(
         metahubId: string,
         schemaService: MetahubSchemaService,
         userId?: string,
-        runner?: Knex.Transaction
+        db?: SqlQueryable
     ): Promise<Map<string, string | null>> => {
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
-        const db = runner ?? KnexClient.getInstance()
+        const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const query = db
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: MetaEntityKind.HUB })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .select('id', 'config')
-
-        const rows = (await query) as Array<{ id: string; config?: { parentHubId?: unknown } }>
+        const rows = await queryMany<{ id: string; config?: { parentHubId?: unknown } }>(
+            db!,
+            `SELECT id, config FROM ${objQt}
+             WHERE kind = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
+            [MetaEntityKind.HUB]
+        )
 
         const map = new Map<string, string | null>()
         for (const row of rows) {
@@ -364,21 +364,21 @@ export function createHubsRoutes(
         parentHubId,
         schemaService,
         userId,
-        runner
+        db
     }: {
         metahubId: string
         hubId: string
         parentHubId: string | null
         schemaService: MetahubSchemaService
         userId?: string
-        runner?: Knex.Transaction
+        db?: SqlQueryable
     }): Promise<{ ok: true } | { ok: false; message: string }> => {
         if (!parentHubId) return { ok: true }
         if (parentHubId === hubId) {
             return { ok: false, message: 'Hub cannot be a parent of itself' }
         }
 
-        const parentMap = await loadHubParentMap(metahubId, schemaService, userId, runner)
+        const parentMap = await loadHubParentMap(metahubId, schemaService, userId, db)
         if (!parentMap.has(parentHubId)) {
             return { ok: false, message: 'Parent hub not found' }
         }
@@ -493,7 +493,7 @@ export function createHubsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { schemaService, hubsService } = services(req)
+            const { exec: listExec, schemaService, hubsService } = services(req)
             const userId = resolveUserId(req)
 
             const parentHub = await hubsService.findById(metahubId, hubId, userId)
@@ -511,46 +511,45 @@ export function createHubsRoutes(
                 throw error
             }
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
-            const knex = KnexClient.getInstance()
+            const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
-            const baseQuery = knex
-                .withSchema(schemaName)
-                .from('_mhb_objects')
-                .where({ kind: MetaEntityKind.HUB })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .andWhereRaw(`config->>'parentHubId' = ?`, [hubId])
+            const baseWhere = `kind = $1 AND _upl_deleted = false AND _mhb_deleted = false AND config->>'parentHubId' = $2`
+            const baseParams: unknown[] = [MetaEntityKind.HUB, hubId]
 
+            let searchFilter = ''
             if (parsed.search) {
                 const escapedSearch = `%${parsed.search.replace(/[%_]/g, '\\$&')}%`
-                baseQuery.andWhere((qb) => {
-                    qb.where('codename', 'ilike', escapedSearch).orWhereRaw(`presentation::text ILIKE ?`, [escapedSearch])
-                })
+                searchFilter = ` AND (codename ILIKE $3 OR presentation::text ILIKE $3)`
+                baseParams.push(escapedSearch)
             }
 
-            const countResult = await baseQuery.clone().count('* as total').first<{ total: string | number }>()
+            const countResult = await queryOne<{ total: string }>(
+                listExec,
+                `SELECT COUNT(*) as total FROM ${objQt} WHERE ${baseWhere}${searchFilter}`,
+                baseParams
+            )
+
             const sortOrder = parsed.sortOrder === 'asc' ? 'asc' : 'desc'
-            const applySorting = (query: Knex.QueryBuilder) => {
-                if (parsed.sortBy === 'name') {
-                    return query.orderByRaw(`presentation->'name'->>'en' ${sortOrder}`)
-                }
-                if (parsed.sortBy === 'codename') {
-                    return query.orderBy('codename', sortOrder)
-                }
-                if (parsed.sortBy === 'sortOrder') {
-                    return query.orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ${sortOrder}`)
-                }
-                if (parsed.sortBy === 'created') {
-                    return query.orderBy('_upl_created_at', sortOrder)
-                }
-                return query.orderBy('_upl_updated_at', sortOrder)
-            }
+            const sortClause = (() => {
+                if (parsed.sortBy === 'name') return `presentation->'name'->>'en' ${sortOrder}`
+                if (parsed.sortBy === 'codename') return `codename ${sortOrder}`
+                if (parsed.sortBy === 'sortOrder') return `COALESCE((config->>'sortOrder')::int, 0) ${sortOrder}`
+                if (parsed.sortBy === 'created') return `_upl_created_at ${sortOrder}`
+                return `_upl_updated_at ${sortOrder}`
+            })()
 
-            const rows = (await applySorting(baseQuery.clone())
-                .orderBy('id', 'asc')
-                .offset(parsed.offset)
-                .limit(parsed.limit)
-                .select('*')) as Array<Record<string, unknown>>
+            const dataParams = [...baseParams, parsed.offset, parsed.limit]
+            const offsetIdx = dataParams.length - 1
+            const limitIdx = dataParams.length
+
+            const rows = await queryMany<Record<string, unknown>>(
+                listExec,
+                `SELECT * FROM ${objQt}
+                 WHERE ${baseWhere}${searchFilter}
+                 ORDER BY ${sortClause}, id ASC
+                 OFFSET $${offsetIdx} LIMIT $${limitIdx}`,
+                dataParams
+            )
 
             const items = rows.map((row) => {
                 const mapped = row as Record<string, unknown>
@@ -905,17 +904,17 @@ export function createHubsRoutes(
             }
 
             if (targetParentHubId) {
-                const parentMap = await loadHubParentMap(metahubId, schemaService, userId)
+                const parentMap = await loadHubParentMap(metahubId, schemaService, userId, exec)
                 if (!parentMap.has(targetParentHubId)) {
                     return res.status(400).json({ error: 'Parent hub not found' })
                 }
             }
 
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
-            const knex = KnexClient.getInstance()
+            const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
             const createHubCopy = async (codename: string) => {
-                return knex.transaction(async (trx) => {
+                return exec.transaction(async (trx: SqlQueryable) => {
                     const codenameLocalizedForCopy =
                         parsed.data.codenameInput === undefined
                             ? buildLocalizedContent({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
@@ -943,20 +942,22 @@ export function createHubsRoutes(
                     if (copyOptions.copyEnumerationRelations) relationKinds.push(MetaEntityKind.ENUMERATION)
 
                     if (relationKinds.length > 0) {
-                        const relatedObjects = (await trx
-                            .withSchema(schemaName)
-                            .from('_mhb_objects')
-                            .whereIn('kind', relationKinds)
-                            .andWhere('_upl_deleted', false)
-                            .andWhere('_mhb_deleted', false)
-                            .andWhereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
-                            .forUpdate()
-                            .select('id', 'kind', 'config', '_upl_version')) as Array<{
+                        const kindPlaceholders = relationKinds.map((_, i) => `$${i + 1}`).join(', ')
+                        const hubsJsonIdx = relationKinds.length + 1
+                        const relatedObjects = await queryMany<{
                             id: string
                             kind: MetaEntityKind
                             config?: Record<string, unknown>
                             _upl_version: number
-                        }>
+                        }>(
+                            trx,
+                            `SELECT id, kind, config, _upl_version FROM ${objQt}
+                             WHERE kind IN (${kindPlaceholders})
+                               AND _upl_deleted = false AND _mhb_deleted = false
+                               AND config->'hubs' @> $${hubsJsonIdx}::jsonb
+                             FOR UPDATE`,
+                            [...relationKinds, JSON.stringify([hubId])]
+                        )
 
                         const eligibleRelatedObjects = relatedObjects.filter((row) => {
                             const rowConfig = row.config ?? {}
@@ -975,20 +976,14 @@ export function createHubsRoutes(
                             }
 
                             const nextHubIds = Array.from(new Set([...currentHubIds, copiedHub.id]))
-                            const updatedRows = await trx
-                                .withSchema(schemaName)
-                                .from('_mhb_objects')
-                                .where({ id: row.id, _upl_version: row._upl_version })
-                                .update({
-                                    config: {
-                                        ...rowConfig,
-                                        hubs: nextHubIds
-                                    },
-                                    _upl_updated_at: now,
-                                    _upl_updated_by: userId ?? null,
-                                    _upl_version: trx.raw('_upl_version + 1')
-                                })
-                                .returning(['id'])
+                            const updatedRows = await queryMany<{ id: string }>(
+                                trx,
+                                `UPDATE ${objQt}
+                                 SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
+                                 WHERE id = $4 AND _upl_version = $5
+                                 RETURNING id`,
+                                [JSON.stringify({ ...rowConfig, hubs: nextHubIds }), now, userId ?? null, row.id, row._upl_version]
+                            )
 
                             if (updatedRows.length === 0) {
                                 throw new HubCopyConcurrentUpdateError()
@@ -1066,7 +1061,7 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubsService, settingsService, schemaService } = services(req)
+            const { exec, hubsService, settingsService, schemaService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -1187,16 +1182,15 @@ export function createHubsRoutes(
 
             let saved: Record<string, unknown>
             if (parentHubId !== undefined) {
-                const knex = KnexClient.getInstance()
                 try {
-                    saved = await knex.transaction(async (trx) => {
+                    saved = await exec.transaction(async (trx: SqlQueryable) => {
                         const relationValidation = await validateHubParentRelation({
                             metahubId,
                             hubId,
                             parentHubId,
                             schemaService,
                             userId,
-                            runner: trx
+                            db: trx
                         })
                         if (!relationValidation.ok) {
                             throw new HubParentRelationValidationError(relationValidation.message)
@@ -1239,7 +1233,7 @@ export function createHubsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubsService, schemaService } = services(req)
+            const { exec: blockExec, hubsService, schemaService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -1251,7 +1245,8 @@ export function createHubsRoutes(
                 metahubId,
                 hubId,
                 schemaService,
-                userId
+                userId,
+                blockExec
             )
             const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
 
@@ -1276,7 +1271,7 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubsService, schemaService, settingsService } = services(req)
+            const { exec: delExec, hubsService, schemaService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -1295,7 +1290,8 @@ export function createHubsRoutes(
                 metahubId,
                 hubId,
                 schemaService,
-                userId
+                userId,
+                delExec
             )
             const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
 
@@ -1310,7 +1306,7 @@ export function createHubsRoutes(
                 })
             }
 
-            await removeHubFromObjectAssociations(metahubId, hubId, schemaService, userId)
+            await removeHubFromObjectAssociations(metahubId, hubId, schemaService, userId, delExec)
             await hubsService.delete(metahubId, hubId, userId)
             res.status(204).send()
         })

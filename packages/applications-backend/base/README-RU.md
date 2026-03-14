@@ -1,144 +1,72 @@
 # @universo/applications-backend
 
-> 🏗️ **Современный пакет** - TypeScript-first архитектура с Express.js, нативными платформенными SQL-миграциями и SQL-first persistence helper-модулями
+Бэкенд-пакет для applications, connectors, memberships, runtime sync и orchestration release bundle в Universo Platformo.
 
-Бэкенд-сервис для управления приложениями, коннекторами и членством со строгой изоляцией на уровне приложения.
+## Overview
 
-## Информация о пакете
+Этот пакет владеет слоем metadata и runtime coordination на стороне приложений.
+Он экспортирует authenticated CRUD routes, application membership guards, connector flows, runtime schema sync routes и endpoints экспорта/применения release bundle.
 
-- **Пакет**: `@universo/applications-backend`
-- **Версия**: `0.1.0`
-- **Тип**: Backend Service Package (TypeScript)
-- **Статус**: ✅ Активная разработка
-- **Архитектура**: Express.js + нативные платформенные SQL-миграции + SQL-first persistence helper-модули + Zod
+## Architecture
 
-## Ключевые возможности
+- Доменные routes и persistence helpers используют SQL-first доступ через `DbExecutor` или `SqlQueryable`.
+- Аутентифицированные request flows используют Tier 1 request-scoped executors с RLS-контекстом.
+- Admin, bootstrap и background flows используют Tier 2 pool executor-ы из `@universo/database`.
+- Raw Knex разрешён только внутри package-local Tier 3 DDL boundary в `src/ddl/index.ts`.
+- Mutation helpers используют `RETURNING id` и fail closed, если затронуто ноль строк.
 
-### Доменная модель
-- **Приложения**: Верхнеуровневые организационные единицы с полной изоляцией данных
-- **Коннекторы**: Контейнеры данных внутри приложений
-- **Членство**: Членство пользователя в приложении с ролями и правами
+## Main Responsibilities
 
-### Изоляция данных и безопасность
-- Полная изоляция приложений — нет межприложенного доступа к данным
-- Комплексная валидация входных данных с понятными сообщениями об ошибках
-- Авторизация на уровне приложения с guard-ами
-- Защита от DoS-атак через rate limiting
+- Управлять applications, connectors, memberships и publication links.
+- Экспортировать runtime sync, diff и release-bundle routes для managed application schemas.
+- Сохранять schema sync state в `applications.cat_applications` через SQL-first stores.
+- Хранить runtime release metadata в той же центральной sync-state surface.
+- Переиспользовать shared guards, identifier helpers и query helpers из стандартных database packages.
 
-### Интеграция с базой данных
-- SQL-first persistence stores для приложений, коннекторов и членства
-- PostgreSQL с поддержкой JSONB для метаданных
-- Единые платформенные миграции через нативные SQL-определения
-- CASCADE удаление связей с UNIQUE ограничениями
+## Database Access Rules
 
-> **Документация по миграциям**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
+- Чтения в application-домене используют `_upl_deleted = false AND _app_deleted = false`.
+- Динамические identifiers проходят через `qSchema`, `qTable`, `qSchemaTable` или `qColumn`.
+- Доменный SQL остаётся schema-qualified и parameterized через `$1`, `$2` и последующие bind-параметры.
+- Route handlers выбирают executor tier на boundary-уровне вместо прямого импорта Knex.
+- DDL helpers остаются изолированными от route и store кода даже когда runtime sync требует schema generation.
 
-## Установка
+## Runtime Sync Model
+
+- Publication-driven sync и file-bundle install разделяют один и тот же schema sync engine.
+- Успешный sync записывает `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.cat_applications`.
+- Advisory locking сериализует sync work для каждого application до начала schema changes.
+- Состояния maintenance и error сохраняются через тот же центральный store contract.
+
+## Package Surface
+
+- `createApplicationsRoutes(...)` монтирует CRUD, connector, membership и runtime-sync routes.
+- `initializeRateLimiters()` подготавливает package-level rate limiting до создания routes.
+- Persistence helpers в `src/services/` и `src/persistence/` образуют SQL-first write/read seams.
+- Platform migration definitions остаются в package migration surface, а не в route handlers.
+
+## Development
 
 ```bash
-# Установка из корня workspace
-pnpm install
-
-# Сборка пакета
-pnpm --filter @universo/applications-backend build
-```
-
-## Использование
-
-### Интеграция Express Router (рекомендуется)
-```typescript
-import express from 'express'
-import { createApplicationsRoutes, initializeRateLimiters } from '@universo/applications-backend'
-
-const app = express()
-app.use(express.json())
-
-await initializeRateLimiters()
-
-app.use('/api/v1', createApplicationsRoutes(ensureAuth, getDbExecutor))
-```
-
-Где:
-- `ensureAuth` - ваш middleware аутентификации
-- `getDbExecutor` - возвращает `DbExecutor` из `@universo/utils`
-
-## API эндпоинты
-
-### Приложения
-```
-GET    /applications                           # Список приложений
-POST   /applications                           # Создать приложение
-GET    /applications/:applicationId            # Получить детали приложения
-PUT    /applications/:applicationId            # Обновить приложение
-DELETE /applications/:applicationId            # Удалить приложение
-```
-
-### Коннекторы
-```
-GET    /applications/:applicationId/connectors              # Список коннекторов
-POST   /applications/:applicationId/connectors              # Создать коннектор
-GET    /applications/:applicationId/connectors/:connectorId # Получить детали коннектора
-PUT    /applications/:applicationId/connectors/:connectorId # Обновить коннектор
-DELETE /applications/:applicationId/connectors/:connectorId # Удалить коннектор
-```
-
-### Участники
-```
-GET    /applications/:applicationId/members              # Список участников
-POST   /applications/:applicationId/members              # Пригласить участника
-PUT    /applications/:applicationId/members/:memberId    # Изменить роль участника
-DELETE /applications/:applicationId/members/:memberId    # Удалить участника
-```
-
-## Схема базы данных
-
-### Основные сущности
-- `Application`: Верхнеуровневый контейнер с локализованными именем/описанием (VLC)
-- `Connector`: Контейнер данных внутри приложения с кодовым именем и порядком сортировки
-- `ApplicationUser`: Таблица связи для членства пользователя в приложении с ролями
-
-### Связи
-```
-Application (1) ─────┬───── (N) Connector
-                     │
-                     └───── (N) ApplicationUser ───── (1) User
-```
-
-## Роли и разрешения
-
-| Роль    | Управление участниками | Управление прил. | Создание контента | Редактирование | Удаление |
-|---------|------------------------|------------------|-------------------|----------------|----------|
-| owner   | ✅                      | ✅                | ✅                 | ✅              | ✅        |
-| admin   | ✅                      | ✅                | ✅                 | ✅              | ✅        |
-| editor  | ❌                      | ❌                | ✅                 | ✅              | ✅        |
-| member  | ❌                      | ❌                | ❌                 | ❌              | ❌        |
-
-## Функции безопасности
-
-- **Валидация входных данных**: Все входные данные валидируются Zod схемами
-- **Авторизационные guard-ы**: Ролевой контроль доступа на всех эндпоинтах
-- **Rate Limiting**: Настраиваемые лимиты запросов для каждого эндпоинта
-- **Защита от SQL-инъекций**: Параметризованный SQL через общие executor-ы и persistence helper-модули
-- **CORS**: Настраиваемый cross-origin resource sharing
-
-## Разработка
-
-### Запуск тестов
-```bash
+pnpm --filter @universo/applications-backend lint
 pnpm --filter @universo/applications-backend test
-```
-
-### Сборка
-```bash
 pnpm --filter @universo/applications-backend build
 ```
 
-## Связанные пакеты
+## Related References
 
-- `@universo/applications-frontend` - Frontend UI для приложений
-- `@universo/core-backend` - Core backend с DataSource и миграциями
-- `@universo/types` - Общие TypeScript типы
+- [MIGRATIONS.md](MIGRATIONS.md)
+- [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
+- [Стандарт доступа к базе данных](../../../docs/ru/architecture/database-access-standard.md)
+- [Чеклист ревью кода базы данных](../../../docs/ru/contributing/database-code-review-checklist.md)
 
-## Лицензия
+## Related Packages
+
+- `@universo/applications-frontend` для UI управления приложениями.
+- `@universo/database` для владения Knex runtime и фабрик executor-ов.
+- `@universo/utils` для нейтральных executor/query helper контрактов.
+- `@universo/schema-ddl` для runtime-генерации схем и выполнения diff.
+
+## License
 
 Omsk Open License

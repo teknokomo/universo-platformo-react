@@ -37,12 +37,15 @@
 * [Backend Architecture](architecture/backend.md)
 * [Frontend Architecture](architecture/frontend.md)
 * [Database Design](architecture/database.md)
+* [Database Access Standard](architecture/database-access-standard.md)
 * [Authentication and Authorization](architecture/auth.md)
+* [System App Migration Lifecycle](architecture/system-app-migration-lifecycle.md)
 
 ## API Reference
 
 * [Overview](api-reference/README.md)
 * [REST API](api-reference/rest-api.md)
+* [Interactive OpenAPI Docs](api-reference/interactive-openapi-docs.md)
 * [Authentication](api-reference/authentication.md)
 * [Webhooks](api-reference/webhooks.md)
 
@@ -52,3 +55,8 @@
 * [Development Setup](contributing/development-setup.md)
 * [Coding Guidelines](contributing/coding-guidelines.md)
 * [Creating Packages](contributing/creating-packages.md)
+
+## Guides
+
+* [Overview](guides/README.md)
+* [Updating System App Schemas](guides/updating-system-app-schemas.md)

@@ -127,7 +127,7 @@
                     "title": "Override Configuration",
                     "enable": "Enable Override Configuration",
                     "save": "Save",
-                    "tooltip": "Enable or disable which properties of the flow configuration can be overridden. Refer to the <a href=\"https://docs.flowiseai.com/using-flowise/api#override-config\" target=\"_blank\">documentation</a> for more information."
+                    "tooltip": "Enable or disable which properties of the flow configuration can be overridden. Refer to the platform API documentation for more information."
                 }
             },
             "starterPrompts": {

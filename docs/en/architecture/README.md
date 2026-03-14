@@ -22,4 +22,6 @@ Read [Fixed System-App Convergence](system-app-convergence.md) for the converged
 
 Read [Optional Global Catalog](optional-global-catalog.md) for the disabled-by-default registry mode, release-bundle workflow, and operator recovery boundaries.
 
+Read [System App Migration Lifecycle](system-app-migration-lifecycle.md) for how system app schemas are generated, upgraded, and tracked at runtime.
+
 Read the pages below for structure, backend, frontend, database, and auth details.

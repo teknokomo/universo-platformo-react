@@ -1,4 +1,4 @@
-// TypeScript declarations for JSX components from packages/flowise-core-frontend/base
+// TypeScript declarations for JSX components from the shared core frontend shell
 declare module '*.jsx' {
     const content: any
     export default content
@@ -32,11 +32,6 @@ declare module '@ui/store/constant' {
 
 // Fallback for any other UI components
 declare module '@ui/*' {
-    const content: any
-    export default content
-}
-
-declare module 'flowise-ui/*' {
     const content: any
     export default content
 }

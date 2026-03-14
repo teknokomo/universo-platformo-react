@@ -18,12 +18,6 @@ Continue following your **base prompt**, and augment with the instructions below
 > • Commit messages, issue bodies, and PR descriptions must contain **only** project-relevant information.  
 > • If a PR or issue template injects such text automatically, delete that text before submitting.
 >
-> **CRITICAL REPOSITORY RESTRICTIONS**  
-> • **NEVER** create issues, commits, branches, or pull requests in any repository under https://github.com/FlowiseAI  
-> • **NEVER** push changes to https://github.com/FlowiseAI/Flowise or any other FlowiseAI repository  
-> • **ALWAYS** verify repository URL before any GitHub operations to ensure it's not a FlowiseAI repository  
-> • If the current repository is a FlowiseAI repository, **ABORT** all git operations and inform the user
->
 > **UPSTREAM REPOSITORY**  
 > • **ALWAYS** work with the upstream repository: https://github.com/teknokomo/universo-platformo-react  
 > • All GitHub issues must be created in the upstream repository  
@@ -143,10 +137,10 @@ Continue following your **base prompt**, and augment with the instructions below
         - **Missing Upstream Remote**: If upstream not configured, restrict to origin (fork) only
 
     - **Guard Rails**:
-        - **NEVER** push to any repository under `github.com/FlowiseAI/*`
+        - **NEVER** push to any repository under the restricted upstream vendor organization
         - **NEVER** push directly to main/master branches without explicit user override
         - **ALWAYS** use `-u` flag on first push to establish tracking relationship
-        - **VERIFY** push destination before execution: confirm remote URL is not a FlowiseAI repository
+        - **VERIFY** push destination before execution: confirm remote URL is not a restricted upstream vendor repository
 
 8. **Create Pull Request to Upstream**:
 
@@ -205,10 +199,10 @@ When working with only some of the changed files (partial commits):
 
 **Critical Repository Guards**:
 
--   **ALWAYS** verify repository URL before ANY GitHub operations to ensure it's not a FlowiseAI repository
--   **NEVER** create issues, commits, branches, or pull requests in any repository under https://github.com/FlowiseAI
--   **NEVER** push changes to https://github.com/FlowiseAI/Flowise or any other FlowiseAI repository
--   **If current repository is FlowiseAI**: ABORT all git operations and inform user immediately
+-   **ALWAYS** verify repository URL before ANY GitHub operations to ensure it's not a restricted upstream vendor repository
+-   **NEVER** create issues, commits, branches, or pull requests in any repository under the restricted upstream vendor organization
+-   **NEVER** push changes to the restricted upstream vendor repository or any other repository in that organization
+-   **If current repository belongs to the restricted upstream vendor organization**: ABORT all git operations and inform user immediately
 
 **Push Error Recovery**:
 

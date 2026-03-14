@@ -46,7 +46,7 @@ import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
 import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
-import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getDDLServices, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 
 // Default codename settings for metahub-level operations (CREATE, COPY, UPDATE).
@@ -313,7 +313,7 @@ export function createMetahubsRoutes(
     const services = (req: Request) => {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
-        const objectsService = new MetahubObjectsService(schemaService)
+        const objectsService = new MetahubObjectsService(exec, schemaService)
         const branchesService = new MetahubBranchesService(exec)
         return {
             exec,
@@ -483,7 +483,7 @@ export function createMetahubsRoutes(
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
             // Load counts from active branch (user-specific)
-            const hubsService = new MetahubHubsService(new MetahubSchemaService(exec))
+            const hubsService = new MetahubHubsService(exec, new MetahubSchemaService(exec))
             let hubsCount = 0
             try {
                 const { total } = await hubsService.findAll(metahubId, { limit: 1, offset: 0 }, userId)
@@ -1346,7 +1346,7 @@ export function createMetahubsRoutes(
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
             const lockKey = uuidToLockKey(metahubId)
-            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            const lockAcquired = await acquirePoolAdvisoryLock(lockKey)
             if (!lockAcquired) {
                 return res.status(409).json({
                     error: 'Could not acquire metahub delete lock. Please retry.'
@@ -1453,7 +1453,7 @@ export function createMetahubsRoutes(
                 }
                 throw error
             } finally {
-                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
+                await releasePoolAdvisoryLock(lockKey)
             }
 
             MetahubSchemaService.clearCache(metahubId)

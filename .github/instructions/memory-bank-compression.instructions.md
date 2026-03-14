@@ -655,7 +655,7 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 
 **Problem Evolution**:
 
-1. **First Issue**: Missing peerDependency in @flowise/template-mui ✅ FIXED
+1. **First Issue**: Missing peerDependency in @legacy/template-mui ✅ FIXED
 
     - NavigationScroll couldn't find Router context
     - Fixed by adding `react-router-dom: ~6.3.0` to peerDependencies
@@ -684,8 +684,8 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ## Current Focus: Router Context Fixes - Complete ✅
 
 -   Fixed React StrictMode production bug (conditional wrapper, 2025-11-02)
--   Fixed missing peerDependency in @flowise/template-mui (react-router-dom)
--   Modified 1 file: flowise-core-frontend/base/src/index.jsx
+-   Fixed missing peerDependency in @legacy/template-mui (react-router-dom)
+-   Modified 1 file: legacy-core-frontend/base/src/index.jsx
 -   Pattern: systemPatterns.md#react-strictmode-pattern
 -   Next: Browser QA verification
 

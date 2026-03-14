@@ -26,8 +26,9 @@ import {
     type AppRow
 } from '../../../persistence'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
-import { getDDLServices, generateSchemaName, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getDDLServices, generateSchemaName, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
+import { createKnexExecutor, getPoolExecutor, qSchemaTable } from '@universo/database'
 import { runPublishedApplicationRuntimeSync, type PublishedApplicationSnapshot } from '@universo/applications-backend'
 import { ApplicationSchemaStatus } from '@universo/types'
 import { createLinkedApplication } from '../helpers/createLinkedApplication'
@@ -238,20 +239,28 @@ const attachLayoutsToSnapshot = async (options: {
     const { schemaService, snapshot, metahubId, userId } = options
 
     try {
-        const knex = KnexClient.getInstance()
+        const poolExec = getPoolExecutor()
         const branchSchemaName = await schemaService.ensureSchema(metahubId, userId)
+        const layoutsTable = qSchemaTable(branchSchemaName, '_mhb_layouts')
 
-        const layoutRows = await knex
-            .withSchema(branchSchemaName)
-            .from('_mhb_layouts')
-            .where({ _upl_deleted: false, _mhb_deleted: false })
-            .select(['id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
-            .orderBy([
-                { column: 'sort_order', order: 'asc' },
-                { column: '_upl_created_at', order: 'asc' }
-            ])
+        const layoutRows = await poolExec.query<{
+            id: string
+            template_key: string | null
+            name: Record<string, unknown> | null
+            description: Record<string, unknown> | null
+            config: Record<string, unknown> | null
+            is_active: boolean
+            is_default: boolean
+            sort_order: number | null
+        }>(
+            `SELECT id, template_key, name, description, config, is_active, is_default, sort_order
+             FROM ${layoutsTable}
+             WHERE _upl_deleted = false AND _mhb_deleted = false
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            []
+        )
 
-        const layouts = (layoutRows ?? []).map((r: any) => ({
+        const layouts = (layoutRows ?? []).map((r) => ({
             id: String(r.id),
             templateKey: String(r.template_key ?? 'dashboard'),
             name: (r.name as Record<string, unknown>) ?? {},
@@ -269,29 +278,43 @@ const attachLayoutsToSnapshot = async (options: {
         snapshot.defaultLayoutId = defaultLayout?.id ?? null
         snapshot.layoutConfig = defaultLayout?.config ?? {}
 
-        const hasLayoutZoneWidgets = await knex.schema.withSchema(branchSchemaName).hasTable('_mhb_widgets')
+        const hasTableRows = await poolExec.query<{ exists: boolean }>(
+            `SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = $1 AND table_name = $2
+            ) AS exists`,
+            [branchSchemaName, '_mhb_widgets']
+        )
+        const hasLayoutZoneWidgets = hasTableRows[0]?.exists === true
+
         if (hasLayoutZoneWidgets) {
-            // Collect active (non-deleted) layout IDs to exclude orphan widgets
             const activeLayoutIds = (snapshot.layouts ?? []).map((l) => l.id)
+            const widgetsTable = qSchemaTable(branchSchemaName, '_mhb_widgets')
 
-            const zoneRows = await knex
-                .withSchema(branchSchemaName)
-                .from('_mhb_widgets')
-                .where({ _upl_deleted: false, _mhb_deleted: false })
-                .modify((qb) => {
-                    if (activeLayoutIds.length > 0) {
-                        qb.whereIn('layout_id', activeLayoutIds)
-                    }
-                })
-                .select(['id', 'layout_id', 'zone', 'widget_key', 'sort_order', 'config', 'is_active'])
-                .orderBy([
-                    { column: 'layout_id', order: 'asc' },
-                    { column: 'zone', order: 'asc' },
-                    { column: 'sort_order', order: 'asc' },
-                    { column: '_upl_created_at', order: 'asc' }
-                ])
+            let widgetSql = `SELECT id, layout_id, zone, widget_key, sort_order, config, is_active
+                             FROM ${widgetsTable}
+                             WHERE _upl_deleted = false AND _mhb_deleted = false`
+            const widgetParams: unknown[] = []
 
-            snapshot.layoutZoneWidgets = (zoneRows ?? []).map((row: any) => ({
+            if (activeLayoutIds.length > 0) {
+                const placeholders = activeLayoutIds.map((_, i) => `$${i + 1}`).join(', ')
+                widgetSql += ` AND layout_id IN (${placeholders})`
+                widgetParams.push(...activeLayoutIds)
+            }
+
+            widgetSql += ` ORDER BY layout_id ASC, zone ASC, sort_order ASC, _upl_created_at ASC`
+
+            const zoneRows = await poolExec.query<{
+                id: string
+                layout_id: string
+                zone: string
+                widget_key: string
+                sort_order: number | null
+                config: Record<string, unknown> | null
+                is_active: boolean
+            }>(widgetSql, widgetParams)
+
+            snapshot.layoutZoneWidgets = (zoneRows ?? []).map((row) => ({
                 id: String(row.id),
                 layoutId: String(row.layout_id),
                 zone: String(row.zone),
@@ -370,9 +393,9 @@ export function createPublicationsRoutes(
         const exec = getRequestDbExecutor(req, getDbExecutor())
 
         const schemaService = new MetahubSchemaService(exec)
-        const objectsService = new MetahubObjectsService(schemaService)
-        const attributesService = new MetahubAttributesService(schemaService)
-        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
+        const objectsService = new MetahubObjectsService(exec, schemaService)
+        const attributesService = new MetahubAttributesService(exec, schemaService)
+        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
 
         return {
             exec,
@@ -567,12 +590,12 @@ export function createPublicationsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec, effectiveBranchId)
-            const objectsService = new MetahubObjectsService(schemaService)
-            const attributesService = new MetahubAttributesService(schemaService)
-            const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
-            const hubsService = new MetahubHubsService(schemaService)
-            const enumerationValuesService = new MetahubEnumerationValuesService(schemaService)
-            const constantsService = new MetahubConstantsService(schemaService)
+            const objectsService = new MetahubObjectsService(exec, schemaService)
+            const attributesService = new MetahubAttributesService(exec, schemaService)
+            const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
+            const hubsService = new MetahubHubsService(exec, schemaService)
+            const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
+            const constantsService = new MetahubConstantsService(exec, schemaService)
             const serializer = new SnapshotSerializer(
                 objectsService,
                 attributesService,
@@ -696,7 +719,8 @@ export function createPublicationsRoutes(
                                 userId
                             })
 
-                            await persistApplicationSchemaSyncState(trx, {
+                            // Bridge: wrap DDL Knex transaction as DbExecutor for domain store (Tier 3 → Tier 1 boundary)
+                            await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
                                 applicationId: result.applicationData!.application.id,
                                 schemaStatus: ApplicationSchemaStatus.SYNCED,
                                 schemaError: null,
@@ -931,7 +955,7 @@ export function createPublicationsRoutes(
             }
 
             const lockKey = uuidToLockKey(`publication-delete:${publicationId}`)
-            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            const lockAcquired = await acquirePoolAdvisoryLock(lockKey)
             if (!lockAcquired) {
                 return res.status(409).json({
                     error: 'Could not acquire publication delete lock. Please retry.'
@@ -989,7 +1013,7 @@ export function createPublicationsRoutes(
                 const statusCode = message === 'Metahub not found' || message === 'Publication not found' ? 404 : 500
                 return res.status(statusCode).json({ error: message })
             } finally {
-                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
+                await releasePoolAdvisoryLock(lockKey)
             }
 
             return res.json({
@@ -1131,8 +1155,8 @@ export function createPublicationsRoutes(
                     const branchId = activeVersion.branchId ?? metahub.defaultBranchId!
                     const snapshotData = activeVersion.snapshotJson as unknown as MetahubSnapshot
                     const schemaService = new MetahubSchemaService(exec, branchId)
-                    const objectsService = new MetahubObjectsService(schemaService)
-                    const attributesService = new MetahubAttributesService(schemaService)
+                    const objectsService = new MetahubObjectsService(exec, schemaService)
+                    const attributesService = new MetahubAttributesService(exec, schemaService)
                     const snapshotSerializer = new SnapshotSerializer(objectsService, attributesService)
                     const rawCatalogDefs = snapshotSerializer.deserializeSnapshot(snapshotData)
                     const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshotData)
@@ -1160,7 +1184,8 @@ export function createPublicationsRoutes(
                                 userId
                             })
 
-                            await persistApplicationSchemaSyncState(trx, {
+                            // Bridge: wrap DDL Knex transaction as DbExecutor for domain store (Tier 3 → Tier 1 boundary)
+                            await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
                                 applicationId: result.application.id,
                                 schemaStatus: ApplicationSchemaStatus.SYNCED,
                                 schemaError: null,
@@ -1510,12 +1535,12 @@ export function createPublicationsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec, effectiveBranchId)
-            const objectsService = new MetahubObjectsService(schemaService)
-            const attributesService = new MetahubAttributesService(schemaService)
-            const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
-            const hubsService = new MetahubHubsService(schemaService)
-            const enumerationValuesService = new MetahubEnumerationValuesService(schemaService)
-            const constantsService = new MetahubConstantsService(schemaService)
+            const objectsService = new MetahubObjectsService(exec, schemaService)
+            const attributesService = new MetahubAttributesService(exec, schemaService)
+            const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
+            const hubsService = new MetahubHubsService(exec, schemaService)
+            const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
+            const constantsService = new MetahubConstantsService(exec, schemaService)
             const serializer = new SnapshotSerializer(
                 objectsService,
                 attributesService,

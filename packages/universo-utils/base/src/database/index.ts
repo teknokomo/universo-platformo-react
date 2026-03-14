@@ -4,6 +4,9 @@
 
 export { escapeLikeWildcards } from './escaping'
 export { buildSetLocalStatementTimeoutSql, formatStatementTimeoutLiteral } from './statementTimeout'
+export { queryMany, queryOne, queryOneOrThrow, executeCount, NotFoundError } from './query'
+export { withAdvisoryLock, tryWithAdvisoryLock } from './locks'
+export { withTransaction } from './transactions'
 export {
     createDbSession,
     createDbExecutor,

@@ -121,7 +121,7 @@ export function createBranchesRoutes(
     const getSettingsService = (req: Request) => {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
-        return new MetahubSettingsService(schemaService)
+        return new MetahubSettingsService(exec, schemaService)
     }
 
     const ensureMetahubRouteAccess = async (

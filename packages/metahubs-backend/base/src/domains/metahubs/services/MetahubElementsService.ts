@@ -1,4 +1,6 @@
-import { KnexClient } from '../../ddl'
+import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
+import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { MetahubObjectsService } from './MetahubObjectsService'
 import { MetahubAttributesService } from './MetahubAttributesService'
@@ -6,7 +8,8 @@ import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@uni
 import { AttributeDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
-import type { Knex } from 'knex'
+
+const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
 /**
  * MetahubElementsService - CRUD operations for predefined elements in Design-Time.
@@ -19,31 +22,16 @@ import type { Knex } from 'knex'
  */
 export class MetahubElementsService {
     constructor(
+        private exec: DbExecutor,
         private schemaService: MetahubSchemaService,
         private objectsService: MetahubObjectsService,
         private attributesService: MetahubAttributesService
     ) {}
 
-    private quoteSchemaName(schemaName: string): string {
-        return `"${schemaName.replace(/"/g, '""')}"`
-    }
-
-    private elementsTable(schemaName: string): string {
-        return `${this.quoteSchemaName(schemaName)}."_mhb_elements"`
-    }
-
-    private get knex() {
-        return KnexClient.getInstance()
-    }
-
     private createServiceError(code: 'CATALOG_NOT_FOUND' | 'ELEMENT_NOT_FOUND' | 'ELEMENT_VALIDATION_FAILED', message: string): Error {
         const error: Error & { code?: string } = new Error(message)
         error.code = code
         return error
-    }
-
-    private applyActiveRowsFilter<TQuery extends Knex.QueryBuilder>(query: TQuery): TQuery {
-        return query.andWhere('_upl_deleted', false).andWhere('_mhb_deleted', false) as TQuery
     }
 
     private buildSortOrderLockKey(schemaName: string, catalogId: string): string {
@@ -54,15 +42,18 @@ export class MetahubElementsService {
      * Serialize sort-order mutations per catalog.
      * Uses transaction-scoped advisory lock, auto-released on commit/rollback.
      */
-    private async acquireSortOrderLockInTransaction(trx: Knex.Transaction, schemaName: string, catalogId: string): Promise<void> {
+    private async acquireSortOrderLockInTransaction(db: SqlQueryable, schemaName: string, catalogId: string): Promise<void> {
         const lockKey = this.buildSortOrderLockKey(schemaName, catalogId)
-        await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [lockKey])
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
     }
 
-    private async getNextSortOrder(schemaName: string, catalogId: string, trx: Knex | Knex.Transaction): Promise<number> {
-        const result = await this.applyActiveRowsFilter(trx.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId }))
-            .max('sort_order as max')
-            .first()
+    private async getNextSortOrder(schemaName: string, catalogId: string, db: SqlQueryable): Promise<number> {
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+        const result = await queryOne<{ max: number | string | null }>(
+            db,
+            `SELECT MAX(sort_order) AS max FROM ${qt} WHERE object_id = $1 AND ${ACTIVE}`,
+            [catalogId]
+        )
 
         const max = result?.max
         if (typeof max === 'number') return max + 1
@@ -70,20 +61,16 @@ export class MetahubElementsService {
         return Number.isFinite(parsed) ? parsed + 1 : 1
     }
 
-    private async ensureSequentialSortOrderInTransaction(
-        schemaName: string,
-        catalogId: string,
-        trx: Knex | Knex.Transaction
-    ): Promise<void> {
-        const rows = await trx
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ object_id: catalogId })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
-            .orderBy('id', 'asc')
+    private async ensureSequentialSortOrderInTransaction(schemaName: string, catalogId: string, db: SqlQueryable): Promise<void> {
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+
+        const rows = await queryMany<{ id: string; sort_order: number | null }>(
+            db,
+            `SELECT id, sort_order FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC, id ASC`,
+            [catalogId]
+        )
 
         let hasGaps = false
         for (let index = 0; index < rows.length; index += 1) {
@@ -98,9 +85,7 @@ export class MetahubElementsService {
             const row = rows[index]
             const nextSortOrder = index + 1
             if ((row.sort_order ?? 0) !== nextSortOrder) {
-                await trx.withSchema(schemaName).from('_mhb_elements').where({ id: row.id }).update({
-                    sort_order: nextSortOrder
-                })
+                await db.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2`, [nextSortOrder, row.id])
             }
         }
     }
@@ -110,14 +95,11 @@ export class MetahubElementsService {
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const [result] = await this.schemaService.query<{ count: number | string }>(
-            `
-                SELECT COUNT(*)::int AS count
-                FROM ${this.elementsTable(schemaName)}
-                WHERE object_id = $1
-                  AND _upl_deleted = FALSE
-                  AND _mhb_deleted = FALSE
-            `,
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+
+        const result = await queryOne<{ count: number | string }>(
+            this.exec,
+            `SELECT COUNT(*)::int AS count FROM ${qt} WHERE object_id = $1 AND ${ACTIVE}`,
             [objectId]
         )
         return result ? parseInt(String(result.count), 10) : 0
@@ -130,15 +112,14 @@ export class MetahubElementsService {
         if (objectIds.length === 0) return new Map()
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const results = await this.schemaService.query<{ object_id: string; count: number | string }>(
-            `
-                SELECT object_id, COUNT(*)::int AS count
-                FROM ${this.elementsTable(schemaName)}
-                WHERE object_id = ANY($1::uuid[])
-                  AND _upl_deleted = FALSE
-                  AND _mhb_deleted = FALSE
-                GROUP BY object_id
-            `,
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+
+        const results = await queryMany<{ object_id: string; count: number | string }>(
+            this.exec,
+            `SELECT object_id, COUNT(*)::int AS count
+             FROM ${qt}
+             WHERE object_id = ANY($1::uuid[]) AND ${ACTIVE}
+             GROUP BY object_id`,
             [objectIds]
         )
 
@@ -157,12 +138,15 @@ export class MetahubElementsService {
         if (objectIds.length === 0) return []
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const elements = await this.applyActiveRowsFilter(
-            this.knex.withSchema(schemaName).from('_mhb_elements').whereIn('object_id', objectIds)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+
+        const elements = await queryMany<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE object_id = ANY($1::uuid[]) AND ${ACTIVE}
+             ORDER BY object_id ASC, sort_order ASC, _upl_created_at ASC`,
+            [objectIds]
         )
-            .orderBy('object_id', 'asc')
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
 
         return elements.map((element: any) => ({
             id: element.id,
@@ -192,29 +176,49 @@ export class MetahubElementsService {
         if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        // Query _mhb_elements table with object_id filter
-        let query = this.applyActiveRowsFilter(this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId }))
+        const conditions: string[] = ['object_id = $1', ACTIVE]
+        const params: unknown[] = [catalogId]
+        let paramIdx = 2
 
         if (options.search) {
-            const escapedSearch = escapeLikeWildcards(options.search)
-            query = query.whereRaw('data::text ILIKE ?', [`%${escapedSearch}%`])
+            const escapedSearch = `%${escapeLikeWildcards(options.search)}%`
+            conditions.push(`data::text ILIKE $${paramIdx}`)
+            params.push(escapedSearch)
+            paramIdx++
         }
+
+        const whereClause = conditions.join(' AND ')
 
         const sortColumn =
             options.sortBy === 'created' ? '_upl_created_at' : options.sortBy === 'updated' ? '_upl_updated_at' : 'sort_order'
-        const resolvedSortOrder = options.sortOrder || 'asc'
-        query = query.orderBy(sortColumn, resolvedSortOrder)
+        const dir = options.sortOrder === 'desc' ? 'DESC' : 'ASC'
+        let orderBy = `${sortColumn} ${dir}`
         if (sortColumn === 'sort_order') {
-            query = query.orderBy('_upl_created_at', resolvedSortOrder).orderBy('id', resolvedSortOrder)
+            orderBy += `, _upl_created_at ${dir}, id ${dir}`
         } else {
-            query = query.orderBy('id', resolvedSortOrder)
+            orderBy += `, id ${dir}`
         }
 
-        if (options.limit) query = query.limit(options.limit)
-        if (options.offset) query = query.offset(options.offset)
+        let paginationClause = ''
+        const queryParams = [...params]
+        if (options.limit) {
+            paginationClause += ` LIMIT $${paramIdx}`
+            queryParams.push(options.limit)
+            paramIdx++
+        }
+        if (options.offset) {
+            paginationClause += ` OFFSET $${paramIdx}`
+            queryParams.push(options.offset)
+            paramIdx++
+        }
 
-        const items = await query
+        const items = await queryMany<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE ${whereClause} ORDER BY ${orderBy}${paginationClause}`,
+            queryParams
+        )
         return items.map((element: any) => this.mapRowToElement(element))
     }
 
@@ -238,35 +242,55 @@ export class MetahubElementsService {
         if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        // Base query with object_id filter
-        let query = this.applyActiveRowsFilter(this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId }))
+        const conditions: string[] = ['object_id = $1', ACTIVE]
+        const baseParams: unknown[] = [catalogId]
+        let paramIdx = 2
 
         if (options.search) {
-            const escapedSearch = escapeLikeWildcards(options.search)
-            query = query.whereRaw('data::text ILIKE ?', [`%${escapedSearch}%`])
+            const escapedSearch = `%${escapeLikeWildcards(options.search)}%`
+            conditions.push(`data::text ILIKE $${paramIdx}`)
+            baseParams.push(escapedSearch)
+            paramIdx++
         }
 
-        // Clone for count before applying pagination
-        const countResult = await query.clone().count('* as total').first()
-        const total = countResult ? parseInt(countResult.total as string, 10) : 0
+        const whereClause = conditions.join(' AND ')
+        const countParams = [...baseParams]
 
-        // Apply sorting
         const sortColumn =
             options.sortBy === 'created' ? '_upl_created_at' : options.sortBy === 'updated' ? '_upl_updated_at' : 'sort_order'
-        const resolvedSortOrder = options.sortOrder || 'asc'
-        query = query.orderBy(sortColumn, resolvedSortOrder)
+        const dir = options.sortOrder === 'desc' ? 'DESC' : 'ASC'
+        let orderBy = `${sortColumn} ${dir}`
         if (sortColumn === 'sort_order') {
-            query = query.orderBy('_upl_created_at', resolvedSortOrder).orderBy('id', resolvedSortOrder)
+            orderBy += `, _upl_created_at ${dir}, id ${dir}`
         } else {
-            query = query.orderBy('id', resolvedSortOrder)
+            orderBy += `, id ${dir}`
         }
 
-        // Apply pagination
-        if (options.limit) query = query.limit(options.limit)
-        if (options.offset) query = query.offset(options.offset)
+        let paginationClause = ''
+        const queryParams = [...baseParams]
+        if (options.limit) {
+            paginationClause += ` LIMIT $${paramIdx}`
+            queryParams.push(options.limit)
+            paramIdx++
+        }
+        if (options.offset) {
+            paginationClause += ` OFFSET $${paramIdx}`
+            queryParams.push(options.offset)
+            paramIdx++
+        }
 
-        const items = await query
+        const [items, countResult] = await Promise.all([
+            queryMany<Record<string, unknown>>(
+                this.exec,
+                `SELECT * FROM ${qt} WHERE ${whereClause} ORDER BY ${orderBy}${paginationClause}`,
+                queryParams
+            ),
+            queryOne<{ total: string }>(this.exec, `SELECT COUNT(*) AS total FROM ${qt} WHERE ${whereClause}`, countParams)
+        ])
+
+        const total = countResult ? parseInt(countResult.total, 10) : 0
         return { items: items.map((element: any) => this.mapRowToElement(element)), total }
     }
 
@@ -279,10 +303,13 @@ export class MetahubElementsService {
         if (!catalog) return null
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        const row = await this.applyActiveRowsFilter(
-            this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId })
-        ).first()
+        const row = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+            [id, catalogId]
+        )
 
         return row ? this.mapRowToElement(row) : null
     }
@@ -312,33 +339,31 @@ export class MetahubElementsService {
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        return this.knex.transaction(async (trx) => {
-            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, catalogId)
 
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
                     ? input.sortOrder
-                    : await this.getNextSortOrder(schemaName, catalogId, trx)
+                    : await this.getNextSortOrder(schemaName, catalogId, tx)
 
-            const [created] = await trx
-                .withSchema(schemaName)
-                .into('_mhb_elements')
-                .insert({
-                    object_id: catalogId,
-                    data: input.data,
-                    sort_order: sortOrder,
-                    owner_id: null,
-                    _upl_created_at: new Date(),
-                    _upl_created_by: input.createdBy ?? null,
-                    _upl_updated_at: new Date(),
-                    _upl_updated_by: input.createdBy ?? null
-                })
-                .returning('*')
+            const now = new Date()
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+            const created = await queryOneOrThrow<Record<string, unknown>>(
+                tx,
+                `INSERT INTO ${qt}
+                    (object_id, data, sort_order, owner_id,
+                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                 VALUES ($1, $2::jsonb, $3, NULL, $4, $5, $4, $5)
+                 RETURNING *`,
+                [catalogId, JSON.stringify(input.data), sortOrder, now, input.createdBy ?? null]
+            )
 
-            const normalized = await trx.withSchema(schemaName).from('_mhb_elements').where({ id: created.id }).first()
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
+
+            const normalized = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [created.id])
             return this.mapRowToElement(normalized ?? created)
         })
     }
@@ -363,11 +388,14 @@ export class MetahubElementsService {
         if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         // Find existing element
-        const existing = await this.applyActiveRowsFilter(
-            this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId })
-        ).first()
+        const existing = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+            [id, catalogId]
+        )
 
         if (!existing) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
 
@@ -377,7 +405,7 @@ export class MetahubElementsService {
         }
 
         if (input.data) {
-            const mergedData = { ...existing.data, ...input.data }
+            const mergedData = { ...(existing.data as Record<string, unknown>), ...input.data }
             // Use findAllFlat to include child attrs for TABLE validation
             const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
             const validation = this.validateElementData(mergedData, attributes)
@@ -394,7 +422,7 @@ export class MetahubElementsService {
         // If expectedVersion is provided, use version-checked update
         if (input.expectedVersion !== undefined) {
             const updated = await updateWithVersionCheck({
-                knex: this.knex,
+                executor: this.exec,
                 schemaName,
                 tableName: '_mhb_elements',
                 entityId: id,
@@ -406,7 +434,7 @@ export class MetahubElementsService {
         }
 
         // Fallback: increment version without check (backwards compatibility)
-        const updated = await incrementVersion(this.knex, schemaName, '_mhb_elements', id, updateData)
+        const updated = await incrementVersion(this.exec, schemaName, '_mhb_elements', id, updateData)
         return updated ? this.mapRowToElement(updated) : null
     }
 
@@ -419,82 +447,86 @@ export class MetahubElementsService {
         if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        await this.knex.transaction(async (trx) => {
-            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
+        await this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, catalogId)
 
-            const deleted = await this.applyActiveRowsFilter(
-                trx.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId })
-            ).delete()
+            const deleted = await tx.query<{ id: string }>(
+                `DELETE FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} RETURNING id`,
+                [id, catalogId]
+            )
 
-            if (deleted === 0) {
+            if (deleted.length === 0) {
                 throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
             }
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
         })
     }
 
     async moveElement(metahubId: string, catalogId: string, elementId: string, direction: 'up' | 'down', userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        return this.knex.transaction(async (trx) => {
-            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
-            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, catalogId)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
 
-            const current = await trx
-                .withSchema(schemaName)
-                .from('_mhb_elements')
-                .where({ id: elementId, object_id: catalogId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const current = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [elementId, catalogId]
+            )
             if (!current) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
 
-            const currentOrder = current.sort_order ?? 0
-            const neighborQuery = trx
-                .withSchema(schemaName)
-                .from('_mhb_elements')
-                .where({ object_id: catalogId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-
+            const currentOrder = (current.sort_order as number) ?? 0
             const neighbor =
                 direction === 'up'
-                    ? await neighborQuery.where('sort_order', '<', currentOrder).orderBy('sort_order', 'desc').first()
-                    : await neighborQuery.where('sort_order', '>', currentOrder).orderBy('sort_order', 'asc').first()
+                    ? await queryOne<Record<string, unknown>>(
+                          tx,
+                          `SELECT * FROM ${qt}
+                           WHERE object_id = $1 AND ${ACTIVE} AND sort_order < $2
+                           ORDER BY sort_order DESC LIMIT 1`,
+                          [catalogId, currentOrder]
+                      )
+                    : await queryOne<Record<string, unknown>>(
+                          tx,
+                          `SELECT * FROM ${qt}
+                           WHERE object_id = $1 AND ${ACTIVE} AND sort_order > $2
+                           ORDER BY sort_order ASC LIMIT 1`,
+                          [catalogId, currentOrder]
+                      )
 
             if (neighbor) {
                 const now = new Date()
                 const temporarySortOrder = 0
 
                 // Move current row outside active range first to avoid unique index conflicts
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_elements')
-                    .where({ id: elementId, object_id: catalogId })
-                    .update({ sort_order: temporarySortOrder, _upl_updated_at: now, _upl_updated_by: userId ?? null })
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_elements')
-                    .where({ id: neighbor.id, object_id: catalogId })
-                    .update({ sort_order: currentOrder, _upl_updated_at: now, _upl_updated_by: userId ?? null })
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_elements')
-                    .where({ id: elementId, object_id: catalogId })
-                    .update({ sort_order: neighbor.sort_order, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                await tx.query(
+                    `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4 AND object_id = $5`,
+                    [temporarySortOrder, now, userId ?? null, elementId, catalogId]
+                )
+                await tx.query(
+                    `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4 AND object_id = $5`,
+                    [currentOrder, now, userId ?? null, neighbor.id, catalogId]
+                )
+                await tx.query(
+                    `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4 AND object_id = $5`,
+                    [neighbor.sort_order, now, userId ?? null, elementId, catalogId]
+                )
             }
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
 
-            const updated = await trx
-                .withSchema(schemaName)
-                .from('_mhb_elements')
-                .where({ id: elementId, object_id: catalogId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const updated = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [elementId, catalogId]
+            )
             if (!updated) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
             return this.mapRowToElement(updated)
         })
@@ -502,29 +534,25 @@ export class MetahubElementsService {
 
     async reorderElement(metahubId: string, catalogId: string, elementId: string, newSortOrder: number, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        return this.knex.transaction(async (trx) => {
-            await this.acquireSortOrderLockInTransaction(trx, schemaName, catalogId)
-            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, catalogId)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
 
-            const current = await trx
-                .withSchema(schemaName)
-                .from('_mhb_elements')
-                .where({ id: elementId, object_id: catalogId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const current = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [elementId, catalogId]
+            )
             if (!current) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
 
-            const oldOrder = current.sort_order
-            const totalResult = await trx
-                .withSchema(schemaName)
-                .from('_mhb_elements')
-                .where({ object_id: catalogId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .count('id as count')
-                .first()
+            const oldOrder = current.sort_order as number
+            const totalResult = await queryOne<{ count: number | string }>(
+                tx,
+                `SELECT COUNT(id) AS count FROM ${qt} WHERE object_id = $1 AND ${ACTIVE}`,
+                [catalogId]
+            )
             const totalRaw = totalResult?.count
             const totalCount = typeof totalRaw === 'number' ? totalRaw : totalRaw ? Number.parseInt(String(totalRaw), 10) : 0
             const maxSortOrder = Math.max(1, totalCount)
@@ -535,54 +563,46 @@ export class MetahubElementsService {
                 const temporarySortOrder = 0
 
                 // Move current row outside active range first to avoid unique index conflicts
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_elements')
-                    .where({ id: elementId, object_id: catalogId })
-                    .update({ sort_order: temporarySortOrder, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                await tx.query(
+                    `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4 AND object_id = $5`,
+                    [temporarySortOrder, now, userId ?? null, elementId, catalogId]
+                )
 
                 if (clampedNew < oldOrder) {
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_elements')
-                        .where({ object_id: catalogId })
-                        .andWhere('_upl_deleted', false)
-                        .andWhere('_mhb_deleted', false)
-                        .where('sort_order', '>=', clampedNew)
-                        .where('sort_order', '<', oldOrder)
-                        .whereNot({ id: elementId })
-                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
-                        .increment('sort_order', 1)
+                    await tx.query(
+                        `UPDATE ${qt}
+                         SET sort_order = sort_order + 1, _upl_updated_at = $1, _upl_updated_by = $2
+                         WHERE object_id = $3 AND ${ACTIVE}
+                           AND sort_order >= $4 AND sort_order < $5
+                           AND id != $6`,
+                        [now, userId ?? null, catalogId, clampedNew, oldOrder, elementId]
+                    )
                 } else {
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_elements')
-                        .where({ object_id: catalogId })
-                        .andWhere('_upl_deleted', false)
-                        .andWhere('_mhb_deleted', false)
-                        .where('sort_order', '>', oldOrder)
-                        .where('sort_order', '<=', clampedNew)
-                        .whereNot({ id: elementId })
-                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
-                        .decrement('sort_order', 1)
+                    await tx.query(
+                        `UPDATE ${qt}
+                         SET sort_order = sort_order - 1, _upl_updated_at = $1, _upl_updated_by = $2
+                         WHERE object_id = $3 AND ${ACTIVE}
+                           AND sort_order > $4 AND sort_order <= $5
+                           AND id != $6`,
+                        [now, userId ?? null, catalogId, oldOrder, clampedNew, elementId]
+                    )
                 }
 
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_elements')
-                    .where({ id: elementId, object_id: catalogId })
-                    .update({ sort_order: clampedNew, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                await tx.query(
+                    `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4 AND object_id = $5`,
+                    [clampedNew, now, userId ?? null, elementId, catalogId]
+                )
             }
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, trx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
 
-            const updated = await trx
-                .withSchema(schemaName)
-                .from('_mhb_elements')
-                .where({ id: elementId, object_id: catalogId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const updated = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [elementId, catalogId]
+            )
             if (!updated) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
             return this.mapRowToElement(updated)
         })

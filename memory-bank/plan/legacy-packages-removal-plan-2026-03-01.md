@@ -23,7 +23,7 @@ All cross-references in routes, entities, migrations, menus, breadcrumbs, hooks,
 
 ## Affected Areas
 
-### Backend (flowise-core-backend)
+### Backend (legacy-core-backend)
 | File | What to remove |
 |------|---------------|
 | `src/routes/index.ts` (L42-46) | 5 imports + 5 lazy router blocks (~80 lines) |
@@ -44,7 +44,7 @@ All cross-references in routes, entities, migrations, menus, breadcrumbs, hooks,
 | `src/hooks/useBreadcrumbName.ts` (L205-253) | 5 hook definitions (useClusterName, etc.) + 5 truncate functions |
 | `src/hooks/index.ts` (L20-25, L38-42) | 10 re-exports (5 hooks + 5 truncate functions) |
 
-### Frontend — flowise-core-frontend
+### Frontend — legacy-core-frontend
 | File | What to remove |
 |------|---------------|
 | `src/index.jsx` (L28-29) | 2 i18n imports (organizations, storages) |
@@ -179,7 +179,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 ---
 
-### Phase 2: Backend Cleanup (flowise-core-backend)
+### Phase 2: Backend Cleanup (legacy-core-backend)
 
 - [ ] **Step 2.1**: Remove imports from `routes/index.ts` (lines 42-46)
 
@@ -302,7 +302,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 2.7**: Remove backend package.json dependencies
 
-  File: `packages/flowise-core-backend/base/package.json`
+  File: `packages/legacy-core-backend/base/package.json`
 
   **REMOVE** 3 explicit deps:
   ```json
@@ -542,7 +542,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 ---
 
-### Phase 5: Frontend Cleanup — flowise-core-frontend
+### Phase 5: Frontend Cleanup — legacy-core-frontend
 
 - [ ] **Step 5.1**: Remove i18n imports from `src/index.jsx` (lines 28-29)
 
@@ -554,7 +554,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 5.2**: Remove package.json dependencies
 
-  File: `packages/flowise-core-frontend/base/package.json`
+  File: `packages/legacy-core-frontend/base/package.json`
 
   **REMOVE**:
   ```json
@@ -564,7 +564,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 5.3**: Remove from vite.config.js
 
-  File: `packages/flowise-core-frontend/base/vite.config.js`
+  File: `packages/legacy-core-frontend/base/vite.config.js`
 
   **REMOVE** (line 67):
   ```javascript
@@ -631,8 +631,8 @@ Other packages import from `@universo/types`, so removing types first prevents b
   Verify no lint errors in modified files:
   ```bash
   pnpm --filter @universo/template-mui lint
-  pnpm --filter @flowise/core-backend lint
-  pnpm --filter @flowise/core-frontend lint
+  pnpm --filter /core-backend lint
+  pnpm --filter /core-frontend lint
   pnpm --filter @universo/types lint
   pnpm --filter @universo/admin-backend lint
   pnpm --filter @universo/admin-frontend lint

@@ -349,9 +349,9 @@ export function createConstantsRoutes(
         const schemaService = new MetahubSchemaService(exec)
         return {
             exec,
-            constantsService: new MetahubConstantsService(schemaService),
-            objectsService: new MetahubObjectsService(schemaService),
-            settingsService: new MetahubSettingsService(schemaService)
+            constantsService: new MetahubConstantsService(exec, schemaService),
+            objectsService: new MetahubObjectsService(exec, schemaService),
+            settingsService: new MetahubSettingsService(exec, schemaService)
         }
     }
 
@@ -672,14 +672,14 @@ export function createConstantsRoutes(
             } = await getCodenameSettings(settingsService, metahubId, userId)
             const allowedTypes = await resolveAllowedConstantTypes(metahubId, userId, settingsService)
 
-            const nextDataType = parsed.data.dataType ?? existing.dataType
+            const nextDataType = parsed.data.dataType ?? (existing.dataType as ConstantDataType)
             if (!allowedTypes.has(nextDataType)) {
                 return res.status(400).json({
                     error: `Data type ${nextDataType} is not allowed by settings`
                 })
             }
 
-            let nextCodename = existing.codename
+            let nextCodename: string | undefined = existing.codename as string
             if (parsed.data.codename !== undefined) {
                 const normalizedCodename = normalizeCodenameForStyle(parsed.data.codename, codenameStyle, codenameAlphabet)
                 if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
@@ -699,7 +699,7 @@ export function createConstantsRoutes(
                         codenameStyle,
                         constantsService,
                         userId,
-                        excludeConstantId: existing.id
+                        excludeConstantId: existing.id as string
                     })
                     if (!resolved) {
                         return res.status(409).json({ error: 'Unable to generate unique codename for constant' })
@@ -904,7 +904,7 @@ export function createConstantsRoutes(
                 allowMixed
             } = await getCodenameSettings(settingsService, metahubId, userId)
             const allowedTypes = await resolveAllowedConstantTypes(metahubId, userId, settingsService)
-            if (!allowedTypes.has(source.dataType)) {
+            if (!allowedTypes.has(source.dataType as ConstantDataType)) {
                 return res.status(400).json({
                     error: `Data type ${source.dataType} is not allowed by settings`
                 })
@@ -955,7 +955,7 @@ export function createConstantsRoutes(
 
             const validationRules = (parsed.data.validationRules ?? source.validationRules ?? {}) as Record<string, unknown>
             const valueToCopy = copyOptions.copyValue ? source.value : null
-            const parsedValue = parseConstantValue(source.dataType, valueToCopy, validationRules)
+            const parsedValue = parseConstantValue(source.dataType as ConstantDataType, valueToCopy, validationRules)
             if (!parsedValue.ok) {
                 return res.status(400).json({ error: parsedValue.error })
             }
@@ -967,7 +967,7 @@ export function createConstantsRoutes(
                     {
                         setId,
                         codename,
-                        dataType: source.dataType,
+                        dataType: source.dataType as ConstantDataType,
                         name: nameVlc,
                         codenameLocalized,
                         validationRules,

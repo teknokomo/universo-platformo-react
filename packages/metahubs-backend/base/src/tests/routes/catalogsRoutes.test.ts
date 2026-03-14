@@ -20,11 +20,8 @@ jest.mock('../../persistence', () => ({
 }))
 
 const mockEnsureMetahubAccess = jest.fn()
-const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
+const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 const mockGenerateTableName = jest.fn((id: string, kind: string) => `${kind}_${id}`)
-const mockKnex = {
-    transaction: jest.fn()
-}
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -33,9 +30,6 @@ jest.mock('../../domains/shared/guards', () => ({
 
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    },
     generateTableName: (...args: unknown[]) => mockGenerateTableName(...(args as [string, string]))
 }))
 
@@ -114,112 +108,28 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
 }))
 
 describe('Catalogs Routes', () => {
-    const createCatalogCopyTransactionStub = (params?: {
-        copiedCatalog?: Record<string, unknown>
+    const createCatalogCopyTransactionTrx = (params?: {
         sourceAttributes?: Array<Record<string, unknown>>
         sourceElements?: Array<Record<string, unknown>>
     }) => {
-        const created =
-            params?.copiedCatalog ??
-            ({
-                id: 'catalog-copy-id',
-                codename: 'ProductsCopy',
-                presentation: {
-                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
-                    description: null
-                },
-                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 },
-                _upl_version: 1,
-                _upl_created_at: '2026-02-26T00:00:00.000Z',
-                _upl_updated_at: '2026-02-26T00:00:00.000Z'
-            } as Record<string, unknown>)
-
         const sourceAttributes = params?.sourceAttributes ?? []
         const sourceElements = params?.sourceElements ?? []
 
-        const insertReturning = jest.fn().mockResolvedValue([{ id: created.id }])
-        const updateReturning = jest.fn().mockResolvedValue([created])
-        const attributeSelect = jest.fn().mockResolvedValue(sourceAttributes)
-        const elementSelect = jest.fn().mockResolvedValue(sourceElements)
-        const attributeInsertReturning = jest.fn().mockResolvedValue([{ id: 'copied-attr-id' }])
-        const elementInsert = jest.fn().mockResolvedValue(undefined)
+        const queryMock = jest.fn().mockResolvedValue([])
 
-        const trx = {
-            withSchema: jest.fn(() => ({
-                into: jest.fn((tableName: string) => {
-                    if (tableName === '_mhb_objects') {
-                        return {
-                            insert: jest.fn(() => ({
-                                returning: (...args: unknown[]) => insertReturning(...args)
-                            }))
-                        }
-                    }
-
-                    if (tableName === '_mhb_attributes') {
-                        return {
-                            insert: jest.fn(() => ({
-                                returning: (...args: unknown[]) => attributeInsertReturning(...args)
-                            }))
-                        }
-                    }
-
-                    if (tableName === '_mhb_elements') {
-                        return {
-                            insert: (...args: unknown[]) => elementInsert(...args)
-                        }
-                    }
-
-                    return {
-                        insert: jest.fn()
-                    }
-                }),
-                from: jest.fn((tableName: string) => {
-                    if (tableName === '_mhb_objects') {
-                        return {
-                            where: jest.fn(() => ({
-                                update: jest.fn(() => ({
-                                    returning: (...args: unknown[]) => updateReturning(...args)
-                                }))
-                            }))
-                        }
-                    }
-
-                    if (tableName === '_mhb_attributes') {
-                        return {
-                            where: jest.fn(() => ({
-                                andWhere: jest.fn(() => ({
-                                    andWhere: jest.fn(() => ({
-                                        orderBy: jest.fn(() => ({
-                                            orderBy: (..._args: unknown[]) => attributeSelect()
-                                        }))
-                                    }))
-                                }))
-                            }))
-                        }
-                    }
-
-                    if (tableName === '_mhb_elements') {
-                        return {
-                            where: jest.fn(() => ({
-                                andWhere: jest.fn(() => ({
-                                    andWhere: jest.fn(() => ({
-                                        orderBy: jest.fn(() => ({
-                                            orderBy: (..._args: unknown[]) => elementSelect()
-                                        }))
-                                    }))
-                                }))
-                            }))
-                        }
-                    }
-
-                    return {
-                        where: jest.fn()
-                    }
-                })
-            }))
+        // Sequenced responses: SELECT attrs, then INSERT per attr, then SELECT elems, then INSERT elems
+        if (sourceAttributes.length > 0) {
+            queryMock.mockResolvedValueOnce(sourceAttributes)
+            for (let i = 0; i < sourceAttributes.length; i++) {
+                queryMock.mockResolvedValueOnce([{ id: `copied-attr-${i}` }])
+            }
+        }
+        if (sourceElements.length > 0) {
+            queryMock.mockResolvedValueOnce(sourceElements)
+            queryMock.mockResolvedValueOnce(sourceElements.map((_, i) => ({ id: `copied-elem-${i}` })))
         }
 
-        return { trx, attributeSelect, attributeInsertReturning, elementSelect, elementInsert }
+        return { query: queryMock }
     }
 
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -291,7 +201,7 @@ describe('Catalogs Routes', () => {
         mockElementsService.countByObjectIds.mockResolvedValue(new Map<string, number>())
         mockFindMetahubById.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'test-metahub-id' })
-        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+        mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
     })
 
     describe('GET /metahub/:metahubId/catalogs', () => {
@@ -698,8 +608,10 @@ describe('Catalogs Routes', () => {
                 config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
             })
 
-            const tx = createCatalogCopyTransactionStub()
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            const trx = createCatalogCopyTransactionTrx()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -729,7 +641,7 @@ describe('Catalogs Routes', () => {
                 config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
             })
 
-            const tx = createCatalogCopyTransactionStub({
+            const trx = createCatalogCopyTransactionTrx({
                 sourceAttributes: [
                     {
                         id: 'attr-1',
@@ -754,7 +666,9 @@ describe('Catalogs Routes', () => {
                     }
                 ]
             })
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -764,10 +678,8 @@ describe('Catalogs Routes', () => {
 
             expect(response.body.attributesCount).toBe(1)
             expect(response.body.elementsCount).toBe(1)
-            expect(tx.attributeSelect).toHaveBeenCalledTimes(1)
-            expect(tx.attributeInsertReturning).toHaveBeenCalledTimes(1)
-            expect(tx.elementSelect).toHaveBeenCalledTimes(1)
-            expect(tx.elementInsert).toHaveBeenCalledTimes(1)
+            // trx.query called: SELECT attrs (1) + INSERT per attr (1) + SELECT elems (1) + INSERT elems (1) = 4
+            expect(trx.query).toHaveBeenCalledTimes(4)
         })
 
         it('retries catalog copy after codename unique violation and succeeds', async () => {
@@ -783,20 +695,7 @@ describe('Catalogs Routes', () => {
                 code: '23505',
                 constraint: 'idx_mhb_objects_kind_codename_active'
             })
-            const tx = createCatalogCopyTransactionStub({
-                copiedCatalog: {
-                    id: 'catalog-copy-id-2',
-                    codename: 'ProductsCopy_2',
-                    presentation: {
-                        name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
-                        description: null
-                    },
-                    config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 },
-                    _upl_version: 1,
-                    _upl_created_at: '2026-02-26T00:00:00.000Z',
-                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
-                }
-            })
+            const trx = createCatalogCopyTransactionTrx()
             mockObjectsService.createCatalog.mockResolvedValueOnce({
                 id: 'catalog-copy-id-2',
                 codename: 'ProductsCopy_2',
@@ -809,10 +708,9 @@ describe('Catalogs Routes', () => {
                 _upl_created_at: '2026-02-26T00:00:00.000Z',
                 _upl_updated_at: '2026-02-26T00:00:00.000Z'
             })
-
-            mockKnex.transaction
+            ;(mockExec.transaction as jest.Mock)
                 .mockRejectedValueOnce(uniqueViolation)
-                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(trx))
 
             const app = buildApp()
             const response = await request(app)
@@ -826,7 +724,7 @@ describe('Catalogs Routes', () => {
 
             expect(response.body.id).toBe('catalog-copy-id-2')
             expect(response.body.codename).toBe('ProductsCopy_2')
-            expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
+            expect(mockExec.transaction).toHaveBeenCalledTimes(2)
         })
     })
 })

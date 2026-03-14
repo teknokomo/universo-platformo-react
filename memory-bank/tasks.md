@@ -1,60 +1,202 @@
 # Tasks
-
 > Active and planned work only. Durable completed outcomes live in progress.md; reusable implementation rules live in systemPatterns.md.
 
 ---
-
-## Previous Completed Wave — 2026-03-13
-
-> Status: COMPLETE — the metahub frontend regression reopen is closed with restored settings continuity, hardened shared confirm rendering, publication pending-row feedback parity, direct regressions, and full revalidation.
-
-- [x] Restore hub-scoped Settings tab continuity in deeper metahub/publication views
-  - Note: `ElementList` exposes hub Settings again and `PublicationApplicationList` now mirrors `PublicationVersionList` by keeping Publication Settings reachable from the applications subview.
-- [x] Harden shared confirm rendering so detached hub-entity create warnings do not auto-cancel
-  - Note: the root `useConfirm` / `ConfirmDialog` contract now tolerates delayed dialog mounting and keeps the request-id marker discoverable for fallback checks.
-- [x] Restore publication pending-interaction feedback parity in shared table rows
-  - Note: clicking optimistic publication rows now reveals the same blocked/pending feedback path already used by publication cards and other entity lists.
-- [x] Add direct frontend/shared regressions and revalidate the touched workspace slice
-  - Note: `PublicationApplicationList.test.tsx` passed 3/3, touched `@universo/template-mui` tests passed 6/6, touched package lint stayed warning-only, and the final root `pnpm build` passed with 27/27 successful tasks.
-
-## Previous Completed Wave — 2026-03-13
-
-> Status: COMPLETE — the reopened QA follow-through wave is closed with profile update/delete fail-closed behavior, corrected runtime release-bundle lineage, shared helper reuse, direct regressions, and full revalidation.
-
-- [x] Fail-close profile update and delete ownership at the controller boundary
-  - Note: authenticated users must not update or delete another user's profile even before RLS is reached.
-- [x] Remove profile update mass-assignment and raw request-field SQL interpolation
-  - Note: the update path must whitelist supported columns explicitly and reject malformed public payloads instead of iterating arbitrary body keys.
-- [x] Fix runtime release-bundle re-export lineage to use the installed release snapshot contract
-  - Note: when exporting a new runtime-origin bundle from an already installed release, incremental base snapshot selection must match the actual `fromVersion` contract (`releaseSchemaSnapshot` for advancing from the installed release, `baseSchemaSnapshot` only when replaying an unchanged bundle lineage).
-- [x] Replace touched local SQL identifier quoting with the shared migrations-core helper
-  - Note: touched runtime snapshot loaders must reuse the canonical helper instead of maintaining a private identifier regex/quoting fork.
-- [x] Add direct regressions for the reopened security and runtime-lineage gaps
-  - Note: acceptance requires controller/service proof for profile update hardening and route-level proof for runtime bundle export with divergent installed base/release snapshots.
-- [x] Revalidate touched packages and full workspace, then resync memory-bank status
-  - Note: `@universo/profile-backend` tests passed 25/25, `@universo/applications-backend` tests passed 84/84, both touched lint runs passed, and the final root `pnpm build` passed with 27/27 successful tasks.
-
-## Previous Completed Wave — 2026-03-13
-
-> Status: COMPLETE — the remaining QA findings from the optional global catalog/runtime migration review are closed and fully revalidated.
-
-- [x] Harden profile ownership and route security end to end
-  - Note: `POST /profile` must no longer allow authenticated users to create another user's profile via `user_id`, and the DB policy/controller/service path must fail closed on cross-user attempts.
-- [x] Replace snapshot-disguised incremental release artifacts with true versioned diff artifacts
-  - Note: release bundles must carry a real incremental diff plus trusted base snapshot lineage, and apply/export flows must validate and use that contract instead of recalculating from the target snapshot only.
-- [x] Clear touched error-level lint debt and add direct regressions for the repaired contracts
-  - Note: touched packages must end with route/service-level proof for profile ownership and release-bundle integrity, plus error-free lint on the changed surfaces.
-- [x] Revalidate touched packages and full workspace, then sync memory-bank status
-  - Note: acceptance requires focused tests, touched package lint, root `pnpm build`, and updated active/progress context.
-
+## Previous Completed Waves — 2026-03-13
+> Status: COMPLETE — older same-day closure waves were archived into `progress.md` to keep this file focused on the canonical active queue plus the most actionable recent completions.
+- [x] Metahub frontend regression reopen closure archived; see `progress.md` for the Settings continuity, confirm rendering, and optimistic publication feedback details.
+- [x] QA follow-through closure archived; see `progress.md` for the profile fail-closed hardening, runtime release-bundle lineage fix, and shared helper reuse details.
+- [x] Optional global catalog QA follow-through closure archived; see `progress.md` for the profile ownership hardening, true incremental artifact contract, and validation details.
 ## Active Open Tasks (Canonical)
+### Repository-Wide Legacy Branding Removal — 2026-03-15
+- Status: COMPLETE — removed remaining legacy upstream branding across runtime code, env files, i18n, docs, memory-bank history, `.kiro` steering, repository instruction files, and generated artifacts; final repository-wide grep outside `.git` / `node_modules` returned zero matches, and the final root build passed clean.
+- [x] Inventory all remaining legacy upstream mentions across the repository
+  - Note: active matches were grouped into runtime/config/i18n files, memory-bank docs, generated logs, and `.backup` artifacts; `.git` internals stay untouched.
+- [x] Replace or remove branding in runtime code, env samples, tests, docs, and archival artifacts
+  - Note: this included runtime/frontend source, env comments, deployment docs, memory-bank core files, historical plan files, `.kiro` steering, repository instruction files, stale build/coverage outputs, backup/log artifacts, and regenerated package `dist` / `build` outputs.
+- [x] Revalidate touched packages and full workspace build
+  - Note: targeted builds passed for `@universo/admin-frontend`, `@universo/profile-backend`, `@universo/core-backend`, and `@universo/core-frontend`; final root `pnpm build` passed with 27/27 successful tasks in 3m10.826s.
+- [x] Update memory-bank state
+  - Note: `tasks.md`, `activeContext.md`, and `progress.md` now reflect the completed repository-wide branding removal state.
 
-- [x] Apply validated bot-review fixes from PR #721
-  - [x] Replace `process.env.NODE_ENV` with `isDevelopment()` in authProvider.tsx
-  - [x] Add `_upl_created_at` key to localesStore SORT_WHITELIST
-  - [x] Add soft-delete filter on profiles LEFT JOIN in MetahubBranchesService.getBlockingUsers
-  - [x] Relocate misplaced "Why" block in systemPatterns.md to correct pattern
-  - [x] Compress activeContext.md to ≤150 lines
+### Orphaned CLI Flags Cleanup — 2026-03-15
+> Status: COMPLETE — `packages/universo-core-backend/base/src/commands/base.ts` now keeps only live backend runtime flags; the legacy upstream passthrough surface for removed features and dead env aliases was deleted, and validation is green again.
+- [x] Audit `base.ts` flags/forwarding against current runtime env consumers
+- [x] Remove confirmed dead legacy flags and passthrough assignments from `base.ts`
+- [x] Revalidate `@universo/core-backend` and full workspace build as needed
+  - Note: `pnpm --filter @universo/core-backend build` and the final root `pnpm build` both passed; workspace build finished 27/27 successful tasks in 3m16.58s.
+- [x] Update memory-bank state
+
+### Telemetry Removal + Definitive ENV Files — 2026-03-15
+- Status: COMPLETE — deleted Telemetry class, posthog-node dep, OMIT_QUEUE_JOB_DATA dead constant, all telemetry refs in tests; added previously undocumented live vars to both env files, then closed the QA follow-up gaps by documenting `ALLOW_TRANSACTION_POOLER`, `DATABASE_KNEX_POOL_DEBUG`, `DATABASE_SHUTDOWN_GRACE_MS`, `UNIVERSO_PATH`, and the legacy `FILE_SIZE_LIMIT` alias while removing leftover `DATABASE_TYPE` and structured `REDIS_*` legacy entries.
+- [x] Delete `telemetry.ts`, remove imports/usage from `index.ts`, remove CLI flags from `base.ts`, remove `posthog-node` dep
+- [x] Remove dead `OMIT_QUEUE_JOB_DATA` constant (zero consumers)
+- [x] Rewrite `.env.example` with all live vars, no garbage: add AUTH_*, SESSION_COOKIE_*, SMARTCAPTCHA_*, HOST sections
+- [x] Rewrite `.env` with matching structure preserving real credentials
+- [x] Remediate QA follow-up gaps in `.env.example` and `.env`
+  - Note: kept `DATABASE_POOL_MAX=5` active because `KnexClient` still defaults to 15 and the current Supabase Nano profile documented in the repo should stay capped at 5.
+- [x] Build and validate (`pnpm build` — 27/27 successful)
+- [x] Update memory-bank state (activeContext.md, progress.md)
+
+### Environment Config Cleanup (.env.example + .env) — 2026-03-14
+> Status: COMPLETE — removed ~52 dead environment variables from both `.env.example` and `.env`, added 3 undocumented live pool-timeout vars, restructured sections around live functionality only.
+- [x] Clean `.env.example`: remove dead sections (APIKEY, SECRET KEYS, METRICS, MULTIPLAYER, SPACE BUILDER, QUEUE/BullMQ, legacy upstream vars), add missing Knex pool timeout vars
+- [x] Clean `.env`: mirror the same structure, preserve all real credentials, remove orphaned legacy upstream/Space Builder/Multiplayer values
+- [x] Verify no dead vars remain and all live vars present in both files
+
+### Applications + Metahubs Migration Docs Refresh — 2026-03-14
+> Status: COMPLETE — the migration docs for `@universo/applications-backend` and `@universo/metahubs-backend` now describe the current fixed-system-app bootstrap model, runtime migration surfaces, and package ownership boundaries consistently in English and Russian.
+- [x] Rewrite `packages/applications-backend/base/MIGRATIONS.md` and `MIGRATIONS-RU.md` around the current fixed-system-app lifecycle
+  - Note: document applications as a fixed application-like system app whose initial schema is bootstrapped from registered schema plans and platform SQL support migrations, while the package runtime surface owns sync/diff/release-bundle behavior rather than the application migration-control routes.
+- [x] Rewrite `packages/metahubs-backend/base/MIGRATIONS.md` and `MIGRATIONS-RU.md` around the current metahub/application migration split
+  - Note: document metahubs as the design-time system app plus branch runtime migration owner, including metahub migration status/list/plan/apply routes, application migration-control routes hosted here, and the publication-to-application ownership seam.
+- [x] Revalidate touched documentation surfaces and sync memory-bank state
+  - Note: EN/RU line parity closed at 89/89 for the applications pair and 94/94 for the metahubs pair; `pnpm --filter @universo/applications-backend build`, `pnpm --filter @universo/metahubs-backend build`, and the final root `pnpm build` all passed, with the workspace build finishing 27/27 successful tasks in 3m13.394s.
+### REST Documentation Package Follow-Up Cleanup — 2026-03-14
+> Status: COMPLETE — duplicated legacy tails were removed from the touched package markdown files, the package-level docs now contain only the current generated-docs guidance, and the targeted validation path is green again.
+- [x] Remove duplicated legacy content from the regenerated rest-docs package docs and keep EN/RU guidance aligned
+  - Note: `README.md`, `README-RU.md`, `ARCHITECTURE.md`, and `API_ENDPOINTS.md` now contain only the current-state guidance, with the stale appended historical sections fully removed.
+- [x] Revalidate the cleaned package/docs surfaces and resync memory-bank state
+  - Note: the final line-count check ended at 73/73 for `README.md` and `README-RU.md`, 76 for `ARCHITECTURE.md`, and 79 for `API_ENDPOINTS.md`; `pnpm --filter @universo/rest-docs validate`, `lint`, and `build` all passed after the cleanup.
+### REST Documentation Package Refactor — 2026-03-14
+> Status: COMPLETE — `@universo/rest-docs` now regenerates its OpenAPI source from the live mounted route files, historical route groups are removed, GitBook docs link to the interactive docs flow in English and Russian, and the final validation path is green.
+- [x] Rebuild the OpenAPI entrypoint and modular path/schema structure around current route groups
+  - Note: `scripts/generate-openapi-source.js` now regenerates `src/openapi/index.yml` from the live auth/profile/start/admin/applications/metahubs route files, and the removed unik/space/canvas/metaverse fragments were deleted from the package.
+- [x] Replace stale package-level REST documentation with current operational guidance
+  - Note: `README.md`, `README-RU.md`, `ARCHITECTURE.md`, and `API_ENDPOINTS.md` now describe the package as a generated current-state docs server and document its operational limits explicitly.
+- [x] Add GitBook references and a short run-and-use guide for the API docs
+  - Note: `docs/en|ru/api-reference/README.md`, `rest-api.md`, the new `interactive-openapi-docs.md`, and both `SUMMARY.md` files now point readers at the standalone Swagger workflow and explain how to build, start, and use it safely.
+- [x] Revalidate the package and synchronized documentation surfaces end to end
+  - Note: `pnpm --filter @universo/rest-docs validate`, `pnpm --filter @universo/rest-docs lint`, `pnpm --filter @universo/rest-docs build`, EN/RU line-count parity checks, and the final root `pnpm build` all passed; the workspace build finished with 27/27 successful tasks in 4m4.739s.
+### Unified Database Access Standardization — Documentation and Agent Guidance Sync — 2026-03-14
+> Status: COMPLETE — package READMEs, docs architecture pages, AGENTS guidance, and memory-bank architecture notes now describe the converged SQL-first access model consistently in English and Russian, with final parity checks and full workspace validation complete.
+- [x] Refresh the relevant package README files in English and Russian
+  - Note: the touched backend/runtime packages must explain the current tier model, where raw Knex is allowed, where SQL-first stores are mandatory, and how request-scoped RLS flows work now.
+- [x] Refresh the public documentation in `docs/` for the converged database-access architecture
+  - Note: the architecture page and contributing guidance should capture Tier 1/Tier 2/Tier 3 boundaries, `RETURNING` requirements, schema-qualified SQL, identifier helpers, and package-creation expectations.
+- [x] Update the relevant package-level `AGENTS.md` files and the root `AGENTS.md`
+  - Note: AI guidance should clearly distinguish transport-only Knex usage from domain SQL usage and point agents at the correct executor/helper patterns for this repository.
+- [x] Sync the architecture-facing memory-bank files with the standardized rules
+  - Note: `systemPatterns.md`, `techContext.md`, `activeContext.md`, and `progress.md` must reflect the unified PostgreSQL access posture and the documentation/agent-guidance closure state.
+- [x] Revalidate the touched docs/guidance surfaces
+  - Note: all touched EN/RU pairs were kept line-for-line in sync by structure, parity checks matched exactly, stale Knex guidance phrases were removed from package agents, and the final root `pnpm build` passed with 27/27 successful tasks in 3m44.843s.
+### Unified Database Access Standardization — Post-Closure Remediation Wave — 2026-03-14
+> Status: COMPLETE — the last red sync-persistence suite is fixed, metahub object mutations now fail closed, the suspected utils lock typing issue did not reproduce on current package validation, and the initiative is back in a clean closed state.
+- [x] Reproduce the remaining red validation signals on the current branch
+  - Note: only `@universo/applications-backend` `syncPersistenceStores.test.ts` was red on current branch; `@universo/utils` advisory-lock tests and package diagnostics were already green, so no utils code change was required.
+- [x] Align applications-backend sync persistence tests with the SqlQueryable contract
+  - Note: `syncPersistenceStores.test.ts` now validates the live `trx.query(...)` + `RETURNING id` contract instead of mocking obsolete Knex builder chains.
+- [x] Harden metahub object delete, restore, and permanent delete paths to fail closed
+  - Note: `MetahubObjectsService.delete(...)`, `restore(...)`, and `permanentDelete(...)` now use scoped predicates plus `RETURNING id` and throw explicitly when zero rows are affected.
+- [x] Fix remaining touched type/lint issues and add direct regressions where coverage is missing
+  - Note: the suspected utils typing issue was not reproducible under current validation, and the new `MetahubObjectsService.test.ts` adds direct service-level proof for the mutation contract.
+- [x] Revalidate touched packages and full workspace, then resync memory-bank state
+  - Note: `@universo/applications-backend` tests passed 84/84, `@universo/metahubs-backend` tests passed 230/233 with 3 expected skips, touched lints stayed error-free / warning-only, `node tools/lint-db-access.mjs` returned 0 violations, and the final root `pnpm build` passed with 27/27 successful tasks.
+### Unified Database Access Standardization — Plan Completion Audit — 2026-03-14
+> Status: COMPLETE — repository audit confirmed that all mandatory plan steps are implemented, only optional Phase 6 remains intentionally deferred, and the status files now reflect the closed state truthfully.
+- [x] Audit the plan against implemented repository artifacts and validation evidence
+- [x] Implement any remaining mandatory step or explicitly confirm only optional deferred work remains
+- [x] Sync plan/memory-bank status files to the final closed state
+  - Note: the audit confirmed CI lint integration, architecture docs, code review checklist, `getPoolExecutor()` rollout, and the applications-backend DDL boundary in code; no additional mandatory implementation gap remained beyond status synchronization, and a fresh `node tools/lint-db-access.mjs` rerun still returned 0 violations.
+### Unified Database Access Standardization — Core Implementation and QA Closure Complete
+> Plan: `memory-bank/plan/unified-database-standard-plan-2026-03-14.md`
+> QA report: `memory-bank/plan/unified-database-standard-qa-report-2026-03-14.md`
+> Status: COMPLETE — required phases, follow-up QA closures, and residual-debt fixes are implemented; only optional Phase 6 remains evaluated/deferred by plan design.
+- [x] Incorporate R2 findings F11–F15 into plan
+  - F11: `queryOneOrThrow` now throws `NotFoundError`, accepts optional error factory
+  - F12: §9 import path corrected to `@universo/utils/database`
+  - F13: Lint script Step 1.6 excludes `auth-backend/**/middlewares/**`
+  - F14: Phase 4.1 fully specifies `PermissionServiceOptions` API change
+  - F15: Step 1.5 includes `getPoolExecutor()` implementation body
+- [x] Incorporate R3 findings F16–F20 into plan
+  - F16: Lint script + Success Criteria #3 now have DDL subsystem exclusions for metahubs-backend
+  - F17: Step 2.9 reworded — acknowledges existing `exec: SqlQueryable` constructor
+  - F18: Duplicate KnexClient deletion removed from Step 2.9
+  - F19: applicationMigrationsRoutes + metahubMigrationsRoutes explicitly listed in Step 2.13
+  - F20: §5.1 clarified as dual-interface class, not two-class split
+- [x] Incorporate gap analysis G1–G7 into plan
+  - G1 MEDIUM: New Step 4.1b — core-backend executor factory wiring (11 call sites)
+  - G2 LOW: Schema-qualified SQL rule in §2 Cross-Cutting Rules
+  - G3 LOW: Phase 5.1 scope expanded to all domain routes
+  - G4 LOW: Step 2.9 simplified — DDL uses getKnex() directly
+  - G5 LOW: Step 4.2 notes R3 audit confirmed start-backend clean
+  - G6 LOW: Code review checklist (9 criteria) added to §8
+  - G7 LOW: SECURITY DEFINER standard documented
+- [x] Phase 1: Foundation — shared primitives & lint rules
+  - [x] 1.1 Create typed query helpers (queryMany/queryOne/queryOneOrThrow/executeCount with RETURNING requirement)
+  - [x] 1.2 Create safe identifier helpers in `@universo/database` (qSchema/qTable/qSchemaTable/qColumn) + add migrations-core dep
+  - [x] 1.3 Create DbExecutor-based advisory lock helpers with `assertLockTimeoutMs` validation
+  - [x] 1.4 Create DbExecutor-based transaction helper reusing `buildSetLocalStatementTimeoutSql`
+  - [x] 1.5 Add getPoolExecutor() factory to @universo/database
+  - [x] 1.6 Create lint-db-access.mjs enforcement script (zero-violation, no baseline; DDL subsystem exclusions for metahubs-backend)
+  - [x] 1.7 Build and validate
+  - Note: completed with 271 tests passing across all foundation packages.
+- [x] Phase 2: Metahubs-backend migration (10+ services, 10+ routes)
+  - Note: all 8 service constructors converted to DbExecutor injection, 68 route handler call sites updated, KnexClient removed from production code, all copy transaction stubs rewritten from Knex builders to SqlQueryable trx mocks, schema name validation fixed in all test suites (mhb_test_schema → canonical mhb_<hex32>_bN). 31/31 test suites passing (215 tests), 0 lint errors, full workspace build clean.
+- [x] Phase 3: Applications-backend migration (sync routes + 2 stores + remove local quoteIdentifier)
+  - Note: ApplicationSchemaStateStore converted from KnexClient to getKnex(), 84/84 tests passing.
+- [x] Phase 4: Auth-backend and remaining packages audit (incl. permissionService API change + **Step 4.1b core-backend wiring of 11 getPoolExecutor call sites**)
+  - Note: core-backend createKnexExecutor call sites converted to getPoolExecutor, all 4 backend packages build clean.
+### QA Remediation Wave — 2026-03-14
+> QA found 60 lint violations, 3 unfinished plan items, medium-severity data integrity gap.
+> Status: COMPLETE — Full compliance with plan Hard Requirements 1–8 and lint-db-access zero violations.
+- [x] Fix lint-db-access.mjs: add `tests/` to directory skip, add DDL/migration file exclusions, fix false positives in error messages
+- [x] Create DDL-level pool wrappers in domains/ddl/index.ts
+- [x] Delete deprecated KnexClient wrapper from domains/ddl/index.ts
+- [x] Migrate advisory locks in 5 route files → use pool wrappers, remove getKnex imports
+- [x] Convert Knex read queries in publicationsRoutes.ts → raw SQL via getPoolExecutor
+- [x] Convert Knex reads in metahubMigrationsRoutes.ts → raw SQL via getPoolExecutor
+- [x] Fix sets copy TOCTOU: move codename resolution inside retry loop
+- [x] Add RETURNING id to batch INSERTs in copy operations
+- [x] Update 11 test file DDL mocks
+- [x] Run lint-db-access → 0 violations, full test suite 31/31 (215 tests), pnpm build 27/27
+- [x] Update memory-bank
+### QA Follow-Up Completion Wave — 2026-03-15
+> Remaining plan phases (5, 7, 8) + QA findings (M1, L1) implemented.
+> Status: SUPERSEDED — this wave completed its scoped work, but a later QA audit reopened the initiative for additional service/test/docs gaps that were closed in the Final QA Closure Wave below.
+- [x] M1: Add bridge comments to createKnexExecutor(trx) calls in publicationsRoutes.ts
+- [x] L1: Remove dead backward compat exports from ddl/index.ts
+- [x] Phase 5.1: CTE audit — 4 candidates in applicationsRoutes.ts evaluated; current UPDATE+RETURNING pattern already optimal (diagnostic SELECT only on rare error path; CTE consolidation would introduce snapshot race in error diagnosis under concurrent modification)
+- [x] Phase 5.2: N+1 pattern audit — none found in information_schema queries
+- [x] Phase 5.3: Pool tuning — already documented in .env.example with tier-scaling table
+- [x] Phase 5.4: Statement timeout — already enforced in KnexClient.ts afterCreate (30s), tested
+- [x] Phase 7.1: Integration contract tests — 9 tests in integration.test.ts (executor contract, request context isolation, cross-layer composition, released state)
+- [x] Phase 7.2: Result normalization regression tests — 8 tests in query.test.ts (T[] guarantee, null vs undefined, Zod validation)
+- [x] Phase 7.3: Security regression tests — 10 injection payloads × 4 identifier helpers in identifiers.test.ts
+- [x] Phase 7.4: Lint CI integration — added `node tools/lint-db-access.mjs` step to .github/workflows/main.yml
+- [x] Section 8: Documentation — systemPatterns.md (Unified Database Access Standard pattern), techContext.md (tier system), code review checklist (en + ru)
+- [x] Final validation: lint-db-access 0 violations, @universo/database 111 tests, @universo/utils 231 tests, metahubs-backend 215 tests, pnpm build 27/27
+### Final QA Closure Wave — 2026-03-14
+> Reopened because the post-implementation QA audit found two service-level soft-delete/active-row regressions, incomplete Phase 7 proof, and missing architecture docs.
+> Status: COMPLETE — direct service regressions, missing Phase 7 proof, Section 8 architecture docs, and final validation are all closed.
+- [x] Fix `MetahubHubsService` active-row contract and replace hard delete with metahub soft delete
+  - Note: `findAll`, `findById`, `findByCodename`, `findByIds`, `count`, and update prefetch must consistently ignore `_mhb_deleted=true` rows.
+- [x] Fix `MetahubEnumerationValuesService` active-row contract for reads, updates, and deletes
+  - Note: `findById`, update pre-read, and delete pre-read must fail closed for soft-deleted values; delete must stop hard-deleting active rows.
+- [x] Add direct service-level regressions for hubs and enumeration values
+  - Note: route tests mock these services, so the missing behavior must be proven directly against service SQL / transaction behavior.
+- [x] Complete remaining Phase 7 proof for RLS / transaction / injection scenarios
+  - Note: cover the missing cross-cutting behaviors that QA flagged as still unproven, reusing existing executor tests where appropriate and adding the missing scenarios instead of duplicating them.
+- [x] Complete Section 8 architecture documentation and align affected package READMEs
+  - Note: create `docs/en/architecture/database-access-standard.md` plus the Russian twin, update both `docs/*/SUMMARY.md`, and align touched package README surfaces with the unified access standard.
+- [x] Revalidate touched packages, run full root `pnpm build`, and resync memory-bank status
+  - Note: `node tools/lint-db-access.mjs` finished with 0 violations, touched package validation passed (`@universo/metahubs-backend`, `@universo/database`, `@universo/auth-backend`, docs check), and the final root `pnpm build` finished with 27/27 successful tasks.
+### Residual Debt Closure Wave — 2026-03-14
+> Reopened immediately after the closure audit because the final QA pass still found one architecture boundary gap in `applicationSyncRoutes.ts` and one generic identifier-safety gap in the shared optimistic-lock helper.
+> Status: COMPLETE — the route file is back under lint coverage, raw application-sync transport access now lives behind a dedicated Tier 3 DDL boundary, the shared optimistic-lock helper validates dynamic identifiers, direct regressions are in place, and the acceptance path is green again.
+- [x] Restore `applicationSyncRoutes.ts` to full lint coverage by removing direct `getKnex()` / `Knex` usage from the route file
+  - Note: the route layer now consumes a dedicated applications-backend DDL boundary for transport acquisition, DDL service factories, and advisory locks.
+- [x] Isolate application runtime sync helpers behind a dedicated applications-backend DDL boundary
+  - Note: raw Knex ownership now lives in `packages/applications-backend/base/src/ddl/index.ts`, while the route orchestration stays transport-agnostic.
+- [x] Harden `packages/metahubs-backend/base/src/utils/optimisticLock.ts` against unsafe dynamic column identifiers
+  - Note: dynamic update keys now flow through `qColumn(...)` before SQL generation and fail closed on malformed identifiers.
+- [x] Add direct regressions for the DDL boundary and optimistic-lock identifier safety
+  - Note: `applicationSyncRoutes.test.ts` and `applicationSyncSeeding.test.ts` stayed green after the route boundary refactor, and the new `optimisticLock.test.ts` proves validated quoting plus malformed-identifier rejection.
+- [x] Revalidate touched packages, rerun `node tools/lint-db-access.mjs`, rerun full root `pnpm build`, and resync memory-bank state
+  - Note: `lint-db-access` returned 0 violations, touched lints stayed warning-only with no errors in the changed files, focused apps/metahubs regressions passed 26/26, and the final root `pnpm build` passed with 27/27 successful tasks.
+### Phase 6 (Materialized Views) — EVALUATED, DEFERRED
+> Phase 6 is explicitly "optional" in the plan. Evaluated: no current bottleneck justifies materialized views. Can be revisited if information_schema query performance becomes a measured issue.
+### Standing Guards
 - [ ] Wait for an explicit QA, live, or product trigger before reopening fixed system-app startup work
   - Note: the 2026-03-13 repeated-start stability closure is complete and no active defect remains in this area.
 - [ ] Keep future fixed-system startup changes behind the repeated-start acceptance gate
@@ -63,24 +205,17 @@
   - Note: do not reintroduce metadata-only startup shortcuts, checksum-only bundle artifacts, or a second application release state store.
 
 ---
-
 ## Completed Waves — 2026-03-13
-
 ### Metahub QA Shared-Table Final Reopen Closure — 2026-03-13
-
 > Status: COMPLETE — the last QA-found shared-table DnD consistency gap is closed, and the metahub/shared-table slice is back to a fully validated closed state.
-
 - [x] Fix `FlowListTable` so `SortableContext` item ids always follow the actual rendered row order
   - Note: external `sortableItemIds` now act only as the allowed DnD id set, while the final id order comes from the visible filtered/sorted rows.
 - [x] Add a direct regression for `sortableItemIds + sortableRows + column sort`
   - Note: `FlowListTable.test.tsx` now proves the filtered DOM order and the `SortableContext` item ids reorder together after explicit column sorting.
 - [x] Revalidate the shared-table slice and resync memory-bank state
   - Note: `FlowListTable.test.tsx` passed 4/4, `@universo/template-mui` lint returned to warning-only status, and the final root `pnpm build` passed.
-
 ### Metahub QA Final Closure Wave — 2026-03-13
-
 > Status: COMPLETE — the reopened QA cleanup slice is fully closed, including the remaining shared-table filtering defect, the backend active-row gap, direct regressions, and the last package-local error-level lint blocker surfaced during revalidation.
-
 - [x] Fix `FlowListTable` so `filterFunction` still applies when `sortableRows` is enabled
   - Note: the shared table now filters the sorted row set before render, empty-state evaluation, and DnD id derivation.
 - [x] Close the remaining `MetahubAttributesService.getAllAttributes(...)` active-row consistency gap
@@ -91,11 +226,8 @@
   - Note: the remaining Prettier failure in `src/hooks/optimisticCrud.ts` was removed so package lint returned to warning-only status.
 - [x] Revalidate the reopened remediation slice and resync memory-bank state
   - Note: backend service regressions passed 4/4, shared-table regressions passed 4/4, `HubList.settingsReopen` passed 1/1, `@universo/template-mui` lint is warning-only, and the final root `pnpm build` passed.
-
 ### Metahub QA Follow-Up Remediation Wave — 2026-03-13
-
 > Status: COMPLETE — the remaining runtime read-contract gap and missing regression proofs in the metahub/shared-table slice were closed and revalidated.
-
 - [x] Add active-row filtering to runtime attribute raw SQL reads
   - Note: `countByObjectIds`, root attribute list, child attribute batch reads, and attribute-by-id lookup now reject `_upl_deleted` / `_mhb_deleted` rows consistently with the branch-schema contract.
 - [x] Add a direct regression for hub-scoped settings reopen
@@ -104,11 +236,8 @@
   - Note: `FlowListTable.test.tsx` now proves rows reorder when a sortable column is clicked even when `sortableRows` is enabled.
 - [x] Revalidate the touched backend/frontend slice and resync memory-bank status
   - Note: focused backend/frontend/shared-table tests passed, touched package lint is error-free, the `@universo/template-mui` Jest bootstrap blocker was fixed, and root `pnpm build` passed.
-
 ### Metahub Post-Refactor Regression Closure Wave — 2026-03-13
-
 > Status: COMPLETE — the four live metahub regressions reported after the global refactor were fixed and revalidated on the touched frontend/backend slice.
-
 - [x] Restore settings-tab continuity across hub-scoped sibling pages
   - Note: `CatalogList`, `SetList`, and `EnumerationList` expose the hub Settings tab again and route back through `HubList` state to reopen hub settings.
 - [x] Restore the nested-entity warning confirmation path
@@ -119,11 +248,8 @@
   - Note: object, hub, attribute-count, child-attribute, and element-count reads on the failing page path now use `MetahubSchemaService.query(...)` instead of global Knex pool acquisition.
 - [x] Revalidate the touched slice with focused tests, package builds, and a root build
   - Note: direct Vitest regression for `ChildAttributeList.optimisticCreate` passed, backend `attributesRoutes`/`catalogsRoutes` tests passed 37/37, touched package builds passed, and root `pnpm build` passed. The targeted `@universo/template-mui` Jest test remains blocked by an existing `ci-info` bootstrap failure (`vendors.map is not a function`), so package/build validation remains the current confidence gate for that shared-table path.
-
 ### Fixed System App Restart Stability Wave — 2026-03-13
-
 > Status: COMPLETE — repeated startup now reuses the valid local fixed-system snapshot contract instead of rejecting it as malformed.
-
 - [x] Reproduce the repeated-start failure in the live startup compiler path
   - Note: the second startup failed with `malformed snapshotAfter` after a clean first bootstrap wrote local `_app_migrations` history.
 - [x] Fix `readLatestSystemAppSnapshot(...)` to validate the canonical `SchemaSnapshot.entities` shape
@@ -134,11 +260,8 @@
   - Note: `@universo/migrations-platform` full suite passed 105/105, focused lint passed, package build passed.
 - [x] Revalidate the live runtime path and update memory-bank state
   - Note: root `pnpm build` passed, second live `pnpm start` stayed healthy, and `curl -I http://127.0.0.1:3000/` returned `HTTP/1.1 200 OK`.
-
 ### Optional Global Catalog Final Integrity Closure Wave — 2026-03-13
-
 > Status: COMPLETE — the last post-QA integrity debt in delete cascade ordering and fixed-system evolution was closed.
-
 - [x] Fix application delete cascade ordering for connector-publication cleanup
   - Note: `rel_connector_publications` is now soft-deleted before `cat_connectors`, so active link rows cannot survive connector cleanup ordering.
 - [x] Replace existence-only fixed-system startup with local-history-driven drift handling
@@ -149,11 +272,8 @@
   - Note: `.js`, `.d.ts`, and `.d.ts.map` garbage was removed and the package `clean` script now removes the same patterns deterministically.
 - [x] Revalidate focused suites and the full workspace build
   - Note: targeted regressions passed for applications-backend 9/9, schema-ddl 4/4, migrations-platform compiler 23/23, touched package builds passed, root `pnpm build` passed.
-
 ### Optional Global Catalog QA Closure Remediation Wave — 2026-03-13
-
 > Status: COMPLETE — release-bundle snapshot provenance and Phase 8 regression coverage are now fail-closed and direct.
-
 - [x] Recompute embedded snapshot hashes instead of trusting `manifest.snapshotHash`
   - Note: bundle validation now derives the canonical hash from the embedded snapshot and rejects tampered provenance.
 - [x] Route lineage and install metadata through the recomputed canonical hash
@@ -164,11 +284,8 @@
   - Note: applications-backend tests passed 82/82, lint passed, targeted migration manager/system table regressions passed, package build passed.
 - [x] Sync memory-bank status after full validation
   - Note: final root `pnpm build` passed and the optional global catalog/runtime migration plan returned to closed status.
-
 ### Optional Global Catalog True Final Closure Wave — 2026-03-13
-
 > Status: COMPLETE — release bundles now carry deterministic executable payloads for both bootstrap and incremental execution.
-
 - [x] Extend `application_release_bundle` with executable payloads
   - Note: both bootstrap and incremental artifacts now embed deterministic executable payloads plus canonical schema snapshots.
 - [x] Route real execution paths through embedded payloads
@@ -179,11 +296,8 @@
   - Note: the central `installed_release_metadata` seam in `applications.cat_applications` remains the only application release-state store.
 - [x] Revalidate the touched slice and full workspace
   - Note: applications-backend tests passed 80/80, lint passed, root `pnpm build` passed.
-
 ### Optional Global Catalog Final Debt Closure Wave — 2026-03-13
-
 > Status: COMPLETE — ambiguous baseline apply on legacy schema-bearing targets now fails closed, and disabled-mode mirroring is covered directly.
-
 - [x] Harden bundle apply for schema-bearing targets without tracked installed release metadata
   - Note: baseline bundles are now rejected when the target already has `schema_name` but lacks trusted lineage.
 - [x] Keep true fresh-install behavior unchanged
@@ -194,11 +308,8 @@
   - Note: bundle apply now fails before schema existence, diff, or apply work begins on ambiguous legacy targets.
 - [x] Revalidate touched packages and root build
   - Note: applications-backend tests/lint and migrations-catalog tests/lint passed, root `pnpm build` passed.
-
 ### Optional Global Catalog Final Closure Wave — 2026-03-13
-
 > Status: COMPLETE — application-origin release-bundle export, runtime parity, executable evidence, and live smoke are all closed.
-
 - [x] Fix application-origin release-bundle lineage so upgrades keep a real prior-version to new-version transition
   - Note: runtime-origin export now preserves real upgrade provenance instead of collapsing both sides onto one installed version.
 - [x] Bring runtime-origin export into canonical snapshot parity with publication bundles
@@ -209,11 +320,8 @@
   - Note: direct SQL smoke reached the target, `pnpm migration:status` reported `apply=0`, `skip=12`, `drift=0`, `blocked=0`, and live `pnpm start` returned `pong` on `/api/v1/ping`.
 - [x] Revalidate and resync memory-bank state
   - Note: focused applications-backend validation passed and the final root build passed again.
-
 ### Optional Global Catalog Architecture Closure Wave — 2026-03-13
-
 > Status: COMPLETE — the backend/runtime architecture is now stable in both disabled and enabled catalog modes.
-
 - [x] Replace remaining raw global-catalog env parsing with the shared helper contract
   - Note: touched startup, runtime, and CLI paths now consume the shared `@universo/utils` parser.
 - [x] Complete application-owned runtime release-bundle export from application data/state
@@ -224,11 +332,8 @@
   - Note: English and Russian docs were added and linked through architecture README/SUMMARY files with verified line parity.
 - [x] Revalidate the full architecture slice
   - Note: focused package tests/lint passed and the final root build passed.
-
 ### QA Remnant Fix Wave — 2026-03-13
-
 > Status: COMPLETE — the last four findings from the comprehensive QA analysis were closed without reopening unrelated areas.
-
 - [x] Fix `ApplicationSchemaStateStore.ts` table targeting and active-row predicates
   - Note: `.table('applications')` became `.table('cat_applications')` with dual-flag active-row filtering.
 - [x] Clear six error-level Prettier failures in metahubs-backend
@@ -239,11 +344,8 @@
   - Note: the unused metahubs-side duplicate had a wrong table name and no dual-flag guard; the applications-owned version remains canonical.
 - [x] Revalidate tests, lint, and root build
   - Note: metahubs/admin tests passed, lint is error-free in the touched packages, and root `pnpm build` passed.
-
 ### QA Blocker Closure Wave — 2026-03-13
-
 > Status: COMPLETE — the last live red surfaces were closed without weakening the actual runtime contracts.
-
 - [x] Reproduce the still-red QA blockers on the live branch
   - Note: the failing surfaces were confirmed in migrations-core tests/lint, schema-ddl lint, and core-backend lint.
 - [x] Fix the managed-owner validation mismatch at the test contract instead of weakening runtime validation
@@ -254,11 +356,8 @@
   - Note: schema-ddl and core-backend error-level lint debt on the touched path was removed.
 - [x] Revalidate focused packages and root build
   - Note: migrations-core, schema-ddl, and core-backend passed their focused validation, and the final root build passed.
-
 ### QA Closure Completion Wave — 2026-03-13
-
 > Status: COMPLETE — operational lifecycle recording, browser env compatibility, dependency-aware registry drift detection, and managed owner-id validation are locked down.
-
 - [x] Record definition export lifecycle rows for bundle-oriented catalog exports
   - Note: CLI export, doctor, and registry lifecycle state now observe the same export recording seam.
 - [x] Restore browser env precedence and Vite compatibility in shared helpers
@@ -269,11 +368,8 @@
   - Note: only canonical UUID or 32-character lowercase hex owner ids are accepted for managed schema naming.
 - [x] Revalidate focused suites and the full workspace
   - Note: migrations-catalog/platform, utils, and migrations-core validation passed, touched lint passed, store build passed, root `pnpm build` passed.
-
 ### QA Plan Completion Wave — 2026-03-13
-
 > Status: COMPLETE — only the real remaining defects were fixed after revalidation, and the end-to-end slice is green again.
-
 - [x] Align doctor lifecycle checks with the real sync/export-target contract
   - Note: doctor now accepts any export row recorded for the active published revision instead of a single hardcoded target.
 - [x] Restore package-local Jest execution for the metahubs parity suite
@@ -284,11 +380,8 @@
   - Note: migrations-platform, metahubs-backend parity, and core-backend composition regressions all passed.
 - [x] Finish with a final root build and memory-bank sync
   - Note: root `pnpm build` passed and the verified closure state was recorded.
-
 ### Definition Lifecycle Closure Wave — 2026-03-13
-
 > Status: COMPLETE — the DB/file definition lifecycle now runs through the real draft -> review -> publish path in active platform flows.
-
 - [x] Route live imports through lifecycle-aware draft/review/publish helpers
   - Note: `importDefinitions()` no longer bypasses the real lifecycle path for incomplete imports.
 - [x] Preserve published provenance on created, updated, and unchanged revisions
@@ -299,11 +392,8 @@
   - Note: operational import provenance now matches platform sync semantics.
 - [x] Revalidate focused packages and root build
   - Note: migrations-catalog/platform tests passed, package lint/build passed, root `pnpm build` passed.
-
 ### QA Deep Remediation Wave 2 — 2026-03-13
-
 > Status: COMPLETE — the second deep QA pass closed cross-package dual-flag and cascade gaps that survived the earlier remediation wave.
-
 - [x] Add `activeAppRowCondition()` to the remaining nine application query helpers
   - Note: all touched SELECT, UPDATE, and sub-select queries across `cat_applications`, `cat_connectors`, `rel_connector_publications`, and `rel_application_users` now reject deleted rows.
 - [x] Add child-first soft-delete for `doc_publication_versions` in metahub cascade delete
@@ -314,11 +404,8 @@
   - Note: publications, publication versions, and applications counts now ignore deleted rows.
 - [x] Revalidate the touched slices and root build
   - Note: focused regressions passed and the final root build passed again.
-
 ### QA Final Remediation Wave 1 — 2026-03-13
-
 > Status: COMPLETE — the first final QA remediation wave closed the remaining dual-flag and migration idempotency gaps.
-
 - [x] Set both `_upl_deleted` and `_app_deleted` during metahub cascade delete
   - Note: child rows now receive the full dual-flag soft-delete contract instead of partial deletion metadata.
 - [x] Add `activeAppRowCondition()` to `countUsersByRoleId()` and `listRoleUsers()`
@@ -329,11 +416,8 @@
   - Note: the migration now tolerates repeated startup/replay safely.
 - [x] Revalidate focused regressions and root build
   - Note: touched tests passed and the workspace build stayed green.
-
 ### QA-Discovered Store/Service Layer Fixes — 2026-03-13
-
 > Status: COMPLETE — persistence-layer SQL contracts now match the converged DDL schema and active-row rules.
-
 - [x] Rename stale admin/profile/app SQL column references to converged `_upl_*` names
   - Note: touched stores, services, routes, and frontend types now match the real DDL contract.
 - [x] Replace single-flag soft-delete checks with dual-flag active-row helpers
@@ -344,11 +428,8 @@
   - Note: touched packages can consume the canonical helper surface without subpath drift.
 - [x] Validate the persistence-layer remediation with full build
   - Note: the touched package set was updated and root `pnpm build` finished green.
-
 ### QA Follow-up Remediation Closure — 2026-03-13
-
 > Status: COMPLETE — the follow-up QA wave resynced memory-bank state and closed the remaining active-row and compensation-test drift.
-
 - [x] Reopen and resync memory-bank state with the real remediation status
   - Note: `tasks.md` and `activeContext.md` no longer claimed closure prematurely.
 - [x] Close remaining auth/admin profile active-row gaps
@@ -359,11 +440,8 @@
   - Note: auth-backend, admin-backend, and targeted metahubs-backend checks passed.
 - [x] Finish with a full root build and memory sync
   - Note: root `pnpm build` passed and the wave closed cleanly.
-
 ### Ownership And Validation Closure Wave — 2026-03-12
-
 > Status: COMPLETE — the publication-runtime seam now respects package ownership, tests are repeatable, and live startup serves HTTP successfully.
-
 - [x] Remove the remaining publication/application sync ownership leak
   - Note: metahubs-backend now exposes only publication runtime-source loading, while applications-backend owns sync-context adaptation.
 - [x] Restore repeatable package-level Jest forwarding for touched backend packages
@@ -374,11 +452,8 @@
   - Note: `pnpm start` completed bootstrap and the workspace served `HTTP/1.1 200 OK` on `http://127.0.0.1:3000/`.
 - [x] Sync memory-bank state after validation
   - Note: active context and progress were updated to the verified closure state.
-
 ### QA Debt Closure Wave — 2026-03-12
-
 > Status: COMPLETE — only the real residual debt still present on the branch was fixed after revalidation.
-
 - [x] Revalidate the remaining QA blockers against the live branch
   - Note: the previously suspected compiler blocker no longer reproduced, so this wave stayed focused on the debt that remained real.
 - [x] Close backend technical-debt findings from the QA pass
@@ -389,11 +464,8 @@
   - Note: the shared MUI template SCSS entrypoint now uses Sass `@use` instead of deprecated `@import`.
 - [x] Re-run focused validation and root build
   - Note: targeted backend tests passed and the final root workspace build passed.
-
 ### System-App Definition Cutover And QA Closure — 2026-03-12
-
 > Status: COMPLETE — fixed application-like system apps now bootstrap through definition-driven schema-ddl plans plus phased support migrations.
-
 - [x] Move fixed-system business-table creation to definition-driven schema generation
   - Note: applications, profile, admin, and metahubs bootstrap through registered schema plans before metadata bootstrap.
 - [x] Remove remaining fixed-schema business-table creation from active manifest chains
@@ -404,11 +476,8 @@
   - Note: registry, compiler, startup, manifest parity, and security suites now validate the definition-driven bootstrap model.
 - [x] Revalidate touched packages and root build
   - Note: focused backend/platform suites passed and root `pnpm build` passed.
-
 ### Startup Runtime Regression Remediation — 2026-03-13
-
 > Status: COMPLETE — repeated startup skips unnecessary fixed metadata and catalog work when runtime state is already aligned.
-
 - [x] Add a safe metadata no-op fast path for already-aligned fixed system apps
   - Note: startup now compares a deterministic live-vs-compiled metadata fingerprint before replaying metadata sync.
 - [x] Add a safe registered-definition catalog no-op fast path
@@ -419,11 +488,8 @@
   - Note: already-initialized startup behavior is now covered directly in tests.
 - [x] Re-run focused validation and final root build
   - Note: touched suites passed and the final workspace build passed.
-
 ### System-App Structural Convergence QA Remediation Closure — 2026-03-12
-
 > Status: COMPLETE — the remaining QA findings after structural convergence were closed on the live schema model.
-
 - [x] Target converged `cat_*` tables in application sync persistence helpers
   - Note: fresh-DB sync flows and connector/application sync-state writes now match the converged schema names.
 - [x] Remove the applications legacy reconcile migration from the active manifest path
@@ -434,11 +500,8 @@
   - Note: touched runtime and persistence paths now use explicit active-row conditions.
 - [x] Revalidate focused suites and root build
   - Note: applications-backend, start-backend, and migrations-platform validation passed and root `pnpm build` stayed green.
-
 ### System-App Structural Convergence Implementation — 2026-03-12
-
 > Status: COMPLETE — the full implementation plan landed and the final workspace build is green.
-
 - [x] Converge admin, profile, metahubs, and applications platform migrations onto the application-like model
   - Note: all four system-app migrations were rewritten or folded into the converged physical contract.
 - [x] Add shared SQL helpers for direct active-row predicates and soft-delete writes
@@ -449,11 +512,8 @@
   - Note: orphaned migrations and stale test expectations were cleaned up in the same wave.
 - [x] Validate the full implementation with root build
   - Note: root `pnpm build` passed 27/27.
-
 ### QA Closure Completion Wave 2 — 2026-03-13
-
 > Status: COMPLETE — manifest validation parity, copy persistence coverage, fixed-bootstrap acceptance proof, and mirrored architecture docs are in place.
-
 - [x] Align manifest validation limits with real `VARCHAR(N)` storage contracts
   - Note: profile `nickname` and admin role `codename` now cap validation at the actual physical limit.
 - [x] Add direct persistence-level copy regression coverage
@@ -464,11 +524,8 @@
   - Note: English and Russian docs plus README/SUMMARY links now have verified parity.
 - [x] Revalidate focused suites and the root build
   - Note: targeted Jest, lint, docs parity, and the final workspace build all passed.
-
 ### Frontend Acceptance Coverage Burst — CRUD, Navigation, and Runtime Shells — 2026-03-12
-
 > Status: COMPLETE — page-level acceptance coverage now exists for the main user-facing CRUD and navigation surfaces.
-
 - [x] Add list-level acceptance coverage for application, metahub, and connector create/edit/copy/delete flows
   - Note: the touched suites now prove localized payload forwarding through the existing page shells without new wrappers.
 - [x] Add acceptance coverage for connector detail navigation and application control-panel navigation
@@ -479,11 +536,8 @@
   - Note: `PublicationApplicationList` now proves linked-application creation and runtime/admin row actions.
 - [x] Revalidate the touched frontend packages and root build
   - Note: focused ESLint/Vitest/build checks passed for applications-frontend and metahubs-frontend, and the root build stayed green.
-
 ### Frontend Acceptance Coverage Burst — Sync Flows and Migration Guards — 2026-03-12
-
 > Status: COMPLETE — direct user-facing sync dialogs, sync mutations, migration screens, and migration guards are covered.
-
 - [x] Add dialog-level acceptance coverage for connector/publication diff dialogs
   - Note: safe apply, destructive apply, and disabled syncing states are now covered.
 - [x] Add mutation-level acceptance coverage for connector and publication sync hooks
@@ -494,11 +548,8 @@
   - Note: mandatory update gating, admin bypass, under-development, maintenance, blocker states, and apply errors are all covered.
 - [x] Revalidate the touched frontend packages and root build
   - Note: focused ESLint/Vitest/build checks passed for the touched slices and the root build stayed green.
-
 ### Fixed-System Metadata, Legacy Reconciliation, and Compiler Foundation Burst — 2026-03-12
-
 > Status: COMPLETE — metadata bootstrap observability, doctor/startup gates, legacy-schema reconciliation, and compiler metadata preservation are in place.
-
 - [x] Add fixed-system metadata bootstrap observability and CLI entry points
   - Note: bootstrap now reports object and attribute counts and is callable through both platform and backend CLI surfaces.
 - [x] Add doctor/startup fail-fast gates for incomplete fixed-system metadata and leftover legacy table names
@@ -509,13 +560,9 @@
   - Note: compiled artifacts now prove manifest metadata preservation instead of relying on synthetic defaults alone.
 - [x] Revalidate touched backend/platform packages and root build
   - Note: focused regressions and standalone package builds passed, and the root workspace build remained green.
-
 ## Completed Waves — 2026-03-11
-
 ### Catalog, Registry, and Master-Plan Closure Burst — 2026-03-11
-
 > Status: COMPLETE — the architecture foundation for system-app registry lifecycle, runtime sync ownership, and bundle/doctor behavior is in place.
-
 - [x] Move application runtime sync ownership into `@universo/applications-backend`
   - Note: metahubs-backend now supplies publication context only; applications-backend owns sync routes/orchestration.
 - [x] Turn the definition registry lifecycle into a real draft/review/publish/export/import contract
@@ -526,11 +573,8 @@
   - Note: focused regressions now cover the live seams that the long-range plan depended on.
 - [x] Revalidate focused packages and root workspace gates
   - Note: targeted tests/builds passed and the final root workspace build was green.
-
 ### Shared Schema Naming and Qualification Adoption Burst — 2026-03-11
-
 > Status: COMPLETE — canonical schema naming moved to shared helpers and the touched runtime/bootstrap paths now consume it consistently.
-
 - [x] Replace local branch/runtime schema-name builders with shared migrations-core helpers
   - Note: the existing `app_<uuid32>` and `mhb_<uuid32>_bN` contracts were preserved exactly while duplication was removed.
 - [x] Adopt shared schema-target resolution in touched bootstrap utilities
@@ -541,11 +585,8 @@
   - Note: cleanup validation now uses the shared schema helper surface rather than route-local assumptions.
 - [x] Revalidate focused suites and package builds
   - Note: schema-ddl and metahubs-backend validation passed and the touched lint/build surface remained green.
-
 ### Planning Baseline Retained — Structural Convergence Program
-
 > Status: OPEN AS REFERENCE ONLY — implementation is already complete; the old plan section remains here only as historical context for future audits.
-
 - [x] Preserve the corrected plan narrative as a historical checkpoint
   - Note: QA-corrected planning details remain useful for future audit trails even though the implementation has already landed.
 - [x] Keep the implementation/result split explicit
@@ -556,12 +597,8 @@
   - Note: progress.md remains the durable record for the actual delivered waves.
 - [x] Treat this section as archive context, not an active work queue
   - Note: it remains checked only to prevent accidental reuse as a live task list.
-
-
 ### Fixed-System Compiler Metadata Expansion Burst — 2026-03-12
-
 > Status: COMPLETE — fixed-system manifests, compiler artifacts, and metadata preservation gates were expanded before the final convergence closure.
-
 - [x] Add richer field-level metadata support for fixed system-app manifests
   - Note: explicit table/field presentation, validation rules, and UI config now survive the manifest-to-compiler bridge.
 - [x] Expand remaining fixed-system manifests with explicit metadata and internal REF targets
@@ -572,11 +609,8 @@
   - Note: source-fallback resolution now avoids dependency on prebuilt neighbor `dist` output.
 - [x] Revalidate focused platform/backend packages and root build
   - Note: touched migrations-core, migrations-platform, and owner-package checks passed and the root workspace stayed green.
-
 ### Registry and Acceptance Hardening Burst — 2026-03-11
-
 > Status: COMPLETE — registry lifecycle, export dedupe, workspace validation, and deep acceptance proof were hardened before later closure waves.
-
 - [x] Enforce lifecycle governance for draft/review/publish transitions
   - Note: callers can no longer skip review-state guarantees or bypass approval-event recording on the touched lifecycle paths.
 - [x] Make export recording idempotent and race-safe

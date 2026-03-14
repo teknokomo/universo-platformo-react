@@ -9,7 +9,8 @@ import {
     findTemplateVersionById,
     updateBranch
 } from '../../../persistence'
-import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getKnex } from '@universo/database'
 import {
     getStructureVersion,
     CURRENT_STRUCTURE_VERSION,
@@ -101,7 +102,7 @@ export class MetahubSchemaService {
     }
 
     private get knex() {
-        return KnexClient.getInstance()
+        return getKnex()
     }
 
     /**
@@ -854,11 +855,11 @@ export class MetahubSchemaService {
         // Single query instead of N parallel hasTable() calls to avoid pool starvation.
         // Each hasTable() acquires its own connection from the Knex pool; under advisory locks
         // this can exhaust all available connections and cause a deadlock/timeout.
-        const result = await this.knex.raw<{ rows: Array<{ table_name: string }> }>(
-            `SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ANY(?)`,
+        const rows = await this.exec.query<{ table_name: string }>(
+            `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_name = ANY($2)`,
             [schemaName, expectedTables]
         )
-        const existingTables = new Set(result.rows.map((r) => r.table_name))
+        const existingTables = new Set(rows.map((r) => r.table_name))
 
         const missingTables = expectedTables.filter((t) => !existingTables.has(t))
         const hasAnyExpectedTables = existingTables.size > 0

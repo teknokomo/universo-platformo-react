@@ -21,7 +21,6 @@ jest.mock('../../persistence', () => ({
 }))
 
 const mockEnsureMetahubAccess = jest.fn()
-const mockKnexTransaction = jest.fn(async (handler: (trx: Record<string, unknown>) => Promise<unknown>) => handler({}))
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -29,12 +28,7 @@ jest.mock('../../domains/shared/guards', () => ({
 }))
 
 jest.mock('../../domains/ddl', () => ({
-    __esModule: true,
-    KnexClient: {
-        getInstance: () => ({
-            transaction: mockKnexTransaction
-        })
-    }
+    __esModule: true
 }))
 
 const mockObjectsService = {
@@ -158,7 +152,6 @@ describe('Sets Routes', () => {
 
         mockFindMetahubById.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue(undefined)
-        mockKnexTransaction.mockImplementation(async (handler: (trx: Record<string, unknown>) => Promise<unknown>) => handler({}))
     })
 
     it('GET /metahub/:metahubId/sets returns paginated items with hub and constants counts', async () => {
@@ -257,7 +250,7 @@ describe('Sets Routes', () => {
         const app = buildApp()
         const response = await request(app).post('/metahub/test-metahub-id/set/set-1/copy').send({ copyConstants: true }).expect(201)
 
-        expect(mockKnexTransaction).toHaveBeenCalledTimes(1)
+        expect(mockExec.transaction).toHaveBeenCalledTimes(1)
         expect(mockObjectsService.createSet).toHaveBeenCalledWith(
             'test-metahub-id',
             expect.objectContaining({ codename: 'ProductsCopy' }),
@@ -312,7 +305,7 @@ describe('Sets Routes', () => {
         const response = await request(app).post('/metahub/test-metahub-id/set/set-1/copy').send({ copyConstants: true }).expect(500)
 
         expect(response.body.error).toContain('Copy constant failed')
-        expect(mockKnexTransaction).toHaveBeenCalledTimes(1)
+        expect(mockExec.transaction).toHaveBeenCalledTimes(1)
     })
 
     it('DELETE /metahub/:metahubId/hub/:hubId/set/:setId removes only selected hub when set is linked to multiple hubs', async () => {

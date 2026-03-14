@@ -181,7 +181,7 @@ REDIS_URL=rediss://default:password@redis-12345.c123.us-east-1-1.ec2.cloud.redis
 version: '3.8'
 
 services:
-  flowise:
+  universo-platformo:
     image: your-app:latest
     environment:
       - REDIS_URL=redis://redis:6379
@@ -210,7 +210,7 @@ volumes:
 **Start:**
 ```bash
 docker-compose up -d
-docker-compose logs -f flowise  # Check logs
+docker-compose logs -f universo-platformo  # Check logs
 ```
 
 ### Kubernetes Deployment
@@ -220,19 +220,19 @@ docker-compose logs -f flowise  # Check logs
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flowise
+  name: universo-platformo
 spec:
   replicas: 3  # Multi-instance requires Redis
   selector:
     matchLabels:
-      app: flowise
+      app: universo-platformo
   template:
     metadata:
       labels:
-        app: flowise
+        app: universo-platformo
     spec:
       containers:
-      - name: flowise
+      - name: universo-platformo
         image: your-app:latest
         env:
         - name: REDIS_URL
@@ -264,7 +264,7 @@ stringData:
 ```bash
 kubectl apply -f deployment.yaml
 kubectl get pods  # Check status
-kubectl logs -f deployment/flowise  # Check logs
+kubectl logs -f deployment/universo-platformo  # Check logs
 ```
 
 ### PM2 Deployment
@@ -273,7 +273,7 @@ kubectl logs -f deployment/flowise  # Check logs
 // ecosystem.config.js
 module.exports = {
   apps: [{
-    name: 'flowise',
+    name: 'universo-platformo',
     script: './dist/index.js',
     instances: 4,  // Multi-instance requires Redis
     exec_mode: 'cluster',
@@ -291,7 +291,7 @@ module.exports = {
 **Start:**
 ```bash
 pm2 start ecosystem.config.js --env production
-pm2 logs flowise  # Check logs
+pm2 logs universo-platformo  # Check logs
 pm2 monit  # Monitor resources
 ```
 
@@ -416,7 +416,7 @@ Error: command start not found
 
 **Solution:**
 
-1. Verify initialization order in `flowise-server/src/index.ts`:
+1. Verify initialization order in `packages/universo-core-backend/base/src/index.ts`:
 ```typescript
 async config() {
     // ... other initialization
@@ -428,7 +428,7 @@ async config() {
 }
 ```
 
-2. Check lazy router mounting in `flowise-server/src/routes/index.ts`:
+2. Check lazy router mounting in `packages/universo-core-backend/base/src/routes/index.ts`:
 ```typescript
 // ✅ CORRECT: Lazy initialization pattern
 let metaversesRouter: ExpressRouter | null = null

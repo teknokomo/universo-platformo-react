@@ -66,11 +66,18 @@ jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     MetahubSchemaService: MockMetahubSchemaService
 }))
 
+jest.mock('@universo/database', () => ({
+    __esModule: true,
+    getKnex: jest.fn(() => ({})),
+    qSchema: jest.requireActual('@universo/database').qSchema,
+    qTable: jest.requireActual('@universo/database').qTable,
+    qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
+    qColumn: jest.requireActual('@universo/database').qColumn,
+    createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
+
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
-    KnexClient: {
-        getInstance: jest.fn(() => ({}))
-    },
     uuidToLockKey: jest.fn(() => 'metahub:branch-create'),
     acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
     releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),

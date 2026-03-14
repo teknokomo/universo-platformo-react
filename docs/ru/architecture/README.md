@@ -22,4 +22,6 @@ description: Архитектура репозитория Universo Platformo Re
 
 См. страницу [Optional Global Catalog](optional-global-catalog.md) с описанием registry-режима, отключённого по умолчанию, workflow release bundles и recovery boundaries для операторов.
 
+См. страницу [Жизненный цикл миграций системных приложений](system-app-migration-lifecycle.md) с описанием генерации, обновления и отслеживания схем системных приложений в рантайме.
+
 Нижележащие страницы раскрывают детали по структуре, бэкенду, фронтенду, базе и аутентификации.

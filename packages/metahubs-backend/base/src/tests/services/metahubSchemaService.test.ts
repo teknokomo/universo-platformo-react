@@ -4,27 +4,29 @@ const mockUuidToLockKey = jest.fn(() => 'lock-key')
 const mockCreateSchema = jest.fn(async () => undefined)
 
 const tablePresence = new Map<string, boolean>()
-const mockHasTable = jest.fn(async (_schema: string, table: string) => tablePresence.get(table) === true)
 
 const mockKnex = {
     schema: {
         withSchema: jest.fn((schemaName: string) => ({
-            hasTable: (tableName: string) => mockHasTable(schemaName, tableName)
+            hasTable: jest.fn(async (tableName: string) => tablePresence.get(tableName) === true)
         }))
     },
-    raw: jest.fn(async (_sql: string, params?: unknown[]) => {
-        // Simulates: SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ANY(?)
-        const candidates = Array.isArray(params) && Array.isArray(params[1]) ? (params[1] as string[]) : []
-        const rows = candidates.filter((t) => tablePresence.get(t) === true).map((t) => ({ table_name: t }))
-        return { rows }
-    })
+    raw: jest.fn(async () => ({ rows: [] })),
+    transaction: jest.fn()
 }
+
+jest.mock('@universo/database', () => ({
+    __esModule: true,
+    getKnex: () => mockKnex,
+    qSchema: jest.requireActual('@universo/database').qSchema,
+    qTable: jest.requireActual('@universo/database').qTable,
+    qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
+    qColumn: jest.requireActual('@universo/database').qColumn,
+    createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
 
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    },
     uuidToLockKey: (...args: unknown[]) => mockUuidToLockKey(...args),
     acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
     releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
@@ -70,7 +72,16 @@ describe('MetahubSchemaService (read_only mode)', () => {
         }
     }
 
-    const mockExec = { query: jest.fn().mockResolvedValue([]) }
+    const mockExec = {
+        query: jest.fn(async (sql: string, params?: unknown[]) => {
+            // Simulate information_schema.tables lookup for inspectSchemaState
+            if (typeof sql === 'string' && sql.includes('information_schema.tables')) {
+                const candidates = Array.isArray(params) && Array.isArray(params[1]) ? (params[1] as string[]) : []
+                return candidates.filter((t) => tablePresence.get(t) === true).map((t) => ({ table_name: t }))
+            }
+            return []
+        })
+    }
 
     const setupExec = (structureVersion: number) => {
         mockFindMetahubById.mockResolvedValue({

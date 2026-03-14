@@ -7,7 +7,7 @@ import { loadTsconfigAliases } from '../../../tools/testing/frontend/loadTsconfi
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
-const coreFrontendSrcDir = path.resolve(__dirname, '../../flowise-core-frontend/base/src')
+const coreFrontendSrcDir = path.resolve(__dirname, '../../universo-core-frontend/base/src')
 const templateMuiSrcDir = path.resolve(__dirname, '../../universo-template-mui/base/src')
 const utilsOptimisticCrudSrcFile = path.resolve(__dirname, '../../universo-utils/base/src/optimisticCrud.ts')
 const adminFrontendI18nDir = path.resolve(__dirname, '../../admin-frontend/base/src/i18n/index.ts')

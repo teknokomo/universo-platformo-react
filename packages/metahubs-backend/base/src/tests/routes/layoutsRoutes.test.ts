@@ -20,12 +20,9 @@ jest.mock('../../persistence', () => ({
 }))
 
 const mockEnsureMetahubAccess = jest.fn()
-const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
+const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 const mockGetLayoutById = jest.fn()
 const mockDeleteLayout = jest.fn()
-const mockKnex = {
-    transaction: jest.fn()
-}
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -33,10 +30,7 @@ jest.mock('../../domains/shared/guards', () => ({
 }))
 
 jest.mock('../../domains/ddl', () => ({
-    __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    }
+    __esModule: true
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
@@ -58,7 +52,7 @@ jest.mock('../../domains/layouts/services/MetahubLayoutsService', () => {
 })
 
 describe('Layouts Routes', () => {
-    const createLayoutCopyTransactionStub = (params?: {
+    const createLayoutCopyTransactionTrx = (params?: {
         copiedLayout?: Record<string, unknown>
         sourceWidgets?: Array<Record<string, unknown>>
     }) => {
@@ -86,44 +80,17 @@ describe('Layouts Routes', () => {
 
         const sourceWidgets = params?.sourceWidgets ?? []
 
-        const layoutInsertReturning = jest.fn().mockResolvedValue([created])
-        const layoutInsert = jest.fn(() => ({
-            returning: (...args: unknown[]) => layoutInsertReturning(...args)
-        }))
-        const sourceWidgetsSelect = jest.fn().mockResolvedValue(sourceWidgets)
-        const widgetInsert = jest.fn().mockResolvedValue(undefined)
-
-        const trx = {
-            withSchema: jest.fn(() => ({
-                into: jest.fn((tableName: string) => {
-                    if (tableName === '_mhb_layouts') {
-                        return {
-                            insert: (...args: unknown[]) => layoutInsert(...args)
-                        }
-                    }
-                    return {
-                        insert: (...args: unknown[]) => widgetInsert(...args)
-                    }
-                }),
-                from: jest.fn((tableName: string) => {
-                    if (tableName === '_mhb_widgets') {
-                        return {
-                            where: jest.fn(() => ({
-                                orderBy: jest.fn(() => ({
-                                    select: (...args: unknown[]) => sourceWidgetsSelect(...args)
-                                }))
-                            }))
-                        }
-                    }
-
-                    return {
-                        where: jest.fn()
-                    }
-                })
-            }))
+        const queryMock = jest.fn().mockResolvedValue([])
+        // Sequence: INSERT layout RETURNING * → [created]
+        queryMock.mockResolvedValueOnce([created])
+        if (sourceWidgets.length > 0) {
+            // SELECT widgets → sourceWidgets
+            queryMock.mockResolvedValueOnce(sourceWidgets)
+            // INSERT widgets batch → undefined
+            queryMock.mockResolvedValueOnce(undefined as any)
         }
 
-        return { trx, layoutInsert, layoutInsertReturning, sourceWidgetsSelect, widgetInsert }
+        return { query: queryMock }
     }
 
     const mockExec = {
@@ -161,7 +128,7 @@ describe('Layouts Routes', () => {
         jest.clearAllMocks()
         mockFindMetahubById.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
-        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+        mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         mockDeleteLayout.mockResolvedValue(undefined)
         mockGetLayoutById.mockResolvedValue({
             id: 'layout-1',
@@ -215,8 +182,10 @@ describe('Layouts Routes', () => {
         })
 
         it('copies layout successfully without widgets when copyWidgets is disabled', async () => {
-            const tx = createLayoutCopyTransactionStub()
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            const trx = createLayoutCopyTransactionTrx()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -231,13 +200,15 @@ describe('Layouts Routes', () => {
             expect(response.body.id).toBe('layout-copy-id')
             expect(response.body.templateKey).toBe('dashboard')
             expect(response.body.isDefault).toBe(false)
-            const layoutInsertPayload = tx.layoutInsert.mock.calls[0]?.[0]
-            expect(layoutInsertPayload?.config?.__skipDefaultZoneWidgetSeed).toBe(true)
-            expect(tx.widgetInsert).not.toHaveBeenCalled()
+            // Only INSERT layout query, no widget queries
+            expect(trx.query).toHaveBeenCalledTimes(1)
+            const insertParams = (trx.query as jest.Mock).mock.calls[0]?.[1]
+            const config = JSON.parse(insertParams?.[3] as string)
+            expect(config.__skipDefaultZoneWidgetSeed).toBe(true)
         })
 
         it('copies widgets as deactivated when deactivateAllWidgets is enabled', async () => {
-            const tx = createLayoutCopyTransactionStub({
+            const trx = createLayoutCopyTransactionTrx({
                 sourceWidgets: [
                     {
                         zone: 'left',
@@ -248,7 +219,9 @@ describe('Layouts Routes', () => {
                     }
                 ]
             })
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             await request(app)
@@ -260,11 +233,12 @@ describe('Layouts Routes', () => {
                 })
                 .expect(201)
 
-            expect(tx.sourceWidgetsSelect).toHaveBeenCalledTimes(1)
-            expect(tx.widgetInsert).toHaveBeenCalledTimes(1)
-            const insertedWidgets = tx.widgetInsert.mock.calls[0]?.[0]
-            expect(Array.isArray(insertedWidgets)).toBe(true)
-            expect(insertedWidgets[0]?.is_active).toBe(false)
+            // INSERT layout + SELECT widgets + INSERT widgets = 3 queries
+            expect(trx.query).toHaveBeenCalledTimes(3)
+            // 3rd call is the widget INSERT — check is_active=false in params
+            const widgetInsertParams = (trx.query as jest.Mock).mock.calls[2]?.[1] as unknown[]
+            // is_active is the 6th param per widget (index 5)
+            expect(widgetInsertParams?.[5]).toBe(false)
         })
     })
 

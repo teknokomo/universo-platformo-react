@@ -1,44 +1,50 @@
 const mockEnsureSchema = jest.fn()
-const mockQuery = jest.fn()
-const mockWithSchema = jest.fn()
-const mockFrom = jest.fn()
-const mockAndWhere = jest.fn()
-const mockOrderBy = jest.fn()
-
-let builderRows: any[] = []
-
-const mockQueryBuilder: any = {
-    andWhere: mockAndWhere,
-    orderBy: mockOrderBy,
-    then: (resolve: (rows: any[]) => unknown) => Promise.resolve(resolve(builderRows))
-}
-
-const mockKnex = {
-    withSchema: mockWithSchema
-}
-
-jest.mock('../../domains/ddl', () => ({
-    __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    }
-}))
 
 import { MetahubAttributesService } from '../../domains/metahubs/services/MetahubAttributesService'
 
 describe('MetahubAttributesService active-row filtering', () => {
     const schemaService = {
-        ensureSchema: mockEnsureSchema,
-        query: mockQuery
+        ensureSchema: mockEnsureSchema
     } as any
 
-    const service = new MetahubAttributesService(schemaService)
+    const mockExecQuery = jest.fn()
+    const mockExec = {
+        query: mockExecQuery,
+        transaction: jest.fn(),
+        isReleased: () => false
+    }
+
+    const service = new MetahubAttributesService(mockExec as any, schemaService)
 
     beforeEach(() => {
         jest.clearAllMocks()
-        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
-        mockQuery.mockResolvedValue([])
-        builderRows = [
+        mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        mockExecQuery.mockResolvedValue([])
+    })
+
+    it('adds branch active-row predicates to batch count reads', async () => {
+        await service.countByObjectIds('metahub-1', ['object-1'], 'user-1')
+
+        expect(mockExecQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual([['object-1']])
+    })
+
+    it('adds branch active-row predicates to child batch reads', async () => {
+        await service.findChildAttributesByParentIds('metahub-1', ['parent-1'], 'user-1')
+
+        expect(mockExecQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual([['parent-1']])
+    })
+
+    it('adds branch active-row predicates to attribute lookup by id', async () => {
+        await service.findById('metahub-1', 'attr-1', 'user-1')
+
+        expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['attr-1'])
+        expect(mockExecQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
+    })
+
+    it('adds branch active-row predicates to getAllAttributes reads', async () => {
+        mockExecQuery.mockResolvedValueOnce([
             {
                 id: 'attr-1',
                 object_id: 'object-1',
@@ -58,43 +64,12 @@ describe('MetahubAttributesService active-row filtering', () => {
                 _upl_created_at: '2026-03-13T00:00:00.000Z',
                 _upl_updated_at: '2026-03-13T00:00:00.000Z'
             }
-        ]
-        mockWithSchema.mockReturnValue({ from: mockFrom })
-        mockFrom.mockReturnValue(mockQueryBuilder)
-        mockAndWhere.mockReturnValue(mockQueryBuilder)
-        mockOrderBy.mockReturnValue(mockQueryBuilder)
-    })
+        ])
 
-    it('adds branch active-row predicates to batch count reads', async () => {
-        await service.countByObjectIds('metahub-1', ['object-1'], 'user-1')
-
-        expect(mockQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
-        expect(mockQuery.mock.calls[0][1]).toEqual([['object-1']])
-    })
-
-    it('adds branch active-row predicates to child batch reads', async () => {
-        await service.findChildAttributesByParentIds('metahub-1', ['parent-1'], 'user-1')
-
-        expect(mockQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
-        expect(mockQuery.mock.calls[0][1]).toEqual([['parent-1']])
-    })
-
-    it('adds branch active-row predicates to attribute lookup by id', async () => {
-        await service.findById('metahub-1', 'attr-1', 'user-1')
-
-        expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['attr-1'])
-        expect(mockQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
-    })
-
-    it('adds branch active-row predicates to getAllAttributes query-builder reads', async () => {
         const result = await service.getAllAttributes('metahub-1', 'user-1')
 
-        expect(mockWithSchema).toHaveBeenCalledWith('mhb_test_schema')
-        expect(mockFrom).toHaveBeenCalledWith('_mhb_attributes')
-        expect(mockAndWhere).toHaveBeenNthCalledWith(1, '_upl_deleted', false)
-        expect(mockAndWhere).toHaveBeenNthCalledWith(2, '_mhb_deleted', false)
-        expect(mockOrderBy).toHaveBeenNthCalledWith(1, 'sort_order', 'asc')
-        expect(mockOrderBy).toHaveBeenNthCalledWith(2, '_upl_created_at', 'asc')
+        expect(mockExecQuery.mock.calls[0][0]).toContain('_upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][0]).toContain('ORDER BY sort_order ASC')
         expect(result).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({

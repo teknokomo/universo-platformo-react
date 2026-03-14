@@ -1,4 +1,4 @@
-import type { Knex } from 'knex'
+import type { SqlQueryable } from '@universo/utils'
 import { ApplicationSchemaStatus } from '@universo/types'
 
 export interface PersistApplicationSchemaSyncStateInput {
@@ -14,27 +14,37 @@ export interface PersistApplicationSchemaSyncStateInput {
 }
 
 export const persistApplicationSchemaSyncState = async (
-    trx: Knex.Transaction,
+    trx: SqlQueryable,
     input: PersistApplicationSchemaSyncStateInput
 ): Promise<void> => {
-    const result = await trx
-        .withSchema('applications')
-        .table('cat_applications')
-        .where({ id: input.applicationId, _upl_deleted: false, _app_deleted: false })
-        .update({
-            schema_status: input.schemaStatus,
-            schema_error: input.schemaError,
-            schema_synced_at: input.schemaSyncedAt,
-            schema_snapshot: input.schemaSnapshot,
-            last_synced_publication_version_id: input.lastSyncedPublicationVersionId,
-            app_structure_version: input.appStructureVersion,
-            installed_release_metadata: input.installedReleaseMetadata,
-            _upl_updated_at: trx.fn.now(),
-            _upl_updated_by: input.userId ?? null,
-            _upl_version: trx.raw('COALESCE(_upl_version, 1) + 1')
-        })
+    const rows = await trx.query<{ id: string }>(
+        `UPDATE applications.cat_applications
+         SET schema_status = $1,
+             schema_error = $2,
+             schema_synced_at = $3,
+             schema_snapshot = $4,
+             last_synced_publication_version_id = $5,
+             app_structure_version = $6,
+             installed_release_metadata = $7,
+             _upl_updated_at = NOW(),
+             _upl_updated_by = $8,
+             _upl_version = COALESCE(_upl_version, 1) + 1
+         WHERE id = $9 AND _upl_deleted = false AND _app_deleted = false
+         RETURNING id`,
+        [
+            input.schemaStatus,
+            input.schemaError,
+            input.schemaSyncedAt,
+            input.schemaSnapshot ? JSON.stringify(input.schemaSnapshot) : null,
+            input.lastSyncedPublicationVersionId,
+            input.appStructureVersion,
+            input.installedReleaseMetadata != null ? JSON.stringify(input.installedReleaseMetadata) : null,
+            input.userId ?? null,
+            input.applicationId
+        ]
+    )
 
-    if (Number(result) < 1) {
+    if (rows.length < 1) {
         throw new Error(`Application ${input.applicationId} not found while persisting schema sync state`)
     }
 }

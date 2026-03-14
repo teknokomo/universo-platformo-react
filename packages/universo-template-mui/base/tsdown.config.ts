@@ -28,9 +28,8 @@ export default defineConfig({
     /^react-redux(\/.*)?$/,
     /^use-sync-external-store(\/.*)?$/,
     'canvas',  // Native module from transitive dependency
-    /^@flowise\/executions-frontend(\/.*)?$/,
     /^@dnd-kit\//,
-    /^@ui\//,  // Imports from flowise-ui via @ui alias
+    /^@ui\//,  // Imports from the shared core frontend shell via @ui alias
     /^@mui\//,
     /^@emotion\//,
     /^@universo\//,  // CRITICAL: All @universo/* packages must be external to prevent bundling (especially auth-frontend)

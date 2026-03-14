@@ -27,7 +27,7 @@ import {
 } from '@universo/admin-backend'
 // Universo Platformo | Profile
 import { createProfileRoutes } from '@universo/profile-backend'
-import { getKnex, createKnexExecutor } from '@universo/database'
+import { getKnex, getPoolExecutor } from '@universo/database'
 import { OptimisticLockError, lookupUserEmail, isDatabaseConnectTimeoutError, getRequestDbExecutor } from '@universo/utils'
 import helmet from 'helmet'
 
@@ -52,7 +52,7 @@ router.use('/ping', pingRouter)
 let publicMetahubsRouter: ExpressRouter | null = null
 router.use('/public/metahub', (req: Request, res: Response, next: NextFunction) => {
     if (!publicMetahubsRouter) {
-        publicMetahubsRouter = createPublicMetahubsServiceRoutes(() => createKnexExecutor(getKnex()))
+        publicMetahubsRouter = createPublicMetahubsServiceRoutes(getPoolExecutor)
         logger.info('[Metahubs] Public router created')
     }
     if (publicMetahubsRouter) {
@@ -63,7 +63,7 @@ router.use('/public/metahub', (req: Request, res: Response, next: NextFunction) 
 })
 
 // Public locales (no auth required)
-const publicLocalesRouter = createPublicLocalesRoutes({ getDbExecutor: () => createKnexExecutor(getKnex()) })
+const publicLocalesRouter = createPublicLocalesRoutes({ getDbExecutor: getPoolExecutor })
 router.use('/locales', publicLocalesRouter)
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -74,7 +74,7 @@ router.use('/locales', publicLocalesRouter)
 let metahubsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!metahubsRouter) {
-        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, () => createKnexExecutor(getKnex()))
+        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, getPoolExecutor)
     }
     if (metahubsRouter) {
         metahubsRouter(req, res, next)
@@ -89,7 +89,7 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     if (!applicationsRouter) {
         applicationsRouter = createApplicationsServiceRoutes(
             ensureAuthWithRls,
-            () => createKnexExecutor(getKnex()),
+            getPoolExecutor,
             loadPublishedPublicationRuntimeSource
         )
     }
@@ -104,7 +104,7 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 let startRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!startRouter) {
-        startRouter = createStartServiceRoutes(ensureAuthWithRls, (r) => getRequestDbExecutor(r, createKnexExecutor(getKnex())))
+        startRouter = createStartServiceRoutes(ensureAuthWithRls, (r) => getRequestDbExecutor(r, getPoolExecutor()))
     }
     if (startRouter) {
         startRouter(req, res, next)
@@ -116,8 +116,8 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 // ═══════════════════════════════════════════════════════════════════════
 // Admin routes
 // ═══════════════════════════════════════════════════════════════════════
-const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
-const permissionService = createPermissionService({ getKnex })
+const globalAccessService = createGlobalAccessService({ getDbExecutor: getPoolExecutor })
+const permissionService = createPermissionService({ getDbExecutor: getPoolExecutor })
 
 const globalUsersRouter = createGlobalUsersRoutes({ globalAccessService, permissionService })
 router.use('/admin/global-users', ensureAuthWithRls, globalUsersRouter)
@@ -125,28 +125,28 @@ router.use('/admin/global-users', ensureAuthWithRls, globalUsersRouter)
 const instancesRouter = createInstancesRoutes({
     globalAccessService,
     permissionService,
-    getDbExecutor: () => createKnexExecutor(getKnex())
+    getDbExecutor: getPoolExecutor
 })
 router.use('/admin/instances', ensureAuthWithRls, instancesRouter)
 
 const rolesRouter = createRolesRoutes({
     globalAccessService,
     permissionService,
-    getDbExecutor: () => createKnexExecutor(getKnex())
+    getDbExecutor: getPoolExecutor
 })
 router.use('/admin/roles', ensureAuthWithRls, rolesRouter)
 
 const localesRouter = createLocalesRoutes({
     globalAccessService,
     permissionService,
-    getDbExecutor: () => createKnexExecutor(getKnex())
+    getDbExecutor: getPoolExecutor
 })
 router.use('/admin/locales', ensureAuthWithRls, localesRouter)
 
 const adminSettingsRouter = createAdminSettingsRoutes({
     globalAccessService,
     permissionService,
-    getDbExecutor: () => createKnexExecutor(getKnex())
+    getDbExecutor: getPoolExecutor
 })
 router.use('/admin/settings', ensureAuthWithRls, adminSettingsRouter)
 
@@ -155,8 +155,8 @@ router.use('/admin/settings', ensureAuthWithRls, adminSettingsRouter)
 // ═══════════════════════════════════════════════════════════════════════
 const profileRouter = createProfileRoutes(
     {
-        getDbExecutor: () => createKnexExecutor(getKnex()),
-        getRequestDbExecutor: (req) => getRequestDbExecutor(req, createKnexExecutor(getKnex()))
+        getDbExecutor: getPoolExecutor,
+        getRequestDbExecutor: (req) => getRequestDbExecutor(req, getPoolExecutor())
     },
     ensureAuthWithRls
 )
@@ -183,7 +183,7 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
         let updatedByEmail = conflict?.updatedByEmail ?? null
 
         if (!updatedByEmail && conflict?.updatedBy) {
-            updatedByEmail = await lookupUserEmail(createKnexExecutor(getKnex()), conflict.updatedBy)
+            updatedByEmail = await lookupUserEmail(getPoolExecutor(), conflict.updatedBy)
         }
 
         res.setHeader('Content-Type', 'application/json')

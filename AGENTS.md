@@ -86,6 +86,11 @@ All these Custom Modes use the rules that are in `.gemini/rules/`
 
 *   **Data Access Pattern**: Direct database calls (e.g., to the Supabase client) are forbidden. All database interaction **must** go through **store modules** that use `DbExecutor.query()` with raw SQL.
 *   **Database Target**: Currently, all schemas and migrations should be written for **PostgreSQL**, as it is the only database in use (via Supabase).
+*   **Three-Tier Rule**: Tier 1 uses request-scoped executors for authenticated RLS flows, Tier 2 uses `getPoolExecutor()` for admin/bootstrap/public non-RLS work, and Tier 3 raw Knex is allowed only inside infrastructure, migrations, or explicit package-local DDL boundaries.
+*   **Knex Boundary Rule**: Domain route handlers, stores, and services must not import `knex`, `KnexClient`, or call `getKnex()` directly. If a package needs DDL/runtime schema work, isolate it behind a dedicated boundary such as `src/ddl/index.ts`.
+*   **SQL Safety Rule**: Domain SQL must be schema-qualified, parameterized with `$1`, `$2`, and use `qSchema`, `qTable`, `qSchemaTable`, or `qColumn` for every dynamic identifier.
+*   **Mutation Rule**: UPDATE and DELETE flows should use `RETURNING` when row confirmation matters and must fail closed on zero-row results instead of silently succeeding.
+*   **Testing Rule**: Critical SQL-first stores and service-level mutation contracts need direct tests, not only route-level mocks.
 *   **Creating a New Service**: When creating a new backend service in `packages/` that requires database access, you must:
     1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo/schema-ddl`.
     2.  **Register Migrations**: Import your migration definition into `packages/universo-migrations-platform/base/src/platformMigrations.ts` and add it to the `platformMigrations` array.

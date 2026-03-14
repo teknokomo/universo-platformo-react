@@ -13,21 +13,26 @@ const request = require('supertest') as typeof import('supertest')
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createAttributesRoutes } from '../../domains/attributes/routes/attributesRoutes'
 
-const mockTrx = { __trx: true }
-const mockKnexTransaction = jest.fn(async (cb: (trx: unknown) => Promise<unknown>) => cb(mockTrx))
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn((value: string) => value)
 
+const mockKnexInstance = { transaction: jest.fn() }
+
+jest.mock('@universo/database', () => ({
+    __esModule: true,
+    getKnex: jest.fn(() => mockKnexInstance),
+    qSchema: jest.requireActual('@universo/database').qSchema,
+    qTable: jest.requireActual('@universo/database').qTable,
+    qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
+    qColumn: jest.requireActual('@universo/database').qColumn,
+    createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
+
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
-    KnexClient: {
-        getInstance: jest.fn(() => ({
-            transaction: mockKnexTransaction
-        }))
-    },
-    acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
-    releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
+    acquirePoolAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
+    releasePoolAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
     uuidToLockKey: (...args: unknown[]) => mockUuidToLockKey(...args)
 }))
 
@@ -113,8 +118,10 @@ describe('Attributes Routes', () => {
         res.status(500).json({ error: err.message || 'Internal Server Error' })
     }
 
+    let mockExecutor: ReturnType<typeof createMockDbExecutor>
+
     const buildApp = () => {
-        const mockExecutor = createMockDbExecutor()
+        mockExecutor = createMockDbExecutor()
         const app = express()
         app.use(express.json())
         app.use(createAttributesRoutes(ensureAuth, () => mockExecutor, mockRateLimiter, mockRateLimiter))
@@ -124,7 +131,6 @@ describe('Attributes Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
-        mockKnexTransaction.mockImplementation(async (cb: (trx: unknown) => Promise<unknown>) => cb(mockTrx))
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
@@ -384,14 +390,14 @@ describe('Attributes Routes', () => {
 
             expect(response.body.id).toBe('attr-copy')
             expect(response.body.copiedChildAttributes).toBe(1)
-            expect(mockKnexTransaction).toHaveBeenCalledTimes(1)
+            expect(mockExecutor.transaction).toHaveBeenCalledTimes(1)
             expect(mockAttributesService.findByCodename).toHaveBeenCalledWith(
                 'metahub-1',
                 'catalog-1',
                 'ProductsCopy',
                 null,
                 'test-user-id',
-                mockTrx,
+                mockExecutor,
                 { ignoreParentScope: false }
             )
             expect(mockAttributesService.create).toHaveBeenCalledWith(
@@ -401,7 +407,7 @@ describe('Attributes Routes', () => {
                     codename: 'name'
                 }),
                 'test-user-id',
-                mockTrx
+                mockExecutor
             )
             expect(mockSyncMetahubSchema).toHaveBeenCalled()
         })

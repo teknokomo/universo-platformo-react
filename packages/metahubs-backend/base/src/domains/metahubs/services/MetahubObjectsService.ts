@@ -1,5 +1,7 @@
-import type { Knex } from 'knex'
-import { KnexClient, generateTableName } from '../../ddl'
+import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
+import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
+import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 
@@ -29,20 +31,14 @@ export type MetahubObjectRow = {
     _mhb_deleted_by?: unknown
 } & Record<string, unknown>
 
+const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
+
 /**
  * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
  * Replaces the old TypeORM Catalog entity logic.
  */
 export class MetahubObjectsService {
-    constructor(private schemaService: MetahubSchemaService) {}
-
-    private quoteSchemaName(schemaName: string): string {
-        return `"${schemaName.replace(/"/g, '""')}"`
-    }
-
-    private objectsTable(schemaName: string): string {
-        return `${this.quoteSchemaName(schemaName)}."_mhb_objects"`
-    }
+    constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
 
     private buildSoftDeleteSql(options: QueryOptions = {}, alias = ''): string {
         const prefix = alias ? `${alias}.` : ''
@@ -56,10 +52,6 @@ export class MetahubObjectsService {
         return ''
     }
 
-    private get knex() {
-        return KnexClient.getInstance()
-    }
-
     private buildSortOrderLockKey(schemaName: string, kind: MetahubObjectKind): string {
         return `mhb-objects-sort:${schemaName}:${kind}`
     }
@@ -68,21 +60,22 @@ export class MetahubObjectsService {
      * Serialize sort-order mutations per object kind.
      * Uses transaction-scoped advisory lock, auto-released on commit/rollback.
      */
-    private async acquireSortOrderLock(trx: Knex.Transaction, schemaName: string, kind: MetahubObjectKind): Promise<void> {
+    private async acquireSortOrderLock(db: SqlQueryable, schemaName: string, kind: MetahubObjectKind): Promise<void> {
         const lockKey = this.buildSortOrderLockKey(schemaName, kind)
-        await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [lockKey])
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
     }
 
-    private async getNextSortOrder(schemaName: string, kind: MetahubObjectKind, trx?: Knex.Transaction): Promise<number> {
-        const runner = trx ?? this.knex
-        const result = await runner
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .select(this.knex.raw("COALESCE(MAX((config->>'sortOrder')::int), 0) as max_sort_order"))
-            .first<{ max_sort_order: number | string | null }>()
+    private async getNextSortOrder(schemaName: string, kind: MetahubObjectKind, db?: SqlQueryable): Promise<number> {
+        const runner = db ?? this.exec
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+
+        const result = await queryOne<{ max_sort_order: number | string | null }>(
+            runner,
+            `SELECT COALESCE(MAX((config->>'sortOrder')::int), 0) AS max_sort_order
+             FROM ${qt}
+             WHERE kind = $1 AND ${ACTIVE}`,
+            [kind]
+        )
 
         const maxSortOrder = Number(result?.max_sort_order ?? 0)
         if (!Number.isFinite(maxSortOrder)) {
@@ -90,23 +83,6 @@ export class MetahubObjectsService {
         }
 
         return maxSortOrder + 1
-    }
-
-    /**
-     * Applies soft delete filter to a query.
-     * Checks both platform-level (_upl_deleted) and metahub-level (_mhb_deleted) soft delete.
-     */
-    private applySoftDeleteFilter(query: any, options: QueryOptions = {}) {
-        const { includeDeleted = false, onlyDeleted = false } = options
-        if (onlyDeleted) {
-            // Show records deleted at metahub level (but not platform level)
-            return query.where('_mhb_deleted', true).where('_upl_deleted', false)
-        }
-        if (!includeDeleted) {
-            // Exclude records deleted at either level
-            return query.where('_mhb_deleted', false).where('_upl_deleted', false)
-        }
-        return query
     }
 
     async findAll(metahubId: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow[]> {
@@ -120,38 +96,37 @@ export class MetahubObjectsService {
         options: QueryOptions = {}
     ): Promise<MetahubObjectRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind })
-            .select('*')
-            .orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ASC`)
-            .orderBy('_upl_created_at', 'asc')
-            .orderBy('id', 'asc')
-        return (await this.applySoftDeleteFilter(query, options)) as MetahubObjectRow[]
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql(options)
+
+        return queryMany<MetahubObjectRow>(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE kind = $1${softDelete}
+             ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC,
+                      _upl_created_at ASC,
+                      id ASC`,
+            [kind]
+        )
     }
 
     async countByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind })
-        const filteredQuery = this.applySoftDeleteFilter(query, options)
-        const result = await filteredQuery.count('* as count').first()
-        return result ? parseInt(result.count as string, 10) : 0
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql(options)
+
+        const result = await queryOne<{ count: string }>(this.exec, `SELECT COUNT(*) AS count FROM ${qt} WHERE kind = $1${softDelete}`, [
+            kind
+        ])
+        return result ? parseInt(result.count, 10) : 0
     }
 
     async findById(metahubId: string, id: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.schemaService.query<MetahubObjectRow>(
-            `
-                SELECT *
-                FROM ${this.objectsTable(schemaName)}
-                WHERE id = $1${this.buildSoftDeleteSql(options)}
-                LIMIT 1
-            `,
-            [id]
-        )
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql(options)
 
-        return rows[0] ?? null
+        return queryOne<MetahubObjectRow>(this.exec, `SELECT * FROM ${qt} WHERE id = $1${softDelete} LIMIT 1`, [id])
     }
 
     async findByCodename(
@@ -171,9 +146,13 @@ export class MetahubObjectsService {
         options: QueryOptions = {}
     ): Promise<MetahubObjectRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind })
-        const row = (await this.applySoftDeleteFilter(query, options).first()) as MetahubObjectRow | undefined
-        return row ?? null
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql(options)
+
+        return queryOne<MetahubObjectRow>(this.exec, `SELECT * FROM ${qt} WHERE codename = $1 AND kind = $2${softDelete} LIMIT 1`, [
+            codename,
+            kind
+        ])
     }
 
     async createObject(
@@ -188,12 +167,13 @@ export class MetahubObjectsService {
             createdBy?: string | null
         },
         userId?: string,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const createWithRunner = async (runner: Knex.Transaction) => {
-            await this.acquireSortOrderLock(runner, schemaName, kind)
+        const createWithRunner = async (tx: SqlQueryable) => {
+            await this.acquireSortOrderLock(tx, schemaName, kind)
 
             const config =
                 input.config && typeof input.config === 'object'
@@ -202,51 +182,46 @@ export class MetahubObjectsService {
 
             const hasExplicitSortOrder = typeof config.sortOrder === 'number' && Number.isFinite(config.sortOrder)
             if (!hasExplicitSortOrder) {
-                config.sortOrder = await this.getNextSortOrder(schemaName, kind, runner)
+                config.sortOrder = await this.getNextSortOrder(schemaName, kind, tx)
             }
 
-            const [created] = await runner
-                .withSchema(schemaName)
-                .into('_mhb_objects')
-                .insert({
-                    kind,
-                    codename: input.codename,
-                    table_name: null,
-                    presentation: {
-                        codename: input.codenameLocalized ?? null,
-                        name: input.name,
-                        description: input.description
-                    },
-                    config,
-                    _upl_created_at: new Date(),
-                    _upl_created_by: input.createdBy ?? null,
-                    _upl_updated_at: new Date(),
-                    _upl_updated_by: input.createdBy ?? null
-                })
-                .returning('*')
+            const now = new Date()
+            const presentation = JSON.stringify({
+                codename: input.codenameLocalized ?? null,
+                name: input.name,
+                description: input.description
+            })
+            const configJson = JSON.stringify(config)
 
-            const createdId = created.id as string
+            const created = await queryOneOrThrow<MetahubObjectRow>(
+                tx,
+                `INSERT INTO ${qt}
+                    (kind, codename, table_name, presentation, config,
+                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                 VALUES ($1, $2, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
+                 RETURNING *`,
+                [kind, input.codename, presentation, configJson, now, input.createdBy ?? null]
+            )
+
+            const createdId = created.id
 
             // Physical runtime tables are only required for catalog/document kinds.
             if (kind === 'catalog' || kind === 'document') {
                 const tableName = generateTableName(created.id, kind)
-                await runner.withSchema(schemaName).from('_mhb_objects').where({ id: created.id }).update({ table_name: tableName })
+                await tx.query(`UPDATE ${qt} SET table_name = $1 WHERE id = $2`, [tableName, created.id])
             }
 
-            await this.ensureSequentialSortOrderByKind(schemaName, kind, runner, input.createdBy ?? userId)
+            await this.ensureSequentialSortOrderByKind(schemaName, kind, tx, input.createdBy ?? userId)
 
-            const normalized = await runner.withSchema(schemaName).from('_mhb_objects').where({ id: createdId }).first()
+            const normalized = await queryOne<MetahubObjectRow>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [createdId])
             if (!normalized) {
                 throw new Error(`${kind} not found`)
             }
             return normalized
         }
 
-        if (trx) {
-            return createWithRunner(trx)
-        }
-
-        return this.knex.transaction(async (innerTrx) => createWithRunner(innerTrx))
+        if (db) return createWithRunner(db)
+        return this.exec.transaction(async (tx: SqlQueryable) => createWithRunner(tx))
     }
 
     /**
@@ -264,9 +239,9 @@ export class MetahubObjectsService {
             createdBy?: string | null
         },
         userId?: string,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ) {
-        return this.createObject(metahubId, 'catalog', input, userId, trx)
+        return this.createObject(metahubId, 'catalog', input, userId, db)
     }
 
     async createEnumeration(
@@ -280,9 +255,9 @@ export class MetahubObjectsService {
             createdBy?: string | null
         },
         userId?: string,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ) {
-        return this.createObject(metahubId, 'enumeration', input, userId, trx)
+        return this.createObject(metahubId, 'enumeration', input, userId, db)
     }
 
     async createSet(
@@ -296,9 +271,9 @@ export class MetahubObjectsService {
             createdBy?: string | null
         },
         userId?: string,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ) {
-        return this.createObject(metahubId, 'set', input, userId, trx)
+        return this.createObject(metahubId, 'set', input, userId, db)
     }
 
     async updateObject(
@@ -345,7 +320,7 @@ export class MetahubObjectsService {
 
         if (input.expectedVersion !== undefined) {
             return updateWithVersionCheck({
-                knex: this.knex,
+                executor: this.exec,
                 schemaName,
                 tableName: '_mhb_objects',
                 entityId: id,
@@ -355,7 +330,7 @@ export class MetahubObjectsService {
             })
         }
 
-        return incrementVersion(this.knex, schemaName, '_mhb_objects', id, updateData)
+        return incrementVersion(this.exec, schemaName, '_mhb_objects', id, updateData)
     }
 
     async updateCatalog(
@@ -415,17 +390,24 @@ export class MetahubObjectsService {
      */
     async delete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id })
-            .update({
-                _mhb_deleted: true,
-                _mhb_deleted_at: new Date(),
-                _mhb_deleted_by: userId ?? null,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: userId ?? null
-            })
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const now = new Date()
+
+        const rows = await this.exec.query<{ id: string }>(
+            `UPDATE ${qt}
+             SET _mhb_deleted = TRUE,
+                 _mhb_deleted_at = $1,
+                 _mhb_deleted_by = $2,
+                 _upl_updated_at = $1,
+                 _upl_updated_by = $2
+             WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false
+             RETURNING id`,
+            [now, userId ?? null, id]
+        )
+
+        if (rows.length < 1) {
+            throw new Error(`Object ${id} not found while soft deleting metahub object`)
+        }
     }
 
     /**
@@ -433,17 +415,23 @@ export class MetahubObjectsService {
      */
     async restore(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id })
-            .update({
-                _mhb_deleted: false,
-                _mhb_deleted_at: null,
-                _mhb_deleted_by: null,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: userId ?? null
-            })
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+
+        const rows = await this.exec.query<{ id: string }>(
+            `UPDATE ${qt}
+             SET _mhb_deleted = FALSE,
+                 _mhb_deleted_at = NULL,
+                 _mhb_deleted_by = NULL,
+                 _upl_updated_at = $1,
+                 _upl_updated_by = $2
+             WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = true
+             RETURNING id`,
+            [new Date(), userId ?? null, id]
+        )
+
+        if (rows.length < 1) {
+            throw new Error(`Object ${id} not found while restoring metahub object`)
+        }
     }
 
     /**
@@ -451,7 +439,18 @@ export class MetahubObjectsService {
      */
     async permanentDelete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id }).delete()
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+
+        const rows = await this.exec.query<{ id: string }>(
+            `DELETE FROM ${qt}
+             WHERE id = $1 AND _upl_deleted = false
+             RETURNING id`,
+            [id]
+        )
+
+        if (rows.length < 1) {
+            throw new Error(`Object ${id} not found while permanently deleting metahub object`)
+        }
     }
 
     /**
@@ -468,19 +467,20 @@ export class MetahubObjectsService {
     private async ensureSequentialSortOrderByKind(
         schemaName: string,
         kind: MetahubObjectKind,
-        trx: Knex.Transaction,
+        db: SqlQueryable,
         updatedBy?: string
     ): Promise<void> {
-        const rows = await trx
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ASC`)
-            .orderBy('_upl_created_at', 'asc')
-            .orderBy('id', 'asc')
-            .select('id', 'config')
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+
+        const rows = await queryMany<{ id: string; config: Record<string, unknown> | null }>(
+            db,
+            `SELECT id, config FROM ${qt}
+             WHERE kind = $1 AND ${ACTIVE}
+             ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC,
+                      _upl_created_at ASC,
+                      id ASC`,
+            [kind]
+        )
 
         const now = new Date()
         for (let index = 0; index < rows.length; index += 1) {
@@ -494,36 +494,35 @@ export class MetahubObjectsService {
             const nextConfig = row.config && typeof row.config === 'object' ? { ...(row.config as Record<string, unknown>) } : {}
             nextConfig.sortOrder = nextSortOrder
 
-            await trx
-                .withSchema(schemaName)
-                .from('_mhb_objects')
-                .where({ id: row.id, kind })
-                .update({
-                    config: nextConfig,
-                    _upl_updated_at: now,
-                    _upl_updated_by: updatedBy ?? null,
-                    _upl_version: this.knex.raw('_upl_version + 1')
-                })
+            await db.query(
+                `UPDATE ${qt}
+                 SET config = $1::jsonb,
+                     _upl_updated_at = $2,
+                     _upl_updated_by = $3,
+                     _upl_version = _upl_version + 1
+                 WHERE id = $4 AND kind = $5`,
+                [JSON.stringify(nextConfig), now, updatedBy ?? null, row.id, kind]
+            )
         }
     }
 
     async reorderByKind(metahubId: string, kind: MetahubObjectKind, objectId: string, newSortOrder: number, userId?: string): Promise<any> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        return this.knex.transaction(async (trx) => {
-            await this.acquireSortOrderLock(trx, schemaName, kind)
-            await this.ensureSequentialSortOrderByKind(schemaName, kind, trx, userId)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireSortOrderLock(tx, schemaName, kind)
+            await this.ensureSequentialSortOrderByKind(schemaName, kind, tx, userId)
 
-            const rows = await trx
-                .withSchema(schemaName)
-                .from('_mhb_objects')
-                .where({ kind })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ASC`)
-                .orderBy('_upl_created_at', 'asc')
-                .orderBy('id', 'asc')
-                .select('*')
+            const rows = await queryMany<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt}
+                 WHERE kind = $1 AND ${ACTIVE}
+                 ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC,
+                          _upl_created_at ASC,
+                          id ASC`,
+                [kind]
+            )
 
             const currentIndex = rows.findIndex((row) => row.id === objectId)
             if (currentIndex === -1) {
@@ -547,27 +546,24 @@ export class MetahubObjectsService {
                 const nextConfig = row.config && typeof row.config === 'object' ? { ...(row.config as Record<string, unknown>) } : {}
                 nextConfig.sortOrder = nextSortOrder
 
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_objects')
-                    .where({ id: row.id, kind })
-                    .update({
-                        config: nextConfig,
-                        _upl_updated_at: now,
-                        _upl_updated_by: userId ?? null,
-                        _upl_version: this.knex.raw('_upl_version + 1')
-                    })
+                await tx.query(
+                    `UPDATE ${qt}
+                     SET config = $1::jsonb,
+                         _upl_updated_at = $2,
+                         _upl_updated_by = $3,
+                         _upl_version = _upl_version + 1
+                     WHERE id = $4 AND kind = $5`,
+                    [JSON.stringify(nextConfig), now, userId ?? null, row.id, kind]
+                )
             }
 
-            await this.ensureSequentialSortOrderByKind(schemaName, kind, trx, userId)
+            await this.ensureSequentialSortOrderByKind(schemaName, kind, tx, userId)
 
-            const updated = await trx
-                .withSchema(schemaName)
-                .from('_mhb_objects')
-                .where({ id: objectId, kind })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const updated = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND kind = $2 AND ${ACTIVE} LIMIT 1`,
+                [objectId, kind]
+            )
 
             if (!updated) {
                 throw new Error(`${kind} not found`)
