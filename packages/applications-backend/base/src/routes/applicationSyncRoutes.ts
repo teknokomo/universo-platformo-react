@@ -8,21 +8,17 @@
 
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { Knex } from 'knex'
 import { z } from 'zod'
 import stableStringify from 'json-stable-stringify'
-import { getKnex } from '@universo/database'
+import { createKnexExecutor } from '@universo/database'
 import { assertCanonicalIdentifier, assertCanonicalSchemaName, quoteIdentifier, quoteQualifiedIdentifier } from '@universo/migrations-core'
 import {
-    createDDLServices,
     generateSchemaName,
     generateTableName,
     generateColumnName,
     generateChildTableName,
     generateMigrationName,
     uuidToLockKey,
-    acquireAdvisoryLock,
-    releaseAdvisoryLock,
     type DDLServices,
     type SchemaDiff,
     type SchemaSnapshot,
@@ -53,6 +49,14 @@ import {
 } from '../services/applicationReleaseBundle'
 import { persistApplicationSchemaSyncState } from '../services/ApplicationSchemaSyncStateStore'
 import { persistConnectorSyncTouch } from '../services/ConnectorSyncTouchStore'
+import {
+    type ApplicationSyncQueryBuilder,
+    type ApplicationSyncTransaction,
+    acquireApplicationSyncAdvisoryLock,
+    getApplicationSyncDdlServices,
+    getApplicationSyncKnex,
+    releaseApplicationSyncAdvisoryLock
+} from '../ddl'
 
 interface RequestUser {
     id?: string
@@ -1107,7 +1111,7 @@ async function createExistingApplicationReleaseBundle(options: {
 }
 
 async function persistConnectorSyncTouchIfPresent(
-    trx: Knex.Transaction,
+    trx: ApplicationSyncTransaction,
     connectorId: string | null | undefined,
     userId?: string | null
 ): Promise<void> {
@@ -1115,7 +1119,7 @@ async function persistConnectorSyncTouchIfPresent(
         return
     }
 
-    await persistConnectorSyncTouch(trx, {
+    await persistConnectorSyncTouch(createKnexExecutor(trx), {
         connectorId,
         userId
     })
@@ -1130,8 +1134,8 @@ async function syncApplicationSchemaFromSource(options: {
     source: ApplicationSchemaSyncSource
 }): Promise<{ statusCode: number; body: Record<string, unknown> }> {
     const { application, exec, userId, confirmDestructive, connectorId, source } = options
-    const { generator, migrator, migrationManager } = createDDLServices(getKnex())
-    const knex = getKnex()
+    const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
+    const knex = getApplicationSyncKnex()
 
     if (!application.schemaName) {
         application.schemaName = generateSchemaName(application.id)
@@ -1186,7 +1190,7 @@ async function syncApplicationSchemaFromSource(options: {
                     userId
                 })
 
-                await persistApplicationSchemaSyncState(trx, {
+                await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
                     applicationId: application.id,
                     schemaStatus: ApplicationSchemaStatus.SYNCED,
                     schemaError: null,
@@ -1257,7 +1261,7 @@ async function syncApplicationSchemaFromSource(options: {
                         userId
                     })
 
-                    await persistApplicationSchemaSyncState(trx, {
+                    await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
                         applicationId: application.id,
                         schemaStatus: ApplicationSchemaStatus.SYNCED,
                         schemaError: null,
@@ -1419,7 +1423,7 @@ async function syncApplicationSchemaFromSource(options: {
                     userId
                 })
 
-                await persistApplicationSchemaSyncState(trx, {
+                await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
                     applicationId: application.id,
                     schemaStatus: ApplicationSchemaStatus.SYNCED,
                     schemaError: null,
@@ -1513,7 +1517,7 @@ async function syncApplicationSchemaFromSource(options: {
                         userId
                     })
 
-                    await persistApplicationSchemaSyncState(trx, {
+                    await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
                         applicationId: application.id,
                         schemaStatus: ApplicationSchemaStatus.SYNCED,
                         schemaError: null,
@@ -1790,14 +1794,14 @@ export async function seedPredefinedElements(
     snapshot: PublishedApplicationSnapshot,
     entities: EntityDefinition[],
     userId?: string | null,
-    trx?: Knex.Transaction
+    trx?: ApplicationSyncTransaction
 ): Promise<string[]> {
     if (!snapshot.elements || Object.keys(snapshot.elements).length === 0) {
         return []
     }
 
     const entityMap = new Map<string, EntityDefinition>(entities.map((entity) => [entity.id, entity]))
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
     const now = new Date()
     const warnings: string[] = []
@@ -1805,7 +1809,7 @@ export async function seedPredefinedElements(
 
     const catalogOrder = resolveCatalogSeedingOrder(entities)
 
-    const applySeed = async (activeTrx: Knex.Transaction) => {
+    const applySeed = async (activeTrx: ApplicationSyncTransaction) => {
         for (const objectId of catalogOrder) {
             const rawElements = snapshot.elements?.[objectId] as unknown[] | undefined
             const elements = (rawElements ?? []) as SnapshotElementRow[]
@@ -2027,7 +2031,7 @@ function resolveFieldDefaultEnumValueId(field: EntityDefinition['fields'][number
 }
 
 async function remapStaleEnumerationReferences(options: {
-    trx: Knex.Transaction
+    trx: ApplicationSyncTransaction
     schemaName: string
     snapshot: PublishedApplicationSnapshot
     staleValueIdsByObject: Map<string, Set<string>>
@@ -2084,7 +2088,7 @@ async function remapStaleEnumerationReferences(options: {
                 .withSchema(schemaName)
                 .table(tableName)
                 .whereIn(columnName, Array.from(staleIds))
-                .andWhere((qb: Knex.QueryBuilder) => qb.where('_upl_deleted', false).andWhere('_app_deleted', false))
+                .andWhere((qb: ApplicationSyncQueryBuilder) => qb.where('_upl_deleted', false).andWhere('_app_deleted', false))
                 .update(updatePayload)
         }
     }
@@ -2094,9 +2098,9 @@ export async function syncEnumerationValues(
     schemaName: string,
     snapshot: PublishedApplicationSnapshot,
     userId?: string | null,
-    trx?: Knex.Transaction
+    trx?: ApplicationSyncTransaction
 ): Promise<void> {
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
     const now = new Date()
 
     const enumerationObjectIds = Object.values(snapshot.entities ?? {})
@@ -2197,7 +2201,7 @@ export async function syncEnumerationValues(
         _upl_updated_by: userId ?? null
     }
 
-    const applySync = async (activeTrx: Knex.Transaction) => {
+    const applySync = async (activeTrx: ApplicationSyncTransaction) => {
         const tableQuery = () => activeTrx.withSchema(schemaName).table('_app_values')
         const existingActiveRows = (await tableQuery()
             .select(['id', 'object_id'])
@@ -2607,14 +2611,14 @@ export async function persistPublishedLayouts(options: {
     schemaName: string
     snapshot: PublishedApplicationSnapshot
     userId?: string | null
-    trx?: Knex.Transaction
+    trx?: ApplicationSyncTransaction
 }): Promise<void> {
     const { schemaName, snapshot, userId, trx } = options
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
 
     try {
-        const { generator } = createDDLServices(getKnex())
+        const { generator } = getApplicationSyncDdlServices()
         await generator.ensureSystemTables(schemaName, trx)
     } catch (e) {
         // eslint-disable-next-line no-console
@@ -2627,7 +2631,7 @@ export async function persistPublishedLayouts(options: {
     const now = new Date()
     const nextLayouts = normalizeSnapshotLayouts(snapshot)
 
-    const applyPersist = async (activeTrx: Knex.Transaction) => {
+    const applyPersist = async (activeTrx: ApplicationSyncTransaction) => {
         const existingRows = await activeTrx
             .withSchema(schemaName)
             .from('_app_layouts')
@@ -2715,10 +2719,10 @@ export async function persistPublishedWidgets(options: {
     schemaName: string
     snapshot: PublishedApplicationSnapshot
     userId?: string | null
-    trx?: Knex.Transaction
+    trx?: ApplicationSyncTransaction
 }): Promise<void> {
     const { schemaName, snapshot, userId, trx } = options
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
     const hasTable = await executor.schema.withSchema(schemaName).hasTable('_app_widgets')
     if (!hasTable) return
@@ -2726,7 +2730,7 @@ export async function persistPublishedWidgets(options: {
     const now = new Date()
     const nextRows = normalizeSnapshotLayoutZoneWidgets(snapshot)
 
-    const applyPersist = async (activeTrx: Knex.Transaction) => {
+    const applyPersist = async (activeTrx: ApplicationSyncTransaction) => {
         const existingRows = await activeTrx
             .withSchema(schemaName)
             .from('_app_widgets')
@@ -2797,7 +2801,7 @@ export async function persistPublishedWidgets(options: {
 
 async function getPersistedDashboardLayoutConfig(options: { schemaName: string }): Promise<Record<string, unknown>> {
     const { schemaName } = options
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
 
     const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
     if (!hasLayouts) {
@@ -2832,7 +2836,7 @@ async function getPersistedPublishedLayouts(options: {
     schemaName: string
 }): Promise<{ layouts: PersistedAppLayout[]; defaultLayoutId: string | null }> {
     const { schemaName } = options
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
 
     const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
     if (!hasLayouts) {
@@ -2865,7 +2869,7 @@ async function getPersistedPublishedLayouts(options: {
 
 async function getPersistedPublishedWidgets(options: { schemaName: string }): Promise<PersistedAppLayoutZoneWidget[]> {
     const { schemaName } = options
-    const knex = getKnex()
+    const knex = getApplicationSyncKnex()
 
     const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
     if (!hasTable) {
@@ -2937,13 +2941,13 @@ export async function persistSeedWarnings(
     migrationManager: DDLServices['migrationManager'],
     warnings: string[],
     options?: {
-        trx?: Knex.Transaction
+        trx?: ApplicationSyncTransaction
         migrationId?: string
     }
 ): Promise<void> {
     if (warnings.length === 0) return
 
-    const executor = options?.trx ?? getKnex()
+    const executor = options?.trx ?? getApplicationSyncKnex()
 
     let migrationRecord: { id: string; meta: Record<string, unknown> } | null = null
 
@@ -2996,7 +3000,7 @@ export async function persistSeedWarnings(
 }
 
 export async function runPublishedApplicationRuntimeSync(options: {
-    trx: Knex.Transaction
+    trx: ApplicationSyncTransaction
     schemaName: string
     snapshot: PublishedApplicationSnapshot
     entities: EntityDefinition[]
@@ -3074,7 +3078,7 @@ export function createApplicationSyncRoutes(
 
             // Acquire advisory lock to prevent concurrent syncs on the same application
             const lockKey = uuidToLockKey(`app-sync:${applicationId}`)
-            const lockAcquired = await acquireAdvisoryLock(getKnex(), lockKey)
+            const lockAcquired = await acquireApplicationSyncAdvisoryLock(lockKey)
             if (!lockAcquired) {
                 return res.status(409).json({
                     error: 'Sync already in progress',
@@ -3139,7 +3143,7 @@ export function createApplicationSyncRoutes(
 
                 return res.status(result.statusCode).json(result.body)
             } finally {
-                await releaseAdvisoryLock(getKnex(), lockKey)
+                await releaseApplicationSyncAdvisoryLock(lockKey)
             }
         })
     )
@@ -3285,7 +3289,7 @@ export function createApplicationSyncRoutes(
             }
 
             const lockKey = uuidToLockKey(`app-sync:${applicationId}`)
-            const lockAcquired = await acquireAdvisoryLock(getKnex(), lockKey)
+            const lockAcquired = await acquireApplicationSyncAdvisoryLock(lockKey)
             if (!lockAcquired) {
                 return res.status(409).json({
                     error: 'Sync already in progress',
@@ -3349,7 +3353,7 @@ export function createApplicationSyncRoutes(
 
                 return res.status(result.statusCode).json(result.body)
             } finally {
-                await releaseAdvisoryLock(getKnex(), lockKey)
+                await releaseApplicationSyncAdvisoryLock(lockKey)
             }
         })
     )
@@ -3406,7 +3410,7 @@ export function createApplicationSyncRoutes(
                 return res.status(400).json({ error: 'Invalid publication snapshot' })
             }
 
-            const { generator, migrator, migrationManager } = createDDLServices(getKnex())
+            const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
 
             const schemaName = application.schemaName || generateSchemaName(application.id)
             const schemaExists = await generator.schemaExists(schemaName)

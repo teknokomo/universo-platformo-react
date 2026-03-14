@@ -2,7 +2,9 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
+import { queryMany } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation } from '@universo/utils'
@@ -20,7 +22,6 @@ import {
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
 import { type EnumerationCopyOptions, MetaEntityKind } from '@universo/types'
-import { KnexClient } from '../../ddl'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeEnumerationCopyOptions } = validation
@@ -453,15 +454,15 @@ export function createEnumerationsRoutes(
     const services = (req: Request) => {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
-        const objectsService = new MetahubObjectsService(schemaService)
+        const objectsService = new MetahubObjectsService(exec, schemaService)
         return {
             exec,
             schemaService,
             objectsService,
-            hubsService: new MetahubHubsService(schemaService),
-            attributesService: new MetahubAttributesService(schemaService),
-            valuesService: new MetahubEnumerationValuesService(schemaService),
-            settingsService: new MetahubSettingsService(schemaService)
+            hubsService: new MetahubHubsService(exec, schemaService),
+            attributesService: new MetahubAttributesService(exec, schemaService),
+            valuesService: new MetahubEnumerationValuesService(exec, schemaService),
+            settingsService: new MetahubSettingsService(exec, schemaService)
         }
     }
 
@@ -767,10 +768,10 @@ export function createEnumerationsRoutes(
             })
 
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
-            const knex = KnexClient.getInstance()
+            const valuesQt = qSchemaTable(schemaName, '_mhb_values')
 
             const createEnumerationCopy = async (codename: string) => {
-                return knex.transaction(async (trx) => {
+                return exec.transaction(async (trx: SqlQueryable) => {
                     const now = new Date()
                     const codenameLocalizedForCopy =
                         parsed.data.codenameInput === undefined
@@ -799,34 +800,47 @@ export function createEnumerationsRoutes(
 
                     let copiedValuesCount = 0
                     if (copyOptions.copyValues) {
-                        const sourceValues = (await trx
-                            .withSchema(schemaName)
-                            .from('_mhb_values')
-                            .where({ object_id: enumerationId })
-                            .andWhere('_upl_deleted', false)
-                            .andWhere('_mhb_deleted', false)
-                            .orderBy('sort_order', 'asc')
-                            .orderBy('_upl_created_at', 'asc')
-                            .select('codename', 'presentation', 'sort_order', 'is_default')) as EnumerationValueRow[]
+                        const sourceValues = await queryMany<EnumerationValueRow>(
+                            trx,
+                            `SELECT codename, presentation, sort_order, is_default
+                             FROM ${valuesQt}
+                             WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             ORDER BY sort_order ASC, _upl_created_at ASC`,
+                            [enumerationId]
+                        )
 
                         if (sourceValues.length > 0) {
-                            await trx
-                                .withSchema(schemaName)
-                                .into('_mhb_values')
-                                .insert(
-                                    sourceValues.map((value) => ({
-                                        object_id: createdEnumeration.id,
-                                        codename: value.codename,
-                                        presentation: value.presentation ?? {},
-                                        sort_order: value.sort_order ?? 0,
-                                        is_default: value.is_default ?? false,
-                                        _upl_created_at: now,
-                                        _upl_created_by: userId ?? null,
-                                        _upl_updated_at: now,
-                                        _upl_updated_by: userId ?? null
-                                    }))
+                            const placeholders: string[] = []
+                            const params: unknown[] = []
+                            let idx = 1
+                            for (const value of sourceValues) {
+                                placeholders.push(
+                                    `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${
+                                        idx + 7
+                                    }, $${idx + 8})`
                                 )
-                            copiedValuesCount = sourceValues.length
+                                params.push(
+                                    createdEnumeration.id,
+                                    value.codename,
+                                    JSON.stringify(value.presentation ?? {}),
+                                    value.sort_order ?? 0,
+                                    value.is_default ?? false,
+                                    now,
+                                    userId ?? null,
+                                    now,
+                                    userId ?? null
+                                )
+                                idx += 9
+                            }
+                            const insertedRows = await trx.query(
+                                `INSERT INTO ${valuesQt}
+                                 (object_id, codename, presentation, sort_order, is_default,
+                                  _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                                 VALUES ${placeholders.join(', ')}
+                                 RETURNING id`,
+                                params
+                            )
+                            copiedValuesCount = insertedRows.length
                         }
                     }
 
@@ -2117,7 +2131,7 @@ export function createEnumerationsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            let copyDescription = sourceValue.description ?? null
+            let copyDescription: unknown = sourceValue.description ?? null
             if (parsed.data.description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
                 if (Object.keys(sanitizedDescription).length > 0) {

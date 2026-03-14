@@ -20,11 +20,7 @@ jest.mock('../../persistence', () => ({
 }))
 
 const mockEnsureMetahubAccess = jest.fn()
-const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
-
-const mockKnex: Record<string, any> = {
-    transaction: jest.fn()
-}
+const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -32,10 +28,7 @@ jest.mock('../../domains/shared/guards', () => ({
 }))
 
 jest.mock('../../domains/ddl', () => ({
-    __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    }
+    __esModule: true
 }))
 
 const mockHubsService = {
@@ -87,90 +80,38 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
     MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
 }))
 
-const createTransactionStub = (params?: {
-    copiedHub?: Record<string, unknown>
+const createCopyTransactionTrx = (params?: {
     relationRows?: Array<Record<string, unknown>>
     relationUpdateRows?: Array<Record<string, unknown>>
 }) => {
-    const copiedHub =
-        params?.copiedHub ??
-        ({
-            id: 'hub-copy-id',
-            codename: 'MainHubCopy',
-            presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub (copy)' } } }, description: null },
-            config: { sortOrder: 3 },
-            _upl_version: 1,
-            _upl_created_at: '2026-02-26T00:00:00.000Z',
-            _upl_updated_at: '2026-02-26T00:00:00.000Z'
-        } as Record<string, unknown>)
+    const queryMock = jest.fn().mockResolvedValue([])
+    const relationRows = params?.relationRows ?? []
+    const relationUpdateRows = params?.relationUpdateRows ?? [{ id: 'related-1' }]
 
-    const insertReturning = jest.fn().mockResolvedValue([copiedHub])
-    const relationSelect = jest.fn().mockResolvedValue(params?.relationRows ?? [])
-    const relationUpdateReturning = jest.fn().mockResolvedValue(params?.relationUpdateRows ?? [{ id: 'related-1' }])
-
-    const trx = {
-        raw: jest.fn(() => '_upl_version + 1'),
-        withSchema: jest.fn(() => ({
-            into: jest.fn(() => ({
-                insert: jest.fn(() => ({
-                    returning: (...args: unknown[]) => insertReturning(...args)
-                }))
-            })),
-            from: jest.fn(() => ({
-                where: jest.fn((_criteria: Record<string, unknown>) => ({
-                    update: jest.fn(() => ({
-                        returning: (...args: unknown[]) => relationUpdateReturning(...args)
-                    }))
-                })),
-                whereIn: jest.fn(() => ({
-                    andWhere: jest.fn(() => ({
-                        andWhere: jest.fn(() => ({
-                            andWhereRaw: jest.fn(() => ({
-                                forUpdate: jest.fn(() => ({
-                                    select: (...args: unknown[]) => relationSelect(...args)
-                                }))
-                            }))
-                        }))
-                    }))
-                }))
-            }))
-        }))
+    if (relationRows.length > 0) {
+        queryMock.mockResolvedValueOnce(relationRows)
+        const eligible = relationRows.filter((r) => {
+            const config = r.config as Record<string, unknown> | undefined
+            return config?.isSingleHub !== true
+        })
+        for (let i = 0; i < eligible.length; i++) {
+            queryMock.mockResolvedValueOnce(relationUpdateRows)
+        }
     }
 
-    return { trx, insertReturning, relationSelect, relationUpdateReturning }
+    return { query: queryMock }
 }
 
-const mockKnexForBlockingChildHubs = (options?: {
-    blockingObjects?: Array<Record<string, unknown>>
-    blockingChildHubs?: Array<Record<string, unknown>>
-}) => {
-    const blockingObjects = options?.blockingObjects ?? []
-    const blockingChildHubs = options?.blockingChildHubs ?? []
-
-    const objectsChain = {
-        whereIn: jest.fn(() => objectsChain),
-        whereRaw: jest.fn(() => objectsChain),
-        select: jest.fn(async () => blockingObjects)
-    }
-
-    const childHubsChain = {
-        where: jest.fn(() => childHubsChain),
-        andWhere: jest.fn(() => childHubsChain),
-        andWhereRaw: jest.fn(() => childHubsChain),
-        select: jest.fn(async () => blockingChildHubs)
-    }
-
-    const schemaChain = {
-        from: jest.fn((tableName: string) => {
-            if (tableName !== '_mhb_objects') throw new Error(`Unexpected table: ${tableName}`)
-            return {
-                whereIn: objectsChain.whereIn,
-                where: childHubsChain.where
-            }
-        })
-    }
-
-    mockKnex.withSchema = jest.fn(() => schemaChain)
+const defaultCopiedHub = {
+    id: 'hub-copy-id',
+    codename: 'MainHubCopy',
+    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub (copy)' } } },
+    description: null,
+    sort_order: 4,
+    parent_hub_id: null,
+    _upl_version: 1,
+    created_at: '2026-02-26T00:00:00.000Z',
+    updated_at: '2026-02-26T00:00:00.000Z'
 }
 
 describe('Hubs Routes', () => {
@@ -226,7 +167,7 @@ describe('Hubs Routes', () => {
             id: '11111111-1111-4111-8111-111111111111',
             config: { sortOrder: 2 }
         })
-        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+        mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
     })
 
     describe('PATCH /metahub/:metahubId/hubs/reorder', () => {
@@ -314,17 +255,19 @@ describe('Hubs Routes', () => {
                 sort_order: 3
             })
 
-            const txConflict = createTransactionStub({
+            mockHubsService.create.mockResolvedValueOnce(defaultCopiedHub)
+            const trx = createCopyTransactionTrx({
                 relationRows: [{ id: 'catalog-1', kind: 'catalog', config: { hubs: ['hub-1'], isSingleHub: true }, _upl_version: 1 }]
             })
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(txConflict.trx))
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app).post('/metahub/metahub-1/hub/hub-1/copy').send({ codename: 'main-hub-copy' }).expect(201)
 
             expect(response.body.id).toBe('hub-copy-id')
-            expect(txConflict.relationSelect).toHaveBeenCalled()
-            expect(txConflict.relationUpdateReturning).not.toHaveBeenCalled()
+            expect(trx.query).toHaveBeenCalledTimes(1)
         })
 
         it('copies hub successfully when copyAllRelations is disabled', async () => {
@@ -336,8 +279,11 @@ describe('Hubs Routes', () => {
                 sort_order: 3
             })
 
-            const tx = createTransactionStub()
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            mockHubsService.create.mockResolvedValueOnce(defaultCopiedHub)
+            const trx = createCopyTransactionTrx()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -364,21 +310,22 @@ describe('Hubs Routes', () => {
                 sort_order: 3
             })
 
-            const txConcurrentConflict = createTransactionStub({
+            mockHubsService.create.mockResolvedValue(defaultCopiedHub)
+            const trxConflict = createCopyTransactionTrx({
                 relationRows: [{ id: 'catalog-1', kind: 'catalog', config: { hubs: ['hub-1'] }, _upl_version: 1 }],
                 relationUpdateRows: []
             })
-            const txSuccess = createTransactionStub({ relationRows: [] })
+            const trxSuccess = createCopyTransactionTrx({ relationRows: [] })
 
-            mockKnex.transaction
-                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(txConcurrentConflict.trx))
-                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(txSuccess.trx))
+            ;(mockExec.transaction as jest.Mock)
+                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(trxConflict))
+                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(trxSuccess))
 
             const app = buildApp()
             const response = await request(app).post('/metahub/metahub-1/hub/hub-1/copy').send({ codename: 'main-hub-copy' }).expect(201)
 
             expect(response.body.id).toBe('hub-copy-id')
-            expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
+            expect(mockExec.transaction).toHaveBeenCalledTimes(2)
         })
     })
 
@@ -388,16 +335,13 @@ describe('Hubs Routes', () => {
                 id: 'hub-1',
                 codename: 'main-hub'
             })
-            mockKnexForBlockingChildHubs({
-                blockingObjects: [],
-                blockingChildHubs: [
-                    {
-                        id: 'child-hub-1',
-                        codename: 'child-hub',
-                        presentation: { name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Child Hub' } } } }
-                    }
-                ]
-            })
+            ;(mockExec.query as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([
+                {
+                    id: 'child-hub-1',
+                    codename: 'child-hub',
+                    presentation: { name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Child Hub' } } } }
+                }
+            ])
 
             const app = buildApp()
             const response = await request(app).get('/metahub/metahub-1/hub/hub-1/blocking-catalogs').expect(200)
@@ -413,16 +357,13 @@ describe('Hubs Routes', () => {
                 id: 'hub-1',
                 codename: 'main-hub'
             })
-            mockKnexForBlockingChildHubs({
-                blockingObjects: [],
-                blockingChildHubs: [
-                    {
-                        id: 'child-hub-1',
-                        codename: 'child-hub',
-                        presentation: { name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Child Hub' } } } }
-                    }
-                ]
-            })
+            ;(mockExec.query as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([
+                {
+                    id: 'child-hub-1',
+                    codename: 'child-hub',
+                    presentation: { name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Child Hub' } } } }
+                }
+            ])
 
             const app = buildApp()
             const response = await request(app).delete('/metahub/metahub-1/hub/hub-1').expect(409)

@@ -1,9 +1,32 @@
 # System Patterns
-
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
 
 ---
+## Generated REST Docs Source-Of-Truth Pattern (IMPORTANT)
 
+**Rule**: `@universo/rest-docs` must derive its OpenAPI path and method inventory from the live backend route files, not from a hand-maintained historical YAML taxonomy.
+
+**Required**:
+- Update `packages/universo-rest-docs/scripts/generate-openapi-source.js` when mounted route families are added, removed, or remapped.
+- Keep `packages/universo-rest-docs/src/openapi/index.yml` generated from that script before validate/build.
+- Delete removed route families from the generator inputs immediately so Swagger stays fail-closed.
+- Keep GitBook API-reference pages aligned with the standalone interactive docs workflow.
+
+**Detection**: `rg "generate-openapi-source|routeSources|interactive-openapi-docs" packages/universo-rest-docs docs`
+
+**Why**: The repository has already removed older workspace-era API domains. Leaving REST docs on a hand-maintained mirror makes deleted route families look alive long after the runtime stopped mounting them.
+## Fixed System-App Snapshot-Equivalent Baseline Pattern (IMPORTANT)
+
+**Rule**: Package-local docs and implementation for fixed system apps must describe applications and metahubs as separate application-like platform apps whose current baseline is maintained as a manual snapshot-equivalent model, then codified in `SystemAppDefinition` plus file-backed SQL support migrations and materialized during platform bootstrap.
+
+**Required**:
+- Update the fixed system-app manifest and the companion parity SQL artifact together when the baseline shape changes.
+- Document platform-start fixed-schema bootstrap separately from metahub branch runtime migrations and from application runtime sync/release-bundle flows.
+- Keep the current ownership split explicit: `@universo/metahubs-backend` hosts migration-control routes, while `@universo/applications-backend` owns runtime sync and release-bundle execution.
+
+**Detection**: `rg "systemAppDefinition|CreateApplicationsSchema|CreateMetahubsSchema|/application/:applicationId/migrations|/application/:applicationId/sync" packages`
+
+**Why**: Future documentation or refactor waves can easily blur fixed bootstrap, runtime migration ownership, and the temporary manual-baseline origin unless the repository keeps this hybrid model explicit.
 ## Three-Level System Fields Architecture (CRITICAL)
 
 **Rule**: All entities use prefixed system fields for cascade soft delete and audit tracking.
@@ -21,7 +44,6 @@
 **Why**: Consistent audit trail and soft delete cascade across platform and application layers.
 
 ---
-
 ## Public Routes & 401 Redirect Pattern (CRITICAL)
 
 **Rule**: All public route constants live in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.
@@ -35,7 +57,6 @@
 const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' })
 ```
 **Why**: Centralized public routes prevent drift across frontends.
-
 ## CSRF Token Lifecycle + HTTP 419 Contract (CRITICAL)
 
 **Rule**: Backend maps `EBADCSRFTOKEN` -> HTTP 419; frontend retries exactly once.
@@ -46,7 +67,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Random 403 after successful login.
 **Fix**: Retry once, then surface error to user.
 **Why**: Consistent contract avoids ghost failures on stale tokens.
-
 ## Backend Status Codes + PII-safe Logging (CRITICAL)
 
 **Rule**: Preserve 400/403/404 status codes; never log PII or captcha tokens.
@@ -56,7 +76,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Logs contain emails/tokens.
 - Status code mismatch between backend and frontend.
 **Fix**: Sanitize logs; map errors without altering HTTP status.
-
 ## ENV Feature Flags + Public Config Endpoint Pattern
 
 **Rule**: Parse env flags in `@universo/utils` and expose via dedicated endpoints.
@@ -65,7 +84,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 **Symptoms**:
 - Frontend toggles diverge from backend.
 **Fix**: Fetch both configs via `Promise.allSettled`.
-
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
 **Rule**: Source-only packages (no dist/) must use `peerDependencies`.
@@ -75,7 +93,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Duplicate React instances.
 - PNPM hoist conflicts.
 **Fix**: Move runtime deps to `peerDependencies`.
-
 ## Stable Subpath Export Pattern For tsdown Packages (IMPORTANT)
 
 **Rule**: Every package subpath export that points to `dist/...` must have its own explicit tsdown entry.
@@ -95,7 +112,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Keep source-resolution overrides local to test config when source-based tests need them.
 
 **Why**: Workspace consumers resolve exported package subpaths during package builds; stable dist outputs are required for TypeScript and bundlers to agree on the same module surface.
-
 ## Browser Env Precedence Pattern (IMPORTANT)
 
 **Rule**: Shared browser-facing env helpers must resolve runtime config in this order: host-provided public env → Vite `import.meta.env` → `process.env` → browser origin.
@@ -110,7 +126,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "__UNIVERSO_PUBLIC_ENV__|import.meta.env|getBrowserOrigin" packages/universo-utils/base/src packages/universo-store/base/src`
 
 **Why**: Browser bundles need to preserve Vite runtime configuration without regressing host-level override injection or Node/test fallbacks.
-
 ## Fixed-System-App Validation Length Parity Pattern (IMPORTANT)
 
 **Rule**: When a fixed system-app manifest declares `physicalDataType: 'VARCHAR(N)'` for a string field, the manifest `validationRules.maxLength` must not exceed `N` in either the current or target business-table model.
@@ -124,7 +139,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "maxLength:|physicalDataType: 'VARCHAR" packages/*/base/src/platform packages/universo-migrations-platform/base/src/__tests__`
 
 **Why**: Manifest metadata now drives compiler artifacts, docs, and UI validation. If it allows longer values than PostgreSQL accepts, the system can report input as valid and then fail on write.
-
 ## Definition Artifact Equivalence Pattern (CRITICAL)
 
 **Rule**: Registered-definition no-op detection must compare the full stable artifact payload signature, not only the compiled SQL checksum.
@@ -138,7 +152,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "areDefinitionArtifactsEquivalent|buildDefinitionArtifactComparisonSignature" packages/universo-migrations-catalog/base/src packages/universo-migrations-platform/base/src`
 
 **Why**: Dependency-only changes are operationally meaningful. Checksum-only parity can leave the active registry payload stale even though the platform reports a false green no-op state.
-
 ## Bundle Export Lifecycle Recording Pattern (CRITICAL)
 
 **Rule**: Bundle-oriented catalog exports must record the same published revision export rows as non-bundle export paths.
@@ -152,7 +165,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "recordCatalogDefinitionExports|exportDefinitionBundle" packages/universo-migrations-platform/base/src`
 
 **Why**: CLI and operational export paths increasingly use bundles. If bundle exports skip lifecycle recording, doctor/export health drifts from the actual artifacts users generated.
-
 ## Definition Lifecycle Import Pattern (CRITICAL)
 
 **Rule**: Active catalog imports must use the real definition lifecycle (`draft` → `review` → `published`) instead of registering active revisions directly.
@@ -167,7 +179,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "hasPublishedLifecycle|missingPublishedLifecycleKeys" packages/universo-migrations-platform/base/src`
 
 **Why**: The plan requires real lifecycle operations for drafts, review, publish, export, and import metadata. If active sync/import bypasses that lifecycle, the platform can report a green checksum/export state while still missing the approval-ready lifecycle contract.
-
 ## Optional Global Catalog Capability Pattern (CRITICAL)
 
 **Rule**: Global migration catalog features must be explicitly gated by `UPL_GLOBAL_MIGRATION_CATALOG_ENABLED`; disabled mode must preserve local canonical migration history and only keep the minimal platform migration kernel.
@@ -182,7 +193,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "UPL_GLOBAL_MIGRATION_CATALOG_ENABLED|PlatformMigrationKernelCatalog|globalMigrationCatalogEnabled" packages`
 
 **Why**: The repository now supports two valid operational modes. Reintroducing unconditional full-catalog bootstrap into startup or runtime paths would recreate the original cold-start dependency that this wave removed.
-
 ## Release-Bundle Canonical Snapshot-Hash Pattern (CRITICAL)
 
 **Rule**: `application_release_bundle` validation must recompute a canonical embedded snapshot hash before trusting `manifest.snapshotHash` for artifact checksums, installation metadata, or runtime lineage decisions.
@@ -196,7 +206,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "calculateCanonicalApplicationReleaseSnapshotHash|resolveApplicationReleaseSnapshotHash|validateApplicationReleaseBundleArtifacts" packages/applications-backend/base/src`
 
 **Why**: `manifest.snapshotHash` drives idempotency and release lineage. Trusting it without recomputation allows a structurally valid but semantically tampered bundle to alter no-op decisions and stored release provenance.
-
 ## Application Release Bundle Sync-State Pattern (CRITICAL)
 
 **Rule**: Publication-backed sync and file-bundle install/update for applications must share the same schema sync engine and the same central persistence seam in `applications.cat_applications`.
@@ -211,7 +220,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "release-bundle|installedReleaseMetadata|application_release_bundle" packages/applications-backend/base/src`
 
 **Why**: The optional-catalog architecture explicitly keeps application release/install state centralized. If bundle installs diverge into a separate metadata path, the platform loses one-source-of-truth behavior for sync status, release provenance, and recovery decisions.
-
 ## Fixed System-App Baseline Recording Pattern (CRITICAL)
 
 **Rule**: Fixed system-app schema generation must record deterministic local baseline rows in `_app_migrations`, and repeated startup must backfill the baseline row when business tables already exist but local history is missing.
@@ -225,7 +233,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "baseline_.*_structure_|migrationName\?: string|baseline_backfilled" packages/universo-migrations-platform/base packages/schema-ddl/base`
 
 **Why**: Fixed schemas already own local `_app_migrations` tables. Without deterministic baseline recording, disabled-mode local history stays empty and repeated startup cannot distinguish a healthy preexisting schema from missing migration history.
-
 ## Doctor Lifecycle Export-Health Pattern (CRITICAL)
 
 **Rule**: Registered-platform doctor checks must treat any export row on the active published revision as healthy; only sync/export operations themselves should care about a specific explicit export target.
@@ -239,7 +246,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "any-active-revision-export|inspectDefinitionCatalogLifecycle" packages/universo-migrations-platform/base/src`
 
 **Why**: Doctor is a lifecycle-health check, not a command-origin filter. If it hardcodes a single bootstrap export target, valid active revisions exported by other stable operational paths will appear falsely unhealthy.
-
 ## Request-Scoped DB Contract Pattern (CRITICAL)
 
 **Rule**: All new or refactored DB access must use the neutral request-scoped contract (`DbExecutor` / `DbSession`) or package-level SQL-first persistence stores built on top of it.
@@ -247,7 +253,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 **Detection**: `rg "getRequestManager\(|getRepository\(" packages` to find legacy TypeORM-only consumers.
 **Fix**: Move route/service logic into SQL-first stores or executor-backed helpers while keeping RLS/session propagation intact.
 **Why**: Preserves RLS semantics without keeping TypeORM in newly migrated packages.
-
 ## Soft-Delete Parity At Persistence Boundaries (CRITICAL)
 
 **Rule**: SQL-first stores and access guards must treat `_upl_deleted = true` or `_app_deleted = true` rows as inactive in every list/find/count/access query, not only in route-local ad hoc SQL.
@@ -262,7 +267,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Check that each read/count/access query also contains `COALESCE(..._upl_deleted, false) = false` and `COALESCE(..._app_deleted, false) = false` where applicable.
 
 **Why**: The platform uses soft-delete flags plus active partial indexes to define live records. If stores or guards skip those predicates, deleted rows can silently reappear in access checks, duplicate-link detection, required-link constraints, and list/detail APIs.
-
 ## Metahub Active-Row Parity In SQL-First Stores (CRITICAL)
 
 **Rule**: Metahub-domain SQL-first stores and access guards must treat rows as active only when both `_upl_deleted = false` and `_mhb_deleted = false`.
@@ -277,7 +281,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Verify that metahub-domain queries also include `_mhb_deleted = false` for the same alias or table.
 
 **Why**: The platform schema and active partial indexes for metahub-domain tables define liveness through both delete layers. If SQL-first helpers only enforce `_upl_deleted`, deleted memberships can still grant access and deleted branches/publications can re-enter active reads.
-
 ## Cross-Schema Soft-Delete Predicate Pattern (CRITICAL)
 
 **Rule**: Never reuse one domain's active-row predicate on tables from another schema if their lifecycle columns differ.
@@ -296,7 +299,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Connector/publication views fail only when cross-domain metadata is joined.
 
 **Why**: Application and Metahub schemas intentionally keep different lifecycle columns. Cross-domain query helpers must preserve that contract per alias or they will emit invalid SQL despite both sides individually following soft-delete conventions.
-
 ## Managed Schema Drop Safety Pattern (CRITICAL)
 
 **Rule**: Any helper that executes `DROP SCHEMA` for runtime application schemas must validate the schema name inside the helper itself, even if callers already performed route-level validation.
@@ -307,7 +309,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Fail before executing any SQL when validation fails.
 
 **Why**: Route-level checks are not a sufficient safety boundary for reusable persistence helpers. The helper itself must enforce managed-schema rules so future callers cannot accidentally bypass the invariant.
-
 ## Managed Dynamic Schema Naming Pattern (CRITICAL)
 
 **Rule**: Runtime and bootstrap code must build and validate managed schema names through the shared `@universo/migrations-core` helpers, not with local string templates or local regex checks.
@@ -319,7 +320,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Align tests/mocks with those canonical names instead of placeholder strings such as `app_publication_1`.
 
 **Why**: Centralizing managed-schema naming eliminates drift between schema-ddl, metahub runtime code, publication compensation paths, and regression fixtures, while keeping the live naming contract stable.
-
 ## Fresh-Bootstrap System-App Manifest Pattern (CRITICAL)
 
 **Rule**: On recreatable environments, active system-app manifests must bootstrap only the canonical fresh-schema migration chain and must not keep table-rename reconciliation migrations in the live manifest path.
@@ -330,7 +330,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Legacy reconcile migrations may exist only as historical references outside the active manifest path, or be deleted when no longer needed.
 
 **Why**: Keeping rename-based reconciliation inside the active manifest hides fresh-DB regressions and violates the expected bootstrap contract for disposable environments.
-
 ## Applications Sync Persistence Target Pattern (CRITICAL)
 
 **Rule**: Application runtime sync persistence helpers must write only to the converged fixed-schema tables `applications.cat_applications` and `applications.cat_connectors`, and they must refuse to update soft-deleted rows.
@@ -341,7 +340,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Direct service-level regression tests must cover these helpers because route tests may mock them.
 
 **Why**: Route-level application sync tests often stub helper calls; without direct service coverage, stale pre-convergence table names can survive unnoticed until fresh-bootstrap runtime sync executes.
-
 ## TypeORM Residue Boundary Pattern (TRANSITIONAL)
 
 **Rule**: Treat TypeORM as removed from the live architecture. No new package, route, service, or helper may introduce `DataSource`, repositories, entities, or TypeORM-specific request helpers.
@@ -357,7 +355,6 @@ return applicationsStore.listApplications(executor, userId)
 ```
 
 **Exception**: compatibility-only comments or historical progress entries may mention removed TypeORM surfaces, but they must not describe them as current architecture.
-
 ## DDL Utilities Pattern (schema-ddl)
 
 **Rule**: Runtime schema operations must use `@universo/schema-ddl` with DI-created services.
@@ -365,7 +362,6 @@ return applicationsStore.listApplications(executor, userId)
 **Avoid**: Deprecated static wrappers (use naming utilities directly) and unsafe raw string interpolation in `knex.raw`.
 **Compensation Rule**: If metadata creation commits before a runtime DDL step runs, the caller must fail loudly and compensate the fresh metadata immediately when DDL/runtime sync fails.
 **Why**: Consistent DI simplifies testing and reduces SQL injection risk.
-
 ## Application Runtime Sync Ownership Boundary (CRITICAL)
 
 **Rule**: Application runtime schema sync and diff endpoints belong to `@universo/applications-backend`; metahubs only supplies publication-derived sync context as a narrow seam.
@@ -377,7 +373,6 @@ return applicationsStore.listApplications(executor, userId)
 - Inject the metahubs publication-runtime seam from `@universo/core-backend` instead of making `@universo/applications-backend` import metahubs internals directly.
 
 **Why**: This preserves application-owned runtime orchestration, avoids cross-package architecture drift, and keeps the HTTP contract stable while separating publication authoring from application runtime schema ownership.
-
 ## Fixed-System-App Bootstrap Phase Boundary (CRITICAL)
 
 **Rule**: Platform migrations that read or mutate generated fixed-system-app tables must run only in `post_schema_generation`, never in the prelude wave.
@@ -389,7 +384,6 @@ return applicationsStore.listApplications(executor, userId)
 - When adding future platform migrations, classify them by the earliest bootstrap phase in which all referenced schemas/tables definitely exist.
 
 **Why**: Focused tests can miss fresh-start ordering bugs. The live bootstrap contract is `prelude -> fixed schema generation -> post-schema migrations`; violating that boundary produces startup failures even when individual migrations are otherwise correct.
-
 ## Publication Bootstrap Runtime Sync Sequencing (CRITICAL)
 
 **Rule**: When publication routes create an application schema from a publication snapshot, runtime sync must execute inside the DDL generator's `afterMigrationRecorded(...)` hook, and synced schema state must be persisted in that same post-recording step.
@@ -405,7 +399,6 @@ return applicationsStore.listApplications(executor, userId)
 - Treating success-path proof as implied by failure-compensation tests alone.
 
 **Why**: Publication-driven bootstrap must preserve a truthful migration history boundary. The runtime sync contract depends on the recorded migration id and snapshot, and premature state persistence would create false synced metadata after partial DDL success.
-
 ## Repeated-Startup Fast-Path Pattern For Fixed Metadata And Catalog Sync (CRITICAL)
 
 **Rule**: `App.initDatabase()` may validate registered migrations and definitions on every startup, but it must skip heavy fixed metadata writes and definition-registry churn when the live state already matches the compiled target state.
@@ -416,7 +409,6 @@ return applicationsStore.listApplications(executor, userId)
 - Both fast paths must preserve self-healing behavior by falling back to the canonical full sync path whenever fingerprint/checksum/export drift is detected.
 
 **Why**: Idempotent startup is not enough for operational safety in this repository. Replaying hundreds of registry writes and metadata upserts on every clean boot makes startup slow and obscures real drift behind noisy repeated synchronization.
-
 ## Explicit RETURNING + Soft-Delete Compensation Pattern (IMPORTANT)
 
 **Rule**: Touched SQL-first stores on platform catalog tables should return explicit column lists, and cleanup/rollback paths should prefer dual-flag soft delete over raw `DELETE` whenever the rows belong to normal soft-deletable platform metadata.
@@ -427,7 +419,6 @@ return applicationsStore.listApplications(executor, userId)
 - If associated child metadata is created in the same flow, compensate it explicitly as well unless an existing hard database cascade is still part of the intended contract.
 
 **Why**: Explicit `RETURNING` clauses prevent silent shape drift when schema support fields change, and soft-delete compensation preserves the repository-wide lifecycle/audit contract even on rollback paths.
-
 ## Statement Timeout Helper Pattern (CRITICAL)
 
 **Rule**: PostgreSQL `SET LOCAL statement_timeout` must use the shared validated helper from `@universo/utils/database`, not a bound placeholder.
@@ -442,7 +433,6 @@ return applicationsStore.listApplications(executor, userId)
 - ad hoc SQL assembly for statement timeout changes
 
 **Why**: PostgreSQL rejected placeholder-style `SET LOCAL` in the live RLS path, so the only safe canonical implementation in this repository is the shared helper that emits a validated literal.
-
 ## Codename Retry Policy Pattern (IMPORTANT)
 
 **Rule**: All codename copy/auto-rename flows must use shared retry constants from `codenameStyleHelper.ts`.
@@ -457,7 +447,6 @@ return applicationsStore.listApplications(executor, userId)
 - Candidate length is capped by style limits (kebab 100, pascal 80)
 
 **Why**: Prevents domain drift (20 vs 1000 attempts), keeps copy behavior deterministic, and reduces collision-related regressions under concurrent writes.
-
 ## Database Pool Budget + Error Logging Pattern
 
 **Rule**: Use one shared Knex pool through `@universo/database`; log pool state on errors and under pressure.
@@ -465,13 +454,11 @@ return applicationsStore.listApplications(executor, userId)
 - Knex: attach pool error listener and log `used/free/pending` metrics.
 - Default pool max comes from `DATABASE_POOL_MAX` and currently defaults to 15.
 **Why**: Prevent pool exhaustion and provide actionable diagnostics during incidents.
-
 ## DynamicEntityFormDialog Custom Field Rendering
 
 **Rule**: Use `renderField` override to render domain-specific inputs (e.g., REF element selector) without changing default dialog behavior.
 **Usage**: Return `undefined` to fall back to the built-in renderer; return a React node to override.
 **Why**: Keeps the dialog generic while enabling custom widgets for special field types.
-
 ## Headless Controller Hook + Adapter Pattern (IMPORTANT)
 
 **Rule**: CRUD dashboard views must use the shared `useCrudDashboard(adapter)` hook from `apps-template-mui`. Each deployment context (standalone dev, production runtime) provides its own `CrudDataAdapter` implementation.
@@ -484,7 +471,6 @@ return applicationsStore.listApplications(executor, userId)
 - `CellRendererOverrides` type: per-dataType custom rendering injected via `cellRenderers` option (e.g., inline BOOLEAN checkbox toggle).
 **Why**: Eliminates ~80% code duplication between DashboardApp and ApplicationRuntime while preserving full customization via adapters and cell renderer overrides.
 **Detection**: `rg "useCrudDashboard" packages`.
-
 ## Optimistic Create Confirmation + Dedupe Pattern (IMPORTANT)
 
 **Rule**: Every optimistic create/invite/copy hook must call `confirmOptimisticCreate()` in `onSuccess` when the server returns a real entity ID.
@@ -500,7 +486,6 @@ return applicationsStore.listApplications(executor, userId)
 
 **Why**: Prevents duplicate rows/cards during the refetch window and guarantees pending markers are removed as soon as the server confirms the entity.
 **Detection**: `rg "applyOptimisticCreate|confirmOptimisticCreate" packages`.
-
 ## Nested Optimistic Query Scope Pattern (IMPORTANT)
 
 **Rule**: Nested Metahub CRUD screens must mutate the exact query scope they render, not a broader root entity list.
@@ -522,7 +507,6 @@ return applicationsStore.listApplications(executor, userId)
 - For hub-scoped copy flows, collect the broad metahub query prefix plus any matching hub query prefixes from current cache state, then apply optimistic create/confirm across all of them.
 
 **Why**: Query-scope mismatches were the main reason nested optimistic parity remained incomplete after the shared helper rollout looked green at the top level.
-
 ## RLS Request DB Session Reuse for Admin Guards (CRITICAL)
 
 **Rule**: Reuse request-scoped DB session from `req.dbContext`.
@@ -531,7 +515,6 @@ return applicationsStore.listApplications(executor, userId)
 **Symptoms**:
 - Permission checks outside RLS context.
 **Fix**: fallback to a neutral executor or session derived from `@universo/database` only if the request DB session is missing.
-
 ## Template Seed Identity Pattern (IMPORTANT)
 
 **Rule**: Widget identity in template seeds is `{layout_id, zone, widget_key, sort_order}`.
@@ -539,7 +522,6 @@ return applicationsStore.listApplications(executor, userId)
 **Mitigation (current)**: `TemplateSeedMigrator` inherits `is_active` from existing peers with same `zone + widget_key` and auto-cleans orphan duplicates (system-created only, `_upl_created_by IS NULL`).
 **Future improvement**: Consider using `{layout_id, zone, widget_key}` as the stable identity (without `sort_order`) to make template reordering transparent.
 **Detection**: Duplicate widgets in same zone — `SELECT zone, widget_key, count(*) FROM _mhb_widgets WHERE _mhb_deleted = false GROUP BY zone, widget_key HAVING count(*) > 1`.
-
 ## Structured Blocker Pattern (IMPORTANT)
 
 **Rule**: Migration/cleanup blockers must use `StructuredBlocker` type from `@universo/types` instead of plain strings.
@@ -551,7 +533,6 @@ return applicationsStore.listApplications(executor, userId)
 **Why**: Type-safe, i18n-ready error reporting. Backend provides structured context, frontend localizes using standard i18n infrastructure.
 
 ---
-
 ## i18n Architecture (CRITICAL)
 
 **Rule**: Core namespaces in `@universo/i18n`; feature packages use `registerNamespace()`.
@@ -560,7 +541,6 @@ return applicationsStore.listApplications(executor, userId)
 **Symptoms**:
 - Missing translations after lazy load.
 **Fix**: register namespaces in entrypoints and consolidate bundles.
-
 ## Canonical Types Pattern (CRITICAL)
 
 **Rule**: Shared types live in `@universo/types` and are re-exported downstream.
@@ -569,7 +549,6 @@ return applicationsStore.listApplications(executor, userId)
 **Symptoms**:
 - Divergent shapes across frontends.
 **Fix**: replace local types with `@universo/types` imports.
-
 ## Universal List Pattern (CRITICAL)
 
 **Rule**: Entity lists use `usePaginated` + `useDebouncedSearch` + card/table toggle.
@@ -578,14 +557,12 @@ return applicationsStore.listApplications(executor, userId)
 **Symptoms**:
 - Inconsistent pagination behavior across modules.
 **Fix**: adopt shared list components from template-mui.
-
 ## Dual Sidebar Menu Config (IMPORTANT)
 
 **Rule**: There are TWO sidebar menu configurations that must be kept in sync:
-1. **`metahubDashboard.ts`** (`packages/metahubs-frontend/base/src/menu-items/`) — Legacy config used by `flowise-template-mui/MenuList`
+1. **`metahubDashboard.ts`** (`packages/metahubs-frontend/base/src/menu-items/`) — Legacy config used by the older shared menu layer
 2. **`menuConfigs.ts`** (`packages/universo-template-mui/base/src/navigation/`) — **PRODUCTION config** consumed by `MenuContent.tsx` via `getMetahubMenuItems()`.
 **When modifying sidebar items**: Always update BOTH files. The production app uses `menuConfigs.ts`.
-
 ## React StrictMode Pattern (CRITICAL)
 
 **Rule**: StrictMode enabled only in DEV builds.
@@ -594,7 +571,6 @@ return applicationsStore.listApplications(executor, userId)
 const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragment
 ```
 **Why**: Prevent double-render issues in production.
-
 ## Rate Limiting Pattern (CRITICAL)
 
 **Rule**: Redis-based rate limiting for all public API endpoints.
@@ -603,14 +579,12 @@ const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragmen
 **Symptoms**:
 - 429 missing under load.
 **Fix**: apply middleware per router.
-
 ## Testing Environment Pattern (CRITICAL)
 
 **Rule**: Vitest + Testing Library; Playwright for E2E. No Jest.
 **Required**: use shared test utils packages.
 **Detection**: `rg "jest" packages/*/package.json`.
 **Fix**: migrate Jest tests to Vitest equivalents.
-
 ## Service Factory + NodeProvider Pattern (CRITICAL)
 
 **Rule**: Services are factories to inject neutral dependencies (`DbExecutor`, `DbSession`, telemetry, config).
@@ -618,7 +592,6 @@ const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragmen
 ```typescript
 export const createXService = ({ getDbExecutor, telemetryProvider }) => ({ ... })
 ```
-
 ## Runtime Migration Pattern (CRITICAL)
 
 **Rule**: All schema changes must be recorded in `_sys_migrations` table within Application schema.
@@ -633,356 +606,89 @@ export const createXService = ({ getDbExecutor, telemetryProvider }) => ({ ... }
 - Schema changes not tracked.
 - Rollback fails silently.
 **Fix**: Always pass `recordMigration: true` when applying schema changes that should be reversible.
-
 ## Applications Runtime Update Targeting (MVP)
 
 **Rule**: Runtime cell updates should include `catalogId` when the application has multiple catalogs.
 **Why**: Backend defaults to the first catalog by codename; without `catalogId`, updates can target the wrong table and return 404 (row not found).
-
 ## TanStack Query Cache Correctness + v5 Patterns (CRITICAL)
 
 **Rule**: Query key factories must be used for invalidation.
 **Required**: `lists()` and `detail(id)` keys; invalidate aggregates explicitly.
 **Detection**: `rg "invalidateQueries\(" packages`.
 **Fix**: call `invalidateQueries(metaversesQueryKeys.lists())` after mutations.
-
 ## Focus-Refetch for Open Dialog Data (No Polling)
 
 **Rule**: `useQuery` with `enabled: open` + `refetchOnWindowFocus: 'always'`.
 **Why**: ensures dialog data fresh without polling.
-
 ## Reusable Compact List Table Pattern (Dialogs)
 
 **Rule**: Use `CompactListTable` in modal dialogs with sticky header + bounded scroll.
 **Required**: `renderRowAction`, `actionColumnWidth` for action column.
 **Detection**: `rg "<Table" packages/*/dialogs`.
-
-## Applications Config/Data Separation Pattern
-
-**Rule**: Metahubs store configuration; Applications store data (PG schemas).
-**Required**: SchemaGenerator + SchemaMigrator + shared Knex runtime from `@universo/database`.
-**Naming**:
-- Schema: `app_<uuid32>`
-- Table: `cat_<uuid32>`
-- Column: `attr_<uuid32>`
-- Child (TABLE type): `tbl_<uuid32>` (parent-independent, generated by `generateChildTableName(attrId)`)
-
-## Attribute Type Architecture Pattern
-
-**Rule**: `_mhb_attributes.data_type` stores LOGICAL type (enum); `validation_rules` stores type-specific settings.
-**Why**: Separation of concern, flexibility, backward compatibility.
-**Components**:
-- **@universo/types**: `AttributeDataType` enum (STRING, NUMBER, BOOLEAN, DATE, REF, JSON), `AttributeValidationRules` interface.
-- **@universo/schema-ddl**: `SchemaGenerator.mapDataType(dataType, rules)` → PostgreSQL type.
-- **@universo/types**: `getPhysicalDataType(dataType, rules)` → `PhysicalTypeInfo` for UI display.
-
-**Type Mappings**:
-| Logical Type | Settings | PostgreSQL Type |
-|--------------|----------|-----------------|
-| STRING | default | TEXT |
-| STRING | maxLength: n | VARCHAR(n) |
-| STRING | versioned/localized | JSONB |
-| NUMBER | precision, scale | NUMERIC(p,s) |
-| DATE | dateComposition: 'date' | DATE |
-| DATE | dateComposition: 'time' | TIME |
-| DATE | dateComposition: 'datetime' | TIMESTAMPTZ |
-| BOOLEAN | - | BOOLEAN |
-| REF | - | UUID |
-| JSON | - | JSONB |
-
-**UI**: Tooltip in AttributeList shows computed PostgreSQL type; Alert in form displays "PostgreSQL type: X".
-
-## Pagination Pattern
-
-**Backend**:
-- Zod schema: `limit`, `offset`, `sortBy`, `sortOrder`.
-- Single query with `getManyAndCount()`.
-**Frontend**:
-- `usePaginated<T, SortFields>` hook.
-- `PaginationControls` with `rowsPerPageOptions`.
-
-## Error Handling Pattern
-
-**Backend**: central handler, `ValidationError`, `NotFoundError`, `ForbiddenError`.
-**Frontend**: error boundaries + toasts; Sentry for monitoring.
-
-## Env Configuration Pattern
-
-**Rule**: Use `@universo/utils/env` for type-safe env access.
-**Fix**:
-```typescript
-export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'false'
-```
-
-## Migration Pattern
-
-**Rule**: Single consolidated migration per package; idempotent `IF NOT EXISTS`.
-**Required**: RLS policies in the same migration.
-**Avoid**: destructive `down()`.
-
-## VLC (Versioned Localized Content) Utilities Pattern
-
-**Rule**: Shared sanitize/build helpers in `@universo/utils/vlc`.
-**Required**: `sanitizeLocalizedInput`, `buildLocalizedContent`, `normalizeCodename`.
-**Note**: backend uses `normalizeCodename()`; frontend uses `slugifyCodename()`.
-
-## Build System Patterns
-
-**tsdown**: dual output (CJS + ESM), path aliases `@/*`, type declarations.
-**pnpm**: run from root, `--filter <package>` for single build; full `pnpm build` for cross-deps.
-**turbo**: cache + parallel builds.
-
-## Naming Conventions
-
-**Files**: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
-**Database**: `snake_case` tables/columns, `PascalCase` entities.
-**i18n**: dot notation (`auth.login.button`) with namespace prefixes.
-
-## RBAC + CASL Authorization Pattern (CRITICAL)
-
-**Rule**: Hybrid RBAC (DB) + CASL (app) for isomorphic permissions.
-**Required**: `module='*'` + `action='*'` maps to `subject='all'`, `action='manage'`.
-**Detection**: `rg "ensureGlobalAccess" packages`.
-
-## Admin Route Guards Pattern
-
-**Rule**: Use DB-driven permission checks, not hardcoded roles.
-**Fix**: `ensureGlobalAccess('roles', 'delete')` for route protection.
-
-## Scoped-API Pattern for RLS
-
-**Rule**: Use parent-scoped endpoints to carry RLS context (e.g., `/metaverse/:id/entities`).
-**Why**: ensures correct tenant scoping for permissions and data visibility.
-
-## Public Execution Share Contract Pattern
-
-**Rule**:
-- Frontend route: `/execution/:id` (minimal layout)
-- Backend: `GET /public-executions/:id`
-- Client: `getPublicExecutionById(id)` uses public endpoint
-
-## Route Protection Guards Pattern
-
-**Rule**: Protected routes redirect unauthorized users; no error pages exposing resource structure.
-**Guards**:
-- `AuthGuard` -> `/auth`
-- `AdminGuard` -> `/`
-- `ResourceGuard` -> `/`
-
-## ReactFlow AgentFlow Node Config Dialog Pattern
-
-**Rule**: Open node dialogs from canvas events (`onNodeDoubleClick`), not node DOM.
-**Why**: avoids focus issues and event propagation bugs.
-
-## Public Routes Consistency Pattern
-
-**Rule**: Keep public UI routes and API whitelist in sync across packages.
-**Detection**: `rg "PUBLIC_UI_ROUTES" packages`.
-
-## Known Antipatterns to Avoid
-
-- Direct Supabase client usage (violates RLS pattern)
-- Hardcoded role checks (use database permissions)
-- `dependencies` in source-only packages (use `peerDependencies`)
-- Raw SQL in routes or service layers (use dedicated SQL-first persistence helpers)
-- `i18next.use()` in packages (use `registerNamespace()`)
-- StrictMode in production builds
-- Client-side pagination for large datasets
-- Duplicate state management (prefer TanStack Query cache)
-
-
-## Operational Checklists
-
-### Public Routes & 401 Redirect
-- Verify API_WHITELIST_URLS and PUBLIC_UI_ROUTES are updated together.
-- Confirm API clients use redirectOn401: 'auto'.
-- Add new public paths to both route lists.
-
-### CSRF 419 Contract
-- Ensure EBADCSRFTOKEN maps to HTTP 419 in backend.
-- Confirm frontend retries only once.
-- Clear cached CSRF token after login.
-
-### Status Codes + PII-safe Logging
-- Preserve 400/403/404 without remapping.
-- Strip PII and captcha tokens from logs.
-- Log only boolean or length indicators.
-
-### ENV Feature Flags + Public Config
-- Keep auth-config and captcha-config endpoints separate.
-- Parse flags in @universo/utils.
-- Fetch configs via Promise.allSettled.
-
-### PeerDependencies for Source-only Packages
-- No "main" field in source-only packages.
-- Runtime deps belong in peerDependencies.
-- Run detection command before release.
-
-### RLS Integration
-- Enforce repository access with user context.
-- Avoid direct Supabase client usage.
-- Validate RLS session context on requests.
-
-### SQL-First Persistence
-- Put database reads and writes into dedicated persistence/store modules.
-- Use `DbExecutor`, `DbSession`, or `SqlQueryable` contracts instead of repositories.
-- Keep RLS consistency by threading the request-scoped executor/session through the store boundary.
-
-### Request DB Session Reuse
-- Use `req.dbContext.session` for guards and other raw-query access paths.
-- Fallback to a neutral executor built from `createKnexExecutor(getKnex())` only if needed.
-- Validate request-session cleanup per request.
-
-### i18n Architecture
-- Register namespaces before app render.
-- Avoid i18next.use() in packages.
-- Consolidate bundles after new keys.
-
-### Canonical Types
-- Centralize pagination/filter types in @universo/types.
-- Replace local duplicates with imports.
-- Re-export only UI-specific types in template packages.
-
-### Universal List Pattern
-- Use usePaginated + useDebouncedSearch.
-- Support card/table toggle with ViewHeader.
-- Persist view preference via storage keys.
-
-### React StrictMode
-- StrictMode only in DEV builds.
-- Keep wrapper pattern in app entry.
-- Validate production build behavior.
-
-### Rate Limiting
-- Enable Redis-backed middleware for public routes.
-- Keep env config consistent across services.
-- Verify 429 responses under load tests.
-
-### Testing Environment
-- Prefer Vitest + Testing Library.
-- Reserve Playwright for E2E.
-- Remove Jest configs when migrating.
-
-### Service Factory Pattern
-- Build services via factories with injected deps.
-- Avoid singleton side effects.
-- Mock dependencies in tests.
-
-### TanStack Query Cache
-- Use query key factories for invalidation.
-- Invalidate lists after mutations.
-- Avoid staleTime workarounds.
-
-### Compact List Table
-- Use CompactListTable in dialogs.
-- Keep sticky headers and scroll bounds.
-- Provide renderRowAction for actions.
-
-### Applications Config/Data Separation
-- Keep config in Metahubs, data in Applications schema.
-- Use SchemaGenerator + SchemaMigrator.
-- Ensure app_*/cat_* naming convention.
-
-### Pagination
-- Enforce limit/offset defaults in backend.
-- Align pagination shape to { items, pagination }.
-- Use PaginationControls in UI.
-
-### Error Handling
-- Use centralized backend error handlers.
-- Show user-friendly toasts in frontend.
-- Capture unexpected errors via Sentry.
-
-### Env Configuration
-- Access env via @universo/utils/env helpers.
-- Avoid string comparisons in feature checks.
-- Keep defaults explicit.
-
-### Migration Discipline
-- One consolidated migration per package.
-- Avoid destructive down() migrations.
-- Bundle RLS policies with schema changes.
-
-### VLC Utilities
-- Use sanitizeLocalizedInput/buildLocalizedContent.
-- Normalize codename in backend only.
-- Keep frontend slugify for user-facing input.
-
-### Codename Validation
-- Two styles: `kebab-case` (English-only lowercase) and `pascal-case` (PascalCase).
-- `pascal-case` supports two alphabets: `en` (English-only) and `en-ru` (English + Russian).
-- Style + alphabet configured per metahub via `general.codenameStyle` and `general.codenameAlphabet` settings.
-- Use `isValidCodenameForStyle(value, style, alphabet)` and `normalizeCodenameForStyle(value, style, alphabet)`.
-- Backend reads both settings via `getCodenameStyle()`/`getCodenameAlphabet()` or batch `extractCodenameStyle()`/`extractCodenameAlphabet()`.
-
-### RBAC + CASL
-- Map module='*' + action='*' to manage/all.
-- Use ensureGlobalAccess for checks.
-- Avoid hardcoded role logic.
-
-### Route Guards
-- Use AuthGuard/AdminGuard/ResourceGuard consistently.
-- Redirect unauthorized users (no info leaks).
-- Validate guard coverage in routes.
-
-### Public Execution Share
-- Keep /execution/:id and /public-executions/:id aligned.
-- Use public client for shared routes.
-- Verify minimal layout for public pages.
-
-### ReactFlow Node Dialogs
-- Open config dialogs on onNodeDoubleClick.
-- Avoid direct DOM event usage.
-- Validate focus behavior after close.
-
-### Public Routes Consistency
-- Sync UI and API public route lists.
-- Update utils routes before adding new public pages.
-- Add tests for new public paths.
-
-### Metahubs UI: Display Attribute Locking
-- When a catalog has a single attribute, the Display Attribute switch must be auto-enabled and locked (create + edit).
-- Action menu should expose explicit set/clear actions (no dynamic icon/label callbacks) to avoid undefined context crashes.
-
----
-
-## Metahub Template/Versioning System
-
-**Architecture**: Two-layer separation of concerns for metahub schema initialization.
-- **Structure Version** (integer, code-owned): DDL for system tables (`_mhb_layouts`, `_mhb_zone_widgets`, etc.) in `structureVersions.ts`. Registry pattern: `getStructureVersion(n).init(knex, schemaName)`.
-- **Template Version** (SemVer, JSON-driven): Seed data (layouts, widgets, settings, entities, elements) in typed TS files under `templates/data/`. Applied by `TemplateSeedExecutor.apply(knex, schemaName, manifest)`.
-
-**Key Patterns**:
-- Template files use **codenames** for cross-references (not UUIDs). UUIDs generated at seed time with `generateUuidV7()`.
-- VLC entries in seed files use a `vlc()` helper with epoch-zero timestamps for `createdAt`/`updatedAt`.
-- `TemplateSeeder` is idempotent: SHA-256 hash of manifest (via `json-stable-stringify`) compared before upsert.
-- Template entities are platform-level only (`_upl_*` fields, no `_mhb_*`).
-- `MetahubSchemaService.initSystemTables()` delegates to structure version init + template seed executor.
-- Template manifest is loaded from DB (`TemplateVersion.manifestJson`) when `metahub.templateVersionId` exists, falls back to built-in default.
-
-**DB Tables**: `metahubs.templates` (codename, VLC name/desc, active_version_id FK → templates_versions, definition_type), `metahubs.templates_versions` (JSONB manifest, SHA-256 hash, version_number, version_label).
-
-**Last Updated**: 2026-02-09
-
----
-
-## Application-Definition Model
-
-**Architecture**: Metahubs are treated as one specialization of a generic "application definition" pattern. The unified definition model supports future non-Metahub definitions (e.g., custom app templates).
-
-**Key Concepts**:
-- **DefinitionArtifact** (`@universo/migrations-catalog`): A single schema definition unit (table, index, RLS policy, etc.) with `kind`, `name`, `schemaQualifiedName`, `sql`, `checksum`, `dependencies[]`.
-- **Definition Registry** (`upl_migrations.definition_registry`): Central catalog of all definition artifacts. Each entry has a `logical_key` (schemaQualifiedName::kind) and `active_revision_id`.
-- **Definition Revisions** (`upl_migrations.definition_revisions`): Immutable revision history for each definition. Each revision stores the full `payload` (DefinitionArtifact) and a `checksum`.
-- **Definition Drafts** (`upl_migrations.definition_drafts`): Draft revisions for future editor UI support. Same schema as revisions but with `status: draft|review|published` and `author_id`.
-- **Template definition_type** (`metahubs.templates.definition_type`): Distinguishes `metahub_template`, `application_template`, or `custom`. Default: `metahub_template` for backward compatibility.
-
-**Patterns**:
-- `registerDefinition(trx, artifact)` is idempotent — returns existing record if checksum matches, creates new revision if different.
-- `exportDefinitions()` + `importDefinitions()` provide round-trip support for file-based storage.
-- Definition exports are tracked in `upl_migrations.definition_exports` for provenance.
-- Template system remains backward-compatible: all existing templates auto-receive `definition_type = 'metahub_template'` via column default.
-
-**Dependency Direction**: `@universo/migrations-catalog` → `@universo/migrations-core` (core types + read functions). Never reverse.
-
-**Last Updated**: 2026-03-09
+## Data Modeling + UI Runtime Patterns
+
+**Applications config/data split**: Metahubs store configuration; Applications store runtime data in PostgreSQL schemas. Use `SchemaGenerator` + `SchemaMigrator` with shared `@universo/database` Knex runtime. Naming stays canonical: schema `app_<uuid32>`, table `cat_<uuid32>`, column `attr_<uuid32>`, TABLE-child `tbl_<uuid32>`.
+
+**Attribute types**: `_mhb_attributes.data_type` stores the logical enum and `validation_rules` stores type-specific settings. Canonical mapping is `STRING -> TEXT/VARCHAR/JSONB`, `NUMBER -> NUMERIC`, `DATE -> DATE/TIME/TIMESTAMPTZ`, `BOOLEAN -> BOOLEAN`, `REF -> UUID`, `JSON -> JSONB`; compute physical types through `SchemaGenerator.mapDataType(...)` / `getPhysicalDataType(...)` and surface the resolved PostgreSQL type in the UI.
+
+**Shared UI/data rules**:
+- Pagination uses backend `limit/offset/sortBy/sortOrder` plus frontend `usePaginated<T, SortFields>` and `PaginationControls`.
+- Error handling uses centralized backend errors (`ValidationError`, `NotFoundError`, `ForbiddenError`) plus frontend boundaries/toasts/Sentry.
+- Env access goes through `@universo/utils/env`; migrations stay consolidated/idempotent with RLS policies and no destructive `down()`.
+- VLC uses shared `sanitizeLocalizedInput`, `buildLocalizedContent`, and `normalizeCodename`; frontend keeps `slugifyCodename()` for user input.
+- Build/naming remain `tsdown` dual output, `pnpm --filter` for package builds, PascalCase/camelCase/kebab-case naming, snake_case DB objects, and dot-notation i18n keys.
+
+**Access/guard rules**:
+- RBAC stays hybrid DB + CASL; `module='*'` + `action='*'` maps to `manage/all`, and route protection uses `ensureGlobalAccess(...)`.
+- Parent-scoped endpoints carry RLS context where needed; public execution uses `/execution/:id` with `GET /public-executions/:id`.
+- Guard redirects stay `AuthGuard -> /auth`, `AdminGuard -> /`, `ResourceGuard -> /`; ReactFlow node dialogs open from canvas events (`onNodeDoubleClick`), not node DOM handlers.
+- Public UI routes and API whitelist entries must stay synchronized across packages.
+
+**Antipatterns to avoid**: direct Supabase client access, hardcoded roles, `dependencies` in source-only packages, raw SQL in routes/services, `i18next.use()` inside packages, StrictMode in production, large-list client-side pagination, and duplicate client state stores.
+## Metahub Template + Definition Model
+
+**Metahub template/versioning**: Structure versions own system-table DDL in `structureVersions.ts`, while semver template versions own JSON/TS seed manifests under `templates/data/`. Seeds reference entities by codenames, generate UUIDs at apply time, stay idempotent through manifest hashing, keep template entities platform-level (`_upl_*` only), and load from `metahubs.templates` / `metahubs.templates_versions` with DB manifest override support.
+
+**Application-definition model**: Metahubs are one specialization of the generic definition system. `DefinitionArtifact` payloads are stored through `upl_migrations.definition_registry`, immutable `definition_revisions`, optional lifecycle drafts, and export provenance rows in `definition_exports`. `registerDefinition(...)` stays idempotent, `exportDefinitions()` / `importDefinitions()` preserve round-trip storage, template `definition_type` differentiates `metahub_template`, `application_template`, or `custom`, and dependency direction remains `@universo/migrations-catalog` -> `@universo/migrations-core` only.
+## Unified Database Access Standard (CRITICAL)
+
+**Rule**: All backend database access must go through one of three permitted tiers. No direct Knex or KnexClient references in domain code.
+
+**Tiers**:
+- **Tier 1 — RLS (request-scoped)**: `getRequestDbExecutor(req, getDbExecutor())` / `getRequestDbSession(req, getDbExecutor())`. Used by authenticated route handlers; carries JWT claims for RLS policies.
+- **Tier 2 — Admin/Bootstrap (non-RLS)**: `getPoolExecutor()` from `@universo/database`. Used by admin routes, startup provisioning, and background jobs that run outside user context.
+- **Tier 3 — DDL/Migration**: `getKnex()` from `@universo/database`. Used only by `schema-ddl` services, migration runners, and explicit package-local DDL boundaries.
+
+**Core Contracts**:
+- `DbExecutor` — `query<T>(sql, params): Promise<T[]>`, `transaction<T>(cb): Promise<T>`, `isReleased(): boolean`
+- `DbSession` — `query<T>(sql, params): Promise<T[]>`, `isReleased(): boolean`
+- `SqlQueryable` — minimal `query<T>(sql, params): Promise<T[]>` for persistence stores
+- Bridge: `createKnexExecutor(knex)` wraps a Knex instance as `DbExecutor` for Tier 3 → Tier 1 boundary crossings
+
+**Allowed Tier 3 Boundaries**:
+- `@universo/database` owns the shared Knex lifecycle and executor factories.
+- `@universo/schema-ddl` plus migration packages own direct Knex DDL orchestration.
+- `@universo/applications-backend` keeps raw Knex behind `src/ddl/index.ts` for runtime sync DDL work.
+- `@universo/metahubs-backend` keeps raw Knex inside package DDL seams and schema-ddl integration paths.
+- Route handlers and SQL-first stores outside these seams must not call `getKnex()` directly.
+
+**Identifier Safety**:
+- Use `qSchema()`, `qTable()`, `qColumn()`, `qSchemaTable()` from `@universo/database` for all dynamic identifiers.
+- All helpers validate input and quote with double quotes; reject injection payloads.
+- Bind parameters (`$1`, `$2`, ...) for all user-supplied values.
+
+**Mutation Rules**:
+- Mutating DML uses `RETURNING` when affected-row confirmation matters.
+- Zero-row updates, deletes, restores, and sync-state writes fail closed instead of silently succeeding.
+- Domain SQL stays schema-qualified; no domain path may rely on `search_path` for business-table resolution.
+- Restore/delete flows constrain row state explicitly instead of mutating by bare `id` only.
+
+**Enforcement**:
+- `tools/lint-db-access.mjs` runs in CI (GitHub Actions) after ESLint, before build.
+- Zero-violation policy: no baseline, no exceptions for domain packages.
+- Excluded paths are narrow Tier 3 boundaries only: auth middleware, DDL subsystems, migration seeds, and package-local DDL boundary folders.
+- `@universo/applications-backend` sync routes are not excluded from lint; raw Knex ownership for runtime sync now lives behind `src/ddl/index.ts`.
+
+**Detection**: `node tools/lint-db-access.mjs` locally; CI step in `.github/workflows/main.yml`.
+
+**Why**: Prevents SQL injection, enforces RLS correctness, keeps DDL transport isolated, and makes race-prone mutations observable through fail-closed contracts.

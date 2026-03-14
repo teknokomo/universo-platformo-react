@@ -1,106 +1,94 @@
 # Metahubs Backend — Migration System
 
-> Extracted from [README.md](README.md). For general package overview, see the README.
+> Current package-local explanation of how the fixed `metahubs` system app, metahub branch runtime schemas, and related application migration-control routes work today. For the general package overview see [README.md](README.md).
 
-## Migration Engine
+## Current Principle
 
-- **Diff Engine** — `calculateSystemTableDiff()` compares two structure versions and emits additive/destructive change lists
-- **Safe Migrations** — `SystemTableMigrator` applies only additive changes (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK); destructive changes are logged but not applied
-- **Migration History** — `_mhb_migrations` table records every applied migration with version, name, and metadata
-- **Advisory Locks** — Concurrent migration protection via PostgreSQL advisory locks
+`metahubs` is a fixed system app for design-time metadata and also the package that still hosts the current migration-control surface.
+The long-term target is to author more of this model directly through metahubs themselves, but that flow is not complete yet.
+For now the baseline is maintained as a manually curated snapshot-equivalent model, turned into the system-app manifest plus file-backed SQL migrations, and materialized by platform bootstrap on first start.
 
-## Structured Blockers & Migration Guard
+## Source Of Truth
 
-- **StructuredBlocker type** — `{ code, params, message }` for i18n-ready migration blocker display
-- **11 blocker sites** in `TemplateSeedCleanupService` converted from plain strings to structured objects
-- **5 blocker sites** in `metahubMigrationsRoutes` for schema-level migration checks
-- **Migration status endpoint** — `GET /metahub/:id/migrations/status` returns `{ migrationRequired, structureUpgradeRequired, templateUpgradeRequired, blockers: StructuredBlocker[] }`
-- **Migration apply endpoint** — `POST /metahub/:id/migrations/apply` with `{ cleanupMode: 'keep' }` body
+| Source | Role |
+| --- | --- |
+| `src/platform/systemAppDefinition.ts` | Canonical fixed-schema business model for the `metahubs` system app |
+| `src/platform/migrations/1766351182000-CreateMetahubsSchema.sql.ts` | Canonical file-backed SQL artifact that keeps the fixed-schema parity contract explicit |
+| `prepareMetahubsSchemaSupportMigrationDefinition` | `pre_schema_generation` support SQL that runs before fixed-schema generation |
+| `finalizeMetahubsSchemaSupportMigrationDefinition` | `post_schema_generation` support SQL that runs after fixed-schema generation |
+| `seedBuiltinTemplatesMigration` | Post-schema platform migration that seeds the built-in metahub templates |
 
-## Severity Determination
+## First-Start Bootstrap
 
-Both metahub and application migration endpoints use the shared `determineSeverity()` utility from `@universo/migration-guard-shared/utils`:
+On platform startup `@universo/core-backend` runs the fixed system-app pipeline for `metahubs`:
 
-```typescript
-import { determineSeverity } from '@universo/migration-guard-shared/utils'
+1. Platform prelude migrations run the `pre_schema_generation` support SQL for the schema.
+2. `ensureRegisteredSystemAppSchemaGenerationPlans()` builds fixed application-like entities from the manifest and ensures the `metahubs` schema shape.
+3. Platform post-schema migrations run the `post_schema_generation` support SQL and the built-in template seed migration.
+4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_attributes` metadata for the fixed schema.
+5. A deterministic baseline row such as `baseline_metahubs_structure_0_1_0` is stored in `metahubs._app_migrations`.
 
-// Metahub: structure upgrade or blockers → MANDATORY, template-only → RECOMMENDED
-const severity = determineSeverity({
-    migrationRequired,
-    isMandatory: structureUpgradeRequired || blockers.length > 0
-})
+## Fixed Schema Surface
 
-// Application: missing schema or structure upgrade → MANDATORY, publication update → RECOMMENDED
-const severity = determineSeverity({
-    migrationRequired,
-    isMandatory: !schemaExists || structureUpgradeRequired
-})
-```
+The fixed `metahubs` schema stores design-time metadata, template registry data, and publication metadata.
+Representative business tables defined by the manifest include:
 
-## Updating Existing Metahubs
+- `cat_metahubs`
+- `cat_metahub_branches`
+- `rel_metahub_users`
+- `cat_templates`
+- `doc_template_versions`
+- `cat_publications`
+- `doc_publication_versions`
 
-When new functionality is added (new system tables, new seed data), previously created metahubs are updated **automatically** through two independent mechanisms:
+The fixed-schema system-table surface follows the enabled application-like capabilities for this system app and is tracked through local `_app_*` metadata tables.
 
-### Scenario 1: New System Tables or Columns (DDL Changes)
+## Branch Runtime Migrations
 
-**Trigger**: `CURRENT_STRUCTURE_VERSION` is bumped (e.g., 1 → N).
+Each metahub branch still owns its own managed runtime schema named `mhb_<uuid32>_bN`.
+Those branch schemas are versioned separately from the fixed `metahubs` schema and use the metahub-specific runtime history table `_mhb_migrations`.
+The current numeric branch structure version is `1`, and the public semver label is `0.1.0`.
 
-**How it works**: When any API call accesses a metahub, `MetahubSchemaService.ensureSchema()` is invoked. It reads the branch's `structureVersion` and compares it against `CURRENT_STRUCTURE_VERSION`. If the branch is behind, the auto-migration pipeline runs:
+The runtime migration engine for branches keeps these rules:
 
-```
-ensureSchema() detects: branch.structureVersion (older) < CURRENT (newer)
-  → SystemTableMigrator.migrate(fromVersion, toVersion)
-      → calculateSystemTableDiff(previous_tables, current_tables)
-      → Apply only ADDITIVE changes (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK)
-      → Record migration in _mhb_migrations table
-  → branch.structureVersion = CURRENT_STRUCTURE_VERSION (saved to DB)
-```
+- `calculateSystemTableDiff()` compares the stored branch structure version against the current system-table definition set.
+- `SystemTableMigrator` applies additive DDL changes and records them in `_mhb_migrations`.
+- PostgreSQL advisory locks serialize apply operations for the same branch schema.
+- Template seed migrations add new layouts, widgets, settings, and related metadata without overwriting user-customized rows.
 
-**Safety guarantees**:
-- Only additive changes are auto-applied; destructive changes (DROP TABLE/COLUMN) are logged but NEVER applied
-- PostgreSQL advisory locks prevent concurrent migrations on the same schema
-- Each migration is recorded in the `_mhb_migrations` table with full metadata
-- Migrations run within a transaction — partial failures are rolled back
+## Metahub Migration Routes
 
-### Scenario 2: New Seed Data (Template Updates)
+`@universo/metahubs-backend` owns the branch migration endpoints:
 
-**Trigger**: Template manifest version is bumped (e.g., `basic` template 1.0.x → 1.0.y).
+- `GET /metahub/:metahubId/migrations/status`
+- `GET /metahub/:metahubId/migrations`
+- `POST /metahub/:metahubId/migrations/plan`
+- `POST /metahub/:metahubId/migrations/apply`
 
-**How it works**: At application startup, `TemplateSeeder.seed()` detects the hash change and upserts the new template version. On the next `ensureSchema()` call for each metahub, the seed migration runs:
+These routes compute blockers, structure upgrades, template upgrades, and apply plans for the selected branch.
+Severity is derived through the shared `determineSeverity()` helper, where structure upgrades or blockers are mandatory and template-only upgrades are recommended.
 
-```
-ensureSchema() detects: seed needs migration
-  → TemplateSeedMigrator.migrateSeed(newSeed)
-      → migrateLayouts()        — add new layouts by template_key (skip existing)
-      → migrateZoneWidgets()    — add new widgets to new layouts
-      → migrateSettings()       — add new setting keys (skip existing)
-  → branch.seedVersion updated
-```
+## Application Migration-Control Routes Hosted Here
 
-**Key behavior**: Only NEW items are added. Existing user customizations are never overwritten.
+This package also mounts the runtime application migration-control endpoints used by the current authoring flow:
 
-## Application Sync
+- `GET /application/:applicationId/migrations/status`
+- `GET /application/:applicationId/migrations`
+- `GET /application/:applicationId/migration/:migrationId`
+- `GET /application/:applicationId/migration/:migrationId/analyze`
+- `POST /application/:applicationId/migration/:migrationId/rollback`
 
-Application schema sync is handled in `applicationSyncRoutes.ts`:
+These routes read runtime application migration history, expose rollback analysis, and support guarded rollback execution.
+They do not replace the runtime sync ownership of `@universo/applications-backend`.
 
-- Acquires a PostgreSQL advisory lock (`app-sync:{applicationId}`) to prevent concurrent syncs
-- Sets `schema_status = MAINTENANCE` during sync (visible to non-privileged users as a maintenance page)
-- Sets `schema_status = SYNCED` on success, `ERROR` on failure
-- Uses `persistPublishedWidgets()` and `persistPublishedLayouts()` to sync widget/layout data
-- Releases the advisory lock in a `finally` block
+## Ownership Boundary With Applications
 
-## Template Registry
+`@universo/metahubs-backend` owns design-time metadata, branch runtime migrations, publication metadata, and the migration-control surface.
+`@universo/applications-backend` owns runtime application schema sync, diff calculation, release-bundle export/apply, and persistence of `installed_release_metadata` in `applications.cat_applications`.
+Publication-driven application creation crosses this boundary, but the final runtime sync route surface stays in `@universo/applications-backend`.
 
-Two built-in templates are shipped:
-- **basic** — Minimal template with essential widgets (menu, header, details title, columns container). Default entities created based on `createOptions`.
-- **basic-demo** — Full demo template with ALL widgets active and sample entities (hub, catalog, set, enumeration with attributes and data).
+## Template Registry And Create Options
 
-## Entity Creation Options
-
-When creating a metahub via `POST /metahubs`, an optional `createOptions` object controls which default entities are seeded:
-- `createHub` (default: true) — Create default hub entity
-- `createCatalog` (default: true) — Create default catalog entity
-- `createSet` (default: true) — Create default set entity
-- `createEnumeration` (default: true) — Create default enumeration entity
-
-Branch and Layout are always created regardless of options.
+The built-in template registry still ships `basic` and `basic-demo`.
+When creating a metahub, `createOptions` can still pre-seed the default hub, catalog, set, and enumeration entities, while branch creation and base layout creation remain mandatory.
+Read this file as the package-local map of today’s hybrid state: a fixed design-time system app bootstrapped from a manual snapshot-equivalent baseline, plus runtime branch and application migration-control flows layered on top.

@@ -30,10 +30,10 @@ export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, read
     const repos = () => {
         const exec = getDbExecutor()
         const schemaService = new MetahubSchemaService(exec)
-        const objectsService = new MetahubObjectsService(schemaService)
-        const attributesService = new MetahubAttributesService(schemaService)
-        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
-        const hubsService = new MetahubHubsService(schemaService)
+        const objectsService = new MetahubObjectsService(exec, schemaService)
+        const attributesService = new MetahubAttributesService(exec, schemaService)
+        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
+        const hubsService = new MetahubHubsService(exec, schemaService)
 
         return {
             exec,

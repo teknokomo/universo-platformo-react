@@ -17,15 +17,22 @@ import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../.
 import { type MetahubMigrationStatusResponse, type MetahubTemplateManifest, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../services/structureVersions'
-import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import {
+    uuidToLockKey,
+    acquirePoolAdvisoryLock,
+    releasePoolAdvisoryLock,
+    hasPoolRuntimeHistoryTable,
+    createPoolTemplateSeedCleanupService,
+    createPoolTemplateSeedMigrator
+} from '../../ddl'
+import { getPoolExecutor, qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
 import { SYSTEM_TABLE_VERSIONS } from '../services/systemTableDefinitions'
 import { calculateSystemTableDiff } from '../services/systemTableDiff'
-import { TemplateSeedMigrator, type SeedMigrationResult } from '../../templates/services/TemplateSeedMigrator'
+import type { SeedMigrationResult } from '../../templates/services/TemplateSeedMigrator'
 import {
     TEMPLATE_CLEANUP_MODES,
-    TemplateSeedCleanupService,
     type TemplateCleanupMode,
     type TemplateSeedCleanupResult
 } from '../../templates/services/TemplateSeedCleanupService'
@@ -36,7 +43,6 @@ import {
     isKnexPoolTimeoutError,
     isMetahubDomainError
 } from '../../shared/domainErrors'
-import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 
 const listQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -382,7 +388,7 @@ async function buildTemplatePlan(
 ): Promise<TemplatePlan> {
     const blockers: StructuredBlocker[] = []
     const targetManifest = templateContext.targetManifest
-    const cleanupService = new TemplateSeedCleanupService(KnexClient.getInstance(), schemaName)
+    const cleanupService = createPoolTemplateSeedCleanupService(schemaName)
     const cleanup = await cleanupService.analyze({
         mode: cleanupMode,
         currentSeed: templateContext.currentManifest?.seed ?? null,
@@ -435,7 +441,7 @@ async function buildTemplatePlan(
     }
 
     try {
-        const seedMigrator = new TemplateSeedMigrator(KnexClient.getInstance(), schemaName)
+        const seedMigrator = createPoolTemplateSeedMigrator(schemaName)
         const dryRunResult = await seedMigrator.migrateSeed(targetManifest.seed, { dryRun: true })
         const hasChanges =
             dryRunResult.layoutsAdded > 0 ||
@@ -587,8 +593,7 @@ export function createMetahubMigrationsRoutes(
                 await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
                 const { branch } = await resolveBranchContext(exec, metahubId, userId, parsed.data.branchId)
 
-                const knex = KnexClient.getInstance()
-                const hasMigrationTable = await hasRuntimeHistoryTable(knex, branch.schemaName, '_mhb_migrations')
+                const hasMigrationTable = await hasPoolRuntimeHistoryTable(branch.schemaName, '_mhb_migrations')
                 if (!hasMigrationTable) {
                     return res.json({
                         items: [],
@@ -600,20 +605,26 @@ export function createMetahubMigrationsRoutes(
                     })
                 }
 
-                const countRow = await knex
-                    .withSchema(branch.schemaName)
-                    .from('_mhb_migrations')
-                    .count<{ count: string }[]>('* as count')
-                    .first()
-                const total = Number(countRow?.count ?? 0)
+                const poolExec = getPoolExecutor()
+                const migrationsTable = qSchemaTable(branch.schemaName, '_mhb_migrations')
 
-                const rows = await knex
-                    .withSchema(branch.schemaName)
-                    .from('_mhb_migrations')
-                    .select('id', 'name', 'applied_at', 'from_version', 'to_version', 'meta')
-                    .orderBy('applied_at', 'desc')
-                    .limit(parsed.data.limit)
-                    .offset(parsed.data.offset)
+                const countRows = await poolExec.query<{ count: string }>(`SELECT count(*) AS count FROM ${migrationsTable}`, [])
+                const total = Number(countRows[0]?.count ?? 0)
+
+                const rows = await poolExec.query<{
+                    id: string
+                    name: string
+                    applied_at: string
+                    from_version: string | number
+                    to_version: string | number
+                    meta: unknown
+                }>(
+                    `SELECT id, name, applied_at, from_version, to_version, meta
+                     FROM ${migrationsTable}
+                     ORDER BY applied_at DESC
+                     LIMIT $1 OFFSET $2`,
+                    [parsed.data.limit, parsed.data.offset]
+                )
 
                 return res.json({
                     items: rows.map((row) => ({
@@ -751,7 +762,7 @@ export function createMetahubMigrationsRoutes(
             }
 
             const lockKey = uuidToLockKey(`metahub-migration-apply:${branch.id}`)
-            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            const lockAcquired = await acquirePoolAdvisoryLock(lockKey)
             if (!lockAcquired) {
                 throw new MetahubMigrationApplyLockTimeoutError(
                     'Could not acquire migration apply lock. Another migration may be in progress.',
@@ -804,7 +815,7 @@ export function createMetahubMigrationsRoutes(
 
                 if (parsed.data.cleanupMode === 'confirm') {
                     const templateContext = await resolveTemplateContext(exec, metahub, branch, parsed.data.targetTemplateVersionId)
-                    const cleanupService = new TemplateSeedCleanupService(KnexClient.getInstance(), branch.schemaName)
+                    const cleanupService = createPoolTemplateSeedCleanupService(branch.schemaName)
                     cleanupResult = await cleanupService.apply({
                         mode: 'confirm',
                         currentSeed: templateContext.currentManifest?.seed ?? null,
@@ -863,7 +874,7 @@ export function createMetahubMigrationsRoutes(
                 }
                 throw error
             } finally {
-                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
+                await releasePoolAdvisoryLock(lockKey)
             }
 
             let structureVersion: string | number = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
@@ -886,15 +897,22 @@ export function createMetahubMigrationsRoutes(
                 structureVersion = refreshedBranch?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
                 templateVersionId = refreshedMetahub?.templateVersionId ?? null
 
-                const knex = KnexClient.getInstance()
-                const hasMigrationTable = await hasRuntimeHistoryTable(knex, branch.schemaName, '_mhb_migrations')
+                const hasMigrationTable = await hasPoolRuntimeHistoryTable(branch.schemaName, '_mhb_migrations')
                 const latest = hasMigrationTable
-                    ? await knex
-                          .withSchema(branch.schemaName)
-                          .from('_mhb_migrations')
-                          .select('id', 'name', 'applied_at', 'from_version', 'to_version', 'meta')
-                          .orderBy('applied_at', 'desc')
-                          .limit(10)
+                    ? await getPoolExecutor().query<{
+                          id: string
+                          name: string
+                          applied_at: string
+                          from_version: string | number
+                          to_version: string | number
+                          meta: unknown
+                      }>(
+                          `SELECT id, name, applied_at, from_version, to_version, meta
+                           FROM ${qSchemaTable(branch.schemaName, '_mhb_migrations')}
+                           ORDER BY applied_at DESC
+                           LIMIT 10`,
+                          []
+                      )
                     : []
 
                 latestMigrations = latest.map((row) => ({

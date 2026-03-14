@@ -1,20 +1,11 @@
 import { ApplicationSchemaStatus } from '@universo/types'
+import type { SqlQueryable } from '@universo/utils/database'
 import { persistApplicationSchemaSyncState } from '../../domains/applications/services/ApplicationSchemaStateStore'
 
 describe('ApplicationSchemaStateStore', () => {
     it('updates application schema state with audit/version fields', async () => {
-        const update = jest.fn().mockResolvedValue(1)
-        const where = jest.fn(() => ({ update }))
-        const table = jest.fn(() => ({ where }))
-        const withSchema = jest.fn(() => ({ table }))
-        const raw = jest.fn(() => 'VERSION_INCREMENT')
-        const trx = {
-            withSchema,
-            raw,
-            fn: {
-                now: jest.fn(() => 'NOW()')
-            }
-        } as unknown as import('knex').Knex.Transaction
+        const mockQuery = jest.fn().mockResolvedValue([{ id: 'app-1' }])
+        const trx: SqlQueryable = { query: mockQuery }
 
         await persistApplicationSchemaSyncState(trx, {
             applicationId: 'app-1',
@@ -27,36 +18,43 @@ describe('ApplicationSchemaStateStore', () => {
             userId: 'user-1'
         })
 
-        expect(withSchema).toHaveBeenCalledWith('applications')
-        expect(table).toHaveBeenCalledWith('cat_applications')
-        expect(where).toHaveBeenCalledWith({ id: 'app-1', _upl_deleted: false, _app_deleted: false })
-        expect(raw).toHaveBeenCalledWith('COALESCE(_upl_version, 1) + 1')
-        expect(update).toHaveBeenCalledWith(
-            expect.objectContaining({
-                schema_status: ApplicationSchemaStatus.SYNCED,
-                schema_error: null,
-                schema_snapshot: { entities: {} },
-                last_synced_publication_version_id: 'pub-ver-1',
-                app_structure_version: 1,
-                _upl_updated_at: 'NOW()',
-                _upl_updated_by: 'user-1',
-                _upl_version: 'VERSION_INCREMENT'
-            })
-        )
+        expect(mockQuery).toHaveBeenCalledTimes(1)
+        const [sql, params] = mockQuery.mock.calls[0]
+        expect(sql).toContain('UPDATE applications.cat_applications')
+        expect(sql).toContain('RETURNING id')
+        expect(sql).toContain('_upl_deleted = false AND _app_deleted = false')
+        expect(params).toContain(ApplicationSchemaStatus.SYNCED)
+        expect(params).toContain(null) // schemaError
+        expect(params).toContain('pub-ver-1')
+        expect(params).toContain(1) // appStructureVersion
+        expect(params).toContain('user-1')
+        expect(params).toContain('app-1') // applicationId (last param)
+    })
+
+    it('includes installedReleaseMetadata when provided', async () => {
+        const mockQuery = jest.fn().mockResolvedValue([{ id: 'app-1' }])
+        const trx: SqlQueryable = { query: mockQuery }
+
+        await persistApplicationSchemaSyncState(trx, {
+            applicationId: 'app-1',
+            schemaStatus: ApplicationSchemaStatus.SYNCED,
+            schemaError: null,
+            schemaSyncedAt: null,
+            schemaSnapshot: null,
+            lastSyncedPublicationVersionId: null,
+            appStructureVersion: null,
+            installedReleaseMetadata: { release: 'v1' },
+            userId: null
+        })
+
+        const [sql, params] = mockQuery.mock.calls[0]
+        expect(sql).toContain('installed_release_metadata')
+        expect(params).toContain(JSON.stringify({ release: 'v1' }))
     })
 
     it('throws when the application row is missing', async () => {
-        const update = jest.fn().mockResolvedValue(0)
-        const where = jest.fn(() => ({ update }))
-        const table = jest.fn(() => ({ where }))
-        const withSchema = jest.fn(() => ({ table }))
-        const trx = {
-            withSchema,
-            raw: jest.fn(() => 'VERSION_INCREMENT'),
-            fn: {
-                now: jest.fn(() => 'NOW()')
-            }
-        } as unknown as import('knex').Knex.Transaction
+        const mockQuery = jest.fn().mockResolvedValue([])
+        const trx: SqlQueryable = { query: mockQuery }
 
         await expect(
             persistApplicationSchemaSyncState(trx, {

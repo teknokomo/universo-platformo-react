@@ -1,4 +1,6 @@
-import { KnexClient } from '../../ddl'
+import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
+import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { incrementVersion } from '../../../utils/optimisticLock'
 import { getSettingDefinition } from '@universo/types'
@@ -9,15 +11,10 @@ const TABLE = '_mhb_settings'
 
 /**
  * Service to manage Metahub Settings stored in isolated schemas (_mhb_settings).
- * Follows the MetahubObjectsService pattern — uses MetahubSchemaService for
- * schema resolution and Knex for queries.
+ * Uses DbExecutor for all queries and MetahubSchemaService for schema resolution.
  */
 export class MetahubSettingsService {
-    constructor(private schemaService: MetahubSchemaService) {}
-
-    private get knex() {
-        return KnexClient.getInstance()
-    }
+    constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
 
     /**
      * Get all settings (non-deleted).
@@ -25,12 +22,13 @@ export class MetahubSettingsService {
      */
     async findAll(metahubId: string, userId?: string): Promise<MetahubSettingRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        return this.knex
-            .withSchema(schemaName)
-            .from(TABLE)
-            .where({ _upl_deleted: false, _mhb_deleted: false })
-            .select('*')
-            .orderBy('key', 'asc')
+        const qt = qSchemaTable(schemaName, TABLE)
+        return queryMany<MetahubSettingRow>(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE _upl_deleted = false AND _mhb_deleted = false
+             ORDER BY key ASC`
+        )
     }
 
     /**
@@ -38,18 +36,23 @@ export class MetahubSettingsService {
      */
     async findByKey(metahubId: string, key: string, userId?: string): Promise<MetahubSettingRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex.withSchema(schemaName).from(TABLE).where({ key, _upl_deleted: false, _mhb_deleted: false }).first()
-        return (row as MetahubSettingRow | undefined) ?? null
+        const qt = qSchemaTable(schemaName, TABLE)
+        return queryOne<MetahubSettingRow>(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE key = $1 AND _upl_deleted = false AND _mhb_deleted = false
+             LIMIT 1`,
+            [key]
+        )
     }
 
     /**
      * Get a single setting by key including soft-deleted rows.
      * Used internally to revive existing rows instead of inserting duplicates.
      */
-    private async findByKeyAnyState(metahubId: string, key: string, userId?: string): Promise<MetahubSettingRow | null> {
-        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex.withSchema(schemaName).from(TABLE).where({ key }).first()
-        return (row as MetahubSettingRow | undefined) ?? null
+    private async findByKeyAnyState(schemaName: string, key: string): Promise<MetahubSettingRow | null> {
+        const qt = qSchemaTable(schemaName, TABLE)
+        return queryOne<MetahubSettingRow>(this.exec, `SELECT * FROM ${qt} WHERE key = $1 LIMIT 1`, [key])
     }
 
     /**
@@ -58,18 +61,17 @@ export class MetahubSettingsService {
      * Returns the upserted row.
      */
     async upsert(metahubId: string, key: string, value: Record<string, unknown>, userId?: string): Promise<MetahubSettingRow> {
-        // Validate value against registry definition
         const validationError = validateSettingValue(key, value)
         if (validationError) {
             throw new Error(validationError)
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const existing = await this.findByKeyAnyState(metahubId, key, userId)
+        const existing = await this.findByKeyAnyState(schemaName, key)
 
         if (existing) {
-            const updated = await incrementVersion(this.knex, schemaName, TABLE, existing.id, {
-                value,
+            const updated = await incrementVersion(this.exec, schemaName, TABLE, existing.id, {
+                value: JSON.stringify(value),
                 _mhb_deleted: false,
                 _mhb_deleted_at: null,
                 _mhb_deleted_by: null,
@@ -82,27 +84,20 @@ export class MetahubSettingsService {
             return updated as unknown as MetahubSettingRow
         }
 
+        const qt = qSchemaTable(schemaName, TABLE)
         const now = new Date()
-        const [created] = await this.knex
-            .withSchema(schemaName)
-            .into(TABLE)
-            .insert({
-                key,
-                value,
-                _upl_created_at: now,
-                _upl_created_by: userId ?? null,
-                _upl_updated_at: now,
-                _upl_updated_by: userId ?? null,
-                _upl_version: 1,
-                _upl_archived: false,
-                _upl_deleted: false,
-                _upl_locked: false,
-                _mhb_published: true,
-                _mhb_archived: false,
-                _mhb_deleted: false
-            })
-            .returning('*')
-        return created as MetahubSettingRow
+        return queryOneOrThrow<MetahubSettingRow>(
+            this.exec,
+            `INSERT INTO ${qt}
+                (key, value, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                 _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                 _mhb_published, _mhb_archived, _mhb_deleted)
+             VALUES ($1, $2, $3, $4, $3, $4, 1, false, false, false, true, false, false)
+             RETURNING *`,
+            [key, JSON.stringify(value), now, userId ?? null],
+            undefined,
+            'Failed to insert setting'
+        )
     }
 
     /**
@@ -115,7 +110,6 @@ export class MetahubSettingsService {
         settings: Array<{ key: string; value: Record<string, unknown> }>,
         userId?: string
     ): Promise<MetahubSettingRow[]> {
-        // Validate all keys are known (before starting transaction)
         const unknownKeys = settings.map((s) => s.key).filter((k) => !getSettingDefinition(k))
         if (unknownKeys.length > 0) {
             throw new Error(`Unknown setting keys: ${unknownKeys.join(', ')}`)
@@ -130,53 +124,43 @@ export class MetahubSettingsService {
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, TABLE)
         const now = new Date()
 
-        return this.knex.transaction(async (trx) => {
+        return this.exec.transaction(async (tx: SqlQueryable) => {
             const results: MetahubSettingRow[] = []
             for (const setting of settings) {
-                const existing = await trx.withSchema(schemaName).from(TABLE).where({ key: setting.key }).first()
+                const existing = await queryOne<MetahubSettingRow>(tx, `SELECT * FROM ${qt} WHERE key = $1 LIMIT 1`, [setting.key])
 
                 if (existing) {
-                    const [updated] = await trx
-                        .withSchema(schemaName)
-                        .from(TABLE)
-                        .where({ id: existing.id })
-                        .update({
-                            value: setting.value,
-                            _mhb_deleted: false,
-                            _mhb_deleted_at: null,
-                            _mhb_deleted_by: null,
-                            _upl_deleted: false,
-                            _upl_deleted_at: null,
-                            _upl_deleted_by: null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: userId ?? null,
-                            _upl_version: trx.raw('_upl_version + 1')
-                        })
-                        .returning('*')
-                    results.push(updated as MetahubSettingRow)
+                    const updated = await queryOneOrThrow<MetahubSettingRow>(
+                        tx,
+                        `UPDATE ${qt}
+                         SET value = $1, _mhb_deleted = false, _mhb_deleted_at = NULL, _mhb_deleted_by = NULL,
+                             _upl_deleted = false, _upl_deleted_at = NULL, _upl_deleted_by = NULL,
+                             _upl_updated_at = $2, _upl_updated_by = $3,
+                             _upl_version = _upl_version + 1
+                         WHERE id = $4
+                         RETURNING *`,
+                        [JSON.stringify(setting.value), now, userId ?? null, existing.id],
+                        undefined,
+                        'Failed to update setting'
+                    )
+                    results.push(updated)
                 } else {
-                    const [created] = await trx
-                        .withSchema(schemaName)
-                        .into(TABLE)
-                        .insert({
-                            key: setting.key,
-                            value: setting.value,
-                            _upl_created_at: now,
-                            _upl_created_by: userId ?? null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: userId ?? null,
-                            _upl_version: 1,
-                            _upl_archived: false,
-                            _upl_deleted: false,
-                            _upl_locked: false,
-                            _mhb_published: true,
-                            _mhb_archived: false,
-                            _mhb_deleted: false
-                        })
-                        .returning('*')
-                    results.push(created as MetahubSettingRow)
+                    const created = await queryOneOrThrow<MetahubSettingRow>(
+                        tx,
+                        `INSERT INTO ${qt}
+                            (key, value, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                             _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                             _mhb_published, _mhb_archived, _mhb_deleted)
+                         VALUES ($1, $2, $3, $4, $3, $4, 1, false, false, false, true, false, false)
+                         RETURNING *`,
+                        [setting.key, JSON.stringify(setting.value), now, userId ?? null],
+                        undefined,
+                        'Failed to insert setting'
+                    )
+                    results.push(created)
                 }
             }
             return results
@@ -190,18 +174,16 @@ export class MetahubSettingsService {
      */
     async resetToDefault(metahubId: string, key: string, userId?: string): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, TABLE)
         const now = new Date()
-        await this.knex
-            .withSchema(schemaName)
-            .from(TABLE)
-            .where({ key, _mhb_deleted: false })
-            .update({
-                _mhb_deleted: true,
-                _mhb_deleted_at: now,
-                _mhb_deleted_by: userId ?? null,
-                _upl_updated_at: now,
-                _upl_updated_by: userId ?? null
-            })
+        await this.exec.query(
+            `UPDATE ${qt}
+             SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
+                 _upl_updated_at = $1, _upl_updated_by = $2
+             WHERE key = $3 AND _mhb_deleted = false
+             RETURNING id`,
+            [now, userId ?? null, key]
+        )
     }
 
     /**
@@ -210,22 +192,21 @@ export class MetahubSettingsService {
      */
     async clearHubNesting(metahubId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const now = new Date()
-        const updatedCount = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'hub' })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .andWhereRaw(`COALESCE(config->>'parentHubId', '') <> ''`)
-            .update({
-                config: this.knex.raw(`jsonb_set(COALESCE(config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true)`),
-                _upl_updated_at: now,
-                _upl_updated_by: userId ?? null,
-                _upl_version: this.knex.raw('_upl_version + 1')
-            })
-
-        return typeof updatedCount === 'number' ? updatedCount : 0
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const rows = await this.exec.query<{ id: string }>(
+            `UPDATE ${qt}
+             SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true),
+                 _upl_updated_at = $1,
+                 _upl_updated_by = $2,
+                 _upl_version = _upl_version + 1
+             WHERE kind = 'hub'
+               AND _upl_deleted = false
+               AND _mhb_deleted = false
+               AND COALESCE(config->>'parentHubId', '') <> ''
+             RETURNING id`,
+            [new Date(), userId ?? null]
+        )
+        return rows.length
     }
 
     /**
@@ -233,17 +214,15 @@ export class MetahubSettingsService {
      */
     async hasHubNesting(metahubId: string, userId?: string): Promise<boolean> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'hub' })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .andWhereRaw(`COALESCE(config->>'parentHubId', '') <> ''`)
-            .count<{ total: string | number }[]>('* as total')
-            .first()
-
-        const total = Number(row?.total ?? 0)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const rows = await this.exec.query<{ total: string }>(
+            `SELECT COUNT(*)::text AS total FROM ${qt}
+             WHERE kind = 'hub'
+               AND _upl_deleted = false
+               AND _mhb_deleted = false
+               AND COALESCE(config->>'parentHubId', '') <> ''`
+        )
+        const total = Number(rows[0]?.total ?? 0)
         return Number.isFinite(total) && total > 0
     }
 }

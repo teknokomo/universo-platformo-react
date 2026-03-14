@@ -2,17 +2,16 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
 import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
-import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
-import { type SetCopyOptions, MetaEntityKind } from '@universo/types'
+import { localizedContent, validation, database, OptimisticLockError } from '@universo/utils'
+import { type SetCopyOptions, type ConstantDataType, MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
-import { KnexClient } from '../../ddl'
 import {
     getCodenameSettings,
     codenameErrorMessage,
@@ -364,10 +363,10 @@ export function createSetsRoutes(
         return {
             exec,
             schemaService,
-            hubsService: new MetahubHubsService(schemaService),
-            objectsService: new MetahubObjectsService(schemaService),
-            constantsService: new MetahubConstantsService(schemaService),
-            settingsService: new MetahubSettingsService(schemaService)
+            hubsService: new MetahubHubsService(exec, schemaService),
+            objectsService: new MetahubObjectsService(exec, schemaService),
+            constantsService: new MetahubConstantsService(exec, schemaService),
+            settingsService: new MetahubSettingsService(exec, schemaService)
         }
     }
 
@@ -863,17 +862,6 @@ export function createSetsRoutes(
                 })
             }
 
-            const codename = await resolveUniqueSetCodename({
-                metahubId,
-                baseCodename: normalizedBaseCodename,
-                codenameStyle,
-                objectsService,
-                userId
-            })
-            if (!codename) {
-                return res.status(409).json({ error: 'Unable to generate unique codename for set copy' })
-            }
-
             const copyOptions: SetCopyOptions = normalizeSetCopyOptions({
                 copyConstants: parsed.data.copyConstants
             })
@@ -884,10 +872,6 @@ export function createSetsRoutes(
                 DEFAULT_PRIMARY_LOCALE
             )
             const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? DEFAULT_PRIMARY_LOCALE)
-            const codenameLocalizedForSetCopy =
-                parsed.data.codenameInput === undefined
-                    ? buildCodenameLocalizedVlc({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
-                    : codenameLocalizedVlc
 
             const nameInput = parsed.data.name ?? buildDefaultCopyNameInput(sourceSet.presentation?.name)
             const descriptionInput = parsed.data.description
@@ -919,72 +903,90 @@ export function createSetsRoutes(
 
             let copiedConstants = 0
             let createdSetId: string | null = null
-            try {
-                await KnexClient.getInstance().transaction(async (trx) => {
-                    const createdSet = (await objectsService.createSet(
-                        metahubId,
-                        {
-                            codename,
-                            codenameLocalized: codenameLocalizedForSetCopy,
-                            name: nameVlc,
-                            description: descriptionVlc,
-                            config: {
-                                ...sourceConfig,
-                                sortOrder: undefined,
-                                hubs: sourceHubIds
-                            },
-                            createdBy: userId
-                        },
-                        userId,
-                        trx
-                    )) as SetObjectRow
-                    createdSetId = createdSet.id
 
-                    if (copyOptions.copyConstants) {
-                        for (const sourceConstant of sourceConstants) {
-                            const constantCodename = await constantsService.ensureUniqueCodenameWithRetries({
-                                metahubId,
-                                setId: createdSet.id,
-                                desiredCodename: String(sourceConstant.codename),
-                                codenameStyle,
-                                userId,
-                                trx
-                            })
-                            const constantCodenameLocalized = buildCodenameLocalizedVlc(
-                                { [DEFAULT_PRIMARY_LOCALE]: constantCodename },
-                                DEFAULT_PRIMARY_LOCALE,
-                                DEFAULT_PRIMARY_LOCALE
-                            )
-                            await constantsService.create(
-                                metahubId,
-                                {
-                                    setId: createdSet.id,
-                                    codename: constantCodename,
-                                    dataType: sourceConstant.dataType,
-                                    name: sourceConstant.name,
-                                    codenameLocalized: constantCodenameLocalized,
-                                    validationRules: sourceConstant.validationRules,
-                                    uiConfig: sourceConstant.uiConfig,
-                                    value: sourceConstant.value,
-                                    sortOrder: sourceConstant.sortOrder,
-                                    createdBy: userId
+            for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
+                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
+                const codenameLocalizedForSetCopy =
+                    parsed.data.codenameInput === undefined
+                        ? buildCodenameLocalizedVlc(
+                              { [codenamePrimaryLocale]: codenameCandidate },
+                              codenamePrimaryLocale,
+                              codenamePrimaryLocale
+                          )
+                        : codenameLocalizedVlc
+
+                try {
+                    copiedConstants = 0
+                    await exec.transaction(async (trx: SqlQueryable) => {
+                        const createdSet = (await objectsService.createSet(
+                            metahubId,
+                            {
+                                codename: codenameCandidate,
+                                codenameLocalized: codenameLocalizedForSetCopy,
+                                name: nameVlc,
+                                description: descriptionVlc,
+                                config: {
+                                    ...sourceConfig,
+                                    sortOrder: undefined,
+                                    hubs: sourceHubIds
                                 },
-                                userId,
-                                trx
-                            )
-                            copiedConstants += 1
+                                createdBy: userId
+                            },
+                            userId,
+                            trx
+                        )) as SetObjectRow
+                        createdSetId = createdSet.id
+
+                        if (copyOptions.copyConstants) {
+                            for (const sourceConstant of sourceConstants) {
+                                const constantCodename = await constantsService.ensureUniqueCodenameWithRetries({
+                                    metahubId,
+                                    setId: createdSet.id,
+                                    desiredCodename: String(sourceConstant.codename),
+                                    codenameStyle,
+                                    userId,
+                                    db: trx
+                                })
+                                const constantCodenameLocalized = buildCodenameLocalizedVlc(
+                                    { [DEFAULT_PRIMARY_LOCALE]: constantCodename },
+                                    DEFAULT_PRIMARY_LOCALE,
+                                    DEFAULT_PRIMARY_LOCALE
+                                )
+                                await constantsService.create(
+                                    metahubId,
+                                    {
+                                        setId: createdSet.id,
+                                        codename: constantCodename,
+                                        dataType: sourceConstant.dataType as ConstantDataType,
+                                        name: sourceConstant.name,
+                                        codenameLocalized: constantCodenameLocalized,
+                                        validationRules: sourceConstant.validationRules as Record<string, unknown> | undefined,
+                                        uiConfig: sourceConstant.uiConfig as Record<string, unknown> | undefined,
+                                        value: sourceConstant.value,
+                                        sortOrder: sourceConstant.sortOrder as number | undefined,
+                                        createdBy: userId
+                                    },
+                                    userId,
+                                    trx
+                                )
+                                copiedConstants += 1
+                            }
+                        }
+                    })
+                    break
+                } catch (error) {
+                    if (database.isUniqueViolation(error)) {
+                        const constraint = database.getDbErrorConstraint(error) ?? ''
+                        if (constraint === 'idx_mhb_objects_kind_codename_active') {
+                            continue
                         }
                     }
-                })
-            } catch (error) {
-                if (isUniqueViolation(error)) {
-                    return res.status(409).json({ error: 'Set with this codename already exists in this metahub' })
+                    throw error
                 }
-                throw error
             }
 
             if (!createdSetId) {
-                return res.status(500).json({ error: 'Failed to copy set' })
+                return res.status(409).json({ error: 'Unable to generate unique codename for set copy' })
             }
 
             const copiedSet = await getSetById(metahubId, createdSetId, {

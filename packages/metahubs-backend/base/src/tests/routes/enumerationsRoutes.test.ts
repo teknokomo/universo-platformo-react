@@ -20,10 +20,7 @@ jest.mock('../../persistence', () => ({
 }))
 
 const mockEnsureMetahubAccess = jest.fn()
-const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
-const mockKnex = {
-    transaction: jest.fn()
-}
+const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -31,10 +28,7 @@ jest.mock('../../domains/shared/guards', () => ({
 }))
 
 jest.mock('../../domains/ddl', () => ({
-    __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    }
+    __esModule: true
 }))
 
 const baseNameVlc = {
@@ -125,22 +119,7 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
 }))
 
 describe('Enumerations Routes', () => {
-    const createEnumerationCopyTransactionStub = (params?: {
-        copiedEnumeration?: Record<string, unknown>
-        sourceValues?: Array<Record<string, unknown>>
-    }) => {
-        const createdEnumeration =
-            params?.copiedEnumeration ??
-            ({
-                id: 'enum-copy-id',
-                codename: 'StatusCopy',
-                presentation: { name: baseNameVlc, description: baseDescriptionVlc },
-                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
-                _upl_version: 1,
-                _upl_created_at: '2026-02-26T00:00:00.000Z',
-                _upl_updated_at: '2026-02-26T00:00:00.000Z'
-            } as Record<string, unknown>)
-
+    const createEnumerationCopyTransactionTrx = (params?: { sourceValues?: Array<Record<string, unknown>> }) => {
         const sourceValues = params?.sourceValues ?? [
             {
                 codename: 'open',
@@ -150,57 +129,14 @@ describe('Enumerations Routes', () => {
             }
         ]
 
-        const objectsInsertReturning = jest.fn().mockResolvedValue([createdEnumeration])
-        const valuesSelect = jest.fn().mockResolvedValue(sourceValues)
-        const valuesInsert = jest.fn().mockResolvedValue(undefined)
-
-        const trx = {
-            withSchema: jest.fn(() => ({
-                into: jest.fn((tableName: string) => {
-                    if (tableName === '_mhb_objects') {
-                        return {
-                            insert: jest.fn(() => ({
-                                returning: (...args: unknown[]) => objectsInsertReturning(...args)
-                            }))
-                        }
-                    }
-                    if (tableName === '_mhb_values') {
-                        return {
-                            insert: (...args: unknown[]) => valuesInsert(...args)
-                        }
-                    }
-                    return {
-                        insert: jest.fn()
-                    }
-                }),
-                from: jest.fn((tableName: string) => {
-                    if (tableName === '_mhb_values') {
-                        return {
-                            where: jest.fn(() => ({
-                                andWhere: jest.fn(() => ({
-                                    andWhere: jest.fn(() => ({
-                                        orderBy: jest.fn(() => ({
-                                            orderBy: jest.fn(() => ({
-                                                select: (...args: unknown[]) => valuesSelect(...args)
-                                            }))
-                                        }))
-                                    }))
-                                }))
-                            }))
-                        }
-                    }
-                    return {
-                        where: jest.fn()
-                    }
-                })
-            }))
+        const queryMock = jest.fn().mockResolvedValue([])
+        // Sequence: SELECT values → sourceValues, INSERT values batch → undefined
+        if (sourceValues.length > 0) {
+            queryMock.mockResolvedValueOnce(sourceValues)
+            queryMock.mockResolvedValueOnce(sourceValues.map((_, i) => ({ id: `copied-value-${i}` })))
         }
 
-        return {
-            trx,
-            valuesInsert,
-            valuesSelect
-        }
+        return { query: queryMock }
     }
 
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -303,7 +239,7 @@ describe('Enumerations Routes', () => {
         ])
         mockFindMetahubById.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
-        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+        mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
     })
 
     describe('PATCH /metahub/:metahubId/enumeration/:enumerationId/values/reorder', () => {
@@ -481,8 +417,10 @@ describe('Enumerations Routes', () => {
         })
 
         it('copies enumeration with values successfully', async () => {
-            const tx = createEnumerationCopyTransactionStub()
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            const trx = createEnumerationCopyTransactionTrx()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -498,22 +436,16 @@ describe('Enumerations Routes', () => {
             expect(response.body.codename).toBe('StatusCopy')
             expect(response.body.sortOrder).toBe(1)
             expect(response.body.valuesCount).toBe(1)
-            expect(tx.valuesInsert).toHaveBeenCalledTimes(1)
+            // trx.query called: SELECT values (1) + INSERT values (1) = 2
+            expect(trx.query).toHaveBeenCalledTimes(2)
             expect(mockObjectsService.createEnumeration).toHaveBeenCalled()
         })
 
         it('does not copy values when copyValues is disabled', async () => {
-            const tx = createEnumerationCopyTransactionStub({
-                sourceValues: [
-                    {
-                        codename: 'open',
-                        presentation: baseNameVlc,
-                        sort_order: 1,
-                        is_default: true
-                    }
-                ]
-            })
-            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+            const trx = createEnumerationCopyTransactionTrx()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -525,8 +457,8 @@ describe('Enumerations Routes', () => {
                 .expect(201)
 
             expect(response.body.valuesCount).toBe(0)
-            expect(tx.valuesSelect).not.toHaveBeenCalled()
-            expect(tx.valuesInsert).not.toHaveBeenCalled()
+            // No queries on trx for values (createEnumeration is a mocked service call, not SQL)
+            expect(trx.query).not.toHaveBeenCalled()
         })
 
         it('retries copy after codename unique violation and succeeds', async () => {
@@ -534,17 +466,7 @@ describe('Enumerations Routes', () => {
                 code: '23505',
                 constraint: 'idx_mhb_objects_kind_codename_active'
             })
-            const tx = createEnumerationCopyTransactionStub({
-                copiedEnumeration: {
-                    id: 'enum-copy-id-2',
-                    codename: 'StatusCopy_2',
-                    presentation: { name: baseNameVlc, description: baseDescriptionVlc },
-                    config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
-                    _upl_version: 1,
-                    _upl_created_at: '2026-02-26T00:00:00.000Z',
-                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
-                }
-            })
+            const trx = createEnumerationCopyTransactionTrx()
             mockObjectsService.createEnumeration.mockResolvedValueOnce({
                 id: 'enum-copy-id-2',
                 codename: 'StatusCopy_2',
@@ -554,10 +476,9 @@ describe('Enumerations Routes', () => {
                 _upl_created_at: '2026-02-26T00:00:00.000Z',
                 _upl_updated_at: '2026-02-26T00:00:00.000Z'
             })
-
-            mockKnex.transaction
+            ;(mockExec.transaction as jest.Mock)
                 .mockRejectedValueOnce(uniqueViolation)
-                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(trx))
 
             const app = buildApp()
             const response = await request(app)
@@ -567,7 +488,7 @@ describe('Enumerations Routes', () => {
 
             expect(response.body.id).toBe('enum-copy-id-2')
             expect(response.body.codename).toBe('StatusCopy_2')
-            expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
+            expect(mockExec.transaction).toHaveBeenCalledTimes(2)
         })
     })
 })

@@ -124,7 +124,7 @@ export function createSettingsRoutes(
     const services = (req: Request) => {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
-        const settingsService = new MetahubSettingsService(schemaService)
+        const settingsService = new MetahubSettingsService(exec, schemaService)
         return { exec, settingsService }
     }
 

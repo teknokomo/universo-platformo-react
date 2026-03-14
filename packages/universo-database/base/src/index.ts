@@ -1,4 +1,6 @@
 export { initKnex, getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown } from './KnexClient'
 export type { DatabaseHealthStatus } from './KnexClient'
 export { createKnexExecutor, createRlsExecutor } from './knexExecutor'
+export { getPoolExecutor } from './poolExecutor'
 export { convertPgBindings } from './pgBindings'
+export { qSchema, qTable, qSchemaTable, qColumn } from './identifiers'

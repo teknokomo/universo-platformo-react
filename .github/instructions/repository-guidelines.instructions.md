@@ -11,7 +11,7 @@ applyTo: '**'
     -   Each app contains a `base/` directory for the default implementation.
 -   Front-end apps include `i18n/` with default locales `en/` and `ru/`.
 -   Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
--   Extends Flowise AI with Supabase multi-user features; keep upstream changes minimal and isolated.
+-   Extends an inherited upstream shell with Supabase multi-user features; keep upstream changes minimal and isolated.
 
 ## Build, Test, and Development Commands
 
@@ -28,7 +28,7 @@ applyTo: '**'
 -   Indentation: 2 spaces; avoid trailing whitespace.
 -   React: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
 -   i18n keys use dot notation (e.g., `auth.login.button`).
--   Keep changes to original Flowise code minimal and well-scoped.
+-   Keep changes to original upstream shell code minimal and well-scoped.
 -   Branch names use English only (e.g., `feature/publish-workflow`, `fix/updl-parser`).
 
 ## Testing Guidelines

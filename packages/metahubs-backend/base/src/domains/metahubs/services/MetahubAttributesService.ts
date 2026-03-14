@@ -1,39 +1,20 @@
-import { KnexClient } from '../../ddl'
+import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
+import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { AttributeDataType, TABLE_CHILD_DATA_TYPES } from '@universo/types'
 import { generateUuidV7 } from '@universo/utils'
 import { buildCodenameAttempt, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/codenameStyleHelper'
-import type { Knex } from 'knex'
+
+const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
  * Replaces the old TypeORM Attribute entity logic.
  */
 export class MetahubAttributesService {
-    constructor(private schemaService: MetahubSchemaService) {}
-
-    private readonly activeBranchWhereSql = '_upl_deleted = false AND _mhb_deleted = false'
-
-    private quoteSchemaName(schemaName: string): string {
-        return `"${schemaName.replace(/"/g, '""')}"`
-    }
-
-    private attributesTable(schemaName: string): string {
-        return `${this.quoteSchemaName(schemaName)}."_mhb_attributes"`
-    }
-
-    private get knex() {
-        return KnexClient.getInstance()
-    }
-
-    private getRunner(trx?: Knex.Transaction) {
-        return trx ?? this.knex
-    }
-
-    private applyActiveBranchFilter<TQuery extends Knex.QueryBuilder>(query: TQuery): TQuery {
-        return query.andWhere('_upl_deleted', false).andWhere('_mhb_deleted', false) as TQuery
-    }
+    constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
 
     private getMaxChildAttributesLimit(validationRules: unknown): number | null {
         if (!validationRules || typeof validationRules !== 'object') {
@@ -72,14 +53,14 @@ export class MetahubAttributesService {
         return error
     }
 
-    private async generateUniqueTableAttributeId(schemaName: string, catalogId: string, trx?: Knex.Transaction): Promise<string> {
-        const runner = this.getRunner(trx)
-        const existingTableAttrs = (await runner
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .select('id')
-            .where({ object_id: catalogId, data_type: AttributeDataType.TABLE })
-            .whereNull('parent_attribute_id')) as Array<{ id: string }>
+    private async generateUniqueTableAttributeId(schemaName: string, catalogId: string, db?: SqlQueryable): Promise<string> {
+        const runner = db ?? this.exec
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const existingTableAttrs = await queryMany<{ id: string }>(
+            runner,
+            `SELECT id FROM ${qt} WHERE object_id = $1 AND data_type = $2 AND parent_attribute_id IS NULL`,
+            [catalogId, AttributeDataType.TABLE]
+        )
 
         const usedPrefixes = new Set(existingTableAttrs.map((row) => row.id.replace(/-/g, '').substring(0, 12)))
 
@@ -100,49 +81,44 @@ export class MetahubAttributesService {
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const [result] = await this.schemaService.query<{ count: number | string }>(
-            `
-                SELECT COUNT(*)::int AS count
-                FROM ${this.attributesTable(schemaName)}
-                WHERE object_id = $1
-                  AND parent_attribute_id IS NULL
-                  AND ${this.activeBranchWhereSql}
-            `,
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const result = await queryOne<{ count: number }>(
+            this.exec,
+            `SELECT COUNT(*)::int AS count FROM ${qt}
+             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${ACTIVE}`,
             [objectId]
         )
-        return result ? parseInt(String(result.count), 10) : 0
+        return result ? result.count : 0
     }
 
     /**
      * Count TABLE-type attributes for a specific object.
      */
-    async countTableAttributes(metahubId: string, objectId: string, userId?: string, trx?: Knex.Transaction): Promise<number> {
+    async countTableAttributes(metahubId: string, objectId: string, userId?: string, db?: SqlQueryable): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const runner = this.getRunner(trx)
-        const result = await this.applyActiveBranchFilter(
-            runner
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ object_id: objectId, data_type: AttributeDataType.TABLE })
-                .whereNull('parent_attribute_id')
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const result = await queryOne<{ count: number }>(
+            db ?? this.exec,
+            `SELECT COUNT(*)::int AS count FROM ${qt}
+             WHERE object_id = $1 AND data_type = $2 AND parent_attribute_id IS NULL AND ${ACTIVE}`,
+            [objectId, AttributeDataType.TABLE]
         )
-            .count('* as count')
-            .first()
-        return result ? parseInt(result.count as string, 10) : 0
+        return result ? result.count : 0
     }
 
     /**
      * Count child attributes of a TABLE attribute.
      */
-    async countChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, trx?: Knex.Transaction): Promise<number> {
+    async countChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, db?: SqlQueryable): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const runner = this.getRunner(trx)
-        const result = await this.applyActiveBranchFilter(
-            runner.withSchema(schemaName).from('_mhb_attributes').where({ parent_attribute_id: parentAttributeId })
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const result = await queryOne<{ count: number }>(
+            db ?? this.exec,
+            `SELECT COUNT(*)::int AS count FROM ${qt}
+             WHERE parent_attribute_id = $1 AND ${ACTIVE}`,
+            [parentAttributeId]
         )
-            .count('* as count')
-            .first()
-        return result ? parseInt(result.count as string, 10) : 0
+        return result ? result.count : 0
     }
 
     /**
@@ -152,20 +128,18 @@ export class MetahubAttributesService {
         if (objectIds.length === 0) return new Map()
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const results = await this.schemaService.query<{ object_id: string; count: number | string }>(
-            `
-                SELECT object_id, COUNT(*)::int AS count
-                FROM ${this.attributesTable(schemaName)}
-                WHERE object_id = ANY($1::uuid[])
-                                    AND ${this.activeBranchWhereSql}
-                GROUP BY object_id
-            `,
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const results = await queryMany<{ object_id: string; count: number }>(
+            this.exec,
+            `SELECT object_id, COUNT(*)::int AS count FROM ${qt}
+             WHERE object_id = ANY($1::uuid[]) AND ${ACTIVE}
+             GROUP BY object_id`,
             [objectIds]
         )
 
         const counts = new Map<string, number>()
-        results.forEach((row: any) => {
-            counts.set(row.object_id, parseInt(row.count as string, 10))
+        results.forEach((row) => {
+            counts.set(row.object_id, row.count)
         })
         return counts
     }
@@ -176,15 +150,12 @@ export class MetahubAttributesService {
      */
     async findAll(metahubId: string, objectId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.schemaService.query(
-            `
-                SELECT *
-                FROM ${this.attributesTable(schemaName)}
-                WHERE object_id = $1
-                  AND parent_attribute_id IS NULL
-                                    AND ${this.activeBranchWhereSql}
-                ORDER BY sort_order ASC, _upl_created_at ASC
-            `,
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const rows = await queryMany(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
             [objectId]
         )
 
@@ -196,11 +167,14 @@ export class MetahubAttributesService {
      */
     async findAllFlat(metahubId: string, objectId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.applyActiveBranchFilter(
-            this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const rows = await queryMany(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            [objectId]
         )
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -208,14 +182,16 @@ export class MetahubAttributesService {
     /**
      * Returns child attributes of a TABLE attribute.
      */
-    async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, trx?: Knex.Transaction) {
+    async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const runner = this.getRunner(trx)
-        const rows = await this.applyActiveBranchFilter(
-            runner.withSchema(schemaName).from('_mhb_attributes').where({ parent_attribute_id: parentAttributeId })
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const rows = await queryMany(
+            db ?? this.exec,
+            `SELECT * FROM ${qt}
+             WHERE parent_attribute_id = $1 AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            [parentAttributeId]
         )
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -232,14 +208,12 @@ export class MetahubAttributesService {
         if (parentAttributeIds.length === 0) return result
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.schemaService.query(
-            `
-                SELECT *
-                FROM ${this.attributesTable(schemaName)}
-                WHERE parent_attribute_id = ANY($1::uuid[])
-                                    AND ${this.activeBranchWhereSql}
-                ORDER BY sort_order ASC, _upl_created_at ASC
-            `,
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const rows = await queryMany(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE parent_attribute_id = ANY($1::uuid[]) AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
             [parentAttributeIds]
         )
 
@@ -255,32 +229,20 @@ export class MetahubAttributesService {
 
     async getAllAttributes(metahubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.applyActiveBranchFilter(this.knex.withSchema(schemaName).from('_mhb_attributes'))
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const rows = await queryMany(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`
+        )
 
         return rows.map(this.mapRowToAttribute)
     }
 
-    async findById(metahubId: string, id: string, userId?: string, trx?: Knex.Transaction) {
+    async findById(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        if (!trx) {
-            const [row] = await this.schemaService.query(
-                `
-                    SELECT *
-                    FROM ${this.attributesTable(schemaName)}
-                    WHERE id = $1
-                      AND ${this.activeBranchWhereSql}
-                    LIMIT 1
-                `,
-                [id]
-            )
-
-            return row ? this.mapRowToAttribute(row) : null
-        }
-
-        const runner = this.getRunner(trx)
-        const row = await this.applyActiveBranchFilter(runner.withSchema(schemaName).from('_mhb_attributes').where({ id })).first()
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const row = await queryOne(db ?? this.exec, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
 
         return row ? this.mapRowToAttribute(row) : null
     }
@@ -291,27 +253,26 @@ export class MetahubAttributesService {
         codename: string,
         parentAttributeId?: string | null,
         userId?: string,
-        trx?: Knex.Transaction,
+        db?: SqlQueryable,
         options?: { ignoreParentScope?: boolean }
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const runner = this.getRunner(trx)
-        let query = runner
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId, codename })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const conditions = [`object_id = $1`, `codename = $2`, ACTIVE]
+        const params: unknown[] = [objectId, codename]
+        let idx = 3
 
         if (!options?.ignoreParentScope) {
             if (parentAttributeId) {
-                query = query.andWhere({ parent_attribute_id: parentAttributeId })
+                conditions.push(`parent_attribute_id = $${idx}`)
+                params.push(parentAttributeId)
+                idx++
             } else {
-                query = query.whereNull('parent_attribute_id')
+                conditions.push(`parent_attribute_id IS NULL`)
             }
         }
 
-        const row = await query.first()
+        const row = await queryOne(db ?? this.exec, `SELECT * FROM ${qt} WHERE ${conditions.join(' AND ')} LIMIT 1`, params)
 
         return row ? this.mapRowToAttribute(row) : null
     }
@@ -322,30 +283,37 @@ export class MetahubAttributesService {
      */
     async findCatalogReferenceBlockers(metahubId: string, targetCatalogId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes as attr')
-            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
-            .where('attr.data_type', 'REF')
-            .andWhere('attr.target_object_id', targetCatalogId)
-            .andWhereNot('attr.object_id', targetCatalogId)
-            .andWhere((qb) => qb.where('attr.target_object_kind', 'catalog').orWhereNull('attr.target_object_kind'))
-            .andWhere('attr._upl_deleted', false)
-            .andWhere('attr._mhb_deleted', false)
-            .andWhere('obj._upl_deleted', false)
-            .andWhere('obj._mhb_deleted', false)
-            .select(
-                'attr.id as attribute_id',
-                'attr.codename as attribute_codename',
-                'attr.presentation as attribute_presentation',
-                'attr.object_id as source_catalog_id',
-                'obj.codename as source_catalog_codename',
-                'obj.presentation as source_catalog_presentation'
-            )
-            .orderBy('obj.codename', 'asc')
-            .orderBy('attr.sort_order', 'asc')
+        const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
+        const objTable = qSchemaTable(schemaName, '_mhb_objects')
+        const rows = await queryMany<{
+            attribute_id: string
+            attribute_codename: string
+            attribute_presentation: any
+            source_catalog_id: string
+            source_catalog_codename: string
+            source_catalog_presentation: any
+        }>(
+            this.exec,
+            `SELECT
+                attr.id AS attribute_id,
+                attr.codename AS attribute_codename,
+                attr.presentation AS attribute_presentation,
+                attr.object_id AS source_catalog_id,
+                obj.codename AS source_catalog_codename,
+                obj.presentation AS source_catalog_presentation
+             FROM ${attrTable} attr
+             LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
+             WHERE attr.data_type = 'REF'
+               AND attr.target_object_id = $1
+               AND attr.object_id != $1
+               AND (attr.target_object_kind = 'catalog' OR attr.target_object_kind IS NULL)
+               AND attr._upl_deleted = false AND attr._mhb_deleted = false
+               AND obj._upl_deleted = false AND obj._mhb_deleted = false
+             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+            [targetCatalogId]
+        )
 
-        return rows.map((row: any) => ({
+        return rows.map((row) => ({
             attributeId: row.attribute_id,
             attributeCodename: row.attribute_codename,
             attributeName: row.attribute_presentation?.name ?? null,
@@ -361,29 +329,36 @@ export class MetahubAttributesService {
      */
     async findReferenceBlockersByTarget(metahubId: string, targetObjectId: string, targetObjectKind: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes as attr')
-            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
-            .where('attr.data_type', 'REF')
-            .andWhere('attr.target_object_id', targetObjectId)
-            .andWhere('attr.target_object_kind', targetObjectKind)
-            .andWhere('attr._upl_deleted', false)
-            .andWhere('attr._mhb_deleted', false)
-            .andWhere('obj._upl_deleted', false)
-            .andWhere('obj._mhb_deleted', false)
-            .select(
-                'attr.id as attribute_id',
-                'attr.codename as attribute_codename',
-                'attr.presentation as attribute_presentation',
-                'attr.object_id as source_catalog_id',
-                'obj.codename as source_catalog_codename',
-                'obj.presentation as source_catalog_presentation'
-            )
-            .orderBy('obj.codename', 'asc')
-            .orderBy('attr.sort_order', 'asc')
+        const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
+        const objTable = qSchemaTable(schemaName, '_mhb_objects')
+        const rows = await queryMany<{
+            attribute_id: string
+            attribute_codename: string
+            attribute_presentation: any
+            source_catalog_id: string
+            source_catalog_codename: string
+            source_catalog_presentation: any
+        }>(
+            this.exec,
+            `SELECT
+                attr.id AS attribute_id,
+                attr.codename AS attribute_codename,
+                attr.presentation AS attribute_presentation,
+                attr.object_id AS source_catalog_id,
+                obj.codename AS source_catalog_codename,
+                obj.presentation AS source_catalog_presentation
+             FROM ${attrTable} attr
+             LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
+             WHERE attr.data_type = 'REF'
+               AND attr.target_object_id = $1
+               AND attr.target_object_kind = $2
+               AND attr._upl_deleted = false AND attr._mhb_deleted = false
+               AND obj._upl_deleted = false AND obj._mhb_deleted = false
+             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+            [targetObjectId, targetObjectKind]
+        )
 
-        return rows.map((row: any) => ({
+        return rows.map((row) => ({
             attributeId: row.attribute_id,
             attributeCodename: row.attribute_codename,
             attributeName: row.attribute_presentation?.name ?? null,
@@ -399,29 +374,36 @@ export class MetahubAttributesService {
      */
     async findDefaultEnumValueBlockers(metahubId: string, enumValueId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes as attr')
-            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
-            .where('attr.data_type', 'REF')
-            .andWhere('attr.target_object_kind', 'enumeration')
-            .andWhereRaw(`attr.ui_config ->> 'defaultEnumValueId' = ?`, [enumValueId])
-            .andWhere('attr._upl_deleted', false)
-            .andWhere('attr._mhb_deleted', false)
-            .andWhere('obj._upl_deleted', false)
-            .andWhere('obj._mhb_deleted', false)
-            .select(
-                'attr.id as attribute_id',
-                'attr.codename as attribute_codename',
-                'attr.presentation as attribute_presentation',
-                'attr.object_id as source_catalog_id',
-                'obj.codename as source_catalog_codename',
-                'obj.presentation as source_catalog_presentation'
-            )
-            .orderBy('obj.codename', 'asc')
-            .orderBy('attr.sort_order', 'asc')
+        const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
+        const objTable = qSchemaTable(schemaName, '_mhb_objects')
+        const rows = await queryMany<{
+            attribute_id: string
+            attribute_codename: string
+            attribute_presentation: any
+            source_catalog_id: string
+            source_catalog_codename: string
+            source_catalog_presentation: any
+        }>(
+            this.exec,
+            `SELECT
+                attr.id AS attribute_id,
+                attr.codename AS attribute_codename,
+                attr.presentation AS attribute_presentation,
+                attr.object_id AS source_catalog_id,
+                obj.codename AS source_catalog_codename,
+                obj.presentation AS source_catalog_presentation
+             FROM ${attrTable} attr
+             LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
+             WHERE attr.data_type = 'REF'
+               AND attr.target_object_kind = 'enumeration'
+               AND attr.ui_config ->> 'defaultEnumValueId' = $1
+               AND attr._upl_deleted = false AND attr._mhb_deleted = false
+               AND obj._upl_deleted = false AND obj._mhb_deleted = false
+             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+            [enumValueId]
+        )
 
-        return rows.map((row: any) => ({
+        return rows.map((row) => ({
             attributeId: row.attribute_id,
             attributeCodename: row.attribute_codename,
             attributeName: row.attribute_presentation?.name ?? null,
@@ -437,45 +419,43 @@ export class MetahubAttributesService {
      */
     async findElementEnumValueBlockers(metahubId: string, enumerationId: string, enumValueId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = (await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes as attr')
-            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
-            .leftJoin('_mhb_elements as el', function () {
-                this.on('el.object_id', '=', 'attr.object_id')
-            })
-            .where('attr.data_type', 'REF')
-            .andWhere('attr.target_object_kind', 'enumeration')
-            .andWhere('attr.target_object_id', enumerationId)
-            .andWhereRaw(`el.data ->> attr.codename = ?`, [enumValueId])
-            .andWhere('attr._upl_deleted', false)
-            .andWhere('attr._mhb_deleted', false)
-            .andWhere('obj._upl_deleted', false)
-            .andWhere('obj._mhb_deleted', false)
-            .andWhere('el._upl_deleted', false)
-            .andWhere('el._mhb_deleted', false)
-            .groupBy('attr.id', 'attr.codename', 'attr.presentation', 'attr.object_id', 'obj.codename', 'obj.presentation')
-            .select(
-                'attr.id as attribute_id',
-                'attr.codename as attribute_codename',
-                'attr.presentation as attribute_presentation',
-                'attr.object_id as source_catalog_id',
-                'obj.codename as source_catalog_codename',
-                'obj.presentation as source_catalog_presentation'
-            )
-            .count('el.id as usage_count')
-            .orderBy('obj.codename', 'asc')
-            .orderBy('attr.sort_order', 'asc')) as Array<{
+        const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
+        const objTable = qSchemaTable(schemaName, '_mhb_objects')
+        const elTable = qSchemaTable(schemaName, '_mhb_elements')
+        const rows = await queryMany<{
             attribute_id: string
             attribute_codename: string
-            attribute_presentation?: { name?: unknown }
+            attribute_presentation: any
             source_catalog_id: string
             source_catalog_codename: string
-            source_catalog_presentation?: { name?: unknown }
+            source_catalog_presentation: any
             usage_count: string
-        }>
+        }>(
+            this.exec,
+            `SELECT
+                attr.id AS attribute_id,
+                attr.codename AS attribute_codename,
+                attr.presentation AS attribute_presentation,
+                attr.object_id AS source_catalog_id,
+                obj.codename AS source_catalog_codename,
+                obj.presentation AS source_catalog_presentation,
+                COUNT(el.id) AS usage_count
+             FROM ${attrTable} attr
+             LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
+             LEFT JOIN ${elTable} el ON el.object_id = attr.object_id
+             WHERE attr.data_type = 'REF'
+               AND attr.target_object_kind = 'enumeration'
+               AND attr.target_object_id = $1
+               AND el.data ->> attr.codename = $2
+               AND attr._upl_deleted = false AND attr._mhb_deleted = false
+               AND obj._upl_deleted = false AND obj._mhb_deleted = false
+               AND el._upl_deleted = false AND el._mhb_deleted = false
+             GROUP BY attr.id, attr.codename, attr.presentation, attr.object_id, obj.codename, obj.presentation
+             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+            [enumerationId, enumValueId]
+        )
 
-        return rows.map((row: any) => ({
+        return rows.map((row) => ({
             attributeId: row.attribute_id,
             attributeCodename: row.attribute_codename,
             attributeName: row.attribute_presentation?.name ?? null,
@@ -486,14 +466,14 @@ export class MetahubAttributesService {
         }))
     }
 
-    async create(metahubId: string, data: any, userId?: string, trx?: Knex.Transaction) {
+    async create(metahubId: string, data: any, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const runner = this.getRunner(trx)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
         let explicitAttributeId: string | undefined
 
         // TABLE attribute limits validation
         if (data.parentAttributeId) {
-            const parent = await this.findById(metahubId, data.parentAttributeId, userId, trx)
+            const parent = await this.findById(metahubId, data.parentAttributeId, userId, db)
             if (!parent) {
                 throw new Error(`Parent attribute ${data.parentAttributeId} not found`)
             }
@@ -505,7 +485,7 @@ export class MetahubAttributesService {
             }
             const maxChildAttributes = this.getMaxChildAttributesLimit(parent.validationRules)
             if (typeof maxChildAttributes === 'number') {
-                const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId, trx)
+                const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId, db)
                 if (childCount >= maxChildAttributes) {
                     throw this.createTableChildLimitError(maxChildAttributes)
                 }
@@ -513,46 +493,75 @@ export class MetahubAttributesService {
         }
 
         if (data.dataType === AttributeDataType.TABLE) {
-            const tableCount = await this.countTableAttributes(metahubId, data.catalogId, userId, trx)
+            const tableCount = await this.countTableAttributes(metahubId, data.catalogId, userId, db)
             if (tableCount >= 10) {
                 throw this.createTableAttributeLimitError(10)
             }
 
-            explicitAttributeId = await this.generateUniqueTableAttributeId(schemaName, data.catalogId, trx)
+            explicitAttributeId = await this.generateUniqueTableAttributeId(schemaName, data.catalogId, db)
         }
 
-        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId, data.parentAttributeId, trx))
-        const dbData: Record<string, unknown> = {
-            ...(explicitAttributeId ? { id: explicitAttributeId } : {}),
-            object_id: data.catalogId, // Map catalogId to object_id
-            codename: data.codename,
-            data_type: data.dataType,
-            is_required: data.isDisplayAttribute ? true : data.isRequired ?? false,
-            is_display_attribute: data.isDisplayAttribute ?? false,
-            target_object_id: data.targetEntityId ?? null,
-            target_object_kind: data.targetEntityKind ?? null,
-            target_constant_id: data.targetConstantId ?? null,
-            parent_attribute_id: data.parentAttributeId ?? null,
-            sort_order: sortOrder,
-            presentation: {
-                codename: data.codenameLocalized,
-                name: data.name
-            },
-            validation_rules: data.validationRules || {},
-            ui_config: data.uiConfig || {},
-            _upl_created_at: new Date(),
-            _upl_created_by: data.createdBy ?? null,
-            _upl_updated_at: new Date(),
-            _upl_updated_by: data.createdBy ?? null
-        }
+        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId, data.parentAttributeId, db))
+        const now = new Date()
+        const presentation = JSON.stringify({ codename: data.codenameLocalized, name: data.name })
+        const validationRules = JSON.stringify(data.validationRules || {})
+        const uiConfig = JSON.stringify(data.uiConfig || {})
 
-        const [created] = await runner.withSchema(schemaName).into('_mhb_attributes').insert(dbData).returning('*')
+        const columns = [
+            ...(explicitAttributeId ? ['id'] : []),
+            'object_id',
+            'codename',
+            'data_type',
+            'is_required',
+            'is_display_attribute',
+            'target_object_id',
+            'target_object_kind',
+            'target_constant_id',
+            'parent_attribute_id',
+            'sort_order',
+            'presentation',
+            'validation_rules',
+            'ui_config',
+            '_upl_created_at',
+            '_upl_created_by',
+            '_upl_updated_at',
+            '_upl_updated_by'
+        ]
+        const values: unknown[] = [
+            ...(explicitAttributeId ? [explicitAttributeId] : []),
+            data.catalogId,
+            data.codename,
+            data.dataType,
+            data.isDisplayAttribute ? true : data.isRequired ?? false,
+            data.isDisplayAttribute ?? false,
+            data.targetEntityId ?? null,
+            data.targetEntityKind ?? null,
+            data.targetConstantId ?? null,
+            data.parentAttributeId ?? null,
+            sortOrder,
+            presentation,
+            validationRules,
+            uiConfig,
+            now,
+            data.createdBy ?? null,
+            now,
+            data.createdBy ?? null
+        ]
+        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ')
+
+        const runner = db ?? this.exec
+        const created = await queryOneOrThrow(
+            runner,
+            `INSERT INTO ${qt} (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+            values
+        )
 
         return this.mapRowToAttribute(created)
     }
 
     async update(metahubId: string, id: string, data: any, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
         const updateData: Record<string, unknown> = {
             _upl_updated_at: new Date(),
@@ -570,21 +579,21 @@ export class MetahubAttributesService {
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
         if (data.name !== undefined || data.codenameLocalized !== undefined) {
-            const current = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
-            updateData.presentation = {
+            const current = await queryOne<Record<string, unknown>>(this.exec, `SELECT presentation FROM ${qt} WHERE id = $1`, [id])
+            updateData.presentation = JSON.stringify({
                 ...(current?.presentation ?? {}),
                 ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                 ...(data.name !== undefined ? { name: data.name } : {})
-            }
+            })
         }
 
-        if (data.validationRules !== undefined) updateData.validation_rules = data.validationRules
-        if (data.uiConfig !== undefined) updateData.ui_config = data.uiConfig
+        if (data.validationRules !== undefined) updateData.validation_rules = JSON.stringify(data.validationRules)
+        if (data.uiConfig !== undefined) updateData.ui_config = JSON.stringify(data.uiConfig)
 
         // If expectedVersion is provided, use version-checked update
         if (data.expectedVersion !== undefined) {
             const updated = await updateWithVersionCheck({
-                knex: this.knex,
+                executor: this.exec,
                 schemaName,
                 tableName: '_mhb_attributes',
                 entityId: id,
@@ -596,72 +605,64 @@ export class MetahubAttributesService {
         }
 
         // Fallback: increment version without check (backwards compatibility)
-        const updated = await incrementVersion(this.knex, schemaName, '_mhb_attributes', id, updateData)
+        const updated = await incrementVersion(this.exec, schemaName, '_mhb_attributes', id, updateData)
         return updated ? this.mapRowToAttribute(updated) : null
     }
 
     async delete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
-        await this.knex.transaction(async (trx) => {
+        await this.exec.transaction(async (tx: SqlQueryable) => {
             // If TABLE type, explicitly delete children before parent
-            // (FK ON DELETE CASCADE would handle hard-delete, but explicit delete ensures consistency)
-            const attribute = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
+            const [attribute] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
             if (attribute?.data_type === AttributeDataType.TABLE) {
-                await trx.withSchema(schemaName).from('_mhb_attributes').where({ parent_attribute_id: id }).delete()
+                await tx.query(`DELETE FROM ${qt} WHERE parent_attribute_id = $1`, [id])
             }
 
-            await trx.withSchema(schemaName).from('_mhb_attributes').where({ id }).delete()
+            await tx.query(`DELETE FROM ${qt} WHERE id = $1`, [id])
         })
     }
 
     async moveAttribute(metahubId: string, objectId: string, attributeId: string, direction: 'up' | 'down', userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
-        return this.knex.transaction(async (trx) => {
+        return this.exec.transaction(async (tx: SqlQueryable) => {
             // Fetch current attribute to know its parent scope
-            const current = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
-
+            const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
             if (!current) throw new Error('Attribute not found')
 
-            const parentAttributeId: string | null = current.parent_attribute_id ?? null
+            const parentAttributeId: string | null = (current.parent_attribute_id as string | null) ?? null
 
             // Ensure sequential order only among siblings (same parent)
-            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, parentAttributeId)
+            await this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, parentAttributeId)
 
             // Re-fetch after reordering
-            const refreshed = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
-            const currentOrder = refreshed.sort_order
+            const refreshed = await queryOneOrThrow<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
+            const currentOrder = refreshed.sort_order as number
 
             // Find neighbor among siblings only
-            let neighborQuery = trx.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+            const parentCond = parentAttributeId ? `parent_attribute_id = $3` : `parent_attribute_id IS NULL`
+            const params: unknown[] = [objectId, currentOrder, ...(parentAttributeId ? [parentAttributeId] : [])]
 
-            if (parentAttributeId) {
-                neighborQuery = neighborQuery.where({ parent_attribute_id: parentAttributeId })
-            } else {
-                neighborQuery = neighborQuery.whereNull('parent_attribute_id')
-            }
-
+            let neighborSql: string
             if (direction === 'up') {
-                neighborQuery = neighborQuery.where('sort_order', '<', currentOrder).orderBy('sort_order', 'desc')
+                neighborSql = `SELECT * FROM ${qt} WHERE object_id = $1 AND ${parentCond} AND sort_order < $2 ORDER BY sort_order DESC LIMIT 1`
             } else {
-                neighborQuery = neighborQuery.where('sort_order', '>', currentOrder).orderBy('sort_order', 'asc')
+                neighborSql = `SELECT * FROM ${qt} WHERE object_id = $1 AND ${parentCond} AND sort_order > $2 ORDER BY sort_order ASC LIMIT 1`
             }
 
-            const neighbor = await neighborQuery.first()
+            const neighbor = await queryOne<Record<string, unknown>>(tx, neighborSql, params)
 
             if (neighbor) {
                 // Swap
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_attributes')
-                    .where({ id: attributeId })
-                    .update({ sort_order: neighbor.sort_order })
-                await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: neighbor.id }).update({ sort_order: currentOrder })
+                await tx.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2`, [neighbor.sort_order, attributeId])
+                await tx.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2`, [currentOrder, neighbor.id])
             }
 
             // Fetch updated
-            const [updated] = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).returning('*')
+            const updated = await queryOneOrThrow(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
             return this.mapRowToAttribute(updated)
         })
     }
@@ -686,26 +687,25 @@ export class MetahubAttributesService {
         userId?: string
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
-        return this.knex.transaction(async (trx) => {
+        return this.exec.transaction(async (tx: SqlQueryable) => {
             // 1. Fetch current attribute
-            const current = await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ id: attributeId, object_id: objectId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const current = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
+                [attributeId, objectId]
+            )
             if (!current) throw new Error('Attribute not found')
 
-            const currentParent: string | null = current.parent_attribute_id ?? null
+            const currentParent: string | null = (current.parent_attribute_id as string | null) ?? null
             const targetParent: string | null = newParentAttributeId !== undefined ? newParentAttributeId : currentParent
             const isCrossList = targetParent !== currentParent
 
             if (isCrossList) {
                 // ── Cross-list transfer validation ──
                 await this._validateCrossListTransfer(
-                    trx,
+                    tx,
                     schemaName,
                     objectId,
                     current,
@@ -719,99 +719,75 @@ export class MetahubAttributesService {
                 )
 
                 // Move: update parent_attribute_id
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_attributes')
-                    .where({ id: attributeId })
-                    .update({ parent_attribute_id: targetParent })
+                await tx.query(`UPDATE ${qt} SET parent_attribute_id = $1 WHERE id = $2`, [targetParent, attributeId])
 
                 // Normalize source list (close gap left by the moved attribute)
-                await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, currentParent)
+                await this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, currentParent)
 
                 // Auto-set display attribute + required when attribute becomes the only child in target list
                 if (targetParent !== null) {
-                    const siblingCount = await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_attributes')
-                        .where({ object_id: objectId, parent_attribute_id: targetParent })
-                        .andWhere('_upl_deleted', false)
-                        .andWhere('_mhb_deleted', false)
-                        .count('id as count')
-                        .first()
-                    if (siblingCount && Number(siblingCount.count) === 1) {
-                        await trx
-                            .withSchema(schemaName)
-                            .from('_mhb_attributes')
-                            .where({ id: attributeId })
-                            .update({ is_display_attribute: true, is_required: true })
+                    const [siblingCount] = await tx.query<{ count: number }>(
+                        `SELECT COUNT(*)::int AS count FROM ${qt}
+                         WHERE object_id = $1 AND parent_attribute_id = $2 AND ${ACTIVE}`,
+                        [objectId, targetParent]
+                    )
+                    if (siblingCount && siblingCount.count === 1) {
+                        await tx.query(`UPDATE ${qt} SET is_display_attribute = true, is_required = true WHERE id = $1`, [attributeId])
                     }
                 }
             }
 
             // 2. Ensure sequential order in target list
-            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, targetParent)
+            await this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, targetParent)
 
             // 3. Re-fetch to get current sort_order after normalization
-            const refreshed = await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ id: attributeId, object_id: objectId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const refreshed = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
+                [attributeId, objectId]
+            )
             if (!refreshed) throw new Error('Attribute not found')
-            const oldOrder = refreshed.sort_order
+            const oldOrder = refreshed.sort_order as number
             const clampedNew = Math.max(1, newSortOrder)
 
             if (oldOrder !== clampedNew) {
-                // Build parent scope condition
-                const parentCondition = (q: Knex.QueryBuilder) => {
-                    if (targetParent) {
-                        q.where({ parent_attribute_id: targetParent })
-                    } else {
-                        q.whereNull('parent_attribute_id')
-                    }
-                }
+                const parentCond = targetParent ? `parent_attribute_id = $4` : `parent_attribute_id IS NULL`
+                const baseParams: unknown[] = [objectId, attributeId, ...(targetParent ? [targetParent] : [])]
+                const sortParamOffset = baseParams.length + 1
 
                 if (clampedNew < oldOrder) {
                     // Moving up: shift items [clampedNew, oldOrder) down by 1
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_attributes')
-                        .where({ object_id: objectId })
-                        .modify(parentCondition)
-                        .where('sort_order', '>=', clampedNew)
-                        .where('sort_order', '<', oldOrder)
-                        .whereNot({ id: attributeId })
-                        .increment('sort_order', 1)
+                    await tx.query(
+                        `UPDATE ${qt} SET sort_order = sort_order + 1
+                         WHERE object_id = $1 AND ${parentCond}
+                           AND sort_order >= $${sortParamOffset} AND sort_order < $${sortParamOffset + 1}
+                           AND id != $2`,
+                        [...baseParams, clampedNew, oldOrder]
+                    )
                 } else {
                     // Moving down: shift items (oldOrder, clampedNew] up by 1
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_attributes')
-                        .where({ object_id: objectId })
-                        .modify(parentCondition)
-                        .where('sort_order', '>', oldOrder)
-                        .where('sort_order', '<=', clampedNew)
-                        .whereNot({ id: attributeId })
-                        .decrement('sort_order', 1)
+                    await tx.query(
+                        `UPDATE ${qt} SET sort_order = sort_order - 1
+                         WHERE object_id = $1 AND ${parentCond}
+                           AND sort_order > $${sortParamOffset} AND sort_order <= $${sortParamOffset + 1}
+                           AND id != $2`,
+                        [...baseParams, oldOrder, clampedNew]
+                    )
                 }
 
                 // Set the target sort_order
-                await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).update({ sort_order: clampedNew })
+                await tx.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2`, [clampedNew, attributeId])
             }
 
             // 4. Final normalization pass
-            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, targetParent)
+            await this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, targetParent)
 
             // 5. Return updated attribute
-            const updated = await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ id: attributeId, object_id: objectId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const updated = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
+                [attributeId, objectId]
+            )
             if (!updated) throw new Error('Attribute not found')
             return this.mapRowToAttribute(updated)
         })
@@ -822,7 +798,7 @@ export class MetahubAttributesService {
      * Throws typed errors that the route handler maps to HTTP status codes.
      */
     private async _validateCrossListTransfer(
-        trx: Knex.Transaction,
+        db: SqlQueryable,
         schemaName: string,
         objectId: string,
         attribute: any,
@@ -834,6 +810,7 @@ export class MetahubAttributesService {
         codenameStyle: 'kebab-case' | 'pascal-case',
         autoRenameCodename?: boolean
     ): Promise<void> {
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
         const sourceIsRoot = currentParentId === null
         const targetIsRoot = targetParentId === null
 
@@ -859,13 +836,11 @@ export class MetahubAttributesService {
 
         // 3. If target is a child list, verify parent is TABLE type and data type is allowed
         if (targetParentId !== null) {
-            const parentAttr = await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ id: targetParentId, object_id: objectId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const parentAttr = await queryOne<Record<string, unknown>>(
+                db,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
+                [targetParentId, objectId]
+            )
             if (!parentAttr || parentAttr.data_type !== AttributeDataType.TABLE) {
                 throw new Error('TRANSFER_NOT_ALLOWED: Target parent is not a TABLE attribute')
             }
@@ -875,17 +850,12 @@ export class MetahubAttributesService {
 
             const maxChildAttributes = this.getMaxChildAttributesLimit(parentAttr.validation_rules)
             if (typeof maxChildAttributes === 'number') {
-                const countResult = await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_attributes')
-                    .where({ object_id: objectId, parent_attribute_id: targetParentId })
-                    .andWhere('_upl_deleted', false)
-                    .andWhere('_mhb_deleted', false)
-                    .count('id as count')
-                    .first()
-                const childCountRaw = countResult?.count
-                const childCount =
-                    typeof childCountRaw === 'number' ? childCountRaw : childCountRaw ? Number.parseInt(String(childCountRaw), 10) : 0
+                const [countResult] = await db.query<{ count: number }>(
+                    `SELECT COUNT(*)::int AS count FROM ${qt}
+                     WHERE object_id = $1 AND parent_attribute_id = $2 AND ${ACTIVE}`,
+                    [objectId, targetParentId]
+                )
+                const childCount = countResult?.count ?? 0
                 if (childCount >= maxChildAttributes) {
                     throw this.createTableChildLimitError(maxChildAttributes)
                 }
@@ -894,28 +864,24 @@ export class MetahubAttributesService {
 
         // 4. Codename uniqueness check in target scope
         const hasConflict = async (codename: string): Promise<boolean> => {
-            let query = trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ object_id: objectId, codename })
-                .whereNot({ id: attribute.id })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
+            const conditions = [`object_id = $1`, `codename = $2`, `id != $3`, ACTIVE]
+            const params: unknown[] = [objectId, codename, attribute.id]
 
             if (codenameScope !== 'global') {
-                // Per-level: unique among siblings at target level
                 if (targetParentId) {
-                    query = query.where({ parent_attribute_id: targetParentId })
+                    conditions.push(`parent_attribute_id = $4`)
+                    params.push(targetParentId)
                 } else {
-                    query = query.whereNull('parent_attribute_id')
+                    conditions.push(`parent_attribute_id IS NULL`)
                 }
             }
-            return !!(await query.first())
+
+            const row = await queryOne(db, `SELECT id FROM ${qt} WHERE ${conditions.join(' AND ')} LIMIT 1`, params)
+            return !!row
         }
 
         if (await hasConflict(attribute.codename)) {
             if (!autoRenameCodename) {
-                // No auto-rename — throw conflict so frontend can show dialog
                 const error: any = new Error(`CODENAME_CONFLICT: Codename "${attribute.codename}" already exists in the target scope`)
                 error.codename = attribute.codename
                 throw error
@@ -930,11 +896,11 @@ export class MetahubAttributesService {
                         attribute.presentation && typeof attribute.presentation === 'object'
                             ? { ...(attribute.presentation as Record<string, unknown>), codename: null }
                             : { codename: null }
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_attributes')
-                        .where({ id: attribute.id })
-                        .update({ codename: candidate, presentation: nextPresentation })
+                    await db.query(`UPDATE ${qt} SET codename = $1, presentation = $2 WHERE id = $3`, [
+                        candidate,
+                        JSON.stringify(nextPresentation),
+                        attribute.id
+                    ])
                     renamed = true
                 }
             }
@@ -951,21 +917,23 @@ export class MetahubAttributesService {
     private async _ensureSequentialSortOrder(
         metahubId: string,
         objectId: string,
-        trx: any,
+        db: SqlQueryable,
         userId?: string,
         parentAttributeId?: string | null
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
-        let query = trx.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+        const parentCond = parentAttributeId ? `parent_attribute_id = $2` : `parent_attribute_id IS NULL`
+        const params: unknown[] = [objectId, ...(parentAttributeId ? [parentAttributeId] : [])]
 
-        if (parentAttributeId) {
-            query = query.where({ parent_attribute_id: parentAttributeId })
-        } else {
-            query = query.whereNull('parent_attribute_id')
-        }
-
-        const attributes = await query.orderBy('sort_order', 'asc').orderBy('_upl_created_at', 'asc')
+        const attributes = await queryMany<{ id: string; sort_order: number }>(
+            db,
+            `SELECT id, sort_order FROM ${qt}
+             WHERE object_id = $1 AND ${parentCond}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            params
+        )
 
         // Check consistency
         let consistent = true
@@ -980,11 +948,7 @@ export class MetahubAttributesService {
             for (let i = 0; i < attributes.length; i++) {
                 const attr = attributes[i]
                 if (attr.sort_order !== i + 1) {
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_attributes')
-                        .where({ id: attr.id })
-                        .update({ sort_order: i + 1 })
+                    await db.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2`, [i + 1, attr.id])
                 }
             }
         }
@@ -992,7 +956,9 @@ export class MetahubAttributesService {
 
     // Public wrapper if needed independently
     async ensureSequentialSortOrder(metahubId: string, objectId: string, userId?: string, parentAttributeId?: string | null) {
-        return this.knex.transaction((trx) => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, parentAttributeId))
+        return this.exec.transaction((tx: SqlQueryable) =>
+            this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, parentAttributeId)
+        )
     }
 
     /**
@@ -1004,6 +970,7 @@ export class MetahubAttributesService {
      */
     async setDisplayAttribute(metahubId: string, catalogId: string, attributeId: string, userId?: string): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
         const attribute = await this.findById(metahubId, attributeId, userId)
         if (!attribute) {
@@ -1015,43 +982,30 @@ export class MetahubAttributesService {
             throw this.createTableDisplayAttributeForbiddenError()
         }
 
-        await this.knex.transaction(async (trx) => {
+        const now = new Date()
+        await this.exec.transaction(async (tx: SqlQueryable) => {
             if (attribute.parentAttributeId) {
                 // Child attribute: reset only siblings (children of the same parent)
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_attributes')
-                    .where({ parent_attribute_id: attribute.parentAttributeId })
-                    .update({
-                        is_display_attribute: false,
-                        _upl_updated_at: new Date(),
-                        _upl_updated_by: userId ?? null
-                    })
+                await tx.query(
+                    `UPDATE ${qt} SET is_display_attribute = false, _upl_updated_at = $1, _upl_updated_by = $2
+                     WHERE parent_attribute_id = $3`,
+                    [now, userId ?? null, attribute.parentAttributeId]
+                )
             } else {
                 // Root attribute: reset only root attributes in this catalog
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_attributes')
-                    .where({ object_id: catalogId })
-                    .whereNull('parent_attribute_id')
-                    .update({
-                        is_display_attribute: false,
-                        _upl_updated_at: new Date(),
-                        _upl_updated_by: userId ?? null
-                    })
+                await tx.query(
+                    `UPDATE ${qt} SET is_display_attribute = false, _upl_updated_at = $1, _upl_updated_by = $2
+                     WHERE object_id = $3 AND parent_attribute_id IS NULL`,
+                    [now, userId ?? null, catalogId]
+                )
             }
 
             // Set the specified attribute as display attribute
-            await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ id: attributeId })
-                .update({
-                    is_display_attribute: true,
-                    is_required: true,
-                    _upl_updated_at: new Date(),
-                    _upl_updated_by: userId ?? null
-                })
+            await tx.query(
+                `UPDATE ${qt} SET is_display_attribute = true, is_required = true, _upl_updated_at = $1, _upl_updated_by = $2
+                 WHERE id = $3`,
+                [now, userId ?? null, attributeId]
+            )
         })
     }
 
@@ -1060,61 +1014,51 @@ export class MetahubAttributesService {
      */
     async clearDisplayAttribute(metahubId: string, attributeId: string, userId?: string): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
 
-        const attribute = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
+        const attribute = await queryOne<Record<string, unknown>>(this.exec, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
         if (!attribute) {
             throw new Error('Attribute not found')
         }
 
         if (attribute.is_display_attribute) {
-            let siblingsQuery = this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: attribute.object_id })
+            const parentCond = attribute.parent_attribute_id ? `parent_attribute_id = $2` : `parent_attribute_id IS NULL`
+            const params: unknown[] = [attribute.object_id, ...(attribute.parent_attribute_id ? [attribute.parent_attribute_id] : [])]
 
-            if (attribute.parent_attribute_id) {
-                siblingsQuery = siblingsQuery.where({ parent_attribute_id: attribute.parent_attribute_id })
-            } else {
-                siblingsQuery = siblingsQuery.whereNull('parent_attribute_id')
-            }
-
-            const displayCountResult = await siblingsQuery
-                .where({ is_display_attribute: true })
-                .count<{ count?: string | number }>('id as count')
-                .first()
-            const displayCountRaw = displayCountResult?.count
-            const displayCount =
-                typeof displayCountRaw === 'number' ? displayCountRaw : displayCountRaw ? Number.parseInt(displayCountRaw, 10) : 0
+            const [displayCountResult] = await this.exec.query<{ count: number }>(
+                `SELECT COUNT(*)::int AS count FROM ${qt}
+                 WHERE object_id = $1 AND ${parentCond} AND is_display_attribute = true`,
+                params
+            )
+            const displayCount = displayCountResult?.count ?? 0
 
             if (displayCount <= 1) {
                 throw new Error('At least one display attribute is required in each scope')
             }
         }
 
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ id: attributeId })
-            .update({
-                is_display_attribute: false,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: userId ?? null
-            })
+        await this.exec.query(`UPDATE ${qt} SET is_display_attribute = false, _upl_updated_at = $1, _upl_updated_by = $2 WHERE id = $3`, [
+            new Date(),
+            userId ?? null,
+            attributeId
+        ])
     }
 
     private async getNextSortOrder(
         schemaName: string,
         objectId: string,
         parentAttributeId?: string | null,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ): Promise<number> {
-        const runner = this.getRunner(trx)
-        let query = runner.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const runner = db ?? this.exec
+        const parentCond = parentAttributeId ? `parent_attribute_id = $2` : `parent_attribute_id IS NULL`
+        const params: unknown[] = [objectId, ...(parentAttributeId ? [parentAttributeId] : [])]
 
-        if (parentAttributeId) {
-            query = query.where({ parent_attribute_id: parentAttributeId })
-        } else {
-            query = query.whereNull('parent_attribute_id')
-        }
-
-        const result = await query.max('sort_order as max').first()
+        const [result] = await runner.query<{ max: number | null }>(
+            `SELECT MAX(sort_order) AS max FROM ${qt} WHERE object_id = $1 AND ${parentCond}`,
+            params
+        )
 
         const max = result?.max
         if (typeof max === 'number') return max + 1

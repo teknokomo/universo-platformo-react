@@ -21,7 +21,7 @@
 - **SQLite**: Development database (sqlite3 ^5.1.6)
 
 ## Key Libraries
-- **Flowise Components**: Core node system
+- **Legacy components package**: Core node system
 - **LangChain**: ^0.3.5 (AI/LLM integration)
 - **Material-UI**: ^5.15.0 (UI components)
 - **ReactFlow**: ^11.5.6 (node editor)

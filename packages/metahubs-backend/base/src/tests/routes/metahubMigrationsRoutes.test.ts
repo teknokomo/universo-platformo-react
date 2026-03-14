@@ -33,37 +33,34 @@ const mockCleanupApply = jest.fn(async (params: { mode: string }) => ({
 }))
 
 const mockHasTable = jest.fn(async () => true)
-const mockMigrationRows = jest.fn(async () => [])
-const mockMigrationCount = jest.fn(async () => ({ count: '0' }))
 
-const migrationsQueryBuilder = {
-    count: jest.fn().mockReturnThis(),
-    first: jest.fn(() => mockMigrationCount()),
-    select: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    offset: jest.fn(() => mockMigrationRows())
-}
+const mockPoolQuery = jest.fn(async () => ({ rows: [] }))
 
-const mockKnex = {
-    schema: {
-        withSchema: jest.fn(() => ({
-            hasTable: (...args: unknown[]) => mockHasTable(...args)
-        }))
-    },
-    withSchema: jest.fn(() => ({
-        from: jest.fn(() => migrationsQueryBuilder)
-    }))
-}
+jest.mock('@universo/database', () => ({
+    __esModule: true,
+    getPoolExecutor: jest.fn(() => ({
+        query: (...args: unknown[]) => mockPoolQuery(...args)
+    })),
+    qSchema: jest.requireActual('@universo/database').qSchema,
+    qTable: jest.requireActual('@universo/database').qTable,
+    qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
+    qColumn: jest.requireActual('@universo/database').qColumn,
+    createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
 
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
-    KnexClient: {
-        getInstance: () => mockKnex
-    },
     uuidToLockKey: (...args: unknown[]) => mockUuidToLockKey(...args),
-    acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
-    releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args)
+    acquirePoolAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
+    releasePoolAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
+    hasPoolRuntimeHistoryTable: (...args: unknown[]) => mockHasTable(...args),
+    createPoolTemplateSeedCleanupService: jest.fn(() => ({
+        analyze: (...args: unknown[]) => mockCleanupAnalyze(...args),
+        apply: (...args: unknown[]) => mockCleanupApply(...args)
+    })),
+    createPoolTemplateSeedMigrator: jest.fn(() => ({
+        migrateSeed: (...args: unknown[]) => mockSeedMigrate(...args)
+    }))
 }))
 
 jest.mock('../../domains/templates/services/TemplateSeedCleanupService', () => ({
@@ -203,8 +200,7 @@ describe('Metahub Migrations Routes', () => {
         })
 
         mockHasTable.mockResolvedValue(true)
-        mockMigrationCount.mockResolvedValue({ count: '1' })
-        mockMigrationRows.mockResolvedValue([
+        mockPoolQuery.mockResolvedValueOnce([{ count: '1' }]).mockResolvedValueOnce([
             {
                 id: 'mig-1',
                 name: 'baseline_structure_v1',

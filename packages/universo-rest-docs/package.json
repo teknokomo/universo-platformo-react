@@ -1,14 +1,15 @@
 {
     "name": "@universo/rest-docs",
     "version": "0.1.0",
-    "description": "Universo Platformo REST API documentation server with modular OpenAPI 3.1 specification",
+    "description": "Universo Platformo REST API documentation server with generated current-state OpenAPI 3.1 specification",
     "scripts": {
-        "build": "pnpm build:ts && pnpm build:openapi",
+        "generate:openapi": "node scripts/generate-openapi-source.js",
+        "build": "pnpm generate:openapi && pnpm build:ts && pnpm build:openapi",
         "build:ts": "tsc",
         "build:openapi": "node scripts/bundle-openapi.js",
         "start": "node dist/index.js",
         "dev": "tsc-watch --onSuccess \"node dist/index.js\"",
-        "validate": "openapi lint src/openapi/index.yml",
+        "validate": "pnpm generate:openapi && openapi lint src/openapi/index.yml",
         "validate:bundled": "openapi lint dist/openapi-bundled.yml",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
     },

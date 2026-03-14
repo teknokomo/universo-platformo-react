@@ -22,4 +22,4 @@ export function parseIntSafe(value: any, defaultValue: number, min: number, max:
 
 // Re-export centralized database utilities from @universo/utils
 export { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '@universo/utils/database'
-export type { DbExecutor } from '@universo/utils/database'
+export type { DbExecutor, SqlQueryable } from '@universo/utils/database'

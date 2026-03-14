@@ -54,11 +54,7 @@ export function createKnexExecutor(knex: Knex): DbExecutor {
  * @param options.inTransaction — if true, the outer middleware already opened
  *   a BEGIN; top-level transaction() calls use SAVEPOINT instead of BEGIN.
  */
-export function createRlsExecutor(
-    knex: Knex,
-    connection: unknown,
-    options?: { inTransaction?: boolean }
-): DbExecutor {
+export function createRlsExecutor(knex: Knex, connection: unknown, options?: { inTransaction?: boolean }): DbExecutor {
     let txDepth = options?.inTransaction ? 1 : 0
 
     const executor: DbExecutor = {

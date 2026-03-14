@@ -1,46 +1,49 @@
 # @universo/rest-docs
 
-Standalone Swagger UI and OpenAPI server for the current Universo Platformo REST documentation surface.
+Standalone Swagger UI and OpenAPI server for the current Universo Platformo REST surface.
 
 ## Overview
 
-This package serves the bundled OpenAPI specification at `/api-docs` and provides a dedicated documentation process separate from the main backend runtime.
-It documents the route groups that currently exist in the package specification, including historical API groups that are still present in the transitional OpenAPI layer.
+This package serves the generated OpenAPI specification at `/api-docs` and keeps the interactive REST reference decoupled from the main backend runtime.
+Its source OpenAPI file is regenerated from the live backend route files before validation and build, so removed domains do not remain documented after repository refactors.
 
 ## What The Package Does
 
-- Loads the bundled OpenAPI document generated from `src/openapi/index.yml`.
+- Scans the mounted backend route files and regenerates `src/openapi/index.yml`.
+- Bundles the generated OpenAPI source into `dist/openapi-bundled.yml` for runtime serving.
 - Starts a small Express server that redirects `/` to `/api-docs`.
-- Serves interactive Swagger UI for local and remote API exploration.
-- Keeps the authoring source modular under `src/openapi/` and bundles it for runtime use.
+- Serves interactive Swagger UI for local validation, QA, and integration work.
 
-## Current Specification Scope
+## Current Route Coverage
 
-The current OpenAPI tree still includes the route groups defined in `src/openapi/index.yml`:
+The generated specification is organized around the route groups that currently exist in the repository:
 
-- authentication
-- uniks
-- spaces
-- canvases
-- metaverses
-- publications
+- system health and ping
+- auth
+- public locales
 - profile
-- space-builder
+- onboarding
+- admin global users, instances, roles, locales, and settings
+- applications, connectors, and runtime sync
+- public metahub, metahubs, branches, publications, migrations, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, and templates
 
-This README intentionally describes the package as it exists today.
-If the platform taxonomy changes, the OpenAPI source should be updated first and this README should then follow that source.
+The package intentionally documents the current route inventory first.
+Payload schemas remain generic unless they are stabilized and promoted into explicit contract-level schemas later.
 
-## Development Notes
+## Development Commands
 
 ```bash
-pnpm --filter @universo/rest-docs build
+pnpm --filter @universo/rest-docs generate:openapi
 pnpm --filter @universo/rest-docs validate
+pnpm --filter @universo/rest-docs build
+pnpm --filter @universo/rest-docs start
 pnpm --filter @universo/rest-docs lint
 ```
 
-- `build` compiles TypeScript and bundles the modular OpenAPI files.
-- `validate` lints `src/openapi/index.yml` with Redocly.
-- Runtime serving uses `dist/openapi-bundled.yml`, not the authoring tree directly.
+- `generate:openapi` rebuilds `src/openapi/index.yml` from the live route files.
+- `validate` regenerates and lints the OpenAPI source with Redocly.
+- `build` regenerates the source, compiles TypeScript, and bundles the runtime YAML.
+- `start` serves Swagger UI from `dist/openapi-bundled.yml`.
 
 ## Running The Docs Server
 
@@ -50,13 +53,21 @@ pnpm --filter @universo/rest-docs start
 ```
 
 By default, Swagger UI is exposed at `http://localhost:6655/api-docs`.
+Use the local backend base URL `http://localhost:3000/api/v1` inside Swagger when you want to execute requests against a local stack.
+
+## Safe Usage Notes
+
+- Treat the generated document as the current path and method inventory, not as a fully typed payload contract.
+- Prefer non-production environments when trying mutating endpoints from Swagger UI.
+- Authenticated endpoints require a bearer token in the Swagger authorization dialog.
+- If route mounts change, regenerate the OpenAPI source before reviewing or shipping docs changes.
 
 ## Related Documentation
 
-- [Main package index](../README.md)
+- [Package architecture](ARCHITECTURE.md)
+- [Endpoint guide](API_ENDPOINTS.md)
+- [OpenAPI source entrypoint](src/openapi/index.yml)
 - [Root project README](../../README.md)
-- [OpenAPI authoring entrypoint](src/openapi/index.yml)
-- [Architecture notes](ARCHITECTURE.md)
 
 ---
 

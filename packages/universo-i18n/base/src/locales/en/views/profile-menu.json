@@ -2,7 +2,7 @@
     "profileMenu": {
         "export": "Export",
         "import": "Import",
-        "aboutFlowise": "About Kiberplano",
+        "aboutPlatform": "About Kiberplano",
         "logout": "Logout",
         "exportDialog": {
             "title": "Select Data to Export",

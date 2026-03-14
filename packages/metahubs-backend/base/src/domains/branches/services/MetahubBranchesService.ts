@@ -21,7 +21,8 @@ import {
     findTemplateVersionById
 } from '../../../persistence'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
-import { KnexClient, getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
+import { getKnex } from '@universo/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { escapeLikeWildcards } from '../../../utils'
@@ -63,7 +64,7 @@ export class MetahubBranchesService {
     constructor(private exec: DbExecutor) {}
 
     private get knex() {
-        return KnexClient.getInstance()
+        return getKnex()
     }
 
     private buildSchemaName(metahubId: string, branchNumber: number): string {

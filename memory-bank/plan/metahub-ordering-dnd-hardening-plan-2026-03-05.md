@@ -41,7 +41,7 @@ This plan assumes a fresh database baseline (no legacy migration compatibility c
 - `MetahubAttributesService._validateCrossListTransfer()` updates `codename_localized` as a physical column, but `_mhb_attributes` stores it inside `presentation` JSONB.
 - Copy paths for hub/catalog/set/enumeration frequently preserve source `sortOrder`, risking duplicate orders.
 - Catalog/set/enumeration list endpoints do in-memory sorting/pagination after loading full lists.
-- `flowise-react-json-view` appears unused in source imports and exists only as devDependency.
+- `legacy-react-json-view` appears unused in source imports and exists only as devDependency.
 - `FlowListTable` keeps sortable header labels visible even when `sortableRows` mode is enabled; this can create misleading UI state if not explicitly disabled in list configs.
 
 ## Plan Steps
@@ -109,7 +109,7 @@ This plan assumes a fresh database baseline (no legacy migration compatibility c
 - [ ] Use code-based error mapping only (no legacy regex fallback path).
 
 ### Phase 6: Remove Unused Dependency
-- [ ] Confirm no runtime/test/build references to `flowise-react-json-view`.
+- [ ] Confirm no runtime/test/build references to `legacy-react-json-view`.
 - [ ] Remove it from package-level devDependencies and workspace catalog version map.
 - [ ] Run lockfile refresh and scoped builds to ensure no hidden transitive assumptions.
 
@@ -179,7 +179,7 @@ This plan assumes a fresh database baseline (no legacy migration compatibility c
 - [ ] Card views remain without drag behavior.
 - [ ] TABLE attribute supports per-attribute `maxChildAttributes`; child create and cross-list drops are blocked at limit; invalid drop state is visually explicit.
 - [ ] No legacy fallback paths added; no unnecessary new interfaces/components introduced.
-- [ ] `flowise-react-json-view` removed if unused across source/tests/build.
+- [ ] `legacy-react-json-view` removed if unused across source/tests/build.
 
 ## Safe Code Examples
 
@@ -307,7 +307,7 @@ const canAcceptDrop = useMemo(() => {
   - Covered by Phase 1 and Phase 4 (elements `sortOrder`, move endpoints, table DnD, visible `#` order column).
 - Requirement 2 (table DnD for hubs/catalogs/sets/enumerations/elements, keep table component, no card DnD):
   - Covered by Phase 1 and Phase 4, plus UI/API minimalism constraints in Design Notes.
-- Requirement 3 (`flowise-react-json-view` cleanup):
+- Requirement 3 (`legacy-react-json-view` cleanup):
   - Covered by Phase 6 with dependency usage verification and safe removal.
 - Requirement 4 (TABLE attribute setting for max child attributes + disable create + block drops + red dashed invalid target):
   - Covered by Phase 3 and Phase 5.

@@ -1,5 +1,6 @@
-import type { Knex } from 'knex'
-import { KnexClient } from '../../ddl'
+import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
+import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
+import { qSchemaTable, qSchema } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { incrementVersion, updateWithVersionCheck } from '../../../utils/optimisticLock'
 
@@ -26,128 +27,122 @@ interface EnumerationValueUpdateInput {
 }
 
 const defaultConstraintCache = new Set<string>()
+const ACTIVE = `_upl_deleted = false AND _mhb_deleted = false`
 
 /**
  * Service for enumeration values stored in `_mhb_values`.
  */
 export class MetahubEnumerationValuesService {
-    constructor(private readonly schemaService: MetahubSchemaService) {}
-
-    private get knex() {
-        return KnexClient.getInstance()
-    }
+    constructor(private readonly exec: DbExecutor, private readonly schemaService: MetahubSchemaService) {}
 
     async findAll(metahubId: string, enumerationId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        return this.knex.transaction(async (trx) => {
-            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, trx)
-            const rows = await trx
-                .withSchema(schemaName)
-                .from('_mhb_values')
-                .where({ object_id: enumerationId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .orderBy('sort_order', 'asc')
-                .orderBy('_upl_created_at', 'asc')
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, tx)
+            const rows = await queryMany<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt}
+                 WHERE object_id = $1 AND ${ACTIVE}
+                 ORDER BY sort_order ASC, _upl_created_at ASC`,
+                [enumerationId]
+            )
             return rows.map(this.mapRow)
         })
     }
 
     async countByObjectId(metahubId: string, enumerationId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const result = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_values')
-            .where({ object_id: enumerationId })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .count('* as count')
-            .first()
-        return result ? parseInt(result.count as string, 10) : 0
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const rows = await this.exec.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}`,
+            [enumerationId]
+        )
+        return parseInt(rows[0]?.count ?? '0', 10)
     }
 
     async countByObjectIds(metahubId: string, enumerationIds: string[], userId?: string): Promise<Map<string, number>> {
         if (enumerationIds.length === 0) return new Map()
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_values')
-            .whereIn('object_id', enumerationIds)
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .select('object_id')
-            .count('* as count')
-            .groupBy('object_id')
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const placeholders = enumerationIds.map((_, i) => `$${i + 1}`).join(', ')
+        const rows = await this.exec.query<{ object_id: string; count: string }>(
+            `SELECT object_id, COUNT(*)::text AS count FROM ${qt}
+             WHERE object_id IN (${placeholders}) AND ${ACTIVE}
+             GROUP BY object_id`,
+            enumerationIds
+        )
 
         const map = new Map<string, number>()
-        rows.forEach((row: any) => {
-            map.set(row.object_id, parseInt(row.count as string, 10))
-        })
+        for (const row of rows) {
+            map.set(row.object_id, parseInt(row.count, 10))
+        }
         return map
     }
 
     async findById(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex.withSchema(schemaName).from('_mhb_values').where({ id }).first()
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const row = await queryOne<Record<string, unknown>>(this.exec, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
         return row ? this.mapRow(row) : null
     }
 
     async findByCodename(metahubId: string, enumerationId: string, codename: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_values')
-            .where({ object_id: enumerationId, codename })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .first()
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const row = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND codename = $2 AND ${ACTIVE}
+             LIMIT 1`,
+            [enumerationId, codename]
+        )
         return row ? this.mapRow(row) : null
     }
 
     async create(metahubId: string, data: EnumerationValueCreateInput, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_values')
 
-        return this.knex.transaction(async (trx) => {
-            await this.ensureDefaultConstraint(schemaName, trx)
-            await this.ensureSequentialSortOrderInTransaction(schemaName, data.enumerationId, trx)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.ensureDefaultConstraint(schemaName, tx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, data.enumerationId, tx)
 
             if (data.isDefault) {
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_values')
-                    .where({ object_id: data.enumerationId })
-                    .andWhere('_upl_deleted', false)
-                    .andWhere('_mhb_deleted', false)
-                    .update({
-                        is_default: false,
-                        _upl_updated_at: new Date(),
-                        _upl_updated_by: data.createdBy ?? null
-                    })
+                await tx.query(
+                    `UPDATE ${qt}
+                     SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2
+                     WHERE object_id = $3 AND ${ACTIVE}
+                     RETURNING id`,
+                    [new Date(), data.createdBy ?? null, data.enumerationId]
+                )
             }
 
             const nextSortOrder =
-                typeof data.sortOrder === 'number' ? data.sortOrder : await this.getNextSortOrder(schemaName, data.enumerationId, trx)
+                typeof data.sortOrder === 'number' ? data.sortOrder : await this.getNextSortOrder(schemaName, data.enumerationId, tx)
 
-            const [created] = await trx
-                .withSchema(schemaName)
-                .into('_mhb_values')
-                .insert({
-                    object_id: data.enumerationId,
-                    codename: data.codename,
-                    presentation: {
-                        codename: data.codenameLocalized,
-                        name: data.name,
-                        description: data.description
-                    },
-                    sort_order: nextSortOrder,
-                    is_default: data.isDefault ?? false,
-                    _upl_created_at: new Date(),
-                    _upl_created_by: data.createdBy ?? null,
-                    _upl_updated_at: new Date(),
-                    _upl_updated_by: data.createdBy ?? null
-                })
-                .returning('*')
+            const created = await queryOneOrThrow<Record<string, unknown>>(
+                tx,
+                `INSERT INTO ${qt}
+                    (object_id, codename, presentation, sort_order, is_default,
+                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $6, $7)
+                 RETURNING *`,
+                [
+                    data.enumerationId,
+                    data.codename,
+                    JSON.stringify({ codename: data.codenameLocalized, name: data.name, description: data.description }),
+                    nextSortOrder,
+                    data.isDefault ?? false,
+                    new Date(),
+                    data.createdBy ?? null
+                ],
+                undefined,
+                'Failed to insert enumeration value'
+            )
 
             return this.mapRow(created)
         })
@@ -155,11 +150,12 @@ export class MetahubEnumerationValuesService {
 
     async update(metahubId: string, id: string, data: EnumerationValueUpdateInput, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_values')
 
-        return this.knex.transaction(async (trx) => {
-            await this.ensureDefaultConstraint(schemaName, trx)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.ensureDefaultConstraint(schemaName, tx)
 
-            const current = await trx.withSchema(schemaName).from('_mhb_values').where({ id }).first()
+            const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
             if (!current) throw new Error('Enumeration value not found')
 
             const updateData: Record<string, unknown> = {
@@ -171,34 +167,32 @@ export class MetahubEnumerationValuesService {
             if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
             if (data.name !== undefined || data.description !== undefined || data.codenameLocalized !== undefined) {
-                updateData.presentation = {
-                    ...(current.presentation ?? {}),
+                const currentPresentation = (current.presentation as Record<string, unknown>) ?? {}
+                updateData.presentation = JSON.stringify({
+                    ...currentPresentation,
                     ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                     ...(data.name !== undefined ? { name: data.name } : {}),
                     ...(data.description !== undefined ? { description: data.description } : {})
-                }
+                })
             }
 
             if (data.isDefault === true) {
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_values')
-                    .where({ object_id: current.object_id })
-                    .andWhere('_upl_deleted', false)
-                    .andWhere('_mhb_deleted', false)
-                    .update({
-                        is_default: false,
-                        _upl_updated_at: new Date(),
-                        _upl_updated_by: data.updatedBy ?? null
-                    })
+                await tx.query(
+                    `UPDATE ${qt}
+                     SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2
+                     WHERE object_id = $3 AND ${ACTIVE}
+                     RETURNING id`,
+                    [new Date(), data.updatedBy ?? null, current.object_id]
+                )
                 updateData.is_default = true
             } else if (data.isDefault === false) {
                 updateData.is_default = false
             }
 
+            let result: Record<string, unknown>
             if (data.expectedVersion !== undefined) {
-                const updated = await updateWithVersionCheck({
-                    knex: trx as any,
+                result = await updateWithVersionCheck({
+                    executor: tx as DbExecutor,
                     schemaName,
                     tableName: '_mhb_values',
                     entityId: id,
@@ -206,45 +200,54 @@ export class MetahubEnumerationValuesService {
                     expectedVersion: data.expectedVersion,
                     updateData
                 })
-                if (data.sortOrder !== undefined) {
-                    await this.ensureSequentialSortOrderInTransaction(schemaName, current.object_id, trx)
-                }
-                return this.mapRow(updated as any)
+            } else {
+                result = await incrementVersion(tx, schemaName, '_mhb_values', id, updateData)
             }
 
-            const updated = await incrementVersion(trx as any, schemaName, '_mhb_values', id, updateData)
             if (data.sortOrder !== undefined) {
-                await this.ensureSequentialSortOrderInTransaction(schemaName, current.object_id, trx)
+                await this.ensureSequentialSortOrderInTransaction(schemaName, current.object_id as string, tx)
             }
-            return this.mapRow(updated as any)
+            return this.mapRow(result)
         })
     }
 
     async delete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex.transaction(async (trx) => {
-            const row = await trx.withSchema(schemaName).from('_mhb_values').where({ id }).first()
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+
+        await this.exec.transaction(async (tx: SqlQueryable) => {
+            const row = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
             if (!row) return
-            await trx.withSchema(schemaName).from('_mhb_values').where({ id }).delete()
-            await this.ensureSequentialSortOrderInTransaction(schemaName, row.object_id, trx)
+
+            await tx.query(
+                `UPDATE ${qt}
+                 SET _mhb_deleted = true,
+                     _mhb_deleted_at = $1,
+                     _mhb_deleted_by = $2,
+                     _upl_updated_at = $1,
+                     _upl_updated_by = $2
+                 WHERE id = $3 AND ${ACTIVE}
+                 RETURNING id`,
+                [new Date(), userId ?? null, id]
+            )
+            await this.ensureSequentialSortOrderInTransaction(schemaName, row.object_id as string, tx)
         })
     }
 
     async moveValue(metahubId: string, enumerationId: string, valueId: string, direction: 'up' | 'down', userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_values')
 
-        return this.knex.transaction(async (trx) => {
-            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, trx)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, tx)
 
-            const ordered = await trx
-                .withSchema(schemaName)
-                .from('_mhb_values')
-                .where({ object_id: enumerationId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .orderBy('sort_order', 'asc')
-                .orderBy('_upl_created_at', 'asc')
-                .orderBy('id', 'asc')
+            const ordered = await queryMany<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt}
+                 WHERE object_id = $1 AND ${ACTIVE}
+                 ORDER BY sort_order ASC, _upl_created_at ASC, id ASC`,
+                [enumerationId]
+            )
 
             const currentIndex = ordered.findIndex((item) => item.id === valueId)
             if (currentIndex === -1) {
@@ -264,20 +267,18 @@ export class MetahubEnumerationValuesService {
             for (let index = 0; index < reordered.length; index += 1) {
                 const row = reordered[index]
                 const nextSortOrder = index + 1
-                if (row.sort_order !== nextSortOrder) {
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_values')
-                        .where({ id: row.id })
-                        .update({
-                            sort_order: nextSortOrder,
-                            _upl_updated_at: now,
-                            _upl_updated_by: userId ?? null
-                        })
+                if ((row.sort_order as number) !== nextSortOrder) {
+                    await tx.query(
+                        `UPDATE ${qt}
+                         SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                         WHERE id = $4
+                         RETURNING id`,
+                        [nextSortOrder, now, userId ?? null, row.id]
+                    )
                 }
             }
 
-            const updated = await trx.withSchema(schemaName).from('_mhb_values').where({ id: valueId }).first()
+            const updated = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [valueId])
             if (!updated) {
                 throw new Error('Enumeration value not found')
             }
@@ -285,79 +286,68 @@ export class MetahubEnumerationValuesService {
         })
     }
 
-    /**
-     * Reorder a single enumeration value to a new sort_order position.
-     * Uses gap-shift approach: shift neighbouring values up/down, then place the moved value.
-     */
     async reorderValue(metahubId: string, enumerationId: string, valueId: string, newSortOrder: number, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_values')
 
-        return this.knex.transaction(async (trx) => {
-            // 1. Normalize sort_order first
-            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, trx)
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, tx)
 
-            // 2. Fetch the current value
-            const current = await trx
-                .withSchema(schemaName)
-                .from('_mhb_values')
-                .where({ id: valueId, object_id: enumerationId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const current = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt}
+                 WHERE id = $1 AND object_id = $2 AND ${ACTIVE}
+                 LIMIT 1`,
+                [valueId, enumerationId]
+            )
             if (!current) throw new Error('Enumeration value not found')
 
-            const oldOrder = current.sort_order
+            const oldOrder = current.sort_order as number
             const clampedNew = Math.max(1, newSortOrder)
 
             if (oldOrder !== clampedNew) {
                 const now = new Date()
 
                 if (clampedNew < oldOrder) {
-                    // Moving up: shift items [clampedNew, oldOrder) down by 1
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_values')
-                        .where({ object_id: enumerationId })
-                        .andWhere('_upl_deleted', false)
-                        .andWhere('_mhb_deleted', false)
-                        .where('sort_order', '>=', clampedNew)
-                        .where('sort_order', '<', oldOrder)
-                        .whereNot({ id: valueId })
-                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
-                        .increment('sort_order', 1)
+                    await tx.query(
+                        `UPDATE ${qt}
+                         SET sort_order = sort_order + 1, _upl_updated_at = $1, _upl_updated_by = $2
+                         WHERE object_id = $3 AND ${ACTIVE}
+                           AND sort_order >= $4 AND sort_order < $5
+                           AND id <> $6
+                         RETURNING id`,
+                        [now, userId ?? null, enumerationId, clampedNew, oldOrder, valueId]
+                    )
                 } else {
-                    // Moving down: shift items (oldOrder, clampedNew] up by 1
-                    await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_values')
-                        .where({ object_id: enumerationId })
-                        .andWhere('_upl_deleted', false)
-                        .andWhere('_mhb_deleted', false)
-                        .where('sort_order', '>', oldOrder)
-                        .where('sort_order', '<=', clampedNew)
-                        .whereNot({ id: valueId })
-                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
-                        .decrement('sort_order', 1)
+                    await tx.query(
+                        `UPDATE ${qt}
+                         SET sort_order = sort_order - 1, _upl_updated_at = $1, _upl_updated_by = $2
+                         WHERE object_id = $3 AND ${ACTIVE}
+                           AND sort_order > $4 AND sort_order <= $5
+                           AND id <> $6
+                         RETURNING id`,
+                        [now, userId ?? null, enumerationId, oldOrder, clampedNew, valueId]
+                    )
                 }
 
-                // Place the value at its new position
-                await trx
-                    .withSchema(schemaName)
-                    .from('_mhb_values')
-                    .where({ id: valueId })
-                    .update({ sort_order: clampedNew, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                await tx.query(
+                    `UPDATE ${qt}
+                     SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4
+                     RETURNING id`,
+                    [clampedNew, now, userId ?? null, valueId]
+                )
             }
 
-            // 3. Final normalization
-            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, trx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, tx)
 
-            const updated = await trx
-                .withSchema(schemaName)
-                .from('_mhb_values')
-                .where({ id: valueId, object_id: enumerationId })
-                .andWhere('_upl_deleted', false)
-                .andWhere('_mhb_deleted', false)
-                .first()
+            const updated = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt}
+                 WHERE id = $1 AND object_id = $2 AND ${ACTIVE}
+                 LIMIT 1`,
+                [valueId, enumerationId]
+            )
             if (!updated) throw new Error('Enumeration value not found')
             return this.mapRow(updated)
         })
@@ -365,50 +355,47 @@ export class MetahubEnumerationValuesService {
 
     async getDefaultValue(metahubId: string, enumerationId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_values')
-            .where({ object_id: enumerationId, is_default: true })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .first()
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const row = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND is_default = true AND ${ACTIVE}
+             LIMIT 1`,
+            [enumerationId]
+        )
         return row ? this.mapRow(row) : null
     }
 
-    private mapRow(row: any) {
+    private mapRow(row: Record<string, unknown>) {
+        const presentation = row.presentation as Record<string, unknown> | null
         return {
             id: row.id,
             objectId: row.object_id,
             codename: row.codename,
-            codenameLocalized: row.presentation?.codename ?? null,
-            name: row.presentation?.name ?? {},
-            description: row.presentation?.description ?? {},
-            sortOrder: row.sort_order ?? 0,
-            isDefault: row.is_default ?? false,
+            codenameLocalized: presentation?.codename ?? null,
+            name: presentation?.name ?? {},
+            description: presentation?.description ?? {},
+            sortOrder: (row.sort_order as number) ?? 0,
+            isDefault: (row.is_default as boolean) ?? false,
             createdAt: row._upl_created_at,
             updatedAt: row._upl_updated_at,
-            version: row._upl_version ?? 1
+            version: (row._upl_version as number) ?? 1
         }
     }
 
-    private async ensureSequentialSortOrderInTransaction(
-        schemaName: string,
-        enumerationId: string,
-        trx: Knex | Knex.Transaction
-    ): Promise<void> {
-        const rows = await trx
-            .withSchema(schemaName)
-            .from('_mhb_values')
-            .where({ object_id: enumerationId })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
-            .orderBy('id', 'asc')
+    private async ensureSequentialSortOrderInTransaction(schemaName: string, enumerationId: string, db: SqlQueryable): Promise<void> {
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const rows = await queryMany<Record<string, unknown>>(
+            db,
+            `SELECT id, sort_order FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC, id ASC`,
+            [enumerationId]
+        )
 
         let hasGaps = false
         for (let index = 0; index < rows.length; index += 1) {
-            if ((rows[index].sort_order ?? 0) !== index + 1) {
+            if (((rows[index].sort_order as number) ?? 0) !== index + 1) {
                 hasGaps = true
                 break
             }
@@ -419,63 +406,61 @@ export class MetahubEnumerationValuesService {
         for (let index = 0; index < rows.length; index += 1) {
             const row = rows[index]
             const nextSortOrder = index + 1
-            if ((row.sort_order ?? 0) !== nextSortOrder) {
-                await trx.withSchema(schemaName).from('_mhb_values').where({ id: row.id }).update({
-                    sort_order: nextSortOrder,
-                    _upl_updated_at: now
-                })
+            if (((row.sort_order as number) ?? 0) !== nextSortOrder) {
+                await db.query(
+                    `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2
+                     WHERE id = $3 RETURNING id`,
+                    [nextSortOrder, now, row.id]
+                )
             }
         }
     }
 
-    private async getNextSortOrder(schemaName: string, enumerationId: string, knex: Knex | Knex.Transaction): Promise<number> {
-        const result = await knex
-            .withSchema(schemaName)
-            .from('_mhb_values')
-            .where({ object_id: enumerationId })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .max('sort_order as max')
-            .first()
-
-        const max = result?.max
-        if (typeof max === 'number') return max + 1
-        const parsed = max !== undefined && max !== null ? Number(max) : 0
-        return Number.isFinite(parsed) ? parsed + 1 : 1
+    private async getNextSortOrder(schemaName: string, enumerationId: string, db: SqlQueryable): Promise<number> {
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const rows = await db.query<{ max: string | null }>(
+            `SELECT MAX(sort_order)::text AS max FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}`,
+            [enumerationId]
+        )
+        const max = rows[0]?.max
+        if (typeof max === 'string' && max !== '') {
+            const parsed = Number(max)
+            return Number.isFinite(parsed) ? parsed + 1 : 1
+        }
+        return 1
     }
 
-    private async ensureDefaultConstraint(schemaName: string, knex: Knex | Knex.Transaction): Promise<void> {
+    private async ensureDefaultConstraint(schemaName: string, db: SqlQueryable): Promise<void> {
         if (defaultConstraintCache.has(schemaName)) return
 
-        await knex.raw(
-            `
-                WITH ranked AS (
-                    SELECT
-                        id,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY object_id
-                            ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
-                        ) AS row_number
-                    FROM "${schemaName}"._mhb_values
-                    WHERE is_default = true
-                      AND _upl_deleted = false
-                      AND _mhb_deleted = false
-                )
-                UPDATE "${schemaName}"._mhb_values AS ev
-                SET is_default = false,
-                    _upl_updated_at = NOW()
-                FROM ranked
-                WHERE ev.id = ranked.id
-                  AND ranked.row_number > 1
-            `
+        const qs = qSchema(schemaName)
+        await db.query(
+            `WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY object_id
+                        ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
+                    ) AS row_number
+                FROM ${qs}._mhb_values
+                WHERE is_default = true
+                  AND _upl_deleted = false
+                  AND _mhb_deleted = false
+            )
+            UPDATE ${qs}._mhb_values AS ev
+            SET is_default = false,
+                _upl_updated_at = NOW()
+            FROM ranked
+            WHERE ev.id = ranked.id
+              AND ranked.row_number > 1
+            RETURNING ev.id`
         )
 
-        await knex.raw(
-            `
-                CREATE UNIQUE INDEX IF NOT EXISTS uidx_mhb_values_default_active
-                ON "${schemaName}"._mhb_values (object_id)
-                WHERE is_default = true AND _upl_deleted = false AND _mhb_deleted = false
-            `
+        await db.query(
+            `CREATE UNIQUE INDEX IF NOT EXISTS uidx_mhb_values_default_active
+             ON ${qs}._mhb_values (object_id)
+             WHERE is_default = true AND _upl_deleted = false AND _mhb_deleted = false`
         )
 
         defaultConstraintCache.add(schemaName)

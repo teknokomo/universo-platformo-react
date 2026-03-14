@@ -8,10 +8,10 @@
 
 ## Overview
 
-Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-references in routes, entities, migrations, menus, permissions, i18n, and dependencies. Then:
-1. Migrate essential code from `flowise-core-backend` → `universo-core-backend`, delete the former
-2. Rename `flowise-core-frontend` → `universo-core-frontend` (package name + directory)
-3. Decide fate of `flowise-store` and `flowise-template-mui` (rename or merge)
+Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all cross-references in routes, entities, migrations, menus, permissions, i18n, and dependencies. Then:
+1. Migrate essential code from `legacy-core-backend` → `universo-core-backend`, delete the former
+2. Rename `legacy-core-frontend` → `universo-core-frontend` (package name + directory)
+3. Decide fate of `legacy-store` and `legacy-template-mui` (rename or merge)
 4. Update all docs (READMEs, GitBook stubs)
 5. Clean root configs and full rebuild
 
@@ -21,32 +21,32 @@ Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-re
 
 ## Packages to DELETE (38)
 
-### Flowise AI Legacy (28 packages)
+### legacy upstream shell Legacy (28 packages)
 | # | Directory | npm name | Type |
 |---|-----------|----------|------|
-| 1 | `flowise-agents-backend` | `@flowise/agents-backend` | backend |
-| 2 | `flowise-agents-frontend` | `@flowise/agents-frontend` | frontend |
-| 3 | `flowise-apikey-backend` | `@flowise/apikey-backend` | backend |
-| 4 | `flowise-apikey-frontend` | `@flowise/apikey-frontend` | frontend |
-| 5 | `flowise-assistants-backend` | `@flowise/assistants-backend` | backend |
-| 6 | `flowise-assistants-frontend` | `@flowise/assistants-frontend` | frontend |
-| 7 | `flowise-chatmessage-backend` | `@flowise/chatmessage-backend` | backend |
-| 8 | `flowise-chatmessage-frontend` | `@flowise/chatmessage-frontend` | frontend |
-| 9 | `flowise-components` | `flowise-components` | shared |
-| 10 | `flowise-credentials-backend` | `@flowise/credentials-backend` | backend |
-| 11 | `flowise-credentials-frontend` | `@flowise/credentials-frontend` | frontend |
-| 12 | `flowise-customtemplates-backend` | `@flowise/customtemplates-backend` | backend |
-| 13 | `flowise-customtemplates-frontend` | `@flowise/customtemplates-frontend` | frontend |
-| 14 | `flowise-docstore-backend` | `@flowise/docstore-backend` | backend |
-| 15 | `flowise-docstore-frontend` | `@flowise/docstore-frontend` | frontend |
-| 16 | `flowise-executions-backend` | `@flowise/executions-backend` | backend |
-| 17 | `flowise-executions-frontend` | `@flowise/executions-frontend` | frontend |
-| 18 | `flowise-leads-backend` | `@flowise/leads-backend` | backend |
-| 19 | `flowise-leads-frontend` | `@flowise/leads-frontend` | frontend |
-| 20 | `flowise-tools-backend` | `@flowise/tools-backend` | backend |
-| 21 | `flowise-tools-frontend` | `@flowise/tools-frontend` | frontend |
-| 22 | `flowise-variables-backend` | `@flowise/variables-backend` | backend |
-| 23 | `flowise-variables-frontend` | `@flowise/variables-frontend` | frontend |
+| 1 | `legacy-agents-backend` | `/agents-backend` | backend |
+| 2 | `legacy-agents-frontend` | `/agents-frontend` | frontend |
+| 3 | `legacy-apikey-backend` | `/apikey-backend` | backend |
+| 4 | `legacy-apikey-frontend` | `/apikey-frontend` | frontend |
+| 5 | `legacy-assistants-backend` | `/assistants-backend` | backend |
+| 6 | `legacy-assistants-frontend` | `/assistants-frontend` | frontend |
+| 7 | `legacy-chatmessage-backend` | `/chatmessage-backend` | backend |
+| 8 | `legacy-chatmessage-frontend` | `/chatmessage-frontend` | frontend |
+| 9 | `legacy-components` | `legacy-components` | shared |
+| 10 | `legacy-credentials-backend` | `/credentials-backend` | backend |
+| 11 | `legacy-credentials-frontend` | `/credentials-frontend` | frontend |
+| 12 | `legacy-customtemplates-backend` | `/customtemplates-backend` | backend |
+| 13 | `legacy-customtemplates-frontend` | `/customtemplates-frontend` | frontend |
+| 14 | `legacy-docstore-backend` | `/docstore-backend` | backend |
+| 15 | `legacy-docstore-frontend` | `/docstore-frontend` | frontend |
+| 16 | `legacy-executions-backend` | `/executions-backend` | backend |
+| 17 | `legacy-executions-frontend` | `/executions-frontend` | frontend |
+| 18 | `legacy-leads-backend` | `/leads-backend` | backend |
+| 19 | `legacy-leads-frontend` | `/leads-frontend` | frontend |
+| 20 | `legacy-tools-backend` | `/tools-backend` | backend |
+| 21 | `legacy-tools-frontend` | `/tools-frontend` | frontend |
+| 22 | `legacy-variables-backend` | `/variables-backend` | backend |
+| 23 | `legacy-variables-frontend` | `/variables-frontend` | frontend |
 
 ### Universo Legacy (15 packages)
 | # | Directory | npm name | Type |
@@ -70,10 +70,10 @@ Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-re
 ### Also to DELETE (special refactor)
 | Package | Action |
 |---------|--------|
-| `flowise-core-backend` | Migrate essential code → `universo-core-backend`, then delete |
-| `flowise-core-frontend` | Rename to `universo-core-frontend`, clean legacy imports |
-| `flowise-store` | Rename to `@universo/store` (or merge into core-frontend — user decision needed) |
-| `flowise-template-mui` | Rename to `@universo/legacy-mui` or merge shared components — user decision needed |
+| `legacy-core-backend` | Migrate essential code → `universo-core-backend`, then delete |
+| `legacy-core-frontend` | Rename to `universo-core-frontend`, clean legacy imports |
+| `legacy-store` | Rename to `@universo/store` (or merge into core-frontend — user decision needed) |
+| `legacy-template-mui` | Rename to `@universo/legacy-mui` or merge shared components — user decision needed |
 
 ---
 
@@ -85,23 +85,23 @@ Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-re
 `start-backend`, `start-frontend`, `universo-api-client`, `universo-core-backend` (enriched),
 `universo-core-frontend` (renamed), `universo-i18n`, `universo-rest-docs`,
 `universo-template-mui`, `universo-types`, `universo-utils`,
-`flowise-store` (renamed to `@universo/store`), `flowise-template-mui` (renamed to legacy or merged)
+`legacy-store` (renamed to `@universo/store`), `legacy-template-mui` (renamed to legacy or merged)
 
 ---
 
 ## Affected Areas Map
 
-### Backend — flowise-core-backend (→ universo-core-backend)
+### Backend — legacy-core-backend (→ universo-core-backend)
 
 | File | Lines | What to change |
 |------|-------|----------------|
 | `src/routes/index.ts` (656L) | ~400 lines to remove | Remove 15+ service imports, 30+ route mounts, error handlers for deleted services |
 | `src/index.ts` (419L) | ~100 lines to remove | Remove NodesPool, CachePool, AbortControllerPool, deleted rate limiters, publish-frontend assets, Canvas import |
 | `src/DataSource.ts` (199L) | Migrate as-is | Move to universo-core-backend (good code, no deleted refs except entity/migration files) |
-| `src/Interface.ts` (357L) | Remove ~200 lines | Remove all re-exports from deleted packages, Flowise-specific interfaces (IReactFlowNode, INodeData, etc.) |
+| `src/Interface.ts` (357L) | Remove ~200 lines | Remove all re-exports from deleted packages, legacy upstream-specific interfaces (IReactFlowNode, INodeData, etc.) |
 | `src/Interface.Metrics.ts` | Keep or migrate | Check if used by kept packages |
-| `src/NodesPool.ts` (178L) | DELETE entirely | Loads flowise-components + UPDL nodes — both deleted |
-| `src/CachePool.ts` | DELETE entirely | Used only by canvas flow execution (flowise-components) |
+| `src/NodesPool.ts` (178L) | DELETE entirely | Loads legacy-components + UPDL nodes — both deleted |
+| `src/CachePool.ts` | DELETE entirely | Used only by canvas flow execution (legacy-components) |
 | `src/AbortControllerPool.ts` | DELETE entirely | Used only by canvas prediction abort |
 | `src/AppConfig.ts` | DELETE or simplify | `showCommunityNodes` irrelevant, `apiKeys.storageType` irrelevant |
 | `src/utils/` (21 files) | DELETE most | Most are canvas/flow-specific (buildCanvasFlow, buildAgentGraph, SSEStreamer, upsertVector, validateKey, prompt, addCanvasCount, createAttachment, getUploadsConfig, hub, fileRepository). KEEP: logger, config, getRunningExpressApp, rlsHelpers, rateLimit, typeormDataSource |
@@ -110,13 +110,13 @@ Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-re
 | `package.json` | Remove 17 workspace deps | Remove all deleted backend package dependencies |
 | `bin/` (run, dev scripts) | Migrate to universo-core-backend | oclif CLI entry point |
 
-### Frontend — flowise-core-frontend (→ universo-core-frontend)
+### Frontend — legacy-core-frontend (→ universo-core-frontend)
 
 | File | What to change |
 |------|----------------|
-| `src/index.jsx` (129L) | Remove 10+ i18n imports from deleted packages, remove `setupBuilders()`, remove `browserModuleMap`, change `@flowise/store` → `@universo/store` |
-| `src/App.jsx` (218L) | Change `@flowise/template-mui` → new location, remove CaslDebugger TODO |
-| `package.json` (128L) | Remove 9+ deps on deleted frontend packages, remove `reactflow`, `flowise-embed`, `flowise-react-json-view`, `codemirror*`, `react-code-blocks`, etc. |
+| `src/index.jsx` (129L) | Remove 10+ i18n imports from deleted packages, remove `setupBuilders()`, remove `browserModuleMap`, change `/store` → `@universo/store` |
+| `src/App.jsx` (218L) | Change `/template-mui` → new location, remove CaslDebugger TODO |
+| `package.json` (128L) | Remove 9+ deps on deleted frontend packages, remove `reactflow`, `legacy-embed`, `legacy-react-json-view`, `codemirror*`, `react-code-blocks`, etc. |
 | `vite.config.js` | Remove optimizeDeps for deleted packages |
 
 ### Frontend — universo-template-mui
@@ -129,8 +129,8 @@ Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-re
 | `src/components/dashboard/NavbarBreadcrumbs.tsx` | Remove ~150 lines | Remove metaverse/unik breadcrumb builders, hooks, menuMap entries |
 | `src/hooks/useBreadcrumbName.ts` | Remove ~50 lines | Remove useMetaverseName, useUnikName, useSpaceName hooks + truncate functions |
 | `src/hooks/index.ts` | Remove ~12 re-exports | Remove deleted hook re-exports |
-| `src/components/table/FlowListTable.tsx` | Change import | Remove `FlowListMenu` import from `@flowise/template-mui` |
-| `package.json` | Remove ~10 deps | Remove deps on deleted `@flowise/*-frontend` packages |
+| `src/components/table/FlowListTable.tsx` | Change import | Remove `FlowListMenu` import from `/template-mui` |
+| `package.json` | Remove ~10 deps | Remove deps on deleted `/*-frontend` packages |
 
 ### Shared — universo-types
 
@@ -156,29 +156,29 @@ Remove **38 legacy Flowise/UPDL packages** from the monorepo, clean all cross-re
 
 | File | What to change |
 |------|----------------|
-| `src/instance.ts` | Remove ~20 comment lines referencing deleted `@flowise/*` packages |
+| `src/instance.ts` | Remove ~20 comment lines referencing deleted `/*` packages |
 
-### Shared — flowise-store (→ @universo/store)
+### Shared — legacy-store (→ @universo/store)
 
 | File | What to change |
 |------|----------------|
-| `package.json` | Rename `"name"` from `@flowise/store` → `@universo/store` |
-| All consumers | Update imports from `@flowise/store` → `@universo/store` |
+| `package.json` | Rename `"name"` from `/store` → `@universo/store` |
+| All consumers | Update imports from `/store` → `@universo/store` |
 
-### Shared — flowise-template-mui
+### Shared — legacy-template-mui
 
 | Dependencies | What to change |
 |------|----------------|
-| `package.json` deps | Remove `@flowise/credentials-frontend`, `@flowise/tools-frontend`, `@flowise/assistants-frontend` (deleted packages) |
+| `package.json` deps | Remove `/credentials-frontend`, `/tools-frontend`, `/assistants-frontend` (deleted packages) |
 | Rename to `@universo/legacy-mui` | Or merge used parts into `universo-template-mui` |
 
 ### Infrastructure
 
 | File | What to change |
 |------|----------------|
-| Root `package.json` scripts | Change `packages/flowise-core-backend/base/bin` → `packages/universo-core-backend/base/bin` |
+| Root `package.json` scripts | Change `packages/legacy-core-backend/base/bin` → `packages/universo-core-backend/base/bin` |
 | `Dockerfile` | No package-specific refs (uses `pnpm build` / `pnpm start`) — update if start scripts change |
-| `docker/Dockerfile` | Uses global `flowise` npm install — review if still valid post-rename |
+| `docker/Dockerfile` | Uses global `legacy` npm install — review if still valid post-rename |
 | `docker/docker-compose.yml` | Review environment variables |
 | `pnpm-workspace.yaml` | No changes needed (glob pattern `packages/*` + `packages/*/base`) |
 | `turbo.json` | No changes needed (uses generic pipeline) |
@@ -362,30 +362,30 @@ This is the bulk delete. Do it in one step since all cross-references will be cl
 - [ ] **Step 3.1**: Delete all 38 package directories
 
   ```bash
-  # Flowise AI Legacy (23 packages — agents through variables)
-  rm -rf packages/flowise-agents-backend
-  rm -rf packages/flowise-agents-frontend
-  rm -rf packages/flowise-apikey-backend
-  rm -rf packages/flowise-apikey-frontend
-  rm -rf packages/flowise-assistants-backend
-  rm -rf packages/flowise-assistants-frontend
-  rm -rf packages/flowise-chatmessage-backend
-  rm -rf packages/flowise-chatmessage-frontend
-  rm -rf packages/flowise-components
-  rm -rf packages/flowise-credentials-backend
-  rm -rf packages/flowise-credentials-frontend
-  rm -rf packages/flowise-customtemplates-backend
-  rm -rf packages/flowise-customtemplates-frontend
-  rm -rf packages/flowise-docstore-backend
-  rm -rf packages/flowise-docstore-frontend
-  rm -rf packages/flowise-executions-backend
-  rm -rf packages/flowise-executions-frontend
-  rm -rf packages/flowise-leads-backend
-  rm -rf packages/flowise-leads-frontend
-  rm -rf packages/flowise-tools-backend
-  rm -rf packages/flowise-tools-frontend
-  rm -rf packages/flowise-variables-backend
-  rm -rf packages/flowise-variables-frontend
+  # legacy upstream shell Legacy (23 packages — agents through variables)
+  rm -rf packages/legacy-agents-backend
+  rm -rf packages/legacy-agents-frontend
+  rm -rf packages/legacy-apikey-backend
+  rm -rf packages/legacy-apikey-frontend
+  rm -rf packages/legacy-assistants-backend
+  rm -rf packages/legacy-assistants-frontend
+  rm -rf packages/legacy-chatmessage-backend
+  rm -rf packages/legacy-chatmessage-frontend
+  rm -rf packages/legacy-components
+  rm -rf packages/legacy-credentials-backend
+  rm -rf packages/legacy-credentials-frontend
+  rm -rf packages/legacy-customtemplates-backend
+  rm -rf packages/legacy-customtemplates-frontend
+  rm -rf packages/legacy-docstore-backend
+  rm -rf packages/legacy-docstore-frontend
+  rm -rf packages/legacy-executions-backend
+  rm -rf packages/legacy-executions-frontend
+  rm -rf packages/legacy-leads-backend
+  rm -rf packages/legacy-leads-frontend
+  rm -rf packages/legacy-tools-backend
+  rm -rf packages/legacy-tools-frontend
+  rm -rf packages/legacy-variables-backend
+  rm -rf packages/legacy-variables-frontend
   
   # Universo Legacy (15 packages)
   rm -rf packages/analytics-frontend
@@ -407,7 +407,7 @@ This is the bulk delete. Do it in one step since all cross-references will be cl
 
 - [ ] **Step 3.2**: Verify deleted packages are gone
   ```bash
-  ls -d packages/flowise-agents-* packages/flowise-apikey-* 2>/dev/null | wc -l
+  ls -d packages/legacy-agents-* packages/legacy-apikey-* 2>/dev/null | wc -l
   # Expected: 0
   ```
 
@@ -415,9 +415,9 @@ This is the bulk delete. Do it in one step since all cross-references will be cl
 
 ---
 
-### Phase 4: Clean flowise-core-backend (The Big Refactor)
+### Phase 4: Clean legacy-core-backend (The Big Refactor)
 
-This is the most complex phase. The `flowise-core-backend` is the central hub that imports from all deleted packages.
+This is the most complex phase. The `legacy-core-backend` is the central hub that imports from all deleted packages.
 
 #### 4A: Clean Database Layer
 
@@ -529,9 +529,9 @@ This is the most complex phase. The `flowise-core-backend` is the central hub th
   **What to REMOVE** (service DI):
   ```typescript
   // DELETE all of these service instantiations:
-  const toolsService = new (await import('@flowise/tools-backend')).ToolsService(...)
-  const credentialsService = new (await import('@flowise/credentials-backend')).CredentialsService(...)
-  const variablesService = new (await import('@flowise/variables-backend')).VariablesService(...)
+  const toolsService = new (await import('/tools-backend')).ToolsService(...)
+  const credentialsService = new (await import('/credentials-backend')).CredentialsService(...)
+  const variablesService = new (await import('/variables-backend')).VariablesService(...)
   const apikeyService = ... // apikey-backend
   const assistantsService = ... // assistants-backend
   const leadsService = ... // leads-backend
@@ -593,7 +593,7 @@ This is the most complex phase. The `flowise-core-backend` is the central hub th
   ```typescript
   // DELETE:
   import { Canvas } from '@universo/spaces-backend'
-  import { getAPIKeysFromJson } from '@flowise/apikey-backend'
+  import { getAPIKeysFromJson } from '/apikey-backend'
   import { initializeRateLimiters } from '@universo/metaverses-backend'
   import { seedMetahubTemplates } from '@universo/metahubs-backend'  // KEEP if still needed
   import { NodesPool } from './NodesPool'
@@ -622,7 +622,7 @@ This is the most complex phase. The `flowise-core-backend` is the central hub th
   **UPDATE** static UI serving:
   ```typescript
   // BEFORE:
-  const packagePath = getNodeModulesPackagePath('@flowise/core-frontend')
+  const packagePath = getNodeModulesPackagePath('/core-frontend')
   // AFTER:
   const packagePath = getNodeModulesPackagePath('@universo/core-frontend')
   ```
@@ -631,27 +631,27 @@ This is the most complex phase. The `flowise-core-backend` is the central hub th
 
 - [ ] **Step 4D.1**: Delete files that are completely obsolete
   ```bash
-  rm packages/flowise-core-backend/base/src/NodesPool.ts
-  rm packages/flowise-core-backend/base/src/CachePool.ts
-  rm packages/flowise-core-backend/base/src/AbortControllerPool.ts
-  rm packages/flowise-core-backend/base/src/AppConfig.ts
+  rm packages/legacy-core-backend/base/src/NodesPool.ts
+  rm packages/legacy-core-backend/base/src/CachePool.ts
+  rm packages/legacy-core-backend/base/src/AbortControllerPool.ts
+  rm packages/legacy-core-backend/base/src/AppConfig.ts
   ```
 
 - [ ] **Step 4D.2**: Delete obsolete utils
   ```bash
   # Canvas/flow-specific — no longer needed
-  rm packages/flowise-core-backend/base/src/utils/buildCanvasFlow.ts
-  rm packages/flowise-core-backend/base/src/utils/buildAgentGraph.ts
-  rm packages/flowise-core-backend/base/src/utils/SSEStreamer.ts
-  rm packages/flowise-core-backend/base/src/utils/upsertVector.ts
-  rm packages/flowise-core-backend/base/src/utils/validateKey.ts
-  rm packages/flowise-core-backend/base/src/utils/prompt.ts
-  rm packages/flowise-core-backend/base/src/utils/addCanvasCount.ts
-  rm packages/flowise-core-backend/base/src/utils/createAttachment.ts
-  rm packages/flowise-core-backend/base/src/utils/getUploadsConfig.ts
-  rm packages/flowise-core-backend/base/src/utils/hub.ts
-  rm packages/flowise-core-backend/base/src/utils/fileRepository.ts
-  rm packages/flowise-core-backend/base/src/utils/XSS.ts
+  rm packages/legacy-core-backend/base/src/utils/buildCanvasFlow.ts
+  rm packages/legacy-core-backend/base/src/utils/buildAgentGraph.ts
+  rm packages/legacy-core-backend/base/src/utils/SSEStreamer.ts
+  rm packages/legacy-core-backend/base/src/utils/upsertVector.ts
+  rm packages/legacy-core-backend/base/src/utils/validateKey.ts
+  rm packages/legacy-core-backend/base/src/utils/prompt.ts
+  rm packages/legacy-core-backend/base/src/utils/addCanvasCount.ts
+  rm packages/legacy-core-backend/base/src/utils/createAttachment.ts
+  rm packages/legacy-core-backend/base/src/utils/getUploadsConfig.ts
+  rm packages/legacy-core-backend/base/src/utils/hub.ts
+  rm packages/legacy-core-backend/base/src/utils/fileRepository.ts
+  rm packages/legacy-core-backend/base/src/utils/XSS.ts
   ```
   
   **KEEP** these utils:
@@ -666,20 +666,20 @@ This is the most complex phase. The `flowise-core-backend` is the central hub th
   utils/constants.ts           — review and clean
   ```
 
-- [ ] **Step 4D.3**: Clean `src/Interface.ts` — remove all Flowise-specific types
+- [ ] **Step 4D.3**: Clean `src/Interface.ts` — remove all legacy upstream-specific types
   
   **REMOVE** all of these:
   ```typescript
   // DELETE re-exports from deleted packages:
-  export type { IAssistant, AssistantType } from '@flowise/assistants-backend'
-  export type { IChatMessage, IChatMessageFeedback, GetChatMessageParams } from '@flowise/chatmessage-backend'
-  export type { ILead, CreateLeadBody } from '@flowise/leads-backend'
+  export type { IAssistant, AssistantType } from '/assistants-backend'
+  export type { IChatMessage, IChatMessageFeedback, GetChatMessageParams } from '/chatmessage-backend'
+  export type { ILead, CreateLeadBody } from '/leads-backend'
   import type { CanvasFlowResult } from '@universo/spaces-backend'
-  import { IAction, ICommonObject, IFileUpload, INode, INodeData, ... } from 'flowise-components'
-  import type { IDocumentStoreUpsertData, ... } from '@flowise/docstore-backend'
-  export { DocumentStoreStatus, IDocumentStore, ... } from '@flowise/docstore-backend'
+  import { IAction, ICommonObject, IFileUpload, INode, INodeData, ... } from 'legacy-components'
+  import type { IDocumentStoreUpsertData, ... } from '/docstore-backend'
+  export { DocumentStoreStatus, IDocumentStore, ... } from '/docstore-backend'
   
-  // DELETE all Flowise-specific interfaces:
+  // DELETE all legacy upstream-specific interfaces:
   interface ITool { ... }
   interface ICredential { ... }
   interface IVariable { ... }
@@ -702,69 +702,69 @@ This is the most complex phase. The `flowise-core-backend` is the central hub th
 
 #### 4E: Clean package.json
 
-- [ ] **Step 4E.1**: Remove workspace dependencies for deleted packages from `flowise-core-backend/base/package.json`
+- [ ] **Step 4E.1**: Remove workspace dependencies for deleted packages from `legacy-core-backend/base/package.json`
   
   **REMOVE** these dependencies:
   ```json
-  "@flowise/apikey-backend": "workspace:*",
-  "@flowise/assistants-backend": "workspace:*",
-  "@flowise/chatmessage-backend": "workspace:*",
-  "@flowise/credentials-backend": "workspace:*",
-  "@flowise/customtemplates-backend": "workspace:*",
-  "@flowise/docstore-backend": "workspace:*",
-  "@flowise/leads-backend": "workspace:*",
-  "@flowise/tools-backend": "workspace:*",
-  "@flowise/variables-backend": "workspace:*",
+  "/apikey-backend": "workspace:*",
+  "/assistants-backend": "workspace:*",
+  "/chatmessage-backend": "workspace:*",
+  "/credentials-backend": "workspace:*",
+  "/customtemplates-backend": "workspace:*",
+  "/docstore-backend": "workspace:*",
+  "/leads-backend": "workspace:*",
+  "/tools-backend": "workspace:*",
+  "/variables-backend": "workspace:*",
   "@universo/metaverses-backend": "workspace:*",
   "@universo/multiplayer-colyseus-backend": "workspace:*",
   "@universo/publish-backend": "workspace:*",
   "@universo/space-builder-backend": "workspace:*",
   "@universo/spaces-backend": "workspace:*",
   "@universo/uniks-backend": "workspace:*",
-  "flowise-components": "workspace:^",
-  "@flowise/core-frontend": "workspace:^"
+  "legacy-components": "workspace:^",
+  "/core-frontend": "workspace:^"
   ```
   
   Also remove npm dependencies no longer needed:
   ```json
-  "flowise-nim-container-manager": "^1.0.11",
+  "legacy-nim-container-manager": "^1.0.11",
   // And any other deps only used by deleted code
   ```
 
-- [ ] **Step 4E.2**: Verify flowise-core-backend builds
+- [ ] **Step 4E.2**: Verify legacy-core-backend builds
   ```bash
-  pnpm --filter flowise-core-backend build
+  pnpm --filter legacy-core-backend build
   ```
 
 ---
 
-### Phase 5: Migrate flowise-core-backend → universo-core-backend
+### Phase 5: Migrate legacy-core-backend → universo-core-backend
 
-After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
+After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
 
 - [ ] **Step 5.1**: Copy source files to universo-core-backend
   
   ```bash
   # Copy cleaned source files
-  cp -r packages/flowise-core-backend/base/src/routes packages/universo-core-backend/base/src/
-  cp -r packages/flowise-core-backend/base/src/utils packages/universo-core-backend/base/src/
-  cp packages/flowise-core-backend/base/src/index.ts packages/universo-core-backend/base/src/app.ts
-  cp packages/flowise-core-backend/base/src/DataSource.ts packages/universo-core-backend/base/src/
-  cp packages/flowise-core-backend/base/src/Interface.ts packages/universo-core-backend/base/src/
-  cp packages/flowise-core-backend/base/src/Interface.Metrics.ts packages/universo-core-backend/base/src/
+  cp -r packages/legacy-core-backend/base/src/routes packages/universo-core-backend/base/src/
+  cp -r packages/legacy-core-backend/base/src/utils packages/universo-core-backend/base/src/
+  cp packages/legacy-core-backend/base/src/index.ts packages/universo-core-backend/base/src/app.ts
+  cp packages/legacy-core-backend/base/src/DataSource.ts packages/universo-core-backend/base/src/
+  cp packages/legacy-core-backend/base/src/Interface.ts packages/universo-core-backend/base/src/
+  cp packages/legacy-core-backend/base/src/Interface.Metrics.ts packages/universo-core-backend/base/src/
   
   # Copy database layer (entities + migrations already have index files)
-  cp packages/flowise-core-backend/base/src/database/entities/index.ts packages/universo-core-backend/base/src/database/entities/index.ts
+  cp packages/legacy-core-backend/base/src/database/entities/index.ts packages/universo-core-backend/base/src/database/entities/index.ts
   # Migrations already exist in universo-core-backend — merge the index
   
   # Copy bin scripts
-  cp -r packages/flowise-core-backend/base/bin packages/universo-core-backend/base/
+  cp -r packages/legacy-core-backend/base/bin packages/universo-core-backend/base/
   ```
 
 - [ ] **Step 5.2**: Update `universo-core-backend/base/package.json`
   
   - Change `"name"` to `"@universo/core-backend"` (already correct)
-  - Add all dependencies from cleaned flowise-core-backend package.json
+  - Add all dependencies from cleaned legacy-core-backend package.json
   - Add `"bin"` config if using oclif
   - Ensure correct `"main"` entry point
 
@@ -799,14 +799,14 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   pnpm --filter universo-core-backend build
   ```
 
-- [ ] **Step 5.6**: Delete flowise-core-backend
+- [ ] **Step 5.6**: Delete legacy-core-backend
   ```bash
-  rm -rf packages/flowise-core-backend
+  rm -rf packages/legacy-core-backend
   ```
 
 ---
 
-### Phase 6: Rename flowise-core-frontend → universo-core-frontend
+### Phase 6: Rename legacy-core-frontend → universo-core-frontend
 
 - [ ] **Step 6.1**: Clean `src/index.jsx` — remove all deleted package imports
   
@@ -820,7 +820,7 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   import '@universo/metaverses-frontend/i18n'
   import '@universo/template-mmoomm/i18n'
   import '@universo/template-quiz/i18n'
-  import '@flowise/template-mui/i18n'
+  import '/template-mui/i18n'
   ```
   
   **REMOVE** code:
@@ -834,7 +834,7 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   **UPDATE** store import:
   ```jsx
   // BEFORE:
-  import { store } from '@flowise/store'
+  import { store } from '/store'
   // AFTER:
   import { store } from '@universo/store'
   ```
@@ -844,23 +844,23 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   All views are for deleted features (canvases, agentflows, chatbot, publish, settings).
   The `api/` directory is also legacy except `client.ts` which will be updated.
   ```bash
-  rm -rf packages/flowise-core-frontend/base/src/views/
-  rm -rf packages/flowise-core-frontend/base/src/api/
+  rm -rf packages/legacy-core-frontend/base/src/views/
+  rm -rf packages/legacy-core-frontend/base/src/api/
   ```
   
   Also delete stale build artifacts:
   ```bash
-  rm -rf packages/flowise-core-frontend/base/build/
+  rm -rf packages/legacy-core-frontend/base/build/
   ```
 
 - [ ] **Step 6.2**: Clean `src/App.jsx`
   
-  **UPDATE** imports (flowise-template-mui is being deleted — use @universo/template-mui):
+  **UPDATE** imports (legacy-template-mui is being deleted — use @universo/template-mui):
   ```jsx
   // BEFORE:
-  import routes from '@flowise/template-mui/routes'
-  import themes from '@flowise/template-mui/themes'
-  import NavigationScroll from '@flowise/template-mui/layout/NavigationScroll'
+  import routes from '/template-mui/routes'
+  import themes from '/template-mui/themes'
+  import NavigationScroll from '/template-mui/layout/NavigationScroll'
   // AFTER:
   import routes from '@universo/template-mui/routes'
   import themes from '@universo/template-mui/themes'
@@ -872,8 +872,8 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   
   **REMOVE**:
   ```json
-  "@flowise/customtemplates-frontend": "workspace:*",
-  "@flowise/tools-frontend": "workspace:*",
+  "/customtemplates-frontend": "workspace:*",
+  "/tools-frontend": "workspace:*",
   "@universo/metaverses-frontend": "workspace:*",
   "@universo/publish-frontend": "workspace:*",
   "@universo/space-builder-frontend": "workspace:*",
@@ -886,9 +886,9 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   **REMOVE** legacy npm deps (no longer used after cleanup):
   ```json
   "reactflow": ...,
-  "flowise-embed": ...,
-  "flowise-embed-react": ...,
-  "flowise-react-json-view": ...,
+  "legacy-embed": ...,
+  "legacy-embed-react": ...,
+  "legacy-react-json-view": ...,
   "@uiw/codemirror-*": ...,
   "react-code-blocks": ...,
   "react-color": ...,
@@ -898,7 +898,7 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   
   **UPDATE**:
   ```json
-  "@flowise/store": "workspace:*" → "@universo/store": "workspace:*"
+  "/store": "workspace:*" → "@universo/store": "workspace:*"
   ```
 
 - [ ] **Step 6.4**: Clean `vite.config.js` — remove optimizeDeps for deleted packages
@@ -907,7 +907,7 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   
   ```bash
   # Rename directory
-  mv packages/flowise-core-frontend packages/universo-core-frontend
+  mv packages/legacy-core-frontend packages/universo-core-frontend
   ```
   
   In `packages/universo-core-frontend/base/package.json`:
@@ -929,14 +929,14 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   **REMOVE** i18n imports (lines 13-28):
   ```typescript
   // DELETE:
-  import '@flowise/tools-frontend/i18n'
-  import '@flowise/credentials-frontend/i18n'
-  import '@flowise/variables-frontend/i18n'
-  import '@flowise/apikey-frontend/i18n'
-  import '@flowise/assistants-frontend/i18n'
-  import '@flowise/executions-frontend/i18n'
-  import '@flowise/docstore-frontend/i18n'
-  import '@flowise/customtemplates-frontend/i18n'
+  import '/tools-frontend/i18n'
+  import '/credentials-frontend/i18n'
+  import '/variables-frontend/i18n'
+  import '/apikey-frontend/i18n'
+  import '/assistants-frontend/i18n'
+  import '/executions-frontend/i18n'
+  import '/docstore-frontend/i18n'
+  import '/customtemplates-frontend/i18n'
   import '@universo/uniks-frontend/i18n'
   import '@universo/metaverses-frontend/i18n'
   import '@universo/analytics-frontend/i18n'
@@ -945,23 +945,23 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   **REMOVE** Loadable lazy imports (lines 56-99):
   ```typescript
   // DELETE all of these:
-  const Tools = Loadable(lazy(() => import('@flowise/tools-frontend/pages/Tools')))
-  const Credentials = Loadable(lazy(() => import('@flowise/credentials-frontend/pages/Credentials')))
-  const Variables = Loadable(lazy(() => import('@flowise/variables-frontend/pages/Variables')))
-  const ApiKeys = Loadable(lazy(() => import('@flowise/apikey-frontend/pages/APIKey')))
-  const DocumentStores = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore')))
+  const Tools = Loadable(lazy(() => import('/tools-frontend/pages/Tools')))
+  const Credentials = Loadable(lazy(() => import('/credentials-frontend/pages/Credentials')))
+  const Variables = Loadable(lazy(() => import('/variables-frontend/pages/Variables')))
+  const ApiKeys = Loadable(lazy(() => import('/apikey-frontend/pages/APIKey')))
+  const DocumentStores = Loadable(lazy(() => import('/docstore-frontend/pages/docstore')))
   const DocumentStoreDetail = ...
   const LoaderConfigPreviewChunks = ...
   const ShowStoredChunks = ...
   const VectorStoreConfigure = ...
   const VectorStoreQuery = ...
-  const Assistants = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/Assistants')))
+  const Assistants = Loadable(lazy(() => import('/assistants-frontend/pages/Assistants')))
   const CustomAssistantLayout = ...
   const CustomAssistantConfigurePreview = ...
   const OpenAIAssistantLayout = ...
   const Executions = ...
   const PublicExecutionDetails = ...
-  const Templates = Loadable(lazy(() => import('@flowise/customtemplates-frontend/pages/Templates')))
+  const Templates = Loadable(lazy(() => import('/customtemplates-frontend/pages/Templates')))
   // Also remove unik/metaverse page imports from @universo/*
   ```
   
@@ -1033,7 +1033,7 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   **REMOVE** or replace:
   ```typescript
   // DELETE import from deleted package:
-  import { FlowListMenu } from '@flowise/template-mui'
+  import { FlowListMenu } from '/template-mui'
   // Replace with local component or remove usage
   ```
 
@@ -1041,20 +1041,20 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   
   **REMOVE** deps:
   ```json
-  "@flowise/template-mui": "workspace:*",
-  "@flowise/apikey-frontend": "workspace:*",
-  "@flowise/assistants-frontend": "workspace:*",
-  "@flowise/credentials-frontend": "workspace:*",
-  "@flowise/customtemplates-frontend": "workspace:*",
-  "@flowise/docstore-frontend": "workspace:*",
-  "@flowise/executions-frontend": "workspace:*",
-  "@flowise/tools-frontend": "workspace:*",
-  "@flowise/variables-frontend": "workspace:*"
+  "/template-mui": "workspace:*",
+  "/apikey-frontend": "workspace:*",
+  "/assistants-frontend": "workspace:*",
+  "/credentials-frontend": "workspace:*",
+  "/customtemplates-frontend": "workspace:*",
+  "/docstore-frontend": "workspace:*",
+  "/executions-frontend": "workspace:*",
+  "/tools-frontend": "workspace:*",
+  "/variables-frontend": "workspace:*"
   ```
   
   **UPDATE**:
   ```json
-  "@flowise/store": "workspace:*" → "@universo/store": "workspace:*"
+  "/store": "workspace:*" → "@universo/store": "workspace:*"
   ```
 
 - [ ] **Step 7.8**: Verify universo-template-mui builds
@@ -1064,15 +1064,15 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
 
 ---
 
-### Phase 8: Rename flowise-store → @universo/store + Clean Legacy Content
+### Phase 8: Rename legacy-store → @universo/store + Clean Legacy Content
 
 > **Decision**: Rename directory + npm name to `@universo/store` (user confirmed).
-> After deleting all canvas consumers (spaces-frontend, flowise-core-frontend/views),
+> After deleting all canvas consumers (spaces-frontend, legacy-core-frontend/views),
 > canvas-specific Redux code becomes dead. Clean it to avoid tech debt.
 
 - [ ] **Step 8.1**: Update `package.json` name
   
-  In `packages/flowise-store/base/package.json`:
+  In `packages/legacy-store/base/package.json`:
   ```json
   "name": "@universo/store"
   ```
@@ -1093,11 +1093,11 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   
   **KEEP**: customization actions, notifier actions, dialog (SHOW/HIDE_CONFIRM), snackbar helpers.
   
-  **In `src/constant.js`** — REMOVE Flowise-specific constants:
+  **In `src/constant.js`** — REMOVE legacy upstream-specific constants:
   ```javascript
   // DELETE:
-  export const FLOWISE_CREDENTIAL_ID = 'FLOWISE_CREDENTIAL_ID'
-  export const REDACTED_CREDENTIAL_VALUE = '_FLOWISE_BLANK_07167752-...'
+  export const LEGACY_CREDENTIAL_ID = 'LEGACY_CREDENTIAL_ID'
+  export const REDACTED_CREDENTIAL_VALUE = '_LEGACY_BLANK_07167752-...'
   ```
   
   **KEEP**: `gridSpacing`, `drawerWidth`, `appDrawerWidth`, `headerHeight`, `maxScroll`, `baseURL`, `uiBaseURL`.
@@ -1116,7 +1116,7 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
 
 - [ ] **Step 8.3**: Update ALL consumer imports
   
-  Files that import from `@flowise/store` (in KEPT packages only):
+  Files that import from `/store` (in KEPT packages only):
   ```
   packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx
   packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx
@@ -1129,23 +1129,23 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
   
   **Find and replace** across all files:
   ```bash
-  grep -rn "@flowise/store" packages/*/base/src --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" | grep -v node_modules
+  grep -rn "/store" packages/*/base/src --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" | grep -v node_modules
   ```
-  Then: `@flowise/store` → `@universo/store` in all matched files.
+  Then: `/store` → `@universo/store` in all matched files.
 
 - [ ] **Step 8.4**: Update ALL consumer `package.json` deps
   
-  In every `package.json` that has `"@flowise/store": "workspace:*"`:
+  In every `package.json` that has `"/store": "workspace:*"`:
   - Change to `"@universo/store": "workspace:*"`
   
   Known consumers:
   - `universo-template-mui/base/package.json`
   - `universo-core-frontend/base/package.json` (after rename)
-  - ~~`flowise-template-mui/base/package.json`~~ (deleted in Phase 9)
+  - ~~`legacy-template-mui/base/package.json`~~ (deleted in Phase 9)
 
 - [ ] **Step 8.5**: Rename directory
   ```bash
-  mv packages/flowise-store packages/universo-store
+  mv packages/legacy-store packages/universo-store
   ```
 
 - [ ] **Step 8.6**: Verify universo-store builds
@@ -1155,51 +1155,51 @@ After Phase 4, `flowise-core-backend` is clean. Now migrate the code.
 
 ---
 
-### Phase 9: Merge flowise-template-mui → universo-template-mui, then DELETE
+### Phase 9: Merge legacy-template-mui → universo-template-mui, then DELETE
 
 > **Decision**: User chose **full deletion** with merge of needed parts into `universo-template-mui`.
 > QA analysis identified the exact components still needed by KEPT packages.
 
 #### 9A: Identify and migrate needed components
 
-The following components from `@flowise/template-mui` are imported by KEPT packages:
+The following components from `/template-mui` are imported by KEPT packages:
 
 | Component | Consumer(s) | Action |
 |-----------|-------------|--------|
 | `FlowListMenu` (button) | universo-template-mui/FlowListTable.tsx | Move to universo-template-mui/components/button/ |
 | `MainCard` (card) | profile-frontend/Profile.jsx | Move to universo-template-mui/components/cards/ |
 | `InputHintDialog` (dialog) | metahubs-frontend tests, applications-frontend tests (vi.mock) | Move to universo-template-mui/components/dialogs/ |
-| `themes` (theme config) | flowise-core-frontend/App.jsx (→ universo-core-frontend) | Move to universo-template-mui/themes/ |
-| `NavigationScroll` (layout) | flowise-core-frontend/App.jsx (→ universo-core-frontend) | Move to universo-template-mui/layout/ |
-| `routes` (routing) | flowise-core-frontend/App.jsx (→ universo-core-frontend) | Already exists as MainRoutesMUI — rewire |
+| `themes` (theme config) | legacy-core-frontend/App.jsx (→ universo-core-frontend) | Move to universo-template-mui/themes/ |
+| `NavigationScroll` (layout) | legacy-core-frontend/App.jsx (→ universo-core-frontend) | Move to universo-template-mui/layout/ |
+| `routes` (routing) | legacy-core-frontend/App.jsx (→ universo-core-frontend) | Already exists as MainRoutesMUI — rewire |
 
-- [ ] **Step 9A.1**: Copy needed source files from `flowise-template-mui` to `universo-template-mui`
+- [ ] **Step 9A.1**: Copy needed source files from `legacy-template-mui` to `universo-template-mui`
   ```bash
   # Cards
-  cp packages/flowise-template-mui/base/src/ui-components/cards/MainCard.jsx \
+  cp packages/legacy-template-mui/base/src/ui-components/cards/MainCard.jsx \
      packages/universo-template-mui/base/src/components/cards/
   
   # Buttons
-  cp packages/flowise-template-mui/base/src/ui-components/button/FlowListMenu.jsx \
+  cp packages/legacy-template-mui/base/src/ui-components/button/FlowListMenu.jsx \
      packages/universo-template-mui/base/src/components/button/
   
   # Dialogs
-  cp packages/flowise-template-mui/base/src/ui-components/dialog/InputHintDialog.jsx \
+  cp packages/legacy-template-mui/base/src/ui-components/dialog/InputHintDialog.jsx \
      packages/universo-template-mui/base/src/components/dialogs/
   
   # Themes (if not already duplicated)
-  cp -r packages/flowise-template-mui/base/src/themes/* \
+  cp -r packages/legacy-template-mui/base/src/themes/* \
      packages/universo-template-mui/base/src/themes/ 2>/dev/null || true
   
   # Layout
-  cp packages/flowise-template-mui/base/src/layout/NavigationScroll.jsx \
+  cp packages/legacy-template-mui/base/src/layout/NavigationScroll.jsx \
      packages/universo-template-mui/base/src/layout/
   ```
 
 - [ ] **Step 9A.2**: Update imports inside migrated files
-  - Change `@flowise/store` → `@universo/store` in migrated files
-  - Change any `@flowise/template-mui` internal imports to relative paths
-  - Remove any imports from deleted packages (`@flowise/credentials-frontend`, `@flowise/tools-frontend`)
+  - Change `/store` → `@universo/store` in migrated files
+  - Change any `/template-mui` internal imports to relative paths
+  - Remove any imports from deleted packages (`/credentials-frontend`, `/tools-frontend`)
 
 - [ ] **Step 9A.3**: Export migrated components from `universo-template-mui/index.ts`
   ```typescript
@@ -1215,7 +1215,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 - [ ] **Step 9B.1**: `universo-template-mui/FlowListTable.tsx`
   ```typescript
   // BEFORE:
-  import { FlowListMenu } from '@flowise/template-mui'
+  import { FlowListMenu } from '/template-mui'
   // AFTER:
   import FlowListMenu from '../button/FlowListMenu'  // now local
   ```
@@ -1223,7 +1223,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 - [ ] **Step 9B.2**: `profile-frontend/pages/Profile.jsx`
   ```jsx
   // BEFORE:
-  import { MainCard } from '@flowise/template-mui'
+  import { MainCard } from '/template-mui'
   // AFTER:
   import { MainCard } from '@universo/template-mui'
   ```
@@ -1231,17 +1231,17 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 - [ ] **Step 9B.3**: `metahubs-frontend` + `applications-frontend` test mocks
   ```typescript
   // BEFORE:
-  vi.mock('@flowise/template-mui', async () => { ... })
+  vi.mock('/template-mui', async () => { ... })
   // AFTER:
   vi.mock('@universo/template-mui', async () => { ... })
   ```
 
 - [ ] **Step 9B.4**: `universo-core-frontend/App.jsx` (from Phase 6.2)
-  - Confirm all `@flowise/template-mui` imports now point to `@universo/template-mui`
+  - Confirm all `/template-mui` imports now point to `@universo/template-mui`
 
-#### 9C: Delete flowise-template-mui
+#### 9C: Delete legacy-template-mui
 
-- [ ] **Step 9C.1**: Remove `@flowise/template-mui` from all `package.json` deps
+- [ ] **Step 9C.1**: Remove `/template-mui` from all `package.json` deps
   
   Known consumers:
   - `universo-template-mui/base/package.json` → remove line
@@ -1249,7 +1249,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 
 - [ ] **Step 9C.2**: Delete the package
   ```bash
-  rm -rf packages/flowise-template-mui
+  rm -rf packages/legacy-template-mui
   ```
 
 - [ ] **Step 9C.3**: Verify affected packages build
@@ -1266,11 +1266,11 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   
   In `universo-i18n/base/src/instance.ts`, remove ~20 comment lines like:
   ```typescript
-  // apiKeys translations removed - now in @flowise/apikey-frontend
-  // assistants translations removed - now in @flowise/assistants-frontend
-  // chatmessage translations removed - now in @flowise/chatmessage-frontend
-  // document-store translations removed - now in @flowise/docstore-frontend
-  // vector-store translations removed - now in @flowise/docstore-frontend
+  // apiKeys translations removed - now in /apikey-frontend
+  // assistants translations removed - now in /assistants-frontend
+  // chatmessage translations removed - now in /chatmessage-frontend
+  // document-store translations removed - now in /docstore-frontend
+  // vector-store translations removed - now in /docstore-frontend
   // ... etc
   ```
 
@@ -1286,7 +1286,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 #### 11A: Clean universo-api-client
 
 > QA analysis found `universo-api-client` has **22 API modules**, ~19 of which serve deleted features.
-> The `lead.ts` module also has a direct `import type { ILead } from '@flowise/leads-backend'` — broken ref.
+> The `lead.ts` module also has a direct `import type { ILead } from '/leads-backend'` — broken ref.
 > None of the KEPT frontend packages import from `@universo/api-client` (only deleted packages do).
 
 - [ ] **Step 11A.1**: Delete API modules for deleted features
@@ -1329,10 +1329,10 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   }
   ```
 
-- [ ] **Step 11A.3**: Remove `@flowise/leads-backend` from `package.json`
+- [ ] **Step 11A.3**: Remove `/leads-backend` from `package.json`
   ```json
   // DELETE from dependencies:
-  "@flowise/leads-backend": "workspace:*"
+  "/leads-backend": "workspace:*"
   ```
 
 - [ ] **Step 11A.4**: Verify universo-api-client builds
@@ -1347,7 +1347,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   In `packages/profile-frontend/base/src/pages/Profile.jsx`:
   ```jsx
   // BEFORE:
-  import { MainCard } from '@flowise/template-mui'
+  import { MainCard } from '/template-mui'
   // AFTER:
   import { MainCard } from '@universo/template-mui'
   ```
@@ -1359,8 +1359,8 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   In `packages/metahubs-frontend/base/src/domains/metahubs/ui/__tests__/MetahubMembers.test.tsx`:
   ```typescript
   // BEFORE:
-  vi.mock('@flowise/template-mui', async () => {
-      const actual = await vi.importActual<any>('@flowise/template-mui')
+  vi.mock('/template-mui', async () => {
+      const actual = await vi.importActual<any>('/template-mui')
   // AFTER:
   vi.mock('@universo/template-mui', async () => {
       const actual = await vi.importActual<any>('@universo/template-mui')
@@ -1371,8 +1371,8 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   In `packages/applications-frontend/base/src/pages/__tests__/ApplicationMembers.test.tsx`:
   ```typescript
   // BEFORE:
-  vi.mock('@flowise/template-mui', async () => {
-      const actual = await vi.importActual<any>('@flowise/template-mui')
+  vi.mock('/template-mui', async () => {
+      const actual = await vi.importActual<any>('/template-mui')
   // AFTER:
   vi.mock('@universo/template-mui', async () => {
       const actual = await vi.importActual<any>('@universo/template-mui')
@@ -1386,10 +1386,10 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   
   **BEFORE**:
   ```json
-  "start:windows": "cd packages/flowise-core-backend/base/bin && run start",
-  "start:default": "cd packages/flowise-core-backend/base/bin && ./run start",
-  "start-worker:windows": "cd packages/flowise-core-backend/base/bin && run worker",
-  "start-worker:default": "cd packages/flowise-core-backend/base/bin && ./run worker"
+  "start:windows": "cd packages/legacy-core-backend/base/bin && run start",
+  "start:default": "cd packages/legacy-core-backend/base/bin && ./run start",
+  "start-worker:windows": "cd packages/legacy-core-backend/base/bin && run worker",
+  "start-worker:default": "cd packages/legacy-core-backend/base/bin && ./run worker"
   ```
   
   **AFTER**:
@@ -1409,7 +1409,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   "universo-rest-docs"
   ```
 
-  **12.2b — Remove AI/LLM overrides** (only used by deleted flowise-components):
+  **12.2b — Remove AI/LLM overrides** (only used by deleted legacy-components):
   ```json
   // DELETE from pnpm.overrides:
   "@langchain/core": "...",
@@ -1443,8 +1443,8 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   **12.2e — Clean onlyBuiltDependencies**:
   ```json
   // DELETE from pnpm.onlyBuiltDependencies:
-  "faiss-node",  // only used by deleted flowise-components
-  "sqlite3"      // only used by deleted flowise-components
+  "faiss-node",  // only used by deleted legacy-components
+  "sqlite3"      // only used by deleted legacy-components
   ```
 
 - [ ] **Step 12.3**: Clean `pnpm-workspace.yaml` catalog of stale entries
@@ -1453,7 +1453,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   ```yaml
   # VERIFY each, DELETE if no remaining consumer:
   reactflow: ...              # canvas-only → DELETE
-  flowise-react-json-view: ...  # flowise-components only → DELETE
+  legacy-react-json-view: ...  # legacy-components only → DELETE
   '@uiw/codemirror-extensions-basic-setup': ...  # canvas editor → DELETE
   '@uiw/codemirror-theme-sublime': ...            # canvas editor → DELETE
   '@uiw/codemirror-theme-vscode': ...             # canvas editor → DELETE
@@ -1466,7 +1466,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
   
   **Verification command**:
   ```bash
-  for pkg in reactflow flowise-react-json-view @uiw/codemirror @uiw/react-codemirror react-color react-code-blocks react-syntax-highlighter framer-motion; do
+  for pkg in reactflow legacy-react-json-view @uiw/codemirror @uiw/react-codemirror react-color react-code-blocks react-syntax-highlighter framer-motion; do
     echo "=== $pkg ==="
     grep -rn "$pkg" packages/*/base/package.json | grep -v node_modules
   done
@@ -1478,7 +1478,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 
 - [ ] **Step 12.5**: Review `docker/Dockerfile`
   
-  This uses `npm install -g flowise` which installs the upstream Flowise package globally — this is NOT our monorepo build. This Dockerfile may be legacy and should be marked as such or updated.
+  This uses `npm install -g legacy` which installs the upstream legacy upstream package globally — this is NOT our monorepo build. This Dockerfile may be legacy and should be marked as such or updated.
 
 - [ ] **Step 12.6**: Review root `tsconfig.json` for path references to deleted packages
 
@@ -1493,7 +1493,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 
 - [ ] **Step 13.2**: Update `packages/README-RU.md` (same changes, Russian)
 
-- [ ] **Step 13.3**: Update root `README.md` — remove Flowise-specific feature mentions
+- [ ] **Step 13.3**: Update root `README.md` — remove legacy upstream-specific feature mentions
 
 - [ ] **Step 13.4**: Update root `README-RU.md` (same changes, Russian)
 
@@ -1527,7 +1527,7 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 - [ ] **Step 14.4**: Search for orphan references
   ```bash
   # Should return 0 results:
-  grep -rn "@flowise/agents\|@flowise/apikey\|@flowise/assistants\|@flowise/chatmessage\|@flowise/credentials\|@flowise/customtemplates\|@flowise/docstore\|@flowise/executions\|@flowise/leads\|@flowise/tools\|@flowise/variables\|flowise-components\|@universo/metaverses\|@universo/spaces\|@universo/uniks\|@universo/publish\|@universo/space-builder\|@universo/multiplayer\|@universo/analytics\|@universo/updl\|@universo/template-mmoomm\|@universo/template-quiz\|@flowise/template-mui\|@flowise/store\|@flowise/core-backend\|@flowise/core-frontend" packages/*/base/src --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" | grep -v node_modules | grep -v "\.d\.ts"
+  grep -rn "/agents\|/apikey\|/assistants\|/chatmessage\|/credentials\|/customtemplates\|/docstore\|/executions\|/leads\|/tools\|/variables\|legacy-components\|@universo/metaverses\|@universo/spaces\|@universo/uniks\|@universo/publish\|@universo/space-builder\|@universo/multiplayer\|@universo/analytics\|@universo/updl\|@universo/template-mmoomm\|@universo/template-quiz\|/template-mui\|/store\|/core-backend\|/core-frontend" packages/*/base/src --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" | grep -v node_modules | grep -v "\.d\.ts"
   ```
 
 - [ ] **Step 14.5**: Run linting on critical packages
@@ -1552,13 +1552,13 @@ The following components from `@flowise/template-mui` are imported by KEPT packa
 ## Potential Challenges
 
 ### 1. Interface.ts Deep Dependencies
-The current `Interface.ts` in `flowise-core-backend` re-exports types from many deleted packages. If any **kept** packages import these types transitively through `@flowise/core-backend`, those imports will break.
+The current `Interface.ts` in `legacy-core-backend` re-exports types from many deleted packages. If any **kept** packages import these types transitively through `/core-backend`, those imports will break.
 
 **Mitigation**: Before Phase 4, run:
 ```bash
-grep -rn "from '@flowise/core-backend'" packages/*/base/src --include="*.ts" | grep -v node_modules | grep -v flowise-core-backend
+grep -rn "from '/core-backend'" packages/*/base/src --include="*.ts" | grep -v node_modules | grep -v legacy-core-backend
 ```
-**Current result**: No kept packages import from `@flowise/core-backend` directly ✅
+**Current result**: No kept packages import from `/core-backend` directly ✅
 
 ### 2. Admin Permission Subjects Alignment
 The `PermissionSubjects` in `admin-backend/schemas/index.ts` must stay aligned with:
@@ -1580,14 +1580,14 @@ curl http://localhost:3000/api/v1/metahubs (with auth)
 ```
 
 ### 4. Static UI Asset Path
-The backend serves the frontend build from a path resolved via `getNodeModulesPackagePath('@flowise/core-frontend')`. After rename to `@universo/core-frontend`, this must be updated.
+The backend serves the frontend build from a path resolved via `getNodeModulesPackagePath('/core-frontend')`. After rename to `@universo/core-frontend`, this must be updated.
 
 **Mitigation**: Step 4C.1 covers this explicitly.
 
 ### 5. oclif CLI Entry Point
 The `bin/run` script uses `@oclif/core` for CLI commands. Ensure the `oclif` config in `package.json` is migrated correctly to `universo-core-backend`.
 
-**Mitigation**: Review `flowise-core-backend/base/package.json` for `oclif` configuration section.
+**Mitigation**: Review `legacy-core-backend/base/package.json` for `oclif` configuration section.
 
 ---
 
@@ -1597,9 +1597,9 @@ All decision points have been resolved. Final answers:
 
 | # | Question | Decision | Implemented in |
 |---|----------|----------|----------------|
-| 1 | **flowise-template-mui fate** | **C) Merge needed components into `universo-template-mui`, then DELETE** | Phase 9 (9A/9B/9C) |
+| 1 | **legacy-template-mui fate** | **C) Merge needed components into `universo-template-mui`, then DELETE** | Phase 9 (9A/9B/9C) |
 | 2 | **Permission subjects cleanup scope** | **B) Remove ALL including sections/entities/canvases** | Phase 2 |
-| 3 | **flowise-store directory rename** | **A) Rename to `universo-store`** (both directory and npm name) | Phase 8 |
+| 3 | **legacy-store directory rename** | **A) Rename to `universo-store`** (both directory and npm name) | Phase 8 |
 | 4 | **seedMetahubTemplates call** | **A) Keep in App startup** (idempotent, needed for metahub initialization) | No change needed |
 | 5 | **CachePool/AbortControllerPool** | Delete entirely — dead code after canvas removal | Phase 4 |
 | 6 | **Interface.ts migration scope** | Migrate minimal (only MODE enum + what's actually used) | Phase 5 |
@@ -1614,12 +1614,12 @@ All decision points have been resolved. Final answers:
 | 1 | universo-types cleanup | 15 min | Low — isolated |
 | 2 | Admin permissions cleanup (remove ALL subjects incl. sections/entities/canvases) | 10 min | Low — isolated |
 | 3 | Delete 38 package directories | 5 min | None (bulk delete) |
-| 4 | Clean flowise-core-backend (routes, services, Interface.ts, controllers) | 2-3 hours | **HIGH** — central hub, many files |
+| 4 | Clean legacy-core-backend (routes, services, Interface.ts, controllers) | 2-3 hours | **HIGH** — central hub, many files |
 | 5 | Migrate to universo-core-backend (copy + merge + re-wire) | 1 hour | Medium — copy + verify |
-| 6 | Rename flowise-core-frontend → universo-core-frontend + delete views/api/build | 1 hour | Medium — rename + clean |
+| 6 | Rename legacy-core-frontend → universo-core-frontend + delete views/api/build | 1 hour | Medium — rename + clean |
 | 7 | Clean universo-template-mui (routes, menus, dead imports) | 1-2 hours | Medium — many route/menu changes |
-| 8 | Rename flowise-store → universo-store + clean dead canvas actions/constants | 45 min | Low-Medium — content cleanup added |
-| 9 | Merge flowise-template-mui → universo-template-mui, then DELETE | 45 min | Medium — 6 components to migrate |
+| 8 | Rename legacy-store → universo-store + clean dead canvas actions/constants | 45 min | Low-Medium — content cleanup added |
+| 9 | Merge legacy-template-mui → universo-template-mui, then DELETE | 45 min | Medium — 6 components to migrate |
 | 10 | Clean universo-i18n (stale comments) | 5 min | None |
 | 11 | Clean remaining: universo-api-client (~19 dead modules), profile-frontend, test mocks | 45 min | Medium — api-client is large |
 | 12 | Root configs: package.json overrides/ghosts, pnpm catalog, Dockerfiles, tsconfig | 30 min | Low |
@@ -1635,7 +1635,7 @@ All decision points have been resolved. Final answers:
 1. **Build verification after each phase** is critical. Don't proceed to the next phase until the current one builds.
 2. **Phase 4 is the hardest** — routes/index.ts alone has 656 lines with complex imports. Consider splitting into sub-steps and building after each sub-step.
 3. **Git commits after each phase** — allows rollback to last working state.
-4. **The flowise-core-backend → universo-core-backend migration** (Phase 5) should only happen after Phase 4 produces a clean, building result.
+4. **The legacy-core-backend → universo-core-backend migration** (Phase 5) should only happen after Phase 4 produces a clean, building result.
 5. **pnpm install --force** after deleting packages to rebuild the lockfile.
 6. **Phase 9 must complete before Phase 11B/11C** — profile-frontend and test mocks depend on migrated components in universo-template-mui.
 7. **Phase 12 catalog cleanup** — verify each entry by grepping remaining package.json files before deleting.

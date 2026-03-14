@@ -1,6 +1,6 @@
 # Product Overview
 
-Universo Platformo React is a platform for creating interactive 3D/AR/VR applications through a visual node-based interface. Built on Flowise AI (v2.2.8), it extends the core framework with:
+Universo Platformo React is a platform for creating interactive 3D/AR/VR applications through a visual node-based interface. Built on an inherited upstream shell (v2.2.8), it extends the core framework with:
 
 ## Core Functionality
 - **UPDL (Universal Platform Description Language)**: Node system for describing 3D scenes and interactions

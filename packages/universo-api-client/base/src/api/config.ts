@@ -9,7 +9,7 @@ import type { AxiosInstance } from 'axios'
 export class ConfigApi {
     constructor(private readonly client: AxiosInstance) {}
 
-    // TODO: Implement methods based on packages/flowise-core-frontend/base/src/api/config.js
+    // TODO: Implement methods based on packages/universo-core-frontend/base/src/api/config.js
 }
 
 /**

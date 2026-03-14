@@ -1,75 +1,42 @@
 # Metahubs Backend — AI Agent Guide
 
-## Overview
+## Scope
 
-This package (`@universo/metahubs-backend`) handles **Metahub** and **Application** schema management, including the Unified Application Migration Guard system.
+This package owns design-time metahub resources, publication metadata, template seeding, metahub migration control, and package-local DDL seams.
+It does not own the final application runtime route surface even when publication flows trigger downstream sync behavior.
 
-## Migration System Architecture
+## Database Access Rules
 
-### Two Parallel Migration Systems
+- Domain routes and services use `DbExecutor` or `SqlQueryable`.
+- Request-visible work should stay on Tier 1 or Tier 2 executors, not raw Knex.
+- Raw Knex is valid only inside DDL seams and schema-ddl integration boundaries.
+- Dynamic schema names and table names must use shared identifier helpers.
+- Branch-schema active rows require `_upl_deleted = false AND _mhb_deleted = false`.
 
-1. **Metahub Migrations** (`src/domains/metahubs/routes/metahubMigrationsRoutes.ts`)
-   - Manages the metahub (template) schema (`mhb_{uuid}`)
-   - Compares structure version + template version
-   - Uses `determineSeverity()` from `@universo/migration-guard-shared/utils`
-   - Severity: `MANDATORY` (structure/blockers), `RECOMMENDED` (template only), `OPTIONAL`
+## Mutation Rules
 
-2. **Application Migrations** (`src/domains/applications/routes/applicationMigrationsRoutes.ts`)
-   - Manages the application schema (`app_{uuid}`)
-   - Compares structure version + publication sync status
-   - Uses `determineSeverity()` from `@universo/migration-guard-shared/utils`
-   - Severity: `MANDATORY` (!schemaExists or structure upgrade), `RECOMMENDED` (publication update), `OPTIONAL`
-   - Returns `currentUserRole` and `isMaintenance` for role-based frontend behavior
+- Copy, delete, restore, reorder, and update flows must fail closed on stale or missing rows.
+- Service-level delete and restore paths should constrain row state, not mutate by bare `id` only.
+- Mutations should use `RETURNING` when the contract depends on affected-row confirmation.
+- Route handlers should not hide service-level races behind silent success paths.
+- Cross-schema joins must use the correct predicate for each alias.
 
-### Application Sync (`src/domains/applications/routes/applicationSyncRoutes.ts`)
+## DDL And Publication Rules
 
-- Acquires a PostgreSQL advisory lock (`app-sync:{applicationId}`) to prevent concurrent syncs
-- Sets `schema_status = MAINTENANCE` during sync (visible to non-privileged users as a maintenance page)
-- Sets `schema_status = SYNCED` on success, `ERROR` on failure
-- Releases the advisory lock in a `finally` block
+- Keep schema generation and DDL transport access inside package-local boundaries.
+- Publication routes may compose downstream application sync seams but should not absorb application runtime ownership.
+- Template seeding and migration orchestration may use DDL helpers, but domain services stay SQL-first.
+- The package uses the shared Knex runtime from `@universo/database`; no private runtime singleton belongs here.
 
-### Publications & Notifications (`src/domains/publications/routes/publicationsRoutes.ts`)
+## Testing Expectations
 
-- `notifyLinkedApplicationsUpdateAvailable()` uses a single UPDATE query with sub-select (no N+1)
-- Publication DELETE resets `UPDATE_AVAILABLE` status on linked applications within the same transaction
+- Add direct service tests when route tests mock the service layer.
+- Preserve regressions for active-row predicates, fail-closed delete/restore behavior, and publication sync boundaries.
+- Prefer SQL-contract assertions for stores and service helpers over broad route-only coverage.
 
-### Shared Constants
+## References
 
-- `TARGET_APP_STRUCTURE_VERSION` lives in `src/domains/applications/constants.ts`
-- Imported by both `applicationMigrationsRoutes.ts` and `applicationSyncRoutes.ts`
-
-## Key Types (from `@universo/types`)
-
-- `UpdateSeverity` enum: `MANDATORY | RECOMMENDED | OPTIONAL`
-- `MetahubMigrationStatusResponse` — metahub migration status with `severity`
-- `ApplicationMigrationStatusResponse` — app migration status with `severity`, `currentUserRole`, `isMaintenance`
-- `StructuredBlocker` — structured blocker with `code`, `params`, `message`
-
-## DDL Module
-
-The `src/domains/ddl/` directory contains the schema generation and migration engine:
-- `SchemaGenerator` — generates/diffs PostgreSQL schemas from catalog definitions
-- `MigrationManager` — records and manages migration history
-- `KnexClient` — Knex-based query builder for DDL operations
-
-## Template System (`src/domains/templates/`)
-
-### Template Registry (`data/index.ts`)
-
-- Two built-in templates: `basic` (minimal) and `basic-demo` (full demo with sample data)
-- `DEFAULT_TEMPLATE_CODENAME = 'basic'` — used when no template is specified at creation time
-- Templates define seed data: entities (hubs, catalogs, sets, enumerations), attributes, constants, enumeration values, layouts, zone widgets, element configs, and entity settings
-
-### Template Seed Executor (`services/TemplateSeedExecutor.ts`)
-
-- `apply()` inserts seed data into a metahub branch schema
-- All UUIDs are database-generated (no hardcoded IDs in templates)
-- Builds `entityIdMap` and `layoutIdMap` to resolve codename → UUID references
-
-### Entity Creation Options (`createOptions`)
-
-- `MetahubCreateOptions` type in `@universo/types`: 4 optional booleans (`createHub`, `createCatalog`, `createSet`, `createEnumeration`), all default to `true`
-- Validated via Zod schema in `POST /metahubs` route (`metahubsRoutes.ts`)
-- `MetahubSchemaService.filterSeedByCreateOptions()` filters template seed entities by kind before execution
-- Branch and Layout entities are always created regardless of options
-- Copy flow (`POST /metahub/:id/copy`) uses DDL schema cloning — `createOptions` is not involved
+- `README.md`
+- `src/domains/`
+- `src/persistence/`
+- `src/platform/migrations/`

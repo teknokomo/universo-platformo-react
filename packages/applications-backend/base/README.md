@@ -1,143 +1,71 @@
 # @universo/applications-backend
 
-> 🏗️ **Modern Package** - TypeScript-first architecture with Express.js, native SQL platform migrations, and SQL-first persistence helpers
+Backend package for applications, connectors, memberships, runtime sync, and release-bundle orchestration in Universo Platformo.
 
-Backend service for managing applications, connectors, and memberships with strict application-level isolation.
+## Overview
 
-## Package Information
+This package owns the application-side metadata and runtime coordination layer.
+It exposes authenticated CRUD routes, application membership guards, connector flows, runtime schema sync routes, and release-bundle export/apply endpoints.
 
-- **Package**: `@universo/applications-backend`
-- **Version**: `0.1.0`
-- **Type**: Backend Service Package (TypeScript)
-- **Status**: ✅ Active Development
-- **Architecture**: Express.js + native SQL platform migrations + SQL-first persistence helpers + Zod
+## Architecture
 
-## Key Features
+- Domain routes and persistence helpers are SQL-first and use `DbExecutor` or `SqlQueryable`.
+- Authenticated request flows use Tier 1 request-scoped executors with RLS context.
+- Admin, bootstrap, and background flows use Tier 2 pool executors from `@universo/database`.
+- Raw Knex is allowed only inside the package-local Tier 3 DDL boundary at `src/ddl/index.ts`.
+- Mutation helpers use `RETURNING id` and fail closed when zero rows are affected.
 
-### Domain Model
-- **Applications**: Top-level organizational units with complete data isolation
-- **Connectors**: Data containers within applications
-- **Memberships**: User-application membership with roles and permissions
+## Main Responsibilities
 
-### Data Isolation & Security
-- Complete application isolation - no cross-application data access
-- Comprehensive input validation with clear error messages
-- Application-level authorization with guards
-- DoS protection via rate limiting
+- Manage applications, connectors, memberships, and publication links.
+- Expose runtime sync, diff, and release-bundle routes for managed application schemas.
+- Persist schema sync state in `applications.cat_applications` through SQL-first stores.
+- Keep runtime release metadata in the same central sync-state surface.
+- Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
 
-### Database Integration
-- SQL-first persistence stores for applications, connectors, and memberships
-- PostgreSQL with JSONB support for metadata
-- Unified platform migrations through native SQL definitions
-- CASCADE deletion with UNIQUE constraints
+## Database Access Rules
 
-> **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
+- Application-domain reads use `_upl_deleted = false AND _app_deleted = false`.
+- Dynamic identifiers go through `qSchema`, `qTable`, `qSchemaTable`, or `qColumn`.
+- Domain SQL stays schema-qualified and parameterized with `$1`, `$2`, and later bindings.
+- Route handlers choose the executor tier at the boundary instead of importing Knex directly.
+- DDL helpers remain isolated from route and store code even when runtime sync needs schema generation.
 
-## Installation
+## Runtime Sync Model
 
-```bash
-# Install from workspace root
-pnpm install
+- Publication-driven sync and file-bundle install share the same schema sync engine.
+- Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.cat_applications`.
+- Advisory locking serializes sync work per application before schema changes begin.
+- Maintenance and error states are persisted through the same central store contract.
 
-# Build the package
-pnpm --filter @universo/applications-backend build
-```
+## Package Surface
 
-## Usage
-
-### Express Router Integration (Recommended)
-```typescript
-import express from 'express'
-import { createApplicationsRoutes, initializeRateLimiters } from '@universo/applications-backend'
-
-const app = express()
-app.use(express.json())
-
-await initializeRateLimiters()
-
-app.use('/api/v1', createApplicationsRoutes(ensureAuth, getDbExecutor))
-```
-
-Where:
-- `ensureAuth` - your authentication middleware
-- `getDbExecutor` - returns a `DbExecutor` from `@universo/utils`
-
-## API Endpoints
-
-### Applications
-```
-GET    /applications                           # List applications
-POST   /applications                           # Create application
-GET    /applications/:applicationId            # Get application details
-PUT    /applications/:applicationId            # Update application
-DELETE /applications/:applicationId            # Delete application
-```
-
-### Connectors
-```
-GET    /applications/:applicationId/connectors              # List connectors
-POST   /applications/:applicationId/connectors              # Create connector
-GET    /applications/:applicationId/connectors/:connectorId # Get connector details
-PUT    /applications/:applicationId/connectors/:connectorId # Update connector
-DELETE /applications/:applicationId/connectors/:connectorId # Delete connector
-```
-
-### Members
-```
-GET    /applications/:applicationId/members              # List members
-POST   /applications/:applicationId/members              # Invite member
-PUT    /applications/:applicationId/members/:memberId    # Update member role
-DELETE /applications/:applicationId/members/:memberId    # Remove member
-```
-
-## Database Schema
-
-### Core Entities
-- `Application`: Top-level container with localized name/description (VLC)
-- `Connector`: Data container within an application with codename and sort order
-- `ApplicationUser`: Junction table for user-application membership with roles
-
-### Relationships
-```
-Application (1) ─────┬───── (N) Connector
-                     │
-                     └───── (N) ApplicationUser ───── (1) User
-```
-
-## Roles & Permissions
-
-| Role    | Manage Members | Manage App | Create Content | Edit Content | Delete Content |
-|---------|----------------|------------|----------------|--------------|----------------|
-| owner   | ✅              | ✅          | ✅              | ✅            | ✅              |
-| admin   | ✅              | ✅          | ✅              | ✅            | ✅              |
-| editor  | ❌              | ❌          | ✅              | ✅            | ✅              |
-| member  | ❌              | ❌          | ❌              | ❌            | ❌              |
-
-## Security Features
-
-- **Input Validation**: All inputs validated with Zod schemas
-- **Authorization Guards**: Role-based access control on all endpoints
-- **Rate Limiting**: Configurable rate limits per endpoint
-- **SQL Injection Prevention**: Parameterized SQL through shared executors and persistence helpers
-- **CORS**: Configurable cross-origin resource sharing
+- `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
+- `initializeRateLimiters()` prepares package-level rate limiting before route creation.
+- Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.
+- Platform migration definitions stay in the package migration surface instead of route handlers.
 
 ## Development
 
-### Running Tests
 ```bash
+pnpm --filter @universo/applications-backend lint
 pnpm --filter @universo/applications-backend test
-```
-
-### Building
-```bash
 pnpm --filter @universo/applications-backend build
 ```
 
+## Related References
+
+- [MIGRATIONS.md](MIGRATIONS.md)
+- [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
+- [Database access standard](../../../docs/en/architecture/database-access-standard.md)
+- [Database review checklist](../../../docs/en/contributing/database-code-review-checklist.md)
+
 ## Related Packages
 
-- `@universo/applications-frontend` - Frontend UI for applications
-- `@universo/core-backend` - Core backend with DataSource and migrations
-- `@universo/types` - Shared TypeScript types
+- `@universo/applications-frontend` for application management UI.
+- `@universo/database` for Knex runtime ownership and executor factories.
+- `@universo/utils` for neutral executor/query helper contracts.
+- `@universo/schema-ddl` for runtime schema generation and diff execution.
 
 ## License
 

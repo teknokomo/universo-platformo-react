@@ -37,12 +37,15 @@
 * [Архитектура бэкенда](architecture/backend.md)
 * [Архитектура фронтенда](architecture/frontend.md)
 * [Проектирование базы данных](architecture/database.md)
+* [Стандарт доступа к базе данных](architecture/database-access-standard.md)
 * [Аутентификация и авторизация](architecture/auth.md)
+* [Жизненный цикл миграций системных приложений](architecture/system-app-migration-lifecycle.md)
 
 ## Справочник API
 
 * [Обзор](api-reference/README.md)
 * [REST API](api-reference/rest-api.md)
+* [Interactive OpenAPI Docs](api-reference/interactive-openapi-docs.md)
 * [Аутентификация](api-reference/authentication.md)
 * [Вебхуки](api-reference/webhooks.md)
 
@@ -52,3 +55,8 @@
 * [Настройка окружения](contributing/development-setup.md)
 * [Стандарты кода](contributing/coding-guidelines.md)
 * [Создание пакетов](contributing/creating-packages.md)
+
+## Руководства
+
+* [Обзор](guides/README.md)
+* [Обновление схем системных приложений](guides/updating-system-app-schemas.md)

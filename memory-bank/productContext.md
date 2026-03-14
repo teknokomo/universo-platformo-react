@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Expanding Flowise AI with multi‑user capabilities for collaborative workflows within Uniq (workflows/projects), creating visual‑programming functionality, business applications, games, and AR/VR applications.
+Expanding the inherited upstream shell with multi-user capabilities for collaborative workflows within Uniq (workflows/projects), creating visual-programming functionality, business applications, games, and AR/VR applications.
 
 ## Development Philosophy
 
@@ -68,7 +68,7 @@ By addressing these needs, UPDL will streamline development workflows. Teams can
 
 ## APPs Architecture ✅ **COMPLETE**
 
-**6 Working Applications** with modular architecture minimizing core Flowise changes:
+**6 Working Applications** with modular architecture minimizing core shell changes:
 
 -   **UPDL**: High-level abstract nodes (Space, Entity, Component, Event, Action, Data, Universo)
 -   **Publish Frontend/Backend**: Multi-technology export with template-first architecture

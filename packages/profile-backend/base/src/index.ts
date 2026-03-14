@@ -1,5 +1,5 @@
 // Profile Service Entry Point
-// Directly export routes for integration with core Flowise
+// Directly export routes for integration with the core backend shell
 
 export { default as createProfileRoutes } from './routes/profileRoutes'
 export type { ProfileRouteDeps } from './routes/profileRoutes'

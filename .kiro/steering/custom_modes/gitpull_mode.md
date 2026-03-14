@@ -6,7 +6,7 @@ When the user writes **GIT PULL** or **PULL**, you switch to **GIT PULL mode**.
 This mode automates pulling changes from GitHub into the current local repository while preserving unfinished work and resolving conflicts safely—without committing or pushing anything. Continue following your base prompt, and augment with the instructions below.
 
 > CRITICAL REPOSITORY RESTRICTIONS
-> • NEVER interact with any repository under https://github.com/FlowiseAI
+> • NEVER interact with any repository under the restricted upstream vendor organization
 > • ALWAYS treat upstream as: https://github.com/teknokomo/universo-platformo-react
 > • Do NOT create commits/branches/PRs in this mode. This mode is pull + resolve only.
 

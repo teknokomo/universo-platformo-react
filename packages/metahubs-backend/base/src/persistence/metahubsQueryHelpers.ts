@@ -1,4 +1,5 @@
 import type { SqlQueryable } from './types'
+import { qSchemaTable, qColumn } from '@universo/database'
 
 /**
  * SQL-first soft delete helpers for metahubs-backend.
@@ -63,8 +64,9 @@ export function softDeleteCondition(options: SoftDeleteFilterOptions = {}): stri
  * @returns true if a row was updated
  */
 export async function softDelete(exec: SqlQueryable, schema: string, table: string, id: string, userId?: string | null): Promise<boolean> {
+    const qt = qSchemaTable(schema, table)
     const rows = await exec.query<{ id: string }>(
-        `UPDATE "${schema}"."${table}"
+        `UPDATE ${qt}
          SET _upl_deleted = true,
              _upl_deleted_at = NOW(),
              _upl_deleted_by = $2,
@@ -86,8 +88,9 @@ export async function softDelete(exec: SqlQueryable, schema: string, table: stri
  * Restore a soft-deleted record.
  */
 export async function restoreDeleted(exec: SqlQueryable, schema: string, table: string, id: string): Promise<boolean> {
+    const qt = qSchemaTable(schema, table)
     const rows = await exec.query<{ id: string }>(
-        `UPDATE "${schema}"."${table}"
+        `UPDATE ${qt}
          SET _upl_deleted = false,
              _upl_deleted_at = NULL,
              _upl_deleted_by = NULL,
@@ -111,8 +114,9 @@ export async function restoreDeleted(exec: SqlQueryable, schema: string, table: 
  * Returns the number of purged rows.
  */
 export async function purgeOldDeleted(exec: SqlQueryable, schema: string, table: string, olderThanDays: number): Promise<number> {
+    const qt = qSchemaTable(schema, table)
     const rows = await exec.query<{ id: string }>(
-        `DELETE FROM "${schema}"."${table}"
+        `DELETE FROM ${qt}
          WHERE _upl_deleted = true
            AND _upl_deleted_at < NOW() - ($1 || ' days')::INTERVAL
          RETURNING id`,
@@ -131,12 +135,13 @@ export async function countDeleted(
     filterColumn?: string,
     filterValue?: string
 ): Promise<number> {
-    let sql = `SELECT COUNT(*)::text AS count FROM "${schema}"."${table}" WHERE _upl_deleted = true AND _app_deleted = true`
+    const qt = qSchemaTable(schema, table)
+    let sql = `SELECT COUNT(*)::text AS count FROM ${qt} WHERE _upl_deleted = true AND _app_deleted = true`
     const params: unknown[] = []
 
     if (filterColumn && filterValue) {
         params.push(filterValue)
-        sql += ` AND "${filterColumn}" = $1`
+        sql += ` AND ${qColumn(filterColumn)} = $1`
     }
 
     const rows = await exec.query<{ count: string }>(sql, params)
@@ -147,8 +152,9 @@ export async function countDeleted(
  * Set a purge-after timestamp on a soft-deleted record.
  */
 export async function setPurgeAfter(exec: SqlQueryable, schema: string, table: string, id: string, purgeAfter: Date): Promise<boolean> {
+    const qt = qSchemaTable(schema, table)
     const rows = await exec.query<{ id: string }>(
-        `UPDATE "${schema}"."${table}"
+        `UPDATE ${qt}
          SET _upl_purge_after = $2
          WHERE id = $1
            AND _upl_deleted = true

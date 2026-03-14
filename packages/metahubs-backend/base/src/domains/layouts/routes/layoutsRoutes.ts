@@ -3,8 +3,10 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { DASHBOARD_LAYOUT_WIDGETS, type LayoutCopyOptions } from '@universo/types'
 import { ensureMetahubAccess } from '../../shared/guards'
-import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
 import { findMetahubById } from '../../../persistence'
+import { queryMany, queryOne } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import {
     MetahubLayoutsService,
@@ -19,7 +21,6 @@ import {
 } from '../services/MetahubLayoutsService'
 import { OptimisticLockError, localizedContent, validation } from '@universo/utils'
 import { buildDashboardLayoutConfig } from '../../shared'
-import { KnexClient } from '../../ddl'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeLayoutCopyOptions } = validation
@@ -167,7 +168,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const result = await layoutsService.listLayouts(
                 metahubId,
                 {
@@ -233,7 +234,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const created = await layoutsService.createLayout(metahubId, createInput, userId)
             return res.status(201).json(created)
         })
@@ -256,7 +257,7 @@ export function createLayoutsRoutes(
             await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const layout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!layout) return res.status(404).json({ error: 'Layout not found' })
             return res.json(layout)
@@ -284,7 +285,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const sourceLayout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!sourceLayout) {
                 return res.status(404).json({ error: 'Layout not found' })
@@ -324,81 +325,100 @@ export function createLayoutsRoutes(
                 copyOptions.copyWidgets && (parsed.data.deactivateAllWidgets ?? copyOptions.deactivateAllWidgets)
 
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
-            const knex = KnexClient.getInstance()
+            const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
+            const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
 
-            const created = await knex.transaction(async (trx) => {
+            const created = await exec.transaction(async (trx: SqlQueryable) => {
                 const now = new Date()
 
-                const [createdLayout] = await trx
-                    .withSchema(schemaName)
-                    .into('_mhb_layouts')
-                    .insert({
-                        template_key: sourceLayout.templateKey ?? 'dashboard',
-                        name: nameVlc,
-                        description: descriptionVlc ?? null,
-                        config: copyOptions.copyWidgets
-                            ? shouldDeactivateWidgets
-                                ? buildDashboardLayoutConfig([])
-                                : sourceLayout.config ?? {}
-                            : {
-                                  ...buildDashboardLayoutConfig([]),
-                                  [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
-                              },
-                        is_active: sourceLayout.isActive ?? true,
-                        is_default: false,
-                        sort_order: sourceLayout.sortOrder ?? 0,
-                        owner_id: null,
-                        _upl_created_at: now,
-                        _upl_created_by: userId ?? null,
-                        _upl_updated_at: now,
-                        _upl_updated_by: userId ?? null,
-                        _upl_version: 1,
-                        _upl_archived: false,
-                        _upl_deleted: false,
-                        _upl_locked: false,
-                        _mhb_published: true,
-                        _mhb_archived: false,
-                        _mhb_deleted: false
-                    })
-                    .returning('*')
+                const layoutConfig = copyOptions.copyWidgets
+                    ? shouldDeactivateWidgets
+                        ? buildDashboardLayoutConfig([])
+                        : sourceLayout.config ?? {}
+                    : {
+                          ...buildDashboardLayoutConfig([]),
+                          [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
+                      }
+
+                const createdLayout = await queryOne<Record<string, unknown>>(
+                    trx,
+                    `INSERT INTO ${layoutsQt} (
+                        template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+                        _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
+                        _upl_archived, _upl_deleted, _upl_locked,
+                        _mhb_published, _mhb_archived, _mhb_deleted
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8,
+                        $9, $10, $9, $10, $11,
+                        $12, $12, $12,
+                        $13, $12, $12
+                    ) RETURNING *`,
+                    [
+                        sourceLayout.templateKey ?? 'dashboard',
+                        JSON.stringify(nameVlc),
+                        descriptionVlc ? JSON.stringify(descriptionVlc) : null,
+                        JSON.stringify(layoutConfig),
+                        sourceLayout.isActive ?? true,
+                        false,
+                        sourceLayout.sortOrder ?? 0,
+                        null,
+                        now,
+                        userId ?? null,
+                        1,
+                        false,
+                        true
+                    ]
+                )
+
+                if (!createdLayout) {
+                    throw new Error('Failed to create layout copy')
+                }
 
                 if (copyOptions.copyWidgets) {
-                    const sourceWidgets = (await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_widgets')
-                        .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
-                        .orderBy([
-                            { column: 'zone', order: 'asc' },
-                            { column: 'sort_order', order: 'asc' },
-                            { column: '_upl_created_at', order: 'asc' }
-                        ])
-                        .select(['zone', 'widget_key', 'sort_order', 'config', 'is_active'])) as SourceWidgetRow[]
+                    const sourceWidgets = await queryMany<SourceWidgetRow>(
+                        trx,
+                        `SELECT zone, widget_key, sort_order, config, is_active
+                         FROM ${widgetsQt}
+                         WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                         ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
+                        [layoutId]
+                    )
 
                     if (sourceWidgets.length > 0) {
-                        await trx
-                            .withSchema(schemaName)
-                            .into('_mhb_widgets')
-                            .insert(
-                                sourceWidgets.map((widget) => ({
-                                    layout_id: createdLayout.id,
-                                    zone: widget.zone,
-                                    widget_key: widget.widget_key,
-                                    sort_order: widget.sort_order ?? 1,
-                                    config: widget.config ?? {},
-                                    is_active: shouldDeactivateWidgets ? false : widget.is_active !== false,
-                                    _upl_created_at: now,
-                                    _upl_created_by: userId ?? null,
-                                    _upl_updated_at: now,
-                                    _upl_updated_by: userId ?? null,
-                                    _upl_version: 1,
-                                    _upl_archived: false,
-                                    _upl_deleted: false,
-                                    _upl_locked: false,
-                                    _mhb_published: true,
-                                    _mhb_archived: false,
-                                    _mhb_deleted: false
-                                }))
+                        const placeholders: string[] = []
+                        const params: unknown[] = []
+                        let idx = 1
+                        for (const widget of sourceWidgets) {
+                            placeholders.push(
+                                `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${idx + 7}, $${
+                                    idx + 6
+                                }, $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 9}, $${idx + 9}, $${idx + 10}, $${idx + 9}, $${idx + 9})`
                             )
+                            params.push(
+                                createdLayout.id,
+                                widget.zone,
+                                widget.widget_key,
+                                widget.sort_order ?? 1,
+                                JSON.stringify(widget.config ?? {}),
+                                shouldDeactivateWidgets ? false : widget.is_active !== false,
+                                now,
+                                userId ?? null,
+                                1,
+                                false,
+                                true
+                            )
+                            idx += 11
+                        }
+                        await trx.query(
+                            `INSERT INTO ${widgetsQt} (
+                                layout_id, zone, widget_key, sort_order, config, is_active,
+                                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
+                                _upl_archived, _upl_deleted, _upl_locked,
+                                _mhb_published, _mhb_archived, _mhb_deleted
+                            ) VALUES ${placeholders.join(', ')}
+                            RETURNING id`,
+                            params
+                        )
                     }
                 }
 
@@ -443,7 +463,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const existingLayout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!existingLayout) {
                 return res.status(404).json({ error: 'Layout not found' })
@@ -518,7 +538,7 @@ export function createLayoutsRoutes(
             await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub', dbSession)
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             await layoutsService.deleteLayout(metahubId, layoutId, userId)
             return res.status(204).send()
         })
@@ -566,7 +586,7 @@ export function createLayoutsRoutes(
             await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const items = await layoutsService.listLayoutZoneWidgets(metahubId, layoutId, userId)
             return res.json({ items })
         })
@@ -593,7 +613,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const item = await layoutsService.assignLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json(item)
         })
@@ -620,7 +640,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const items = await layoutsService.moveLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json({ items })
         })
@@ -648,7 +668,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             await layoutsService.removeLayoutZoneWidget(metahubId, layoutId, parseResult.data, userId)
             return res.status(204).send()
         })
@@ -682,7 +702,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             try {
                 const widget = await layoutsService.updateLayoutZoneWidgetConfig(
                     metahubId,
@@ -729,7 +749,7 @@ export function createLayoutsRoutes(
             }
 
             const schemaService = new MetahubSchemaService(exec)
-            const layoutsService = new MetahubLayoutsService(schemaService)
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
             try {
                 const widget = await layoutsService.toggleLayoutZoneWidgetActive(
                     metahubId,

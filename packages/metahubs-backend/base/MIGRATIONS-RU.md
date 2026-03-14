@@ -1,106 +1,94 @@
 # Metahubs Backend — Система миграций
 
-> Извлечено из [README-RU.md](README-RU.md). Общий обзор пакета см. в README.
+> Актуальное локальное описание того, как сегодня работают фиксированное системное приложение `metahubs`, рантайм-схемы веток метахабов и связанные application migration-control routes. Общий обзор пакета см. в [README-RU.md](README-RU.md).
 
-## Движок миграций
+## Текущий принцип
 
-- **Движок сравнения** — `calculateSystemTableDiff()` сравнивает две версии структуры и генерирует списки аддитивных/деструктивных изменений
-- **Безопасные миграции** — `SystemTableMigrator` применяет только аддитивные изменения (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK); деструктивные изменения логируются, но не применяются
-- **История миграций** — Таблица `_mhb_migrations` записывает каждую применённую миграцию с версией, названием и метаданными
-- **Рекомендательные блокировки** — Защита от конкурентных миграций через advisory locks PostgreSQL
+`metahubs` является фиксированным system app для design-time metadata и одновременно пакетом, который пока всё ещё хостит текущую migration-control surface.
+Долгосрочная цель состоит в том, чтобы большую часть этой модели напрямую authorить через сами metahubs, но этот flow пока не завершён.
+Поэтому baseline сейчас поддерживается как вручную подготовленная snapshot-equivalent модель, превращается в system-app manifest и file-backed SQL migrations, а platform bootstrap материализует её при первом старте.
 
-## Структурированные блокировки и гард миграций
+## Источники истины
 
-- **Тип StructuredBlocker** — `{ code, params, message }` для i18n-совместимого отображения блокировок миграций
-- **11 мест блокировок** в `TemplateSeedCleanupService` конвертированы из простых строк в структурированные объекты
-- **5 мест блокировок** в `metahubMigrationsRoutes` для проверок миграций на уровне схемы
-- **Эндпоинт статуса миграции** — `GET /metahub/:id/migrations/status` возвращает `{ migrationRequired, structureUpgradeRequired, templateUpgradeRequired, blockers: StructuredBlocker[] }`
-- **Эндпоинт применения миграции** — `POST /metahub/:id/migrations/apply` с телом `{ cleanupMode: 'keep' }`
+| Источник | Роль |
+| --- | --- |
+| `src/platform/systemAppDefinition.ts` | Каноническая business-model fixed schema для system app `metahubs` |
+| `src/platform/migrations/1766351182000-CreateMetahubsSchema.sql.ts` | Канонический file-backed SQL artifact, который явно фиксирует parity contract для fixed schema |
+| `prepareMetahubsSchemaSupportMigrationDefinition` | `pre_schema_generation` support SQL, который выполняется до fixed-schema generation |
+| `finalizeMetahubsSchemaSupportMigrationDefinition` | `post_schema_generation` support SQL, который выполняется после fixed-schema generation |
+| `seedBuiltinTemplatesMigration` | Post-schema platform migration, который сидирует встроенные metahub templates |
 
-## Определение уровня серьёзности
+## Bootstrap при первом старте
 
-Оба эндпоинта миграций (метахаб и приложение) используют общую утилиту `determineSeverity()` из `@universo/migration-guard-shared/utils`:
+При запуске платформы `@universo/core-backend` выполняет fixed system-app pipeline для `metahubs`:
 
-```typescript
-import { determineSeverity } from '@universo/migration-guard-shared/utils'
+1. Prelude migrations платформы запускают `pre_schema_generation` support SQL для схемы.
+2. `ensureRegisteredSystemAppSchemaGenerationPlans()` строит fixed application-like entities из manifest и обеспечивает нужную форму схемы `metahubs`.
+3. Post-schema migrations платформы запускают `post_schema_generation` support SQL и built-in template seed migration.
+4. `bootstrapRegisteredSystemAppStructureMetadata()` синхронизирует метаданные `_app_objects` и `_app_attributes` для fixed schema.
+5. В `metahubs._app_migrations` записывается детерминированная baseline-строка вроде `baseline_metahubs_structure_0_1_0`.
 
-// Метахаб: обновление структуры или блокировки → MANDATORY, только шаблон → RECOMMENDED
-const severity = determineSeverity({
-    migrationRequired,
-    isMandatory: structureUpgradeRequired || blockers.length > 0
-})
+## Поверхность фиксированной схемы
 
-// Приложение: отсутствует схема или обновление структуры → MANDATORY, обновление публикации → RECOMMENDED
-const severity = determineSeverity({
-    migrationRequired,
-    isMandatory: !schemaExists || structureUpgradeRequired
-})
-```
+Фиксированная схема `metahubs` хранит design-time metadata, данные реестра шаблонов и метаданные публикаций.
+Среди business tables, определённых manifest, есть, например:
 
-## Обновление существующих метахабов
+- `cat_metahubs`
+- `cat_metahub_branches`
+- `rel_metahub_users`
+- `cat_templates`
+- `doc_template_versions`
+- `cat_publications`
+- `doc_publication_versions`
 
-Когда добавляется новая функциональность (новые системные таблицы, новые seed-данные), ранее созданные метахабы обновляются **автоматически** через два независимых механизма:
+Поверхность system tables для fixed schema следует из включённых application-like capabilities этого system app и отслеживается через локальные таблицы метаданных `_app_*`.
 
-### Сценарий 1: Новые системные таблицы или колонки (DDL-изменения)
+## Рантайм-миграции веток
 
-**Триггер**: `CURRENT_STRUCTURE_VERSION` увеличивается (например, 1 → N).
+Каждая ветка metahub по-прежнему владеет собственной управляемой runtime schema вида `mhb_<uuid32>_bN`.
+Эти branch schemas версионируются отдельно от фиксированной схемы `metahubs` и используют metahub-specific таблицу истории `_mhb_migrations`.
+Текущая числовая версия структуры веток равна `1`, а публичная semver-метка равна `0.1.0`.
 
-**Как это работает**: Когда любой API-вызов обращается к метахабу, вызывается `MetahubSchemaService.ensureSchema()`. Он считывает `structureVersion` ветки и сравнивает с `CURRENT_STRUCTURE_VERSION`. Если ветка отстаёт, запускается конвейер автомиграции:
+Runtime migration engine для веток придерживается следующих правил:
 
-```
-ensureSchema() обнаруживает: branch.structureVersion (старее) < CURRENT (новее)
-  → SystemTableMigrator.migrate(fromVersion, toVersion)
-      → calculateSystemTableDiff(previous_tables, current_tables)
-      → Применяются только АДДИТИВНЫЕ изменения (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK)
-      → Миграция записывается в таблицу _mhb_migrations
-  → branch.structureVersion = CURRENT_STRUCTURE_VERSION (сохраняется в БД)
-```
+- `calculateSystemTableDiff()` сравнивает сохранённую версию структуры ветки с текущим набором определений system tables.
+- `SystemTableMigrator` применяет аддитивные DDL-изменения и записывает их в `_mhb_migrations`.
+- Advisory locks PostgreSQL сериализуют apply-операции для одной и той же branch schema.
+- Template seed migrations добавляют новые layouts, widgets, settings и связанные metadata без перезаписи пользовательских строк.
 
-**Гарантии безопасности**:
-- Автоматически применяются только аддитивные изменения; деструктивные (DROP TABLE/COLUMN) логируются, но НИКОГДА не применяются
-- Advisory locks PostgreSQL предотвращают конкурентные миграции одной и той же схемы
-- Каждая миграция записывается в таблицу `_mhb_migrations` с полными метаданными
-- Миграции выполняются в транзакции — частичные ошибки откатываются
+## Маршруты миграций метахабов
 
-### Сценарий 2: Новые seed-данные (обновления шаблонов)
+`@universo/metahubs-backend` владеет branch migration endpoints:
 
-**Триггер**: Версия манифеста шаблона увеличивается (например, `basic` шаблон 1.0.x → 1.0.y).
+- `GET /metahub/:metahubId/migrations/status`
+- `GET /metahub/:metahubId/migrations`
+- `POST /metahub/:metahubId/migrations/plan`
+- `POST /metahub/:metahubId/migrations/apply`
 
-**Как это работает**: При запуске приложения `TemplateSeeder.seed()` обнаруживает изменение хеша и обновляет версию шаблона. При следующем вызове `ensureSchema()` для каждого метахаба запускается seed-миграция:
+Эти маршруты вычисляют blockers, structure upgrades, template upgrades и apply plans для выбранной ветки.
+Severity вычисляется через общий helper `determineSeverity()`, где structure upgrades или blockers обязательны, а template-only upgrades носят рекомендательный характер.
 
-```
-ensureSchema() обнаруживает: seed нуждается в миграции
-  → TemplateSeedMigrator.migrateSeed(newSeed)
-      → migrateLayouts()        — добавляет новые макеты по template_key (пропускает существующие)
-      → migrateZoneWidgets()    — добавляет новые виджеты в новые макеты
-      → migrateSettings()       — добавляет новые ключи настроек (пропускает существующие)
-  → branch.seedVersion обновляется
-```
+## Размещённые здесь application migration-control routes
 
-**Ключевое поведение**: Добавляются только НОВЫЕ элементы. Существующие пользовательские настройки никогда не перезаписываются.
+Этот пакет также монтирует runtime application migration-control endpoints, используемые текущим authoring flow:
 
-## Синхронизация приложений
+- `GET /application/:applicationId/migrations/status`
+- `GET /application/:applicationId/migrations`
+- `GET /application/:applicationId/migration/:migrationId`
+- `GET /application/:applicationId/migration/:migrationId/analyze`
+- `POST /application/:applicationId/migration/:migrationId/rollback`
 
-Синхронизация схемы приложения выполняется в `applicationSyncRoutes.ts`:
+Эти маршруты читают runtime application migration history, отдают rollback analysis и поддерживают guarded rollback execution.
+Они не заменяют runtime sync ownership пакета `@universo/applications-backend`.
 
-- Захватывает advisory lock PostgreSQL (`app-sync:{applicationId}`) для предотвращения конкурентных синхронизаций
-- Устанавливает `schema_status = MAINTENANCE` во время синхронизации (отображается как страница обслуживания для непривилегированных пользователей)
-- Устанавливает `schema_status = SYNCED` при успехе, `ERROR` при ошибке
-- Использует `persistPublishedWidgets()` и `persistPublishedLayouts()` для синхронизации данных виджетов/макетов
-- Освобождает advisory lock в блоке `finally`
+## Граница ответственности с applications
 
-## Реестр шаблонов
+`@universo/metahubs-backend` владеет design-time metadata, branch runtime migrations, publication metadata и migration-control surface.
+`@universo/applications-backend` владеет runtime application schema sync, diff calculation, release-bundle export/apply и сохранением `installed_release_metadata` в `applications.cat_applications`.
+Publication-driven application creation пересекает эту границу, но финальная runtime sync route surface остаётся в `@universo/applications-backend`.
 
-Поставляются два встроенных шаблона:
-- **basic** — Минимальный шаблон с основными виджетами (меню, заголовок, заголовок деталей, контейнер колонок). Сущности по умолчанию создаются на основе `createOptions`.
-- **basic-demo** — Полный демо-шаблон со ВСЕМИ активными виджетами и примерами сущностей (хаб, каталог, набор, перечисление с атрибутами и данными).
+## Реестр шаблонов и create options
 
-## Опции создания сущностей
-
-При создании метахаба через `POST /metahubs` опциональный объект `createOptions` управляет тем, какие сущности по умолчанию будут созданы:
-- `createHub` (по умолчанию: true) — Создать хаб по умолчанию
-- `createCatalog` (по умолчанию: true) — Создать каталог по умолчанию
-- `createSet` (по умолчанию: true) — Создать набор по умолчанию
-- `createEnumeration` (по умолчанию: true) — Создать перечисление по умолчанию
-
-Ветка (Branch) и макет (Layout) всегда создаются вне зависимости от опций.
+Встроенный template registry по-прежнему поставляет `basic` и `basic-demo`.
+При создании metahub `createOptions` всё ещё могут предварительно сидировать сущности hub, catalog, set и enumeration по умолчанию, тогда как создание branch и базового layout остаётся обязательным.
+Смотрите на этот файл как на локальную карту текущего гибридного состояния: fixed design-time system app, загружаемый из manual snapshot-equivalent baseline, и поверх него branch/runtime и application migration-control flows.

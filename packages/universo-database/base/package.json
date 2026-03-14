@@ -21,6 +21,7 @@
     "license": "Omsk Open License",
     "dependencies": {
         "@universo/utils": "workspace:*",
+        "@universo/migrations-core": "workspace:*",
         "knex": "catalog:",
         "pg": "^8.11.1"
     },

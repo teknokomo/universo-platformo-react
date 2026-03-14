@@ -3,7 +3,9 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestDbSession, getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
+import { queryMany, queryOne } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation, database } from '@universo/utils'
@@ -22,7 +24,6 @@ import {
     buildCodenameAttempt,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
-import { KnexClient } from '../../ddl'
 
 type RequestUser = {
     id?: string
@@ -389,11 +390,11 @@ export function createCatalogsRoutes(
     const services = (req: Request) => {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
-        const objectsService = new MetahubObjectsService(schemaService)
-        const hubsService = new MetahubHubsService(schemaService)
-        const attributesService = new MetahubAttributesService(schemaService)
-        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
-        const settingsService = new MetahubSettingsService(schemaService)
+        const objectsService = new MetahubObjectsService(exec, schemaService)
+        const hubsService = new MetahubHubsService(exec, schemaService)
+        const attributesService = new MetahubAttributesService(exec, schemaService)
+        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
+        const settingsService = new MetahubSettingsService(exec, schemaService)
         return {
             exec,
             schemaService,
@@ -1164,10 +1165,11 @@ export function createCatalogsRoutes(
             })
 
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
-            const knex = KnexClient.getInstance()
+            const attrQt = qSchemaTable(schemaName, '_mhb_attributes')
+            const elemQt = qSchemaTable(schemaName, '_mhb_elements')
 
             const createCatalogCopy = async (codename: string) => {
-                return knex.transaction(async (trx) => {
+                return exec.transaction(async (trx: SqlQueryable) => {
                     const now = new Date()
                     const codenameLocalizedForCopy =
                         parsed.data.codenameInput === undefined
@@ -1196,14 +1198,13 @@ export function createCatalogsRoutes(
 
                     let copiedAttributesCount = 0
                     if (copyOptions.copyAttributes) {
-                        const sourceAttributes = (await trx
-                            .withSchema(schemaName)
-                            .from('_mhb_attributes')
-                            .where({ object_id: catalogId })
-                            .andWhere('_upl_deleted', false)
-                            .andWhere('_mhb_deleted', false)
-                            .orderBy('sort_order', 'asc')
-                            .orderBy('_upl_created_at', 'asc')) as CatalogAttributeRow[]
+                        const sourceAttributes = await queryMany<CatalogAttributeRow>(
+                            trx,
+                            `SELECT * FROM ${attrQt}
+                             WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             ORDER BY sort_order ASC, _upl_created_at ASC`,
+                            [catalogId]
+                        )
 
                         const attributeIdMap = new Map<string, string>()
                         const pendingAttributes = [...sourceAttributes]
@@ -1224,30 +1225,33 @@ export function createCatalogsRoutes(
                                         ? updatedCatalog.id
                                         : sourceAttr.target_object_id
 
-                                const [createdAttr] = await trx
-                                    .withSchema(schemaName)
-                                    .into('_mhb_attributes')
-                                    .insert({
-                                        object_id: updatedCatalog.id,
-                                        codename: sourceAttr.codename,
-                                        data_type: sourceAttr.data_type,
-                                        presentation: sourceAttr.presentation ?? {},
-                                        validation_rules: sourceAttr.validation_rules ?? {},
-                                        ui_config: sourceAttr.ui_config ?? {},
-                                        sort_order: sourceAttr.sort_order ?? 0,
-                                        is_required: sourceAttr.is_required ?? false,
-                                        is_display_attribute: sourceAttr.is_display_attribute ?? false,
-                                        target_object_id: targetObjectId ?? null,
-                                        target_object_kind: sourceAttr.target_object_kind ?? null,
-                                        parent_attribute_id: sourceParentId ? attributeIdMap.get(sourceParentId) ?? null : null,
-                                        _upl_created_at: now,
-                                        _upl_created_by: userId ?? null,
-                                        _upl_updated_at: now,
-                                        _upl_updated_by: userId ?? null
-                                    })
-                                    .returning(['id'])
+                                const createdAttr = await queryOne<{ id: string }>(
+                                    trx,
+                                    `INSERT INTO ${attrQt}
+                                     (object_id, codename, data_type, presentation, validation_rules, ui_config,
+                                      sort_order, is_required, is_display_attribute, target_object_id, target_object_kind,
+                                      parent_attribute_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $13, $14)
+                                     RETURNING id`,
+                                    [
+                                        updatedCatalog.id,
+                                        sourceAttr.codename,
+                                        sourceAttr.data_type,
+                                        JSON.stringify(sourceAttr.presentation ?? {}),
+                                        JSON.stringify(sourceAttr.validation_rules ?? {}),
+                                        JSON.stringify(sourceAttr.ui_config ?? {}),
+                                        sourceAttr.sort_order ?? 0,
+                                        sourceAttr.is_required ?? false,
+                                        sourceAttr.is_display_attribute ?? false,
+                                        targetObjectId ?? null,
+                                        sourceAttr.target_object_kind ?? null,
+                                        sourceParentId ? attributeIdMap.get(sourceParentId) ?? null : null,
+                                        now,
+                                        userId ?? null
+                                    ]
+                                )
 
-                                attributeIdMap.set(sourceAttr.id, createdAttr.id)
+                                attributeIdMap.set(sourceAttr.id, createdAttr!.id)
                                 pendingAttributes.splice(index, 1)
                                 index -= 1
                                 copiedAttributesCount += 1
@@ -1262,32 +1266,40 @@ export function createCatalogsRoutes(
 
                     let copiedElementsCount = 0
                     if (copyOptions.copyElements) {
-                        const sourceElements = (await trx
-                            .withSchema(schemaName)
-                            .from('_mhb_elements')
-                            .where({ object_id: catalogId })
-                            .andWhere('_upl_deleted', false)
-                            .andWhere('_mhb_deleted', false)
-                            .orderBy('sort_order', 'asc')
-                            .orderBy('_upl_created_at', 'asc')) as CatalogElementRow[]
+                        const sourceElements = await queryMany<CatalogElementRow>(
+                            trx,
+                            `SELECT * FROM ${elemQt}
+                             WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             ORDER BY sort_order ASC, _upl_created_at ASC`,
+                            [catalogId]
+                        )
 
                         if (sourceElements.length > 0) {
-                            await trx
-                                .withSchema(schemaName)
-                                .into('_mhb_elements')
-                                .insert(
-                                    sourceElements.map((element) => ({
-                                        object_id: updatedCatalog.id,
-                                        data: element.data ?? {},
-                                        sort_order: element.sort_order ?? 0,
-                                        owner_id: element.owner_id ?? null,
-                                        _upl_created_at: now,
-                                        _upl_created_by: userId ?? null,
-                                        _upl_updated_at: now,
-                                        _upl_updated_by: userId ?? null
-                                    }))
+                            const placeholders: string[] = []
+                            const params: unknown[] = []
+                            let idx = 1
+                            for (const element of sourceElements) {
+                                placeholders.push(
+                                    `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 4}, $${idx + 5})`
                                 )
-                            copiedElementsCount = sourceElements.length
+                                params.push(
+                                    updatedCatalog.id,
+                                    JSON.stringify(element.data ?? {}),
+                                    element.sort_order ?? 0,
+                                    element.owner_id ?? null,
+                                    now,
+                                    userId ?? null
+                                )
+                                idx += 6
+                            }
+                            const insertedRows = await trx.query(
+                                `INSERT INTO ${elemQt}
+                                 (object_id, data, sort_order, owner_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                                 VALUES ${placeholders.join(', ')}
+                                 RETURNING id`,
+                                params
+                            )
+                            copiedElementsCount = insertedRows.length
                         }
                     }
 

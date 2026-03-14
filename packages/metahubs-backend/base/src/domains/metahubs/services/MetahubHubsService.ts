@@ -1,8 +1,11 @@
-import type { Knex } from 'knex'
-import { KnexClient } from '../../ddl'
+import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
+import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
+import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+
+const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
 /**
  * MetahubHubsService - CRUD operations for Hubs stored in isolated schemas.
@@ -14,30 +17,18 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
  * Each Metahub has its own schema (mhb_<uuid>) with the _mhb_objects table.
  */
 export class MetahubHubsService {
-    constructor(private schemaService: MetahubSchemaService) {}
+    constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
 
-    private quoteSchemaName(schemaName: string): string {
-        return `"${schemaName.replace(/"/g, '""')}"`
-    }
+    private async getNextSortOrder(schemaName: string, db?: SqlQueryable): Promise<number> {
+        const runner = db ?? this.exec
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-    private objectsTable(schemaName: string): string {
-        return `${this.quoteSchemaName(schemaName)}."_mhb_objects"`
-    }
-
-    private get knex() {
-        return KnexClient.getInstance()
-    }
-
-    private async getNextSortOrder(schemaName: string, trx?: Knex.Transaction): Promise<number> {
-        const runner = trx ?? this.knex
-        const result = await runner
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'hub' })
-            .andWhere('_upl_deleted', false)
-            .andWhere('_mhb_deleted', false)
-            .select(this.knex.raw("COALESCE(MAX((config->>'sortOrder')::int), 0) as max_sort_order"))
-            .first<{ max_sort_order: number | string | null }>()
+        const result = await queryOne<{ max_sort_order: number | string | null }>(
+            runner,
+            `SELECT COALESCE(MAX((config->>'sortOrder')::int), 0) AS max_sort_order
+             FROM ${qt}
+             WHERE kind = 'hub' AND ${ACTIVE}`
+        )
 
         const maxSortOrder = Number(result?.max_sort_order ?? 0)
         if (!Number.isFinite(maxSortOrder)) {
@@ -81,46 +72,73 @@ export class MetahubHubsService {
         userId?: string
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        let query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind: 'hub' })
+        const conditions: string[] = ["kind = 'hub'", ACTIVE]
+        const params: unknown[] = []
+        let paramIdx = 1
 
-        // Search in presentation JSONB (name/description)
         if (options.search) {
-            const escapedSearch = escapeLikeWildcards(options.search)
-            query = query.where((qb) => {
-                qb.whereRaw("presentation->>'name' ILIKE ?", [`%${escapedSearch}%`])
-                    .orWhereRaw("presentation->>'description' ILIKE ?", [`%${escapedSearch}%`])
-                    .orWhere('codename', 'ilike', `%${escapedSearch}%`)
-            })
+            const escapedSearch = `%${escapeLikeWildcards(options.search)}%`
+            conditions.push(
+                `(presentation->>'name' ILIKE $${paramIdx} OR presentation->>'description' ILIKE $${paramIdx} OR codename ILIKE $${paramIdx})`
+            )
+            params.push(escapedSearch)
+            paramIdx++
         }
 
-        // Clone for count before limit/offset
-        const countQuery = query.clone()
+        const whereClause = conditions.join(' AND ')
 
-        // Sorting - use orderByRaw for JSONB expressions
-        const sortOrder = options.sortOrder || 'asc'
-        if (options.sortBy === 'name') {
-            query = query.orderByRaw(`presentation->'name'->>'en' ${sortOrder}`)
-        } else if (options.sortBy === 'codename') {
-            query = query.orderBy('codename', sortOrder)
-        } else if (options.sortBy === 'sortOrder') {
-            query = query.orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ${sortOrder}`)
-        } else if (options.sortBy === 'created') {
-            query = query.orderBy('_upl_created_at', sortOrder)
-        } else if (options.sortBy === 'updated') {
-            query = query.orderBy('_upl_updated_at', sortOrder)
-        } else {
-            query = query.orderBy('_upl_created_at', sortOrder)
+        // Sorting — direction is validated to prevent SQL injection
+        const dir = options.sortOrder === 'desc' ? 'DESC' : 'ASC'
+        let orderBy: string
+        switch (options.sortBy) {
+            case 'name':
+                orderBy = `presentation->'name'->>'en' ${dir}`
+                break
+            case 'codename':
+                orderBy = `codename ${dir}`
+                break
+            case 'sortOrder':
+                orderBy = `COALESCE((config->>'sortOrder')::int, 0) ${dir}`
+                break
+            case 'created':
+                orderBy = `_upl_created_at ${dir}`
+                break
+            case 'updated':
+                orderBy = `_upl_updated_at ${dir}`
+                break
+            default:
+                orderBy = `_upl_created_at ${dir}`
+                break
         }
 
-        // Pagination
-        if (options.limit) query = query.limit(options.limit)
-        if (options.offset) query = query.offset(options.offset)
+        let paginationClause = ''
+        const queryParams = [...params]
+        if (options.limit) {
+            paginationClause += ` LIMIT $${paramIdx}`
+            queryParams.push(options.limit)
+            paramIdx++
+        }
+        if (options.offset) {
+            paginationClause += ` OFFSET $${paramIdx}`
+            queryParams.push(options.offset)
+            paramIdx++
+        }
 
-        const [rows, countResult] = await Promise.all([query, countQuery.count('* as total').first()])
+        const countParams = [...params]
 
-        const total = countResult ? parseInt(countResult.total as string, 10) : 0
-        const items = rows.map((row: Record<string, unknown>) => this.mapHubFromObject(row))
+        const [rows, countResult] = await Promise.all([
+            queryMany<Record<string, unknown>>(
+                this.exec,
+                `SELECT * FROM ${qt} WHERE ${whereClause} ORDER BY ${orderBy}${paginationClause}`,
+                queryParams
+            ),
+            queryOne<{ total: string }>(this.exec, `SELECT COUNT(*) AS total FROM ${qt} WHERE ${whereClause}`, countParams)
+        ])
+
+        const total = countResult ? parseInt(countResult.total, 10) : 0
+        const items = rows.map((row) => this.mapHubFromObject(row))
 
         return { items, total }
     }
@@ -130,14 +148,11 @@ export class MetahubHubsService {
      */
     async findById(metahubId: string, hubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const [row] = await this.schemaService.query<Record<string, unknown>>(
-            `
-                SELECT *
-                FROM ${this.objectsTable(schemaName)}
-                WHERE id = $1 AND kind = 'hub'
-                LIMIT 1
-            `,
+        const row = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE id = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
             [hubId]
         )
 
@@ -149,8 +164,13 @@ export class MetahubHubsService {
      */
     async findByCodename(metahubId: string, codename: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const row = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind: 'hub' }).first()
+        const row = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE codename = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
+            [codename]
+        )
 
         return row ? this.mapHubFromObject(row) : null
     }
@@ -162,18 +182,15 @@ export class MetahubHubsService {
         if (hubIds.length === 0) return []
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const rows = await this.schemaService.query<Record<string, unknown>>(
-            `
-                SELECT *
-                FROM ${this.objectsTable(schemaName)}
-                WHERE kind = 'hub'
-                  AND id = ANY($1::uuid[])
-            `,
+        const rows = await queryMany<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE kind = 'hub' AND ${ACTIVE} AND id = ANY($1::uuid[])`,
             [hubIds]
         )
 
-        return rows.map((row: Record<string, unknown>) => this.mapHubFromObject(row))
+        return rows.map((row) => this.mapHubFromObject(row))
     }
 
     /**
@@ -191,45 +208,42 @@ export class MetahubHubsService {
             createdBy?: string | null
         },
         userId?: string,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const createWithRunner = async (runner: Knex.Transaction) => {
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+
+        const createWithRunner = async (tx: SqlQueryable) => {
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
                     ? input.sortOrder
-                    : await this.getNextSortOrder(schemaName, runner)
+                    : await this.getNextSortOrder(schemaName, tx)
 
-            const [created] = await runner
-                .withSchema(schemaName)
-                .into('_mhb_objects')
-                .insert({
-                    kind: 'hub',
-                    codename: input.codename,
-                    table_name: null,
-                    presentation: {
-                        codename: input.codenameLocalized ?? null,
-                        name: input.name,
-                        description: input.description ?? null
-                    },
-                    config: {
-                        sortOrder,
-                        parentHubId: input.parentHubId ?? null
-                    },
-                    _upl_created_at: new Date(),
-                    _upl_created_by: input.createdBy ?? null,
-                    _upl_updated_at: new Date(),
-                    _upl_updated_by: input.createdBy ?? null
-                })
-                .returning('*')
+            const now = new Date()
+            const presentation = JSON.stringify({
+                codename: input.codenameLocalized ?? null,
+                name: input.name,
+                description: input.description ?? null
+            })
+            const config = JSON.stringify({
+                sortOrder,
+                parentHubId: input.parentHubId ?? null
+            })
+
+            const created = await queryOneOrThrow<Record<string, unknown>>(
+                tx,
+                `INSERT INTO ${qt}
+                    (kind, codename, table_name, presentation, config,
+                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                 VALUES ('hub', $1, NULL, $2::jsonb, $3::jsonb, $4, $5, $4, $5)
+                 RETURNING *`,
+                [input.codename, presentation, config, now, input.createdBy ?? null]
+            )
             return this.mapHubFromObject(created)
         }
 
-        if (trx) {
-            return createWithRunner(trx)
-        }
-
-        return this.knex.transaction(async (innerTrx) => createWithRunner(innerTrx))
+        if (db) return createWithRunner(db)
+        return this.exec.transaction(async (tx: SqlQueryable) => createWithRunner(tx))
     }
 
     /**
@@ -249,17 +263,22 @@ export class MetahubHubsService {
             expectedVersion?: number
         },
         userId?: string,
-        trx?: Knex.Transaction
+        db?: SqlQueryable
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const runner = trx ?? this.knex
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const runner = db ?? this.exec
 
-        const existing = await runner.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).first()
+        const existing = await queryOne<Record<string, unknown>>(
+            runner,
+            `SELECT * FROM ${qt} WHERE id = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
+            [hubId]
+        )
 
         if (!existing) throw new Error('Hub not found')
 
-        const currentPresentation = existing.presentation ?? {}
-        const currentConfig = existing.config ?? {}
+        const currentPresentation = (existing.presentation as Record<string, unknown>) ?? {}
+        const currentConfig = (existing.config as Record<string, unknown>) ?? {}
 
         const updateData: Record<string, unknown> = {
             _upl_updated_at: new Date(),
@@ -292,7 +311,7 @@ export class MetahubHubsService {
         // If expectedVersion is provided, use version-checked update
         if (input.expectedVersion !== undefined) {
             const updated = await updateWithVersionCheck({
-                knex: runner as unknown as Knex,
+                executor: runner as DbExecutor,
                 schemaName,
                 tableName: '_mhb_objects',
                 entityId: hubId,
@@ -304,7 +323,7 @@ export class MetahubHubsService {
         }
 
         // Fallback: increment version without check (backwards compatibility)
-        const updated = await incrementVersion(runner as unknown as Knex, schemaName, '_mhb_objects', hubId, updateData)
+        const updated = await incrementVersion(runner, schemaName, '_mhb_objects', hubId, updateData)
         return this.mapHubFromObject(updated)
     }
 
@@ -313,8 +332,19 @@ export class MetahubHubsService {
      */
     async delete(metahubId: string, hubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).delete()
+        await this.exec.query(
+            `UPDATE ${qt}
+             SET _mhb_deleted = true,
+                 _mhb_deleted_at = $1,
+                 _mhb_deleted_by = $2,
+                 _upl_updated_at = $1,
+                 _upl_updated_by = $2
+             WHERE id = $3 AND kind = 'hub' AND ${ACTIVE}
+             RETURNING id`,
+            [new Date(), userId ?? null, hubId]
+        )
     }
 
     /**
@@ -322,9 +352,10 @@ export class MetahubHubsService {
      */
     async count(metahubId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const result = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind: 'hub' }).count('* as total').first()
+        const result = await queryOne<{ total: string }>(this.exec, `SELECT COUNT(*) AS total FROM ${qt} WHERE kind = 'hub' AND ${ACTIVE}`)
 
-        return result ? parseInt(result.total as string, 10) : 0
+        return result ? parseInt(result.total, 10) : 0
     }
 }

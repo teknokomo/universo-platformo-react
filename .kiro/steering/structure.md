@@ -1,13 +1,13 @@
 # Project Structure
 
 ## Monorepo Architecture
-This is a PNPM workspace with Turbo build orchestration. The project extends Flowise AI with modular applications.
+This is a PNPM workspace with Turbo build orchestration. The project extends an inherited upstream shell with modular applications.
 
 ## Root Structure
 ```
 universo-platformo-react/
-├── packages/              # Original Flowise packages
-│   ├── components/        # Flowise components and UPDL nodes
+├── packages/              # Original upstream packages
+│   ├── components/        # Legacy components and UPDL nodes
 │   ├── server/           # Backend server (Express + Knex)
 │   └── ui/               # Frontend React application
 ├── packages/                 # Modular applications (NEW architecture)
@@ -67,7 +67,7 @@ packages/{app-name}/
 - TypeScript compilation via `tsc`, then Gulp for assets
 
 ## Integration Points
-- Apps integrate with main Flowise via workspace dependencies
+- Apps integrate with the main legacy shell via workspace dependencies
 - Backend apps export as `@universo/{app-name}` packages
 - Frontend apps integrate into main UI via dynamic imports
 - UPDL nodes are registered in the components package

@@ -23,8 +23,8 @@ export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRunt
     }
 
     const schemaService = new MetahubSchemaService(executor)
-    const objectsService = new MetahubObjectsService(schemaService)
-    const attributesService = new MetahubAttributesService(schemaService)
+    const objectsService = new MetahubObjectsService(executor, schemaService)
+    const attributesService = new MetahubAttributesService(executor, schemaService)
     const serializer = new SnapshotSerializer(objectsService, attributesService)
     const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
 

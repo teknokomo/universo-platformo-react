@@ -12,10 +12,7 @@ import { convertPgBindings } from '../pgBindings'
 describe('SQL compilation regression — representative store patterns', () => {
     describe('simple CRUD patterns', () => {
         it('SELECT with single parameter', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                'SELECT m.id, m.name FROM metahubs.metahubs m WHERE m.id = $1',
-                ['uuid-1']
-            )
+            const { sql, bindings: params } = convertPgBindings('SELECT m.id, m.name FROM metahubs.metahubs m WHERE m.id = $1', ['uuid-1'])
             expect(sql).toBe('SELECT m.id, m.name FROM metahubs.metahubs m WHERE m.id = ?')
             expect(params).toEqual(['uuid-1'])
         })
@@ -25,9 +22,7 @@ describe('SQL compilation regression — representative store patterns', () => {
                 'INSERT INTO metahubs.metahubs (name, codename, is_public, user_id) VALUES ($1, $2, $3, $4) RETURNING id',
                 ['My Hub', 'my-hub', false, 'user-1']
             )
-            expect(sql).toBe(
-                'INSERT INTO metahubs.metahubs (name, codename, is_public, user_id) VALUES (?, ?, ?, ?) RETURNING id'
-            )
+            expect(sql).toBe('INSERT INTO metahubs.metahubs (name, codename, is_public, user_id) VALUES (?, ?, ?, ?) RETURNING id')
             expect(params).toEqual(['My Hub', 'my-hub', false, 'user-1'])
         })
 
@@ -36,9 +31,7 @@ describe('SQL compilation regression — representative store patterns', () => {
                 'UPDATE metahubs.metahubs SET name = $1, updated_at = NOW() WHERE id = $2 AND _upl_deleted IS NULL',
                 ['New Name', 'uuid-1']
             )
-            expect(sql).toBe(
-                'UPDATE metahubs.metahubs SET name = ?, updated_at = NOW() WHERE id = ? AND _upl_deleted IS NULL'
-            )
+            expect(sql).toBe('UPDATE metahubs.metahubs SET name = ?, updated_at = NOW() WHERE id = ? AND _upl_deleted IS NULL')
             expect(params).toEqual(['New Name', 'uuid-1'])
         })
 
@@ -47,37 +40,33 @@ describe('SQL compilation regression — representative store patterns', () => {
                 'UPDATE metahubs.metahubs SET _upl_deleted = NOW(), _upl_deleted_by = $2 WHERE id = $1 AND _upl_deleted IS NULL',
                 ['uuid-1', 'user-1']
             )
-            expect(sql).toBe(
-                'UPDATE metahubs.metahubs SET _upl_deleted = NOW(), _upl_deleted_by = ? WHERE id = ? AND _upl_deleted IS NULL'
-            )
+            expect(sql).toBe('UPDATE metahubs.metahubs SET _upl_deleted = NOW(), _upl_deleted_by = ? WHERE id = ? AND _upl_deleted IS NULL')
             expect(params).toEqual(['user-1', 'uuid-1'])
         })
     })
 
     describe('type cast patterns', () => {
         it('$N::text cast', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                "SELECT set_config('request.jwt.claims', $1::text, true)",
-                ['{"sub":"user-1"}']
-            )
+            const { sql, bindings: params } = convertPgBindings("SELECT set_config('request.jwt.claims', $1::text, true)", [
+                '{"sub":"user-1"}'
+            ])
             expect(sql).toBe("SELECT set_config('request.jwt.claims', ?::text, true)")
             expect(params).toEqual(['{"sub":"user-1"}'])
         })
 
         it('$N::uuid cast', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                'SELECT * FROM profiles WHERE user_id = $1::uuid',
-                ['550e8400-e29b-41d4-a716-446655440000']
-            )
+            const { sql, bindings: params } = convertPgBindings('SELECT * FROM profiles WHERE user_id = $1::uuid', [
+                '550e8400-e29b-41d4-a716-446655440000'
+            ])
             expect(sql).toBe('SELECT * FROM profiles WHERE user_id = ?::uuid')
             expect(params).toEqual(['550e8400-e29b-41d4-a716-446655440000'])
         })
 
         it('$N::jsonb cast for settings', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                'UPDATE profiles SET settings = $1::jsonb WHERE user_id = $2',
-                ['{"theme":"dark"}', 'user-1']
-            )
+            const { sql, bindings: params } = convertPgBindings('UPDATE profiles SET settings = $1::jsonb WHERE user_id = $2', [
+                '{"theme":"dark"}',
+                'user-1'
+            ])
             expect(sql).toBe('UPDATE profiles SET settings = ?::jsonb WHERE user_id = ?')
             expect(params).toEqual(['{"theme":"dark"}', 'user-1'])
         })
@@ -109,10 +98,9 @@ describe('SQL compilation regression — representative store patterns', () => {
         })
 
         it('repeated parameter reference ($1 used twice)', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                'SELECT * FROM admin.roles WHERE created_by = $1 OR updated_by = $1',
-                ['user-1']
-            )
+            const { sql, bindings: params } = convertPgBindings('SELECT * FROM admin.roles WHERE created_by = $1 OR updated_by = $1', [
+                'user-1'
+            ])
             expect(sql).toBe('SELECT * FROM admin.roles WHERE created_by = ? OR updated_by = ?')
             expect(params).toEqual(['user-1', 'user-1'])
         })
@@ -120,11 +108,10 @@ describe('SQL compilation regression — representative store patterns', () => {
 
     describe('JSONB and VLC patterns', () => {
         it('JSONB containment query', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                "SELECT * FROM metahubs.publications WHERE metadata @> $1::jsonb",
-                ['{"status":"published"}']
-            )
-            expect(sql).toBe("SELECT * FROM metahubs.publications WHERE metadata @> ?::jsonb")
+            const { sql, bindings: params } = convertPgBindings('SELECT * FROM metahubs.publications WHERE metadata @> $1::jsonb', [
+                '{"status":"published"}'
+            ])
+            expect(sql).toBe('SELECT * FROM metahubs.publications WHERE metadata @> ?::jsonb')
             expect(params).toEqual(['{"status":"published"}'])
         })
 
@@ -141,10 +128,7 @@ describe('SQL compilation regression — representative store patterns', () => {
 
     describe('passthrough patterns (? already used)', () => {
         it('already uses ? placeholders', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                'SELECT * FROM profiles WHERE user_id = ?',
-                ['user-1']
-            )
+            const { sql, bindings: params } = convertPgBindings('SELECT * FROM profiles WHERE user_id = ?', ['user-1'])
             expect(sql).toBe('SELECT * FROM profiles WHERE user_id = ?')
             expect(params).toEqual(['user-1'])
         })
@@ -185,19 +169,13 @@ describe('SQL compilation regression — representative store patterns', () => {
         })
 
         it('advisory lock hash pattern', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                'SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))',
-                ['lock-key']
-            )
+            const { sql, bindings: params } = convertPgBindings('SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))', ['lock-key'])
             expect(sql).toBe('SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))')
             expect(params).toEqual(['lock-key'])
         })
 
         it('dollar-quoted function body not confused with $N', () => {
-            const { sql, bindings: params } = convertPgBindings(
-                "SELECT set_config('request.jwt.claims', $1::text, true)",
-                ['claims-json']
-            )
+            const { sql, bindings: params } = convertPgBindings("SELECT set_config('request.jwt.claims', $1::text, true)", ['claims-json'])
             expect(params).toEqual(['claims-json'])
             expect(sql).not.toContain('$1')
         })

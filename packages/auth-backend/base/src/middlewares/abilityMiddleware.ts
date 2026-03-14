@@ -5,11 +5,11 @@
  * Should be used AFTER authentication middleware.
  */
 import type { Request, Response, NextFunction } from 'express'
-import type { Knex } from 'knex'
 import type { AppAbility } from '@universo/types'
 import { ForbiddenError } from '@universo/types'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
 import { createPermissionService, type IPermissionService } from '../services/permissionService'
+import type { DbExecutor } from '@universo/utils/database'
 
 /**
  * Request with CASL ability attached
@@ -22,8 +22,8 @@ export interface RequestWithAbility extends AuthenticatedRequest {
  * Configuration for ability middleware
  */
 export interface AbilityMiddlewareOptions {
-    /** Function to get Knex instance */
-    getKnex: () => Knex
+    /** Function to get DbExecutor instance */
+    getDbExecutor: () => DbExecutor
 }
 
 /**
@@ -31,7 +31,7 @@ export interface AbilityMiddlewareOptions {
  *
  * Usage:
  * ```ts
- * const withAbility = createAbilityMiddleware({ getKnex })
+ * const withAbility = createAbilityMiddleware({ getDbExecutor })
  * router.use('/protected', ensureAuth, withAbility, protectedRouter)
  * ```
  *

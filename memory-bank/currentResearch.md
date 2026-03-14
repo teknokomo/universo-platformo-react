@@ -139,7 +139,7 @@
 ### Code audit (createQueryRunner call sites)
 - `@universo/auth-backend`: `ensureAuthWithRls` creates a per-request QueryRunner and releases it on response completion.
 - `@universo/auth-backend`: `permissionService` creates a QueryRunner only when one is not provided; releases it in `finally`.
-- `@flowise/core-backend`: export/import uses QueryRunner with explicit connect + transaction and releases in `finally`.
+- `@universo/core-backend`: export/import uses QueryRunner with explicit connect + transaction and releases in `finally`.
 
 ### Current hypothesis
 - The freeze is likely caused by pooled connection contention (too many concurrent requests each holding a per-request QueryRunner) or an edge-case where cleanup/release does not run.

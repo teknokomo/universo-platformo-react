@@ -14,7 +14,7 @@ import {
 } from '../services/captchaService'
 import { activeAppRowCondition } from '@universo/utils'
 import { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled } from '@universo/utils/auth'
-import type { Knex } from 'knex'
+import type { DbExecutor } from '@universo/utils/database'
 
 const LoginSchema = z.object({
     email: z.string().email().max(320),
@@ -36,7 +36,7 @@ const RegisterSchema = z.object({
 
 type MiddlewareFn = (...args: any[]) => unknown
 
-type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getKnex?: () => Knex) => Router
+type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getDbExecutor?: () => DbExecutor) => Router
 
 const maskEmail = (email: string | null | undefined): string | null => {
     if (!email) {
@@ -77,7 +77,7 @@ const serializeErrorForLog = (error: unknown): Record<string, string> => {
     }
 }
 
-export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getKnex) => {
+export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getDbExecutor) => {
     const router = Router()
 
     // Captcha configuration endpoint (public, no auth required)
@@ -170,15 +170,14 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
 
             // Save consent data to profile (profile is auto-created by Supabase trigger)
             // Using retry pattern with RETURNING clause for reliable affected row check
-            if (getKnex) {
+            if (getDbExecutor) {
                 const userId = data.user.id
-                const knex = getKnex()
+                const exec = getDbExecutor()
                 const maxAttempts = 5
                 let consentSaved = false
 
                 const rawQuery = async <T = unknown>(sql: string, params: unknown[]): Promise<T[]> => {
-                    const result = await knex.raw(sql, params as any)
-                    return (result.rows ?? result) as T[]
+                    return exec.query<T>(sql, params)
                 }
 
                 console.info('[auth:profile] Starting profile consent save', {
@@ -291,7 +290,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                     }
                 }
             } else {
-                console.warn('[auth:profile] getKnex not available, skipping profile consent save')
+                console.warn('[auth:profile] getDbExecutor not available, skipping profile consent save')
             }
 
             console.info('[auth] register success', { email: maskEmail(data.user.email), userId: compactId(data.user.id) })
@@ -402,13 +401,13 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             return res.status(401).json({ error: 'Unauthorized' })
         }
 
-        if (!getKnex) {
-            console.warn('[auth] /permissions called but getKnex not provided')
+        if (!getDbExecutor) {
+            console.warn('[auth] /permissions called but getDbExecutor not provided')
             return res.status(501).json({ error: 'Permissions endpoint not configured' })
         }
 
         try {
-            const permissionService = createPermissionService({ getKnex })
+            const permissionService = createPermissionService({ getDbExecutor })
             const fullPermissions = await permissionService.getFullPermissions(userId)
 
             console.info('[auth] /permissions success', {

@@ -1,46 +1,49 @@
 # @universo/rest-docs
 
-Отдельный Swagger UI и OpenAPI-сервер для текущего слоя REST-документации Universo Platformo.
+Отдельный Swagger UI и OpenAPI-сервер для актуальной REST-поверхности Universo Platformo.
 
 ## Overview
 
-Этот пакет поднимает bundled OpenAPI specification по адресу `/api-docs` и предоставляет отдельный documentation-процесс, независимый от основного backend runtime.
-Он документирует те route groups, которые сейчас реально присутствуют в спецификации пакета, включая исторические API-группы, ещё остающиеся в transitional OpenAPI-layer.
+Этот пакет отдаёт сгенерированную OpenAPI-спецификацию по адресу `/api-docs` и держит интерактивный REST-справочник отдельно от основного backend runtime.
+Исходный OpenAPI-файл пересобирается из живых backend route files перед validate и build, поэтому удалённые домены не продолжают жить в документации после рефакторингов репозитория.
 
 ## What The Package Does
 
-- Загружает bundled OpenAPI document, который генерируется из `src/openapi/index.yml`.
+- Сканирует смонтированные backend route files и заново генерирует `src/openapi/index.yml`.
+- Собирает сгенерированный OpenAPI source в `dist/openapi-bundled.yml` для runtime-serving.
 - Поднимает небольшой Express-сервер, который перенаправляет `/` на `/api-docs`.
-- Отдаёт интерактивный Swagger UI для локального и удалённого изучения API.
-- Хранит authoring source в модульном виде под `src/openapi/` и собирает его в runtime bundle.
+- Отдаёт интерактивный Swagger UI для локальной валидации, QA и integration work.
 
-## Current Specification Scope
+## Current Route Coverage
 
-Текущее OpenAPI-дерево всё ещё включает route groups, определённые в `src/openapi/index.yml`:
+Сгенерированная спецификация организована вокруг route groups, которые сейчас реально существуют в репозитории:
 
-- authentication
-- uniks
-- spaces
-- canvases
-- metaverses
-- publications
+- system health и ping
+- auth
+- public locales
 - profile
-- space-builder
+- onboarding
+- admin global users, instances, roles, locales, and settings
+- applications, connectors, and runtime sync
+- public metahub, metahubs, branches, publications, migrations, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, and templates
 
-Этот README намеренно описывает пакет в его текущем состоянии.
-Если platform taxonomy изменится, сначала должен быть обновлён OpenAPI source, а затем уже этот README должен следовать за ним.
+Пакет намеренно в первую очередь документирует текущий inventory путей и методов.
+Payload schemas пока остаются generic, если только позднее они не будут стабилизированы и вынесены в явные contract-level schemas.
 
-## Development Notes
+## Development Commands
 
 ```bash
-pnpm --filter @universo/rest-docs build
+pnpm --filter @universo/rest-docs generate:openapi
 pnpm --filter @universo/rest-docs validate
+pnpm --filter @universo/rest-docs build
+pnpm --filter @universo/rest-docs start
 pnpm --filter @universo/rest-docs lint
 ```
 
-- `build` компилирует TypeScript и собирает модульные OpenAPI-файлы в bundle.
-- `validate` проверяет `src/openapi/index.yml` через Redocly.
-- Runtime serving использует `dist/openapi-bundled.yml`, а не authoring-tree напрямую.
+- `generate:openapi` пересобирает `src/openapi/index.yml` из живых route files.
+- `validate` заново генерирует и проверяет OpenAPI source через Redocly.
+- `build` пересобирает source, компилирует TypeScript и бандлит runtime YAML.
+- `start` отдаёт Swagger UI из `dist/openapi-bundled.yml`.
 
 ## Running The Docs Server
 
@@ -50,13 +53,21 @@ pnpm --filter @universo/rest-docs start
 ```
 
 По умолчанию Swagger UI доступен по адресу `http://localhost:6655/api-docs`.
+Используйте локальный backend base URL `http://localhost:3000/api/v1` внутри Swagger, если хотите выполнять запросы к локальному стеку.
+
+## Safe Usage Notes
+
+- Считайте сгенерированный документ актуальным inventory путей и методов, а не полностью типизированным payload-контрактом.
+- Для mutating endpoints предпочитайте non-production environments.
+- Authenticated endpoints требуют bearer token в Swagger authorization dialog.
+- Если route mounts меняются, сначала пересоберите OpenAPI source, а уже потом проверяйте или публикуйте doc changes.
 
 ## Related Documentation
 
-- [Индекс пакетов](../README-RU.md)
+- [Архитектура пакета](ARCHITECTURE.md)
+- [Справочник эндпоинтов](API_ENDPOINTS.md)
+- [Точка входа OpenAPI source](src/openapi/index.yml)
 - [Корневой README проекта](../../README-RU.md)
-- [Точка входа OpenAPI authoring](src/openapi/index.yml)
-- [Архитектурные заметки](ARCHITECTURE.md)
 
 ---
 

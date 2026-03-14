@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react'
 
-// Local imports - use universo version instead of flowise
+// Local imports from the shared frontend shell
 import { Loader } from '../feedback/loading'
 
 /**

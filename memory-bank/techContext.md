@@ -97,7 +97,7 @@ if (!userId) return
 
 -   **Location**: `packages/` directory (custom application layer)
 -   **Purpose**: Universal high-level logic nodes for AR.js and PlayCanvas scene generation
--   **Integration**: Custom nodes within Flowise canvas system
+-   **Integration**: Custom nodes within the inherited canvas system
 -   **Components**: Publisher UI, Builder logic, API integration
 -   **Templates**: Quiz (AR.js), MMOOMM (PlayCanvas) with template-first architecture
 
@@ -111,11 +111,11 @@ if (!userId) return
     -   WebSocket connection optimization for local development
     -   Transparent rigidbody → direct position movement transition
 -   **Status**: Production-ready with clean console output and reliable ship movement
--   **Risk**: Medium - Isolated from core Flowise changes but needs verification
+-   **Risk**: Medium - Isolated from core shell changes but needs verification
 
 ## Platform Foundation
 
-**Flowise AI 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
+**Legacy upstream shell 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
 **Supabase Integration** - Multi-user functionality with Postgres-only database support
 
 ### Database Pooling (Supabase Tier-Scalable)
@@ -170,7 +170,7 @@ if (!userId) return
 
 ## APPs Architecture (v0.21.0-alpha)
 
-**6 Working Applications** with modular architecture minimizing core Flowise changes:
+**6 Working Applications** with modular architecture minimizing core shell changes:
 
 -   **UPDL**: High-level abstract nodes (Space, Entity, Component, Event, Action, Data, Universo)
 -   **Publish Frontend/Backend**: Multi-technology export (AR.js, PlayCanvas)
@@ -197,6 +197,12 @@ if (!userId) return
 
 - `@universo/utils` now emits a dedicated browser env sub-entry (`dist/env/index.browser.*`) and maps the browser export for `./env` to that entry.
 - Current root build is green, but rolldown emits a non-failing warning that `import.meta` is empty in the CJS output of that browser-only env entry; the intended browser/Vite consumption path is the ESM/browser export.
+
+### REST docs generation note
+
+- `@universo/rest-docs` now regenerates `src/openapi/index.yml` from live backend route files through `scripts/generate-openapi-source.js` before package validation and build.
+- The package is authoritative for current path and method inventory, but payload schemas remain generic unless promoted from stable backend contracts.
+- GitBook API-reference pages now link to the standalone interactive docs flow and document `pnpm --filter @universo/rest-docs build` plus `start` as the canonical launch path.
 
 ## UPDL Core System (v0.21.0-alpha)
 
@@ -238,7 +244,7 @@ if (!userId) return
 
 **Package Management**: PNPM workspaces with monorepo architecture
 **Build System**: TypeScript + React frontend, Node.js + Express backend
-**Base Platform**: Flowise 2.2.8 with enhanced ASSISTANT support
+**Base Platform**: legacy upstream shell 2.2.8 with enhanced ASSISTANT support
 
 ## Critical Technical Patterns
 
@@ -248,15 +254,32 @@ if (!userId) return
 -   Use useRef for API request state tracking
 -   Minimize useEffect dependencies
 
-### Request-Scoped DB Access Pattern
+### Request-Scoped DB Access Pattern (Unified Database Access Standard)
 
-**Database Access Pattern** - New and migrated database operations must use the neutral request-scoped contract or SQL-first persistence stores
+**Database Access Pattern** - All backend database access uses one of three permitted tiers with neutral contracts.
 
-**Key Implementation Details:**
+**Three Access Tiers:**
+-   **Tier 1 — RLS (request-scoped)**: `getRequestDbExecutor(req, getDbExecutor())` for authenticated routes. Carries JWT claims for RLS policies.
+-   **Tier 2 — Admin/Bootstrap**: `getPoolExecutor()` from `@universo/database` for admin routes, startup, and background jobs.
+-   **Tier 3 — DDL/Migration**: `getKnex()` from `@universo/database` for schema-ddl services, migration runners, and explicit package-local DDL boundaries only.
 
--   New work should use `DbExecutor` / `DbSession` and SQL-first persistence helpers
+**Core Contracts** (all in `@universo/utils/database`):
+-   `DbExecutor` — query + transaction + isReleased
+-   `DbSession` — query + isReleased (read-only)
+-   `SqlQueryable` — minimal query contract for persistence stores
+
+**Identifier Safety** (`@universo/database`): `qSchema()`, `qTable()`, `qColumn()`, `qSchemaTable()` — all validate and double-quote identifiers; reject injection payloads. Use `$1`/`$2` bind parameters for values.
+
+**Mutation Expectations**: business-table UPDATE/DELETE/RESTORE flows use `RETURNING` when row confirmation matters, fail closed on zero-row results, and keep SQL schema-qualified instead of relying on `search_path`.
+
+**CI Enforcement**: `node tools/lint-db-access.mjs` runs as a CI step after ESLint, before build. Zero-violation policy for all domain packages.
+
+**Applications sync boundary**: `@universo/applications-backend` keeps raw Knex access only inside `src/ddl/index.ts`; `applicationSyncRoutes.ts` stays under normal lint enforcement and consumes that dedicated Tier 3 boundary instead of calling `getKnex()` directly.
+
+**Metahubs DDL boundary**: `@universo/metahubs-backend` keeps raw Knex access only inside package DDL seams and schema-ddl integration paths; design-time domain services and persistence helpers remain SQL-first.
+
+**Bridge**: `createKnexExecutor(knex)` wraps Tier 3 Knex instances as `DbExecutor` for Tier 3 → Tier 1 boundary (used in publication sync routes).
 -   Shared database runtime comes from `@universo/database`
--   Unified platform migration registration now uses native SQL definitions plus catalog-backed dry-run/export/diff helpers
 -   CASCADE delete relationships for data integrity
 -   UNIQUE constraints on junction tables to prevent duplicates
 
@@ -334,7 +357,7 @@ const newId = uuidv7()
 **Key Implementation Details:**
 
 -   Iframe-based rendering for proper script execution
--   Static library integration with main Flowise server
+-   Static library integration with the main backend server
 -   User-selectable library sources (CDN vs local)
 -   CDN independence for restricted regions
 

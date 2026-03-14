@@ -22,7 +22,7 @@
         "src/*"
       ],
       "@ui/*": [
-        "../../../packages/flowise-core-frontend/base/src/*"
+        "../../../packages/universo-core-frontend/base/src/*"
       ],
       "@types/*": [
         "../../../packages/universo-types/base/src/*"

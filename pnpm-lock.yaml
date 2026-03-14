@@ -1609,9 +1609,6 @@ importers:
       pg:
         specifier: 8.11.1
         version: 8.11.1
-      posthog-node:
-        specifier: ^3.5.0
-        version: 3.6.3
       reflect-metadata:
         specifier: ^0.1.13
         version: 0.1.14
@@ -1839,6 +1836,9 @@ importers:
 
   packages/universo-database/base:
     dependencies:
+      '@universo/migrations-core':
+        specifier: workspace:*
+        version: link:../../universo-migrations-core/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -11417,10 +11417,6 @@ packages:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
 
-  posthog-node@3.6.3:
-    resolution: {integrity: sha512-JB+ei0LkwE+rKHyW5z79Nd1jUaGxU6TvkfjFqY9vQaHxU5aU8dRl0UUaEmZdZbHwjp3WmXCBQQRNyimwbNQfCw==}
-    engines: {node: '>=15.0.0'}
-
   preferred-pm@3.1.4:
     resolution: {integrity: sha512-lEHd+yEm22jXdCphDrkvIJQU66EuLojPPtvZkpKIkiD+l0DMThF/niqZKJSoU8Vl7iuvtmzyMhir9LdVy5WMnA==}
     engines: {node: '>=10'}
@@ -12138,9 +12134,6 @@ packages:
   run-script-os@1.1.6:
     resolution: {integrity: sha512-ql6P2LzhBTTDfzKts+Qo4H94VUKpxKDFz6QxxwaUZN0mwvi7L3lpOI7BqPCq7lgDh3XLl0dpeXwfcVIitlrYrw==}
     hasBin: true
-
-  rusha@0.8.14:
-    resolution: {integrity: sha512-cLgakCUf6PedEu15t8kbsjnwIFFR2D4RfL+W3iWFJ4iac7z4B0ZI8fxy4R3J956kAI68HclCFGL8MPoUVC3qVA==}
 
   rxjs@7.8.2:
     resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
@@ -25470,13 +25463,6 @@ snapshots:
     dependencies:
       xtend: 4.0.2
 
-  posthog-node@3.6.3:
-    dependencies:
-      axios: 1.13.5
-      rusha: 0.8.14
-    transitivePeerDependencies:
-      - debug
-
   preferred-pm@3.1.4:
     dependencies:
       find-up: 5.0.0
@@ -26400,8 +26386,6 @@ snapshots:
       queue-microtask: 1.2.3
 
   run-script-os@1.1.6: {}
-
-  rusha@0.8.14: {}
 
   rxjs@7.8.2:
     dependencies:

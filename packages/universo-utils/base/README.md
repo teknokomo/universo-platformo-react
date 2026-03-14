@@ -1,137 +1,65 @@
 # @universo/utils
 
-> 🛠️ Utilities shared across frontend and backend for validation, serialization, ECS deltas, time synchronization, and network utilities in Universo Platformo
+Shared utility package for validation, serialization, browser/runtime helpers, and the neutral database-access contracts used across the repository.
 
-## Package Information
+## Overview
 
-| Field | Value |
-|-------|-------|
-| **Package Name** | `@universo/utils` |
-| **Version** | See `package.json` |
-| **Type** | TypeScript-first (Utilities) |
-| **Build** | ES module with types |
-| **Purpose** | Shared utilities for validation, serialization, and network operations |
+This package provides cross-environment helpers that backend and frontend packages can consume without taking direct dependencies on framework-specific runtime code.
+It also owns the executor and query helper contracts that define the SQL-first repository standard.
 
-## 🚀 Key Features
+## Database Standard Surface
 
-- 📋 **Zod Schemas** - For networking DTOs (Intent/Ack/Snapshot/Delta/Event)
-- 📝 **UPDL Schemas** - Passthrough schema handling
-- 🔄 **Deterministic Serialization** - Safe JSON parsing
-- 🔨 **Lightweight Hashing** - Fast hashing algorithms
-- ⚡ **ECS Delta Operations** - Compute and apply deltas
-- ⏰ **Time Synchronization** - NTP-like estimator
-- 🌐 **Network Utilities** - seq/ack helpers, port utilities
+- `@universo/utils/database` exports `DbSession`, `DbExecutor`, and `SqlQueryable`.
+- Typed query helpers include `queryMany`, `queryOne`, `queryOneOrThrow`, and `executeCount`.
+- Transaction and lock helpers include `withTransaction`, `withAdvisoryLock`, and timeout-safe SQL builders.
+- Request-context helpers expose `getRequestDbExecutor`, `getRequestDbSession`, and neutral DB context creation.
+- Callers use these contracts instead of importing Knex or route-local query abstractions.
 
-## Description
+## Main Responsibilities
 
-Utilities shared across frontend and backend for validation, serialization, ECS deltas, time synchronization, and network utilities in Universo Platformo.
-
-### Scope:
-- Zod schemas for networking DTOs (Intent/Ack/Snapshot/Delta/Event)
-- UPDL schemas (passthrough)
-- Deterministic serialization and safe JSON parsing
-- Lightweight hashing
-- ECS delta compute/apply
-- Time sync estimator (NTP-like)
-- seq/ack helpers
-- Network port utilities
-
-### Out of scope:
-- Node-only or browser-only utilities
-- Framework-specific helpers
-- Crypto-grade hashing/encryption
-- Heavy IO operations
+- Provide validation, parsing, serialization, and browser/runtime support helpers.
+- Provide the neutral database-access contract consumed by domain packages.
+- Keep typed query result normalization consistent across backend packages.
+- Centralize lock-timeout and statement-timeout helper logic.
+- Preserve small, reusable APIs that remain safe for both browser and server consumers.
 
 ## Compatibility Rules
 
-- **Keep public APIs backward compatible**; extend with new functions/options instead of breaking changes
-- **Add new fields as optional/defaulted** to preserve schema compatibility
-- **Import from the package root only** (no deep imports)
+- Keep public APIs backward compatible and additive.
+- Add new fields as optional or defaulted when contracts evolve.
+- Prefer package-root or documented subpath imports instead of ad hoc deep imports.
+- Keep database helpers transport-neutral so domain packages stay independent from Knex.
+- Pair new helpers with direct unit tests before other packages depend on them.
 
-## Install (workspace)
+## Operational Notes
 
-This package lives at `packages/universo-utils/base` and is consumed via `workspace:*` by other packages in the monorepo.
+- Browser-facing env helpers preserve the documented precedence order for host overrides and Vite runtime config.
+- Database timeout helpers are the approved way to build `SET LOCAL` statements for locks and long transactions.
+- Result helpers intentionally normalize on `T[]`, `T | null`, and explicit not-found errors.
+- Advisory-lock helpers validate timeout bounds before SQL is emitted.
 
-License: Omsk Open License
-
-## Production Deployment
-
-For production deployment with Redis-based rate limiting, refer to [DEPLOYMENT.md](./DEPLOYMENT.md) for:
-
--   Redis configuration and connection setup
--   Docker, Kubernetes, and PM2 deployment examples
--   Health checks and monitoring
--   Troubleshooting common issues
--   Security best practices (TLS, authentication, network isolation)
-
-Quick start: Set `REDIS_URL` environment variable to enable distributed rate limiting:
+## Development
 
 ```bash
-# Local Redis (development)
-REDIS_URL=redis://localhost:6379
-
-# Production with authentication
-REDIS_URL=redis://:password@redis.example.com:6379
-
-# TLS-enabled (recommended)
-REDIS_URL=rediss://:password@redis.example.com:6380
-```
-
-## Testing
-
-Run Vitest against the workspace package to exercise UPDL serialization helpers:
-
-```bash
+pnpm --filter @universo/utils lint
 pnpm --filter @universo/utils test
+pnpm --filter @universo/utils build
 ```
 
-## API Reference
+## Related References
 
-### Network Utilities (`net`)
-
-**`ensurePortAvailable(port: number, host?: string): Promise<void>`**
-
-Checks if a port is available by attempting to bind to it. Throws an error if the port is already in use.
-
-```typescript
-import { net } from '@universo/utils'
-
-// Check if port 3000 is available
-await net.ensurePortAvailable(3000)
-
-// Check with specific host
-await net.ensurePortAvailable(8080, 'localhost')
-```
-
-### Time Synchronization (`net`)
-
-**`createTimeSyncEstimator()`**
-
-Creates an NTP-like time synchronization estimator for client-server time coordination.
-
-### Sequencing (`net`)
-
-**`updateSeqState()` and `reconcileAck()`**
-
-Helpers for managing sequence numbers and acknowledgments in networked applications.
-
-## Contributing
-
-When contributing to this package:
-
-1. Follow TypeScript best practices
-2. Add tests for all utility functions
-3. Document functions with JSDoc comments
-4. Update both EN and RU documentation
-5. Follow the project's coding standards
-6. Ensure utilities are pure functions when possible
-
-## Related Documentation
-
+- [DEPLOYMENT.md](./DEPLOYMENT.md)
+- [Database access standard](../../../docs/en/architecture/database-access-standard.md)
+- [Database review checklist](../../../docs/en/contributing/database-code-review-checklist.md)
 - [Main package index](../../README.md)
-- [Universo Types](../../universo-types/base/README.md)
-- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 
----
+## Related Packages
 
-_Universo Platformo | Utils Package_
+- `@universo/database` owns Knex runtime lifecycle and executor factories.
+- `@universo/types` provides shared domain and enum contracts.
+- Backend packages consume `@universo/utils/database` as the neutral SQL-first seam.
+- Frontend packages consume browser-safe env, validation, and utility helpers.
+
+## License
+
+Omsk Open License

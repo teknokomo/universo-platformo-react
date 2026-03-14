@@ -1,137 +1,65 @@
 # @universo/utils
 
-> 🛠️ Утилиты, разделяемые между frontend и backend для валидации, сериализации, ECS дельт, синхронизации времени и сетевых утилит в Universo Platformo
+Общий пакет утилит для валидации, сериализации, browser/runtime helper-ов и нейтральных database-access контрактов, используемых по всему репозиторию.
 
-## Информация о пакете
+## Overview
 
-| Поле | Значение |
-|------|----------|
-| **Имя пакета** | `@universo/utils` |
-| **Версия** | Смотрите `package.json` |
-| **Тип** | TypeScript-first (Утилиты) |
-| **Сборка** | ES модуль с типами |
-| **Назначение** | Общие утилиты для валидации, сериализации и сетевых операций |
+Этот пакет предоставляет cross-environment helper-ы, которые backend и frontend пакеты могут использовать без прямой зависимости от framework-specific runtime кода.
+Он также владеет executor и query helper контрактами, определяющими SQL-first стандарт репозитория.
 
-## 🚀 Ключевые возможности
+## Database Standard Surface
 
-- 📋 **Zod схемы** - Для сетевых DTO (Intent/Ack/Snapshot/Delta/Event)
-- 📝 **UPDL схемы** - Сквозное прохождение схем
-- 🔄 **Детерминистическая сериализация** - Безопасный парсинг JSON
-- 🔨 **Легковесное хеширование** - Быстрые алгоритмы хеширования
-- ⚡ **ECS delta операции** - Вычисление и применение дельт
-- ⏰ **Синхронизация времени** - NTP-подобный оценщик
-- 🌐 **Сетевые утилиты** - Помощники seq/ack, утилиты портов
+- `@universo/utils/database` экспортирует `DbSession`, `DbExecutor` и `SqlQueryable`.
+- Typed query helpers включают `queryMany`, `queryOne`, `queryOneOrThrow` и `executeCount`.
+- Transaction и lock helpers включают `withTransaction`, `withAdvisoryLock` и timeout-safe SQL builders.
+- Request-context helpers экспортируют `getRequestDbExecutor`, `getRequestDbSession` и создание нейтрального DB context.
+- Вызывающий код использует эти контракты вместо импорта Knex или route-local query abstractions.
 
-## Описание
+## Main Responsibilities
 
-Утилиты, используемые на фронтенде и бэкенде для валидации, сериализации, дельт ECS, синхронизации времени и сетевых утилит в Universo Platformo.
+- Предоставлять helper-ы для валидации, парсинга, сериализации и browser/runtime support.
+- Предоставлять нейтральный database-access contract, который потребляют domain packages.
+- Сохранять typed query result normalization единообразной во всех backend packages.
+- Централизовать логику helper-ов для lock-timeout и statement-timeout.
+- Поддерживать небольшие переиспользуемые API, безопасные и для browser, и для server consumers.
 
-### Область применения:
-- Zod‑схемы для сетевых DTO (Intent/Ack/Snapshot/Delta/Event)
-- UPDL‑схемы (passthrough)
-- Детерминированная сериализация и безопасный парсинг JSON
-- Лёгкий хеш
-- Вычисление/применение дельт ECS
-- Оценка синхронизации времени (по аналогии с NTP)
-- Хелперы seq/ack
-- Утилиты для сетевых портов
+## Compatibility Rules
 
-### Вне области применения:
-- Утилиты, завязанные на конкретный рантайм (только Node или только browser)
-- Фреймворк‑специфичные хелперы
-- Криптографическое хеширование/шифрование
-- Тяжёлые IO операции
+- Сохраняйте публичные API обратно совместимыми и расширяемыми.
+- Новые поля добавляйте как optional или defaulted при эволюции контрактов.
+- Предпочитайте package-root или документированные subpath imports вместо случайных deep import-ов.
+- Держите database helper-ы transport-neutral, чтобы domain packages не зависели от Knex.
+- Сопровождайте новые helper-ы прямыми unit test-ами до того, как на них зависят другие пакеты.
 
-## Правила совместимости
+## Operational Notes
 
-- **Сохраняйте обратную совместимость** публичных API; расширяйте новыми функциями/опциями вместо ломающих изменений
-- **Новые поля добавляйте** как опциональные/с значениями по умолчанию для сохранения совместимости схем
-- **Импортируйте только из корня** пакета (без глубоких импортов)
+- Browser-facing env helper-ы сохраняют документированный precedence order для host override-ов и Vite runtime config.
+- Database timeout helper-ы являются утверждённым способом строить `SET LOCAL` statements для lock и long transaction flows.
+- Result helper-ы намеренно нормализуют поведение к `T[]`, `T | null` и явным not-found ошибкам.
+- Advisory-lock helper-ы валидируют границы timeout до генерации SQL.
 
-## Установка (workspace)
-
-Пакет расположен по пути `packages/universo-utils/base` и используется другими пакетами монорепозитория через `workspace:*`.
-
-Лицензия: Omsk Open License
-
-## Production развёртывание
-
-Для production развёртывания с rate limiting на базе Redis, обратитесь к [DEPLOYMENT.md](./DEPLOYMENT.md) для:
-
--   Настройки Redis и подключения
--   Примеров развёртывания Docker, Kubernetes и PM2
--   Health checks и мониторинга
--   Устранения распространённых проблем
--   Лучших практик безопасности (TLS, аутентификация, сетевая изоляция)
-
-Быстрый старт: Установите переменную окружения `REDIS_URL` для включения распределённого rate limiting:
+## Development
 
 ```bash
-# Локальный Redis (разработка)
-REDIS_URL=redis://localhost:6379
-
-# Production с аутентификацией
-REDIS_URL=redis://:password@redis.example.com:6379
-
-# С TLS (рекомендуется)
-REDIS_URL=rediss://:password@redis.example.com:6380
-```
-
-## Тестирование
-
-Запустите Vitest для тестирования UPDL помощников сериализации:
-
-```bash
+pnpm --filter @universo/utils lint
 pnpm --filter @universo/utils test
+pnpm --filter @universo/utils build
 ```
 
-## Справочник API
+## Related References
 
-### Сетевые утилиты (`net`)
-
-**`ensurePortAvailable(port: number, host?: string): Promise<void>`**
-
-Проверяет, доступен ли порт, пытаясь привязаться к нему. Выбрасывает ошибку, если порт уже используется.
-
-```typescript
-import { net } from '@universo/utils'
-
-// Проверить, доступен ли порт 3000
-await net.ensurePortAvailable(3000)
-
-// Проверить с конкретным хостом
-await net.ensurePortAvailable(8080, 'localhost')
-```
-
-### Синхронизация времени (`net`)
-
-**`createTimeSyncEstimator()`**
-
-Создает оценщик синхронизации времени (как NTP) для координации времени клиент-сервер.
-
-### Последовательности (`net`)
-
-**`updateSeqState()` и `reconcileAck()`**
-
-Вспомогательные функции для управления последовательными номерами и подтверждениями в сетевых приложениях.
-
-## Вклад в разработку
-
-При вкладе в этот пакет:
-
-1. Следуйте лучшим практикам TypeScript
-2. Добавляйте тесты для всех утилитарных функций
-3. Документируйте функции с помощью JSDoc комментариев
-4. Обновляйте документацию EN и RU
-5. Следуйте стандартам кодирования проекта
-6. По возможности создавайте чистые функции
-
-## Связанная документация
-
+- [DEPLOYMENT.md](./DEPLOYMENT.md)
+- [Стандарт доступа к базе данных](../../../docs/ru/architecture/database-access-standard.md)
+- [Чеклист ревью кода базы данных](../../../docs/ru/contributing/database-code-review-checklist.md)
 - [Индекс пакетов](../../README-RU.md)
-- [Universo Types](../../universo-types/base/README-RU.md)
-- [Документация TypeScript](https://www.typescriptlang.org/docs/)
 
----
+## Related Packages
 
-_Universo Platformo | Пакет Utils_
+- `@universo/database` владеет жизненным циклом Knex runtime и фабриками executor-ов.
+- `@universo/types` поставляет общие domain и enum contracts.
+- Backend packages используют `@universo/utils/database` как нейтральный SQL-first seam.
+- Frontend packages используют browser-safe env, validation и utility helper-ы.
+
+## License
+
+Omsk Open License
