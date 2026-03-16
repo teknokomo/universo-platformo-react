@@ -3,10 +3,15 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ProfileService } from '@universo/profile-backend'
 import type { DbExecutor } from '@universo/utils/database'
+import {
+    fetchCatalogItems,
+    fetchAllUserSelections,
+    syncUserSelections,
+    validateItemExists,
+    type CatalogKind,
+    type OnboardingCatalogRow
+} from '../persistence/onboardingStore'
 
-/**
- * Resolve authenticated user fields from request.
- */
 const resolveAuthUser = (req: Request): { id?: string; email?: string } => {
     const user = (req as unknown as { user?: { id?: string; email?: string } }).user
     return {
@@ -15,14 +20,16 @@ const resolveAuthUser = (req: Request): { id?: string; email?: string } => {
     }
 }
 
-/**
- * Create onboarding routes
- *
- * NOTE: The original onboarding items (Projects, Campaigns, Clusters) have been removed
- * as part of the legacy packages cleanup (2025-07). This stub preserves the API contract
- * so the frontend degrades gracefully — it returns empty item lists and allows
- * marking onboarding as completed.
- */
+const CATALOG_KINDS: CatalogKind[] = ['goals', 'topics', 'features']
+
+const selectionsSchema = z.object({
+    goals: z.array(z.string().uuid()),
+    topics: z.array(z.string().uuid()),
+    features: z.array(z.string().uuid())
+})
+
+const dedupeSelectionIds = (itemIds: string[]): string[] => [...new Set(itemIds)]
+
 export function createOnboardingRoutes(
     ensureAuth: RequestHandler,
     getRequestDbExecutor: (req: unknown) => DbExecutor,
@@ -31,12 +38,8 @@ export function createOnboardingRoutes(
 ): Router {
     const router = Router({ mergeParams: true })
 
-    // All onboarding routes require authentication
     router.use(ensureAuth)
 
-    /**
-     * GET /items - Get onboarding status (items removed, returns empty arrays)
-     */
     router.get('/items', readLimiter, async (req: Request, res: Response) => {
         const { id: userId } = resolveAuthUser(req)
         if (!userId) {
@@ -44,19 +47,33 @@ export function createOnboardingRoutes(
         }
 
         const exec = getRequestDbExecutor(req)
+        const profileService = new ProfileService(exec)
 
         try {
-            const rows = await exec.query<{ onboarding_completed: boolean }>(
-                'SELECT onboarding_completed FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
-                [userId]
-            )
-            const onboardingCompleted = rows[0]?.onboarding_completed ?? false
+            const [goals, topics, features, selections, profile] = await Promise.all([
+                fetchCatalogItems(exec, 'goals'),
+                fetchCatalogItems(exec, 'topics'),
+                fetchCatalogItems(exec, 'features'),
+                fetchAllUserSelections(exec, userId),
+                profileService.getUserProfile(userId)
+            ])
+
+            const selectionSet = new Set(selections.map((s) => s.item_id))
+            const mapItems = (rows: OnboardingCatalogRow[]) =>
+                rows.map((r) => ({
+                    id: r.id,
+                    codename: r.codename,
+                    name: r.name,
+                    description: r.description,
+                    sortOrder: r.sort_order,
+                    isSelected: selectionSet.has(r.id)
+                }))
 
             res.json({
-                onboardingCompleted,
-                projects: [],
-                campaigns: [],
-                clusters: []
+                onboardingCompleted: profile?.onboarding_completed ?? false,
+                goals: mapItems(goals),
+                topics: mapItems(topics),
+                features: mapItems(features)
             })
         } catch (error) {
             console.error('[onboarding] Error fetching items:', error)
@@ -64,23 +81,13 @@ export function createOnboardingRoutes(
         }
     })
 
-    /**
-     * POST /join - Mark onboarding as completed (items no longer synced)
-     */
-    router.post('/join', writeLimiter, async (req: Request, res: Response) => {
-        const { id: userId, email } = resolveAuthUser(req)
+    router.post('/selections', writeLimiter, async (req: Request, res: Response) => {
+        const { id: userId } = resolveAuthUser(req)
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' })
         }
 
-        // Accept same shape as before for backward compatibility
-        const schema = z.object({
-            projectIds: z.array(z.string().uuid()).optional().default([]),
-            campaignIds: z.array(z.string().uuid()).optional().default([]),
-            clusterIds: z.array(z.string().uuid()).optional().default([])
-        })
-
-        const parsed = schema.safeParse(req.body)
+        const parsed = selectionsSchema.safeParse(req.body)
         if (!parsed.success) {
             return res.status(400).json({
                 error: 'Invalid request body',
@@ -89,20 +96,70 @@ export function createOnboardingRoutes(
         }
 
         const exec = getRequestDbExecutor(req)
-        const profileService = new ProfileService(exec)
+        const data = {
+            goals: dedupeSelectionIds(parsed.data.goals),
+            topics: dedupeSelectionIds(parsed.data.topics),
+            features: dedupeSelectionIds(parsed.data.features)
+        }
 
         try {
-            await profileService.markOnboardingCompleted(userId, email)
+            const results = await exec.transaction(async (trx) => {
+                for (const kind of CATALOG_KINDS) {
+                    for (const itemId of data[kind]) {
+                        const exists = await validateItemExists(trx, kind, itemId)
+                        if (!exists) {
+                            return {
+                                error: `Item ${itemId} not found in ${kind} catalog`
+                            }
+                        }
+                    }
+                }
+
+                return {
+                    goals: await syncUserSelections(trx, userId, 'goals', data.goals),
+                    topics: await syncUserSelections(trx, userId, 'topics', data.topics),
+                    features: await syncUserSelections(trx, userId, 'features', data.features)
+                }
+            })
+
+            if ('error' in results) {
+                return res.status(400).json({ error: results.error })
+            }
 
             res.json({
                 success: true,
-                added: { projects: 0, campaigns: 0, clusters: 0 },
-                removed: { projects: 0, campaigns: 0, clusters: 0 },
-                onboardingCompleted: true
+                added: {
+                    goals: results.goals.added,
+                    topics: results.topics.added,
+                    features: results.features.added
+                },
+                removed: {
+                    goals: results.goals.removed,
+                    topics: results.topics.removed,
+                    features: results.features.removed
+                }
             })
         } catch (error) {
-            console.error('[onboarding] Error syncing items:', error)
-            res.status(500).json({ error: 'Failed to sync selected items' })
+            console.error('[onboarding] Error syncing selections:', error)
+            res.status(500).json({ error: 'Failed to sync selections' })
+        }
+    })
+
+    router.post('/complete', writeLimiter, async (req: Request, res: Response) => {
+        const { id: userId, email } = resolveAuthUser(req)
+        if (!userId) {
+            return res.status(401).json({ error: 'User not authenticated' })
+        }
+
+        const exec = getRequestDbExecutor(req)
+        const profileService = new ProfileService(exec)
+
+        try {
+            const profile = await profileService.markOnboardingCompleted(userId, email)
+            res.json({ success: true, onboardingCompleted: profile.onboarding_completed })
+        } catch (error) {
+            console.error('[onboarding] Error completing onboarding:', error)
+            res.status(500).json({ error: 'Failed to complete onboarding' })
         }
     })
 

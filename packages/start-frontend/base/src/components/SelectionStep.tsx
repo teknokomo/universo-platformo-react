@@ -1,22 +1,19 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { SelectableListCard } from './SelectableListCard'
-import type { OnboardingItem } from '../types'
+import type { OnboardingCatalogItem } from '../types'
 
 interface SelectionStepProps {
     title: string
     subtitle: string
-    items: OnboardingItem[]
+    items: OnboardingCatalogItem[]
     selectedIds: string[]
     onSelectionChange: (selectedIds: string[]) => void
     isLoading?: boolean
 }
 
 /**
- * SelectionStep - Reusable step for selecting items
- *
- * Used for Projects (Global Goals), Campaigns (Personal Interests),
- * and Clusters (Platform Features)
+ * SelectionStep renders one onboarding catalog step for goals, topics, or features.
  */
 export const SelectionStep: React.FC<SelectionStepProps> = ({ title, subtitle, items, selectedIds, onSelectionChange, isLoading }) => {
     const subtitleParagraphs = subtitle

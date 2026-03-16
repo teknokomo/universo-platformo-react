@@ -4,24 +4,40 @@
 
 ---
 
-## Current Focus: Repository-Wide Legacy Branding Removal Complete
+## Current Focus: Start System App — Onboarding Architecture Migration COMPLETE (incl. PR review follow-up)
 
 - Date: 2026-03-15.
-- Repository-wide legacy branding removal is complete: runtime code, env comments, i18n resources, config paths, memory-bank docs, historical plans, `.kiro` steering, repository instruction files, generated logs, and backup/build artifacts were scrubbed of upstream naming.
-- Telemetry fully removed: deleted `telemetry.ts`, removed `posthog-node` dependency, cleaned all imports/usage from `index.ts`, CLI flags from `base.ts`, mocks from `App.initDatabase.test.ts`.
-- Removed dead `OMIT_QUEUE_JOB_DATA` constant (zero consumers in entire codebase).
-- ENV files rewritten to be definitive: added 12 previously undocumented live vars across 3 new sections — AUTHENTICATION (AUTH_REGISTRATION_ENABLED, AUTH_LOGIN_ENABLED, AUTH_EMAIL_CONFIRMATION_REQUIRED, AUTH_RLS_DEBUG), SESSION (SESSION_COOKIE_NAME/MAXAGE/SAMESITE/SECURE/PARTITIONED), CAPTCHA (SMARTCAPTCHA_SERVER_KEY/SITE_KEY/TEST_MODE + per-feature toggles), plus HOST.
-- QA follow-up closed: documented `ALLOW_TRANSACTION_POOLER`, `DATABASE_KNEX_POOL_DEBUG`, `DATABASE_SHUTDOWN_GRACE_MS`, `UNIVERSO_PATH`, and the `FILE_SIZE_LIMIT` alias; removed leftover `DATABASE_TYPE` and structured `REDIS_*` legacy entries from both env files.
-- `DATABASE_POOL_MAX=5` stays active in both env files because `KnexClient` still defaults to 15, while the current repo guidance and deployed Supabase Nano profile require a safe cap of 5.
-- Orphaned CLI cleanup complete: `BaseCommand` now exposes only live flags for current backend runtime surfaces (`PORT`, auth/session, CORS/iframe, logging, database connection, storage, `REDIS_URL`, migration catalog toggle, and `FILE_SIZE_LIMIT`). Legacy passthrough for API keys, secret-key stores, LangSmith, model list config, queue/BullMQ, structured Redis TLS fields, `DEBUG`, and other removed upstream features is gone.
-- Removed all telemetry-related vars (POSTHOG_PUBLIC_API_KEY and the legacy telemetry-disable flag) from both env files.
-- Final verification is clean: repository-wide grep outside `.git` and `node_modules` returns zero `Flowise|FLOWISE|flowise` matches.
-- Full build passed: `pnpm build` 27/27 successful tasks in 3m10.826s.
+- Plan v3: `memory-bank/plan/start-system-app-onboarding-plan-2026-03-15.md`.
+- **Implementation**: All 5 phases completed. Two QA follow-ups, the final remediation wave, the clean-db bootstrap ordering fix, and the PR review follow-up are closed. Targeted validation and fresh root builds passed.
+- QA follow-up #1 resolved:
+  - Lint formatting fixed in start-backend (91 errors), start-frontend (10 errors), and migrations-platform (10 errors).
+  - Created `startSystemApp.test.ts` with 17 migration integration tests.
+- QA follow-up #2 resolved:
+  - Added missing 401 test for POST /selections endpoint. 1 LOW finding fixed, 3 INFO observations documented.
+- QA remediation wave resolved:
+  - `POST /selections` now deduplicates repeated ids and syncs all three catalog kinds inside one transaction.
+  - `AuthenticatedStartPage` now preloads onboarding items once and passes them into `OnboardingWizard` to avoid the extra fetch.
+  - Added direct regressions for duplicate-id normalization, transaction-bound sync, wizard preload/no-refetch, and authenticated start-page completion/fallback rendering.
+- Clean-db bootstrap ordering fix resolved:
+  - Root cause: platform migrations are globally sorted by version/id, so the original `start` finalize migration ran before admin finalize on a clean database and tried to create policies that referenced `admin.has_admin_permission(...)` too early.
+  - Resolution: admin-dependent `start` policies moved into `ApplyStartSchemaPolicies1733400000500`, which now runs after `FinalizeAdminSchemaSupport1733400000001`.
+  - Regression coverage: start manifest tests now require 3 migrations, and migrations-platform tests assert the start policy migration sorts after admin finalize.
+- PR review follow-up resolved:
+  - Promoted the `rel_user_selections.catalog_kind` CHECK into explicit post-generation `ALTER TABLE ... ADD CONSTRAINT` SQL because definition-driven schema generation ignores the package-local `CREATE TABLE` statements.
+  - Aligned selection soft-delete with the repository dual-flag audit contract (`_upl_*` + `_app_*`, plus `_upl_version` bump), switched onboarding status reads to `ProfileService.getUserProfile(...)`, and removed empty localized description blocks from `SelectableListCard`.
+  - Removed the accidental duplicate heading in `progress.md` that PR review also flagged.
+- Final validated counts: start-backend 26/26, start-frontend 16/16, migrations-platform 127/127.
+- Key implementation outcomes:
+  - New `start` schema with system-app architecture (4 business tables: cat_goals, cat_topics, cat_features, rel_user_selections).
+  - 30 VLC seed items (10 goals + 10 topics + 10 features) with en/ru translations.
+  - Backend: onboardingStore (5 functions), 3 route endpoints with Zod validation, parallel fetch for catalog items.
+  - Frontend: VLC-based OnboardingCatalogItem types, goals/topics/features wizard flow, syncSelections + completeOnboarding API.
+  - 'start' added to FIXED_SCHEMA_NAMES in migrations-core.
 
 ## Immediate Next Steps
 
-- Wait for an explicit QA, live, or next product task trigger.
-- Keep `.git` internals untouched; the zero-match verification applies to editable workspace content outside git metadata.
+- All plan items, QA follow-up items, remediation items, clean-db startup fixes, and accepted PR review follow-ups are complete. No active implementation debt remains for this feature.
+- Pending user review: live clean-db startup confirmation, English translation tone, admin UI scope, resumable onboarding.
 
 ## Plan Decision: Keep Knex as Transport, Ban from Domain
 

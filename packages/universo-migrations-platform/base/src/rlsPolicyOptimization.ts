@@ -235,7 +235,47 @@ const applicationsPolicies: PolicyRewrite[] = [
     }
 ]
 
-const allPolicies: PolicyRewrite[] = [...adminPolicies, ...profilePolicies, ...metahubsPolicies, ...applicationsPolicies]
+const startPolicies: PolicyRewrite[] = [
+    {
+        table: 'start.cat_goals',
+        name: 'admin_manage_goals',
+        forClause: 'FOR ALL',
+        using: '(select admin.has_admin_permission((select auth.uid())))'
+    },
+    {
+        table: 'start.cat_topics',
+        name: 'admin_manage_topics',
+        forClause: 'FOR ALL',
+        using: '(select admin.has_admin_permission((select auth.uid())))'
+    },
+    {
+        table: 'start.cat_features',
+        name: 'admin_manage_features',
+        forClause: 'FOR ALL',
+        using: '(select admin.has_admin_permission((select auth.uid())))'
+    },
+    {
+        table: 'start.rel_user_selections',
+        name: 'users_read_own_selections',
+        forClause: 'FOR SELECT',
+        using: 'user_id = (select auth.uid())'
+    },
+    {
+        table: 'start.rel_user_selections',
+        name: 'users_manage_own_selections',
+        forClause: 'FOR ALL',
+        using: 'user_id = (select auth.uid())',
+        withCheck: 'user_id = (select auth.uid())'
+    },
+    {
+        table: 'start.rel_user_selections',
+        name: 'admin_manage_all_selections',
+        forClause: 'FOR ALL',
+        using: '(select admin.has_admin_permission((select auth.uid())))'
+    }
+]
+
+const allPolicies: PolicyRewrite[] = [...adminPolicies, ...profilePolicies, ...metahubsPolicies, ...applicationsPolicies, ...startPolicies]
 
 const resolveQualifiedTable = (table: string): { schemaName: string; tableName: string } => {
     const [schemaName, tableName, ...rest] = table.split('.')

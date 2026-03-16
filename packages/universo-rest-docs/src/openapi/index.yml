@@ -11623,6 +11623,43 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /onboarding/complete:
+    post:
+      tags:
+        - Onboarding
+      summary: POST /onboarding/complete
+      description: Auto-generated from
+        packages/start-backend/base/src/routes/onboardingRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
+      operationId: Onboarding_post_onboarding_complete
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /onboarding/items:
     get:
       tags:
@@ -11652,16 +11689,16 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
-  /onboarding/join:
+  /onboarding/selections:
     post:
       tags:
         - Onboarding
-      summary: POST /onboarding/join
+      summary: POST /onboarding/selections
       description: Auto-generated from
         packages/start-backend/base/src/routes/onboardingRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
-      operationId: Onboarding_post_onboarding_join
+      operationId: Onboarding_post_onboarding_selections
       parameters: []
       responses:
         "200":

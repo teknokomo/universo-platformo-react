@@ -27,6 +27,18 @@
 **Detection**: `rg "systemAppDefinition|CreateApplicationsSchema|CreateMetahubsSchema|/application/:applicationId/migrations|/application/:applicationId/sync" packages`
 
 **Why**: Future documentation or refactor waves can easily blur fixed bootstrap, runtime migration ownership, and the temporary manual-baseline origin unless the repository keeps this hybrid model explicit.
+## Definition-Driven Fixed-System-App Constraint Promotion Pattern (IMPORTANT)
+
+**Rule**: When a fixed system app relies on definition-driven schema generation for business tables, package-local `CREATE TABLE ... CONSTRAINT ...` SQL embedded in support migrations is not the source of truth for the final table shape and must not be trusted to carry business-table constraints.
+
+**Required**:
+- Keep table creation concerns inside the `SystemAppDefinition` business-table model and the schema compiler.
+- Express extra business-table constraints that are not representable in the definition model as explicit post-generation SQL, for example `ALTER TABLE ... ADD CONSTRAINT ...` in a `post_schema_generation` migration.
+- Add regression tests that assert the post-generation migration contains the explicit constraint statement whenever a package migration intentionally filters out `CREATE TABLE IF NOT EXISTS <schema>.*` support SQL.
+
+**Detection**: `rg "CREATE TABLE IF NOT EXISTS start\.|ADD CONSTRAINT|post_schema_generation|startsWith\('CREATE TABLE IF NOT EXISTS'" packages/*/base/src/platform packages/universo-migrations-platform/base/src/__tests__`
+
+**Why**: The start-system-app PR review exposed that the compiler-generated `start.rel_user_selections` table never received the inline `catalog_kind` CHECK because the support migration intentionally discarded the package-local `CREATE TABLE` statements during bootstrap splitting.
 ## Three-Level System Fields Architecture (CRITICAL)
 
 **Rule**: All entities use prefixed system fields for cascade soft delete and audit tracking.
@@ -384,6 +396,16 @@ return applicationsStore.listApplications(executor, userId)
 - When adding future platform migrations, classify them by the earliest bootstrap phase in which all referenced schemas/tables definitely exist.
 
 **Why**: Focused tests can miss fresh-start ordering bugs. The live bootstrap contract is `prelude -> fixed schema generation -> post-schema migrations`; violating that boundary produces startup failures even when individual migrations are otherwise correct.
+## Cross-System-App Dependency Ordering Pattern (CRITICAL)
+
+**Rule**: A fixed system-app migration that references helper functions, policies, or other bootstrap artifacts owned by another system app must use a version that sorts after the provider app's migration that creates those dependencies.
+
+**Required**:
+- Treat global platform migration sorting (`version` then `id`) as the real execution contract across all registered system apps, not just within one package.
+- Keep same-app schema enablement/index/seed work in the normal `post_schema_generation` finalize migration, but move cross-system-app policy creation into a later migration when it depends on another app's helper functions.
+- Add an ordering regression in `@universo/migrations-platform` whenever a migration depends on artifacts from another fixed system app.
+
+**Why**: Bootstrap phase alone is not enough to guarantee dependency safety. On a clean database, two `post_schema_generation` migrations from different system apps still execute in global sorted order, so cross-app references can fail unless the dependent migration is explicitly versioned after the provider.
 ## Publication Bootstrap Runtime Sync Sequencing (CRITICAL)
 
 **Rule**: When publication routes create an application schema from a publication snapshot, runtime sync must execute inside the DDL generator's `afterMigrationRecorded(...)` hook, and synced schema state must be persisted in that same post-recording step.

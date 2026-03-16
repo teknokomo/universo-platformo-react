@@ -356,7 +356,8 @@ describe('systemAppDefinitions compiler capability bridge', () => {
             'admin',
             'profiles',
             'metahubs',
-            'applications'
+            'applications',
+            'start'
         ])
     })
 
@@ -532,6 +533,74 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 })
             ]
         })
+    })
+
+    it('can build schema generation plan for the start system app with catalog and relation tables', () => {
+        expect(buildRegisteredSystemAppSchemaGenerationPlan('start')).toEqual(
+            expect.objectContaining({
+                definitionKey: 'start',
+                displayName: 'Start',
+                schemaName: 'start',
+                stage: 'target',
+                storageModel: 'application_like',
+                businessTables: expect.arrayContaining([
+                    expect.objectContaining({
+                        kind: 'catalog',
+                        codename: 'goals',
+                        tableName: 'cat_goals',
+                        fields: expect.arrayContaining([
+                            expect.objectContaining({
+                                codename: 'codename',
+                                physicalColumnName: 'codename',
+                                dataType: 'STRING',
+                                isRequired: true
+                            }),
+                            expect.objectContaining({
+                                codename: 'name',
+                                physicalColumnName: 'name',
+                                dataType: 'JSON',
+                                isDisplayAttribute: true
+                            })
+                        ])
+                    }),
+                    expect.objectContaining({
+                        kind: 'catalog',
+                        codename: 'topics',
+                        tableName: 'cat_topics'
+                    }),
+                    expect.objectContaining({
+                        kind: 'catalog',
+                        codename: 'features',
+                        tableName: 'cat_features'
+                    }),
+                    expect.objectContaining({
+                        kind: 'relation',
+                        codename: 'user_selections',
+                        tableName: 'rel_user_selections',
+                        fields: expect.arrayContaining([
+                            expect.objectContaining({
+                                codename: 'user_id',
+                                physicalColumnName: 'user_id',
+                                dataType: 'REF',
+                                isRequired: true
+                            }),
+                            expect.objectContaining({
+                                codename: 'catalog_kind',
+                                physicalColumnName: 'catalog_kind',
+                                dataType: 'STRING',
+                                isRequired: true
+                            }),
+                            expect.objectContaining({
+                                codename: 'item_id',
+                                physicalColumnName: 'item_id',
+                                dataType: 'REF',
+                                isRequired: true
+                            })
+                        ])
+                    })
+                ])
+            })
+        )
     })
 
     it('validates registered target schema generation plans as a future cutover contract', () => {

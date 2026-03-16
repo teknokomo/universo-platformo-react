@@ -31,6 +31,10 @@ const { applicationsSystemAppDefinition } = require('@universo/applications-back
     applicationsSystemAppDefinition: SystemAppDefinition
 }
 
+const { startSystemAppDefinition } = require('@universo/start-backend/platform-definition') as {
+    startSystemAppDefinition: SystemAppDefinition
+}
+
 const uuidV7FunctionSql = `
     CREATE OR REPLACE FUNCTION public.uuid_generate_v7() RETURNS uuid AS $$
     DECLARE
@@ -161,7 +165,8 @@ export const systemAppDefinitions: SystemAppDefinition[] = [
     adminSystemAppDefinition,
     profileSystemAppDefinition,
     metahubsSystemAppDefinition,
-    applicationsSystemAppDefinition
+    applicationsSystemAppDefinition,
+    startSystemAppDefinition
 ]
 
 export const validateRegisteredSystemAppDefinitions = (definitions: readonly SystemAppDefinition[] = systemAppDefinitions) =>
