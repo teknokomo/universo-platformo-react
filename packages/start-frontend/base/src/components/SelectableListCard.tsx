@@ -1,27 +1,20 @@
 import React from 'react'
 import { Box, Card, CardActionArea, CardContent, Checkbox, Skeleton, Typography, alpha, useTheme } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import type { OnboardingItem } from '../types'
+import { getVLCString } from '@universo/utils/vlc'
+import type { OnboardingCatalogItem } from '../types'
 
 interface SelectableListCardProps {
-    items: OnboardingItem[]
+    items: OnboardingCatalogItem[]
     selectedIds: string[]
     onSelectionChange: (selectedIds: string[]) => void
     isLoading?: boolean
 }
 
-/**
- * SelectableListCard - Card-based list with checkboxes for selection
- *
- * Features:
- * - Large number on the left side
- * - Title and description stacked vertically
- * - Checkbox on the right for selection
- * - Click anywhere on card to toggle selection
- */
 export const SelectableListCard: React.FC<SelectableListCardProps> = ({ items, selectedIds, onSelectionChange, isLoading }) => {
     const theme = useTheme()
-    const { t } = useTranslation('onboarding')
+    const { t, i18n } = useTranslation('onboarding')
+    const currentLocale = i18n.language
 
     const handleToggle = (id: string) => {
         const isCurrentlySelected = selectedIds.includes(id)
@@ -130,11 +123,11 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({ items, s
                                         color: isSelected ? theme.palette.primary.main : 'inherit'
                                     }}
                                 >
-                                    {item.name}
+                                    {getVLCString(item.name, currentLocale) ?? item.codename}
                                 </Typography>
                                 {item.description && (
                                     <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5, lineHeight: 1.4 }}>
-                                        {item.description}
+                                        {getVLCString(item.description, currentLocale) ?? ''}
                                     </Typography>
                                 )}
                             </CardContent>

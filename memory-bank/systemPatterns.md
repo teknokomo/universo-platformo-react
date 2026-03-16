@@ -384,6 +384,16 @@ return applicationsStore.listApplications(executor, userId)
 - When adding future platform migrations, classify them by the earliest bootstrap phase in which all referenced schemas/tables definitely exist.
 
 **Why**: Focused tests can miss fresh-start ordering bugs. The live bootstrap contract is `prelude -> fixed schema generation -> post-schema migrations`; violating that boundary produces startup failures even when individual migrations are otherwise correct.
+## Cross-System-App Dependency Ordering Pattern (CRITICAL)
+
+**Rule**: A fixed system-app migration that references helper functions, policies, or other bootstrap artifacts owned by another system app must use a version that sorts after the provider app's migration that creates those dependencies.
+
+**Required**:
+- Treat global platform migration sorting (`version` then `id`) as the real execution contract across all registered system apps, not just within one package.
+- Keep same-app schema enablement/index/seed work in the normal `post_schema_generation` finalize migration, but move cross-system-app policy creation into a later migration when it depends on another app's helper functions.
+- Add an ordering regression in `@universo/migrations-platform` whenever a migration depends on artifacts from another fixed system app.
+
+**Why**: Bootstrap phase alone is not enough to guarantee dependency safety. On a clean database, two `post_schema_generation` migrations from different system apps still execute in global sorted order, so cross-app references can fail unless the dependent migration is explicitly versioned after the provider.
 ## Publication Bootstrap Runtime Sync Sequencing (CRITICAL)
 
 **Rule**: When publication routes create an application schema from a publication snapshot, runtime sync must execute inside the DDL generator's `afterMigrationRecorded(...)` hook, and synced schema state must be persisted in that same post-recording step.

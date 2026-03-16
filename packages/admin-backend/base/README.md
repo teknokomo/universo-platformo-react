@@ -124,7 +124,7 @@ The admin schema shape is declared in `src/platform/systemAppDefinition.ts` as a
 `SystemAppDefinition` manifest. This manifest lists every business table, field,
 data type, and FK reference that must exist in the `admin` PostgreSQL schema.
 
-At server startup the platform compares`targetBusinessTables` from the manifest
+At server startup the platform compares `targetBusinessTables` from the manifest
 against the last recorded migration snapshot and applies only the necessary DDL
 changes. No hand-written SQL migrations are needed — add or remove fields in
 the manifest and restart the server.

@@ -311,14 +311,16 @@ describe('platformMigrations', () => {
             'admin',
             'profiles',
             'metahubs',
-            'applications'
+            'applications',
+            'start'
         ])
         expect(registeredSystemAppDefinitions.map((definition) => definition.ownerPackage)).toEqual([
             '@universo/migrations-platform',
             '@universo/admin-backend',
             '@universo/profile-backend',
             '@universo/metahubs-backend',
-            '@universo/applications-backend'
+            '@universo/applications-backend',
+            '@universo/start-backend'
         ])
     })
 
@@ -419,8 +421,11 @@ describe('platformMigrations', () => {
         expect(platformMigrations.map((migration) => migration.id)).toEqual([
             'InitializeUuidV7Function1500000000000',
             'RepairUuidV7PgcryptoDependency1500000000001',
+            'PrepareStartSchemaSupport1710000000000',
+            'FinalizeStartSchemaSupport1710000000001',
             'PrepareAdminSchemaSupport1733400000000',
             'FinalizeAdminSchemaSupport1733400000001',
+            'ApplyStartSchemaPolicies1733400000500',
             'PrepareProfileSchemaSupport1741277504477',
             'FinalizeProfileSchemaSupport1741277504478',
             'PrepareMetahubsSchemaSupport1766351182000',
@@ -430,6 +435,14 @@ describe('platformMigrations', () => {
             'OptimizeRlsPolicies1800000000200',
             'SeedBuiltinMetahubTemplates1800000000250'
         ])
+    })
+
+    it('runs start policy migration only after admin permission helpers are created', () => {
+        const adminFinalizeIndex = platformMigrations.findIndex((migration) => migration.id === 'FinalizeAdminSchemaSupport1733400000001')
+        const startPoliciesIndex = platformMigrations.findIndex((migration) => migration.id === 'ApplyStartSchemaPolicies1733400000500')
+
+        expect(adminFinalizeIndex).toBeGreaterThan(-1)
+        expect(startPoliciesIndex).toBeGreaterThan(adminFinalizeIndex)
     })
 
     it('drops optimized RLS policies through guarded SQL so missing tables do not break startup', async () => {
@@ -530,7 +543,7 @@ describe('platformMigrations', () => {
         const plans = exportRegisteredTargetSystemAppSchemaGenerationPlans()
 
         expect(plans).toHaveLength(registeredSystemAppDefinitions.length)
-        expect(plans.map((plan) => plan.definitionKey)).toEqual(['public', 'admin', 'profiles', 'metahubs', 'applications'])
+        expect(plans.map((plan) => plan.definitionKey)).toEqual(['public', 'admin', 'profiles', 'metahubs', 'applications', 'start'])
     })
 
     it('exports deterministic definition artifacts for registered system app schema plans', () => {

@@ -1,13 +1,8 @@
 /**
  * AuthenticatedStartPage - Onboarding wizard for new authenticated users
  *
- * Displays a multi-step wizard to help users select their interests:
- * - Projects (Global Goals)
- * - Campaigns (Personal Interests)
- * - Clusters (Platform Features)
- *
- * If onboarding is already completed, shows the CompletionStep directly.
- * Footer with contact information is shown at the bottom.
+ * Prefetches onboarding data once to decide whether the user should see the
+ * completion state or continue the onboarding flow with preloaded catalog items.
  */
 import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
@@ -21,12 +16,14 @@ import { getOnboardingItems } from '../api/onboarding'
 export default function AuthenticatedStartPage() {
     const [isReady, setIsReady] = useState(false)
     const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null)
+    const [prefetchedItems, setPrefetchedItems] = useState<Awaited<ReturnType<typeof getOnboardingItems>> | null>(null)
 
     // Check onboarding status on mount
     useEffect(() => {
         const checkStatus = async () => {
             try {
                 const data = await getOnboardingItems()
+                setPrefetchedItems(data)
                 setOnboardingCompleted(data.onboardingCompleted)
             } catch (err) {
                 console.error('[AuthenticatedStartPage] Failed to check onboarding status, defaulting to show wizard:', err)
@@ -65,7 +62,7 @@ export default function AuthenticatedStartPage() {
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Box sx={{ flex: 1 }}>
-                <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />
+                <OnboardingWizard initialItems={prefetchedItems} onComplete={() => setOnboardingCompleted(true)} />
             </Box>
             <StartFooter variant='internal' />
         </Box>

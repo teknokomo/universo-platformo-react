@@ -23,6 +23,7 @@
         "@universo/admin-backend": "workspace:*",
         "@universo/database": "workspace:*",
         "@universo/applications-backend": "workspace:*",
+        "@universo/start-backend": "workspace:*",
         "@universo/migrations-catalog": "workspace:*",
         "@universo/migrations-core": "workspace:*",
         "@universo/metahubs-backend": "workspace:*",

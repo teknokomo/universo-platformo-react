@@ -1,4 +1,4 @@
-export const FIXED_SCHEMA_NAMES = new Set(['public', 'admin', 'profiles', 'metahubs', 'applications', 'upl_migrations'])
+export const FIXED_SCHEMA_NAMES = new Set(['public', 'admin', 'profiles', 'metahubs', 'applications', 'start', 'upl_migrations'])
 export const MANAGED_DYNAMIC_SCHEMA_PATTERN = /^(app_[a-f0-9]+|mhb_[a-f0-9]+(_b[0-9]+)?)$/
 export const SYNTHETIC_PLATFORM_SCOPE_KEYS = new Set(['cross_schema'])
 const SIMPLE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]*$/

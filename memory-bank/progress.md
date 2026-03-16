@@ -41,6 +41,64 @@
 | 0.23.0-alpha | 2025-08-05 | Vanishing Asteroid ☄️                              | Russian docs, UPDL node params                                                                      |
 | 0.22.0-alpha | 2025-07-27 | Global Impulse ⚡️                                 | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪                                    | Handler refactoring, PlayCanvas stabilization                                                       |
+## 2026-03-16 Start System App — Clean-DB Bootstrap Ordering Fix Complete
+
+Closed the clean-database startup regression that surfaced after the onboarding system-app migration had already passed QA. The issue was not in the schema itself, but in cross-system-app migration ordering: `start` tried to create admin-dependent RLS policies before the admin permission helper existed on a fresh database.
+
+| Area | Resolution |
+| --- | --- |
+| Root cause | Platform migrations are flattened across system apps and globally sorted by version/id. The original `FinalizeStartSchemaSupport1710000000001` migration therefore ran before `FinalizeAdminSchemaSupport1733400000001` on a clean database, while `start` policy SQL already referenced `admin.has_admin_permission((select auth.uid()))`. |
+| Migration fix | Removed policy creation from the original `start` finalize migration and added `ApplyStartSchemaPolicies1733400000500`, which drops/recreates the 9 `start` schema policies only after admin bootstrap helpers are available. |
+| Regression coverage | Updated the start system-app manifest tests to expect the explicit third migration, moved policy assertions into the new policy migration tests, and added an ordering regression that proves the start policy migration sorts after admin finalize. |
+| Validation | `@universo/start-backend` tests passed 26/26, `@universo/migrations-platform` tests passed 126/126, targeted lint stayed clean, targeted package builds passed, and the final root `pnpm build` passed with 27/27 successful tasks in 2m57.464s. |
+
+## 2026-03-15 Start System App — Second Comprehensive QA Closure
+
+## 2026-03-15 Start System App — Final Remediation Closure
+
+Closed the remaining QA debt after the second comprehensive audit so the onboarding system-app flow is now consistent, atomic, and free of duplicate-fetch behavior in the authenticated start-page path.
+
+| Area | Resolution |
+| --- | --- |
+| Atomic selection sync | `POST /selections` now performs validation plus the goals/topics/features replacement flow inside one `DbExecutor.transaction(...)`, eliminating partial-write outcomes when one catalog sync fails mid-request. |
+| Duplicate-id hardening | Incoming `goals/topics/features` arrays are normalized before validation and sync, and `syncUserSelections(...)` also deduplicates defensively so response counts and INSERT attempts stay correct even if a caller repeats the same UUID. |
+| Frontend preload flow | `AuthenticatedStartPage` now reuses its prefetch result by passing `initialItems` into `OnboardingWizard`, removing the extra onboarding-items request while preserving the fallback-to-wizard behavior on prefetch failure. |
+| Regression coverage | Added backend regressions for duplicate-id normalization and transaction-bound sync, plus frontend regressions for wizard preload/no-refetch and authenticated start-page completion/fallback rendering. |
+| Validation | start-backend 26/26 PASS, start-frontend 16/16 PASS, migrations-platform 123/123 PASS, targeted lint clean, targeted package builds clean, root `pnpm build` passed with 27/27 successful tasks in 4m55.803s. |
+
+## 2026-03-15 Start System App — Second Comprehensive QA Closure
+
+Second comprehensive QA audit verified all 14 ТЗ requirements, all 30 seed items against backup files, all 5 plan phases, security model, and data integrity. One LOW finding fixed.
+
+| Area | Resolution |
+| --- | --- |
+| LOW-1: Missing 401 test | Added `returns 401 when unauthenticated` test for POST /selections in `onboardingRoutes.test.ts`. Test count: start-backend 23/23 (was 22). |
+| INFO observations | (1) Mock VLC format in route tests uses simplified shape — cosmetic, no impact. (2) Double-fetch in AuthenticatedStartPage + OnboardingWizard — plan-acknowledged, deferred to TanStack Query adoption. (3) Auto-select first item per category — UX decision, not in plan. |
+| Validation | start-backend 23/23, start-frontend 12/12, migrations-platform 123/123. All three packages lint-clean. All 14 ТЗ requirements verified DONE. |
+
+## 2026-03-15 Start System App — QA Follow-Up Closure
+
+Resolved both issues identified in the post-implementation QA audit of the Start System App migration.
+
+| Area | Resolution |
+| --- | --- |
+| Lint formatting | Auto-fixed Prettier errors via `npx eslint --fix` in start-backend (91 errors), start-frontend (10 errors), and migrations-platform (10 errors in new test file). All three packages now lint-clean. |
+| Missing test file | Created `startSystemApp.test.ts` in migrations-platform with 17 tests covering: prepare/finalize migration split, no CREATE TABLE in finalize, index presence, RLS enablement on 4 tables, 9 RLS policies with correct names, WITH CHECK on user self-management, 30 seed items (10+10+10), ON CONFLICT idempotency, VLC format with 2024-12-06 date, en/ru locales, manifest wiring, loadPlatformMigrations scoping, bootstrap phase filtering. Added jest.config.js module name mappers for `@universo/start-backend/platform-definition` and `@universo/start-backend/platform-migrations`. |
+| Validation | start-backend 22/22 PASS, start-frontend 12/12 PASS, migrations-platform 123/123 PASS (was 106, +17 new). All three packages lint-clean. |
+
+## 2026-03-15 Start System App — Onboarding Architecture Migration IMPLEMENTED
+
+Completed the full 5-phase migration of the Start/Onboarding module to the system-app architecture, following plan v3. The `start` schema now has 4 business tables with VLC-based catalog items (goals, topics, features) and user selection tracking, all managed through the fixed system-app lifecycle.
+
+| Area | Resolution |
+| --- | --- |
+| Phase 1: Platform definition | Created `systemAppDefinition.ts` (key='start', schema='start', application_like storage, 4 business tables), `migrations/index.ts` (~380 lines: local interfaces, VLC seed helper, 30 seed items en/ru, full DDL, RLS policies, prepare/finalize split), registered in `systemAppDefinitions.ts` (6th entry), added 6 RLS policy rewrites in `rlsPolicyOptimization.ts`. |
+| Phase 2: Backend persistence | Created `onboardingStore.ts` (5 functions: fetchCatalogItems with CatalogKind routing, fetchUserSelections, fetchAllUserSelections, validateItemExists, syncUserSelections with RETURNING + soft delete). Rewrote `onboardingRoutes.ts` (3 endpoints: GET /items with parallel fetch, POST /selections with Zod + existence validation, POST /complete with ProfileService). Updated `index.ts` exports. |
+| Phase 3: Frontend | Updated `types/index.ts` (VLC-based OnboardingCatalogItem, SyncSelectionsRequest/Response, CompleteOnboardingResponse, OnboardingStep). Updated `api/onboarding.ts` (syncSelections + completeOnboarding). Updated `SelectableListCard.tsx` (getVLCString for name/description rendering). Rewrote `OnboardingWizard.tsx` (goals/topics/features steps, syncSelections + completeOnboarding on final data step). Updated i18n en/ru files (projects→goals, campaigns→topics, clusters→features). |
+| Phase 4: Testing | Created 6 new test files: backend (onboardingStore.test.ts, onboardingRoutes.test.ts, systemAppDefinition.test.ts), frontend (onboarding.test.ts, SelectionStep.test.tsx, OnboardingWizard.test.tsx). Updated platformMigrations.test.ts and systemAppDefinitions.test.ts for 'start' inclusion. |
+| Phase 5: Validation | Added 'start' to FIXED_SCHEMA_NAMES in migrations-core/identifiers.ts. Added 'test' script to start-frontend/package.json. Full build 27/27 tasks. Tests: start-backend 22/22, start-frontend 12/12, migrations-platform 106/106, migrations-core 58/58. |
+| Key discoveries | (1) FIXED_SCHEMA_NAMES in migrations-core must include 'start' for assertCanonicalSchemaName validation. (2) Zod route validation requires proper UUID format in tests. (3) Frontend tests need stable `t` function reference in react-i18next mock to avoid useEffect infinite loop. (4) VLC in tests must use proper `VersionedLocalizedContent` format (locales object with content entries, not versions array). |
+
 ## 2026-03-15 Repository-Wide Legacy Branding Removal Complete
 
 Closed the repository-wide legacy branding purge so editable workspace content no longer contains the old upstream brand naming outside git internals. The sweep covered runtime/backend/frontend source, env comments, i18n bundles, deployment docs, memory-bank files, historical plan history, `.kiro` steering guidance, repository instruction files, and generated artifacts/logs.

@@ -2,11 +2,17 @@ import express, { type Request, type RequestHandler } from 'express'
 import request from 'supertest'
 import { createOnboardingRoutes } from '../../routes/onboardingRoutes'
 
+jest.mock('@universo/profile-backend', () => ({
+    ProfileService: jest.fn().mockImplementation(() => ({
+        markOnboardingCompleted: jest.fn().mockResolvedValue({ onboarding_completed: true })
+    }))
+}))
+
 const passThrough: RequestHandler = (_req, _res, next) => next()
 const readLimiter = passThrough as never
 const writeLimiter = passThrough as never
 
-const createApp = (queryImpl: jest.Mock, withUser = true) => {
+const createApp = (queryImpl: jest.Mock, withUser = true, transactionImpl?: jest.Mock) => {
     const app = express()
     app.use(express.json())
 
@@ -17,85 +23,207 @@ const createApp = (queryImpl: jest.Mock, withUser = true) => {
         })
     }
 
+    const transaction =
+        transactionImpl ??
+        jest.fn(async (callback: (trx: { query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }) => Promise<unknown>) =>
+            callback({ query: queryImpl, transaction: jest.fn(), isReleased: () => false })
+        )
+
     app.use(
         '/onboarding',
-        createOnboardingRoutes(passThrough, () => ({ query: queryImpl, transaction: jest.fn() } as never), readLimiter, writeLimiter)
+        createOnboardingRoutes(
+            passThrough,
+            () => ({ query: queryImpl, transaction, isReleased: () => false } as never),
+            readLimiter,
+            writeLimiter
+        )
     )
 
     return app
 }
 
+const goalRow = {
+    id: '00000000-0000-4000-a000-000000000001',
+    codename: 'goal_one',
+    name: { defaultLocale: 'en', versions: [{ locale: 'en', value: 'Goal One', updatedAt: '2024-12-06T00:00:00.000Z' }] },
+    description: { defaultLocale: 'en', versions: [{ locale: 'en', value: 'Desc', updatedAt: '2024-12-06T00:00:00.000Z' }] },
+    sort_order: 1,
+    is_active: true
+}
+
 describe('createOnboardingRoutes', () => {
-    it('returns onboarding status with empty legacy item lists', async () => {
-        const query = jest.fn().mockResolvedValue([{ onboarding_completed: true }])
-        const app = createApp(query)
+    describe('GET /items', () => {
+        it('returns catalog items grouped by kind with selection status', async () => {
+            const query = jest
+                .fn()
+                // fetchCatalogItems goals
+                .mockResolvedValueOnce([goalRow])
+                // fetchCatalogItems topics
+                .mockResolvedValueOnce([])
+                // fetchCatalogItems features
+                .mockResolvedValueOnce([])
+                // fetchAllUserSelections
+                .mockResolvedValueOnce([
+                    { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
+                ])
+                // profile query
+                .mockResolvedValueOnce([{ onboarding_completed: false }])
 
-        const response = await request(app).get('/onboarding/items')
+            const app = createApp(query)
+            const res = await request(app).get('/onboarding/items')
 
-        expect(response.status).toBe(200)
-        expect(response.body).toEqual({
-            onboardingCompleted: true,
-            projects: [],
-            campaigns: [],
-            clusters: []
+            expect(res.status).toBe(200)
+            expect(res.body.onboardingCompleted).toBe(false)
+            expect(res.body.goals).toHaveLength(1)
+            expect(res.body.goals[0].isSelected).toBe(true)
+            expect(res.body.goals[0].codename).toBe('goal_one')
+            expect(res.body.topics).toEqual([])
+            expect(res.body.features).toEqual([])
         })
-        expect(query).toHaveBeenCalledWith(
-            'SELECT onboarding_completed FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
-            ['user-1']
-        )
+
+        it('returns 401 when unauthenticated', async () => {
+            const query = jest.fn()
+            const app = createApp(query, false)
+            const res = await request(app).get('/onboarding/items')
+
+            expect(res.status).toBe(401)
+            expect(query).not.toHaveBeenCalled()
+        })
     })
 
-    it('bootstraps a missing profile and completes onboarding successfully', async () => {
-        const createdProfile = {
-            id: 'profile-1',
-            user_id: 'user-1',
-            nickname: 'user_user-1',
-            settings: {},
-            onboarding_completed: false
-        }
-        const completedProfile = {
-            ...createdProfile,
-            onboarding_completed: true
-        }
-        const query = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([createdProfile]).mockResolvedValueOnce([completedProfile])
-        const app = createApp(query)
+    describe('POST /selections', () => {
+        it('validates and syncs selections across all catalog kinds', async () => {
+            const query = jest
+                .fn()
+                // validateItemExists for goal UUID
+                .mockResolvedValueOnce([{ id: '00000000-0000-4000-a000-000000000001' }])
+                // syncUserSelections: fetchUserSelections(goals) – no existing
+                .mockResolvedValueOnce([])
+                // syncUserSelections: INSERT for goal
+                .mockResolvedValueOnce([
+                    { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
+                ])
+                // syncUserSelections: fetchUserSelections(topics) – no existing
+                .mockResolvedValueOnce([])
+                // syncUserSelections: fetchUserSelections(features) – no existing
+                .mockResolvedValueOnce([])
 
-        const response = await request(app).post('/onboarding/join').send({ projectIds: [], campaignIds: [], clusterIds: [] })
+            const transaction = jest.fn(
+                async (callback: (trx: { query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }) => Promise<unknown>) =>
+                    callback({ query, transaction: jest.fn(), isReleased: () => false })
+            )
 
-        expect(response.status).toBe(200)
-        expect(response.body).toEqual({
-            success: true,
-            added: { projects: 0, campaigns: 0, clusters: 0 },
-            removed: { projects: 0, campaigns: 0, clusters: 0 },
-            onboardingCompleted: true
+            const app = createApp(query, true, transaction)
+            const res = await request(app)
+                .post('/onboarding/selections')
+                .send({ goals: ['00000000-0000-4000-a000-000000000001'], topics: [], features: [] })
+
+            expect(res.status).toBe(200)
+            expect(res.body.success).toBe(true)
+            expect(res.body.added.goals).toBe(1)
+            expect(res.body.removed.goals).toBe(0)
+            expect(transaction).toHaveBeenCalledTimes(1)
         })
-        expect(query).toHaveBeenNthCalledWith(
-            1,
-            'SELECT * FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
-            ['user-1']
-        )
-        expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.cat_profiles'), [
-            'user-1',
-            'user_user-1',
-            null,
-            null,
-            '{}'
-        ])
-        expect(query).toHaveBeenNthCalledWith(
-            3,
-            'UPDATE profiles.cat_profiles SET onboarding_completed = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
-            [true, 'user-1']
-        )
+
+        it('rejects invalid body', async () => {
+            const query = jest.fn()
+            const app = createApp(query)
+
+            const res = await request(app).post('/onboarding/selections').send({ goals: 'not-an-array' })
+
+            expect(res.status).toBe(400)
+            expect(res.body.error).toBe('Invalid request body')
+        })
+
+        it('rejects non-existent item IDs', async () => {
+            const query = jest
+                .fn()
+                // validateItemExists returns empty
+                .mockResolvedValueOnce([])
+
+            const app = createApp(query)
+            const res = await request(app)
+                .post('/onboarding/selections')
+                .send({ goals: ['00000000-0000-4000-a000-000000000099'], topics: [], features: [] })
+
+            expect(res.status).toBe(400)
+            expect(res.body.error).toContain('not found')
+        })
+
+        it('returns 401 when unauthenticated', async () => {
+            const query = jest.fn()
+            const app = createApp(query, false)
+            const res = await request(app).post('/onboarding/selections').send({ goals: [], topics: [], features: [] })
+
+            expect(res.status).toBe(401)
+            expect(query).not.toHaveBeenCalled()
+        })
+
+        it('deduplicates repeated item IDs before validation and sync', async () => {
+            const query = jest
+                .fn()
+                .mockResolvedValueOnce([{ id: '00000000-0000-4000-a000-000000000001' }])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([
+                    { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
+                ])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+
+            const app = createApp(query)
+            const res = await request(app)
+                .post('/onboarding/selections')
+                .send({
+                    goals: ['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000001'],
+                    topics: [],
+                    features: []
+                })
+
+            expect(res.status).toBe(200)
+            expect(res.body.added.goals).toBe(1)
+            expect(query).toHaveBeenCalledTimes(5)
+        })
+
+        it('does not leave partial writes outside a transaction boundary', async () => {
+            const query = jest
+                .fn()
+                .mockResolvedValueOnce([{ id: '00000000-0000-4000-a000-000000000001' }])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([{ id: 's-1' }])
+                .mockRejectedValueOnce(new Error('topic write failed'))
+
+            const transaction = jest.fn(
+                async (callback: (trx: { query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }) => Promise<unknown>) =>
+                    callback({ query, transaction: jest.fn(), isReleased: () => false })
+            )
+
+            const app = createApp(query, true, transaction)
+            const res = await request(app)
+                .post('/onboarding/selections')
+                .send({ goals: ['00000000-0000-4000-a000-000000000001'], topics: [], features: [] })
+
+            expect(res.status).toBe(500)
+            expect(transaction).toHaveBeenCalledTimes(1)
+        })
     })
 
-    it('returns 401 when the request has no authenticated user', async () => {
-        const query = jest.fn()
-        const app = createApp(query, false)
+    describe('POST /complete', () => {
+        it('marks onboarding as completed via ProfileService', async () => {
+            const query = jest.fn()
+            const app = createApp(query)
+            const res = await request(app).post('/onboarding/complete')
 
-        const response = await request(app).get('/onboarding/items')
+            expect(res.status).toBe(200)
+            expect(res.body.success).toBe(true)
+            expect(res.body.onboardingCompleted).toBe(true)
+        })
 
-        expect(response.status).toBe(401)
-        expect(response.body).toEqual({ error: 'User not authenticated' })
-        expect(query).not.toHaveBeenCalled()
+        it('returns 401 when unauthenticated', async () => {
+            const query = jest.fn()
+            const app = createApp(query, false)
+            const res = await request(app).post('/onboarding/complete')
+
+            expect(res.status).toBe(401)
+        })
     })
 })

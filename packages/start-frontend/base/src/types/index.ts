@@ -2,54 +2,39 @@
  * Universo Platformo | Start Frontend Types
  */
 
-/**
- * Single onboarding item (Project, Campaign, or Cluster)
- */
-export interface OnboardingItem {
+import type { VersionedLocalizedContent } from '@universo/types'
+
+export interface OnboardingCatalogItem {
     id: string
-    name: string
-    description?: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description: VersionedLocalizedContent<string>
+    sortOrder: number
     isSelected: boolean
 }
 
-/**
- * All onboarding items returned from API
- */
 export interface OnboardingItems {
     onboardingCompleted: boolean
-    projects: OnboardingItem[]
-    campaigns: OnboardingItem[]
-    clusters: OnboardingItem[]
+    goals: OnboardingCatalogItem[]
+    topics: OnboardingCatalogItem[]
+    features: OnboardingCatalogItem[]
 }
 
-/**
- * Request to join selected items
- */
-export interface JoinItemsRequest {
-    projectIds: string[]
-    campaignIds: string[]
-    clusterIds: string[]
+export interface SyncSelectionsRequest {
+    goals: string[]
+    topics: string[]
+    features: string[]
 }
 
-/**
- * Response from join endpoint
- */
-export interface JoinItemsResponse {
+export interface SyncSelectionsResponse {
     success: boolean
-    added: {
-        projects: number
-        campaigns: number
-        clusters: number
-    }
-    removed: {
-        projects: number
-        campaigns: number
-        clusters: number
-    }
+    added: { goals: number; topics: number; features: number }
+    removed: { goals: number; topics: number; features: number }
+}
+
+export interface CompleteOnboardingResponse {
+    success: boolean
     onboardingCompleted: boolean
 }
 
-/**
- * Onboarding wizard step
- */
-export type OnboardingStep = 'welcome' | 'projects' | 'campaigns' | 'clusters' | 'completion'
+export type OnboardingStep = 'welcome' | 'goals' | 'topics' | 'features' | 'completion'
