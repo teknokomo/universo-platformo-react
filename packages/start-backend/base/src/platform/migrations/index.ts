@@ -50,6 +50,19 @@ const createPolicyStatement = (
     }`
 })
 
+const createDropConstraintStatement = (schemaName: string, tableName: string, constraintName: string): SqlMigrationStatement => ({
+    sql: `ALTER TABLE IF EXISTS ${schemaName}.${tableName} DROP CONSTRAINT IF EXISTS ${constraintName}`
+})
+
+const createCheckConstraintStatement = (
+    schemaName: string,
+    tableName: string,
+    constraintName: string,
+    expression: string
+): SqlMigrationStatement => ({
+    sql: `ALTER TABLE IF EXISTS ${schemaName}.${tableName} ADD CONSTRAINT ${constraintName} CHECK (${expression})`
+})
+
 // ──── VLC SEED HELPER ────
 
 const vlc = (en: string, ru: string): string => {
@@ -188,11 +201,17 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     user_id UUID NOT NULL,
     catalog_kind VARCHAR(20) NOT NULL,
-    item_id UUID NOT NULL,${SYSTEM_FIELDS},
-    CONSTRAINT user_selections_catalog_kind_check CHECK (catalog_kind IN ('goals', 'topics', 'features'))
+    item_id UUID NOT NULL,${SYSTEM_FIELDS}
 )
             `
         },
+        createDropConstraintStatement('start', 'rel_user_selections', 'user_selections_catalog_kind_check'),
+        createCheckConstraintStatement(
+            'start',
+            'rel_user_selections',
+            'user_selections_catalog_kind_check',
+            `catalog_kind IN ('goals', 'topics', 'features')`
+        ),
 
         // 4. Indexes — must precede seed INSERTs that use ON CONFLICT
         {

@@ -115,6 +115,11 @@ describe('onboardingStore', () => {
             expect(result).toEqual({ added: 0, removed: 1 })
             const updateSql = query.mock.calls[1][0] as string
             expect(updateSql).toContain('_upl_deleted = true')
+            expect(updateSql).toContain('_upl_updated_at = now()')
+            expect(updateSql).toContain('_upl_updated_by = $2')
+            expect(updateSql).toContain('_app_deleted = true')
+            expect(updateSql).toContain('_app_deleted_by = $2')
+            expect(updateSql).toContain('_upl_version = _upl_version + 1')
             expect(updateSql).toContain('RETURNING')
         })
 

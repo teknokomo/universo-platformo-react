@@ -4,11 +4,11 @@
 
 ---
 
-## Current Focus: Start System App — Onboarding Architecture Migration COMPLETE (incl. clean-db bootstrap ordering fix)
+## Current Focus: Start System App — Onboarding Architecture Migration COMPLETE (incl. PR review follow-up)
 
 - Date: 2026-03-15.
 - Plan v3: `memory-bank/plan/start-system-app-onboarding-plan-2026-03-15.md`.
-- **Implementation**: All 5 phases completed. Two QA follow-ups, the final remediation wave, and the clean-db bootstrap ordering fix are closed. Targeted validation and a fresh root build passed.
+- **Implementation**: All 5 phases completed. Two QA follow-ups, the final remediation wave, the clean-db bootstrap ordering fix, and the PR review follow-up are closed. Targeted validation and fresh root builds passed.
 - QA follow-up #1 resolved:
   - Lint formatting fixed in start-backend (91 errors), start-frontend (10 errors), and migrations-platform (10 errors).
   - Created `startSystemApp.test.ts` with 17 migration integration tests.
@@ -22,7 +22,11 @@
   - Root cause: platform migrations are globally sorted by version/id, so the original `start` finalize migration ran before admin finalize on a clean database and tried to create policies that referenced `admin.has_admin_permission(...)` too early.
   - Resolution: admin-dependent `start` policies moved into `ApplyStartSchemaPolicies1733400000500`, which now runs after `FinalizeAdminSchemaSupport1733400000001`.
   - Regression coverage: start manifest tests now require 3 migrations, and migrations-platform tests assert the start policy migration sorts after admin finalize.
-- Final validated counts: start-backend 26/26, start-frontend 16/16, migrations-platform 126/126.
+- PR review follow-up resolved:
+  - Promoted the `rel_user_selections.catalog_kind` CHECK into explicit post-generation `ALTER TABLE ... ADD CONSTRAINT` SQL because definition-driven schema generation ignores the package-local `CREATE TABLE` statements.
+  - Aligned selection soft-delete with the repository dual-flag audit contract (`_upl_*` + `_app_*`, plus `_upl_version` bump), switched onboarding status reads to `ProfileService.getUserProfile(...)`, and removed empty localized description blocks from `SelectableListCard`.
+  - Removed the accidental duplicate heading in `progress.md` that PR review also flagged.
+- Final validated counts: start-backend 26/26, start-frontend 16/16, migrations-platform 127/127.
 - Key implementation outcomes:
   - New `start` schema with system-app architecture (4 business tables: cat_goals, cat_topics, cat_features, rel_user_selections).
   - 30 VLC seed items (10 goals + 10 topics + 10 features) with en/ru translations.
@@ -32,7 +36,7 @@
 
 ## Immediate Next Steps
 
-- All plan items, QA follow-up items, remediation items, and the clean-db startup fix are complete. No active implementation debt remains for this feature.
+- All plan items, QA follow-up items, remediation items, clean-db startup fixes, and accepted PR review follow-ups are complete. No active implementation debt remains for this feature.
 - Pending user review: live clean-db startup confirmation, English translation tone, admin UI scope, resumable onboarding.
 
 ## Plan Decision: Keep Knex as Transport, Ban from Domain

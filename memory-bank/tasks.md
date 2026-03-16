@@ -8,6 +8,15 @@
 - [x] QA follow-through closure archived; see `progress.md` for the profile fail-closed hardening, runtime release-bundle lineage fix, and shared helper reuse details.
 - [x] Optional global catalog QA follow-through closure archived; see `progress.md` for the profile ownership hardening, true incremental artifact contract, and validation details.
 ## Active Open Tasks (Canonical)
+### Start System App PR Review Follow-Up — 2026-03-16
+- Status: COMPLETE — reviewed all submitted PR feedback, implemented the valid fixes, and revalidated the touched packages plus the full workspace build.
+- [x] Collect PR #725 review comments and classify which findings are valid, outdated, or non-actionable
+  - Note: triaged 5 meaningful comments; 4 code changes and 1 memory-bank cleanup were confirmed valid and regression-safe.
+- [x] Implement the valid fixes with minimal scope and preserve the current start-system-app behavior
+  - Note: moved the missing `catalog_kind` CHECK into post-generation SQL, aligned selection soft-delete with dual-flag audit fields, routed onboarding status reads through `ProfileService`, and suppressed empty description typography in the selectable cards.
+- [x] Revalidate affected packages/tests and update memory-bank state with the QA outcome
+  - Note: start-backend 26/26 PASS, start-frontend 16/16 PASS, migrations-platform 127/127 PASS, targeted lint clean, root `pnpm build` passed with 27/27 successful tasks in 3m0.819s.
+
 ### Start System App — Onboarding Architecture Migration — 2026-03-15
 - Status: COMPLETE — all 5 phases implemented, QA remediation closed, and the clean-db bootstrap ordering fix is validated with targeted package checks plus a full root build
 - [x] Clean-db startup fix: move start RLS policy creation behind admin permission function availability

@@ -41,6 +41,18 @@
 | 0.23.0-alpha | 2025-08-05 | Vanishing Asteroid ☄️                              | Russian docs, UPDL node params                                                                      |
 | 0.22.0-alpha | 2025-07-27 | Global Impulse ⚡️                                 | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪                                    | Handler refactoring, PlayCanvas stabilization                                                       |
+## 2026-03-16 Start System App — PR Review Follow-Up Closure
+
+Closed the first PR review wave for the onboarding system-app refactor by validating every bot comment against the repository contracts before changing code. The accepted fixes were kept narrow so they closed real correctness gaps without reopening the already-resolved bootstrap and onboarding-flow work.
+
+| Area | Resolution |
+| --- | --- |
+| Definition-driven constraint gap | Moved the `rel_user_selections.catalog_kind` CHECK from the discarded package-local `CREATE TABLE` SQL into explicit post-generation `ALTER TABLE ... DROP/ADD CONSTRAINT ...` statements, and added a migration integration regression proving the finalized start migration now reapplies the constraint after compiler-driven table generation. |
+| Selection soft-delete contract | `syncUserSelections(...)` now performs dual-flag soft delete (`_upl_*` + `_app_*`) and bumps `_upl_version`, aligning the start schema with the repository application-like system-field contract instead of only toggling `_upl_deleted`. |
+| Profile encapsulation | `GET /onboarding/items` now reads `onboarding_completed` through `ProfileService.getUserProfile(...)` rather than raw SQL against `profiles.cat_profiles`, keeping the start module behind the profile package boundary consistently with the completion endpoint. |
+| Frontend rendering + docs cleanup | `SelectableListCard` now resolves description text before rendering so missing VLC content does not emit empty typography, and the accidental duplicate `Second Comprehensive QA Closure` heading was removed from `progress.md`. |
+| Validation | `@universo/start-backend` tests passed 26/26, `@universo/start-frontend` tests passed 16/16, `@universo/migrations-platform` tests passed 127/127, targeted lint stayed clean for all three packages, and the final root `pnpm build` passed with 27/27 successful tasks in 3m0.819s. |
+
 ## 2026-03-16 Start System App — Clean-DB Bootstrap Ordering Fix Complete
 
 Closed the clean-database startup regression that surfaced after the onboarding system-app migration had already passed QA. The issue was not in the schema itself, but in cross-system-app migration ordering: `start` tried to create admin-dependent RLS policies before the admin permission helper existed on a fresh database.
@@ -51,8 +63,6 @@ Closed the clean-database startup regression that surfaced after the onboarding 
 | Migration fix | Removed policy creation from the original `start` finalize migration and added `ApplyStartSchemaPolicies1733400000500`, which drops/recreates the 9 `start` schema policies only after admin bootstrap helpers are available. |
 | Regression coverage | Updated the start system-app manifest tests to expect the explicit third migration, moved policy assertions into the new policy migration tests, and added an ordering regression that proves the start policy migration sorts after admin finalize. |
 | Validation | `@universo/start-backend` tests passed 26/26, `@universo/migrations-platform` tests passed 126/126, targeted lint stayed clean, targeted package builds passed, and the final root `pnpm build` passed with 27/27 successful tasks in 2m57.464s. |
-
-## 2026-03-15 Start System App — Second Comprehensive QA Closure
 
 ## 2026-03-15 Start System App — Final Remediation Closure
 

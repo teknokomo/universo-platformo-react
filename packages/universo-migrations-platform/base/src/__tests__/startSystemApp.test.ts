@@ -62,6 +62,18 @@ describe('start system app migration integration', () => {
             )
         })
 
+        it('reapplies the catalog_kind CHECK constraint after table generation', () => {
+            const { up } = finalizeStartSchemaSupportMigrationDefinition
+            const constraintSql = up.map((s) => normalizeSql(s.sql))
+
+            expect(constraintSql).toEqual(
+                expect.arrayContaining([
+                    'ALTER TABLE IF EXISTS start.rel_user_selections DROP CONSTRAINT IF EXISTS user_selections_catalog_kind_check',
+                    "ALTER TABLE IF EXISTS start.rel_user_selections ADD CONSTRAINT user_selections_catalog_kind_check CHECK (catalog_kind IN ('goals', 'topics', 'features'))"
+                ])
+            )
+        })
+
         it('enables RLS on all 4 tables', () => {
             const { up } = finalizeStartSchemaSupportMigrationDefinition
             const rlsSql = up.filter((s) => normalizeSql(s.sql).includes('ENABLE ROW LEVEL SECURITY'))

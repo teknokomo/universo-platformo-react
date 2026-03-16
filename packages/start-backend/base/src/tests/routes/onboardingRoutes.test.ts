@@ -2,9 +2,13 @@ import express, { type Request, type RequestHandler } from 'express'
 import request from 'supertest'
 import { createOnboardingRoutes } from '../../routes/onboardingRoutes'
 
+const mockGetUserProfile = jest.fn()
+const mockMarkOnboardingCompleted = jest.fn()
+
 jest.mock('@universo/profile-backend', () => ({
     ProfileService: jest.fn().mockImplementation(() => ({
-        markOnboardingCompleted: jest.fn().mockResolvedValue({ onboarding_completed: true })
+        getUserProfile: mockGetUserProfile,
+        markOnboardingCompleted: mockMarkOnboardingCompleted
     }))
 }))
 
@@ -52,8 +56,16 @@ const goalRow = {
 }
 
 describe('createOnboardingRoutes', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockGetUserProfile.mockResolvedValue(null)
+        mockMarkOnboardingCompleted.mockResolvedValue({ onboarding_completed: true })
+    })
+
     describe('GET /items', () => {
         it('returns catalog items grouped by kind with selection status', async () => {
+            mockGetUserProfile.mockResolvedValueOnce({ onboarding_completed: false })
+
             const query = jest
                 .fn()
                 // fetchCatalogItems goals
@@ -66,8 +78,6 @@ describe('createOnboardingRoutes', () => {
                 .mockResolvedValueOnce([
                     { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
                 ])
-                // profile query
-                .mockResolvedValueOnce([{ onboarding_completed: false }])
 
             const app = createApp(query)
             const res = await request(app).get('/onboarding/items')
@@ -79,6 +89,7 @@ describe('createOnboardingRoutes', () => {
             expect(res.body.goals[0].codename).toBe('goal_one')
             expect(res.body.topics).toEqual([])
             expect(res.body.features).toEqual([])
+            expect(mockGetUserProfile).toHaveBeenCalledWith('user-1')
         })
 
         it('returns 401 when unauthenticated', async () => {
@@ -216,6 +227,7 @@ describe('createOnboardingRoutes', () => {
             expect(res.status).toBe(200)
             expect(res.body.success).toBe(true)
             expect(res.body.onboardingCompleted).toBe(true)
+            expect(mockMarkOnboardingCompleted).toHaveBeenCalledWith('user-1', 'user@example.com')
         })
 
         it('returns 401 when unauthenticated', async () => {

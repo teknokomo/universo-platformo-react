@@ -61,6 +61,7 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({ items, s
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {items.map((item, index) => {
                 const isSelected = selectedIds.includes(item.id)
+                const description = getVLCString(item.description, currentLocale)?.trim()
                 return (
                     <Card
                         key={item.id}
@@ -125,9 +126,9 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({ items, s
                                 >
                                     {getVLCString(item.name, currentLocale) ?? item.codename}
                                 </Typography>
-                                {item.description && (
+                                {description && (
                                     <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5, lineHeight: 1.4 }}>
-                                        {getVLCString(item.description, currentLocale) ?? ''}
+                                        {description}
                                     </Typography>
                                 )}
                             </CardContent>

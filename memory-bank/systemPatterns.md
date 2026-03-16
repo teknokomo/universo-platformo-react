@@ -27,6 +27,18 @@
 **Detection**: `rg "systemAppDefinition|CreateApplicationsSchema|CreateMetahubsSchema|/application/:applicationId/migrations|/application/:applicationId/sync" packages`
 
 **Why**: Future documentation or refactor waves can easily blur fixed bootstrap, runtime migration ownership, and the temporary manual-baseline origin unless the repository keeps this hybrid model explicit.
+## Definition-Driven Fixed-System-App Constraint Promotion Pattern (IMPORTANT)
+
+**Rule**: When a fixed system app relies on definition-driven schema generation for business tables, package-local `CREATE TABLE ... CONSTRAINT ...` SQL embedded in support migrations is not the source of truth for the final table shape and must not be trusted to carry business-table constraints.
+
+**Required**:
+- Keep table creation concerns inside the `SystemAppDefinition` business-table model and the schema compiler.
+- Express extra business-table constraints that are not representable in the definition model as explicit post-generation SQL, for example `ALTER TABLE ... ADD CONSTRAINT ...` in a `post_schema_generation` migration.
+- Add regression tests that assert the post-generation migration contains the explicit constraint statement whenever a package migration intentionally filters out `CREATE TABLE IF NOT EXISTS <schema>.*` support SQL.
+
+**Detection**: `rg "CREATE TABLE IF NOT EXISTS start\.|ADD CONSTRAINT|post_schema_generation|startsWith\('CREATE TABLE IF NOT EXISTS'" packages/*/base/src/platform packages/universo-migrations-platform/base/src/__tests__`
+
+**Why**: The start-system-app PR review exposed that the compiler-generated `start.rel_user_selections` table never received the inline `catalog_kind` CHECK because the support migration intentionally discarded the package-local `CREATE TABLE` statements during bootstrap splitting.
 ## Three-Level System Fields Architecture (CRITICAL)
 
 **Rule**: All entities use prefixed system fields for cascade soft delete and audit tracking.

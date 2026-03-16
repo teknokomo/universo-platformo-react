@@ -1,3 +1,4 @@
+import { softDeleteSetClause } from '@universo/utils'
 import type { DbExecutor } from '@universo/utils/database'
 
 export type CatalogKind = 'goals' | 'topics' | 'features'
@@ -86,7 +87,7 @@ export async function syncUserSelections(
         const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ')
         await exec.query<{ id: string }>(
             `UPDATE start.rel_user_selections
-             SET _upl_deleted = true, _upl_deleted_at = NOW(), _upl_deleted_by = $${ids.length + 1}
+             SET ${softDeleteSetClause(`$${ids.length + 1}`)}, _upl_version = _upl_version + 1
              WHERE id IN (${placeholders}) AND ${ACTIVE_PREDICATE}
              RETURNING id`,
             [...ids, userId]

@@ -47,17 +47,15 @@ export function createOnboardingRoutes(
         }
 
         const exec = getRequestDbExecutor(req)
+        const profileService = new ProfileService(exec)
 
         try {
-            const [goals, topics, features, selections, profileRows] = await Promise.all([
+            const [goals, topics, features, selections, profile] = await Promise.all([
                 fetchCatalogItems(exec, 'goals'),
                 fetchCatalogItems(exec, 'topics'),
                 fetchCatalogItems(exec, 'features'),
                 fetchAllUserSelections(exec, userId),
-                exec.query<{ onboarding_completed: boolean }>(
-                    'SELECT onboarding_completed FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
-                    [userId]
-                )
+                profileService.getUserProfile(userId)
             ])
 
             const selectionSet = new Set(selections.map((s) => s.item_id))
@@ -72,7 +70,7 @@ export function createOnboardingRoutes(
                 }))
 
             res.json({
-                onboardingCompleted: profileRows[0]?.onboarding_completed ?? false,
+                onboardingCompleted: profile?.onboarding_completed ?? false,
                 goals: mapItems(goals),
                 topics: mapItems(topics),
                 features: mapItems(features)
