@@ -944,7 +944,9 @@
             "setRequired": "Mark as required",
             "setOptional": "Mark as optional",
             "setDisplayAttribute": "Set as display attribute",
-            "clearDisplayAttribute": "Clear display attribute"
+            "clearDisplayAttribute": "Clear display attribute",
+            "enableSystemField": "Enable",
+            "disableSystemField": "Disable"
         },
         "deleteDialog": {
             "title": "Delete Attribute",
@@ -1019,7 +1021,22 @@
         },
         "tabs": {
             "general": "General",
-            "presentation": "Presentation"
+            "presentation": "Presentation",
+            "system": "System"
+        },
+        "system": {
+            "title": "System Attributes",
+            "description": "Lifecycle and runtime infrastructure attributes for this catalog",
+            "empty": "No system attributes",
+            "emptyDescription": "This catalog has no configurable system attributes.",
+            "hint": "System attributes are managed by the platform. You can only enable or disable supported attributes.",
+            "status": "Status",
+            "enabled": "Enabled",
+            "disabled": "Disabled",
+            "keyLabel": "System key",
+            "managed": "Managed",
+            "enableSuccess": "System attribute enabled",
+            "disableSuccess": "System attribute disabled"
         },
         "presentation": {
             "headerAsCheckbox": "Display header as checkbox",

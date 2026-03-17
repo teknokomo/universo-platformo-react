@@ -4,15 +4,12 @@ const MAX_LOCK_TIMEOUT_MS = 300_000
 
 const assertLockTimeoutMs = (ms: number): number => {
     if (!Number.isInteger(ms) || ms <= 0 || ms > MAX_LOCK_TIMEOUT_MS) {
-        throw new Error(
-            `Invalid lock_timeout: must be a positive integer <= ${MAX_LOCK_TIMEOUT_MS}ms`
-        )
+        throw new Error(`Invalid lock_timeout: must be a positive integer <= ${MAX_LOCK_TIMEOUT_MS}ms`)
     }
     return ms
 }
 
-const buildSetLocalLockTimeoutSql = (timeoutMs: number): string =>
-    `SET LOCAL lock_timeout TO '${assertLockTimeoutMs(timeoutMs)}ms'`
+const buildSetLocalLockTimeoutSql = (timeoutMs: number): string => `SET LOCAL lock_timeout TO '${assertLockTimeoutMs(timeoutMs)}ms'`
 
 /**
  * Acquire a transaction-scoped advisory lock inside an executor transaction.
@@ -45,10 +42,9 @@ export async function tryWithAdvisoryLock<T>(
     work: (tx: DbExecutor) => Promise<T>
 ): Promise<T | null> {
     return executor.transaction(async (tx) => {
-        const [{ acquired }] = await tx.query<{ acquired: boolean }>(
-            'SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired',
-            [lockKey]
-        )
+        const [{ acquired }] = await tx.query<{ acquired: boolean }>('SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired', [
+            lockKey
+        ])
         if (!acquired) return null
         return work(tx)
     })

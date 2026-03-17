@@ -10,6 +10,7 @@ import type {
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { resolveWidgetTableName } from './widgetTableResolver'
+import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
@@ -245,6 +246,9 @@ export class TemplateSeedExecutor {
         const entityIdMap = new Map<string, string>()
         const constantIdMap = new Map<string, string>()
         const now = new Date()
+        const platformSystemAttributesPolicy = entities.some((entity) => entity.kind === 'catalog')
+            ? await readPlatformSystemAttributesPolicyWithKnex(qb)
+            : undefined
 
         // Track per-kind sort order counters (1-based)
         const kindSortCounters = new Map<string, number>()
@@ -260,6 +264,11 @@ export class TemplateSeedExecutor {
 
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
+                if (entity.kind === 'catalog') {
+                    await ensureCatalogSystemAttributesSeed(qb, this.schemaName, existing.id, null, {
+                        policy: platformSystemAttributesPolicy
+                    })
+                }
                 continue
             }
 
@@ -294,6 +303,12 @@ export class TemplateSeedExecutor {
                 .returning('id')
 
             entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
+
+            if (entity.kind === 'catalog') {
+                await ensureCatalogSystemAttributesSeed(qb, this.schemaName, inserted.id, null, {
+                    policy: platformSystemAttributesPolicy
+                })
+            }
         }
 
         // ── Pass 2: Insert set constants and build complete set+constant codename→id map ──

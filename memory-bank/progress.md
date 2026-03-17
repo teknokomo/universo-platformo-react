@@ -41,6 +41,333 @@
 | 0.23.0-alpha | 2025-08-05 | Vanishing Asteroid ☄️                              | Russian docs, UPDL node params                                                                      |
 | 0.22.0-alpha | 2025-07-27 | Global Impulse ⚡️                                 | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪                                    | Handler refactoring, PlayCanvas stabilization                                                       |
+## 2026-03-17 QA Transactional Consistency Remediation Closure
+
+Closed the last real transactional consistency gaps left by the QA pass over configurable system attributes. The remaining defects were architectural rather than cosmetic: attribute mutation routes still committed writes before schema sync finished, and plain catalog create routes could persist a catalog even if managed system-attribute seeding failed afterward.
+
+| Area | Resolution |
+| --- | --- |
+| Shared transaction contract | `updateWithVersionCheck(...)` and `MetahubAttributesService` mutation helpers now accept an existing `DbExecutor | SqlQueryable` runner so route-level transactions can keep all writes on one executor without nested transaction assumptions. |
+| Attribute mutation atomicity | Attribute create/copy/update/delete/display-toggle/required-toggle and child-attribute create now call `syncMetahubSchema(...)` inside the same transaction runner that performs the write, so schema-sync failure aborts the whole mutation instead of acknowledging a partial commit. |
+| Catalog create atomicity | Metahub-level and hub-scoped catalog create routes now execute `createCatalog(...)` and `ensureCatalogSystemAttributes(...)` inside one transaction runner, eliminating partial catalog creation when managed seeding fails. |
+| Regression proof and validation | Route regressions now assert runner propagation into schema sync and managed seeding, targeted `attributesRoutes` + `catalogsRoutes` Jest suites passed 43/43, `pnpm --filter @universo/metahubs-backend lint` returned 0 errors with warning-only pre-existing package noise, and the final root `pnpm build` completed successfully. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-backend lint` returned 0 errors and warning-only pre-existing package noise.
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/routes/attributesRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts` passed with 43/43 tests.
+- Final root `pnpm build` completed successfully.
+
+## 2026-03-17 Configurable Platform Runtime Column Closure
+
+Closed the last runtime gap in the platform system-attributes wave. The metahub/publication side had already preserved disabled `upl.*` state correctly, but runtime application business-table generation and dynamic CRUD/sync SQL still treated configurable `_upl_archived*` / `_upl_deleted*` families as unconditional.
+
+| Area | Resolution |
+| --- | --- |
+| Shared contract | `@universo/utils` now exposes `derivePlatformSystemFieldsContract(...)` and `resolvePlatformSystemFieldsContractFromConfig(...)` so schema-ddl and applications-backend consume one platform delete/archive contract. |
+| Runtime DDL | `@universo/schema-ddl` business tables and tabular tables now keep mandatory platform audit columns but omit configurable `_upl_archived*` / `_upl_deleted*` columns when catalog `systemFields.fields` disables them. |
+| Runtime SQL | `@universo/applications-backend` active-row predicates, soft-delete updates, and sync-side dynamic filters now stop referencing `_upl_deleted*` when the platform delete family is disabled for a catalog. |
+| Regression proof | Added direct tests for the shared utils contract, schema-ddl column suppression, and applications-backend runtime delete behavior when `upl.deleted*` is disabled. |
+| Validation | `@universo/utils` lint is warning-only with 0 errors after fixing touched Prettier issues, `@universo/schema-ddl` lint is warning-only with 0 errors, `@universo/applications-backend` lint passed cleanly, targeted tests passed (`243/243`, `40/40`, `29/29`), and the final root `pnpm build` passed with 27/27 successful tasks in 3m24.562s. |
+
+Validation:
+
+- `pnpm --filter @universo/utils lint` passed with 0 errors and warning-only pre-existing package noise.
+- `pnpm --filter @universo/schema-ddl lint` passed with 0 errors and warning-only pre-existing package noise.
+- `pnpm --filter @universo/applications-backend lint` passed.
+- `pnpm --filter @universo/utils test -- src/database/__tests__/catalogSystemFields.test.ts` passed with 243/243 package tests.
+- `pnpm --filter @universo/schema-ddl test -- src/__tests__/SchemaGenerator.test.ts` passed with 40/40 tests.
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/routes/applicationsRoutes.test.ts` passed with 29/29 tests.
+- Final root `pnpm build` passed with 27/27 successful tasks in 3m24.562s.
+
+## 2026-03-17 QA Follow-Up Closure for Shared Publication Snapshot Hash Contract
+
+Closed the last two residual QA items from the lifecycle/system-attributes wave without reopening runtime behavior. The producer and consumer sides of publication snapshot hashing no longer maintain separate normalization logic, and the touched warning-only lint debt in the continuity/error-handling seams is removed instead of being deferred.
+
+| Area | Resolution |
+| --- | --- |
+| Shared snapshot-hash contract | Added `packages/universo-utils/base/src/serialization/publicationSnapshotHash.ts` as the canonical normalization helper and exported it through `@universo/utils`, so both `@universo/applications-backend` and `@universo/metahubs-backend` now hash the same normalized payload structure. |
+| Backend consumer cleanup | `applicationReleaseBundle.ts` now delegates publication snapshot normalization to the shared helper, and `SnapshotSerializer.ts` uses the same helper while preserving the metahub-side fallback version-envelope behavior. |
+| Touched lint/type cleanup | Removed the touched warning-level debt in `ElementList.tsx`, `AttributeList.systemTab.test.tsx`, and `SnapshotSerializer.ts`, including safer response-message extraction, typed localized-content guards, and replacement of touched explicit `any` usage. |
+| Validation | New utils regression coverage passed, targeted applications/metahubs serializer and frontend continuity suites passed, touched file eslint checks passed, and the final root `pnpm build` passed with 27/27 successful tasks in 2m33.051s. |
+
+Validation:
+
+- `pnpm --filter @universo/utils exec vitest run src/serialization/__tests__/publicationSnapshotHash.test.ts` passed.
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/applicationReleaseBundle.test.ts` passed.
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/SnapshotSerializer.test.ts` passed.
+- `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx` passed.
+- Touched file eslint checks for the utils helper/test, `applicationReleaseBundle.ts`, `SnapshotSerializer.ts`, `ElementList.tsx`, and `AttributeList.systemTab.test.tsx` passed cleanly.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m33.051s.
+
+## 2026-03-17 Disabled System Attributes Runtime Column Propagation Fix
+
+Closed the runtime lifecycle-contract propagation bug reported after the earlier metahub system-attributes work. The platform already stored disabled lifecycle state in publication snapshots and schema-ddl already knew how to omit `_app_*` lifecycle columns, but the application release-bundle executable payload builder was reconstructing entities from raw `snapshot.entities` and dropping the snapshot-level `systemFields` metadata before schema generation.
+
+| Area | Resolution |
+| --- | --- |
+| Root cause | Publication snapshots stored the catalog lifecycle contract in top-level `snapshot.systemFields`, while `createApplicationReleaseBundle(...)` built executable payload entities directly from `snapshot.entities`, so `config.systemFields.lifecycleContract` never reached schema-ddl during application sync. |
+| Backend fix | `@universo/applications-backend` now hydrates `snapshot.systemFields[entity.id]` back into every executable entity config before building the bundle schema snapshot and the bootstrap/incremental payloads. |
+| Regression proof | Release-bundle tests now assert that publication `systemFields` are preserved in executable payload entities, and sync-route tests now prove `generateFullSchema(...)` receives the disabled lifecycle contract during publication-driven application schema creation. |
+| Validation | `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/applicationReleaseBundle.test.ts src/tests/routes/applicationSyncRoutes.test.ts` passed with 28/28 tests, package lint/build passed, and the final root `pnpm build` passed with 27/27 successful tasks in 2m55.301s. |
+
+Validation:
+
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/applicationReleaseBundle.test.ts src/tests/routes/applicationSyncRoutes.test.ts` passed with 28/28 tests.
+- `pnpm --filter @universo/applications-backend lint` passed.
+- `pnpm --filter @universo/applications-backend build` passed.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m55.301s.
+
+## 2026-03-17 Catalog Tab Isolation + Basic Template Layout Defaults
+
+Closed two user-facing regressions in the metahubs experience. The first was a frontend state/caching defect where `Attributes` and `System` reused previous paginated rows during scope switches; the second was an unwanted default layout seed in the built-in `basic` template for newly created metahubs.
+
+| Area | Resolution |
+| --- | --- |
+| Catalog tab isolation | `AttributeList` now opts out of `keepPreviousData` across query-key changes and resets pagination/expanded TABLE state when switching catalog tabs, so scoped list views no longer show stale rows from the previous scope. |
+| Base template defaults | `basic.template.ts` now seeds `appNavbar` and `header` in the top zone and only `detailsTitle` + `detailsTable` in the center zone; the old default `columnsContainer(detailsTable + productTree)` seed is removed. |
+| Regression proof | Frontend system-tab tests now assert the scoped list uses `keepPreviousDataOnQueryKeyChange: false`, and backend template-manifest tests assert the exact built-in basic-template widget set. |
+| Validation | `@universo/metahubs-frontend` targeted Vitest passed 2/2, `@universo/metahubs-backend` targeted Jest passed 4/4, touched package lint remained warning-only with 0 errors, and the final root `pnpm build` passed with 27/27 successful tasks in 3m21.269s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx` passed with 2/2 tests.
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/templateManifestValidator.test.ts` passed with 4/4 tests.
+- `pnpm --filter @universo/metahubs-frontend lint` passed with 0 errors and warning-only pre-existing package noise.
+- `pnpm --filter @universo/metahubs-backend lint` passed with 0 errors and warning-only pre-existing package noise.
+- Final root `pnpm build` passed with 27/27 successful tasks in 3m21.269s.
+
+## 2026-03-17 Application Connector Schema Sync Snapshot-Hash Fix
+
+Closed a real runtime blocker in the application connector schema-sync flow. Connector schema creation could fail with `Application release snapshot hash does not match the embedded snapshot state` when a publication snapshot contained `systemFields`, because the publication-side serializer and the application-side verifier were hashing different normalized payloads.
+
+| Area | Resolution |
+| --- | --- |
+| Root cause | `SnapshotSerializer.normalizeSnapshotForHash(...)` included `systemFields` and preserved omission semantics for optional keys, while `normalizePublicationSnapshotForHash(...)` in `@universo/applications-backend` had drifted by omitting `systemFields` and coercing some optional publication/layout keys from `undefined` to `null`. |
+| Backend fix | `normalizePublicationSnapshotForHash(...)` now includes `systemFields` per entity and as a normalized top-level array, and no longer rewrites optional publication/layout keys such as `templateKey`, `widgetKey`, and top-level publication metadata into `null` values that were never present in the source serializer payload. |
+| Regression proof | `applicationReleaseBundle.test.ts` now covers both a publication snapshot with `systemFields` and a serializer-compatible layout snapshot with omitted optional keys, proving the explicit publication hash is accepted instead of throwing the mismatch error. |
+| Validation | `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/applicationReleaseBundle.test.ts` passed with 10/10, package lint/build passed, the compiled `dist` parity probe now passes for the real layout-optional-key scenario, and the final root `pnpm build` passed with 27/27 successful tasks in 3m49.731s. |
+
+Validation:
+
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/applicationReleaseBundle.test.ts` passed with 10/10 tests.
+- `pnpm --filter @universo/applications-backend lint` passed.
+- `pnpm --filter @universo/applications-backend build` passed.
+- A compiled `dist` parity probe now confirms that a serializer-produced hash is accepted for the real omitted-layout-key publication snapshot shape.
+- Final root `pnpm build` passed with 27/27 successful tasks in 3m49.731s.
+
+## 2026-03-17 Dashboard Cleanup + System Attribute UX Fixes
+- Removed two test charts from MetahubBoard and ApplicationBoard (already done in working tree from prior session).
+- Renamed system tab label from "Системные атрибуты" to "Системные" (heading "Системные атрибуты" kept as-is; already done in working tree).
+- Fixed system attribute ordering after enable/disable toggle: `useUpdateAttribute.onMutate` now updates nested `system.isEnabled` so action visibility is correct during the optimistic period; `onSettled` forces active query refetch for system toggles to restore server sort order.
+- Fixed empty menu for platform system attributes: `renderAttributeActions` now passes pre-filtered `visibleDescriptors` to `BaseEntityMenu` to prevent divergence between outer guard check and inner menu visibility re-evaluation.
+- QA follow-up: removed unnecessary `as` type assertions for `toggleSystemEnabled` in system actions (ActionContext index signature `[key: string]: any` already covers it), removed identical-branch ternary for `searchPlaceholder`, fixed Prettier formatting in `systemAttributeSeed.test.ts`.
+- Validation: metahubs-backend 38 suites / 249 tests PASS; ApplicationBoard 13 tests PASS; MetahubBoard 13 tests PASS; queryKeys 2 tests PASS; metahubs-frontend lint 0 errors (206 warnings); metahubs-backend lint 0 errors (214 warnings); full workspace build passed 27/27 in 2m57s.
+
+## 2026-03-17 Platform System Attributes Final QA Closure Cleanup
+
+Closed the last non-functional reopen in the platform system-attributes governance wave. This pass intentionally avoided changing runtime behavior and only removed the final lint residue that the QA audit still considered open: the template-seeding formatter blocker in the backend and the introduced hook-dependency / unused-variable warnings in the frontend System-tab continuity code.
+
+| Area | Resolution |
+| --- | --- |
+| Backend lint blocker | Reformatted `TemplateSeedMigrator.ts` so the policy-aware template seeding path no longer produces an error-level lint failure in `@universo/metahubs-backend`. |
+| Frontend continuity lint debt | Stabilized the derived attribute arrays in `ElementList.tsx` with `useMemo(...)` and removed the unused `searchValue` binding, eliminating the warnings introduced by the System-tab continuity work. |
+| Targeted validation | `@universo/metahubs-backend` targeted tests passed 58/58, `@universo/metahubs-frontend` targeted tests passed 3/3, `@universo/applications-backend` targeted route tests passed 44/44, and the targeted schema-ddl suites passed. |
+| Final integration gate | `pnpm --filter @universo/metahubs-backend lint` returned to warning-only package noise, `pnpm --filter @universo/metahubs-frontend lint` no longer reports the introduced continuity warnings, `pnpm --filter @universo/applications-backend lint` passed cleanly, `pnpm --filter @universo/schema-ddl lint` remained warning-only, and the final root `pnpm build` passed with 27/27 successful tasks in 2m37.2s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-backend lint` returned 0 errors and warning-only pre-existing package noise after the `TemplateSeedMigrator.ts` cleanup.
+- `pnpm --filter @universo/metahubs-frontend lint` no longer reports the introduced `ElementList.tsx` hook-dependency or unused-variable warnings; remaining warnings are pre-existing package noise.
+- `pnpm --filter @universo/applications-backend lint` passed cleanly.
+- `pnpm --filter @universo/schema-ddl lint` remained warning-only with 0 errors.
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/MetahubAttributesService.test.ts src/tests/services/systemAttributeSeed.test.ts src/tests/routes/attributesRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/shared/platformSystemAttributesPolicy.test.ts` passed with 58/58 tests.
+- `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx src/__tests__/types.test.ts --reporter=basic` passed with 3/3 tests.
+- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts src/tests/routes/applicationSyncRoutes.test.ts` passed with 44/44 tests.
+- `pnpm --filter @universo/schema-ddl test -- src/__tests__/SchemaGenerator.test.ts src/__tests__/SchemaMigrator.test.ts` passed for both targeted suites.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m37.2s.
+
+## 2026-03-17 Platform System Attributes Policy Enforcement Reopen Closure
+
+Closed the last reopened semantic gap in the platform system-attributes governance wave. The remaining defects were both contract-level issues rather than superficial polish: existing `_upl_*` enable/disable writes still bypassed the global platform override policy, and builtin template catalog seeding still used a separate policy-blind path that could drift from interactive catalog creation/copy behavior.
+
+| Area | Resolution |
+| --- | --- |
+| Backend toggle enforcement | `MetahubAttributesService.update(...)` now resolves the global platform policy and rejects `_upl_*` system-attribute mutations when metahub-level configuration is disabled or when enforced platform defaults make the row immutable at the metahub layer. |
+| Template seeding parity | Template executor and migrator seeding now resolve the same admin policy and pass it into `ensureCatalogSystemAttributesSeed(...)`, so builtin-template repair uses the same seed-plan semantics as interactive catalog creation/copy. |
+| Frontend contract alignment | The System tab now hides enable/disable actions for `_upl_*` rows when the backend policy forbids metahub-level overrides, keeping the UI aligned with the backend mutation contract instead of offering actions that must always fail. |
+| Regression proof and validation | Added direct regressions for blocked `_upl_*` toggles and policy-aware template seeding, reran targeted backend/frontend validation, cleared the new error-level lint issues in the touched files, and confirmed the final root build with 27/27 successful tasks in 2m40.243s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/MetahubAttributesService.test.ts src/tests/services/systemAttributeSeed.test.ts src/tests/routes/attributesRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/shared/platformSystemAttributesPolicy.test.ts` passed with 58/58 tests.
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx src/__tests__/types.test.ts` passed for the touched frontend suites.
+- `pnpm --filter @universo/metahubs-backend lint` and `pnpm --filter @universo/metahubs-frontend lint` are error-free and report warning-only pre-existing package noise.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m40.243s.
+
+## 2026-03-17 Platform System Attributes QA Remediation Follow-Up Closure
+
+Closed the final QA follow-up for the platform system-attributes governance wave. The remaining issues were all real runtime-quality gaps rather than cosmetic debt: attribute mutations still acknowledged success when post-write schema sync failed, `ensureCatalogSystemAttributes(...)` could fall back to a non-transactional final read, and the new platform-policy/admin-settings seam still lacked direct regression proof.
+
+| Area | Resolution |
+| --- | --- |
+| Fail-closed mutation contract | Attribute create/copy/update/delete/display-toggle flows now route post-write schema synchronization through an explicit fail-closed helper and return structured `SCHEMA_SYNC_FAILED` responses instead of silently logging sync failures after successful writes. |
+| Transaction-safe system reads | `MetahubAttributesService.ensureCatalogSystemAttributes(...)` now keeps its final catalog system-row read on the provided transaction runner, so create/copy callers observe the same transactional view that seeded or repaired the rows. |
+| Missing seam coverage | Added direct regressions for schema-sync failure handling in attribute routes, transaction-safe ensure reads in the attributes service, platform policy/seed-plan resolution, and admin request-scoped validation/persistence for the three metahubs platform toggle keys. |
+| Validation | `@universo/metahubs-backend` targeted tests passed 54/54, `@universo/admin-backend` request-scoped route tests passed 6/6, `@universo/utils` tests passed 239/239, touched lints are now warning-only after clearing the remaining `@universo/utils` error-level formatting regressions, and the final root `pnpm build` passed with 27/27 successful tasks in 2m49.913s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/services/MetahubAttributesService.test.ts src/tests/shared/platformSystemAttributesPolicy.test.ts` passed with 54/54 tests.
+- `pnpm --filter @universo/admin-backend test -- src/tests/routes/requestScopedExecutorRoutes.test.ts` passed with 6/6 tests.
+- `pnpm --filter @universo/utils test -- src/database/__tests__/catalogSystemFields.test.ts` passed with 239/239 package tests.
+- `pnpm --filter @universo/metahubs-backend lint`, `pnpm --filter @universo/admin-backend lint`, and `pnpm --filter @universo/utils lint` are now error-free and report warning-only pre-existing package noise.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m49.913s.
+
+## 2026-03-16 Platform System Attributes Governance + System Tab UX Closure
+
+Closed the follow-up wave for platform `_upl_*` system attributes so metahub catalogs now obey a global platform policy without collapsing platform defaults into per-metahub configuration. The work covered the full seam: shared type contracts, admin settings, backend policy resolution, catalog seeding/list filtering, frontend System routing/menu behavior, and deterministic optimistic ordering.
+
+| Area | Resolution |
+| --- | --- |
+| Global governance | Added three admin `metahubs` settings: `platformSystemAttributesConfigurable` (default `false`), `platformSystemAttributesRequired` (default `true`), and `platformSystemAttributesIgnoreMetahubSettings` (default `true`), with backend validation, migration seeds, and admin frontend switches in EN/RU. |
+| Policy-aware seeding/listing | Metahubs backend now resolves platform policy from `admin.cfg_settings`, passes it into `ensureCatalogSystemAttributes(...)` on catalog create/copy flows, filters `_upl_*` rows from System responses when configuration is disabled, and returns the resolved policy in response `meta`. |
+| System tab UX | Catalog System now uses dedicated `/system` routes, Elements view routes back to `/system` instead of `attributes?tab=system`, UI wording is consistently “System attributes”, and system enable/disable menu actions use compact labels plus explicit icons. |
+| Platform toggle behavior | `_upl_*` registry rows are now configurable, platform action menus no longer render empty, and optimistic attribute updates no longer move toggled rows to the top, preserving canonical registry order. |
+| Validation | Targeted metahubs frontend/backend/shared tests passed, `@universo/types` and `@universo/utils` builds were refreshed for runtime consumers, touched package lint errors were removed, warning-only lint noise remains pre-existing in other files, and the final root `pnpm build` passed with 27/27 successful tasks in 2m52.626s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx` passed.
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx` passed for the touched frontend routing/continuity coverage.
+- `pnpm --filter @universo/utils test -- src/database/__tests__/catalogSystemFields.test.ts` passed with the updated `_upl_*` disableability contract.
+- `pnpm --filter @universo/types build` and `pnpm --filter @universo/utils build` passed so backend runtime consumers picked up the new exports and registry changes.
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/services/MetahubAttributesService.test.ts` passed.
+- `pnpm --filter @universo/admin-frontend lint`, `pnpm --filter @universo/admin-backend lint`, and `pnpm --filter @universo/metahubs-backend lint` are error-free and now report warning-only pre-existing package noise.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m52.626s.
+
+## 2026-03-16 Metahub System Attributes QA Final Remediation Closure
+
+Closed the last two real QA gaps in the metahub system-attributes initiative. The remaining issues were both functional rather than cosmetic: the System tab could not actually toggle system fields because the attribute PATCH route rejected all system-row updates too early, and catalog copy with `copyAttributes=false` silently reset disabled lifecycle fields back to default-enabled states instead of preserving the source catalog configuration.
+
+| Area | Resolution |
+| --- | --- |
+| Route-level system toggles | `PATCH /attribute/:attributeId` now special-cases system rows, accepts only guarded `isEnabled` + `expectedVersion` updates, and returns structured 409 responses for forbidden system mutations or protected platform-field disable attempts. |
+| Copy semantics | Catalog copy now reads the source system-field enabled states and passes them into canonical seeding when ordinary attributes are skipped, so copied catalogs preserve the source lifecycle contract instead of silently reverting to defaults. |
+| Regression proof | Added direct route regressions for successful system toggle, forbidden system patch payloads, protected `_upl_*` disable rejection, catalog-copy state preservation, and service-level seeded disabled-state handling. |
+| Validation | `@universo/metahubs-backend` targeted tests passed, `@universo/metahubs-backend` lint passed, the frontend System tab / Settings continuity / types regressions passed, and the final root `pnpm build` passed with 27/27 successful tasks in 3m2.158s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-backend test -- attributesRoutes.test.ts catalogsRoutes.test.ts MetahubAttributesService.test.ts SnapshotSerializer.test.ts systemAttributeSeed.test.ts` passed.
+- `pnpm --filter @universo/metahubs-backend lint` passed.
+- `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx src/__tests__/types.test.ts --reporter=basic` passed.
+- Final root `pnpm build` passed with 27/27 successful tasks in 3m2.158s.
+
+## 2026-03-16 Metahub System Attributes + Migration Hardening QA Reopen Closure
+
+Closed the last reopened gap in the metahub system-attributes initiative after QA found that catalog copy could bypass canonical system-row seeding. The fix keeps the implementation aligned with the original plan requirement that every new catalog starts with managed lifecycle system attributes, while also clearing the error-level lint regressions that had accumulated in the touched runtime/schema/metahubs/frontend files.
+
+| Area | Resolution |
+| --- | --- |
+| Catalog copy invariant | The copy route now calls the shared `ensureCatalogSystemAttributes(...)` helper inside the copy transaction, so copied catalogs always finish with canonical managed system rows even when `copyAttributes` is false. |
+| Regression proof | `catalogsRoutes.test.ts` now asserts shared system seeding for copy-without-attributes and keeps the duplicate-codename retry behavior covered. |
+| Lint cleanup | Removed the reopened error-level lint regressions in `applicationsRoutes.ts`, `applicationsRoutes.test.ts`, `SchemaGenerator.ts`, and the touched metahubs/frontend feature files/tests that surfaced during final package lint validation. |
+| Validation | Targeted metahubs/application/schema/frontend regressions passed, touched lint checks no longer reported error-level failures, and the final root `pnpm build` passed with 27/27 successful tasks in 2m52.165s. |
+
+Validation:
+
+- `pnpm --filter @universo/metahubs-backend test -- catalogsRoutes.test.ts` passed.
+- `pnpm --filter @universo/metahubs-backend test -- SnapshotSerializer.test.ts systemAttributeSeed.test.ts MetahubObjectsService.test.ts` passed.
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` passed.
+- `pnpm --filter @universo/schema-ddl test -- SchemaGenerator.test.ts` passed.
+- `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx src/__tests__/types.test.ts --reporter=basic` passed.
+- Error-level lint failures were cleared from the touched metahubs/application/schema/frontend files validated during this reopen wave.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m52.165s.
+
+## 2026-03-16 Metahub System Attributes + Migration Hardening Final QA Remediation Closure
+
+Closed the second remediation pass for the metahub system-attributes initiative after the QA audit disproved the earlier closure state. The remaining gap was not cosmetic: the backend could persist invalid lifecycle toggle combinations, the shared helper surface did not advertise nested-partial lifecycle inputs explicitly, runtime/schema branches still lacked direct regression proof, and browser consumers were missing one shared export needed by the final frontend bundle.
+
+| Area | Resolution |
+| --- | --- |
+| Write-time lifecycle integrity | `MetahubAttributesService.update(...)` now applies system toggle changes inside one transaction, cascades dependency changes before persistence, rejects protected `_upl_*` disable attempts, and preserves optimistic-lock behavior for the toggled row. |
+| Shared contract cleanup | `@universo/types` now exports `ApplicationLifecycleContractInput`, `@universo/utils` consumes that nested-partial input explicitly, and the browser entrypoint re-exports the catalog system-field helpers needed by frontend bundles. |
+| Missing regression proof | Added direct metahubs service tests for protected/cascading system toggles, applications-backend route tests for hard-delete vs selective `_app_deleted_*` behavior, and schema-ddl tests proving contract-driven lifecycle column generation. |
+| Frontend/system UX hardening | The System tab no longer exposes disable actions for non-disableable system rows, aligning the UI with the canonical `canDisable` contract instead of relying on backend rejection alone. |
+| Validation | `pnpm --filter @universo/utils test` passed, `pnpm --filter @universo/metahubs-backend test -- MetahubAttributesService.test.ts` passed, `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` passed, `pnpm --filter @universo/schema-ddl test -- SchemaGenerator.test.ts` passed, `pnpm --filter @universo/metahubs-frontend lint` passed, `pnpm --filter @universo/metahubs-backend build` passed, and the final root `pnpm build` passed with 27/27 successful tasks in 3m11.586s. |
+
+Validation:
+
+- `pnpm --filter @universo/utils test` passed with 239/239 tests.
+- `pnpm --filter @universo/metahubs-backend test -- MetahubAttributesService.test.ts` passed.
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` passed.
+- `pnpm --filter @universo/schema-ddl test -- SchemaGenerator.test.ts` passed.
+- `pnpm --filter @universo/metahubs-frontend lint` passed.
+- `pnpm --filter @universo/metahubs-backend build` passed.
+- Final root `pnpm build` passed with 27/27 successful tasks in 3m11.586s.
+
+## 2026-03-16 Metahub System Attributes + Migration Hardening QA Remediation Closure
+
+Closed the follow-up remediation wave that reopened this feature after QA found a real backend defect, incomplete regression proof, duplicated seed orchestration, missing reserved-codename protection, and overstated memory-bank completion status. The feature is now re-closed with direct proof for the backend and frontend seams that were previously under-covered.
+
+| Area | Resolution |
+| --- | --- |
+| Backend correctness hardening | Fixed the `MetahubAttributesService.getAllAttributes()` callback-binding defect, added reserved managed-system codename protection for business attributes, blocked copying system attributes, and normalized route-level 409 handling for reserved system codenames. |
+| Shared seed orchestration | Moved canonical system-attribute seed-record generation into `@universo/utils` so `MetahubAttributesService` and template seeding now repair/seed the same lifecycle rows without drift. |
+| Backend regression proof | Added/expanded regressions for shared system-field registry helpers, reserved business codenames, catalog seeding, template repair behavior, and snapshot `systemFields` serialization/runtime propagation. |
+| Frontend direct UI proof | Added explicit UI regressions for the System tab and Settings continuity flow, then hardened the tests with partial shared-package mocks so transitive exports remain available during isolated component mounting. |
+| Validation and status sync | `@universo/utils` tests passed 239/239; `@universo/metahubs-backend` tests passed 234/234 with 3 expected skips; `@universo/metahubs-frontend` tests passed 147/147; targeted builds passed for `@universo/utils`, `@universo/metahubs-backend`, and `@universo/metahubs-frontend`; final root `pnpm build` passed with 27/27 successful tasks in 2m54.865s. |
+
+Validation:
+
+- `pnpm --filter @universo/utils test` passed with 239/239 tests.
+- `pnpm --filter @universo/metahubs-backend test` passed with 234/234 tests and 3 expected skips.
+- `pnpm --filter @universo/metahubs-frontend test` passed with 147/147 tests.
+- `pnpm --filter @universo/utils build` passed.
+- `pnpm --filter @universo/metahubs-backend build` passed.
+- `pnpm --filter @universo/metahubs-frontend build` passed.
+- Final root `pnpm build` passed with 27/27 successful tasks in 2m54.865s.
+
+## 2026-03-16 Metahub System Attributes + Migration Hardening IMPLEMENTED
+
+Completed the full implementation wave for configurable metahub catalog lifecycle system attributes, runtime lifecycle-contract propagation, and the metahubs frontend System tab UX. The feature now spans shared contracts, metahubs persistence and template seeding, publication/runtime metadata propagation, lifecycle-aware runtime CRUD/sync behavior, and the requested `Attributes -> System -> Elements -> Settings` navigation flow.
+
+| Area | Resolution |
+| --- | --- |
+| Shared contracts and helpers | Added canonical catalog system-field metadata/types in `@universo/types` and shared registry/helper logic in `@universo/utils`, reusing the existing low-level system field constants rather than duplicating raw names. |
+| Metahubs backend hardening | `_mhb_attributes` now stores explicit system-row metadata, new catalogs/templates seed the canonical `_app_*` and `_upl_*` rows, generic business attribute APIs exclude system rows by default, and protected mutations reject delete/reorder/move/structural edits while still allowing enable/disable toggles. |
+| Snapshot/runtime propagation | Publication serialization now emits dedicated `systemFields` metadata outside ordinary business `fields`, runtime application config persists the resolved lifecycle contract, and schema-ddl wiring plus runtime CRUD/sync flows consume that contract without changing `snapshotFormatVersion`. |
+| Frontend System UX | `@universo/metahubs-frontend` now exposes a query-param System view with `scope=system` loading, scope-aware query keys, system metadata preservation in frontend types, localized enable/disable actions and success messages, visible physical type/status rendering, and Settings continuity from both Attributes and Elements views. |
+| Final validation and late compile fixes | Final root validation surfaced three compile-only regressions that were fixed before closure: missing runtime lifecycle predicate declarations in `applicationsRoutes.ts`, a missing `attributesService` destructure in the hub-scoped catalog create route, and broad `system_key` typing in `MetahubAttributesService` that now normalizes through the canonical registry. |
+
+Validation:
+
+- Touched frontend files reported no editor diagnostics.
+- Changed frontend files reached targeted eslint status of 0 errors and warning-only noise in pre-existing `ElementList.tsx` areas.
+- `pnpm --filter @universo/metahubs-frontend build` passed.
+- `pnpm --filter @universo/applications-backend build` passed.
+- `pnpm --filter @universo/metahubs-backend build` passed.
+- Final root `pnpm build` passed with 27/27 successful tasks in 3m12.818s.
+
+## 2026-03-16 Metahub System Attributes + Migration Hardening Planning Complete
+
+Completed the requested deep planning pass for configurable metahub catalog lifecycle system attributes and the related runtime migration hardening. This was a planning/documentation milestone rather than an implementation wave: the codebase, external references, and live UP-test schema were audited to produce a repository-specific execution plan with explicit sequencing, safety rules, performance constraints, and a full test matrix.
+
+| Area | Resolution |
+| --- | --- |
+| Cross-package audit | Verified the affected seams across `@universo/metahubs-backend`, `@universo/metahubs-frontend`, `@universo/schema-ddl`, `@universo/applications-backend`, builtin templates, shared i18n/types/utils packages, and the catalog tab UX surface. |
+| Critical architecture finding | Confirmed that runtime `_app_*` lifecycle fields are currently hardcoded in schema generation and also assumed directly by runtime sync and CRUD routes, so the final implementation must introduce an explicit lifecycle-contract/delete-strategy layer instead of relying on column existence or UI-only toggles. |
+| Planning decision | Recommended a safe scope cut: make publish/archive/delete lifecycle families configurable per catalog while keeping owner/access and baseline audit infrastructure fixed for wave 1. |
+| Propagation model | Locked the publication snapshot as the required seam for carrying catalog system-field metadata into runtime application generation, release bundles, and CRUD/sync behavior. |
+| UX direction | Captured the requested catalog tab order `Attributes -> System -> Elements -> Settings`, persistent Settings visibility, and toggle-only management for system rows with localized RU/EN labels and visible type information. |
+| QA-refined planning artifact | Added and then refined `memory-bank/plan/metahub-system-attributes-migration-hardening-plan-2026-03-16.md`, which now explicitly requires reuse of the existing shared system-field contract, `_mhb_attributes`-based persistence, template migrator/cleanup coverage, backend reorder/move guards for system rows, reuse of existing metahub list/dialog/query-key patterns, and strict isolation of system rows from ordinary attribute lists, element forms, generic snapshot fields, and runtime business-field metadata. |
+
+Validation:
+
+- This planning wave did not change runtime code, so no package build/test rerun was required.
+- The completed deliverable is the discussion-ready plan plus synchronized memory-bank context.
+
 ## 2026-03-16 Start System App — PR Review Follow-Up Closure
 
 Closed the first PR review wave for the onboarding system-app refactor by validating every bot comment against the repository contracts before changing code. The accepted fixes were kept narrow so they closed real correctness gaps without reopening the already-resolved bootstrap and onboarding-flow work.

@@ -29,6 +29,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY, PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS } from '@universo/types'
 
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
@@ -48,6 +49,9 @@ interface MetahubDefaults {
     codenameAllowMixedAlphabets: boolean
     codenameAutoConvertMixedAlphabets: boolean
     codenameLocalizedEnabled: boolean
+    platformSystemAttributesConfigurable: boolean
+    platformSystemAttributesRequired: boolean
+    platformSystemAttributesIgnoreMetahubSettings: boolean
 }
 
 const DEFAULT_METAHUB_SETTINGS: MetahubDefaults = {
@@ -55,7 +59,10 @@ const DEFAULT_METAHUB_SETTINGS: MetahubDefaults = {
     codenameAlphabet: 'en-ru',
     codenameAllowMixedAlphabets: false,
     codenameAutoConvertMixedAlphabets: true,
-    codenameLocalizedEnabled: false
+    codenameLocalizedEnabled: false,
+    platformSystemAttributesConfigurable: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.allowConfiguration,
+    platformSystemAttributesRequired: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.forceCreate,
+    platformSystemAttributesIgnoreMetahubSettings: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.ignoreMetahubSettings
 }
 
 interface CodenamePreviewProps {
@@ -186,6 +193,9 @@ const AdminSettings = () => {
     const effectiveAllowMixed = getEffective('codenameAllowMixedAlphabets')
     const effectiveAutoConvertMixed = getEffective('codenameAutoConvertMixedAlphabets')
     const effectiveLocalizedEnabled = getEffective('codenameLocalizedEnabled')
+    const effectivePlatformSystemAttributesConfigurable = getEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration)
+    const effectivePlatformSystemAttributesRequired = getEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate)
+    const effectivePlatformSystemAttributesIgnoreMetahubSettings = getEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings)
 
     return (
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
@@ -330,6 +340,75 @@ const AdminSettings = () => {
                                             <Switch
                                                 checked={effectiveLocalizedEnabled}
                                                 onChange={(e) => handleChange('codenameLocalizedEnabled', e.target.checked)}
+                                            />
+                                        }
+                                        label=''
+                                    />
+                                </Box>
+
+                                <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>
+                                            {t('settings.metahubs.platformSystemAttributesConfigurable')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.metahubs.platformSystemAttributesConfigurableDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={effectivePlatformSystemAttributesConfigurable}
+                                                onChange={(e) =>
+                                                    handleChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration, e.target.checked)
+                                                }
+                                            />
+                                        }
+                                        label=''
+                                    />
+                                </Box>
+
+                                <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>
+                                            {t('settings.metahubs.platformSystemAttributesRequired')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.metahubs.platformSystemAttributesRequiredDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={effectivePlatformSystemAttributesRequired}
+                                                onChange={(e) =>
+                                                    handleChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate, e.target.checked)
+                                                }
+                                            />
+                                        }
+                                        label=''
+                                    />
+                                </Box>
+
+                                <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>
+                                            {t('settings.metahubs.platformSystemAttributesIgnoreMetahubSettings')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.metahubs.platformSystemAttributesIgnoreMetahubSettingsDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={effectivePlatformSystemAttributesIgnoreMetahubSettings}
+                                                onChange={(e) =>
+                                                    handleChange(
+                                                        PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings,
+                                                        e.target.checked
+                                                    )
+                                                }
                                             />
                                         }
                                         label=''

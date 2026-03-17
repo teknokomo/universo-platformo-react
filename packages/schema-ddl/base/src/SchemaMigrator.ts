@@ -388,7 +388,7 @@ export class SchemaMigrator {
                 if (!tableField) throw new Error(`TABLE field ${change.fieldId} not found`)
                 const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
                 const parentTableName = resolveEntityTableName(entity)
-                await this.generator.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
+                await this.generator.createTabularTable(schemaName, entity, parentTableName, tableField, childFields, trx)
                 break
             }
 

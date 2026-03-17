@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import StarIcon from '@mui/icons-material/Star'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -24,7 +26,7 @@ import {
     useConfirm,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
-import type { ActionDescriptor } from '@universo/template-mui'
+import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
@@ -42,7 +44,12 @@ import {
 import * as attributesApi from '../api'
 import { getCatalogById } from '../../catalogs'
 import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
-import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
+import {
+    DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY,
+    type MetaEntityKind,
+    type PlatformSystemAttributesPolicy,
+    type VersionedLocalizedContent
+} from '@universo/types'
 import {
     Attribute,
     AttributeDisplay,
@@ -60,6 +67,7 @@ import {
     PaginatedResponse
 } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { getCatalogSystemFieldDefinition } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import attributeActions from './AttributeActions'
@@ -98,6 +106,8 @@ type ConfirmSpec = {
     cancelButtonName?: string
     interpolate?: Record<string, unknown>
 }
+
+type CatalogTab = 'attributes' | 'system' | 'elements' | 'settings'
 
 const extractResponseData = (error: unknown): Record<string, unknown> | null => {
     if (!error || typeof error !== 'object' || !('response' in error)) return null
@@ -232,12 +242,19 @@ const DndDropTarget: React.FC<{
 
 const AttributeListContent = () => {
     const navigate = useNavigate()
+    const location = useLocation()
+    const [searchParams] = useSearchParams()
     const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
+    const requestedCatalogTab = searchParams.get('tab')
+    const isDedicatedSystemRoute = location.pathname.endsWith('/system')
+    const activeCatalogTab: Extract<CatalogTab, 'attributes' | 'system'> =
+        isDedicatedSystemRoute || requestedCatalogTab === 'system' ? 'system' : 'attributes'
+    const isSystemView = activeCatalogTab === 'system'
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const attributeCodenameScope = useSettingValue<string>('catalogs.attributeCodenameScope') ?? 'per-level'
@@ -245,6 +262,27 @@ const AttributeListContent = () => {
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [expandedTableIds, setExpandedTableIds] = useState<Set<string>>(new Set())
     const updateCatalogMutation = useUpdateCatalogAtMetahub()
+
+    const buildCatalogTabPath = useCallback(
+        (tab: Extract<CatalogTab, 'attributes' | 'system' | 'elements'>) => {
+            if (!metahubId || !catalogId) return ''
+            const suffix = tab === 'system' ? 'system' : tab
+            if (hubIdParam) {
+                return `/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/${suffix}`
+            }
+            return `/metahub/${metahubId}/catalog/${catalogId}/${suffix}`
+        },
+        [catalogId, hubIdParam, metahubId]
+    )
+
+    useEffect(() => {
+        if (!metahubId || !catalogId) return
+        if (requestedCatalogTab !== 'system' || isDedicatedSystemRoute) return
+        const nextPath = buildCatalogTabPath('system')
+        if (nextPath) {
+            navigate(nextPath, { replace: true })
+        }
+    }, [buildCatalogTabPath, catalogId, isDedicatedSystemRoute, metahubId, navigate, requestedCatalogTab])
 
     // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
     // Resolve a stable hubId from the catalog's hub associations.
@@ -303,9 +341,14 @@ const AttributeListContent = () => {
                       effectiveHubId
                           ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, {
                                 ...params,
-                                locale: i18n.language
+                                locale: i18n.language,
+                                scope: isSystemView ? 'system' : undefined
                             })
-                          : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { ...params, locale: i18n.language })
+                          : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, {
+                                ...params,
+                                locale: i18n.language,
+                                scope: isSystemView ? 'system' : undefined
+                            })
                 : () => ['empty'],
         queryFn:
             metahubId && catalogId
@@ -313,32 +356,46 @@ const AttributeListContent = () => {
                       effectiveHubId
                           ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, {
                                 ...params,
-                                locale: i18n.language
+                                locale: i18n.language,
+                                scope: isSystemView ? 'system' : undefined
                             })
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, { ...params, locale: i18n.language })
+                          : attributesApi.listAttributesDirect(metahubId, catalogId, {
+                                ...params,
+                                locale: i18n.language,
+                                scope: isSystemView ? 'system' : undefined
+                            })
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
         sortOrder: 'asc',
-        enabled: canLoadAttributes
+        enabled: canLoadAttributes,
+        keepPreviousDataOnQueryKeyChange: false
     })
 
     const { data: attributes, isLoading, error } = paginationResult
     // usePaginated already extracts items array, so data IS the array
 
+    useEffect(() => {
+        paginationResult.actions.goToPage(1)
+        setExpandedTableIds(new Set())
+    }, [activeCatalogTab, catalogId, paginationResult.actions])
+
     const isGlobalScope = attributeCodenameScope === 'global'
     const { data: globalCodenamesData } = useQuery({
         queryKey: metahubsQueryKeys.allAttributeCodenames(metahubId ?? '', catalogId ?? ''),
         queryFn: () => attributesApi.listAllAttributeCodenames(metahubId ?? '', catalogId ?? ''),
-        enabled: isGlobalScope && !!metahubId && !!catalogId
+        enabled: !isSystemView && isGlobalScope && !!metahubId && !!catalogId
     })
 
     const codenameEntities = useMemo(() => {
+        if (isSystemView) {
+            return []
+        }
         if (isGlobalScope && globalCodenamesData?.items) {
             return globalCodenamesData.items
         }
         return attributes ?? []
-    }, [attributes, globalCodenamesData?.items, isGlobalScope])
+    }, [attributes, globalCodenamesData?.items, isGlobalScope, isSystemView])
 
     const attributesMeta = paginationResult.meta as
         | {
@@ -346,8 +403,10 @@ const AttributeListContent = () => {
               limit?: number
               limitReached?: boolean
               childSearchMatchParentIds?: string[]
+              platformSystemAttributesPolicy?: PlatformSystemAttributesPolicy
           }
         | undefined
+    const platformSystemAttributesPolicy = attributesMeta?.platformSystemAttributesPolicy ?? DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY
     const limitValue = attributesMeta?.limit ?? attributesLimit
     const totalAttributes = attributesMeta?.totalAll ?? paginationResult.pagination.totalItems
     const limitReached = attributesMeta?.limitReached ?? totalAttributes >= limitValue
@@ -406,6 +465,52 @@ const AttributeListContent = () => {
         if (!Array.isArray(attributes)) return new Map<string, Attribute>()
         return new Map(attributes.map((attr) => [attr.id, attr]))
     }, [attributes])
+
+    const systemAttributeActions = useMemo<ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[]>(
+        () => [
+            {
+                id: 'disable-system-field',
+                labelKey: 'attributes.actions.disableSystemField',
+                icon: <RadioButtonUncheckedIcon fontSize='small' />,
+                order: 10,
+                visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+                    const current = attributeMap.get(ctx.entity.id)
+                    const systemKey = current?.system?.systemKey ?? ctx.entity.system?.systemKey ?? null
+                    const definition = systemKey ? getCatalogSystemFieldDefinition(systemKey) : null
+                    const isBlockedPlatformToggle = definition?.layer === 'upl' && !platformSystemAttributesPolicy.allowConfiguration
+                    return (
+                        (current?.system?.isEnabled ?? ctx.entity.system?.isEnabled ?? true) === true &&
+                        definition?.canDisable !== false &&
+                        !isBlockedPlatformToggle
+                    )
+                },
+                onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+                    if (typeof ctx.toggleSystemEnabled === 'function') {
+                        await ctx.toggleSystemEnabled(ctx.entity.id, false)
+                    }
+                }
+            },
+            {
+                id: 'enable-system-field',
+                labelKey: 'attributes.actions.enableSystemField',
+                icon: <CheckCircleOutlineIcon fontSize='small' />,
+                order: 11,
+                visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+                    const current = attributeMap.get(ctx.entity.id)
+                    const systemKey = current?.system?.systemKey ?? ctx.entity.system?.systemKey ?? null
+                    const definition = systemKey ? getCatalogSystemFieldDefinition(systemKey) : null
+                    const isBlockedPlatformToggle = definition?.layer === 'upl' && !platformSystemAttributesPolicy.allowConfiguration
+                    return (current?.system?.isEnabled ?? ctx.entity.system?.isEnabled ?? true) === false && !isBlockedPlatformToggle
+                },
+                onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+                    if (typeof ctx.toggleSystemEnabled === 'function') {
+                        await ctx.toggleSystemEnabled(ctx.entity.id, true)
+                    }
+                }
+            }
+        ],
+        [attributeMap, platformSystemAttributesPolicy.allowConfiguration]
+    )
 
     const handlePendingAttributeInteraction = useCallback(
         (attributeId: string) => {
@@ -777,8 +882,8 @@ const AttributeListContent = () => {
         [i18n.language, t, tc, metahubId, catalogId, attributes?.length]
     )
 
-    const attributeColumns = useMemo(
-        () => [
+    const attributeColumns = useMemo(() => {
+        const columns = [
             {
                 id: 'sortOrder',
                 label: t('attributes.table.order', '#'),
@@ -793,36 +898,44 @@ const AttributeListContent = () => {
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '35%',
+                width: isSystemView ? '30%' : '35%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: AttributeDisplay) => row.name || '',
                 render: (row: AttributeDisplay) => {
                     const rawAttribute = attributeMap.get(row.id)
                     const isDisplayAttr = rawAttribute?.isDisplayAttribute ?? row.isDisplayAttribute ?? false
+                    const systemMetadata = rawAttribute?.system ?? row.system ?? null
                     return (
-                        <Stack direction='row' spacing={0.5} alignItems='center'>
-                            {isDisplayAttr && (
-                                <Tooltip
-                                    title={t(
-                                        'attributes.isDisplayAttributeTooltip',
-                                        'This attribute is the display representation for this catalog'
-                                    )}
-                                    arrow
-                                    placement='top'
+                        <Stack spacing={0.25}>
+                            <Stack direction='row' spacing={0.5} alignItems='center'>
+                                {isDisplayAttr && (
+                                    <Tooltip
+                                        title={t(
+                                            'attributes.isDisplayAttributeTooltip',
+                                            'This attribute is the display representation for this catalog'
+                                        )}
+                                        arrow
+                                        placement='top'
+                                    >
+                                        <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    </Tooltip>
+                                )}
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                        wordBreak: 'break-word'
+                                    }}
                                 >
-                                    <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                </Tooltip>
+                                    {row.name || '—'}
+                                </Typography>
+                            </Stack>
+                            {isSystemView && systemMetadata?.systemKey && (
+                                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                                    {t('attributes.system.keyLabel', 'System key')}: {systemMetadata.systemKey}
+                                </Typography>
                             )}
-                            <Typography
-                                sx={{
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    wordBreak: 'break-word'
-                                }}
-                            >
-                                {row.name || '—'}
-                            </Typography>
                         </Stack>
                     )
                 }
@@ -830,7 +943,7 @@ const AttributeListContent = () => {
             {
                 id: 'codename',
                 label: t('attributes.codename', 'Codename'),
-                width: '20%',
+                width: isSystemView ? '18%' : '20%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: AttributeDisplay) => row.codename || '',
@@ -850,7 +963,7 @@ const AttributeListContent = () => {
             {
                 id: 'dataType',
                 label: t('attributes.dataType', 'Type'),
-                width: '17%',
+                width: isSystemView ? '24%' : '17%',
                 align: 'center' as const,
                 render: (row: AttributeDisplay) => {
                     const rules = row.validationRules as AttributeValidationRules | undefined
@@ -861,16 +974,43 @@ const AttributeListContent = () => {
                     const tooltipTitle = t('attributes.physicalType.tooltip', 'PostgreSQL: {{type}}', { type: physicalTypeStr })
                     return (
                         <Tooltip title={tooltipTitle} arrow placement='top'>
-                            <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' sx={{ cursor: 'help' }}>
-                                <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
-                                {hasVersioned && <Chip label='V' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
-                                {hasLocalized && <Chip label='L' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                            <Stack spacing={0.4} justifyContent='center' alignItems='center' sx={{ cursor: 'help' }}>
+                                <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center'>
+                                    <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
+                                    {hasVersioned && <Chip label='V' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                                    {hasLocalized && <Chip label='L' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                                </Stack>
+                                <Typography sx={{ fontSize: 11, color: 'text.secondary', textAlign: 'center' }}>
+                                    {physicalTypeStr}
+                                </Typography>
                             </Stack>
                         </Tooltip>
                     )
                 }
-            },
-            {
+            }
+        ]
+
+        if (isSystemView) {
+            columns.push({
+                id: 'systemStatus',
+                label: t('attributes.system.status', 'Status'),
+                width: '12%',
+                align: 'center' as const,
+                render: (row: AttributeDisplay) => {
+                    const rawAttribute = attributeMap.get(row.id)
+                    const isEnabled = rawAttribute?.system?.isEnabled ?? row.system?.isEnabled ?? true
+                    return (
+                        <Chip
+                            label={isEnabled ? t('attributes.system.enabled', 'Enabled') : t('attributes.system.disabled', 'Disabled')}
+                            size='small'
+                            variant='outlined'
+                            color={isEnabled ? 'success' : 'default'}
+                        />
+                    )
+                }
+            })
+        } else {
+            columns.push({
                 id: 'isRequired',
                 label: t('attributes.required', 'Required'),
                 width: '15%',
@@ -883,10 +1023,11 @@ const AttributeListContent = () => {
                         color={row.isRequired ? 'error' : 'default'}
                     />
                 )
-            }
-        ],
-        [attributeMap, t, tc]
-    )
+            })
+        }
+
+        return columns
+    }, [attributeMap, isSystemView, t, tc])
 
     const createAttributeContext = useCallback(
         (baseContext: ActionBaseContext) => ({
@@ -1021,6 +1162,20 @@ const AttributeListContent = () => {
                     queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
                 }
             },
+            toggleSystemEnabled: async (id: string, isEnabled: boolean) => {
+                if (!metahubId || !catalogId) return
+                const attribute = attributeMap.get(id)
+                await updateAttributeMutation.mutateAsync({
+                    metahubId,
+                    hubId: effectiveHubId,
+                    catalogId,
+                    attributeId: id,
+                    data: {
+                        isEnabled,
+                        expectedVersion: attribute?.version
+                    }
+                })
+            },
             helpers: {
                 refreshList: () => {
                     if (metahubId && catalogId) {
@@ -1140,18 +1295,17 @@ const AttributeListContent = () => {
         setDialogOpen(false)
     }
 
-    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements' | 'settings') => {
+    const handleCatalogTabChange = (_event: unknown, nextTab: CatalogTab) => {
         if (!metahubId || !catalogId) return
         if (nextTab === 'settings') {
             setEditDialogOpen(true)
             return
         }
-        if (nextTab === 'attributes') return
-        if (hubIdParam) {
-            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/elements`)
+        if (nextTab === 'attributes' || nextTab === 'system') {
+            navigate(buildCatalogTabPath(nextTab))
             return
         }
-        navigate(`/metahub/${metahubId}/catalog/${catalogId}/elements`)
+        navigate(buildCatalogTabPath('elements'))
     }
 
     const handleCreateAttribute = (data: GenericFormValues) => {
@@ -1195,6 +1349,66 @@ const AttributeListContent = () => {
         })
     }
 
+    const renderAttributeActions = (row: AttributeDisplay) => {
+        const originalAttribute = attributes.find((a) => a.id === row.id)
+        if (!originalAttribute) return null
+
+        const displayEntity = toAttributeDisplay(originalAttribute, i18n.language)
+        const descriptors: ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = isSystemView
+            ? systemAttributeActions
+            : [...attributeActions]
+        const actionContext = createAttributeContext({
+            entity: displayEntity,
+            entityKind: 'attribute',
+            t
+        })
+        const visibleDescriptors = descriptors.filter(
+            (descriptor) =>
+                (!descriptor.entityKinds || descriptor.entityKinds.includes('attribute')) &&
+                (!descriptor.visible || descriptor.visible(actionContext))
+        )
+
+        return (
+            <Stack direction='row' spacing={0} alignItems='center'>
+                {!isSystemView && row.dataType === 'TABLE' && (
+                    <IconButton
+                        size='small'
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setExpandedTableIds((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(row.id)) {
+                                    next.delete(row.id)
+                                } else {
+                                    next.add(row.id)
+                                }
+                                return next
+                            })
+                        }}
+                        sx={{ width: 28, height: 28, p: 0.5 }}
+                    >
+                        {expandedTableIds.has(row.id) ? (
+                            <KeyboardArrowUpIcon fontSize='small' />
+                        ) : (
+                            <KeyboardArrowDownIcon fontSize='small' />
+                        )}
+                    </IconButton>
+                )}
+                {visibleDescriptors.length > 0 && (
+                    <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
+                        entity={displayEntity}
+                        entityKind='attribute'
+                        descriptors={visibleDescriptors}
+                        namespace='metahubs'
+                        menuButtonLabelKey='flowList:menu.button'
+                        i18nInstance={i18n}
+                        createContext={createAttributeContext}
+                    />
+                )}
+            </Stack>
+        )
+    }
+
     // Transform Attribute data for table display
     const getAttributeTableData = (attr: Attribute): AttributeDisplay => toAttributeDisplay(attr, i18n.language)
 
@@ -1226,21 +1440,25 @@ const AttributeListContent = () => {
                                 search={true}
                                 searchPlaceholder={t('attributes.searchPlaceholder')}
                                 onSearchChange={handleSearchChange}
-                                title={t('attributes.title')}
+                                title={isSystemView ? t('attributes.system.title', 'System Attributes') : t('attributes.title')}
                             >
                                 <ToolbarControls
-                                    primaryAction={{
-                                        label: tc('create'),
-                                        onClick: handleAddNew,
-                                        startIcon: <AddRoundedIcon />,
-                                        disabled: limitReached
-                                    }}
+                                    primaryAction={
+                                        isSystemView
+                                            ? undefined
+                                            : {
+                                                  label: tc('create'),
+                                                  onClick: handleAddNew,
+                                                  startIcon: <AddRoundedIcon />,
+                                                  disabled: limitReached
+                                              }
+                                    }
                                 />
                             </ViewHeader>
 
                             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                                 <Tabs
-                                    value='attributes'
+                                    value={activeCatalogTab}
                                     onChange={handleCatalogTabChange}
                                     aria-label={t('catalogs.title', 'Catalogs')}
                                     textColor='primary'
@@ -1254,12 +1472,30 @@ const AttributeListContent = () => {
                                     }}
                                 >
                                     <Tab value='attributes' label={t('attributes.title')} />
+                                    <Tab value='system' label={t('attributes.tabs.system', 'System')} />
                                     <Tab value='elements' label={t('elements.title')} />
                                     <Tab value='settings' label={t('settings.title')} />
                                 </Tabs>
                             </Box>
 
-                            {limitReached && (
+                            {isSystemView && (
+                                <Alert
+                                    severity='info'
+                                    icon={<InfoIcon />}
+                                    sx={{
+                                        mx: { xs: -1.5, md: -2 },
+                                        mt: 0,
+                                        mb: 2
+                                    }}
+                                >
+                                    {t(
+                                        'attributes.system.hint',
+                                        'System attributes are managed by the platform. You can only enable or disable supported attributes.'
+                                    )}
+                                </Alert>
+                            )}
+
+                            {!isSystemView && limitReached && (
                                 <Alert
                                     severity='info'
                                     icon={<InfoIcon />}
@@ -1279,169 +1515,140 @@ const AttributeListContent = () => {
                                 <EmptyListState
                                     image={APIEmptySVG}
                                     imageAlt='No attributes'
-                                    title={t('attributes.empty')}
-                                    description={t('attributes.emptyDescription')}
+                                    title={isSystemView ? t('attributes.system.empty', 'No system attributes') : t('attributes.empty')}
+                                    description={
+                                        isSystemView
+                                            ? t('attributes.system.emptyDescription', 'This catalog has no configurable system attributes.')
+                                            : t('attributes.emptyDescription')
+                                    }
                                 />
                             ) : (
                                 <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    <AttributeDndProvider
-                                        rootItems={attributes}
-                                        allowCrossListRootChildren={allowCrossListRootChildren}
-                                        allowCrossListBetweenChildren={allowCrossListBetweenChildren}
-                                        onReorder={handleReorder}
-                                        onValidateTransfer={handleValidateTransfer}
-                                        uiLocale={i18n.language}
-                                    >
-                                        <DndDropTarget containerId='root'>
-                                            {({ isDropTarget, pendingTransfer: pt, activeAttribute: activeAttr }) => {
-                                                // Compute effective data/IDs for ghost row rendering
-                                                const baseData = attributes.map(getAttributeTableData)
-                                                const baseIds = attributes.map((a) => a.id)
-                                                let effectiveData = baseData
-                                                let effectiveIds = baseIds
+                                    {isSystemView ? (
+                                        <FlowListTable<AttributeDisplay>
+                                            data={attributes.map(getAttributeTableData)}
+                                            customColumns={attributeColumns}
+                                            sortStateId='catalog-system-attributes'
+                                            initialOrder='asc'
+                                            initialOrderBy='sortOrder'
+                                            onPendingInteractionAttempt={(row: AttributeDisplay) =>
+                                                handlePendingAttributeInteraction(row.id)
+                                            }
+                                            renderActions={renderAttributeActions}
+                                        />
+                                    ) : (
+                                        <AttributeDndProvider
+                                            rootItems={attributes}
+                                            allowCrossListRootChildren={allowCrossListRootChildren}
+                                            allowCrossListBetweenChildren={allowCrossListBetweenChildren}
+                                            onReorder={handleReorder}
+                                            onValidateTransfer={handleValidateTransfer}
+                                            uiLocale={i18n.language}
+                                        >
+                                            <DndDropTarget containerId='root'>
+                                                {({ isDropTarget, pendingTransfer: pt, activeAttribute: activeAttr }) => {
+                                                    const baseData = attributes.map(getAttributeTableData)
+                                                    const baseIds = attributes.map((a) => a.id)
+                                                    let effectiveData = baseData
+                                                    let effectiveIds = baseIds
 
-                                                if (pt) {
-                                                    if (pt.fromContainerId === 'root') {
-                                                        // Source container: hide the dragged item
-                                                        effectiveData = baseData.filter((d) => d.id !== pt.itemId)
-                                                        effectiveIds = baseIds.filter((id) => id !== pt.itemId)
-                                                    } else if (pt.toContainerId === 'root' && activeAttr) {
-                                                        // Target container: inject ghost at insertion point
-                                                        const ghost = toAttributeDisplay(activeAttr, i18n.language)
-                                                        const insertAt = Math.min(pt.insertIndex, baseData.length)
-                                                        effectiveData = [...baseData.slice(0, insertAt), ghost, ...baseData.slice(insertAt)]
-                                                        effectiveIds = [
-                                                            ...baseIds.slice(0, insertAt),
-                                                            pt.itemId,
-                                                            ...baseIds.slice(insertAt)
-                                                        ]
-                                                    }
-                                                }
-
-                                                return (
-                                                    <FlowListTable<AttributeDisplay>
-                                                        data={effectiveData}
-                                                        customColumns={attributeColumns}
-                                                        onPendingInteractionAttempt={(row: AttributeDisplay) =>
-                                                            handlePendingAttributeInteraction(row.id)
+                                                    if (pt) {
+                                                        if (pt.fromContainerId === 'root') {
+                                                            effectiveData = baseData.filter((d) => d.id !== pt.itemId)
+                                                            effectiveIds = baseIds.filter((id) => id !== pt.itemId)
+                                                        } else if (pt.toContainerId === 'root' && activeAttr) {
+                                                            const ghost = toAttributeDisplay(activeAttr, i18n.language)
+                                                            const insertAt = Math.min(pt.insertIndex, baseData.length)
+                                                            effectiveData = [
+                                                                ...baseData.slice(0, insertAt),
+                                                                ghost,
+                                                                ...baseData.slice(insertAt)
+                                                            ]
+                                                            effectiveIds = [
+                                                                ...baseIds.slice(0, insertAt),
+                                                                pt.itemId,
+                                                                ...baseIds.slice(insertAt)
+                                                            ]
                                                         }
-                                                        sortableRows
-                                                        externalDndContext
-                                                        droppableContainerId='root'
-                                                        sortableItemIds={effectiveIds}
-                                                        dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
-                                                        isDropTarget={isDropTarget}
-                                                        renderActions={(row: AttributeDisplay) => {
-                                                            const originalAttribute = attributes.find((a) => a.id === row.id)
-                                                            if (!originalAttribute) return null
+                                                    }
 
-                                                            const descriptors: ActionDescriptor<
-                                                                AttributeDisplay,
-                                                                AttributeLocalizedPayload
-                                                            >[] = [...attributeActions]
-
-                                                            return (
-                                                                <Stack direction='row' spacing={0} alignItems='center'>
-                                                                    {row.dataType === 'TABLE' && (
-                                                                        <IconButton
-                                                                            size='small'
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation()
-                                                                                setExpandedTableIds((prev) => {
-                                                                                    const next = new Set(prev)
-                                                                                    if (next.has(row.id)) {
-                                                                                        next.delete(row.id)
-                                                                                    } else {
-                                                                                        next.add(row.id)
-                                                                                    }
-                                                                                    return next
-                                                                                })
+                                                    return (
+                                                        <FlowListTable<AttributeDisplay>
+                                                            data={effectiveData}
+                                                            customColumns={attributeColumns}
+                                                            onPendingInteractionAttempt={(row: AttributeDisplay) =>
+                                                                handlePendingAttributeInteraction(row.id)
+                                                            }
+                                                            sortableRows
+                                                            externalDndContext
+                                                            droppableContainerId='root'
+                                                            sortableItemIds={effectiveIds}
+                                                            dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
+                                                            isDropTarget={isDropTarget}
+                                                            renderActions={renderAttributeActions}
+                                                            renderRowExpansion={(row: AttributeDisplay) => {
+                                                                if (row.dataType !== 'TABLE') return null
+                                                                if (!expandedTableIds.has(row.id)) return null
+                                                                return (
+                                                                    <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
+                                                                        <Box
+                                                                            sx={{
+                                                                                borderTop: '1px dashed',
+                                                                                borderColor: 'divider',
+                                                                                mx: 2,
+                                                                                mb: 1
                                                                             }}
-                                                                            sx={{ width: 28, height: 28, p: 0.5 }}
-                                                                        >
-                                                                            {expandedTableIds.has(row.id) ? (
-                                                                                <KeyboardArrowUpIcon fontSize='small' />
-                                                                            ) : (
-                                                                                <KeyboardArrowDownIcon fontSize='small' />
-                                                                            )}
-                                                                        </IconButton>
-                                                                    )}
-                                                                    {descriptors.length > 0 && (
-                                                                        <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
-                                                                            entity={toAttributeDisplay(originalAttribute, i18n.language)}
-                                                                            entityKind='attribute'
-                                                                            descriptors={descriptors}
-                                                                            namespace='metahubs'
-                                                                            menuButtonLabelKey='flowList:menu.button'
-                                                                            i18nInstance={i18n}
-                                                                            createContext={createAttributeContext}
                                                                         />
-                                                                    )}
-                                                                </Stack>
-                                                            )
-                                                        }}
-                                                        renderRowExpansion={(row: AttributeDisplay) => {
-                                                            if (row.dataType !== 'TABLE') return null
-                                                            if (!expandedTableIds.has(row.id)) return null
-                                                            return (
-                                                                <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
-                                                                    <Box
-                                                                        sx={{
-                                                                            borderTop: '1px dashed',
-                                                                            borderColor: 'divider',
-                                                                            mx: 2,
-                                                                            mb: 1
-                                                                        }}
-                                                                    />
-                                                                    <ChildAttributeList
-                                                                        metahubId={metahubId!}
-                                                                        hubId={effectiveHubId}
-                                                                        catalogId={catalogId!}
-                                                                        parentAttributeId={row.id}
-                                                                        parentMaxChildAttributes={
-                                                                            typeof row.validationRules?.maxChildAttributes === 'number' &&
-                                                                            row.validationRules.maxChildAttributes > 0
-                                                                                ? row.validationRules.maxChildAttributes
-                                                                                : null
-                                                                        }
-                                                                        searchFilter={
-                                                                            childSearchMatchParentIds.includes(row.id)
-                                                                                ? searchValue
-                                                                                : undefined
-                                                                        }
-                                                                        onRefresh={async () => {
-                                                                            if (metahubId && catalogId) {
-                                                                                invalidateAttributesQueries.allCodenames(
-                                                                                    queryClient,
-                                                                                    metahubId!,
-                                                                                    catalogId!
-                                                                                )
+                                                                        <ChildAttributeList
+                                                                            metahubId={metahubId!}
+                                                                            hubId={effectiveHubId}
+                                                                            catalogId={catalogId!}
+                                                                            parentAttributeId={row.id}
+                                                                            parentMaxChildAttributes={
+                                                                                row.validationRules?.maxChildAttributes > 0 &&
+                                                                                typeof row.validationRules.maxChildAttributes === 'number'
+                                                                                    ? row.validationRules.maxChildAttributes
+                                                                                    : null
                                                                             }
-                                                                            if (effectiveHubId) {
-                                                                                await invalidateAttributesQueries.all(
-                                                                                    queryClient,
-                                                                                    metahubId!,
-                                                                                    effectiveHubId,
-                                                                                    catalogId!
-                                                                                )
-                                                                            } else {
-                                                                                queryClient.invalidateQueries({
-                                                                                    queryKey: metahubsQueryKeys.attributesDirect(
+                                                                            searchFilter={
+                                                                                childSearchMatchParentIds.includes(row.id)
+                                                                                    ? searchValue
+                                                                                    : undefined
+                                                                            }
+                                                                            onRefresh={async () => {
+                                                                                if (metahubId && catalogId) {
+                                                                                    invalidateAttributesQueries.allCodenames(
+                                                                                        queryClient,
                                                                                         metahubId!,
                                                                                         catalogId!
                                                                                     )
-                                                                                })
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </Box>
-                                                            )
-                                                        }}
-                                                    />
-                                                )
-                                            }}
-                                        </DndDropTarget>
-                                    </AttributeDndProvider>
+                                                                                }
+                                                                                if (effectiveHubId) {
+                                                                                    await invalidateAttributesQueries.all(
+                                                                                        queryClient,
+                                                                                        metahubId!,
+                                                                                        effectiveHubId,
+                                                                                        catalogId!
+                                                                                    )
+                                                                                } else {
+                                                                                    queryClient.invalidateQueries({
+                                                                                        queryKey: metahubsQueryKeys.attributesDirect(
+                                                                                            metahubId!,
+                                                                                            catalogId!
+                                                                                        )
+                                                                                    })
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </Box>
+                                                                )
+                                                            }}
+                                                        />
+                                                    )
+                                                }}
+                                            </DndDropTarget>
+                                        </AttributeDndProvider>
+                                    )}
                                 </Box>
                             )}
 

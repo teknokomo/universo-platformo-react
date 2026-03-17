@@ -32,16 +32,12 @@ describe('withTransaction', () => {
         const exec = mockExecutor()
         const txExec = (exec as any)._txExecutor
         await withTransaction(exec, async () => 1, { statementTimeoutMs: 10000 })
-        expect(txExec.query).toHaveBeenCalledWith(
-            "SET LOCAL statement_timeout TO '10000ms'"
-        )
+        expect(txExec.query).toHaveBeenCalledWith("SET LOCAL statement_timeout TO '10000ms'")
     })
 
     it('inherits 300s cap from statementTimeout helper', async () => {
         const exec = mockExecutor()
-        await expect(
-            withTransaction(exec, async () => 1, { statementTimeoutMs: 300001 })
-        ).rejects.toThrow('Invalid statement_timeout')
+        await expect(withTransaction(exec, async () => 1, { statementTimeoutMs: 300001 })).rejects.toThrow('Invalid statement_timeout')
     })
 
     it('does not set timeout when not specified', async () => {

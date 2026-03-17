@@ -53,6 +53,27 @@ export {
     getUplUnlockFields
 } from './systemFields'
 
+export {
+    getCatalogSystemFieldDefinitions,
+    getCatalogSystemFieldDefinition,
+    getCatalogSystemFieldSeedInputs,
+    buildCatalogSystemAttributeSeedRecord,
+    getCatalogSystemAttributeSeedRecords,
+    getReservedCatalogSystemFieldCodenames,
+    getDefaultCatalogSystemFieldStates,
+    validateCatalogSystemFieldToggleSet,
+    deriveApplicationLifecycleContract,
+    derivePlatformSystemFieldsContract,
+    normalizeApplicationLifecycleContract,
+    resolveApplicationLifecycleContractFromConfig,
+    resolvePlatformSystemFieldsContractFromConfig,
+    type CatalogSystemFieldToggleValidationResult,
+    type CatalogSystemAttributeSeedInput,
+    type CatalogSystemAttributeSeedRecord,
+    type PlatformSystemFieldFamilyContract,
+    type PlatformSystemFieldsContract
+} from './catalogSystemFields'
+
 // Soft delete utilities
 export {
     type DeleteLevel,

@@ -16,7 +16,8 @@ import type {
     MetaEntityKind,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
-    BranchCopyOptions
+    BranchCopyOptions,
+    CatalogAttributeSystemMetadata
 } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
@@ -36,7 +37,13 @@ export type { ConflictInfo } from '@universo/utils'
 // ============ PAGINATION TYPES ============
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
-export type { AttributeDataType, ConstantDataType, AttributeValidationRules, PhysicalTypeInfo } from '@universo/types'
+export type {
+    AttributeDataType,
+    ConstantDataType,
+    AttributeValidationRules,
+    PhysicalTypeInfo,
+    CatalogAttributeSystemMetadata
+} from '@universo/types'
 export { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 
 // ============ ACCESS & PERMISSIONS ============
@@ -495,6 +502,7 @@ export interface Attribute {
     version?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
+    system?: CatalogAttributeSystemMetadata | null
 }
 
 /** Attribute with localized strings for table rendering */
@@ -516,6 +524,7 @@ export interface AttributeDisplay {
     updatedAt: string
     role?: MetahubRole
     permissions?: MetahubPermissions
+    system?: CatalogAttributeSystemMetadata | null
 }
 
 // ============ CONSTANT ENTITY ============
@@ -694,6 +703,7 @@ export interface AttributeLocalizedPayload {
     targetEntityKind?: MetaEntityKind
     targetConstantId?: string | null
     uiConfig?: Record<string, unknown>
+    isEnabled?: boolean
 }
 
 /** Payload for creating/updating Constant. */

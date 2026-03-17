@@ -1,7 +1,14 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
-import { AttributeDataType, MetaEntityKind, getPhysicalDataType, formatPhysicalType } from '@universo/types'
+import {
+    AttributeDataType,
+    MetaEntityKind,
+    getPhysicalDataType,
+    formatPhysicalType,
+    type ApplicationLifecycleContract
+} from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
+import { resolveApplicationLifecycleContractFromConfig, resolvePlatformSystemFieldsContractFromConfig } from '@universo/utils'
 import { buildSchemaSnapshot } from './snapshot'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName, generateChildTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
@@ -125,6 +132,95 @@ export class SchemaGenerator {
         }
     }
 
+    private static resolveLifecycleContract(entity: EntityDefinition): ApplicationLifecycleContract {
+        return resolveApplicationLifecycleContractFromConfig((entity as { config?: Record<string, unknown> }).config)
+    }
+
+    private static resolvePlatformSystemFieldsContract(entity: EntityDefinition) {
+        return resolvePlatformSystemFieldsContractFromConfig((entity as { config?: Record<string, unknown> }).config)
+    }
+
+    private static applyConfigurablePlatformSystemColumns(
+        table: Knex.CreateTableBuilder,
+        platformContract: ReturnType<typeof SchemaGenerator.resolvePlatformSystemFieldsContract>
+    ): void {
+        if (platformContract.archive.enabled) {
+            table.boolean('_upl_archived').notNullable().defaultTo(false)
+            if (platformContract.archive.trackAt) {
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+            }
+            if (platformContract.archive.trackBy) {
+                table.uuid('_upl_archived_by').nullable()
+            }
+        }
+
+        if (platformContract.delete.enabled) {
+            table.boolean('_upl_deleted').notNullable().defaultTo(false)
+            if (platformContract.delete.trackAt) {
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+            }
+            if (platformContract.delete.trackBy) {
+                table.uuid('_upl_deleted_by').nullable()
+            }
+        }
+    }
+
+    private static applyApplicationLifecycleColumns(table: Knex.CreateTableBuilder, contract: ApplicationLifecycleContract): void {
+        if (contract.publish.enabled) {
+            table.boolean('_app_published').notNullable().defaultTo(true)
+            if (contract.publish.trackAt) {
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+            }
+            if (contract.publish.trackBy) {
+                table.uuid('_app_published_by').nullable()
+            }
+        }
+
+        if (contract.archive.enabled) {
+            table.boolean('_app_archived').notNullable().defaultTo(false)
+            if (contract.archive.trackAt) {
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+            }
+            if (contract.archive.trackBy) {
+                table.uuid('_app_archived_by').nullable()
+            }
+        }
+
+        if (contract.delete.mode === 'soft') {
+            table.boolean('_app_deleted').notNullable().defaultTo(false)
+            if (contract.delete.trackAt) {
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+            }
+            if (contract.delete.trackBy) {
+                table.uuid('_app_deleted_by').nullable()
+            }
+        }
+
+        table.uuid('_app_owner_id').nullable()
+        table.string('_app_access_level', 20).notNullable().defaultTo('private')
+    }
+
+    private async createApplicationLifecycleIndexes(
+        schemaName: string,
+        tableName: string,
+        contract: ApplicationLifecycleContract,
+        trx?: Knex.Transaction
+    ): Promise<void> {
+        const knex = trx ?? this.knex
+        if (contract.delete.mode === 'soft' && contract.delete.trackAt) {
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS idx_${tableName}_app_deleted
+                ON "${schemaName}"."${tableName}" (_app_deleted_at)
+                WHERE _app_deleted = true
+            `)
+        }
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_${tableName}_app_owner
+            ON "${schemaName}"."${tableName}" (_app_owner_id)
+            WHERE _app_owner_id IS NOT NULL
+        `)
+    }
+
     public async createSchema(schemaName: string, trx?: Knex.Transaction): Promise<void> {
         console.log(`[SchemaGenerator] Creating schema: ${schemaName}`)
 
@@ -177,7 +273,7 @@ export class SchemaGenerator {
                     for (const tableField of tableFields) {
                         const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
                         const parentTableName = resolveEntityTableName(entity)
-                        await this.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
+                        await this.createTabularTable(schemaName, entity, parentTableName, tableField, childFields, trx)
                         result.tablesCreated.push(`${entity.codename}__tbl__${tableField.codename}`)
                     }
                 }
@@ -277,6 +373,8 @@ export class SchemaGenerator {
         }
 
         const tableName = resolveEntityTableName(entity)
+        const lifecycleContract = SchemaGenerator.resolveLifecycleContract(entity)
+        const platformContract = SchemaGenerator.resolvePlatformSystemFieldsContract(entity)
         console.log(`[SchemaGenerator] Creating table: ${schemaName}.${tableName} (entity: ${entity.codename})`)
 
         const knex = trx ?? this.knex
@@ -301,14 +399,7 @@ export class SchemaGenerator {
             table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
             table.uuid('_upl_updated_by').nullable()
             table.integer('_upl_version').notNullable().defaultTo(1)
-            // Archive fields
-            table.boolean('_upl_archived').notNullable().defaultTo(false)
-            table.timestamp('_upl_archived_at', { useTz: true }).nullable()
-            table.uuid('_upl_archived_by').nullable()
-            // Soft delete fields
-            table.boolean('_upl_deleted').notNullable().defaultTo(false)
-            table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-            table.uuid('_upl_deleted_by').nullable()
+            SchemaGenerator.applyConfigurablePlatformSystemColumns(table, platformContract)
             table.timestamp('_upl_purge_after', { useTz: true }).nullable()
             // Lock fields
             table.boolean('_upl_locked').notNullable().defaultTo(false)
@@ -316,42 +407,18 @@ export class SchemaGenerator {
             table.uuid('_upl_locked_by').nullable()
             table.text('_upl_locked_reason').nullable()
 
-            // ═══════════════════════════════════════════════════════════════════════
-            // Application-level system fields (_app_*)
-            // ═══════════════════════════════════════════════════════════════════════
-            // Publication status
-            table.boolean('_app_published').notNullable().defaultTo(true)
-            table.timestamp('_app_published_at', { useTz: true }).nullable()
-            table.uuid('_app_published_by').nullable()
-            // Archive fields
-            table.boolean('_app_archived').notNullable().defaultTo(false)
-            table.timestamp('_app_archived_at', { useTz: true }).nullable()
-            table.uuid('_app_archived_by').nullable()
-            // Soft delete fields
-            table.boolean('_app_deleted').notNullable().defaultTo(false)
-            table.timestamp('_app_deleted_at', { useTz: true }).nullable()
-            table.uuid('_app_deleted_by').nullable()
-            // Access control
-            table.uuid('_app_owner_id').nullable()
-            table.string('_app_access_level', 20).notNullable().defaultTo('private')
+            SchemaGenerator.applyApplicationLifecycleColumns(table, lifecycleContract)
         })
 
         // Create indexes for system fields
-        await knex.raw(`
-            CREATE INDEX IF NOT EXISTS idx_${tableName}_upl_deleted
-            ON "${schemaName}"."${tableName}" (_upl_deleted_at)
-            WHERE _upl_deleted = true
-        `)
-        await knex.raw(`
-            CREATE INDEX IF NOT EXISTS idx_${tableName}_app_deleted
-            ON "${schemaName}"."${tableName}" (_app_deleted_at)
-            WHERE _app_deleted = true
-        `)
-        await knex.raw(`
-            CREATE INDEX IF NOT EXISTS idx_${tableName}_app_owner
-            ON "${schemaName}"."${tableName}" (_app_owner_id)
-            WHERE _app_owner_id IS NOT NULL
-        `)
+        if (platformContract.delete.enabled && platformContract.delete.trackAt) {
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS idx_${tableName}_upl_deleted
+                ON "${schemaName}"."${tableName}" (_upl_deleted_at)
+                WHERE _upl_deleted = true
+            `)
+        }
+        await this.createApplicationLifecycleIndexes(schemaName, tableName, lifecycleContract, trx)
 
         console.log(`[SchemaGenerator] Table ${schemaName}.${tableName} created`)
     }
@@ -363,12 +430,15 @@ export class SchemaGenerator {
      */
     public async createTabularTable(
         schemaName: string,
+        entity: EntityDefinition,
         parentTableName: string,
         tableField: FieldDefinition,
         childFields: FieldDefinition[],
         trx?: Knex.Transaction
     ): Promise<void> {
         const tabularTableName = generateChildTableName(tableField.id)
+        const lifecycleContract = SchemaGenerator.resolveLifecycleContract(entity)
+        const platformContract = SchemaGenerator.resolvePlatformSystemFieldsContract(entity)
         console.log(`[SchemaGenerator] Creating tabular table: ${schemaName}.${tabularTableName}`)
 
         const knex = trx ?? this.knex
@@ -392,32 +462,14 @@ export class SchemaGenerator {
             table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
             table.uuid('_upl_updated_by').nullable()
             table.integer('_upl_version').notNullable().defaultTo(1)
-            table.boolean('_upl_archived').notNullable().defaultTo(false)
-            table.timestamp('_upl_archived_at', { useTz: true }).nullable()
-            table.uuid('_upl_archived_by').nullable()
-            table.boolean('_upl_deleted').notNullable().defaultTo(false)
-            table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-            table.uuid('_upl_deleted_by').nullable()
+            SchemaGenerator.applyConfigurablePlatformSystemColumns(table, platformContract)
             table.timestamp('_upl_purge_after', { useTz: true }).nullable()
             table.boolean('_upl_locked').notNullable().defaultTo(false)
             table.timestamp('_upl_locked_at', { useTz: true }).nullable()
             table.uuid('_upl_locked_by').nullable()
             table.text('_upl_locked_reason').nullable()
 
-            // ═══════════════════════════════════════════════════════════════════════
-            // Application-level system fields (_app_*)
-            // ═══════════════════════════════════════════════════════════════════════
-            table.boolean('_app_published').notNullable().defaultTo(true)
-            table.timestamp('_app_published_at', { useTz: true }).nullable()
-            table.uuid('_app_published_by').nullable()
-            table.boolean('_app_archived').notNullable().defaultTo(false)
-            table.timestamp('_app_archived_at', { useTz: true }).nullable()
-            table.uuid('_app_archived_by').nullable()
-            table.boolean('_app_deleted').notNullable().defaultTo(false)
-            table.timestamp('_app_deleted_at', { useTz: true }).nullable()
-            table.uuid('_app_deleted_by').nullable()
-            table.uuid('_app_owner_id').nullable()
-            table.string('_app_access_level', 20).notNullable().defaultTo('private')
+            SchemaGenerator.applyApplicationLifecycleColumns(table, lifecycleContract)
         })
 
         // FK: _tp_parent_id → parent table with CASCADE delete
@@ -433,7 +485,6 @@ export class SchemaGenerator {
         // Indexes — use abbreviated suffixes to stay within PostgreSQL 63-char identifier limit
         const idxParent = `idx_${tabularTableName}_pi`.substring(0, 63)
         const idxParentSort = `idx_${tabularTableName}_ps`.substring(0, 63)
-        const idxAppDeleted = `idx_${tabularTableName}_ad`.substring(0, 63)
         const idxUplDeleted = `idx_${tabularTableName}_ud`.substring(0, 63)
 
         await knex.raw(`
@@ -444,16 +495,14 @@ export class SchemaGenerator {
             CREATE INDEX IF NOT EXISTS "${idxParentSort}"
             ON "${schemaName}"."${tabularTableName}" (_tp_parent_id, _tp_sort_order)
         `)
-        await knex.raw(`
-            CREATE INDEX IF NOT EXISTS "${idxAppDeleted}"
-            ON "${schemaName}"."${tabularTableName}" (_app_deleted_at)
-            WHERE _app_deleted = true
-        `)
-        await knex.raw(`
-            CREATE INDEX IF NOT EXISTS "${idxUplDeleted}"
-            ON "${schemaName}"."${tabularTableName}" (_upl_deleted_at)
-            WHERE _upl_deleted = true
-        `)
+        if (platformContract.delete.enabled && platformContract.delete.trackAt) {
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS "${idxUplDeleted}"
+                ON "${schemaName}"."${tabularTableName}" (_upl_deleted_at)
+                WHERE _upl_deleted = true
+            `)
+        }
+        await this.createApplicationLifecycleIndexes(schemaName, tabularTableName, lifecycleContract, trx)
 
         console.log(`[SchemaGenerator] Tabular table ${schemaName}.${tabularTableName} created`)
     }

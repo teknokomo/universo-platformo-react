@@ -25,8 +25,19 @@ import {
     type SchemaChange,
     type EntityDefinition
 } from '@universo/schema-ddl'
-import { ApplicationSchemaStatus, AttributeDataType, AttributeValidationRules, type VersionedLocalizedContent } from '@universo/types'
-import { validateNumberOrThrow, type DbExecutor } from '@universo/utils'
+import {
+    ApplicationSchemaStatus,
+    AttributeDataType,
+    AttributeValidationRules,
+    type ApplicationLifecycleContract,
+    type VersionedLocalizedContent
+} from '@universo/types'
+import {
+    resolveApplicationLifecycleContractFromConfig,
+    resolvePlatformSystemFieldsContractFromConfig,
+    validateNumberOrThrow,
+    type DbExecutor
+} from '@universo/utils'
 import { ensureApplicationAccess, type ApplicationRole } from './guards'
 import {
     updateApplicationSyncFields,
@@ -117,6 +128,46 @@ const UI_LAYOUT_DIFF_MARKER = 'ui.layout.update'
 const UI_LAYOUTS_DIFF_MARKER = 'ui.layouts.update'
 const UI_LAYOUT_ZONES_DIFF_MARKER = 'ui.layout.zones.update'
 const SYSTEM_METADATA_DIFF_MARKER = 'schema.metadata.update'
+
+const buildDynamicRuntimeActiveRowSql = (contract: ApplicationLifecycleContract, platformConfig?: unknown): string => {
+    const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
+    const clauses: string[] = []
+
+    if (platformContract.delete.enabled) {
+        clauses.push('_upl_deleted = false')
+    }
+    if (contract.delete.mode === 'soft') {
+        clauses.push('_app_deleted = false')
+    }
+
+    return clauses.length > 0 ? clauses.join(' AND ') : 'TRUE'
+}
+
+const applyDynamicRuntimeActiveRowFilter = (
+    qb: ApplicationSyncQueryBuilder,
+    contract: ApplicationLifecycleContract,
+    platformConfig?: unknown
+): ApplicationSyncQueryBuilder => {
+    const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
+    let hasClause = false
+
+    if (platformContract.delete.enabled) {
+        qb.where('_upl_deleted', false)
+        hasClause = true
+    }
+    if (contract.delete.mode === 'soft') {
+        if (hasClause) {
+            qb.andWhere('_app_deleted', false)
+        } else {
+            qb.where('_app_deleted', false)
+        }
+    }
+    return qb
+}
+
+const resolveEntityLifecycleContract = (entity: EntityDefinition): ApplicationLifecycleContract => {
+    return resolveApplicationLifecycleContractFromConfig(entity.config)
+}
 
 type SyncableApplicationRecord = ApplicationRecord &
     Partial<
@@ -692,6 +743,7 @@ async function loadApplicationRuntimeElements(
 
         const tableName = entity.physicalTableName ?? generateTableName(entity.id, entity.kind)
         const tableIdent = quoteQualifiedIdentifier(schemaName, tableName)
+        const runtimeRowCondition = buildDynamicRuntimeActiveRowSql(resolveEntityLifecycleContract(entity), entity.config)
         const topLevelFields = entity.fields.filter((field) => field.dataType !== AttributeDataType.TABLE && !field.parentAttributeId)
         const tableFields = entity.fields.filter(
             (field) => field.dataType === AttributeDataType.TABLE && !field.parentAttributeId && (field.childFields?.length ?? 0) > 0
@@ -705,8 +757,7 @@ async function loadApplicationRuntimeElements(
             `
                 SELECT ${selectColumns.join(', ')}
                 FROM ${tableIdent}
-                WHERE _upl_deleted = false
-                  AND _app_deleted = false
+                                WHERE ${runtimeRowCondition}
                 ORDER BY _upl_created_at ASC NULLS LAST, id ASC
             `
         )
@@ -728,8 +779,7 @@ async function loadApplicationRuntimeElements(
                 `
                     SELECT ${childSelectColumns.join(', ')}, id
                     FROM ${childTableIdent}
-                    WHERE _upl_deleted = false
-                      AND _app_deleted = false
+                                        WHERE ${runtimeRowCondition}
                     ORDER BY _tp_parent_id ASC, _tp_sort_order ASC, _upl_created_at ASC NULLS LAST, id ASC
                 `
             )
@@ -2048,6 +2098,7 @@ async function remapStaleEnumerationReferences(options: {
 
     for (const entity of catalogEntities) {
         const tableName = generateTableName(entity.id, entity.kind)
+        const lifecycleContract = resolveEntityLifecycleContract(entity)
         if (!knownTables.has(tableName)) {
             const exists = await trx.schema.withSchema(schemaName).hasTable(tableName)
             knownTables.set(tableName, exists)
@@ -2088,7 +2139,7 @@ async function remapStaleEnumerationReferences(options: {
                 .withSchema(schemaName)
                 .table(tableName)
                 .whereIn(columnName, Array.from(staleIds))
-                .andWhere((qb: ApplicationSyncQueryBuilder) => qb.where('_upl_deleted', false).andWhere('_app_deleted', false))
+                .andWhere((qb: ApplicationSyncQueryBuilder) => applyDynamicRuntimeActiveRowFilter(qb, lifecycleContract, entity.config))
                 .update(updatePayload)
         }
     }

@@ -145,6 +145,10 @@ const mhbAttributes: SystemTableDef = {
         { name: 'sort_order', type: 'integer', defaultTo: 0 },
         { name: 'is_required', type: 'boolean', defaultTo: false },
         { name: 'is_display_attribute', type: 'boolean', defaultTo: false },
+        { name: 'is_system', type: 'boolean', nullable: false, defaultTo: false },
+        { name: 'system_key', type: 'string', nullable: true },
+        { name: 'is_system_managed', type: 'boolean', nullable: false, defaultTo: false },
+        { name: 'is_system_enabled', type: 'boolean', nullable: false, defaultTo: true },
         { name: 'target_object_id', type: 'uuid', nullable: true },
         { name: 'target_object_kind', type: 'string', length: 20, nullable: true },
         { name: 'parent_attribute_id', type: 'uuid', nullable: true }
@@ -168,6 +172,12 @@ const mhbAttributes: SystemTableDef = {
             columns: ['object_id', 'parent_attribute_id', 'codename'],
             unique: true,
             where: 'parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_attributes_object_system_key_active',
+            columns: ['object_id', 'system_key'],
+            unique: true,
+            where: 'is_system = true AND system_key IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
         }
     ]
 }

@@ -3,11 +3,34 @@ import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
-import { AttributeDataType, TABLE_CHILD_DATA_TYPES } from '@universo/types'
-import { generateUuidV7 } from '@universo/utils'
+import {
+    AttributeDataType,
+    TABLE_CHILD_DATA_TYPES,
+    type CatalogAttributeSystemMetadata,
+    type CatalogSystemFieldKey,
+    type CatalogSystemFieldState,
+    type CatalogSystemFieldsSnapshot,
+    type PlatformSystemAttributesPolicy
+} from '@universo/types'
+import {
+    deriveApplicationLifecycleContract,
+    generateUuidV7,
+    getCatalogSystemAttributeSeedRecords,
+    getCatalogSystemFieldDefinition,
+    getReservedCatalogSystemFieldCodenames,
+    OptimisticLockError,
+    validateCatalogSystemFieldToggleSet
+} from '@universo/utils'
 import { buildCodenameAttempt, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/codenameStyleHelper'
+import {
+    getPlatformSystemAttributeMutationBlockReason,
+    readPlatformSystemAttributesPolicy,
+    resolveCatalogSystemAttributeSeedPlan
+} from '../../shared/platformSystemAttributesPolicy'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
+type AttributeScope = 'business' | 'system' | 'all'
+const RESERVED_CATALOG_SYSTEM_CODENAMES = new Set(getReservedCatalogSystemFieldCodenames())
 
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
@@ -15,6 +38,52 @@ const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
  */
 export class MetahubAttributesService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
+
+    private getScopeCondition(scope: AttributeScope = 'business'): string {
+        if (scope === 'system') return 'is_system = true'
+        if (scope === 'all') return 'TRUE'
+        return 'COALESCE(is_system, false) = false'
+    }
+
+    private getSystemMetadata(row: Record<string, unknown>): CatalogAttributeSystemMetadata {
+        const systemKey =
+            typeof row.system_key === 'string' && getCatalogSystemFieldDefinition(row.system_key as CatalogSystemFieldKey)
+                ? (row.system_key as CatalogSystemFieldKey)
+                : null
+
+        return {
+            isSystem: row.is_system === true,
+            systemKey,
+            isManaged: row.is_system_managed !== false,
+            isEnabled: row.is_system_enabled !== false
+        }
+    }
+
+    private assertSystemMutationAllowed(
+        attribute: ReturnType<MetahubAttributesService['mapRowToAttribute']> | null,
+        data: Record<string, unknown>
+    ): void {
+        if (!attribute?.system?.isSystem) return
+
+        const allowedKeys = new Set(['isEnabled', 'updatedBy', 'expectedVersion'])
+        const forbiddenKeys = Object.keys(data).filter((key) => data[key] !== undefined && !allowedKeys.has(key))
+
+        if (forbiddenKeys.length > 0) {
+            throw new Error(`System attribute mutation is restricted: ${forbiddenKeys.join(', ')}`)
+        }
+    }
+
+    private assertReservedBusinessCodenameAllowed(
+        codename: unknown,
+        currentAttribute: ReturnType<MetahubAttributesService['mapRowToAttribute']> | null = null
+    ): void {
+        if (typeof codename !== 'string' || codename.length === 0) return
+        if (currentAttribute?.system?.isSystem) return
+        if (currentAttribute?.codename === codename) return
+        if (RESERVED_CATALOG_SYSTEM_CODENAMES.has(codename)) {
+            throw new Error(`Codename ${codename} is reserved for managed system attributes`)
+        }
+    }
 
     private getMaxChildAttributesLimit(validationRules: unknown): number | null {
         if (!validationRules || typeof validationRules !== 'object') {
@@ -85,7 +154,7 @@ export class MetahubAttributesService {
         const result = await queryOne<{ count: number }>(
             this.exec,
             `SELECT COUNT(*)::int AS count FROM ${qt}
-             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${ACTIVE}`,
+             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${this.getScopeCondition('business')} AND ${ACTIVE}`,
             [objectId]
         )
         return result ? result.count : 0
@@ -100,7 +169,9 @@ export class MetahubAttributesService {
         const result = await queryOne<{ count: number }>(
             db ?? this.exec,
             `SELECT COUNT(*)::int AS count FROM ${qt}
-             WHERE object_id = $1 AND data_type = $2 AND parent_attribute_id IS NULL AND ${ACTIVE}`,
+             WHERE object_id = $1 AND data_type = $2 AND parent_attribute_id IS NULL AND ${this.getScopeCondition(
+                 'business'
+             )} AND ${ACTIVE}`,
             [objectId, AttributeDataType.TABLE]
         )
         return result ? result.count : 0
@@ -115,7 +186,7 @@ export class MetahubAttributesService {
         const result = await queryOne<{ count: number }>(
             db ?? this.exec,
             `SELECT COUNT(*)::int AS count FROM ${qt}
-             WHERE parent_attribute_id = $1 AND ${ACTIVE}`,
+             WHERE parent_attribute_id = $1 AND ${this.getScopeCondition('business')} AND ${ACTIVE}`,
             [parentAttributeId]
         )
         return result ? result.count : 0
@@ -132,7 +203,7 @@ export class MetahubAttributesService {
         const results = await queryMany<{ object_id: string; count: number }>(
             this.exec,
             `SELECT object_id, COUNT(*)::int AS count FROM ${qt}
-             WHERE object_id = ANY($1::uuid[]) AND ${ACTIVE}
+             WHERE object_id = ANY($1::uuid[]) AND ${this.getScopeCondition('business')} AND ${ACTIVE}
              GROUP BY object_id`,
             [objectIds]
         )
@@ -148,35 +219,35 @@ export class MetahubAttributesService {
      * Returns only root-level attributes (parent_attribute_id IS NULL).
      * Use findAllFlat() to get all attributes including children.
      */
-    async findAll(metahubId: string, objectId: string, userId?: string) {
+    async findAll(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business', db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         const rows = await queryMany(
-            this.exec,
+            db ?? this.exec,
             `SELECT * FROM ${qt}
-             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${ACTIVE}
+             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`,
             [objectId]
         )
 
-        return rows.map(this.mapRowToAttribute)
+        return rows.map((row) => this.mapRowToAttribute(row))
     }
 
     /**
      * Returns ALL attributes (root + child) for snapshot/sync purposes.
      */
-    async findAllFlat(metahubId: string, objectId: string, userId?: string) {
+    async findAllFlat(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business') {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         const rows = await queryMany(
             this.exec,
             `SELECT * FROM ${qt}
-             WHERE object_id = $1 AND ${ACTIVE}
+             WHERE object_id = $1 AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`,
             [objectId]
         )
 
-        return rows.map(this.mapRowToAttribute)
+        return rows.map((row) => this.mapRowToAttribute(row))
     }
 
     /**
@@ -188,7 +259,7 @@ export class MetahubAttributesService {
         const rows = await queryMany(
             db ?? this.exec,
             `SELECT * FROM ${qt}
-             WHERE parent_attribute_id = $1 AND ${ACTIVE}
+             WHERE parent_attribute_id = $1 AND ${this.getScopeCondition('business')} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`,
             [parentAttributeId]
         )
@@ -212,7 +283,7 @@ export class MetahubAttributesService {
         const rows = await queryMany(
             this.exec,
             `SELECT * FROM ${qt}
-             WHERE parent_attribute_id = ANY($1::uuid[]) AND ${ACTIVE}
+             WHERE parent_attribute_id = ANY($1::uuid[]) AND ${this.getScopeCondition('business')} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`,
             [parentAttributeIds]
         )
@@ -232,11 +303,11 @@ export class MetahubAttributesService {
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         const rows = await queryMany(
             this.exec,
-            `SELECT * FROM ${qt} WHERE ${ACTIVE}
+            `SELECT * FROM ${qt} WHERE ${this.getScopeCondition('all')} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`
         )
 
-        return rows.map(this.mapRowToAttribute)
+        return rows.map((row) => this.mapRowToAttribute(row))
     }
 
     async findById(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
@@ -275,6 +346,169 @@ export class MetahubAttributesService {
         const row = await queryOne(db ?? this.exec, `SELECT * FROM ${qt} WHERE ${conditions.join(' AND ')} LIMIT 1`, params)
 
         return row ? this.mapRowToAttribute(row) : null
+    }
+
+    async listCatalogSystemAttributes(metahubId: string, catalogId: string, userId?: string, db?: SqlQueryable) {
+        return this.findAll(metahubId, catalogId, userId, 'system', db)
+    }
+
+    async getCatalogSystemFieldsSnapshot(
+        metahubId: string,
+        catalogId: string,
+        userId?: string,
+        db?: SqlQueryable
+    ): Promise<CatalogSystemFieldsSnapshot> {
+        const attributes = await this.listCatalogSystemAttributes(metahubId, catalogId, userId, db)
+        const states: CatalogSystemFieldState[] = attributes
+            .filter((attribute) => attribute.system?.isSystem && attribute.system.systemKey)
+            .map((attribute) => ({
+                key: attribute.system!.systemKey!,
+                enabled: attribute.system!.isEnabled
+            }))
+        const normalized = validateCatalogSystemFieldToggleSet(states).normalized
+        return {
+            fields: normalized,
+            lifecycleContract: deriveApplicationLifecycleContract(normalized)
+        }
+    }
+
+    private resolveCatalogSystemToggleState(
+        currentStates: CatalogSystemFieldState[],
+        targetKey: CatalogSystemFieldKey,
+        enabled: boolean
+    ): CatalogSystemFieldState[] {
+        const nextStates = new Map<CatalogSystemFieldKey, boolean>(currentStates.map((state) => [state.key, state.enabled]))
+        const visited = new Set<string>()
+
+        const applyState = (key: CatalogSystemFieldKey, nextEnabled: boolean, origin: 'requested' | 'dependency') => {
+            const visitKey = `${origin}:${key}:${nextEnabled ? '1' : '0'}`
+            if (visited.has(visitKey)) {
+                return
+            }
+            visited.add(visitKey)
+
+            const definition = getCatalogSystemFieldDefinition(key)
+            if (!definition) {
+                throw new Error(`System attribute ${key} is not registered`)
+            }
+            if (!nextEnabled && !definition.canDisable && origin === 'requested') {
+                throw new Error(`System attribute ${key} cannot be disabled`)
+            }
+
+            nextStates.set(key, nextEnabled)
+
+            if (nextEnabled) {
+                for (const requiredKey of definition.requires ?? []) {
+                    applyState(requiredKey, true, 'dependency')
+                }
+                return
+            }
+
+            for (const dependent of getCatalogSystemAttributeSeedRecords()) {
+                if (dependent.key === key) {
+                    continue
+                }
+                const dependentDefinition = getCatalogSystemFieldDefinition(dependent.key)
+                if (dependentDefinition?.requires?.includes(key) && nextStates.get(dependentDefinition.key) === true) {
+                    applyState(dependentDefinition.key, false, 'dependency')
+                }
+            }
+        }
+
+        applyState(targetKey, enabled, 'requested')
+
+        const validation = validateCatalogSystemFieldToggleSet(
+            Array.from(nextStates.entries()).map(([key, stateEnabled]) => ({ key, enabled: stateEnabled }))
+        )
+        if (validation.errors.length > 0) {
+            throw new Error(validation.errors.join('; '))
+        }
+
+        return validation.normalized
+    }
+
+    async ensureCatalogSystemAttributes(
+        metahubId: string,
+        catalogId: string,
+        userId?: string,
+        db?: SqlQueryable,
+        optionsOrStates?:
+            | CatalogSystemFieldState[]
+            | {
+                  states?: CatalogSystemFieldState[]
+                  policy?: import('@universo/types').PlatformSystemAttributesPolicy
+              }
+    ) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const runner = db ?? this.exec
+        const now = new Date()
+        const states = Array.isArray(optionsOrStates) ? optionsOrStates : optionsOrStates?.states
+        const policy = Array.isArray(optionsOrStates) ? undefined : optionsOrStates?.policy
+        const existingRows = await queryMany<Record<string, unknown>>(
+            runner,
+            `SELECT * FROM ${qt} WHERE object_id = $1 AND is_system = true AND ${ACTIVE}`,
+            [catalogId]
+        )
+        const existingByKey = new Map<string, Record<string, unknown>>()
+        for (const row of existingRows) {
+            if (typeof row.system_key === 'string') {
+                existingByKey.set(row.system_key, row)
+            }
+        }
+
+        const seedPlan = resolveCatalogSystemAttributeSeedPlan(states, policy, existingByKey.keys())
+        const forceStateKeySet = new Set(seedPlan.forceStateKeys)
+
+        for (const seed of getCatalogSystemAttributeSeedRecords(seedPlan.states).filter((record) => seedPlan.allowedKeys.has(record.key))) {
+            const presentation = JSON.stringify(seed.presentation)
+            const existing = existingByKey.get(seed.key)
+
+            if (existing) {
+                const forceEnabledState = forceStateKeySet.has(seed.key)
+                await runner.query(
+                    `UPDATE ${qt}
+                     SET codename = $1,
+                         data_type = $2,
+                         presentation = $3::jsonb,
+                         sort_order = $4,
+                         is_system = $5,
+                         system_key = $6,
+                         is_system_managed = $7,
+                         is_system_enabled = ${forceEnabledState ? '$8' : 'COALESCE(is_system_enabled, $8)'},
+                         _upl_updated_at = $9,
+                         _upl_updated_by = $10
+                     WHERE id = $11`,
+                    [
+                        seed.codename,
+                        seed.dataType,
+                        presentation,
+                        seed.sortOrder,
+                        seed.isSystem,
+                        seed.key,
+                        seed.isSystemManaged,
+                        seed.isSystemEnabled,
+                        now,
+                        userId ?? null,
+                        existing.id
+                    ]
+                )
+                continue
+            }
+
+            await runner.query(
+                `INSERT INTO ${qt}
+                 (object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order,
+                  is_required, is_display_attribute, target_object_id, target_object_kind, target_constant_id,
+                  parent_attribute_id, is_system, system_key, is_system_managed, is_system_enabled,
+                  _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                 VALUES ($1, $2, $3, $4::jsonb, '{}'::jsonb, '{}'::jsonb, $5, false, false, null, null, null,
+                         null, true, $6, true, $7, $8, $9, $8, $9)`,
+                [catalogId, seed.codename, seed.dataType, presentation, seed.sortOrder, seed.key, seed.isSystemEnabled, now, userId ?? null]
+            )
+        }
+
+        return this.listCatalogSystemAttributes(metahubId, catalogId, userId, runner)
     }
 
     /**
@@ -471,6 +705,8 @@ export class MetahubAttributesService {
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         let explicitAttributeId: string | undefined
 
+        this.assertReservedBusinessCodenameAllowed(data.codename)
+
         // TABLE attribute limits validation
         if (data.parentAttributeId) {
             const parent = await this.findById(metahubId, data.parentAttributeId, userId, db)
@@ -512,6 +748,10 @@ export class MetahubAttributesService {
             'object_id',
             'codename',
             'data_type',
+            'is_system',
+            'system_key',
+            'is_system_managed',
+            'is_system_enabled',
             'is_required',
             'is_display_attribute',
             'target_object_id',
@@ -532,6 +772,10 @@ export class MetahubAttributesService {
             data.catalogId,
             data.codename,
             data.dataType,
+            data.system?.isSystem === true,
+            data.system?.systemKey ?? null,
+            data.system?.isManaged !== false,
+            data.system?.isEnabled !== false,
             data.isDisplayAttribute ? true : data.isRequired ?? false,
             data.isDisplayAttribute ?? false,
             data.targetEntityId ?? null,
@@ -559,13 +803,120 @@ export class MetahubAttributesService {
         return this.mapRowToAttribute(created)
     }
 
-    async update(metahubId: string, id: string, data: any, userId?: string) {
+    async update(metahubId: string, id: string, data: any, userId?: string, db?: DbExecutor | SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const runner = db ?? this.exec
+        const current = await this.findById(metahubId, id, userId, runner)
+        this.assertReservedBusinessCodenameAllowed(data.codename, current)
+        this.assertSystemMutationAllowed(current, data)
 
         const updateData: Record<string, unknown> = {
             _upl_updated_at: new Date(),
             _upl_updated_by: data.updatedBy ?? null
+        }
+
+        if (current?.system?.isSystem) {
+            const systemKey = current.system.systemKey
+            if (!systemKey && data.isEnabled !== undefined) {
+                throw new Error('System attribute toggle key is missing')
+            }
+
+            const platformSystemAttributesPolicy: PlatformSystemAttributesPolicy =
+                data.platformSystemAttributesPolicy ?? (await readPlatformSystemAttributesPolicy(runner))
+            const policyBlockReason = getPlatformSystemAttributeMutationBlockReason(systemKey ?? null, platformSystemAttributesPolicy)
+            if (policyBlockReason) {
+                throw new Error(policyBlockReason)
+            }
+
+            const updateSystemRows = async (tx: SqlQueryable) => {
+                const lockedCurrent = await queryOneOrThrow<Record<string, unknown>>(
+                    tx,
+                    `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} FOR UPDATE`,
+                    [id],
+                    undefined,
+                    'attribute not found'
+                )
+
+                if (data.expectedVersion !== undefined) {
+                    const actualVersion = Number(lockedCurrent._upl_version ?? 1)
+                    if (actualVersion !== data.expectedVersion) {
+                        throw new OptimisticLockError({
+                            entityId: id,
+                            entityType: 'attribute',
+                            expectedVersion: data.expectedVersion,
+                            actualVersion,
+                            updatedAt: new Date(String(lockedCurrent._upl_updated_at ?? new Date().toISOString())),
+                            updatedBy: (lockedCurrent._upl_updated_by as string | null) ?? null
+                        })
+                    }
+                }
+
+                const systemRows = await queryMany<Record<string, unknown>>(
+                    tx,
+                    `SELECT * FROM ${qt} WHERE object_id = $1 AND is_system = true AND ${ACTIVE} FOR UPDATE`,
+                    [current.catalogId]
+                )
+
+                const normalizedStates =
+                    data.isEnabled !== undefined && systemKey
+                        ? this.resolveCatalogSystemToggleState(
+                              systemRows
+                                  .filter(
+                                      (row): row is Record<string, unknown> & { system_key: CatalogSystemFieldKey } =>
+                                          typeof row.system_key === 'string' &&
+                                          !!getCatalogSystemFieldDefinition(row.system_key as CatalogSystemFieldKey)
+                                  )
+                                  .map((row) => ({
+                                      key: row.system_key as CatalogSystemFieldKey,
+                                      enabled: row.is_system_enabled !== false
+                                  })),
+                              systemKey,
+                              data.isEnabled
+                          )
+                        : null
+
+                const nextEnabledByKey = normalizedStates
+                    ? new Map<CatalogSystemFieldKey, boolean>(normalizedStates.map((state) => [state.key, state.enabled]))
+                    : null
+
+                let updatedTarget: Record<string, unknown> | null = null
+
+                for (const row of systemRows) {
+                    const rowId = String(row.id)
+                    const rowUpdateData: Record<string, unknown> = {
+                        _upl_updated_at: updateData._upl_updated_at,
+                        _upl_updated_by: updateData._upl_updated_by
+                    }
+
+                    const rowSystemKey =
+                        typeof row.system_key === 'string' && getCatalogSystemFieldDefinition(row.system_key as CatalogSystemFieldKey)
+                            ? (row.system_key as CatalogSystemFieldKey)
+                            : null
+
+                    if (rowSystemKey && nextEnabledByKey) {
+                        const nextEnabled = nextEnabledByKey.get(rowSystemKey)
+                        if (typeof nextEnabled === 'boolean' && nextEnabled !== (row.is_system_enabled !== false)) {
+                            rowUpdateData.is_system_enabled = nextEnabled
+                        }
+                    }
+
+                    if (rowId !== id && !Object.prototype.hasOwnProperty.call(rowUpdateData, 'is_system_enabled')) {
+                        continue
+                    }
+
+                    const updatedRow = await incrementVersion(tx, schemaName, '_mhb_attributes', rowId, rowUpdateData)
+                    if (rowId === id) {
+                        updatedTarget = updatedRow
+                    }
+                }
+
+                return updatedTarget
+            }
+
+            const updatedSystem = db ? await updateSystemRows(runner) : await this.exec.transaction(async (tx) => updateSystemRows(tx))
+
+            return updatedSystem ? this.mapRowToAttribute(updatedSystem) : null
         }
 
         if (data.codename !== undefined) updateData.codename = data.codename
@@ -579,9 +930,11 @@ export class MetahubAttributesService {
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
         if (data.name !== undefined || data.codenameLocalized !== undefined) {
-            const current = await queryOne<Record<string, unknown>>(this.exec, `SELECT presentation FROM ${qt} WHERE id = $1`, [id])
+            const currentPresentation = await queryOne<Record<string, unknown>>(runner, `SELECT presentation FROM ${qt} WHERE id = $1`, [
+                id
+            ])
             updateData.presentation = JSON.stringify({
-                ...(current?.presentation ?? {}),
+                ...(currentPresentation?.presentation ?? {}),
                 ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                 ...(data.name !== undefined ? { name: data.name } : {})
             })
@@ -593,7 +946,7 @@ export class MetahubAttributesService {
         // If expectedVersion is provided, use version-checked update
         if (data.expectedVersion !== undefined) {
             const updated = await updateWithVersionCheck({
-                executor: this.exec,
+                executor: runner,
                 schemaName,
                 tableName: '_mhb_attributes',
                 entityId: id,
@@ -605,15 +958,21 @@ export class MetahubAttributesService {
         }
 
         // Fallback: increment version without check (backwards compatibility)
-        const updated = await incrementVersion(this.exec, schemaName, '_mhb_attributes', id, updateData)
+        const updated = await incrementVersion(runner, schemaName, '_mhb_attributes', id, updateData)
         return updated ? this.mapRowToAttribute(updated) : null
     }
 
-    async delete(metahubId: string, id: string, userId?: string) {
+    async delete(metahubId: string, id: string, userId?: string, db?: DbExecutor | SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const runner = db ?? this.exec
+        const attribute = await this.findById(metahubId, id, userId, runner)
 
-        await this.exec.transaction(async (tx: SqlQueryable) => {
+        if (attribute?.system?.isSystem) {
+            throw new Error('System attributes cannot be deleted')
+        }
+
+        const runDelete = async (tx: SqlQueryable) => {
             // If TABLE type, explicitly delete children before parent
             const [attribute] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
             if (attribute?.data_type === AttributeDataType.TABLE) {
@@ -621,7 +980,14 @@ export class MetahubAttributesService {
             }
 
             await tx.query(`DELETE FROM ${qt} WHERE id = $1`, [id])
-        })
+        }
+
+        if (db) {
+            await runDelete(runner)
+            return
+        }
+
+        await this.exec.transaction(async (tx) => runDelete(tx))
     }
 
     async moveAttribute(metahubId: string, objectId: string, attributeId: string, direction: 'up' | 'down', userId?: string) {
@@ -632,6 +998,7 @@ export class MetahubAttributesService {
             // Fetch current attribute to know its parent scope
             const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
             if (!current) throw new Error('Attribute not found')
+            if (current.is_system === true) throw new Error('System attributes cannot be reordered')
 
             const parentAttributeId: string | null = (current.parent_attribute_id as string | null) ?? null
 
@@ -697,6 +1064,7 @@ export class MetahubAttributesService {
                 [attributeId, objectId]
             )
             if (!current) throw new Error('Attribute not found')
+            if (current.is_system === true) throw new Error('System attributes cannot be reordered')
 
             const currentParent: string | null = (current.parent_attribute_id as string | null) ?? null
             const targetParent: string | null = newParentAttributeId !== undefined ? newParentAttributeId : currentParent
@@ -930,7 +1298,7 @@ export class MetahubAttributesService {
         const attributes = await queryMany<{ id: string; sort_order: number }>(
             db,
             `SELECT id, sort_order FROM ${qt}
-             WHERE object_id = $1 AND ${parentCond}
+             WHERE object_id = $1 AND ${parentCond} AND ${this.getScopeCondition('business')}
              ORDER BY sort_order ASC, _upl_created_at ASC`,
             params
         )
@@ -955,10 +1323,18 @@ export class MetahubAttributesService {
     }
 
     // Public wrapper if needed independently
-    async ensureSequentialSortOrder(metahubId: string, objectId: string, userId?: string, parentAttributeId?: string | null) {
-        return this.exec.transaction((tx: SqlQueryable) =>
-            this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, parentAttributeId)
-        )
+    async ensureSequentialSortOrder(
+        metahubId: string,
+        objectId: string,
+        userId?: string,
+        parentAttributeId?: string | null,
+        db?: DbExecutor | SqlQueryable
+    ) {
+        if (db) {
+            return this._ensureSequentialSortOrder(metahubId, objectId, db, userId, parentAttributeId)
+        }
+
+        return this.exec.transaction((tx) => this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, parentAttributeId))
     }
 
     /**
@@ -968,13 +1344,23 @@ export class MetahubAttributesService {
      * - Child attributes: only one child per parent can be exhibit
      * TABLE type attributes cannot be display attributes.
      */
-    async setDisplayAttribute(metahubId: string, catalogId: string, attributeId: string, userId?: string): Promise<void> {
+    async setDisplayAttribute(
+        metahubId: string,
+        catalogId: string,
+        attributeId: string,
+        userId?: string,
+        db?: DbExecutor | SqlQueryable
+    ): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const runner = db ?? this.exec
 
-        const attribute = await this.findById(metahubId, attributeId, userId)
+        const attribute = await this.findById(metahubId, attributeId, userId, runner)
         if (!attribute) {
             throw new Error('Attribute not found')
+        }
+        if (attribute.system?.isSystem) {
+            throw new Error('System attributes cannot be used as display attributes')
         }
 
         // TABLE type attributes cannot be display attributes
@@ -983,7 +1369,7 @@ export class MetahubAttributesService {
         }
 
         const now = new Date()
-        await this.exec.transaction(async (tx: SqlQueryable) => {
+        const applyDisplayAttribute = async (tx: SqlQueryable) => {
             if (attribute.parentAttributeId) {
                 // Child attribute: reset only siblings (children of the same parent)
                 await tx.query(
@@ -1006,26 +1392,37 @@ export class MetahubAttributesService {
                  WHERE id = $3`,
                 [now, userId ?? null, attributeId]
             )
-        })
+        }
+
+        if (db) {
+            await applyDisplayAttribute(runner)
+            return
+        }
+
+        await this.exec.transaction(async (tx) => applyDisplayAttribute(tx))
     }
 
     /**
      * Clear display attribute flag from an attribute.
      */
-    async clearDisplayAttribute(metahubId: string, attributeId: string, userId?: string): Promise<void> {
+    async clearDisplayAttribute(metahubId: string, attributeId: string, userId?: string, db?: DbExecutor | SqlQueryable): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const runner = db ?? this.exec
 
-        const attribute = await queryOne<Record<string, unknown>>(this.exec, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
+        const attribute = await queryOne<Record<string, unknown>>(runner, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
         if (!attribute) {
             throw new Error('Attribute not found')
+        }
+        if (attribute.is_system === true) {
+            throw new Error('System attributes cannot be used as display attributes')
         }
 
         if (attribute.is_display_attribute) {
             const parentCond = attribute.parent_attribute_id ? `parent_attribute_id = $2` : `parent_attribute_id IS NULL`
             const params: unknown[] = [attribute.object_id, ...(attribute.parent_attribute_id ? [attribute.parent_attribute_id] : [])]
 
-            const [displayCountResult] = await this.exec.query<{ count: number }>(
+            const [displayCountResult] = await runner.query<{ count: number }>(
                 `SELECT COUNT(*)::int AS count FROM ${qt}
                  WHERE object_id = $1 AND ${parentCond} AND is_display_attribute = true`,
                 params
@@ -1037,7 +1434,7 @@ export class MetahubAttributesService {
             }
         }
 
-        await this.exec.query(`UPDATE ${qt} SET is_display_attribute = false, _upl_updated_at = $1, _upl_updated_by = $2 WHERE id = $3`, [
+        await runner.query(`UPDATE ${qt} SET is_display_attribute = false, _upl_updated_at = $1, _upl_updated_by = $2 WHERE id = $3`, [
             new Date(),
             userId ?? null,
             attributeId
@@ -1056,7 +1453,7 @@ export class MetahubAttributesService {
         const params: unknown[] = [objectId, ...(parentAttributeId ? [parentAttributeId] : [])]
 
         const [result] = await runner.query<{ max: number | null }>(
-            `SELECT MAX(sort_order) AS max FROM ${qt} WHERE object_id = $1 AND ${parentCond}`,
+            `SELECT MAX(sort_order) AS max FROM ${qt} WHERE object_id = $1 AND ${parentCond} AND ${this.getScopeCondition('business')}`,
             params
         )
 
@@ -1086,6 +1483,7 @@ export class MetahubAttributesService {
             description: row.presentation?.description,
             validationRules: row.validation_rules,
             uiConfig: row.ui_config,
+            system: this.getSystemMetadata(row),
             version: row._upl_version || 1,
             createdAt: row._upl_created_at,
             updatedAt: row._upl_updated_at

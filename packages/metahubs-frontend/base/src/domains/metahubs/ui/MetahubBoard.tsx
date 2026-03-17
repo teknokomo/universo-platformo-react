@@ -7,15 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 
 // project imports
-import {
-    ViewHeaderMUI as ViewHeader,
-    EmptyListState,
-    APIEmptySVG,
-    StatCard,
-    HighlightedCard,
-    SessionsChart,
-    PageViewsBarChart
-} from '@universo/template-mui'
+import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard } from '@universo/template-mui'
 
 import { useMetahubDetails } from '../hooks/useMetahubDetails'
 import { toMetahubDisplay } from '../../../types'
@@ -27,11 +19,10 @@ import { getMetahubBoardSummary } from '../api/metahubs'
  * Displays analytics dashboard for a metahub with:
  * - Real-time statistics (hubs, catalogs, members)
  * - Documentation resources
- * - Activity and resource charts (demo data)
  *
  * Layout:
- * - Desktop: 4 cards in row (3 stats + 1 docs), 2 charts side-by-side
- * - Tablet: 2 cards per row, charts stacked
+ * - Desktop: 4 cards in row
+ * - Tablet: 2 cards per row
  * - Mobile: 1 card per row
  */
 const MetahubBoard = () => {
@@ -215,19 +206,6 @@ const MetahubBoard = () => {
                             value={versionsCount}
                             interval={t('board.stats.versions.interval')}
                             data={versionsData}
-                        />
-                    </Grid>
-
-                    {/* Activity Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
-                    </Grid>
-
-                    {/* Resources Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <PageViewsBarChart
-                            title={t('board.charts.resources.title')}
-                            description={t('board.charts.resources.description')}
                         />
                     </Grid>
                 </Grid>

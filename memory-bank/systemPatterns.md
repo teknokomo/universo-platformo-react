@@ -39,21 +39,35 @@
 **Detection**: `rg "CREATE TABLE IF NOT EXISTS start\.|ADD CONSTRAINT|post_schema_generation|startsWith\('CREATE TABLE IF NOT EXISTS'" packages/*/base/src/platform packages/universo-migrations-platform/base/src/__tests__`
 
 **Why**: The start-system-app PR review exposed that the compiler-generated `start.rel_user_selections` table never received the inline `catalog_kind` CHECK because the support migration intentionally discarded the package-local `CREATE TABLE` statements during bootstrap splitting.
+## Platform System Attributes Governance Pattern (IMPORTANT)
+
+**Rule**: Platform catalog system attributes (`_upl_*`) remain part of the shared catalog system-field registry, but their create/visibility behavior is governed by global admin settings rather than only by per-metahub configuration.
+
+**Required**:
+- Resolve platform system-attribute policy on the metahubs backend from `admin.cfg_settings` using the `metahubs` category keys `platformSystemAttributesConfigurable`, `platformSystemAttributesRequired`, and `platformSystemAttributesIgnoreMetahubSettings`.
+- Pass that policy into shared catalog seeding flows (`ensureCatalogSystemAttributes(...)`) on catalog create/copy paths so platform defaults are enforced consistently even when ordinary attribute copy is skipped.
+- Reuse the same backend policy helper for existing `_upl_*` toggle writes and for template-driven catalog seeding; UI visibility is advisory only and must not be the sole enforcement layer.
+- Hide `_upl_*` rows from catalog System responses when platform configuration is disabled, but continue returning the resolved policy in list-response `meta` so the frontend can match backend rules.
+- Keep the System tab on dedicated `/system` routes rather than query-param tabs, and preserve canonical registry order during optimistic toggle updates.
+
+**Detection**: `rg "platformSystemAttributes|ensureCatalogSystemAttributes\(|/system'|/system\"" packages/admin-* packages/metahubs-* packages/universo-template-mui`
+
+**Why**: Platform attributes must be creatable independently of metahub configuration when required by policy, and UI-only hiding or toggle logic is insufficient unless backend seeding, template repair, existing toggle writes, and optimistic ordering all share the same contract.
 ## Three-Level System Fields Architecture (CRITICAL)
 
-**Rule**: All entities use prefixed system fields for cascade soft delete and audit tracking.
+**Rule**: All entities use prefixed system fields, but runtime business-table lifecycle families are contract-driven rather than unconditional.
 **Levels**:
-- `_upl_*` (Platform): Base fields for all entities — `created_at`, `created_by`, `updated_at`, `updated_by`, `version`, `deleted`, `deleted_at`, `deleted_by`, `archived`, `archived_at`, `archived_by`, `purge_after`, `locked`, `locked_at`, `locked_by`, `locked_reason` (16 fields).
-- `_app_*` (Application): Run-Time fields for ALL platform catalog tables — `published`, `published_at`, `published_by`, `archived`, `archived_at`, `archived_by`, `deleted`, `deleted_at`, `deleted_by`, `owner_id`, `access_level` (11 fields).
+- `_upl_*` (Platform): Base fields for all entities — business tables always keep `created_at`, `created_by`, `updated_at`, `updated_by`, `version`, `purge_after`, `locked`, `locked_at`, `locked_by`, `locked_reason`, while configurable runtime `archived*` and `deleted*` families are emitted only when catalog `config.systemFields.fields` enables them.
+- `_app_*` (Application): Run-Time fields for platform system tables and business tables. Business tables always keep `_app_owner_id` and `_app_access_level`, while `published*`, `archived*`, and soft-delete `_app_deleted*` columns are emitted only when the catalog lifecycle contract enables them.
 - `_mhb_*` (Metahub Branch): Design-Time fields ONLY inside dynamic branch schemas (`mhb_<uuid>_bN`) — kept separate from `_app_*`.
 
-**Active row predicate (platform tables)**: `_upl_deleted = false AND _app_deleted = false`
+**Lifecycle source of truth**: metahub catalog system rows live in `_mhb_attributes`, publication snapshots emit `systemFields`, runtime `_app_objects.config.systemFields.lifecycleContract` drives `_app_*`, and runtime `config.systemFields.fields` drives configurable `_upl_archived*` / `_upl_deleted*` presence.
+**Active row predicate (platform tables)**: always `_upl_deleted = false`; add `_app_deleted = false` only when the runtime lifecycle contract uses soft delete.
 **Active row predicate (branch schemas)**: `_upl_deleted = false AND _mhb_deleted = false`
-**Cascade Delete Logic**: `_app_deleted` → `_upl_deleted` (platform), `_mhb_deleted` → `_upl_deleted` (branch).
-**Total system fields per business table**: 27 (16 `_upl_*` + 11 `_app_*`).
+**Cascade Delete Logic**: runtime soft delete writes `_upl_deleted*` only when the configurable platform delete family is enabled, and writes `_app_deleted*` only when the runtime lifecycle contract uses soft delete; hard delete mode removes the row physically. Branch delete continues to use `_mhb_deleted` → `_upl_deleted`.
 **Required**: Always pass `createdBy`/`updatedBy` or `_uplCreatedBy`/`_uplUpdatedBy` when creating/updating entities.
-**Detection**: `rg "_uplCreatedBy" packages`.
-**Why**: Consistent audit trail and soft delete cascade across platform and application layers.
+**Detection**: `rg "lifecycleContract|resolvePlatformSystemFieldsContractFromConfig|systemFields|_app_deleted|_upl_deleted" packages/applications-backend packages/schema-ddl packages/metahubs-backend packages/universo-utils`.
+**Why**: Runtime schema generation, CRUD predicates, and publication/app sync must agree on the same contract; treating either `_app_*` or configurable `_upl_*` runtime families as unconditional will reintroduce invalid SQL predicates, missing-column bugs, and stale architecture assumptions.
 
 ---
 ## Public Routes & 401 Redirect Pattern (CRITICAL)
@@ -218,6 +232,61 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - `rg "calculateCanonicalApplicationReleaseSnapshotHash|resolveApplicationReleaseSnapshotHash|validateApplicationReleaseBundleArtifacts" packages/applications-backend/base/src`
 
 **Why**: `manifest.snapshotHash` drives idempotency and release lineage. Trusting it without recomputation allows a structurally valid but semantically tampered bundle to alter no-op decisions and stored release provenance.
+## Publication Snapshot Hash Parity Pattern (CRITICAL)
+
+**Rule**: Publication snapshot hash verification in `@universo/applications-backend` must normalize the same structural payload as `SnapshotSerializer.normalizeSnapshotForHash(...)` in `@universo/metahubs-backend`.
+
+**Required**:
+- Keep publication hash normalization aligned across both packages whenever publication snapshots add new top-level metadata or per-entity metadata.
+- Include `systemFields` both per entity and as normalized top-level metadata when hashing publication snapshots for release-bundle validation.
+- Preserve serializer omission semantics for optional publication/layout keys; do not coerce absent keys like `templateKey`, `widgetKey`, or missing top-level publication metadata to `null` during verification if the producer omitted them.
+- Add direct regression coverage whenever publication snapshot structure changes, so an explicit stored publication hash remains acceptable during application sync and connector schema creation.
+
+**Detection**:
+- `rg "normalizePublicationSnapshotForHash|normalizeSnapshotForHash|systemFields" packages/applications-backend/base/src packages/metahubs-backend/base/src`
+
+**Why**: The publication version hash is produced on the metahubs side, but connector schema creation validates it on the applications side. If the two normalization contracts drift, including subtle `undefined` vs `null` differences, valid publications start failing at runtime with a false snapshot-hash mismatch.
+## Shared Publication Snapshot Hash Helper Pattern (IMPORTANT)
+
+**Rule**: Publication snapshot hash normalization must live in one shared helper in `@universo/utils`, not in duplicated package-local implementations on the producer and consumer sides.
+
+**Required**:
+- Keep `packages/universo-utils/base/src/serialization/publicationSnapshotHash.ts` as the only canonical normalization implementation for publication snapshot hashing.
+- Make both `@universo/metahubs-backend` and `@universo/applications-backend` call the shared helper rather than re-encoding the same entity/field/layout/systemFields normalization rules locally.
+- Preserve caller-specific fallback behavior through helper options, for example the metahub-side default version-envelope fallback, instead of forking the normalization body.
+- Add or update direct regression coverage in the shared utils helper whenever publication snapshot structure changes.
+
+**Detection**:
+- `rg "publicationSnapshotHash|normalizePublicationSnapshotForHash\(" packages/universo-utils/base/src packages/applications-backend/base/src packages/metahubs-backend/base/src`
+
+**Why**: This seam already regressed once because producer and consumer each carried their own near-identical normalization code. Centralizing the implementation removes one of the easiest ways to reintroduce false snapshot-hash mismatches during future publication-shape changes.
+## Scoped Paginated View Isolation Pattern (IMPORTANT)
+
+**Rule**: Screens that switch between semantically different paginated scopes inside the same component instance must not reuse previous-query placeholder data across query-key changes.
+
+**Required**:
+- Pass `keepPreviousDataOnQueryKeyChange: false` to `usePaginated(...)` when a route/tab switch changes the list scope itself rather than just the page number.
+- Reset local row-specific UI state such as expanded-table ids when the scope/tab changes, so stale per-row UI state does not bleed into the next scoped list.
+- Keep this opt-out local to truly scope-changing screens; ordinary page/sort transitions may still keep previous data when the UX benefits from it.
+
+**Detection**:
+- `rg "keepPreviousDataOnQueryKeyChange|activeCatalogTab|scope: isSystemView" packages/metahubs-frontend/base/src`
+
+## Publication Executable Payload Lifecycle Hydration Pattern (CRITICAL)
+
+**Rule**: Publication-driven application release bundles must hydrate top-level `snapshot.systemFields` back into each executable entity config before schema snapshot generation or runtime schema apply.
+
+**Required**:
+- Keep `createApplicationReleaseBundle(...)` aligned with the publication snapshot contract where catalog lifecycle metadata lives in `snapshot.systemFields`, not only in `snapshot.entities[*].config`.
+- Ensure the executable payload entities used for bootstrap and incremental schema execution carry `config.systemFields.lifecycleContract` whenever the publication snapshot defines it.
+- Add regression coverage at the release-bundle or sync-route layer whenever publication snapshot lifecycle metadata changes, so schema-ddl is exercised through the real application-sync payload path rather than only through direct generator inputs.
+
+**Detection**:
+- `rg "snapshot\.systemFields|resolveReleaseBundleEntities|generateFullSchema\(" packages/applications-backend/base/src`
+
+**Why**: Schema-ddl already honors `entity.config.systemFields.lifecycleContract`, but publication snapshots serialize that contract at the top level. If application release-bundle payloads are rebuilt from raw `snapshot.entities` without rehydrating `systemFields`, fresh application schemas silently recreate default `_app_published`, `_app_archived`, and `_app_deleted` columns even when the metahub disabled them.
+
+**Why**: Reusing placeholder rows across a semantic scope switch can show stale entities from the previous tab and make two different list types appear mixed until a hard refresh.
 ## Application Release Bundle Sync-State Pattern (CRITICAL)
 
 **Rule**: Publication-backed sync and file-bundle install/update for applications must share the same schema sync engine and the same central persistence seam in `applications.cat_applications`.

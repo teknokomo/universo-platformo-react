@@ -1,6 +1,8 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import { buildSchemaSnapshot, calculateSchemaDiff, type EntityDefinition, type SchemaDiff, type SchemaSnapshot } from '@universo/schema-ddl'
+import { serialization } from '@universo/utils'
+import type { CatalogSystemFieldsSnapshot } from '@universo/types'
 import type { PublishedApplicationSnapshot } from './applicationSyncContracts'
 
 export type ApplicationReleaseBundleSourceKind = 'publication' | 'application'
@@ -94,191 +96,37 @@ const stringifyForChecksum = (value: unknown): string => stableStringify(value) 
 
 const compareValues = (left: unknown, right: unknown): boolean => stringifyForChecksum(left) === stringifyForChecksum(right)
 
-const asArray = <Value>(value: unknown): Value[] => (Array.isArray(value) ? (value as Value[]) : [])
 const asRecord = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {})
 
-const resolveReleaseBundleEntities = (snapshot: PublishedApplicationSnapshot): EntityDefinition[] =>
-    Object.values(snapshot.entities ?? {}).sort((left, right) => left.id.localeCompare(right.id))
+const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Record<string, CatalogSystemFieldsSnapshot> | null => {
+    if (!snapshot.systemFields || typeof snapshot.systemFields !== 'object') {
+        return null
+    }
 
-const normalizePublicationSnapshotForHash = (snapshot: PublishedApplicationSnapshot): Record<string, unknown> => {
-    const entities = Object.values(snapshot.entities ?? {})
+    return snapshot.systemFields as Record<string, CatalogSystemFieldsSnapshot>
+}
+
+const resolveReleaseBundleEntities = (snapshot: PublishedApplicationSnapshot): EntityDefinition[] => {
+    const snapshotSystemFields = resolveSnapshotSystemFields(snapshot)
+
+    return Object.values(snapshot.entities ?? {})
         .map((entity) => {
-            const entityRecord = asRecord(entity)
+            const entitySystemFields = snapshotSystemFields?.[entity.id]
+            if (!entitySystemFields) {
+                return entity
+            }
+
+            const entityConfig = asRecord(entity.config)
 
             return {
-                id: entity.id,
-                kind: entity.kind,
-                codename: entity.codename,
-                tableName: entity.physicalTableName ?? entityRecord.tableName ?? null,
-                presentation: entity.presentation ?? {},
-                config: entity.config ?? {},
-                hubs: asArray<string>(entityRecord.hubs).sort(),
-                fields: [...entity.fields]
-                    .map((field) => {
-                        const fieldRecord = asRecord(field)
-                        const fieldSortOrder = typeof fieldRecord.sortOrder === 'number' ? fieldRecord.sortOrder : 0
-
-                        return {
-                            id: field.id,
-                            codename: field.codename,
-                            dataType: field.dataType,
-                            isRequired: field.isRequired,
-                            isDisplayAttribute: field.isDisplayAttribute ?? false,
-                            targetEntityId: field.targetEntityId ?? null,
-                            targetEntityKind: field.targetEntityKind ?? null,
-                            targetConstantId: field.targetConstantId ?? null,
-                            presentation: field.presentation ?? {},
-                            validationRules: field.validationRules ?? {},
-                            uiConfig: field.uiConfig ?? {},
-                            sortOrder: fieldSortOrder,
-                            parentAttributeId: field.parentAttributeId ?? null,
-                            childFields: field.childFields
-                                ? [...field.childFields]
-                                      .map((childField) => {
-                                          const childFieldRecord = asRecord(childField)
-                                          const childFieldSortOrder =
-                                              typeof childFieldRecord.sortOrder === 'number' ? childFieldRecord.sortOrder : 0
-
-                                          return {
-                                              id: childField.id,
-                                              codename: childField.codename,
-                                              dataType: childField.dataType,
-                                              isRequired: childField.isRequired,
-                                              isDisplayAttribute: childField.isDisplayAttribute ?? false,
-                                              targetEntityId: childField.targetEntityId ?? null,
-                                              targetEntityKind: childField.targetEntityKind ?? null,
-                                              targetConstantId: childField.targetConstantId ?? null,
-                                              presentation: childField.presentation ?? {},
-                                              validationRules: childField.validationRules ?? {},
-                                              uiConfig: childField.uiConfig ?? {},
-                                              sortOrder: childFieldSortOrder
-                                          }
-                                      })
-                                      .sort((left, right) => {
-                                          if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                                          if (left.codename !== right.codename) return left.codename.localeCompare(right.codename)
-                                          return left.id.localeCompare(right.id)
-                                      })
-                                : undefined
-                        }
-                    })
-                    .sort((left, right) => {
-                        if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                        if (left.codename !== right.codename) return left.codename.localeCompare(right.codename)
-                        return left.id.localeCompare(right.id)
-                    })
+                ...entity,
+                config: {
+                    ...entityConfig,
+                    systemFields: entitySystemFields
+                }
             }
         })
-        .sort((left, right) => {
-            if (left.kind !== right.kind) return left.kind.localeCompare(right.kind)
-            if (left.codename !== right.codename) return left.codename.localeCompare(right.codename)
-            return left.id.localeCompare(right.id)
-        })
-
-    const elements = Object.entries(snapshot.elements ?? {})
-        .map(([objectId, list]) => ({
-            objectId,
-            elements: asArray<Record<string, unknown>>(list)
-                .map((element) => ({
-                    id: typeof element.id === 'string' ? element.id : '',
-                    data: element.data ?? {},
-                    sortOrder: typeof element.sortOrder === 'number' ? element.sortOrder : 0
-                }))
-                .sort((left, right) => {
-                    if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                    return left.id.localeCompare(right.id)
-                })
-        }))
-        .sort((left, right) => left.objectId.localeCompare(right.objectId))
-
-    const enumerationValues = Object.entries(snapshot.enumerationValues ?? {})
-        .map(([objectId, list]) => ({
-            objectId,
-            values: asArray<Record<string, unknown>>(list)
-                .map((value) => ({
-                    id: typeof value.id === 'string' ? value.id : '',
-                    codename: typeof value.codename === 'string' ? value.codename : '',
-                    presentation: value.presentation ?? {},
-                    sortOrder: typeof value.sortOrder === 'number' ? value.sortOrder : 0,
-                    isDefault: Boolean(value.isDefault)
-                }))
-                .sort((left, right) => {
-                    if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                    if (left.codename !== right.codename) return left.codename.localeCompare(right.codename)
-                    return left.id.localeCompare(right.id)
-                })
-        }))
-        .sort((left, right) => left.objectId.localeCompare(right.objectId))
-
-    const constants = Object.entries(snapshot.constants ?? {})
-        .map(([objectId, list]) => ({
-            objectId,
-            constants: asArray<Record<string, unknown>>(list)
-                .map((constant) => ({
-                    id: typeof constant.id === 'string' ? constant.id : '',
-                    codename: typeof constant.codename === 'string' ? constant.codename : '',
-                    dataType: constant.dataType ?? null,
-                    presentation: constant.presentation ?? {},
-                    validationRules: constant.validationRules ?? {},
-                    uiConfig: constant.uiConfig ?? {},
-                    value: constant.value ?? null,
-                    sortOrder: typeof constant.sortOrder === 'number' ? constant.sortOrder : 0
-                }))
-                .sort((left, right) => {
-                    if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                    if (left.codename !== right.codename) return left.codename.localeCompare(right.codename)
-                    return left.id.localeCompare(right.id)
-                })
-        }))
-        .sort((left, right) => left.objectId.localeCompare(right.objectId))
-
-    const layouts = asArray<Record<string, unknown>>(snapshot.layouts)
-        .map((layout) => ({
-            id: typeof layout.id === 'string' ? layout.id : '',
-            templateKey: layout.templateKey ?? null,
-            name: layout.name ?? {},
-            description: layout.description ?? null,
-            config: layout.config ?? {},
-            isDefault: Boolean(layout.isDefault),
-            isActive: Boolean(layout.isActive),
-            sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0
-        }))
-        .sort((left, right) => {
-            if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-            if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1
-            return left.id.localeCompare(right.id)
-        })
-
-    const layoutZoneWidgets = asArray<Record<string, unknown>>(snapshot.layoutZoneWidgets)
-        .map((item) => ({
-            id: typeof item.id === 'string' ? item.id : '',
-            layoutId: typeof item.layoutId === 'string' ? item.layoutId : '',
-            zone: typeof item.zone === 'string' ? item.zone : '',
-            widgetKey: item.widgetKey ?? null,
-            sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
-            config: item.config ?? {},
-            isActive: Boolean(item.isActive)
-        }))
-        .sort((left, right) => {
-            if (left.layoutId !== right.layoutId) return left.layoutId.localeCompare(right.layoutId)
-            if (left.zone !== right.zone) return left.zone.localeCompare(right.zone)
-            if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-            return left.id.localeCompare(right.id)
-        })
-
-    return {
-        version: snapshot.version ?? null,
-        versionEnvelope: snapshot.versionEnvelope ?? null,
-        metahubId: snapshot.metahubId ?? null,
-        entities,
-        elements,
-        enumerationValues,
-        constants,
-        layouts,
-        layoutZoneWidgets,
-        defaultLayoutId: snapshot.defaultLayoutId ?? null,
-        layoutConfig: snapshot.layoutConfig ?? {}
-    }
+        .sort((left, right) => left.id.localeCompare(right.id))
 }
 
 const buildExecutablePayloadFromSnapshot = (
@@ -335,7 +183,7 @@ export const calculateCanonicalApplicationReleaseSnapshotHash = (
     sourceKind: ApplicationReleaseBundleSourceKind
 ): string =>
     sourceKind === 'publication'
-        ? calculateApplicationReleaseChecksum(normalizePublicationSnapshotForHash(snapshot))
+        ? calculateApplicationReleaseChecksum(serialization.normalizePublicationSnapshotForHash(snapshot))
         : calculateApplicationReleaseChecksum(snapshot)
 
 export const resolveApplicationReleaseSnapshotHash = (

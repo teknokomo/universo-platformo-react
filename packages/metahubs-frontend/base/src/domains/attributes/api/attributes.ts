@@ -1,9 +1,17 @@
 import { apiClient } from '../../shared'
 import { Attribute, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../../../types'
+import type { PlatformSystemAttributesPolicy } from '@universo/types'
 import type { AttributeCopyOptions } from '@universo/types'
 
-type AttributesListParams = PaginationParams & { locale?: string }
-type AttributesListMeta = { totalAll?: number; limit?: number; limitReached?: boolean }
+export type AttributeListScope = 'business' | 'system' | 'all'
+
+type AttributesListParams = PaginationParams & { locale?: string; scope?: AttributeListScope }
+type AttributesListMeta = {
+    totalAll?: number
+    limit?: number
+    limitReached?: boolean
+    platformSystemAttributesPolicy?: PlatformSystemAttributesPolicy
+}
 type AttributesListResponse = PaginatedResponse<Attribute> & { meta?: AttributesListMeta }
 
 /**
@@ -26,7 +34,8 @@ export const listAttributes = async (
             sortBy: params?.sortBy,
             sortOrder: params?.sortOrder,
             search: params?.search,
-            locale: params?.locale
+            locale: params?.locale,
+            scope: params?.scope
         }
     })
 
@@ -131,7 +140,8 @@ export const listAttributesDirect = async (
             sortBy: params?.sortBy,
             sortOrder: params?.sortOrder,
             search: params?.search,
-            locale: params?.locale
+            locale: params?.locale,
+            scope: params?.scope
         }
     })
 

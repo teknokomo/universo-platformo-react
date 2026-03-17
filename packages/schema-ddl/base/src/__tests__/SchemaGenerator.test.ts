@@ -591,5 +591,232 @@ describe('SchemaGenerator', () => {
             )
             expect(recordMigration.mock.invocationCallOrder[0]).toBeLessThan(afterMigrationRecorded.mock.invocationCallOrder[0])
         })
+
+        it('omits application lifecycle columns entirely for hard-delete catalogs with disabled publish and archive', async () => {
+            const createTableCalls = new Map<string, Array<{ method: string; args: unknown[] }>>()
+            const createTable = jest.fn((tableName: string, callback: (table: any) => void) => {
+                const calls: Array<{ method: string; args: unknown[] }> = []
+                const table = {
+                    string: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'string', args })
+                        return table
+                    }),
+                    jsonb: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'jsonb', args })
+                        return table
+                    }),
+                    boolean: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'boolean', args })
+                        return table
+                    }),
+                    integer: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'integer', args })
+                        return table
+                    }),
+                    text: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'text', args })
+                        return table
+                    }),
+                    uuid: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'uuid', args })
+                        return table
+                    }),
+                    primary: jest.fn(() => table),
+                    defaultTo: jest.fn(() => table),
+                    timestamp: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'timestamp', args })
+                        return table
+                    }),
+                    notNullable: jest.fn(() => table),
+                    nullable: jest.fn(() => table),
+                    specificType: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'specificType', args })
+                        return table
+                    }),
+                    unique: jest.fn(() => table),
+                    index: jest.fn(() => table),
+                    foreign: jest.fn(() => table),
+                    references: jest.fn(() => table),
+                    inTable: jest.fn(() => table),
+                    onDelete: jest.fn(() => table)
+                }
+                callback(table)
+                createTableCalls.set(tableName, calls)
+                return Promise.resolve()
+            })
+            const localKnex = {
+                raw: jest.fn().mockResolvedValue(undefined),
+                fn: { now: jest.fn(() => 'NOW()') },
+                transaction: jest.fn(async (callback: (trx: any) => Promise<void>) => callback(localKnex)),
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        createTable,
+                        hasTable: jest.fn().mockResolvedValue(false),
+                        dropTableIfExists: jest.fn().mockResolvedValue(undefined)
+                    }))
+                }
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            jest.spyOn(localGenerator, 'createSchema').mockResolvedValue()
+            jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
+            jest.spyOn(localGenerator, 'syncSystemMetadata').mockResolvedValue()
+
+            await localGenerator.generateFullSchema('app_test123', [
+                {
+                    id: 'catalog-orders',
+                    codename: 'orders',
+                    kind: 'catalog',
+                    physicalTableName: 'orders',
+                    config: {
+                        systemFields: {
+                            fields: [
+                                { key: 'upl.archived', enabled: false },
+                                { key: 'upl.archived_at', enabled: false },
+                                { key: 'upl.archived_by', enabled: false },
+                                { key: 'upl.deleted', enabled: false },
+                                { key: 'upl.deleted_at', enabled: false },
+                                { key: 'upl.deleted_by', enabled: false }
+                            ],
+                            lifecycleContract: {
+                                publish: { enabled: false },
+                                archive: { enabled: false },
+                                delete: { mode: 'hard' }
+                            }
+                        }
+                    },
+                    fields: []
+                }
+            ] as unknown as import('../types').EntityDefinition[])
+
+            const businessCalls = createTableCalls.get('orders') ?? []
+            const businessColumns = businessCalls.map((entry) => String(entry.args[0]))
+
+            expect(businessColumns).not.toContain('_app_published')
+            expect(businessColumns).not.toContain('_app_archived')
+            expect(businessColumns).not.toContain('_app_deleted')
+            expect(businessColumns).not.toContain('_upl_archived')
+            expect(businessColumns).not.toContain('_upl_archived_at')
+            expect(businessColumns).not.toContain('_upl_archived_by')
+            expect(businessColumns).not.toContain('_upl_deleted')
+            expect(businessColumns).not.toContain('_upl_deleted_at')
+            expect(businessColumns).not.toContain('_upl_deleted_by')
+            expect(businessColumns).toContain('_upl_created_at')
+            expect(businessColumns).toContain('_upl_updated_at')
+            expect(businessColumns).toContain('_app_owner_id')
+            expect(businessColumns).toContain('_app_access_level')
+        })
+
+        it('creates only the lifecycle audit columns enabled by the contract', async () => {
+            const createTableCalls = new Map<string, Array<{ method: string; args: unknown[] }>>()
+            const createTable = jest.fn((tableName: string, callback: (table: any) => void) => {
+                const calls: Array<{ method: string; args: unknown[] }> = []
+                const table = {
+                    string: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'string', args })
+                        return table
+                    }),
+                    jsonb: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'jsonb', args })
+                        return table
+                    }),
+                    boolean: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'boolean', args })
+                        return table
+                    }),
+                    integer: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'integer', args })
+                        return table
+                    }),
+                    text: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'text', args })
+                        return table
+                    }),
+                    uuid: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'uuid', args })
+                        return table
+                    }),
+                    primary: jest.fn(() => table),
+                    defaultTo: jest.fn(() => table),
+                    timestamp: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'timestamp', args })
+                        return table
+                    }),
+                    notNullable: jest.fn(() => table),
+                    nullable: jest.fn(() => table),
+                    specificType: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'specificType', args })
+                        return table
+                    }),
+                    unique: jest.fn(() => table),
+                    index: jest.fn(() => table),
+                    foreign: jest.fn(() => table),
+                    references: jest.fn(() => table),
+                    inTable: jest.fn(() => table),
+                    onDelete: jest.fn(() => table)
+                }
+                callback(table)
+                createTableCalls.set(tableName, calls)
+                return Promise.resolve()
+            })
+            const localKnex = {
+                raw: jest.fn().mockResolvedValue(undefined),
+                fn: { now: jest.fn(() => 'NOW()') },
+                transaction: jest.fn(async (callback: (trx: any) => Promise<void>) => callback(localKnex)),
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        createTable,
+                        hasTable: jest.fn().mockResolvedValue(false),
+                        dropTableIfExists: jest.fn().mockResolvedValue(undefined)
+                    }))
+                }
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            jest.spyOn(localGenerator, 'createSchema').mockResolvedValue()
+            jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
+            jest.spyOn(localGenerator, 'syncSystemMetadata').mockResolvedValue()
+
+            await localGenerator.generateFullSchema('app_test123', [
+                {
+                    id: 'catalog-orders',
+                    codename: 'orders',
+                    kind: 'catalog',
+                    physicalTableName: 'orders',
+                    config: {
+                        systemFields: {
+                            fields: [
+                                { key: 'upl.archived', enabled: false },
+                                { key: 'upl.archived_at', enabled: false },
+                                { key: 'upl.archived_by', enabled: false },
+                                { key: 'upl.deleted', enabled: true },
+                                { key: 'upl.deleted_at', enabled: false },
+                                { key: 'upl.deleted_by', enabled: true }
+                            ],
+                            lifecycleContract: {
+                                publish: { enabled: true, trackAt: false, trackBy: false },
+                                archive: { enabled: false },
+                                delete: { mode: 'soft', trackAt: false, trackBy: true }
+                            }
+                        }
+                    },
+                    fields: []
+                }
+            ] as unknown as import('../types').EntityDefinition[])
+
+            const businessColumns = (createTableCalls.get('orders') ?? []).map((entry) => String(entry.args[0]))
+
+            expect(businessColumns).toContain('_app_published')
+            expect(businessColumns).not.toContain('_app_published_at')
+            expect(businessColumns).not.toContain('_app_published_by')
+            expect(businessColumns).not.toContain('_app_archived')
+            expect(businessColumns).toContain('_app_deleted')
+            expect(businessColumns).not.toContain('_app_deleted_at')
+            expect(businessColumns).toContain('_app_deleted_by')
+            expect(businessColumns).not.toContain('_upl_archived')
+            expect(businessColumns).toContain('_upl_deleted')
+            expect(businessColumns).not.toContain('_upl_deleted_at')
+            expect(businessColumns).toContain('_upl_deleted_by')
+        })
     })
 })

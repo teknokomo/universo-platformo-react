@@ -3,7 +3,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
-import { localizedContent } from '@universo/utils'
+import { localizedContent, OptimisticLockError } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { AttributeDataType, ATTRIBUTE_DATA_TYPES, TABLE_CHILD_DATA_TYPES, MetaEntityKind, META_ENTITY_KINDS } from '@universo/types'
@@ -30,6 +30,7 @@ import {
     getAllowAttributeMoveBetweenChildLists,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
+import { readPlatformSystemAttributesPolicy, shouldExposeCatalogSystemField } from '../../shared'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 import { uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 
@@ -47,6 +48,21 @@ const isTableChildLimitReachedError = (error: unknown): error is Error & { code?
 const isTableAttributeLimitReachedError = (error: unknown): error is Error & { code?: string; maxTableAttributes?: number } => {
     if (!(error instanceof Error)) return false
     return (error as { code?: string }).code === 'TABLE_ATTRIBUTE_LIMIT_REACHED'
+}
+
+const isSystemAttributeGuardError = (error: unknown): error is Error => {
+    if (!(error instanceof Error)) return false
+    const message = error.message.toLowerCase()
+    return message.includes('system attribute') || message.includes('system field')
+}
+
+const isReservedSystemCodenameError = (error: unknown): error is Error => {
+    return error instanceof Error && error.message.toLowerCase().includes('reserved for managed system attributes')
+}
+
+const getForbiddenSystemAttributePatchKeys = (data: Record<string, unknown>): string[] => {
+    const allowedKeys = new Set(['isEnabled', 'expectedVersion'])
+    return Object.keys(data).filter((key) => data[key] !== undefined && !allowedKeys.has(key))
 }
 
 /**
@@ -73,6 +89,43 @@ const handleTableLimitError = (error: unknown, res: Response): boolean => {
     return false
 }
 
+const respondSchemaSyncFailure = (res: Response, operation: string, error: unknown): Response => {
+    console.error(`[Attributes] Schema sync failed after ${operation}:`, error)
+    return res.status(500).json({
+        error: 'Metahub schema synchronization failed after the attribute change. The change was not acknowledged.',
+        code: 'SCHEMA_SYNC_FAILED',
+        details: { operation }
+    })
+}
+
+type SchemaSyncFailure = {
+    code: 'SCHEMA_SYNC_FAILED'
+    operation: string
+    cause: unknown
+}
+
+const isSchemaSyncFailure = (error: unknown): error is SchemaSyncFailure => {
+    if (!error || typeof error !== 'object') return false
+    return (error as { code?: unknown }).code === 'SCHEMA_SYNC_FAILED'
+}
+
+const syncMetahubSchemaOrThrow = async (
+    metahubId: string,
+    exec: SqlQueryable,
+    userId: string | undefined,
+    operation: string
+): Promise<void> => {
+    try {
+        await syncMetahubSchema(metahubId, exec, userId)
+    } catch (error) {
+        throw {
+            code: 'SCHEMA_SYNC_FAILED',
+            operation,
+            cause: error
+        } satisfies SchemaSyncFailure
+    }
+}
+
 const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
 const ENUM_LABEL_EMPTY_DISPLAY_MODES = ['empty', 'dash'] as const
 const ENUMERATION_KIND = 'enumeration' as const
@@ -81,7 +134,8 @@ const SET_KIND = 'set' as const
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
-    locale: z.string().trim().min(2).max(10).optional()
+    locale: z.string().trim().min(2).max(10).optional(),
+    scope: z.enum(['business', 'system', 'all']).default('business')
 })
 
 const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
@@ -217,6 +271,7 @@ const updateAttributeSchema = z
         uiConfig: uiConfigSchema,
         isRequired: z.boolean().optional(),
         isDisplayAttribute: z.boolean().optional(),
+        isEnabled: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
         expectedVersion: z.number().int().positive().optional() // For optimistic locking
     })
@@ -323,8 +378,9 @@ export function createAttributesRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { attributesService } = services(req)
+            const { attributesService, exec } = services(req)
             const userId = resolveUserId(req)
+            const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
 
             let validatedQuery
             try {
@@ -336,10 +392,16 @@ export function createAttributesRoutes(
                 throw error
             }
 
-            const { limit, offset, sortBy, sortOrder, search, locale } = validatedQuery
+            const { limit, offset, sortBy, sortOrder, search, locale, scope } = validatedQuery
 
             // Fetch all attributes for the catalog (usually small number < 100)
-            let items = await attributesService.findAll(metahubId, catalogId, userId)
+            let items = await attributesService.findAll(metahubId, catalogId, userId, scope)
+
+            if (scope !== 'business') {
+                items = items.filter((item) =>
+                    shouldExposeCatalogSystemField(item.system?.systemKey ?? null, platformSystemAttributesPolicy)
+                )
+            }
 
             const totalAll = items.length
             const limitReached = totalAll >= ATTRIBUTE_LIMIT
@@ -456,6 +518,7 @@ export function createAttributesRoutes(
                     totalAll,
                     limit: ATTRIBUTE_LIMIT,
                     limitReached,
+                    platformSystemAttributesPolicy,
                     ...(childSearchMatchParentIds.length > 0 ? { childSearchMatchParentIds } : {})
                 }
             })
@@ -732,45 +795,55 @@ export function createAttributesRoutes(
                     return res.status(409).json({ error: 'Attribute with this codename already exists' })
                 }
 
-                await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
+                attribute = await exec.transaction(async (trx: SqlQueryable) => {
+                    await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null, trx)
 
-                // If sortOrder not provided, append to end
-                // We can fetch max sort order or trust service default (0 might overlap)
-                // Ideally we calculate max sort order here or in service.
-                // Let's rely on client or default 0 (which might conflict if unique? sort_order is not unique in schema usually).
-                // Actually, `ensureSequentialSortOrder` fixes it to 1..N. If we insert 0, we might need to reorder again.
-                // Better: get count/max.
-                // But let's simplify: pass provided sortOrder or default.
+                    const createdAttribute = await attributesService.create(
+                        metahubId,
+                        {
+                            catalogId,
+                            codename: normalizedCodename,
+                            codenameLocalized,
+                            dataType,
+                            name: nameVlc,
+                            targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
+                            targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
+                            targetConstantId:
+                                dataType === AttributeDataType.REF && resolvedTargetEntityKind === SET_KIND
+                                    ? resolvedTargetConstantId
+                                    : undefined,
+                            validationRules: validationRules ?? {},
+                            uiConfig: normalizedUiConfig,
+                            isRequired: effectiveIsRequired,
+                            isDisplayAttribute: false,
+                            sortOrder: sortOrder,
+                            parentAttributeId: parentAttributeId ?? null,
+                            createdBy: userId
+                        },
+                        userId,
+                        trx
+                    )
 
-                attribute = await attributesService.create(
-                    metahubId,
-                    {
-                        catalogId,
-                        codename: normalizedCodename,
-                        codenameLocalized,
-                        dataType,
-                        name: nameVlc,
-                        targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
-                        targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
-                        targetConstantId:
-                            dataType === AttributeDataType.REF && resolvedTargetEntityKind === SET_KIND
-                                ? resolvedTargetConstantId
-                                : undefined,
-                        validationRules: validationRules ?? {},
-                        uiConfig: normalizedUiConfig,
-                        isRequired: effectiveIsRequired,
-                        isDisplayAttribute: false,
-                        sortOrder: sortOrder,
-                        parentAttributeId: parentAttributeId ?? null,
-                        createdBy: userId
-                    },
-                    userId
-                )
+                    await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null, trx)
+
+                    if (shouldBeDisplayAttribute) {
+                        await attributesService.setDisplayAttribute(metahubId, catalogId, createdAttribute.id, userId, trx)
+                    }
+
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute create')
+                    return createdAttribute
+                })
             } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
                 if (error instanceof Error && error.message === GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR) {
                     return res.status(409).json({ error: GLOBAL_ATTRIBUTE_CODENAME_LOCK_ERROR })
                 }
                 if (handleTableLimitError(error, res)) return
+                if (isReservedSystemCodenameError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'RESERVED_SYSTEM_CODENAME' })
+                }
                 if (isUniqueViolation(error)) {
                     return res.status(409).json({ error: 'Attribute with this codename already exists' })
                 }
@@ -780,18 +853,6 @@ export function createAttributesRoutes(
                     await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
-
-            // Normalize again to fit new item (scoped to siblings)
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
-
-            // If isDisplayAttribute was set, ensure exclusivity (clear from others)
-            if (shouldBeDisplayAttribute) {
-                await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
-            }
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Schema sync failed:', err)
-            })
 
             res.status(201).json(attribute)
         })
@@ -815,6 +876,9 @@ export function createAttributesRoutes(
             const source = await attributesService.findById(metahubId, attributeId, userId)
             if (!source || source.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
+            }
+            if (source.system?.isSystem) {
+                return res.status(409).json({ error: 'System attributes cannot be copied', code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
             }
 
             const allowAttributeCopy = await getAllowAttributeCopy(settingsService, metahubId, userId)
@@ -1044,6 +1108,7 @@ export function createAttributesRoutes(
                                 }
                             }
 
+                            await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute copy')
                             return { copiedAttribute, copiedChildAttributes }
                         })
                     } catch (error: unknown) {
@@ -1059,7 +1124,13 @@ export function createAttributesRoutes(
                     }
                 }
             } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
                 if (handleTableLimitError(error, res)) return
+                if (isReservedSystemCodenameError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'RESERVED_SYSTEM_CODENAME' })
+                }
                 throw error
             } finally {
                 if (globalCodenameLockKey) {
@@ -1070,10 +1141,6 @@ export function createAttributesRoutes(
             if (!copyResult) {
                 return res.status(409).json({ error: 'Unable to generate unique codename for attribute copy' })
             }
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Copy schema sync failed:', err)
-            })
 
             return res.status(201).json({
                 ...copyResult!.copiedAttribute,
@@ -1123,9 +1190,62 @@ export function createAttributesRoutes(
                 uiConfig,
                 isRequired,
                 isDisplayAttribute,
+                isEnabled,
                 sortOrder,
                 expectedVersion
             } = parsed.data
+
+            if (attribute.system?.isSystem) {
+                const forbiddenKeys = getForbiddenSystemAttributePatchKeys(parsed.data as Record<string, unknown>)
+                if (forbiddenKeys.length > 0) {
+                    return res.status(409).json({
+                        error: `System attributes only support enable/disable changes. Forbidden fields: ${forbiddenKeys.join(', ')}`,
+                        code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                    })
+                }
+
+                if (isEnabled === undefined) {
+                    return res.status(400).json({
+                        error: 'System attributes require isEnabled for updates',
+                        code: 'SYSTEM_ATTRIBUTE_UPDATE_INVALID'
+                    })
+                }
+
+                try {
+                    const updated = await exec.transaction(async (trx: SqlQueryable) => {
+                        const nextAttribute = await attributesService.update(
+                            metahubId,
+                            attributeId,
+                            {
+                                isEnabled,
+                                expectedVersion,
+                                updatedBy: userId
+                            },
+                            userId,
+                            trx
+                        )
+                        await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute update')
+                        return nextAttribute
+                    })
+
+                    return res.json(updated)
+                } catch (error) {
+                    if (isSchemaSyncFailure(error)) {
+                        return respondSchemaSyncFailure(res, error.operation, error.cause)
+                    }
+                    if (isSystemAttributeGuardError(error)) {
+                        return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
+                    }
+                    if (error instanceof OptimisticLockError) {
+                        return res.status(409).json({
+                            error: 'Attribute was modified by another user. Please refresh and try again.',
+                            code: 'OPTIMISTIC_LOCK_CONFLICT',
+                            conflict: error.conflict
+                        })
+                    }
+                    throw error
+                }
+            }
 
             // MVP: Prevent data type change (would require schema migration)
             if (dataType && dataType !== attribute.dataType) {
@@ -1368,6 +1488,7 @@ export function createAttributesRoutes(
             } else if (isDisplayAttribute === true) {
                 updateData.isRequired = true
             }
+            if (isEnabled !== undefined) updateData.isEnabled = isEnabled
             // isDisplayAttribute is handled separately via setDisplayAttribute for atomicity
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
             if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
@@ -1399,38 +1520,49 @@ export function createAttributesRoutes(
                     }
                 }
 
-                updated = await attributesService.update(metahubId, attributeId, updateData, userId)
+                updated = await exec.transaction(async (trx: SqlQueryable) => {
+                    const nextAttribute = await attributesService.update(metahubId, attributeId, updateData, userId, trx)
+
+                    if (isDisplayAttribute === true) {
+                        await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId, trx)
+                    } else if (isDisplayAttribute === false) {
+                        await attributesService.clearDisplayAttribute(metahubId, attributeId, userId, trx)
+                    }
+
+                    if (sortOrder !== undefined) {
+                        const existingAttr = await attributesService.findById(metahubId, attributeId, userId, trx)
+                        await attributesService.ensureSequentialSortOrder(
+                            metahubId,
+                            catalogId,
+                            userId,
+                            existingAttr?.parentAttributeId ?? null,
+                            trx
+                        )
+                    }
+
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute update')
+                    return nextAttribute
+                })
+            } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
+                if (isSystemAttributeGuardError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
+                }
+                if (isReservedSystemCodenameError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'RESERVED_SYSTEM_CODENAME' })
+                }
+                throw error
             } finally {
                 if (globalCodenameLockKey) {
                     await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
 
-            // Handle isDisplayAttribute change atomically (clears flag from other attributes)
-            if (isDisplayAttribute === true) {
-                await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
-            } else if (isDisplayAttribute === false) {
-                try {
-                    await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
-                } catch (error) {
-                    if (error instanceof Error && error.message === 'At least one display attribute is required in each scope') {
-                        return res.status(409).json({
-                            error: 'Cannot clear display attribute. Set another attribute as display first.'
-                        })
-                    }
-                    throw error
-                }
+            if (updated?.system?.isSystem && (isDisplayAttribute === true || isDisplayAttribute === false)) {
+                return res.status(409).json({ error: 'System attributes cannot be used as display attributes' })
             }
-
-            if (sortOrder !== undefined) {
-                // Scope reordering to the attribute's sibling level
-                const existingAttr = await attributesService.findById(metahubId, attributeId, userId)
-                await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, existingAttr?.parentAttributeId ?? null)
-            }
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Schema sync failed:', err)
-            })
 
             res.json(updated)
         })
@@ -1466,6 +1598,9 @@ export function createAttributesRoutes(
             } catch (error: any) {
                 if (error.message === 'Attribute not found') {
                     return res.status(404).json({ error: 'Attribute not found' })
+                }
+                if (isSystemAttributeGuardError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
                 }
                 throw error
             }
@@ -1547,6 +1682,9 @@ export function createAttributesRoutes(
                 if (error.message === 'Attribute not found') {
                     return res.status(404).json({ error: 'Attribute not found' })
                 }
+                if (isSystemAttributeGuardError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
+                }
                 throw error
             }
         })
@@ -1571,6 +1709,11 @@ export function createAttributesRoutes(
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
+            }
+            if (attribute.system?.isSystem) {
+                return res
+                    .status(409)
+                    .json({ error: 'System attributes cannot be used as display attributes', code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
             }
 
             const newValue = !attribute.isRequired
@@ -1623,11 +1766,17 @@ export function createAttributesRoutes(
                 updatePayload.uiConfig = nextUiConfig
             }
 
-            await attributesService.update(metahubId, attributeId, updatePayload, userId)
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Schema sync failed:', err)
-            })
+            try {
+                await exec.transaction(async (trx: SqlQueryable) => {
+                    await attributesService.update(metahubId, attributeId, updatePayload, userId, trx)
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute toggle required')
+                })
+            } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
+                throw error
+            }
 
             res.json({ success: true, isRequired: newValue })
         })
@@ -1646,12 +1795,17 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, exec, settingsService } = services(req)
+            const { attributesService, exec } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
+            }
+            if (attribute.system?.isSystem) {
+                return res
+                    .status(409)
+                    .json({ error: 'System attributes cannot be used as display attributes', code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
             }
 
             // TABLE attributes cannot be display attributes
@@ -1662,11 +1816,20 @@ export function createAttributesRoutes(
                 })
             }
 
-            await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Schema sync failed:', err)
-            })
+            try {
+                await exec.transaction(async (trx: SqlQueryable) => {
+                    await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId, trx)
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute set display')
+                })
+            } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
+                if (isSystemAttributeGuardError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
+                }
+                throw error
+            }
 
             res.json({ success: true })
         })
@@ -1694,19 +1857,24 @@ export function createAttributesRoutes(
             }
 
             try {
-                await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+                await exec.transaction(async (trx: SqlQueryable) => {
+                    await attributesService.clearDisplayAttribute(metahubId, attributeId, userId, trx)
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute clear display')
+                })
             } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
                 if (error instanceof Error && error.message === 'At least one display attribute is required in each scope') {
                     return res.status(409).json({
                         error: 'Cannot clear display attribute. Set another attribute as display first.'
                     })
                 }
+                if (isSystemAttributeGuardError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
+                }
                 throw error
             }
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Schema sync failed:', err)
-            })
 
             res.json({ success: true })
         })
@@ -1758,13 +1926,34 @@ export function createAttributesRoutes(
                 }
             }
 
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, attribute.parentAttributeId ?? null)
-            await attributesService.delete(metahubId, attributeId, userId)
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, attribute.parentAttributeId ?? null)
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Schema sync failed:', err)
-            })
+            try {
+                await exec.transaction(async (trx: SqlQueryable) => {
+                    await attributesService.ensureSequentialSortOrder(
+                        metahubId,
+                        catalogId,
+                        userId,
+                        attribute.parentAttributeId ?? null,
+                        trx
+                    )
+                    await attributesService.delete(metahubId, attributeId, userId, trx)
+                    await attributesService.ensureSequentialSortOrder(
+                        metahubId,
+                        catalogId,
+                        userId,
+                        attribute.parentAttributeId ?? null,
+                        trx
+                    )
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'attribute delete')
+                })
+            } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
+                if (isSystemAttributeGuardError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'SYSTEM_ATTRIBUTE_PROTECTED' })
+                }
+                throw error
+            }
 
             return res.status(204).send()
         })
@@ -2053,28 +2242,44 @@ export function createAttributesRoutes(
                     return res.status(409).json({ error: 'Attribute with this codename already exists' })
                 }
 
-                attribute = await attributesService.create(
-                    metahubId,
-                    {
-                        catalogId,
-                        codename: normalizedCodename,
-                        codenameLocalized,
-                        dataType,
-                        name: nameVlc,
-                        validationRules: validationRules ?? {},
-                        uiConfig: normalizedUiConfig,
-                        isRequired: effectiveIsRequired,
-                        isDisplayAttribute: false,
-                        targetEntityId: resolvedTargetEntityId,
-                        targetEntityKind: resolvedTargetEntityKind,
-                        targetConstantId: resolvedTargetEntityKind === SET_KIND ? resolvedTargetConstantId : undefined,
-                        sortOrder,
-                        parentAttributeId: attributeId,
-                        createdBy: userId
-                    },
-                    userId
-                )
+                attribute = await exec.transaction(async (trx: SqlQueryable) => {
+                    const createdAttribute = await attributesService.create(
+                        metahubId,
+                        {
+                            catalogId,
+                            codename: normalizedCodename,
+                            codenameLocalized,
+                            dataType,
+                            name: nameVlc,
+                            validationRules: validationRules ?? {},
+                            uiConfig: normalizedUiConfig,
+                            isRequired: effectiveIsRequired,
+                            isDisplayAttribute: false,
+                            targetEntityId: resolvedTargetEntityId,
+                            targetEntityKind: resolvedTargetEntityKind,
+                            targetConstantId: resolvedTargetEntityKind === SET_KIND ? resolvedTargetConstantId : undefined,
+                            sortOrder,
+                            parentAttributeId: attributeId,
+                            createdBy: userId
+                        },
+                        userId,
+                        trx
+                    )
+
+                    if (shouldBeDisplayAttribute && createdAttribute.id) {
+                        await attributesService.setDisplayAttribute(metahubId, catalogId, createdAttribute.id, userId, trx)
+                    }
+
+                    await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'child attribute create')
+                    return createdAttribute
+                })
             } catch (error) {
+                if (isSchemaSyncFailure(error)) {
+                    return respondSchemaSyncFailure(res, error.operation, error.cause)
+                }
+                if (isReservedSystemCodenameError(error)) {
+                    return res.status(409).json({ error: error.message, code: 'RESERVED_SYSTEM_CODENAME' })
+                }
                 if (isUniqueViolation(error)) {
                     return res.status(409).json({ error: 'Attribute with this codename already exists' })
                 }
@@ -2084,19 +2289,6 @@ export function createAttributesRoutes(
                     await releasePoolAdvisoryLock(globalCodenameLockKey)
                 }
             }
-
-            // If this should be the display attribute, set it (clears siblings automatically)
-            if (shouldBeDisplayAttribute && attribute.id) {
-                try {
-                    await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
-                } catch (err) {
-                    console.warn('[Attributes] Failed to set display attribute on child:', err)
-                }
-            }
-
-            await syncMetahubSchema(metahubId, exec, userId).catch((err) => {
-                console.error('[Attributes] Child attribute schema sync failed:', err)
-            })
 
             res.status(201).json(attribute)
         })

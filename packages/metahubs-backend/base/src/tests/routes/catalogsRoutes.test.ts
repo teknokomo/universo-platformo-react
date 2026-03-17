@@ -54,7 +54,8 @@ const mockHubsService = {
 
 const mockAttributesService = {
     countByObjectIds: jest.fn(),
-    findCatalogReferenceBlockers: jest.fn()
+    findCatalogReferenceBlockers: jest.fn(),
+    ensureCatalogSystemAttributes: jest.fn(async () => [])
 }
 
 const mockElementsService = {
@@ -109,13 +110,19 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
 
 describe('Catalogs Routes', () => {
     const createCatalogCopyTransactionTrx = (params?: {
+        sourceSystemRows?: Array<Record<string, unknown>>
         sourceAttributes?: Array<Record<string, unknown>>
         sourceElements?: Array<Record<string, unknown>>
     }) => {
+        const sourceSystemRows = params?.sourceSystemRows ?? []
         const sourceAttributes = params?.sourceAttributes ?? []
         const sourceElements = params?.sourceElements ?? []
 
         const queryMock = jest.fn().mockResolvedValue([])
+
+        if (sourceSystemRows.length > 0) {
+            queryMock.mockResolvedValueOnce(sourceSystemRows)
+        }
 
         // Sequenced responses: SELECT attrs, then INSERT per attr, then SELECT elems, then INSERT elems
         if (sourceAttributes.length > 0) {
@@ -307,6 +314,7 @@ describe('Catalogs Routes', () => {
 
     describe('POST /metahub/:metahubId/catalogs', () => {
         it('creates catalog without hub associations', async () => {
+            const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
             mockObjectsService.createCatalog.mockResolvedValue({
                 id: 'catalog-new',
                 codename: 'NewCatalog',
@@ -318,6 +326,9 @@ describe('Catalogs Routes', () => {
             })
 
             const app = buildApp()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(tx)
+            )
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
                 .send({ codename: 'new-catalog', name: 'New Catalog' })
@@ -330,7 +341,21 @@ describe('Catalogs Routes', () => {
                     codename: 'NewCatalog',
                     config: expect.objectContaining({ hubs: [] })
                 }),
-                'test-user-id'
+                'test-user-id',
+                tx
+            )
+            expect(mockAttributesService.ensureCatalogSystemAttributes).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-new',
+                'test-user-id',
+                tx,
+                {
+                    policy: {
+                        allowConfiguration: false,
+                        forceCreate: true,
+                        ignoreMetahubSettings: true
+                    }
+                }
             )
         })
 
@@ -381,6 +406,54 @@ describe('Catalogs Routes', () => {
     })
 
     describe('POST /metahub/:metahubId/hub/:hubId/catalogs', () => {
+        it('creates catalog atomically with hub-scoped system-attribute seeding', async () => {
+            const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+            mockHubsService.findById.mockResolvedValue({ id: 'hub-1' })
+            mockHubsService.findByIds.mockResolvedValue([{ id: 'hub-1' }])
+            mockObjectsService.createCatalog.mockResolvedValue({
+                id: 'catalog-hub-new',
+                codename: 'HubCatalog',
+                presentation: { name: { en: 'Hub Catalog' }, description: undefined },
+                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
+                _upl_version: 1,
+                created_at: new Date('2026-02-11T00:00:00.000Z'),
+                updated_at: new Date('2026-02-11T00:00:00.000Z')
+            })
+
+            const app = buildApp()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(tx)
+            )
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/hub/hub-1/catalogs')
+                .send({ codename: 'hub-catalog', name: 'Hub Catalog' })
+                .expect(201)
+
+            expect(response.body).toMatchObject({ id: 'catalog-hub-new', codename: 'HubCatalog' })
+            expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
+                'test-metahub-id',
+                expect.objectContaining({
+                    codename: 'HubCatalog',
+                    config: expect.objectContaining({ hubs: ['hub-1'] })
+                }),
+                'test-user-id',
+                tx
+            )
+            expect(mockAttributesService.ensureCatalogSystemAttributes).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-hub-new',
+                'test-user-id',
+                tx,
+                {
+                    policy: {
+                        allowConfiguration: false,
+                        forceCreate: true,
+                        ignoreMetahubSettings: true
+                    }
+                }
+            )
+        })
+
         it('rejects single-hub catalog when explicit hub list contains multiple hubs', async () => {
             mockHubsService.findById.mockResolvedValue({ id: 'hub-1' })
             mockHubsService.findByIds.mockResolvedValue([
@@ -608,7 +681,22 @@ describe('Catalogs Routes', () => {
                 config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
             })
 
-            const trx = createCatalogCopyTransactionTrx()
+            const trx = createCatalogCopyTransactionTrx({
+                sourceSystemRows: [
+                    {
+                        system_key: 'app.deleted',
+                        is_system_enabled: false
+                    },
+                    {
+                        system_key: 'app.deleted_at',
+                        is_system_enabled: false
+                    },
+                    {
+                        system_key: 'app.deleted_by',
+                        is_system_enabled: false
+                    }
+                ]
+            })
             ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback(trx)
             )
@@ -630,6 +718,24 @@ describe('Catalogs Routes', () => {
             expect(response.body.attributesCount).toBe(0)
             expect(response.body.elementsCount).toBe(0)
             expect(mockObjectsService.createCatalog).toHaveBeenCalled()
+            expect(mockAttributesService.ensureCatalogSystemAttributes).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-copy-id',
+                'test-user-id',
+                trx,
+                {
+                    states: [
+                        { key: 'app.deleted', enabled: false },
+                        { key: 'app.deleted_at', enabled: false },
+                        { key: 'app.deleted_by', enabled: false }
+                    ],
+                    policy: {
+                        allowConfiguration: false,
+                        forceCreate: true,
+                        ignoreMetahubSettings: true
+                    }
+                }
+            )
         })
 
         it('copies attributes and elements by default when options are omitted', async () => {
@@ -680,6 +786,20 @@ describe('Catalogs Routes', () => {
             expect(response.body.elementsCount).toBe(1)
             // trx.query called: SELECT attrs (1) + INSERT per attr (1) + SELECT elems (1) + INSERT elems (1) = 4
             expect(trx.query).toHaveBeenCalledTimes(4)
+            expect(mockAttributesService.ensureCatalogSystemAttributes).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-copy-id',
+                'test-user-id',
+                trx,
+                {
+                    states: undefined,
+                    policy: {
+                        allowConfiguration: false,
+                        forceCreate: true,
+                        ignoreMetahubSettings: true
+                    }
+                }
+            )
         })
 
         it('retries catalog copy after codename unique violation and succeeds', async () => {

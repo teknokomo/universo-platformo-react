@@ -8,6 +8,21 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(cloneTemplate(basicTemplate))).not.toThrow()
     })
 
+    it('keeps the basic template default widgets limited to app navbar, header, details title, and details table', () => {
+        const manifest = cloneTemplate(basicTemplate)
+        const widgets = manifest.seed.layoutZoneWidgets.main ?? []
+
+        expect(widgets).toEqual([
+            expect.objectContaining({ zone: 'left', widgetKey: 'menuWidget', sortOrder: 3 }),
+            expect.objectContaining({ zone: 'top', widgetKey: 'appNavbar', sortOrder: 1 }),
+            expect.objectContaining({ zone: 'top', widgetKey: 'header', sortOrder: 2 }),
+            expect.objectContaining({ zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 }),
+            expect.objectContaining({ zone: 'center', widgetKey: 'detailsTable', sortOrder: 6 })
+        ])
+        expect(widgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
+        expect(widgets.some((widget) => widget.widgetKey === 'productTree')).toBe(false)
+    })
+
     it('rejects layoutZoneWidgets references to unknown layouts', () => {
         const manifest = cloneTemplate(basicTemplate)
         const firstWidgets = Object.values(manifest.seed.layoutZoneWidgets)[0] ?? []

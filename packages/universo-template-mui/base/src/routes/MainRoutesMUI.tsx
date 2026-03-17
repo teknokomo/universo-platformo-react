@@ -297,6 +297,10 @@ const MainRoutesMUI = {
                     element: <AttributeList />
                 },
                 {
+                    path: 'catalog/:catalogId/system',
+                    element: <AttributeList />
+                },
+                {
                     path: 'catalog/:catalogId/elements',
                     element: <ElementList />
                 },
@@ -327,6 +331,10 @@ const MainRoutesMUI = {
                 },
                 {
                     path: 'hub/:hubId/catalog/:catalogId/attributes',
+                    element: <AttributeList />
+                },
+                {
+                    path: 'hub/:hubId/catalog/:catalogId/system',
                     element: <AttributeList />
                 },
                 {

@@ -1,7 +1,14 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
-import { MetaEntityKind, type EnumerationValueDefinition, type MetahubSnapshotVersionEnvelope } from '@universo/types'
+import {
+    MetaEntityKind,
+    type CatalogSystemFieldsSnapshot,
+    type EnumerationValueDefinition,
+    type MetahubSnapshotVersionEnvelope,
+    type VersionedLocalizedContent
+} from '@universo/types'
+import { serialization } from '@universo/utils'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
@@ -20,6 +27,7 @@ export interface MetahubSnapshot {
     elements?: Record<string, MetaElementSnapshot[]>
     enumerationValues?: Record<string, EnumerationValueDefinition[]>
     constants?: Record<string, MetaConstantSnapshot[]>
+    systemFields?: Record<string, CatalogSystemFieldsSnapshot>
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -71,6 +79,50 @@ export interface MetaEntitySnapshot extends EntityDefinition {
     hubs: string[]
     tableName?: string
     config?: Record<string, unknown>
+}
+
+type SnapshotAttributeRecord = {
+    id: string
+    codename: string
+    dataType: FieldDefinition['dataType']
+    isRequired: boolean
+    isDisplayAttribute?: boolean | null
+    targetEntityId?: string | null
+    targetEntityKind?: MetaEntityKind | null
+    targetConstantId?: string | null
+    name?: VersionedLocalizedContent<string> | null
+    description?: VersionedLocalizedContent<string> | null
+    validationRules?: Record<string, unknown> | null
+    uiConfig?: Record<string, unknown> | null
+    sortOrder?: number | null
+    parentAttributeId?: string | null
+    system?: {
+        isSystem?: boolean | null
+    } | null
+}
+
+type SnapshotConstantRecord = {
+    id: string
+    setId?: string | null
+    codename: string
+    codenameLocalized?: string | null
+    dataType: string
+    name?: VersionedLocalizedContent<string> | null
+    validationRules?: Record<string, unknown> | null
+    uiConfig?: Record<string, unknown> | null
+    value?: unknown
+    sortOrder?: number | null
+}
+
+type SnapshotEnumerationValueRecord = {
+    id: string
+    objectId?: string | null
+    codename: string
+    presentation?: EnumerationValueDefinition['presentation'] | null
+    name?: VersionedLocalizedContent<string> | null
+    description?: VersionedLocalizedContent<string> | null
+    sortOrder?: number | null
+    isDefault?: boolean | null
 }
 
 export interface MetaFieldSnapshot extends FieldDefinition {
@@ -126,6 +178,7 @@ export class SnapshotSerializer {
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
         const enumerationValuesByObject: Record<string, EnumerationValueDefinition[]> = {}
         const constantsByObject: Record<string, MetaConstantSnapshot[]> = {}
+        const systemFieldsByObject: Record<string, CatalogSystemFieldsSnapshot> = {}
 
         const objectIds = catalogs.map((catalog) => catalog.id)
         const allElements =
@@ -163,17 +216,25 @@ export class SnapshotSerializer {
 
         for (const catalog of catalogs) {
             // Fetch ALL attributes (root + child) for snapshot completeness
-            const allAttributes = await this.attributesService.findAllFlat(metahubId, catalog.id)
-            const rootAttributes = allAttributes.filter((a: any) => !a.parentAttributeId)
-            const childAttributesByParent = new Map<string, typeof allAttributes>()
+            const allAttributes = (await this.attributesService.findAllFlat(
+                metahubId,
+                catalog.id,
+                undefined,
+                'all'
+            )) as SnapshotAttributeRecord[]
+            const businessAttributes = allAttributes.filter((attribute) => attribute.system?.isSystem !== true)
+            const rootAttributes = businessAttributes.filter((attribute) => !attribute.parentAttributeId)
+            const childAttributesByParent = new Map<string, SnapshotAttributeRecord[]>()
 
-            for (const attr of allAttributes) {
-                if ((attr as any).parentAttributeId) {
-                    const list = childAttributesByParent.get((attr as any).parentAttributeId) ?? []
+            for (const attr of businessAttributes) {
+                if (attr.parentAttributeId) {
+                    const list = childAttributesByParent.get(attr.parentAttributeId) ?? []
                     list.push(attr)
-                    childAttributesByParent.set((attr as any).parentAttributeId, list)
+                    childAttributesByParent.set(attr.parentAttributeId, list)
                 }
             }
+
+            systemFieldsByObject[catalog.id] = await this.attributesService.getCatalogSystemFieldsSnapshot(metahubId, catalog.id)
 
             // Get associated hubs from config
             const hubIds: string[] = catalog.config?.hubs || []
@@ -211,12 +272,12 @@ export class SnapshotSerializer {
                         targetEntityKind: resolvedTargetEntityKind,
                         targetConstantId: attr.targetConstantId ?? null,
                         presentation: {
-                            name: attr.name || {},
-                            description: attr.description || {}
+                            name: (attr.name || {}) as MetaFieldSnapshot['presentation']['name'],
+                            description: (attr.description || {}) as MetaFieldSnapshot['presentation']['description']
                         },
-                        validationRules: (attr.validationRules || {}) as any,
-                        uiConfig: (attr.uiConfig || {}) as any,
-                        sortOrder: attr.sortOrder
+                        validationRules: attr.validationRules || {},
+                        uiConfig: attr.uiConfig || {},
+                        sortOrder: attr.sortOrder ?? 0
                     }
 
                     // Include child fields for TABLE attributes
@@ -232,12 +293,12 @@ export class SnapshotSerializer {
                             targetEntityKind: child.targetEntityKind ?? undefined,
                             targetConstantId: child.targetConstantId ?? null,
                             presentation: {
-                                name: child.name || {},
-                                description: child.description || {}
+                                name: (child.name || {}) as MetaFieldSnapshot['presentation']['name'],
+                                description: (child.description || {}) as MetaFieldSnapshot['presentation']['description']
                             },
-                            validationRules: (child.validationRules || {}) as any,
-                            uiConfig: (child.uiConfig || {}) as any,
-                            sortOrder: child.sortOrder,
+                            validationRules: child.validationRules || {},
+                            uiConfig: child.uiConfig || {},
+                            sortOrder: child.sortOrder ?? 0,
                             parentAttributeId: attr.id
                         }))
                     }
@@ -250,9 +311,9 @@ export class SnapshotSerializer {
 
         if (this.constantsService && sets.length > 0) {
             for (const set of sets) {
-                const constants = await this.constantsService.findAll(metahubId, set.id)
+                const constants = (await this.constantsService.findAll(metahubId, set.id)) as SnapshotConstantRecord[]
                 if (!constants.length) continue
-                constantsByObject[set.id] = constants.map((constant: any) => ({
+                constantsByObject[set.id] = constants.map((constant) => ({
                     id: constant.id,
                     objectId: constant.setId ?? set.id,
                     codename: constant.codename,
@@ -272,17 +333,20 @@ export class SnapshotSerializer {
         if (this.enumerationValuesService && enumerations.length > 0) {
             const valuesEntries = await Promise.all(
                 enumerations.map(async (enumeration) => {
-                    const values = await this.enumerationValuesService!.findAll(metahubId, enumeration.id)
-                    const normalizedValues: EnumerationValueDefinition[] = values.map((value: any) => ({
+                    const values = (await this.enumerationValuesService!.findAll(
+                        metahubId,
+                        enumeration.id
+                    )) as unknown as SnapshotEnumerationValueRecord[]
+                    const normalizedValues: EnumerationValueDefinition[] = values.map((value) => ({
                         id: value.id,
-                        objectId: value.objectId,
+                        objectId: value.objectId ?? enumeration.id,
                         codename: value.codename,
                         presentation:
                             value.presentation && typeof value.presentation === 'object'
                                 ? value.presentation
                                 : {
-                                      name: value.name ?? {},
-                                      description: value.description ?? {}
+                                      name: (value.name ?? {}) as EnumerationValueDefinition['presentation']['name'],
+                                      description: (value.description ?? {}) as EnumerationValueDefinition['presentation']['description']
                                   },
                         sortOrder: value.sortOrder ?? 0,
                         isDefault: value.isDefault ?? false
@@ -351,7 +415,8 @@ export class SnapshotSerializer {
             entities,
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
             enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined,
-            constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined
+            constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined,
+            systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined
         }
     }
 
@@ -417,6 +482,10 @@ export class SnapshotSerializer {
         return Object.values(snapshot.entities).map((entity) => ({
             ...entity,
             id: entity.id,
+            config: {
+                ...(entity.config ?? {}),
+                systemFields: snapshot.systemFields?.[entity.id] ?? null
+            },
             fields: entity.fields.flatMap((field) => {
                 const mapped = {
                     ...field,
@@ -447,186 +516,12 @@ export class SnapshotSerializer {
     }
 
     private static normalizeSnapshotForHash(snapshot: MetahubSnapshot): Record<string, unknown> {
-        const entities = Object.values(snapshot.entities)
-            .map((entity) => ({
-                id: entity.id,
-                kind: entity.kind,
-                codename: entity.codename,
-                tableName: entity.tableName,
-                presentation: entity.presentation ?? {},
-                config: entity.config ?? {},
-                hubs: [...(entity.hubs ?? [])].sort(),
-                fields: [...entity.fields]
-                    .map((field) => ({
-                        id: field.id,
-                        codename: field.codename,
-                        dataType: field.dataType,
-                        isRequired: field.isRequired,
-                        isDisplayAttribute: field.isDisplayAttribute ?? false,
-                        targetEntityId: field.targetEntityId ?? null,
-                        targetEntityKind: field.targetEntityKind ?? null,
-                        targetConstantId: field.targetConstantId ?? null,
-                        presentation: field.presentation ?? {},
-                        validationRules: field.validationRules ?? {},
-                        uiConfig: field.uiConfig ?? {},
-                        sortOrder: field.sortOrder ?? 0,
-                        parentAttributeId: field.parentAttributeId ?? null,
-                        // Normalize child fields for TABLE attributes
-                        childFields: field.childFields
-                            ? [...field.childFields]
-                                  .map((child) => {
-                                      const childSortOrder = (child as MetaFieldSnapshot).sortOrder ?? 0
-                                      return {
-                                          id: child.id,
-                                          codename: child.codename,
-                                          dataType: child.dataType,
-                                          isRequired: child.isRequired,
-                                          isDisplayAttribute: child.isDisplayAttribute ?? false,
-                                          targetEntityId: child.targetEntityId ?? null,
-                                          targetEntityKind: child.targetEntityKind ?? null,
-                                          targetConstantId: child.targetConstantId ?? null,
-                                          presentation: child.presentation ?? {},
-                                          validationRules: child.validationRules ?? {},
-                                          uiConfig: child.uiConfig ?? {},
-                                          sortOrder: childSortOrder
-                                      }
-                                  })
-                                  .sort((a, b) => {
-                                      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                                      if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
-                                      return a.id.localeCompare(b.id)
-                                  })
-                            : undefined
-                    }))
-                    .sort((a, b) => {
-                        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                        if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
-                        return a.id.localeCompare(b.id)
-                    })
-            }))
-            .sort((a, b) => {
-                if (a.kind !== b.kind) return a.kind.localeCompare(b.kind)
-                if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
-                return a.id.localeCompare(b.id)
-            })
-
-        const elements = snapshot.elements
-            ? Object.entries(snapshot.elements)
-                  .map(([objectId, list]) => ({
-                      objectId,
-                      elements: list
-                          .map((element) => ({
-                              id: element.id,
-                              data: element.data ?? {},
-                              sortOrder: element.sortOrder ?? 0
-                          }))
-                          .sort((a, b) => {
-                              if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                              return a.id.localeCompare(b.id)
-                          })
-                  }))
-                  .sort((a, b) => a.objectId.localeCompare(b.objectId))
-            : []
-
-        const enumerationValues = snapshot.enumerationValues
-            ? Object.entries(snapshot.enumerationValues)
-                  .map(([objectId, list]) => ({
-                      objectId,
-                      values: list
-                          .map((value) => ({
-                              id: value.id,
-                              codename: value.codename,
-                              presentation: value.presentation ?? {},
-                              sortOrder: value.sortOrder ?? 0,
-                              isDefault: Boolean(value.isDefault)
-                          }))
-                          .sort((a, b) => {
-                              if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                              if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
-                              return a.id.localeCompare(b.id)
-                          })
-                  }))
-                  .sort((a, b) => a.objectId.localeCompare(b.objectId))
-            : []
-
-        const constants = snapshot.constants
-            ? Object.entries(snapshot.constants)
-                  .map(([objectId, list]) => ({
-                      objectId,
-                      constants: list
-                          .map((constant) => ({
-                              id: constant.id,
-                              codename: constant.codename,
-                              dataType: constant.dataType,
-                              presentation: constant.presentation ?? {},
-                              validationRules: constant.validationRules ?? {},
-                              uiConfig: constant.uiConfig ?? {},
-                              value: constant.value ?? null,
-                              sortOrder: constant.sortOrder ?? 0
-                          }))
-                          .sort((a, b) => {
-                              if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                              if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
-                              return a.id.localeCompare(b.id)
-                          })
-                  }))
-                  .sort((a, b) => a.objectId.localeCompare(b.objectId))
-            : []
-
-        const layouts = snapshot.layouts
-            ? snapshot.layouts
-                  .map((layout) => ({
-                      id: layout.id,
-                      templateKey: layout.templateKey,
-                      name: layout.name ?? {},
-                      description: layout.description ?? null,
-                      config: layout.config ?? {},
-                      isDefault: Boolean(layout.isDefault),
-                      isActive: Boolean(layout.isActive),
-                      sortOrder: layout.sortOrder ?? 0
-                  }))
-                  .sort((a, b) => {
-                      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1
-                      return a.id.localeCompare(b.id)
-                  })
-            : []
-
-        const layoutZoneWidgets = snapshot.layoutZoneWidgets
-            ? snapshot.layoutZoneWidgets
-                  .map((item) => ({
-                      id: item.id,
-                      layoutId: item.layoutId,
-                      zone: item.zone,
-                      widgetKey: item.widgetKey,
-                      sortOrder: item.sortOrder ?? 0,
-                      config: item.config ?? {},
-                      isActive: Boolean(item.isActive)
-                  }))
-                  .sort((a, b) => {
-                      if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
-                      if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
-                      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                      return a.id.localeCompare(b.id)
-                  })
-            : []
-
-        return {
-            version: snapshot.version,
-            versionEnvelope: snapshot.versionEnvelope ?? {
+        return serialization.normalizePublicationSnapshotForHash(snapshot, {
+            defaultVersionEnvelope: {
                 structureVersion: structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: null,
                 snapshotFormatVersion: 1
-            },
-            metahubId: snapshot.metahubId,
-            entities,
-            elements,
-            enumerationValues,
-            constants,
-            layouts,
-            layoutZoneWidgets,
-            defaultLayoutId: snapshot.defaultLayoutId ?? null,
-            layoutConfig: snapshot.layoutConfig ?? {}
-        }
+            }
+        })
     }
 }

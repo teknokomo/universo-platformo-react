@@ -2,6 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { z } from 'zod'
 import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
+import { PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
 import {
@@ -55,7 +56,10 @@ const METAHUB_SETTING_VALUE_SCHEMAS: Record<string, z.ZodTypeAny> = {
     codenameAlphabet: z.enum(['en', 'ru', 'en-ru']),
     codenameAllowMixedAlphabets: z.boolean(),
     codenameAutoConvertMixedAlphabets: z.boolean(),
-    codenameLocalizedEnabled: z.boolean()
+    codenameLocalizedEnabled: z.boolean(),
+    [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration]: z.boolean(),
+    [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate]: z.boolean(),
+    [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings]: z.boolean()
 }
 
 const METAHUB_ALLOWED_SETTING_KEYS = new Set(Object.keys(METAHUB_SETTING_VALUE_SCHEMAS))

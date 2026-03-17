@@ -140,7 +140,21 @@ describe('queryKeys factories + invalidation helpers', () => {
             'c1',
             'attributes',
             'list',
-            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined }
+            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, locale: undefined, scope: undefined }
+        ])
+        expect(metahubsQueryKeys.attributesList('m1', 'h1', 'c1', { scope: 'system', locale: 'ru' })).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'hubs',
+            'detail',
+            'h1',
+            'catalogs',
+            'detail',
+            'c1',
+            'attributes',
+            'list',
+            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, locale: 'ru', scope: 'system' }
         ])
         expect(metahubsQueryKeys.attributesDirect('m1', 'c1')).toEqual([
             'metahubs',
@@ -160,7 +174,18 @@ describe('queryKeys factories + invalidation helpers', () => {
             'c1',
             'attributes',
             'list',
-            { limit: 100, offset: 0, sortBy: 'created', sortOrder: 'desc', search: undefined }
+            { limit: 100, offset: 0, sortBy: 'created', sortOrder: 'desc', search: undefined, locale: undefined, scope: undefined }
+        ])
+        expect(metahubsQueryKeys.attributesListDirect('m1', 'c1', { scope: 'system' })).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'allCatalogs',
+            'detail',
+            'c1',
+            'attributes',
+            'list',
+            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, locale: undefined, scope: 'system' }
         ])
 
         expect(metahubsQueryKeys.elements('m1', 'h1', 'c1')).toEqual([

@@ -1,5 +1,60 @@
 # Current Research
 
+## 2026-03-17: Configurable platform runtime `_upl_*` columns
+
+- Research outcome implemented: the remaining bug was below the metahub/publication layer. Catalog snapshots already preserved disabled `upl.*` states, but runtime application business-table generation still created configurable `_upl_archived*` / `_upl_deleted*` columns unconditionally.
+- Confirmed root cause: `@universo/schema-ddl` consumed only `config.systemFields.lifecycleContract`, while applications runtime CRUD/sync helpers still hardcoded `_upl_deleted` predicates and updates for dynamic business tables.
+- Implemented fix: one shared `@universo/utils` helper now derives platform archive/delete families from `config.systemFields.fields`, schema-ddl consumes that helper for conditional runtime DDL, and applications-backend consumes the same helper for active-row and soft-delete SQL.
+- Regression result: shared utils tests, schema-ddl generator tests, and applications runtime route tests all passed after the fix, and the final root build is green.
+- No open research thread remains for this runtime `_upl_*` contract issue.
+
+## 2026-03-17: Catalog tab mixing and basic template layout defaults
+
+- Research outcome implemented: the tab-mixing defect was a scoped-list UX issue, not a backend data-integrity bug. `AttributeList` was using the shared paginated hook with previous-query placeholder reuse enabled while switching between two different scopes inside the same component instance.
+- Implemented fix: the scoped attributes view now opts out of `keepPreviousData` on query-key changes and resets page/expanded TABLE state on tab switches so old rows cannot linger in the new scope.
+- Research outcome implemented: the unwanted default center-zone columns container came directly from the built-in `basic` template seed data, not from a migration or runtime repair path.
+- Implemented fix: the built-in base template now seeds `appNavbar` in the top zone and only `detailsTable` in the center zone for new metahubs; no template version bump or legacy branch was required because the target environment recreates the database from scratch.
+- No open research thread remains for this wave.
+
+## 2026-03-17: Disabled system attributes still created runtime `_app_*` columns
+
+- Research outcome implemented: the bug was not in publication snapshot generation and not in schema-ddl itself. Publication snapshots already carried `systemFields.lifecycleContract`, and schema-ddl already omitted `_app_*` lifecycle columns when that contract disabled them.
+- Confirmed root cause: the application release-bundle executable payload builder reconstructed entities directly from `snapshot.entities`, which do not carry the top-level publication `systemFields` data. That dropped `config.systemFields.lifecycleContract` before schema generation and caused runtime tables to fall back to default lifecycle columns.
+- Implemented fix: `createApplicationReleaseBundle(...)` now hydrates snapshot-level `systemFields` back into each executable entity config before creating the executable payload schema snapshot.
+- Regression result: release-bundle tests now assert payload hydration from publication `systemFields`, and application sync route tests now prove the generated schema payload contains the disabled lifecycle contract during publication-driven schema creation.
+- No open research thread remains for this runtime lifecycle propagation issue.
+
+## 2026-03-17: Application connector snapshot-hash mismatch
+
+- Research outcome implemented: connector schema creation failed because the publication-side hash producer and the application-side hash verifier were normalizing different snapshot payloads.
+- Confirmed root cause: `SnapshotSerializer.normalizeSnapshotForHash(...)` includes `systemFields` and omits absent optional keys, but `normalizePublicationSnapshotForHash(...)` had drifted by omitting `systemFields` and coercing absent optional publication/layout keys to `null`.
+- Implemented fix: the applications-backend publication normalization now includes `systemFields` per entity and as normalized top-level metadata before computing the canonical release-bundle snapshot hash, and it preserves serializer-compatible omission semantics for optional keys.
+- Regression result: direct release-bundle tests now cover publication snapshots with disabled lifecycle-related `systemFields` and the real layout/widget omitted-key shape that reproduced the runtime mismatch on compiled `dist`.
+- No open research thread remains for this connector snapshot-hash issue.
+
+## 2026-03-16: Platform system attributes governance closure
+
+- Research outcome implemented: platform `_upl_*` catalog system attributes no longer depend only on metahub configuration; a global admin policy now decides whether they are configurable, always created, or forced back to platform defaults.
+- Confirmed architectural seam: metahubs frontend should not fetch admin settings directly for this feature; the correct contract is backend policy resolution plus list-response `meta` for catalog System views.
+- Confirmed UX/root-cause findings: the empty platform action menu was caused by `canDisable: false` in the shared registry, and the row-jump bug was caused by optimistic `moveToFront: true` rather than backend `sort_order` rewrites.
+- Routing result implemented: catalog System uses dedicated `/system` routes for both global and hub-scoped catalog views, while legacy `?tab=system` URLs are redirected from the attribute view.
+- No open research thread remains for this platform-governance wave.
+
+## 2026-03-16: Metahub catalog system attributes and runtime lifecycle contract planning
+
+- Code audit result: configurable catalog system attributes cannot be implemented safely as a metahub-only change because `_app_*` lifecycle fields are still hardcoded in runtime schema generation and assumed directly in application sync/CRUD routes.
+- The critical propagation seam is the publication snapshot pipeline: catalog-level system-field metadata must be serialized explicitly and then resolved into a compact runtime lifecycle contract during publication/app sync.
+- The safest scope cut for wave 1 is to make lifecycle families (`published`, `archived`, `deleted` and their `_at` / `_by` companions) configurable while leaving `_app_owner_id`, `_app_access_level`, and baseline `_upl_*` audit infrastructure fixed.
+- Recommended runtime rule: derive the lifecycle contract once during publication/app sync and persist it with application sync or release metadata; runtime requests should consume that contract instead of probing live schema shape or hardcoding `_app_deleted` assumptions.
+- Template/base seeding and manual catalog creation must share one idempotent `ensureCatalogSystemAttributes(...)` path so default rows cannot drift between builtin templates and interactive creation.
+- Frontend planning result: add a dedicated `System` tab, standardize catalog tab order to `Attributes -> System -> Elements -> Settings`, keep `Settings` visible from every catalog sub-view, and expose toggle-only controls for system rows with localized labels and type badges.
+- External references used in the planning pass: Context7 Knex guidance, MUI Tabs guidance, TanStack Query invalidation/query-key guidance, PostgreSQL ALTER TABLE behavior, and UP-test Supabase live schema inspection.
+- Open decision for implementation review: whether design-time persistence should extend the existing catalog-attribute entity with `isSystem/systemKey/isEnabled` metadata or use a small dedicated side-table if the current schema shape proves too rigid.
+- QA refinement conclusion: for this repository, wave 1 should extend `_mhb_attributes` directly rather than introduce a separate side-table, because template seeding, template migration, cleanup, snapshot serialization, and optimistic attribute CRUD already converge on `_mhb_attributes`.
+- QA refinement conclusion: any richer system-field registry must reuse `@universo/utils/database/systemFields.ts` as the canonical low-level field-name source and must not duplicate raw `_app_*` / `_upl_*` string constants in a second independent catalog.
+- QA refinement conclusion: backend service-level guards are required for reorder/move operations on system rows; UI-only restrictions are not sufficient because attribute ordering and transfer operations already exist in `MetahubAttributesService`.
+- QA refinement conclusion: because metahub attribute routes, metahub element validation, snapshot serialization, and runtime application metadata all currently consume generic attribute collections, the implementation must exclude system rows from ordinary attribute/business-field flows by default and serialize them through a dedicated lifecycle metadata channel.
+
 ## 2026-03-13: Optional global migration catalog true final closure
 
 - Research outcome implemented: the last remaining gap was not runtime correctness but artifact completeness. `application_release_bundle` now embeds deterministic executable payloads for both baseline and incremental execution instead of checksum-only descriptors.

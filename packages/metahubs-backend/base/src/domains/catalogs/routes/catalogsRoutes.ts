@@ -11,7 +11,7 @@ import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCatalogCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
-import { type CatalogCopyOptions, MetaEntityKind } from '@universo/types'
+import { type CatalogCopyOptions, type CatalogSystemFieldState, MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
@@ -24,6 +24,7 @@ import {
     buildCodenameAttempt,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
+import { readPlatformSystemAttributesPolicy } from '../../shared'
 
 type RequestUser = {
     id?: string
@@ -92,7 +93,12 @@ type CatalogAttributeRow = {
     is_display_attribute?: boolean
     target_object_id?: string | null
     target_object_kind?: string | null
+    target_constant_id?: string | null
     parent_attribute_id?: string | null
+    is_system?: boolean
+    system_key?: string | null
+    is_system_managed?: boolean
+    is_system_enabled?: boolean
 }
 
 type CatalogElementRow = {
@@ -497,8 +503,9 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { objectsService, hubsService, settingsService } = services(req)
+            const { exec, objectsService, hubsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
+            const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
 
             const parsed = createCatalogSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -580,23 +587,30 @@ export function createCatalogsRoutes(
             // Create catalog
             let created
             try {
-                created = await objectsService.createCatalog(
-                    metahubId,
-                    {
-                        codename: normalizedCodename,
-                        codenameLocalized,
-                        name: nameVlc,
-                        description: descriptionVlc,
-                        config: {
-                            isSingleHub: isSingleHub ?? false,
-                            isRequiredHub: effectiveIsRequired,
-                            sortOrder,
-                            hubs: targetHubIds
+                created = await exec.transaction(async (trx: SqlQueryable) => {
+                    const nextCatalog = await objectsService.createCatalog(
+                        metahubId,
+                        {
+                            codename: normalizedCodename,
+                            codenameLocalized,
+                            name: nameVlc,
+                            description: descriptionVlc,
+                            config: {
+                                isSingleHub: isSingleHub ?? false,
+                                isRequiredHub: effectiveIsRequired,
+                                sortOrder,
+                                hubs: targetHubIds
+                            },
+                            createdBy: userId
                         },
-                        createdBy: userId
-                    },
-                    userId
-                )
+                        userId,
+                        trx
+                    )
+                    await attributesService.ensureCatalogSystemAttributes(metahubId, nextCatalog.id, userId, trx, {
+                        policy: platformSystemAttributesPolicy
+                    })
+                    return nextCatalog
+                })
             } catch (error) {
                 if (database.isUniqueViolation(error)) {
                     return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
@@ -1070,7 +1084,7 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { exec, objectsService, hubsService, schemaService, settingsService } = services(req)
+            const { exec, objectsService, hubsService, schemaService, settingsService, attributesService } = services(req)
             const userId = resolveUserId(req)
             const dbSession = getRequestDbSession(req)
 
@@ -1093,6 +1107,8 @@ export function createCatalogsRoutes(
             if (allowCopyRow && allowCopyRow.value?._value === false) {
                 return res.status(403).json({ error: 'Copying catalogs is disabled in metahub settings' })
             }
+
+            const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
 
             const parsed = copyCatalogSchema.safeParse(req.body ?? {})
             if (!parsed.success) {
@@ -1230,8 +1246,9 @@ export function createCatalogsRoutes(
                                     `INSERT INTO ${attrQt}
                                      (object_id, codename, data_type, presentation, validation_rules, ui_config,
                                       sort_order, is_required, is_display_attribute, target_object_id, target_object_kind,
-                                      parent_attribute_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $13, $14)
+                                      target_constant_id, parent_attribute_id, is_system, system_key, is_system_managed,
+                                      is_system_enabled, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $19)
                                      RETURNING id`,
                                     [
                                         updatedCatalog.id,
@@ -1245,7 +1262,12 @@ export function createCatalogsRoutes(
                                         sourceAttr.is_display_attribute ?? false,
                                         targetObjectId ?? null,
                                         sourceAttr.target_object_kind ?? null,
+                                        sourceAttr.target_constant_id ?? null,
                                         sourceParentId ? attributeIdMap.get(sourceParentId) ?? null : null,
+                                        sourceAttr.is_system ?? false,
+                                        sourceAttr.system_key ?? null,
+                                        sourceAttr.is_system_managed ?? false,
+                                        sourceAttr.is_system_enabled ?? true,
                                         now,
                                         userId ?? null
                                     ]
@@ -1262,6 +1284,32 @@ export function createCatalogsRoutes(
                                 throw new Error('Failed to copy catalog attributes hierarchy')
                             }
                         }
+                    }
+
+                    let sourceSystemStates: CatalogSystemFieldState[] | undefined
+                    if (!copyOptions.copyAttributes) {
+                        const sourceSystemRows = await queryMany<Pick<CatalogAttributeRow, 'system_key' | 'is_system_enabled'>>(
+                            trx,
+                            `SELECT system_key, is_system_enabled
+                             FROM ${attrQt}
+                             WHERE object_id = $1
+                               AND is_system = true
+                               AND _upl_deleted = false
+                               AND _mhb_deleted = false
+                             ORDER BY sort_order ASC, _upl_created_at ASC`,
+                            [catalogId]
+                        )
+
+                        sourceSystemStates = sourceSystemRows.flatMap((row) =>
+                            typeof row.system_key === 'string'
+                                ? [
+                                      {
+                                          key: row.system_key as CatalogSystemFieldState['key'],
+                                          enabled: row.is_system_enabled !== false
+                                      }
+                                  ]
+                                : []
+                        )
                     }
 
                     let copiedElementsCount = 0
@@ -1302,6 +1350,13 @@ export function createCatalogsRoutes(
                             copiedElementsCount = insertedRows.length
                         }
                     }
+
+                    // Every new catalog must finish with the canonical managed system rows,
+                    // even when ordinary attributes are not copied from the source catalog.
+                    await attributesService.ensureCatalogSystemAttributes(metahubId, updatedCatalog.id, userId, trx, {
+                        states: sourceSystemStates,
+                        policy: platformSystemAttributesPolicy
+                    })
 
                     return {
                         catalog: updatedCatalog,
@@ -1369,8 +1424,9 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { objectsService, hubsService, settingsService } = services(req)
+            const { exec, objectsService, hubsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
+            const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
 
             // Verify hub exists in this metahub
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -1455,23 +1511,30 @@ export function createCatalogsRoutes(
             // Create catalog
             let catalog
             try {
-                catalog = await objectsService.createCatalog(
-                    metahubId,
-                    {
-                        codename: normalizedCodename,
-                        codenameLocalized,
-                        name: nameVlc,
-                        description: descriptionVlc,
-                        config: {
-                            hubs: targetHubIds,
-                            isSingleHub: isSingleHub ?? false,
-                            isRequiredHub: effectiveIsRequired,
-                            sortOrder
+                catalog = await exec.transaction(async (trx: SqlQueryable) => {
+                    const nextCatalog = await objectsService.createCatalog(
+                        metahubId,
+                        {
+                            codename: normalizedCodename,
+                            codenameLocalized,
+                            name: nameVlc,
+                            description: descriptionVlc,
+                            config: {
+                                hubs: targetHubIds,
+                                isSingleHub: isSingleHub ?? false,
+                                isRequiredHub: effectiveIsRequired,
+                                sortOrder
+                            },
+                            createdBy: userId
                         },
-                        createdBy: userId
-                    },
-                    userId
-                )
+                        userId,
+                        trx
+                    )
+                    await attributesService.ensureCatalogSystemAttributes(metahubId, nextCatalog.id, userId, trx, {
+                        policy: platformSystemAttributesPolicy
+                    })
+                    return nextCatalog
+                })
             } catch (error) {
                 if (database.isUniqueViolation(error)) {
                     return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
