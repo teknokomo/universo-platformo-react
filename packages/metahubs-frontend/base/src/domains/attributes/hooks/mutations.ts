@@ -500,14 +500,15 @@ export function useUpdateAttribute() {
                 queryKeyPrefix: getAttributeQueryKeyPrefix(variables),
                 entityId: variables.attributeId,
                 updater,
-                moveToFront: false
+                moveToFront: !isSystemToggle
             })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: getAttributeQueryKeyPrefix(variables) })
+            const isSystemToggle = variables.data.isEnabled !== undefined
             confirmOptimisticUpdate(queryClient, getAttributeQueryKeyPrefix(variables), variables.attributeId, {
                 serverEntity: data ?? null,
-                moveToFront: false
+                moveToFront: !isSystemToggle
             })
             const successMessage =
                 variables.data.isEnabled === true

@@ -149,18 +149,12 @@ const applyDynamicRuntimeActiveRowFilter = (
     platformConfig?: unknown
 ): ApplicationSyncQueryBuilder => {
     const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
-    let hasClause = false
 
     if (platformContract.delete.enabled) {
         qb.where('_upl_deleted', false)
-        hasClause = true
     }
     if (contract.delete.mode === 'soft') {
-        if (hasClause) {
-            qb.andWhere('_app_deleted', false)
-        } else {
-            qb.where('_app_deleted', false)
-        }
+        qb.where('_app_deleted', false)
     }
     return qb
 }

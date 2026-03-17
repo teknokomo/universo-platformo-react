@@ -23,9 +23,9 @@ module.exports = {
     '^@universo/database$': path.join(repoRoot, 'packages/universo-database/base/src/index.ts'),
     '^@universo/database/(.*)$': path.join(repoRoot, 'packages/universo-database/base/src/$1'),
     '^@universo/utils$': path.join(repoRoot, 'packages/universo-utils/base/src/index.ts'),
-    '^@universo/utils/(.*)$': path.join(repoRoot, 'packages/universo-utils/base/src/$1'),
     '^@universo/utils/database$': path.join(repoRoot, 'packages/universo-utils/base/src/database/index.ts'),
     '^@universo/utils/database/(.*)$': path.join(repoRoot, 'packages/universo-utils/base/src/database/$1'),
+    '^@universo/utils/(.*)$': path.join(repoRoot, 'packages/universo-utils/base/src/$1'),
     '^@universo/migrations-catalog$': path.join(repoRoot, 'packages/universo-migrations-catalog/base/src/index.ts'),
     '^@universo/migrations-catalog/(.*)$': path.join(repoRoot, 'packages/universo-migrations-catalog/base/src/$1')
   },
