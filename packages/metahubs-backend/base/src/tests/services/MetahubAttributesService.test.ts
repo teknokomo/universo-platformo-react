@@ -15,11 +15,18 @@ describe('MetahubAttributesService active-row filtering', () => {
     }
 
     const service = new MetahubAttributesService(mockExec as any, schemaService)
+    const isUpdateStatement = (sql: unknown) => /^\s*UPDATE\b/.test(String(sql))
+    const configurablePlatformPolicyRows = [
+        { key: 'platformSystemAttributesConfigurable', value: { _value: true } },
+        { key: 'platformSystemAttributesRequired', value: { _value: true } },
+        { key: 'platformSystemAttributesIgnoreMetahubSettings', value: { _value: false } }
+    ]
 
     beforeEach(() => {
         jest.clearAllMocks()
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         mockExecQuery.mockResolvedValue([])
+        mockExec.transaction.mockImplementation(async (callback: (tx: typeof mockExec) => Promise<unknown>) => callback(mockExec as any))
     })
 
     it('adds branch active-row predicates to batch count reads', async () => {
@@ -79,5 +86,313 @@ describe('MetahubAttributesService active-row filtering', () => {
                 })
             ])
         )
+    })
+
+    it('rejects reserved managed-system codenames for business attributes', async () => {
+        await expect(
+            service.create('metahub-1', {
+                catalogId: 'object-1',
+                codename: '_app_deleted',
+                dataType: 'STRING',
+                name: { version: 1, locales: { en: { content: 'Business field' } } },
+                validationRules: {},
+                uiConfig: {}
+            })
+        ).rejects.toThrow('Codename _app_deleted is reserved for managed system attributes')
+
+        expect(mockExecQuery).not.toHaveBeenCalled()
+    })
+
+    it('rejects platform system toggles when global platform defaults are enforced', async () => {
+        const platformField = {
+            id: 'attr-upl-deleted',
+            object_id: 'catalog-1',
+            codename: '_upl_deleted',
+            presentation: { name: { en: 'Deleted' } },
+            data_type: 'BOOLEAN',
+            is_required: false,
+            is_display_attribute: false,
+            target_object_id: null,
+            target_object_kind: null,
+            target_constant_id: null,
+            parent_attribute_id: null,
+            sort_order: 1,
+            validation_rules: {},
+            ui_config: {},
+            is_system: true,
+            system_key: 'upl.deleted',
+            is_system_managed: true,
+            is_system_enabled: true,
+            _upl_version: 3,
+            _upl_created_at: '2026-03-16T00:00:00.000Z',
+            _upl_updated_at: '2026-03-16T00:00:00.000Z'
+        }
+
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM admin.cfg_settings')) {
+                return [
+                    { key: 'platformSystemAttributesConfigurable', value: { _value: false } },
+                    { key: 'platformSystemAttributesRequired', value: { _value: true } },
+                    { key: 'platformSystemAttributesIgnoreMetahubSettings', value: { _value: true } }
+                ]
+            }
+            if (sql.includes('WHERE id = $1') && sql.includes('LIMIT 1')) {
+                return [platformField]
+            }
+            return []
+        })
+
+        await expect(service.update('metahub-1', 'attr-upl-deleted', { isEnabled: false }, 'user-1')).rejects.toThrow(
+            'Platform system attribute upl.deleted cannot be changed while platform system attribute configuration is disabled'
+        )
+
+        expect(mockExecQuery.mock.calls.some((call) => isUpdateStatement(call[0]))).toBe(false)
+    })
+
+    it('rejects disabling a platform root system attribute while dependent attributes remain enabled', async () => {
+        const protectedField = {
+            id: 'attr-upl-deleted',
+            object_id: 'catalog-1',
+            codename: '_upl_deleted',
+            presentation: { name: { en: 'Deleted' } },
+            data_type: 'BOOLEAN',
+            is_required: false,
+            is_display_attribute: false,
+            target_object_id: null,
+            target_object_kind: null,
+            target_constant_id: null,
+            parent_attribute_id: null,
+            sort_order: 1,
+            validation_rules: {},
+            ui_config: {},
+            is_system: true,
+            system_key: 'upl.deleted',
+            is_system_managed: true,
+            is_system_enabled: true,
+            _upl_version: 3,
+            _upl_created_at: '2026-03-16T00:00:00.000Z',
+            _upl_updated_at: '2026-03-16T00:00:00.000Z'
+        }
+
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM admin.cfg_settings')) {
+                return configurablePlatformPolicyRows
+            }
+            if (sql.includes('WHERE id = $1') && sql.includes('LIMIT 1')) {
+                return [protectedField]
+            }
+            if (sql.includes('WHERE id = $1') && sql.includes('FOR UPDATE')) {
+                return [protectedField]
+            }
+            if (sql.includes('WHERE object_id = $1 AND is_system = true')) {
+                return [protectedField]
+            }
+            return []
+        })
+
+        await expect(service.update('metahub-1', 'attr-upl-deleted', { isEnabled: false }, 'user-1')).rejects.toThrow(
+            'System field upl.deleted_at requires upl.deleted; System field upl.deleted_by requires upl.deleted'
+        )
+
+        expect(mockExecQuery.mock.calls.some((call) => isUpdateStatement(call[0]))).toBe(false)
+    })
+
+    it('cascades dependent system fields when soft-delete root flag is disabled', async () => {
+        const rows = new Map<string, Record<string, unknown>>([
+            [
+                'attr-app-deleted',
+                {
+                    id: 'attr-app-deleted',
+                    object_id: 'catalog-1',
+                    codename: '_app_deleted',
+                    presentation: { name: { en: 'Deleted' } },
+                    data_type: 'BOOLEAN',
+                    is_required: false,
+                    is_display_attribute: false,
+                    target_object_id: null,
+                    target_object_kind: null,
+                    target_constant_id: null,
+                    parent_attribute_id: null,
+                    sort_order: 1,
+                    validation_rules: {},
+                    ui_config: {},
+                    is_system: true,
+                    system_key: 'app.deleted',
+                    is_system_managed: true,
+                    is_system_enabled: true,
+                    _upl_version: 4,
+                    _upl_created_at: '2026-03-16T00:00:00.000Z',
+                    _upl_updated_at: '2026-03-16T00:00:00.000Z'
+                }
+            ],
+            [
+                'attr-app-deleted-at',
+                {
+                    id: 'attr-app-deleted-at',
+                    object_id: 'catalog-1',
+                    codename: '_app_deleted_at',
+                    presentation: { name: { en: 'Deleted at' } },
+                    data_type: 'DATE',
+                    is_required: false,
+                    is_display_attribute: false,
+                    target_object_id: null,
+                    target_object_kind: null,
+                    target_constant_id: null,
+                    parent_attribute_id: null,
+                    sort_order: 2,
+                    validation_rules: {},
+                    ui_config: {},
+                    is_system: true,
+                    system_key: 'app.deleted_at',
+                    is_system_managed: true,
+                    is_system_enabled: true,
+                    _upl_version: 2,
+                    _upl_created_at: '2026-03-16T00:00:00.000Z',
+                    _upl_updated_at: '2026-03-16T00:00:00.000Z'
+                }
+            ],
+            [
+                'attr-app-deleted-by',
+                {
+                    id: 'attr-app-deleted-by',
+                    object_id: 'catalog-1',
+                    codename: '_app_deleted_by',
+                    presentation: { name: { en: 'Deleted by' } },
+                    data_type: 'STRING',
+                    is_required: false,
+                    is_display_attribute: false,
+                    target_object_id: null,
+                    target_object_kind: null,
+                    target_constant_id: null,
+                    parent_attribute_id: null,
+                    sort_order: 3,
+                    validation_rules: {},
+                    ui_config: {},
+                    is_system: true,
+                    system_key: 'app.deleted_by',
+                    is_system_managed: true,
+                    is_system_enabled: true,
+                    _upl_version: 2,
+                    _upl_created_at: '2026-03-16T00:00:00.000Z',
+                    _upl_updated_at: '2026-03-16T00:00:00.000Z'
+                }
+            ]
+        ])
+
+        mockExecQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('WHERE id = $1') && sql.includes('LIMIT 1')) {
+                return [rows.get(String(params?.[0]))]
+            }
+            if (sql.includes('WHERE id = $1') && sql.includes('FOR UPDATE')) {
+                return [rows.get(String(params?.[0]))]
+            }
+            if (sql.includes('WHERE object_id = $1 AND is_system = true')) {
+                return Array.from(rows.values())
+            }
+            if (sql.includes('UPDATE') && sql.includes('RETURNING *')) {
+                const rowId = String(params?.[params.length - 1])
+                const currentRow = rows.get(rowId)
+                if (!currentRow) return []
+                const nextRow = {
+                    ...currentRow,
+                    _upl_version: Number(currentRow._upl_version ?? 1) + 1,
+                    _upl_updated_at: params?.[0],
+                    _upl_updated_by: params?.[1] ?? null,
+                    ...(params?.length === 4 ? { is_system_enabled: params?.[2] } : {})
+                }
+                rows.set(rowId, nextRow)
+                return [nextRow]
+            }
+            return []
+        })
+
+        const updated = await service.update('metahub-1', 'attr-app-deleted', { isEnabled: false, updatedBy: 'user-1' }, 'user-1')
+
+        expect(updated?.system?.isEnabled).toBe(false)
+        expect(rows.get('attr-app-deleted-at')?.is_system_enabled).toBe(false)
+        expect(rows.get('attr-app-deleted-by')?.is_system_enabled).toBe(false)
+        expect(mockExecQuery.mock.calls.filter((call) => isUpdateStatement(call[0])).length).toBe(3)
+    })
+
+    it('seeds disabled system-field states when explicit catalog states are provided', async () => {
+        mockExecQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('WHERE object_id = $1 AND is_system = true')) {
+                return []
+            }
+            if (sql.includes('INSERT INTO')) {
+                return []
+            }
+            return []
+        })
+
+        await service.ensureCatalogSystemAttributes('metahub-1', 'catalog-1', 'user-1', undefined, [{ key: 'app.deleted', enabled: false }])
+
+        const deletedInsertCall = mockExecQuery.mock.calls.find(
+            (call) => String(call[0]).includes('INSERT INTO') && Array.isArray(call[1]) && call[1][5] === 'app.deleted'
+        )
+
+        expect(deletedInsertCall).toBeDefined()
+        expect(deletedInsertCall?.[1][6]).toBe(false)
+    })
+
+    it('reads system rows back through the provided transaction runner', async () => {
+        const trxQuery = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE object_id = $1 AND is_system = true') && !sql.includes('parent_attribute_id IS NULL')) {
+                return []
+            }
+            if (sql.includes('INSERT INTO')) {
+                return []
+            }
+            if (sql.includes('parent_attribute_id IS NULL') && sql.includes('is_system = true')) {
+                return [
+                    {
+                        id: 'attr-app-published',
+                        object_id: 'catalog-1',
+                        codename: '_app_published',
+                        presentation: { name: { en: 'Published' } },
+                        data_type: 'BOOLEAN',
+                        is_required: false,
+                        is_display_attribute: false,
+                        target_object_id: null,
+                        target_object_kind: null,
+                        target_constant_id: null,
+                        parent_attribute_id: null,
+                        sort_order: 1,
+                        validation_rules: {},
+                        ui_config: {},
+                        is_system: true,
+                        system_key: 'app.published',
+                        is_system_managed: true,
+                        is_system_enabled: true,
+                        _upl_version: 1,
+                        _upl_created_at: '2026-03-17T00:00:00.000Z',
+                        _upl_updated_at: '2026-03-17T00:00:00.000Z'
+                    }
+                ]
+            }
+            return []
+        })
+
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('parent_attribute_id IS NULL') && sql.includes('is_system = true')) {
+                throw new Error('Final system-row read should stay on the transaction runner')
+            }
+            return []
+        })
+
+        const result = await service.ensureCatalogSystemAttributes('metahub-1', 'catalog-1', 'user-1', { query: trxQuery } as any)
+
+        expect(result).toEqual([
+            expect.objectContaining({
+                id: 'attr-app-published',
+                codename: '_app_published',
+                system: expect.objectContaining({
+                    isSystem: true,
+                    systemKey: 'app.published',
+                    isEnabled: true
+                })
+            })
+        ])
+        expect(trxQuery).toHaveBeenCalledWith(expect.stringContaining('parent_attribute_id IS NULL'), ['catalog-1'])
     })
 })

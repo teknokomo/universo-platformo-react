@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-    createDbExecutor,
-    createDbSession,
-    createRequestDbContext,
-    getRequestDbExecutor
-} from '../manager'
+import { createDbExecutor, createDbSession, createRequestDbContext, getRequestDbExecutor } from '../manager'
 import { withTransaction } from '../transactions'
 import { withAdvisoryLock } from '../locks'
 import type { DbExecutor } from '../manager'
@@ -45,7 +40,9 @@ describe('executor contract invariants', () => {
     it('transaction callback receives a distinct executor', async () => {
         const exec = makeExecutor()
         let txRef: DbExecutor | null = null
-        await exec.transaction(async (tx) => { txRef = tx })
+        await exec.transaction(async (tx) => {
+            txRef = tx
+        })
         expect(txRef).not.toBeNull()
         expect(txRef).not.toBe(exec)
     })
@@ -53,7 +50,9 @@ describe('executor contract invariants', () => {
     it('transaction propagates callback errors', async () => {
         const exec = makeExecutor()
         await expect(
-            exec.transaction(async () => { throw new Error('rollback') })
+            exec.transaction(async () => {
+                throw new Error('rollback')
+            })
         ).rejects.toThrow('rollback')
     })
 

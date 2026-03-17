@@ -35,19 +35,14 @@ describe('withAdvisoryLock', () => {
         const exec = mockExecutor()
         const txExec = (exec as any)._txExecutor
         await withAdvisoryLock(exec, 'test-lock', async () => 1, { timeoutMs: 5000 })
-        expect(txExec.query).toHaveBeenNthCalledWith(1,
-            "SET LOCAL lock_timeout TO '5000ms'"
-        )
+        expect(txExec.query).toHaveBeenNthCalledWith(1, "SET LOCAL lock_timeout TO '5000ms'")
     })
 
     it('calls pg_advisory_xact_lock with hashtext', async () => {
         const exec = mockExecutor()
         const txExec = (exec as any)._txExecutor
         await withAdvisoryLock(exec, 'my-key', async () => 1)
-        expect(txExec.query).toHaveBeenCalledWith(
-            'SELECT pg_advisory_xact_lock(hashtext($1))',
-            ['my-key']
-        )
+        expect(txExec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtext($1))', ['my-key'])
     })
 })
 
@@ -73,22 +68,16 @@ describe('tryWithAdvisoryLock', () => {
 describe('lock timeout validation', () => {
     it('rejects negative timeout', async () => {
         const exec = mockExecutor()
-        await expect(
-            withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: -1 })
-        ).rejects.toThrow('Invalid lock_timeout')
+        await expect(withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: -1 })).rejects.toThrow('Invalid lock_timeout')
     })
 
     it('rejects non-integer timeout', async () => {
         const exec = mockExecutor()
-        await expect(
-            withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: 1.5 })
-        ).rejects.toThrow('Invalid lock_timeout')
+        await expect(withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: 1.5 })).rejects.toThrow('Invalid lock_timeout')
     })
 
     it('rejects timeout exceeding 300000ms', async () => {
         const exec = mockExecutor()
-        await expect(
-            withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: 300001 })
-        ).rejects.toThrow('Invalid lock_timeout')
+        await expect(withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: 300001 })).rejects.toThrow('Invalid lock_timeout')
     })
 })

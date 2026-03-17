@@ -136,13 +136,19 @@ export interface FlowListTableProps<T extends FlowListTableData = FlowListTableD
     emptyStateMessage?: string
     /** Called when a user tries to open an optimistic create/copy row before it is ready. */
     onPendingInteractionAttempt?: (row: T) => void
+    /** Optional key suffix for persisting sort state independently from other tables. */
+    sortStateId?: string
+    /** Initial sort direction used when no persisted state exists. */
+    initialOrder?: 'asc' | 'desc'
+    /** Initial sort field used when no persisted state exists. */
+    initialOrderBy?: string
 }
 
-const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean): string => {
+const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean, sortStateId?: string): string => {
     if (isAgentCanvas) {
-        return `agentcanvas_${name}`
+        return `agentcanvas_${sortStateId ? `${sortStateId}_` : ''}${name}`
     }
-    return `canvaslist_${name}`
+    return `canvaslist_${sortStateId ? `${sortStateId}_` : ''}${name}`
 }
 
 export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
@@ -175,17 +181,23 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     isDropTarget = false,
     isDropTargetInvalid = false,
     emptyStateMessage,
-    onPendingInteractionAttempt
+    onPendingInteractionAttempt,
+    sortStateId,
+    initialOrder = 'desc',
+    initialOrderBy = 'updatedDate'
 }: FlowListTableProps<T>): React.ReactElement => {
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
     const customization = useSelector((state: any) => state.customization)
 
-    const localStorageKeyOrder = getLocalStorageKeyName('order', isAgentCanvas)
-    const localStorageKeyOrderBy = getLocalStorageKeyName('orderBy', isAgentCanvas)
+    const localStorageKeyOrder = getLocalStorageKeyName('order', isAgentCanvas, sortStateId)
+    const localStorageKeyOrderBy = getLocalStorageKeyName('orderBy', isAgentCanvas, sortStateId)
 
-    const [order, setOrder] = useState<'asc' | 'desc'>((localStorage.getItem(localStorageKeyOrder) as 'asc' | 'desc') || 'desc')
-    const [orderBy, setOrderBy] = useState<string>(localStorage.getItem(localStorageKeyOrderBy) || 'updatedDate')
+    const [order, setOrder] = useState<'asc' | 'desc'>(() => {
+        const storedOrder = localStorage.getItem(localStorageKeyOrder)
+        return storedOrder === 'asc' || storedOrder === 'desc' ? storedOrder : initialOrder
+    })
+    const [orderBy, setOrderBy] = useState<string>(() => localStorage.getItem(localStorageKeyOrderBy) || initialOrderBy)
 
     const handleRequestSort = (property: string) => {
         const isAsc = orderBy === property && order === 'asc'
@@ -197,6 +209,24 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     }
 
     const resolveUpdatedDate = (item: T): string | undefined => item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
+
+    const comparePrimitiveValues = (left: unknown, right: unknown): number => {
+        const normalizedLeft = (typeof left === 'string' ? left.toLowerCase() : left) as string | number | boolean | null | undefined
+        const normalizedRight = (typeof right === 'string' ? right.toLowerCase() : right) as string | number | boolean | null | undefined
+
+        const leftType = typeof normalizedLeft
+        const rightType = typeof normalizedRight
+        const isLeftComparable = normalizedLeft == null || leftType === 'string' || leftType === 'number' || leftType === 'boolean'
+        const isRightComparable = normalizedRight == null || rightType === 'string' || rightType === 'number' || rightType === 'boolean'
+
+        if (!isLeftComparable || !isRightComparable) return 0
+        if (normalizedLeft == null && normalizedRight == null) return 0
+        if (normalizedLeft == null) return -1
+        if (normalizedRight == null) return 1
+        if (normalizedLeft < normalizedRight) return -1
+        if (normalizedLeft > normalizedRight) return 1
+        return 0
+    }
 
     const columnsToRender = !isUnikTable && Array.isArray(customColumns) && customColumns.length > 0 ? customColumns : null
     const activeSortableColumn = columnsToRender?.find((column) => column.sortable && column.id === orderBy) ?? null
@@ -232,6 +262,14 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                   const parsedB = dateB ? new Date(dateB).getTime() : 0
                   return order === 'asc' ? parsedA - parsedB : parsedB - parsedA
               }
+
+              const rawA = (a as Record<string, unknown>)?.[orderBy]
+              const rawB = (b as Record<string, unknown>)?.[orderBy]
+              const primitiveComparison = comparePrimitiveValues(rawA, rawB)
+              if (primitiveComparison !== 0) {
+                  return order === 'asc' ? primitiveComparison : primitiveComparison * -1
+              }
+
               return 0
           })
         : []

@@ -349,6 +349,12 @@
             "codenameAutoConvertMixedAlphabetsDescription": "When mixed alphabets are disallowed, auto-convert mixed values to one alphabet by the first letter during auto-generation from name and during manual codename input on field blur",
             "codenameLocalizedEnabled": "Enable Localized Codename (VLC)",
             "codenameLocalizedEnabledDescription": "Allow codename alternatives per language and choose a primary codename locale",
+            "platformSystemAttributesConfigurable": "Allow configuring platform system attributes",
+            "platformSystemAttributesConfigurableDescription": "Show platform-level system attributes in catalog System Attributes and allow users to change their enabled state.",
+            "platformSystemAttributesRequired": "Always create platform system attributes",
+            "platformSystemAttributesRequiredDescription": "Create platform system attributes even when a metahub catalog does not have explicit configuration for them.",
+            "platformSystemAttributesIgnoreMetahubSettings": "Ignore metahub platform-system settings",
+            "platformSystemAttributesIgnoreMetahubSettingsDescription": "Always use the platform defaults for platform system attributes. When enabled, platform attributes are created with the base platform state even if a specific metahub catalog disables them.",
             "styleOptions": {
                 "pascal-case": "PascalCase (MyCodename)",
                 "kebab-case": "kebab-case (my-codename)"

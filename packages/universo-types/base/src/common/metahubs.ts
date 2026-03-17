@@ -779,6 +779,114 @@ export interface MetahubSnapshotVersionEnvelope {
     snapshotFormatVersion: MetahubSnapshotFormatVersion
 }
 
+export const CATALOG_SYSTEM_FIELD_KEYS = [
+    'app.published',
+    'app.published_at',
+    'app.published_by',
+    'app.archived',
+    'app.archived_at',
+    'app.archived_by',
+    'app.deleted',
+    'app.deleted_at',
+    'app.deleted_by',
+    'upl.archived',
+    'upl.archived_at',
+    'upl.archived_by',
+    'upl.deleted',
+    'upl.deleted_at',
+    'upl.deleted_by'
+] as const
+
+export type CatalogSystemFieldKey = (typeof CATALOG_SYSTEM_FIELD_KEYS)[number]
+export type CatalogSystemFieldLayer = 'app' | 'upl'
+export type CatalogSystemFieldFamily = 'published' | 'archived' | 'deleted'
+export type CatalogSystemFieldValueType = 'boolean' | 'timestamp' | 'uuid'
+
+export interface CatalogSystemFieldDefinition {
+    key: CatalogSystemFieldKey
+    columnName: string
+    layer: CatalogSystemFieldLayer
+    family: CatalogSystemFieldFamily
+    valueType: CatalogSystemFieldValueType
+    attributeDataType: AttributeDataType
+    physicalType: 'boolean' | 'timestamptz' | 'uuid'
+    sortOrder: number
+    defaultEnabled: boolean
+    canDisable: boolean
+    requires?: CatalogSystemFieldKey[]
+}
+
+export interface CatalogSystemFieldState {
+    key: CatalogSystemFieldKey
+    enabled: boolean
+}
+
+export interface PlatformSystemAttributesPolicy {
+    allowConfiguration: boolean
+    forceCreate: boolean
+    ignoreMetahubSettings: boolean
+}
+
+export const PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS = {
+    allowConfiguration: 'platformSystemAttributesConfigurable',
+    forceCreate: 'platformSystemAttributesRequired',
+    ignoreMetahubSettings: 'platformSystemAttributesIgnoreMetahubSettings'
+} as const
+
+export const DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY: PlatformSystemAttributesPolicy = {
+    allowConfiguration: false,
+    forceCreate: true,
+    ignoreMetahubSettings: true
+}
+
+export interface CatalogAttributeSystemMetadata {
+    isSystem: boolean
+    systemKey: CatalogSystemFieldKey | null
+    isManaged: boolean
+    isEnabled: boolean
+}
+
+export interface LifecycleFamilyContract {
+    enabled: boolean
+    trackAt: boolean
+    trackBy: boolean
+}
+
+export interface DeleteLifecycleContract {
+    mode: 'soft' | 'hard'
+    trackAt: boolean
+    trackBy: boolean
+}
+
+export interface ApplicationLifecycleContract {
+    publish: LifecycleFamilyContract
+    archive: LifecycleFamilyContract
+    delete: DeleteLifecycleContract
+}
+
+export interface LifecycleFamilyContractInput {
+    enabled?: boolean
+    trackAt?: boolean
+    trackBy?: boolean
+}
+
+export interface DeleteLifecycleContractInput {
+    mode?: 'soft' | 'hard'
+    trackAt?: boolean
+    trackBy?: boolean
+}
+
+export interface ApplicationLifecycleContractInput {
+    publish?: LifecycleFamilyContractInput
+    archive?: LifecycleFamilyContractInput
+    delete?: DeleteLifecycleContractInput
+}
+
+export interface CatalogSystemFieldsSnapshot {
+    fields: CatalogSystemFieldState[]
+    lifecycleContract: ApplicationLifecycleContract
+}
+
 /** Template metadata (author, tags, icon). */
 export interface MetahubTemplateMeta {
     author?: string

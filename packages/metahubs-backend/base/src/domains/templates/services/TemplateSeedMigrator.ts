@@ -10,6 +10,7 @@ import type {
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { resolveWidgetTableName } from './widgetTableResolver'
+import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
@@ -397,6 +398,10 @@ export class TemplateSeedMigrator {
     ): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
+        const platformSystemAttributesPolicy =
+            !dryRun && entities.some((entity) => entity.kind === 'catalog')
+                ? await readPlatformSystemAttributesPolicyWithKnex(trx)
+                : undefined
 
         // ── Pass 1: Insert/resolve all entities, build complete codename→id map ──
         for (const entity of entities) {
@@ -409,6 +414,11 @@ export class TemplateSeedMigrator {
 
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
+                if (!dryRun && entity.kind === 'catalog') {
+                    await ensureCatalogSystemAttributesSeed(trx, this.schemaName, existing.id, null, {
+                        policy: platformSystemAttributesPolicy
+                    })
+                }
                 result.skipped.push(`entity:${entity.codename} (already exists)`)
                 continue
             }
@@ -440,6 +450,13 @@ export class TemplateSeedMigrator {
                     .returning('id')
 
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
+
+                if (entity.kind === 'catalog') {
+                    const systemResult = await ensureCatalogSystemAttributesSeed(trx, this.schemaName, inserted.id, null, {
+                        policy: platformSystemAttributesPolicy
+                    })
+                    result.attributesAdded += systemResult.inserted
+                }
             }
             result.entitiesAdded++
         }

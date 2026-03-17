@@ -69,6 +69,14 @@ if (!userId) return
   - `packages/universo-utils/base/src/validation/__tests__/codename.test.ts`
   - `packages/metahubs-backend/base/src/tests/services/codenameStyleHelper.test.ts`
 
+#### 3.2.3 Platform System Attributes Governance
+-   **Global policy source**: platform catalog system-attribute behavior is resolved from `admin.cfg_settings` under the `metahubs` category, not from per-metahub settings alone.
+-   **Admin keys**: `platformSystemAttributesConfigurable`, `platformSystemAttributesRequired`, `platformSystemAttributesIgnoreMetahubSettings`.
+-   **Backend seam**: `packages/metahubs-backend/base/src/domains/shared/platformSystemAttributesPolicy.ts` reads the admin policy, decides which `_upl_*` rows must be seeded, controls whether those rows should be exposed in catalog System responses, and blocks forbidden `_upl_*` toggle writes through `MetahubAttributesService.update(...)`.
+-   **Template seam**: builtin template executor/migrator flows resolve the same policy through `readPlatformSystemAttributesPolicyWithKnex(...)` and pass it into `ensureCatalogSystemAttributesSeed(...)`; template repair must not own a second policy interpretation.
+-   **Frontend seam**: metahubs UI does not call the admin settings API directly for this feature; instead it relies on `attributes` list response `meta` plus dedicated `/system` routes in `MainRoutesMUI.tsx` and the catalog views.
+-   **Ordering behavior**: canonical system-row order is preserved by disabling optimistic `moveToFront` behavior for attribute enable/disable mutations.
+
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
@@ -81,6 +89,7 @@ if (!userId) return
 -   **Safety**: `knex.raw` calls should use parameterized queries by default, but PostgreSQL `SET LOCAL statement_timeout` is the explicit exception here and must go through `buildSetLocalStatementTimeoutSql()` from `@universo/utils/database`.
 -   **Runtime sync ownership seam**: `@universo/applications-backend` owns application runtime sync/diff routes and the adapter that builds application sync context; `@universo/metahubs-backend` exposes only `loadPublishedPublicationRuntimeSource(...)`, and `@universo/core-backend` injects that source into the applications-owned adapter.
 -   **Applications fixed-schema bootstrap**: the active applications system-app manifest now bootstraps only the canonical `CreateApplicationsSchema1800000000000` migration; fresh databases do not rely on a legacy table-rename reconciliation step.
+-   **Configurable platform runtime columns**: runtime business tables now derive configurable `_upl_archived*` / `_upl_deleted*` presence from `config.systemFields.fields` via shared `@universo/utils` helpers; runtime CRUD/sync SQL must consume the same helper instead of assuming `_upl_deleted` always exists.
 -   **Central install metadata seam**: application release/install state now extends `applications.cat_applications` with `installed_release_metadata` instead of introducing a parallel release metadata store.
 -   **Application release bundle API**: `@universo/applications-backend` now exposes publication-backed release-bundle export and bundle-apply routes that reuse the existing schema sync engine and persist release state through the same central sync-state contract.
 -   **Canonical bundle snapshot hash**: `application_release_bundle` now recomputes a canonical embedded snapshot hash per `sourceKind` (`publication` normalized snapshot contract, `application` runtime checksum contract) and rejects any bundle whose manifest hash does not match the embedded snapshot state.

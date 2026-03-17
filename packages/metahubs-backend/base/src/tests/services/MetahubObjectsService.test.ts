@@ -19,10 +19,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
         ensureSchema: mockEnsureSchema
     } as unknown as ConstructorParameters<typeof MetahubObjectsService>[1]
 
-    const service = new MetahubObjectsService(
-        mockExec as unknown as ConstructorParameters<typeof MetahubObjectsService>[0],
-        schemaService
-    )
+    const service = new MetahubObjectsService(mockExec as unknown as ConstructorParameters<typeof MetahubObjectsService>[0], schemaService)
 
     beforeEach(() => {
         jest.clearAllMocks()

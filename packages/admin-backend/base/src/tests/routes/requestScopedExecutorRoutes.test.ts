@@ -125,6 +125,71 @@ describe('admin routes request-scoped executor usage', () => {
         expect(settingsStore.listSettings).toHaveBeenCalledWith(requestExec, 'metahubs')
     })
 
+    it('validates and persists platform system-attribute toggle batches through the request executor', async () => {
+        const { poolExec, requestExec, session } = buildExecutors()
+        settingsStore.bulkUpsertSettings.mockResolvedValue([
+            { category: 'metahubs', key: 'platformSystemAttributesConfigurable', value: { _value: true } },
+            { category: 'metahubs', key: 'platformSystemAttributesRequired', value: { _value: true } },
+            { category: 'metahubs', key: 'platformSystemAttributesIgnoreMetahubSettings', value: { _value: false } }
+        ])
+
+        const app = express()
+        app.use(express.json())
+        attachRequestContext(app, requestExec, session)
+        app.use(
+            '/settings',
+            createAdminSettingsRoutes({
+                globalAccessService: {} as never,
+                permissionService: {} as never,
+                getDbExecutor: () => poolExec as never
+            })
+        )
+
+        const response = await request(app)
+            .put('/settings/metahubs')
+            .send({
+                values: {
+                    platformSystemAttributesConfigurable: true,
+                    platformSystemAttributesRequired: true,
+                    platformSystemAttributesIgnoreMetahubSettings: false
+                }
+            })
+
+        expect(response.status).toBe(200)
+        expect(settingsStore.bulkUpsertSettings).toHaveBeenCalledWith(requestExec, 'metahubs', [
+            ['platformSystemAttributesConfigurable', true],
+            ['platformSystemAttributesRequired', true],
+            ['platformSystemAttributesIgnoreMetahubSettings', false]
+        ])
+    })
+
+    it('rejects unknown metahubs platform-toggle keys before persistence', async () => {
+        const { poolExec, requestExec, session } = buildExecutors()
+        const app = express()
+        app.use(express.json())
+        attachRequestContext(app, requestExec, session)
+        app.use(
+            '/settings',
+            createAdminSettingsRoutes({
+                globalAccessService: {} as never,
+                permissionService: {} as never,
+                getDbExecutor: () => poolExec as never
+            })
+        )
+
+        const response = await request(app)
+            .put('/settings/metahubs')
+            .send({
+                values: {
+                    platformSystemAttributesUnknown: true
+                }
+            })
+
+        expect(response.status).toBe(400)
+        expect(response.body.error).toBe('Unknown metahubs setting key: platformSystemAttributesUnknown')
+        expect(settingsStore.bulkUpsertSettings).not.toHaveBeenCalled()
+    })
+
     it('uses request-scoped executor in roles routes', async () => {
         const { poolExec, requestExec, session } = buildExecutors()
         const app = express()

@@ -4,40 +4,22 @@
 
 ---
 
-## Current Focus: Start System App — Onboarding Architecture Migration COMPLETE (incl. PR review follow-up)
+## Current Focus: Transactional Consistency Closure
 
-- Date: 2026-03-15.
-- Plan v3: `memory-bank/plan/start-system-app-onboarding-plan-2026-03-15.md`.
-- **Implementation**: All 5 phases completed. Two QA follow-ups, the final remediation wave, the clean-db bootstrap ordering fix, and the PR review follow-up are closed. Targeted validation and fresh root builds passed.
-- QA follow-up #1 resolved:
-  - Lint formatting fixed in start-backend (91 errors), start-frontend (10 errors), and migrations-platform (10 errors).
-  - Created `startSystemApp.test.ts` with 17 migration integration tests.
-- QA follow-up #2 resolved:
-  - Added missing 401 test for POST /selections endpoint. 1 LOW finding fixed, 3 INFO observations documented.
-- QA remediation wave resolved:
-  - `POST /selections` now deduplicates repeated ids and syncs all three catalog kinds inside one transaction.
-  - `AuthenticatedStartPage` now preloads onboarding items once and passes them into `OnboardingWizard` to avoid the extra fetch.
-  - Added direct regressions for duplicate-id normalization, transaction-bound sync, wizard preload/no-refetch, and authenticated start-page completion/fallback rendering.
-- Clean-db bootstrap ordering fix resolved:
-  - Root cause: platform migrations are globally sorted by version/id, so the original `start` finalize migration ran before admin finalize on a clean database and tried to create policies that referenced `admin.has_admin_permission(...)` too early.
-  - Resolution: admin-dependent `start` policies moved into `ApplyStartSchemaPolicies1733400000500`, which now runs after `FinalizeAdminSchemaSupport1733400000001`.
-  - Regression coverage: start manifest tests now require 3 migrations, and migrations-platform tests assert the start policy migration sorts after admin finalize.
-- PR review follow-up resolved:
-  - Promoted the `rel_user_selections.catalog_kind` CHECK into explicit post-generation `ALTER TABLE ... ADD CONSTRAINT` SQL because definition-driven schema generation ignores the package-local `CREATE TABLE` statements.
-  - Aligned selection soft-delete with the repository dual-flag audit contract (`_upl_*` + `_app_*`, plus `_upl_version` bump), switched onboarding status reads to `ProfileService.getUserProfile(...)`, and removed empty localized description blocks from `SelectableListCard`.
-  - Removed the accidental duplicate heading in `progress.md` that PR review also flagged.
-- Final validated counts: start-backend 26/26, start-frontend 16/16, migrations-platform 127/127.
-- Key implementation outcomes:
-  - New `start` schema with system-app architecture (4 business tables: cat_goals, cat_topics, cat_features, rel_user_selections).
-  - 30 VLC seed items (10 goals + 10 topics + 10 features) with en/ru translations.
-  - Backend: onboardingStore (5 functions), 3 route endpoints with Zod validation, parallel fetch for catalog items.
-  - Frontend: VLC-based OnboardingCatalogItem types, goals/topics/features wizard flow, syncSelections + completeOnboarding API.
-  - 'start' added to FIXED_SCHEMA_NAMES in migrations-core.
+- Date: 2026-03-17.
+- The QA transactional-consistency reopen is closed: metahub attribute mutation routes now keep business writes and `syncMetahubSchema(...)` inside one transaction runner, and plain catalog create routes now keep `createCatalog(...)` plus managed system-attribute seeding in the same transaction.
+
+## Current State
+
+- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts` now executes create/copy/update/delete/display-toggle/required-toggle and child-attribute create inside route-level transactions that also call schema sync before commit.
+- `MetahubAttributesService` mutation helpers and the shared optimistic-lock helper now accept an existing `DbExecutor | SqlQueryable` runner so route-level transactions do not fork nested write paths.
+- `packages/metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts` now wraps metahub-level and hub-scoped catalog creation with `ensureCatalogSystemAttributes(...)` in the same transaction runner.
+- Direct route regressions now assert transaction-runner propagation into schema sync and managed seeding; targeted Jest route tests passed 43/43, package lint returned to warning-only pre-existing noise with 0 errors, and the final root `pnpm build` completed successfully.
 
 ## Immediate Next Steps
 
-- All plan items, QA follow-up items, remediation items, clean-db startup fixes, and accepted PR review follow-ups are complete. No active implementation debt remains for this feature.
-- Pending user review: live clean-db startup confirmation, English translation tone, admin UI scope, resumable onboarding.
+- No active reopen remains for the transactional consistency seam in metahubs-backend.
+- Future work should preserve the single-runner contract whenever attribute mutations or catalog-create side effects gain new post-write steps.
 
 ## Plan Decision: Keep Knex as Transport, Ban from Domain
 
@@ -49,11 +31,13 @@
 ## Operational Posture
 
 - Previous completed waves stay documented in `progress.md`; the Unified Database Access Standard initiative remains in a closed, documented state across code, docs, and AI guidance.
-- Standing guards (system-app startup, catalog contracts) remain in `tasks.md`.
+- Standing guards and future implementation entry points remain in `tasks.md`.
+- The latest validation baseline is: `@universo/metahubs-backend` targeted route tests passed 43/43, touched package lint is warning-only with 0 errors, and the final root `pnpm build` completed successfully.
 
 ## References
 
 - Active tasks: `memory-bank/tasks.md`.
+- Current planning artifact: `memory-bank/plan/metahub-system-attributes-migration-hardening-plan-2026-03-16.md`.
 - Package docs entrypoint: `packages/universo-rest-docs/README.md`.
 - Generated OpenAPI source: `packages/universo-rest-docs/src/openapi/index.yml`.
 - GitBook guide: `docs/en/api-reference/interactive-openapi-docs.md`.

@@ -44,7 +44,9 @@ const mockAttributesService = {
     findByCodename: jest.fn(),
     create: jest.fn(),
     findChildAttributes: jest.fn(),
-    reorderAttribute: jest.fn()
+    reorderAttribute: jest.fn(),
+    setDisplayAttribute: jest.fn(),
+    clearDisplayAttribute: jest.fn()
 }
 
 const mockObjectsService = {
@@ -111,11 +113,21 @@ describe('Attributes Routes', () => {
         next()
     }) as RateLimitRequestHandler
 
-    const errorHandler = (err: Error, _req: Request, res: Response, next: NextFunction) => {
+    const errorHandler = (
+        err: Error & { status?: number; statusCode?: number; code?: string; details?: unknown },
+        _req: Request,
+        res: Response,
+        next: NextFunction
+    ) => {
         if (res.headersSent) {
             return next(err)
         }
-        res.status(500).json({ error: err.message || 'Internal Server Error' })
+        const statusCode = err.statusCode || err.status || 500
+        res.status(statusCode).json({
+            error: err.message || 'Internal Server Error',
+            ...(err.code ? { code: err.code } : {}),
+            ...(err.details ? { details: err.details } : {})
+        })
     }
 
     let mockExecutor: ReturnType<typeof createMockDbExecutor>
@@ -195,6 +207,48 @@ describe('Attributes Routes', () => {
                 code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
                 maxTableAttributes: 10
             })
+        })
+
+        it('fails closed when schema sync fails after attribute creation', async () => {
+            const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+            mockAttributesService.create.mockResolvedValueOnce({
+                id: 'attr-1',
+                catalogId: 'catalog-1',
+                codename: 'Title',
+                dataType: 'STRING',
+                isRequired: false,
+                isDisplayAttribute: false,
+                uiConfig: {},
+                validationRules: {}
+            })
+            mockSyncMetahubSchema.mockRejectedValueOnce(new Error('sync boom'))
+
+            const app = buildApp()
+            mockExecutor.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx as any))
+            const response = await request(app)
+                .post('/metahub/metahub-1/catalog/catalog-1/attributes')
+                .send({
+                    codename: 'title',
+                    dataType: 'STRING',
+                    name: { en: 'Title' }
+                })
+                .expect(500)
+
+            expect(response.body).toMatchObject({
+                code: 'SCHEMA_SYNC_FAILED',
+                error: 'Metahub schema synchronization failed after the attribute change. The change was not acknowledged.',
+                details: { operation: 'attribute create' }
+            })
+            expect(mockAttributesService.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    catalogId: 'catalog-1',
+                    codename: 'Title'
+                }),
+                'test-user-id',
+                tx
+            )
+            expect(mockSyncMetahubSchema).toHaveBeenCalledWith('metahub-1', tx, 'test-user-id')
         })
     })
 
@@ -276,6 +330,177 @@ describe('Attributes Routes', () => {
                 code: 'TABLE_CHILD_LIMIT_REACHED',
                 maxChildAttributes: 3
             })
+        })
+    })
+
+    describe('PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId', () => {
+        it('allows guarded isEnabled updates for system attributes', async () => {
+            const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-system',
+                catalogId: 'catalog-1',
+                codename: '_app_deleted',
+                dataType: 'BOOLEAN',
+                isRequired: false,
+                isDisplayAttribute: false,
+                uiConfig: {},
+                validationRules: {},
+                system: {
+                    isSystem: true,
+                    systemKey: 'app.deleted',
+                    isManaged: true,
+                    isEnabled: true
+                }
+            })
+            mockAttributesService.update.mockResolvedValue({
+                id: 'attr-system',
+                catalogId: 'catalog-1',
+                system: {
+                    isSystem: true,
+                    systemKey: 'app.deleted',
+                    isManaged: true,
+                    isEnabled: false
+                }
+            })
+
+            const app = buildApp()
+            mockExecutor.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx as any))
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attribute/attr-system')
+                .send({ isEnabled: false, expectedVersion: 4 })
+                .expect(200)
+
+            expect(response.body.system?.isEnabled).toBe(false)
+            expect(mockAttributesService.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'attr-system',
+                {
+                    isEnabled: false,
+                    expectedVersion: 4,
+                    updatedBy: 'test-user-id'
+                },
+                'test-user-id',
+                tx
+            )
+            expect(mockSyncMetahubSchema).toHaveBeenCalledWith('metahub-1', tx, 'test-user-id')
+        })
+
+        it('fails closed when schema sync fails after a guarded system update', async () => {
+            const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-system',
+                catalogId: 'catalog-1',
+                codename: '_app_deleted',
+                dataType: 'BOOLEAN',
+                isRequired: false,
+                isDisplayAttribute: false,
+                uiConfig: {},
+                validationRules: {},
+                system: {
+                    isSystem: true,
+                    systemKey: 'app.deleted',
+                    isManaged: true,
+                    isEnabled: true
+                }
+            })
+            mockAttributesService.update.mockResolvedValue({
+                id: 'attr-system',
+                catalogId: 'catalog-1',
+                system: {
+                    isSystem: true,
+                    systemKey: 'app.deleted',
+                    isManaged: true,
+                    isEnabled: false
+                }
+            })
+            mockSyncMetahubSchema.mockRejectedValueOnce(new Error('sync boom'))
+
+            const app = buildApp()
+            mockExecutor.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx as any))
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attribute/attr-system')
+                .send({ isEnabled: false, expectedVersion: 4 })
+                .expect(500)
+
+            expect(response.body).toMatchObject({
+                code: 'SCHEMA_SYNC_FAILED',
+                error: 'Metahub schema synchronization failed after the attribute change. The change was not acknowledged.',
+                details: { operation: 'attribute update' }
+            })
+            expect(mockAttributesService.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'attr-system',
+                {
+                    isEnabled: false,
+                    expectedVersion: 4,
+                    updatedBy: 'test-user-id'
+                },
+                'test-user-id',
+                tx
+            )
+            expect(mockSyncMetahubSchema).toHaveBeenCalledWith('metahub-1', tx, 'test-user-id')
+        })
+
+        it('rejects forbidden system-attribute patch fields before update', async () => {
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-system',
+                catalogId: 'catalog-1',
+                codename: '_app_deleted',
+                dataType: 'BOOLEAN',
+                isRequired: false,
+                isDisplayAttribute: false,
+                uiConfig: {},
+                validationRules: {},
+                system: {
+                    isSystem: true,
+                    systemKey: 'app.deleted',
+                    isManaged: true,
+                    isEnabled: true
+                }
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attribute/attr-system')
+                .send({ isRequired: true })
+                .expect(409)
+
+            expect(response.body.code).toBe('SYSTEM_ATTRIBUTE_PROTECTED')
+            expect(response.body.error).toContain('Forbidden fields: isRequired')
+            expect(mockAttributesService.update).not.toHaveBeenCalled()
+            expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
+        })
+
+        it('returns structured 409 when protected system field disable is rejected by the service', async () => {
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-system',
+                catalogId: 'catalog-1',
+                codename: '_upl_deleted',
+                dataType: 'BOOLEAN',
+                isRequired: false,
+                isDisplayAttribute: false,
+                uiConfig: {},
+                validationRules: {},
+                system: {
+                    isSystem: true,
+                    systemKey: 'upl.deleted',
+                    isManaged: true,
+                    isEnabled: true
+                }
+            })
+            mockAttributesService.update.mockRejectedValue(new Error('System attribute upl.deleted cannot be disabled'))
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attribute/attr-system')
+                .send({ isEnabled: false, expectedVersion: 2 })
+                .expect(409)
+
+            expect(response.body).toMatchObject({
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED',
+                error: 'System attribute upl.deleted cannot be disabled'
+            })
+            expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
         })
     })
 

@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+import stableStringify from 'json-stable-stringify'
 import {
     calculateCanonicalApplicationReleaseSnapshotHash,
     buildInstalledReleaseMetadataFromBundle,
@@ -265,5 +267,183 @@ describe('applicationReleaseBundle', () => {
         expect(() => resolveApplicationReleaseSnapshotHash(snapshot, 'explicit-hash')).toThrow(
             'Application release snapshot hash does not match the embedded snapshot state'
         )
+    })
+
+    it('includes systemFields in publication snapshot hash so it matches SnapshotSerializer output', () => {
+        const snapshotWithSystemFields = {
+            ...snapshot,
+            systemFields: {
+                'catalog-products': {
+                    fields: [
+                        { key: '_upl_deleted', isEnabled: true },
+                        { key: '_upl_deleted_at', isEnabled: false },
+                        { key: '_upl_deleted_by', isEnabled: false }
+                    ],
+                    lifecycleContract: { softDelete: true }
+                }
+            }
+        }
+
+        const hashWithSystemFields = calculateCanonicalApplicationReleaseSnapshotHash(snapshotWithSystemFields, 'publication')
+        const hashWithoutSystemFields = calculateCanonicalApplicationReleaseSnapshotHash(snapshot, 'publication')
+
+        expect(hashWithSystemFields).not.toBe(hashWithoutSystemFields)
+        expect(resolveApplicationReleaseSnapshotHash(snapshotWithSystemFields, hashWithSystemFields, 'publication')).toBe(
+            hashWithSystemFields
+        )
+    })
+
+    it('matches serializer-compatible hashes when layout optional keys are omitted', () => {
+        const snapshotWithOmittedLayoutKeys = {
+            version: 1 as const,
+            versionEnvelope: {
+                structureVersion: '0.1.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1 as const
+            },
+            metahubId: 'metahub-1',
+            entities: {
+                catalog_products: {
+                    id: 'catalog-products',
+                    codename: 'products',
+                    kind: 'catalog',
+                    tableName: 'cat_products',
+                    fields: []
+                }
+            },
+            elements: {},
+            layouts: [
+                {
+                    id: 'layout-1',
+                    name: { en: 'Default' },
+                    config: {},
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-1',
+                    layoutId: 'layout-1',
+                    zone: 'main',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                }
+            ]
+        }
+
+        const serializerCompatibleHash = createHash('sha256')
+            .update(
+                stableStringify({
+                    version: 1,
+                    versionEnvelope: {
+                        structureVersion: '0.1.0',
+                        templateVersion: null,
+                        snapshotFormatVersion: 1
+                    },
+                    metahubId: 'metahub-1',
+                    entities: [
+                        {
+                            id: 'catalog-products',
+                            kind: 'catalog',
+                            codename: 'products',
+                            tableName: 'cat_products',
+                            presentation: {},
+                            config: {},
+                            systemFields: null,
+                            hubs: [],
+                            fields: []
+                        }
+                    ],
+                    elements: [],
+                    enumerationValues: [],
+                    constants: [],
+                    systemFields: [],
+                    layouts: [
+                        {
+                            id: 'layout-1',
+                            name: { en: 'Default' },
+                            description: null,
+                            config: {},
+                            isDefault: true,
+                            isActive: true,
+                            sortOrder: 0
+                        }
+                    ],
+                    layoutZoneWidgets: [
+                        {
+                            id: 'widget-1',
+                            layoutId: 'layout-1',
+                            zone: 'main',
+                            sortOrder: 0,
+                            config: {},
+                            isActive: true
+                        }
+                    ],
+                    defaultLayoutId: null,
+                    layoutConfig: {}
+                }) ?? ''
+            )
+            .digest('hex')
+
+        expect(resolveApplicationReleaseSnapshotHash(snapshotWithOmittedLayoutKeys, serializerCompatibleHash, 'publication')).toBe(
+            serializerCompatibleHash
+        )
+    })
+
+    it('hydrates publication systemFields into executable payload entities', () => {
+        const publicationSnapshotWithLifecycleContract = {
+            ...snapshot,
+            systemFields: {
+                'catalog-products': {
+                    fields: [
+                        { key: 'app.published', enabled: false },
+                        { key: 'app.published_at', enabled: false },
+                        { key: 'app.published_by', enabled: false },
+                        { key: 'app.archived', enabled: false },
+                        { key: 'app.archived_at', enabled: false },
+                        { key: 'app.archived_by', enabled: false },
+                        { key: 'app.deleted', enabled: false },
+                        { key: 'app.deleted_at', enabled: false },
+                        { key: 'app.deleted_by', enabled: false }
+                    ],
+                    lifecycleContract: {
+                        publish: { enabled: false, trackAt: false, trackBy: false },
+                        archive: { enabled: false, trackAt: false, trackBy: false },
+                        delete: { mode: 'hard', trackAt: false, trackBy: false }
+                    }
+                }
+            }
+        }
+
+        const bundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'products-app',
+            releaseVersion: 'publication-version-1',
+            sourceKind: 'publication',
+            snapshot: publicationSnapshotWithLifecycleContract,
+            snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(publicationSnapshotWithLifecycleContract, 'publication')
+        })
+
+        const expectedSystemFields = publicationSnapshotWithLifecycleContract.systemFields['catalog-products']
+
+        expect(bundle.bootstrap.payload.entities).toEqual([
+            expect.objectContaining({
+                id: 'catalog-products',
+                config: expect.objectContaining({
+                    systemFields: expectedSystemFields
+                })
+            })
+        ])
+        expect(bundle.incrementalMigration.payload.entities).toEqual([
+            expect.objectContaining({
+                id: 'catalog-products',
+                config: expect.objectContaining({
+                    systemFields: expectedSystemFields
+                })
+            })
+        ])
     })
 })

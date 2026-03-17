@@ -1,28 +1,7 @@
 ---
 description: 'This mode analyses context, estimates task complexity, and recommends the next workflow step'
 tools:
-    [
-        'runCommands',
-        'runTasks',
-        'rube/*',
-        'runNotebooks',
-        'search',
-        'cweijan.vscode-database-client2/dbclient-getDatabases',
-        'cweijan.vscode-database-client2/dbclient-getTables',
-        'cweijan.vscode-database-client2/dbclient-executeQuery',
-        'todos',
-        'runSubagent',
-        'github.vscode-pull-request-github/activePullRequest',
-        'github.vscode-pull-request-github/openPullRequest',
-        'usages',
-        'vscodeAPI',
-        'problems',
-        'changes',
-        'testFailure',
-        'openSimpleBrowser',
-        'fetch',
-        'githubRepo'
-    ]
+    [vscode/vscodeAPI, execute/runNotebookCell, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/runTask, execute/createAndRunTask, execute/runInTerminal, read/getNotebookSummary, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, read/getTaskOutput, agent/runSubagent, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/searchResults, search/textSearch, search/searchSubagent, search/usages, web/fetch, web/githubRepo, rube/RUBE_CREATE_UPDATE_RECIPE, rube/RUBE_EXECUTE_RECIPE, rube/RUBE_FIND_RECIPE, rube/RUBE_GET_RECIPE_DETAILS, rube/RUBE_GET_TOOL_SCHEMAS, rube/RUBE_MANAGE_CONNECTIONS, rube/RUBE_MANAGE_RECIPE_SCHEDULE, rube/RUBE_MULTI_EXECUTE_TOOL, rube/RUBE_REMOTE_BASH_TOOL, rube/RUBE_REMOTE_WORKBENCH, rube/RUBE_SEARCH_TOOLS, browser/openBrowserPage, browser/readPage, browser/screenshotPage, browser/navigatePage, browser/clickElement, browser/dragElement, browser/hoverElement, browser/typeInPage, browser/runPlaywrightCode, browser/handleDialog, vscode.mermaid-chat-features/renderMermaidDiagram, cweijan.vscode-database-client2/dbclient-getDatabases, cweijan.vscode-database-client2/dbclient-getTables, cweijan.vscode-database-client2/dbclient-executeQuery, github.vscode-pull-request-github/activePullRequest, github.vscode-pull-request-github/openPullRequest, todo]
 ---
 
 This mode analyses context, estimates task complexity, and recommends the next workflow step.  

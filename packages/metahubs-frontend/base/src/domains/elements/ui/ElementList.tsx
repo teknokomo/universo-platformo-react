@@ -36,11 +36,18 @@ import {
     PaginationControls,
     FlowListTable,
     useConfirm,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    ViewHeaderMUI as ViewHeader,
+    BaseEntityMenu,
+    type ActionContext
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
-import { ConfirmDeleteDialog, DynamicEntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
-import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
+import {
+    ConfirmDeleteDialog,
+    DynamicEntityFormDialog,
+    ConflictResolutionDialog,
+    EntityFormDialog
+} from '@universo/template-mui/components/dialogs'
 
 import { useCreateElement, useUpdateElement, useDeleteElement, useMoveElement, useReorderElement } from '../hooks/mutations'
 import * as elementsApi from '../api'
@@ -48,13 +55,35 @@ import * as attributesApi from '../../attributes'
 import * as constantsApi from '../../constants/api'
 import { getCatalogById } from '../../catalogs'
 import { listEnumerationValues } from '../../enumerations/api'
-import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
-import { Constant, HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
-import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
+import {
+    Constant,
+    Hub,
+    Catalog,
+    CatalogLocalizedPayload,
+    HubElement,
+    HubElementDisplay,
+    PaginatedResponse,
+    getVLCString,
+    toHubElementDisplay,
+    type VersionedLocalizedContent
+} from '../../../types'
+import { hasAxiosResponse, isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { useSettingValue } from '../../settings/hooks/useSettings'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import elementActions from './ElementActions'
 import InlineTableEditor from './InlineTableEditor'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui/components/dialogs'
+import {
+    buildInitialValues as buildCatalogInitialValues,
+    buildFormTabs as buildCatalogFormTabs,
+    validateCatalogForm,
+    canSaveCatalogForm,
+    toPayload as catalogToPayload
+} from '../../catalogs/ui/CatalogActions'
+import type { CatalogDisplayWithHub } from '../../catalogs/ui/CatalogActions'
+import { useUpdateCatalogAtMetahub } from '../../catalogs/hooks/mutations'
+import * as hubsApi from '../../hubs'
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
     boxShadow: theme.shadows[4],
@@ -80,6 +109,33 @@ type RefTargetDescriptor = {
     targetId: string
     targetConstantId?: string | null
     setConstantLabel?: string | null
+}
+
+type ElementUpdatePatch = Record<string, unknown>
+
+type ElementMenuContext = ActionContext<HubElementDisplay, { data: ElementUpdatePatch }>
+
+type ElementConfirmSpec = {
+    title?: string
+    titleKey?: string
+    description?: string
+    descriptionKey?: string
+    confirmButtonName?: string
+    confirmKey?: string
+    cancelButtonName?: string
+    cancelKey?: string
+    interpolate?: Record<string, unknown>
+}
+
+const isVersionedLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
+    value !== null && typeof value === 'object' && 'locales' in value
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!hasAxiosResponse(error)) return undefined
+    const responseData = error.response.data
+    if (!responseData || typeof responseData !== 'object') return undefined
+    const message = (responseData as { message?: unknown }).message
+    return typeof message === 'string' ? message : undefined
 }
 
 const resolveSetConstantLabel = (constant: Constant, locale: string): string => {
@@ -144,7 +200,7 @@ const ReferenceFieldAutocomplete = ({
         enabled: Boolean(metahubId && targetCatalogId)
     })
 
-    const targetAttributes = targetAttributesData?.items ?? []
+    const targetAttributes = useMemo(() => targetAttributesData?.items ?? [], [targetAttributesData])
 
     const { data: targetElementsData, isLoading: isLoadingElements } = useQuery({
         queryKey: metahubsQueryKeys.elementsListDirect(metahubId, targetCatalogId, { limit: 200, sortBy: 'updated', sortOrder: 'desc' }),
@@ -518,9 +574,12 @@ const ElementList = () => {
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
     const [isDialogOpen, setDialogOpen] = useState(false)
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [editingElement, setEditingElement] = useState<HubElement | null>(null)
     const [copyingElement, setCopyingElement] = useState<HubElement | null>(null)
+    const updateCatalogMutation = useUpdateCatalogAtMetahub()
 
     // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
     // Resolve a stable hubId from the catalog's hub associations.
@@ -543,6 +602,26 @@ const ElementList = () => {
     // Hub ID from URL param, or resolved from catalog (for hub-scoped views)
     // Note: undefined means no hub - catalog exists without hub association, which is valid
     const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
+    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
+
+    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
+        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
+        queryFn: async () => {
+            if (!metahubId) {
+                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
+            }
+            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
+                limit: hubsListParams.limit,
+                sortBy: hubsListParams.sortBy,
+                sortOrder: hubsListParams.sortOrder
+            })
+        },
+        enabled: !!metahubId,
+        refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
+        retry: false
+    })
+    const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
 
     // State management for dialog
     const [isSubmitting, setSubmitting] = useState(false)
@@ -572,7 +651,7 @@ const ElementList = () => {
         enabled: canLoadData
     })
 
-    const attributes = attributesData?.items ?? []
+    const attributes = useMemo(() => attributesData?.items ?? [], [attributesData])
 
     // Filter element actions based on settings (allowElementCopy / allowElementDelete)
     const allowElementCopy = useSettingValue<boolean>('catalogs.allowElementCopy')
@@ -1084,7 +1163,7 @@ const ElementList = () => {
     // usePaginated already returns the items array as `data`, here aliased to `elements`
 
     // Instant search for better UX
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
@@ -1122,7 +1201,7 @@ const ElementList = () => {
 
     // Memoize images object
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, never[]> = {}
         if (Array.isArray(sortedElements)) {
             sortedElements.forEach((element) => {
                 if (element?.id) {
@@ -1327,10 +1406,7 @@ const ElementList = () => {
 
                     switch (attr.dataType) {
                         case 'STRING': {
-                            const localizedValue =
-                                value && typeof value === 'object' && 'locales' in (value as any)
-                                    ? getVLCString(value as VersionedLocalizedContent<string>, i18n.language)
-                                    : String(value)
+                            const localizedValue = isVersionedLocalizedContent(value) ? getVLCString(value, i18n.language) : String(value)
                             return (
                                 <Typography sx={{ fontSize: 14 }} noWrap>
                                     {localizedValue || '—'}
@@ -1427,13 +1503,19 @@ const ElementList = () => {
     )
 
     const createElementContext = useCallback(
-        (baseContext: any) => ({
+        (
+            baseContext: Partial<ElementMenuContext>
+        ): ElementMenuContext & {
+            orderMap: Map<string, number>
+            totalCount: number
+            moveElement: (elementId: string, direction: 'up' | 'down') => Promise<void>
+        } => ({
             ...baseContext,
             orderMap: elementOrderMap,
             totalCount: sortedElements.length,
             moveElement: handleMoveElement,
             api: {
-                updateEntity: async (id: string, patch: any) => {
+                updateEntity: async (id: string, patch: { data: ElementUpdatePatch }) => {
                     if (!metahubId || !catalogId) return
                     const element = elementMap.get(id)
                     const expectedVersion = element?.version
@@ -1471,7 +1553,7 @@ const ElementList = () => {
                         void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(metahubId, catalogId) })
                     }
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ElementConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
@@ -1654,19 +1736,19 @@ const ElementList = () => {
         setCopyDialogError(null)
     }
 
-    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements' | 'settings') => {
+    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'system' | 'elements' | 'settings') => {
         if (!metahubId || !catalogId) return
         if (nextTab === 'elements') return
         if (nextTab === 'settings') {
-            if (!hubIdParam) return
-            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/hubs`, { state: { openHubSettings: true } })
+            setEditDialogOpen(true)
             return
         }
+        const nextSuffix = nextTab === 'system' ? 'system' : 'attributes'
         if (hubIdParam) {
-            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/attributes`)
+            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/${nextSuffix}`)
             return
         }
-        navigate(`/metahub/${metahubId}/catalog/${catalogId}/attributes`)
+        navigate(`/metahub/${metahubId}/catalog/${catalogId}/${nextSuffix}`)
     }
 
     const handleCreateElement = async (data: Record<string, unknown>) => {
@@ -1682,7 +1764,7 @@ const ElementList = () => {
 
             handleDialogClose()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -1716,7 +1798,7 @@ const ElementList = () => {
             // Invalidation handled by mutation hook
             handleEditClose()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -1745,7 +1827,7 @@ const ElementList = () => {
             })
             handleCopyClose()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             setCopyDialogError(
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -1830,7 +1912,7 @@ const ElementList = () => {
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    description={!hasAxiosResponse(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
                     action={{
                         label: t('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)
@@ -1870,8 +1952,9 @@ const ElementList = () => {
                             }}
                         >
                             <Tab value='attributes' label={t('attributes.title')} />
+                            <Tab value='system' label={t('attributes.tabs.system', 'System')} />
                             <Tab value='elements' label={t('elements.title')} />
-                            {hubIdParam ? <Tab value='settings' label={t('settings.title')} /> : null}
+                            <Tab value='settings' label={t('settings.title')} />
                         </Tabs>
                     </Box>
 
@@ -1899,7 +1982,7 @@ const ElementList = () => {
                                 onSortableDragEnd={handleSortableDragEnd}
                                 renderDragOverlay={renderDragOverlay}
                                 i18nNamespace='flowList'
-                                renderActions={(row: any) => {
+                                renderActions={(row: HubElementDisplay) => {
                                     const originalElement = elementMap.get(row.id)
                                     if (!originalElement) return null
 
@@ -2024,8 +2107,7 @@ const ElementList = () => {
                         },
                         {
                             onError: (err: unknown) => {
-                                const responseMessage =
-                                    err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                                const responseMessage = extractResponseMessage(err)
                                 const message =
                                     typeof responseMessage === 'string'
                                         ? responseMessage
@@ -2067,6 +2149,94 @@ const ElementList = () => {
                 }}
                 isLoading={updateElementMutation.isPending}
             />
+
+            {catalogForHubResolution &&
+                catalogId &&
+                (() => {
+                    const catalogDisplay: CatalogDisplayWithHub = {
+                        id: catalogForHubResolution.id,
+                        metahubId: catalogForHubResolution.metahubId,
+                        codename: catalogForHubResolution.codename,
+                        name: getVLCString(catalogForHubResolution.name, preferredVlcLocale) || catalogForHubResolution.codename,
+                        description: getVLCString(catalogForHubResolution.description, preferredVlcLocale) || '',
+                        isSingleHub: catalogForHubResolution.isSingleHub,
+                        isRequiredHub: catalogForHubResolution.isRequiredHub,
+                        sortOrder: catalogForHubResolution.sortOrder,
+                        createdAt: catalogForHubResolution.createdAt,
+                        updatedAt: catalogForHubResolution.updatedAt,
+                        hubId: effectiveHubId || undefined,
+                        hubs: catalogForHubResolution.hubs?.map((h) => ({
+                            id: h.id,
+                            name: typeof h.name === 'string' ? h.name : h.codename || '',
+                            codename: h.codename || ''
+                        }))
+                    }
+                    const catalogMap = new Map<string, Catalog>([[catalogForHubResolution.id, catalogForHubResolution]])
+                    const settingsCtx = {
+                        entity: catalogDisplay,
+                        entityKind: 'catalog' as const,
+                        t,
+                        catalogMap,
+                        currentHubId: effectiveHubId || null,
+                        uiLocale: preferredVlcLocale,
+                        api: {
+                            updateEntity: (id: string, patch: CatalogLocalizedPayload) => {
+                                if (!metahubId) return
+                                updateCatalogMutation.mutate({
+                                    metahubId,
+                                    catalogId: id,
+                                    data: { ...patch, expectedVersion: catalogForHubResolution.version }
+                                })
+                            }
+                        },
+                        helpers: {
+                            refreshList: () => {
+                                if (metahubId && catalogId) {
+                                    void queryClient.invalidateQueries({
+                                        queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId)
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: metahubsQueryKeys.allCatalogs(metahubId)
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId]
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: ['breadcrumb', 'catalog', metahubId]
+                                    })
+                                }
+                            },
+                            enqueueSnackbar: (payload: {
+                                message: string
+                                options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                            }) => {
+                                if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                            }
+                        }
+                    }
+                    return (
+                        <EntityFormDialog
+                            open={editDialogOpen}
+                            mode='edit'
+                            title={t('catalogs.editTitle', 'Edit Catalog')}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            saveButtonText={tc('actions.save', 'Save')}
+                            savingButtonText={tc('actions.saving', 'Saving...')}
+                            cancelButtonText={tc('actions.cancel', 'Cancel')}
+                            hideDefaultFields
+                            initialExtraValues={buildCatalogInitialValues(settingsCtx)}
+                            tabs={buildCatalogFormTabs(settingsCtx, hubs, catalogId)}
+                            validate={(values) => validateCatalogForm(settingsCtx, values)}
+                            canSave={canSaveCatalogForm}
+                            onSave={(data) => {
+                                const payload = catalogToPayload(data)
+                                settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
+                            }}
+                            onClose={() => setEditDialogOpen(false)}
+                        />
+                    )
+                })()}
         </MainCard>
     )
 }

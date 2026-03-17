@@ -52,7 +52,9 @@ interface UpdateAttributeParams {
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
+        isEnabled?: boolean
         sortOrder?: number
+        expectedVersion?: number
     }
 }
 
@@ -445,6 +447,12 @@ export function useUpdateAttribute() {
     const { enqueueSnackbar } = useSnackbar()
     const { t } = useTranslation('metahubs')
 
+    const getErrorMessage = (error: AttributeMutationError) =>
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error.message ||
+        t('attributes.updateError', 'Failed to update attribute')
+
     return useMutation({
         mutationKey: ['attributes', 'update'],
         mutationFn: async ({ metahubId, hubId, catalogId, attributeId, data }: UpdateAttributeParams) => {
@@ -467,31 +475,62 @@ export function useUpdateAttribute() {
             return response.data
         },
         onMutate: async (variables) => {
+            const isSystemToggle = variables.data.isEnabled !== undefined
+            const updater: Record<string, unknown> = {
+                ...variables.data,
+                updatedAt: new Date().toISOString()
+            }
+            // For system toggles, update the nested system.isEnabled so UI visibility checks
+            // see the correct state during the optimistic period
+            if (isSystemToggle) {
+                const queryKeyPrefix = getAttributeQueryKeyPrefix(variables)
+                const queries = queryClient.getQueriesData<{ items?: Array<{ id: string; system?: { isEnabled?: boolean } }> }>({
+                    queryKey: queryKeyPrefix
+                })
+                for (const [, data] of queries) {
+                    const existing = data?.items?.find((item) => item.id === variables.attributeId)
+                    if (existing?.system) {
+                        updater.system = { ...existing.system, isEnabled: variables.data.isEnabled }
+                        break
+                    }
+                }
+            }
             return applyOptimisticUpdate({
                 queryClient,
                 queryKeyPrefix: getAttributeQueryKeyPrefix(variables),
                 entityId: variables.attributeId,
-                updater: {
-                    ...variables.data,
-                    updatedAt: new Date().toISOString()
-                },
-                moveToFront: true
+                updater,
+                moveToFront: !isSystemToggle
             })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: getAttributeQueryKeyPrefix(variables) })
+            const isSystemToggle = variables.data.isEnabled !== undefined
             confirmOptimisticUpdate(queryClient, getAttributeQueryKeyPrefix(variables), variables.attributeId, {
                 serverEntity: data ?? null,
-                moveToFront: true
+                moveToFront: !isSystemToggle
             })
-            enqueueSnackbar(t('attributes.updateSuccess', 'Attribute updated'), { variant: 'success' })
+            const successMessage =
+                variables.data.isEnabled === true
+                    ? t('attributes.system.enableSuccess', 'System attribute enabled')
+                    : variables.data.isEnabled === false
+                    ? t('attributes.system.disableSuccess', 'System attribute disabled')
+                    : t('attributes.updateSuccess', 'Attribute updated')
+            enqueueSnackbar(successMessage, { variant: 'success' })
         },
-        onError: (error: Error, _variables, context) => {
+        onError: (error: AttributeMutationError, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('attributes.updateError', 'Failed to update attribute'), { variant: 'error' })
+            enqueueSnackbar(getErrorMessage(error), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             invalidateAttributeScopes(queryClient, variables)
+            // For system toggles, force refetch of active queries to restore
+            // authoritative server sort order (inactive-only invalidation above
+            // does not refetch the visible list)
+            if (variables.data.isEnabled !== undefined) {
+                const queryKeyPrefix = getAttributeQueryKeyPrefix(variables)
+                void queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
+            }
         }
     })
 }

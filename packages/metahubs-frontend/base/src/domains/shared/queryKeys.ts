@@ -1,6 +1,8 @@
 import { QueryClient } from '@tanstack/react-query'
 import { PaginationParams } from '../../types'
 
+type AttributeListScope = 'business' | 'system' | 'all'
+
 /**
  * Centralized query key factory for metahubs
  * Following TanStack Query v5 best practices
@@ -299,14 +301,20 @@ export const metahubsQueryKeys = {
     attributes: (metahubId: string, hubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId), 'attributes'] as const,
 
-    attributesList: (metahubId: string, hubId: string, catalogId: string, params?: PaginationParams & { locale?: string }) => {
+    attributesList: (
+        metahubId: string,
+        hubId: string,
+        catalogId: string,
+        params?: PaginationParams & { locale?: string; scope?: AttributeListScope }
+    ) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
-            locale: params?.locale
+            locale: params?.locale,
+            scope: params?.scope
         }
         return [...metahubsQueryKeys.attributes(metahubId, hubId, catalogId), 'list', normalized] as const
     },
@@ -315,14 +323,19 @@ export const metahubsQueryKeys = {
     attributesDirect: (metahubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogDetail(metahubId, catalogId), 'attributes'] as const,
 
-    attributesListDirect: (metahubId: string, catalogId: string, params?: PaginationParams & { locale?: string }) => {
+    attributesListDirect: (
+        metahubId: string,
+        catalogId: string,
+        params?: PaginationParams & { locale?: string; scope?: AttributeListScope }
+    ) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
-            locale: params?.locale
+            locale: params?.locale,
+            scope: params?.scope
         }
         return [...metahubsQueryKeys.attributesDirect(metahubId, catalogId), 'list', normalized] as const
     },

@@ -6,7 +6,7 @@ import { OptimisticLockError, type ConflictInfo } from '@universo/utils'
 export type EntityType = ConflictInfo['entityType']
 
 export interface VersionedUpdateOptions {
-    executor: DbExecutor
+    executor: DbExecutor | SqlQueryable
     schemaName: string
     tableName: string
     entityId: string
@@ -45,8 +45,7 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
     const { executor, schemaName, tableName, entityId, entityType, expectedVersion, updateData } = options
     const qt = qSchemaTable(schemaName, tableName)
 
-    return executor.transaction(async (tx) => {
-        // 1. Lock row and fetch current state
+    const runUpdate = async (tx: SqlQueryable): Promise<Record<string, unknown>> => {
         const current = await queryOneOrThrow<Record<string, unknown>>(
             tx,
             `SELECT * FROM ${qt} WHERE id = $1 FOR UPDATE`,
@@ -57,7 +56,6 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
 
         const actualVersion = current._upl_version as number
 
-        // 2. Check version
         if (actualVersion !== expectedVersion) {
             const conflict: ConflictInfo = {
                 entityId,
@@ -70,23 +68,26 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
             throw new OptimisticLockError(conflict)
         }
 
-        // 3. Apply update with version increment
         const assignments = buildUpdateAssignments(updateData)
         const setClauses: string[] = ['_upl_version = _upl_version + 1', ...assignments.setClauses]
         const params: unknown[] = [...assignments.params]
         const paramIdx = params.length + 1
 
         params.push(entityId)
-        const updated = await queryOneOrThrow<Record<string, unknown>>(
+        return queryOneOrThrow<Record<string, unknown>>(
             tx,
             `UPDATE ${qt} SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
             params,
             undefined,
             `${entityType} not found after update`
         )
+    }
 
-        return updated
-    })
+    if ('transaction' in executor && typeof executor.transaction === 'function') {
+        return executor.transaction(async (tx) => runUpdate(tx))
+    }
+
+    return runUpdate(executor)
 }
 
 /**

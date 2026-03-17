@@ -77,6 +77,30 @@ export {
     type TableConstraintResult
 } from './validation/tableConstraints'
 
+// Catalog system field helpers (browser-safe)
+export {
+    getCatalogSystemFieldDefinitions,
+    getCatalogSystemFieldDefinition,
+    getCatalogSystemFieldSeedInputs,
+    buildCatalogSystemAttributeSeedRecord,
+    getCatalogSystemAttributeSeedRecords,
+    getReservedCatalogSystemFieldCodenames,
+    getDefaultCatalogSystemFieldStates,
+    validateCatalogSystemFieldToggleSet,
+    deriveApplicationLifecycleContract,
+    derivePlatformSystemFieldsContract,
+    normalizeApplicationLifecycleContract,
+    resolveApplicationLifecycleContractFromConfig,
+    resolvePlatformSystemFieldsContractFromConfig
+} from './database/catalogSystemFields'
+export type {
+    CatalogSystemFieldToggleValidationResult,
+    CatalogSystemAttributeSeedInput,
+    CatalogSystemAttributeSeedRecord,
+    PlatformSystemFieldFamilyContract,
+    PlatformSystemFieldsContract
+} from './database/catalogSystemFields'
+
 // Optimistic locking error utilities
 export { OptimisticLockError, type ConflictInfo } from './errors/OptimisticLockError'
 export { isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors/conflictDetection'

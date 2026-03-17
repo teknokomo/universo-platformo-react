@@ -1,16 +1,11 @@
 import type { z } from 'zod'
-import type { SqlQueryable, DbExecutor } from './manager'
+import type { SqlQueryable } from './manager'
 
 /**
  * Execute SQL and return all rows.
  * Optional Zod validation for API boundaries and migration snapshots.
  */
-export async function queryMany<T>(
-    db: SqlQueryable,
-    sql: string,
-    params: readonly unknown[] = [],
-    schema?: z.ZodType<T>
-): Promise<T[]> {
+export async function queryMany<T>(db: SqlQueryable, sql: string, params: readonly unknown[] = [], schema?: z.ZodType<T>): Promise<T[]> {
     const rows = await db.query<unknown>(sql, [...params])
     if (!schema) return rows as T[]
     return rows.map((row) => schema.parse(row))
@@ -53,9 +48,7 @@ export async function queryOneOrThrow<T>(
 ): Promise<T> {
     const row = await queryOne(db, sql, params, schema)
     if (!row) {
-        throw typeof errorOrMessage === 'function'
-            ? errorOrMessage()
-            : new NotFoundError(errorOrMessage)
+        throw typeof errorOrMessage === 'function' ? errorOrMessage() : new NotFoundError(errorOrMessage)
     }
     return row
 }
@@ -68,11 +61,7 @@ export async function queryOneOrThrow<T>(
  *
  * Example: `executeCount(db, 'DELETE FROM t WHERE id = $1 RETURNING id', [id])`
  */
-export async function executeCount(
-    db: SqlQueryable,
-    sql: string,
-    params: readonly unknown[] = []
-): Promise<number> {
+export async function executeCount(db: SqlQueryable, sql: string, params: readonly unknown[] = []): Promise<number> {
     const rows = await db.query<Record<string, unknown>>(sql, [...params])
     return rows.length
 }

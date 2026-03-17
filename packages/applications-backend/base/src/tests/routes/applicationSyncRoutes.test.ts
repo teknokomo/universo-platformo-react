@@ -445,6 +445,126 @@ describe('applicationSyncRoutes', () => {
         )
     })
 
+    it('hydrates publication lifecycle contract into the generated schema payload', async () => {
+        mockFindApplicationCopySource.mockResolvedValue({
+            id: 'application-1',
+            schemaName: null,
+            schemaSnapshot: null,
+            schemaStatus: 'draft'
+        })
+
+        const syncContextWithDisabledLifecycleFields = {
+            ...baseSyncContext,
+            snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(
+                {
+                    ...baseSyncContext.snapshot,
+                    systemFields: {
+                        'catalog-products': {
+                            fields: [
+                                { key: 'app.published', enabled: false },
+                                { key: 'app.published_at', enabled: false },
+                                { key: 'app.published_by', enabled: false },
+                                { key: 'app.archived', enabled: false },
+                                { key: 'app.archived_at', enabled: false },
+                                { key: 'app.archived_by', enabled: false },
+                                { key: 'app.deleted', enabled: false },
+                                { key: 'app.deleted_at', enabled: false },
+                                { key: 'app.deleted_by', enabled: false }
+                            ],
+                            lifecycleContract: {
+                                publish: { enabled: false, trackAt: false, trackBy: false },
+                                archive: { enabled: false, trackAt: false, trackBy: false },
+                                delete: { mode: 'hard', trackAt: false, trackBy: false }
+                            }
+                        }
+                    }
+                },
+                'publication'
+            ),
+            snapshot: {
+                ...baseSyncContext.snapshot,
+                systemFields: {
+                    'catalog-products': {
+                        fields: [
+                            { key: 'app.published', enabled: false },
+                            { key: 'app.published_at', enabled: false },
+                            { key: 'app.published_by', enabled: false },
+                            { key: 'app.archived', enabled: false },
+                            { key: 'app.archived_at', enabled: false },
+                            { key: 'app.archived_by', enabled: false },
+                            { key: 'app.deleted', enabled: false },
+                            { key: 'app.deleted_at', enabled: false },
+                            { key: 'app.deleted_by', enabled: false }
+                        ],
+                        lifecycleContract: {
+                            publish: { enabled: false, trackAt: false, trackBy: false },
+                            archive: { enabled: false, trackAt: false, trackBy: false },
+                            delete: { mode: 'hard', trackAt: false, trackBy: false }
+                        }
+                    }
+                }
+            },
+            publicationSnapshot: {
+                ...baseSyncContext.publicationSnapshot,
+                systemFields: {
+                    'catalog-products': {
+                        fields: [
+                            { key: 'app.published', enabled: false },
+                            { key: 'app.published_at', enabled: false },
+                            { key: 'app.published_by', enabled: false },
+                            { key: 'app.archived', enabled: false },
+                            { key: 'app.archived_at', enabled: false },
+                            { key: 'app.archived_by', enabled: false },
+                            { key: 'app.deleted', enabled: false },
+                            { key: 'app.deleted_at', enabled: false },
+                            { key: 'app.deleted_by', enabled: false }
+                        ],
+                        lifecycleContract: {
+                            publish: { enabled: false, trackAt: false, trackBy: false },
+                            archive: { enabled: false, trackAt: false, trackBy: false },
+                            delete: { mode: 'hard', trackAt: false, trackBy: false }
+                        }
+                    }
+                }
+            }
+        }
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(syncContextWithDisabledLifecycleFields)
+        const { generator } = configureDdlServices({
+            schemaExists: false,
+            latestMigrations: [{ meta: { seedWarnings: [] } }],
+            generateFullSchemaResult: {
+                success: true,
+                schemaName: 'app_application1',
+                tablesCreated: ['products'],
+                errors: []
+            }
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        await request(app).post('/application/application-1/sync').send({ confirmDestructive: false }).expect(200)
+
+        expect(generator.generateFullSchema).toHaveBeenCalledWith(
+            'app_application1',
+            [
+                expect.objectContaining({
+                    id: 'catalog-products',
+                    config: expect.objectContaining({
+                        systemFields: expect.objectContaining({
+                            lifecycleContract: {
+                                publish: { enabled: false, trackAt: false, trackBy: false },
+                                archive: { enabled: false, trackAt: false, trackBy: false },
+                                delete: { mode: 'hard', trackAt: false, trackBy: false }
+                            }
+                        })
+                    })
+                })
+            ],
+            expect.objectContaining({
+                recordMigration: true
+            })
+        )
+    })
+
     it('returns pending_confirmation when destructive changes are detected without confirmation', async () => {
         const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(baseSyncContext)
         const { migrator } = configureDdlServices({

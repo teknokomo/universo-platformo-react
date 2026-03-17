@@ -246,12 +246,13 @@ describe('ApplicationBoard', () => {
             })
         })
 
-        it('should render activity and resources charts', async () => {
+        it('should keep the overview without demo charts', async () => {
             renderWithProviders(<ApplicationBoard />)
 
             await waitFor(() => {
-                // Charts should be present (check for Overview section)
                 expect(screen.getByText('Overview')).toBeInTheDocument()
+                expect(screen.queryByText('User Activity')).not.toBeInTheDocument()
+                expect(screen.queryByText('Activity metrics (demo data - in development)')).not.toBeInTheDocument()
             })
         })
 

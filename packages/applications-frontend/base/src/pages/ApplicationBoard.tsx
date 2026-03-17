@@ -6,15 +6,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
 
 // project imports
-import {
-    ViewHeaderMUI as ViewHeader,
-    EmptyListState,
-    APIEmptySVG,
-    StatCard,
-    HighlightedCard,
-    SessionsChart,
-    PageViewsBarChart
-} from '@universo/template-mui'
+import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard } from '@universo/template-mui'
 
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { toApplicationDisplay } from '../types'
@@ -25,11 +17,10 @@ import { toApplicationDisplay } from '../types'
  * Displays analytics dashboard for an application with:
  * - Real-time statistics (connectors, members)
  * - Documentation resources
- * - Activity and resource charts (demo data)
  *
  * Layout:
- * - Desktop: 4 cards in row (3 stats + 1 docs), 2 charts side-by-side
- * - Tablet: 2 cards per row, charts stacked
+ * - Desktop: 4 cards in row
+ * - Tablet: 2 cards per row
  * - Mobile: 1 card per row
  */
 const ApplicationBoard = () => {
@@ -151,19 +142,6 @@ const ApplicationBoard = () => {
                             buttonText={t('board.documentation.button')}
                             buttonIcon={<OpenInNewIcon />}
                             onButtonClick={() => window.open('https://teknokomo.gitbook.io/up', '_blank', 'noopener,noreferrer')}
-                        />
-                    </Grid>
-
-                    {/* Activity Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
-                    </Grid>
-
-                    {/* Resources Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <PageViewsBarChart
-                            title={t('board.charts.resources.title')}
-                            description={t('board.charts.resources.description')}
                         />
                     </Grid>
                 </Grid>

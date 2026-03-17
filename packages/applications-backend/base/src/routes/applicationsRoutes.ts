@@ -9,9 +9,15 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { getVLCString } from '@universo/utils/vlc'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { ApplicationLifecycleContract, VersionedLocalizedContent } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
-import { activeAppRowCondition, database, normalizeApplicationCopyOptions, OptimisticLockError, softDeleteSetClause } from '@universo/utils'
+import {
+    database,
+    normalizeApplicationCopyOptions,
+    OptimisticLockError,
+    resolveApplicationLifecycleContractFromConfig,
+    resolvePlatformSystemFieldsContractFromConfig
+} from '@universo/utils'
 import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '../utils'
 import {
     type ApplicationMemberRecord,
@@ -170,6 +176,56 @@ const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: 
 
     // BOOLEAN, DATE, REF, JSON — return as-is
     return value
+}
+
+const isSoftDeleteLifecycle = (contract: ApplicationLifecycleContract): boolean => contract.delete.mode === 'soft'
+
+const buildRuntimeActiveRowCondition = (contract: ApplicationLifecycleContract, platformConfig?: unknown, alias?: string): string => {
+    const prefix = alias ? `${alias}.` : ''
+    const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
+    const clauses: string[] = []
+
+    if (platformContract.delete.enabled) {
+        clauses.push(`${prefix}_upl_deleted = false`)
+    }
+
+    if (isSoftDeleteLifecycle(contract)) {
+        clauses.push(`${prefix}_app_deleted = false`)
+    }
+
+    return clauses.length > 0 ? clauses.join(' AND ') : 'TRUE'
+}
+
+const buildRuntimeSoftDeleteSetClause = (
+    deletedByParam: string,
+    contract: ApplicationLifecycleContract,
+    platformConfig?: unknown
+): string => {
+    if (!isSoftDeleteLifecycle(contract)) {
+        throw new Error('Soft delete clause requested for hard-delete lifecycle')
+    }
+
+    const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
+    const clauses = ['_upl_updated_at = now()', `_upl_updated_by = ${deletedByParam}`, '_app_deleted = true']
+
+    if (platformContract.delete.enabled) {
+        clauses.unshift('_upl_deleted = true')
+        if (platformContract.delete.trackAt) {
+            clauses.push('_upl_deleted_at = now()')
+        }
+        if (platformContract.delete.trackBy) {
+            clauses.push(`_upl_deleted_by = ${deletedByParam}`)
+        }
+    }
+
+    if (contract.delete.trackAt) {
+        clauses.push('_app_deleted_at = now()')
+    }
+    if (contract.delete.trackBy) {
+        clauses.push(`_app_deleted_by = ${deletedByParam}`)
+    }
+
+    return clauses.join(', ')
 }
 
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
@@ -451,7 +507,7 @@ export function createApplicationsRoutes(
 
             const catalogs = await manager.query(
                 `
-                    SELECT id, codename, table_name, presentation
+                                        SELECT id, codename, table_name, presentation, config
                     FROM ${schemaIdent}._app_objects
                     WHERE kind = 'catalog'
                       AND _upl_deleted = false
@@ -469,7 +525,13 @@ export function createApplicationsRoutes(
                 codename: string
                 table_name: string
                 presentation?: unknown
+                config?: Record<string, unknown> | null
             }>
+
+            const runtimeCatalogs = typedCatalogs.map((catalogRow) => ({
+                ...catalogRow,
+                lifecycleContract: resolveApplicationLifecycleContractFromConfig(catalogRow.config)
+            }))
 
             let preferredCatalogIdFromMenu: string | null = null
             if (!requestedCatalogId) {
@@ -550,11 +612,11 @@ export function createApplicationsRoutes(
             }
 
             const activeCatalog =
-                (requestedCatalogId ? typedCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
+                (requestedCatalogId ? runtimeCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
                 (preferredCatalogIdFromMenu
-                    ? typedCatalogs.find((catalogRow) => catalogRow.id === preferredCatalogIdFromMenu)
+                    ? runtimeCatalogs.find((catalogRow) => catalogRow.id === preferredCatalogIdFromMenu)
                     : undefined) ??
-                typedCatalogs[0]
+                runtimeCatalogs[0]
             if (!activeCatalog) {
                 return res
                     .status(404)
@@ -691,7 +753,7 @@ export function createApplicationsRoutes(
             if (catalogTargetObjectIds.length > 0) {
                 const targetCatalogs = (await manager.query(
                     `
-                        SELECT id, codename, table_name
+                                                SELECT id, codename, table_name, config
                         FROM ${schemaIdent}._app_objects
                         WHERE id = ANY($1::uuid[])
                           AND kind = 'catalog'
@@ -703,6 +765,7 @@ export function createApplicationsRoutes(
                     id: string
                     codename: string
                     table_name: string
+                    config?: Record<string, unknown> | null
                 }>
 
                 const targetCatalogAttrs = (await manager.query(
@@ -737,6 +800,11 @@ export function createApplicationsRoutes(
                         continue
                     }
 
+                    const targetCatalogActiveRowCondition = buildRuntimeActiveRowCondition(
+                        resolveApplicationLifecycleContractFromConfig(targetCatalog.config),
+                        targetCatalog.config
+                    )
+
                     const targetAttrs = attrsByCatalogId.get(targetCatalog.id) ?? []
                     const preferredDisplayAttr =
                         targetAttrs.find((attr) => attr.is_display_attribute) ??
@@ -752,8 +820,7 @@ export function createApplicationsRoutes(
                         `
                             SELECT id, ${selectLabelSql}
                             FROM ${schemaIdent}.${quoteIdentifier(targetCatalog.table_name)}
-                            WHERE _upl_deleted = false
-                              AND _app_deleted = false
+                                                        WHERE ${targetCatalogActiveRowCondition}
                             ORDER BY _upl_created_at ASC NULLS LAST, id ASC
                             LIMIT 1000
                         `
@@ -785,6 +852,7 @@ export function createApplicationsRoutes(
             }
 
             const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
+            const activeCatalogRowCondition = buildRuntimeActiveRowCondition(activeCatalog.lifecycleContract, activeCatalog.config)
             // Use physicalAttributes for SQL — TABLE attrs have no physical column in parent table
             const selectColumns = ['id', ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))]
 
@@ -798,7 +866,7 @@ export function createApplicationsRoutes(
                 if (!IDENTIFIER_REGEX.test(tabTableName)) continue
                 const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
                 selectColumns.push(
-                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND _upl_deleted = false AND _app_deleted = false) AS ${quoteIdentifier(
+                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND ${activeCatalogRowCondition}) AS ${quoteIdentifier(
                         tAttr.column_name
                     )}`
                 )
@@ -808,8 +876,7 @@ export function createApplicationsRoutes(
                 `
                     SELECT COUNT(*)::int AS total
                     FROM ${dataTableIdent}
-                    WHERE _upl_deleted = false
-                      AND _app_deleted = false
+                    WHERE ${activeCatalogRowCondition}
                 `
             )) as Array<{ total: number }>
 
@@ -817,8 +884,7 @@ export function createApplicationsRoutes(
                 `
                     SELECT ${selectColumns.join(', ')}
                     FROM ${dataTableIdent}
-                    WHERE _upl_deleted = false
-                      AND _app_deleted = false
+                                        WHERE ${activeCatalogRowCondition}
                     ORDER BY _upl_created_at ASC NULLS LAST, id ASC
                     LIMIT $1 OFFSET $2
                 `,
@@ -906,7 +972,7 @@ export function createApplicationsRoutes(
                 console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
             }
 
-            const catalogsForRuntime = typedCatalogs.map((catalogRow) => ({
+            const catalogsForRuntime = runtimeCatalogs.map((catalogRow) => ({
                 id: catalogRow.id,
                 codename: catalogRow.codename,
                 tableName: catalogRow.table_name,
@@ -1522,18 +1588,21 @@ export function createApplicationsRoutes(
     const resolveRuntimeCatalog = async (manager: DbExecutor, schemaIdent: string, requestedCatalogId?: string) => {
         const catalogs = (await manager.query(
             `
-                SELECT id, codename, table_name
+                SELECT id, codename, table_name, config
                 FROM ${schemaIdent}._app_objects
                 WHERE kind = 'catalog'
                   AND _upl_deleted = false
                   AND _app_deleted = false
                 ORDER BY codename ASC
             `
-        )) as Array<{ id: string; codename: string; table_name: string }>
+        )) as Array<{ id: string; codename: string; table_name: string; config?: Record<string, unknown> | null }>
 
         if (catalogs.length === 0) return { catalog: null, attrs: [], error: 'No catalogs available' }
 
-        const catalog = (requestedCatalogId ? catalogs.find((c) => c.id === requestedCatalogId) : undefined) ?? catalogs[0]
+        const selectedCatalog = (requestedCatalogId ? catalogs.find((c) => c.id === requestedCatalogId) : undefined) ?? catalogs[0]
+        const catalog = selectedCatalog
+            ? { ...selectedCatalog, lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedCatalog.config) }
+            : null
         if (!catalog) return { catalog: null, attrs: [], error: 'Catalog not found' }
         if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { catalog: null, attrs: [], error: 'Invalid table name' }
 
@@ -1746,6 +1815,7 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
 
             const attr = attrs.find((a) => a.column_name === field)
             if (!attr) return res.status(404).json({ error: 'Attribute not found' })
@@ -1813,8 +1883,7 @@ export function createApplicationsRoutes(
                         _upl_updated_by = $2,
                         _upl_version = COALESCE(_upl_version, 1) + 1
                     WHERE id = $3
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
+                                            AND ${runtimeRowCondition}
                       AND COALESCE(_upl_locked, false) = false
                       ${versionCheckClause}
                     RETURNING id
@@ -1825,7 +1894,7 @@ export function createApplicationsRoutes(
             if (updated.length === 0) {
                 // Distinguish locked from not-found
                 const exists = (await ctx.manager.query(
-                    `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+                    `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND ${runtimeRowCondition}`,
                     [rowId]
                 )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
                 if (exists.length > 0 && exists[0]._upl_locked) {
@@ -1874,6 +1943,10 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeDeleteSetClause = isSoftDeleteLifecycle(catalog.lifecycleContract)
+                ? buildRuntimeSoftDeleteSetClause('$1', catalog.lifecycleContract, catalog.config)
+                : null
 
             const setClauses: string[] = []
             const values: unknown[] = []
@@ -2121,8 +2194,7 @@ export function createApplicationsRoutes(
                         UPDATE ${dataTableIdent}
                         SET ${setClauses.join(', ')}
                         WHERE id = $${rowIdParamIndex}
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                           AND COALESCE(_upl_locked, false) = false
                           ${versionCheckClause}
                         RETURNING id
@@ -2132,7 +2204,7 @@ export function createApplicationsRoutes(
 
                 if (updated.length === 0) {
                     const exists = (await mgr.query(
-                        `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+                        `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND ${runtimeRowCondition}`,
                         [rowId]
                     )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
 
@@ -2157,16 +2229,27 @@ export function createApplicationsRoutes(
                     const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
 
                     // Soft-delete existing child rows
-                    await mgr.query(
-                        `
-                            UPDATE ${tabTableIdent}
-                                                        SET ${softDeleteSetClause('$1')},
-                                _upl_version = COALESCE(_upl_version, 1) + 1
-                            WHERE _tp_parent_id = $2
-                                                            AND ${activeAppRowCondition()}
-                        `,
-                        [ctx.userId, rowId]
-                    )
+                    if (runtimeDeleteSetClause) {
+                        await mgr.query(
+                            `
+                                UPDATE ${tabTableIdent}
+                                SET ${runtimeDeleteSetClause},
+                                    _upl_version = COALESCE(_upl_version, 1) + 1
+                                WHERE _tp_parent_id = $2
+                                  AND ${runtimeRowCondition}
+                            `,
+                            [ctx.userId, rowId]
+                        )
+                    } else {
+                        await mgr.query(
+                            `
+                                DELETE FROM ${tabTableIdent}
+                                WHERE _tp_parent_id = $1
+                                  AND ${runtimeRowCondition}
+                            `,
+                            [rowId]
+                        )
+                    }
 
                     // Batch insert new child rows (single INSERT with multi-VALUES)
                     if (childRows.length > 0) {
@@ -2260,7 +2343,6 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
-
             // Build column→value pairs from input data
             const columnValues: Array<{ column: string; value: unknown }> = []
             const safeAttrs = attrs.filter(
@@ -2588,6 +2670,7 @@ export function createApplicationsRoutes(
                 return Boolean(attr.is_required) || (minRows !== null && minRows > 0)
             })
             const copyChildTables = hasRequiredChildTables ? true : parsedBody.data.copyChildTables !== false
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
             const sourceRows = (await ctx.manager.query(
@@ -2595,8 +2678,7 @@ export function createApplicationsRoutes(
                     SELECT *
                     FROM ${dataTableIdent}
                     WHERE id = $1
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
+                      AND ${runtimeRowCondition}
                 `,
                 [rowId]
             )) as Array<Record<string, unknown>>
@@ -2656,8 +2738,7 @@ export function createApplicationsRoutes(
                                        _tp_sort_order
                                 FROM ${tabTableIdent}
                                 WHERE _tp_parent_id = $1
-                                  AND _upl_deleted = false
-                                  AND _app_deleted = false
+                                                                    AND ${runtimeRowCondition}
                                 ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
                             `,
                             [rowId]
@@ -2733,6 +2814,7 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
 
             const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
             const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name))]
@@ -2743,8 +2825,7 @@ export function createApplicationsRoutes(
                     SELECT ${selectColumns.join(', ')}
                     FROM ${dataTableIdent}
                     WHERE id = $1
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
+                      AND ${runtimeRowCondition}
                 `,
                 [rowId]
             )) as Array<Record<string, unknown>>
@@ -2780,35 +2861,54 @@ export function createApplicationsRoutes(
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeDeleteSetClause = isSoftDeleteLifecycle(catalog.lifecycleContract)
+                ? buildRuntimeSoftDeleteSetClause('$1', catalog.lifecycleContract, catalog.config)
+                : null
 
             // Cascade soft-delete to child tables if any TABLE attributes exist
             const tableAttrsForDelete = attrs.filter((a) => a.data_type === 'TABLE')
-            const needsTransaction = tableAttrsForDelete.length > 0
+            const needsTransaction = isSoftDeleteLifecycle(catalog.lifecycleContract) && tableAttrsForDelete.length > 0
 
             // Helper: soft-delete parent row + cascade to child tables
             const performDelete = async (mgr: DbExecutor) => {
-                const deleted = (await mgr.query(
-                    `
-                        UPDATE ${dataTableIdent}
-                                                SET ${softDeleteSetClause('$1')},
-                            _upl_version = COALESCE(_upl_version, 1) + 1
-                        WHERE id = $2
-                                                    AND ${activeAppRowCondition()}
-                          AND COALESCE(_upl_locked, false) = false
-                        RETURNING id
-                    `,
-                    [ctx.userId, rowId]
-                )) as Array<{ id: string }>
+                const deleted = runtimeDeleteSetClause
+                    ? ((await mgr.query(
+                          `
+                              UPDATE ${dataTableIdent}
+                              SET ${runtimeDeleteSetClause},
+                                  _upl_version = COALESCE(_upl_version, 1) + 1
+                              WHERE id = $2
+                                AND ${runtimeRowCondition}
+                                AND COALESCE(_upl_locked, false) = false
+                              RETURNING id
+                          `,
+                          [ctx.userId, rowId]
+                      )) as Array<{ id: string }>)
+                    : ((await mgr.query(
+                          `
+                              DELETE FROM ${dataTableIdent}
+                              WHERE id = $1
+                                AND ${runtimeRowCondition}
+                                AND COALESCE(_upl_locked, false) = false
+                              RETURNING id
+                          `,
+                          [rowId]
+                      )) as Array<{ id: string }>)
 
                 if (deleted.length === 0) {
                     const exists = (await mgr.query(
-                        `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND ${activeAppRowCondition()}`,
+                        `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND ${runtimeRowCondition}`,
                         [rowId]
                     )) as Array<{ id: string; _upl_locked?: boolean }>
                     if (exists.length > 0 && exists[0]._upl_locked) {
                         throw new UpdateFailure(423, { error: 'Record is locked' })
                     }
                     throw new UpdateFailure(404, { error: 'Row not found' })
+                }
+
+                if (!runtimeDeleteSetClause) {
+                    return
                 }
 
                 // Soft-delete child rows in TABLE child tables
@@ -2823,10 +2923,10 @@ export function createApplicationsRoutes(
                     await mgr.query(
                         `
                             UPDATE ${tabTableIdent}
-                                                        SET ${softDeleteSetClause('$1')},
+                            SET ${runtimeDeleteSetClause},
                                 _upl_version = COALESCE(_upl_version, 1) + 1
                             WHERE _tp_parent_id = $2
-                                                            AND ${activeAppRowCondition()}
+                              AND ${runtimeRowCondition}
                         `,
                         [ctx.userId, rowId]
                     )
@@ -2864,19 +2964,20 @@ export function createApplicationsRoutes(
         // Find the catalog
         const catalogs = (await manager.query(
             `
-                SELECT id, codename, table_name
+                SELECT id, codename, table_name, config
                 FROM ${schemaIdent}._app_objects
                 WHERE id = $1 AND kind = 'catalog'
                   AND _upl_deleted = false
                   AND _app_deleted = false
             `,
             [catalogId]
-        )) as Array<{ id: string; codename: string; table_name: string }>
+        )) as Array<{ id: string; codename: string; table_name: string; config?: Record<string, unknown> | null }>
 
         if (catalogs.length === 0) return { error: 'Catalog not found' } as const
 
         const catalog = catalogs[0]
         if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { error: 'Invalid table name' } as const
+        const lifecycleContract = resolveApplicationLifecycleContractFromConfig(catalog.config)
 
         // Find the TABLE attribute
         const tableAttrs = (await manager.query(
@@ -2928,6 +3029,7 @@ export function createApplicationsRoutes(
         return {
             error: null,
             catalog,
+            lifecycleContract,
             tableAttr,
             tabTableName,
             tabTableIdent: `${schemaIdent}.${quoteIdentifier(tabTableName)}`,
@@ -2957,6 +3059,7 @@ export function createApplicationsRoutes(
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
 
             const safeChildAttrs = tc.childAttrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
             const selectCols = ['id', '_tp_sort_order', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
@@ -2967,8 +3070,7 @@ export function createApplicationsRoutes(
                     SELECT COUNT(*)::int AS total
                     FROM ${tc.tabTableIdent}
                     WHERE _tp_parent_id = $1
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
+                                            AND ${runtimeRowCondition}
                 `,
                 [recordId]
             )) as Array<{ total: number }>
@@ -2979,8 +3081,7 @@ export function createApplicationsRoutes(
                     SELECT ${selectCols.join(', ')}
                     FROM ${tc.tabTableIdent}
                     WHERE _tp_parent_id = $1
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
+                                            AND ${runtimeRowCondition}
                     ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
                     LIMIT $2 OFFSET $3
                 `,
@@ -3017,6 +3118,7 @@ export function createApplicationsRoutes(
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
             const data = (req.body?.data ?? req.body) as Record<string, unknown>
             const sortOrder = typeof data._tp_sort_order === 'number' ? data._tp_sort_order : 0
 
@@ -3126,8 +3228,7 @@ export function createApplicationsRoutes(
                         SELECT id, _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         FOR UPDATE
                     `,
                     [recordId]
@@ -3148,8 +3249,7 @@ export function createApplicationsRoutes(
                         SELECT COUNT(*)::int AS cnt
                         FROM ${tc.tabTableIdent}
                         WHERE _tp_parent_id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                     `,
                     [recordId]
                 )) as Array<{ cnt: number }>
@@ -3198,6 +3298,7 @@ export function createApplicationsRoutes(
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
 
             const parsedBody = tabularUpdateBodySchema.safeParse(req.body ?? {})
             if (!parsedBody.success) {
@@ -3210,8 +3311,7 @@ export function createApplicationsRoutes(
                     SELECT id, _upl_locked
                     FROM ${tc.parentTableIdent}
                     WHERE id = $1
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
+                                            AND ${runtimeRowCondition}
                 `,
                 [recordId]
             )) as Array<{ id: string; _upl_locked?: boolean }>
@@ -3317,11 +3417,11 @@ export function createApplicationsRoutes(
                     SET ${setClauses.join(', ')}
                     WHERE id = $${childIdParam}
                       AND _tp_parent_id = $${parentIdParam}
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
-                      AND NOT EXISTS (SELECT 1 FROM ${
-                          tc.parentTableIdent
-                      } WHERE id = $${parentIdParam} AND COALESCE(_upl_locked, false) = true)
+                                            AND ${runtimeRowCondition}
+                                            AND NOT EXISTS (
+                                                    SELECT 1 FROM ${tc.parentTableIdent}
+                                                    WHERE id = $${parentIdParam} AND ${runtimeRowCondition} AND COALESCE(_upl_locked, false) = true
+                                            )
                       ${expectedVersionClause}
                     RETURNING id
                 `,
@@ -3334,8 +3434,7 @@ export function createApplicationsRoutes(
                         SELECT _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         LIMIT 1
                     `,
                     [recordId]
@@ -3351,8 +3450,7 @@ export function createApplicationsRoutes(
                         FROM ${tc.tabTableIdent}
                         WHERE id = $1
                           AND _tp_parent_id = $2
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         LIMIT 1
                     `,
                     [childRowId, recordId]
@@ -3397,6 +3495,7 @@ export function createApplicationsRoutes(
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
 
             await ctx.manager.query('BEGIN')
             try {
@@ -3405,8 +3504,7 @@ export function createApplicationsRoutes(
                         SELECT id, _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         FOR UPDATE
                     `,
                     [recordId]
@@ -3427,8 +3525,7 @@ export function createApplicationsRoutes(
                         FROM ${tc.tabTableIdent}
                         WHERE id = $1
                           AND _tp_parent_id = $2
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         LIMIT 1
                     `,
                     [childRowId, recordId]
@@ -3447,8 +3544,7 @@ export function createApplicationsRoutes(
                         SELECT COUNT(*)::int AS cnt
                         FROM ${tc.tabTableIdent}
                         WHERE _tp_parent_id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                     `,
                     [recordId]
                 )) as Array<{ cnt: number }>
@@ -3466,8 +3562,7 @@ export function createApplicationsRoutes(
                             _upl_updated_at = NOW(),
                             _upl_version = COALESCE(_upl_version, 1) + 1
                         WHERE _tp_parent_id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                           AND _tp_sort_order > $2
                     `,
                     [recordId, sourceSortOrder]
@@ -3520,6 +3615,10 @@ export function createApplicationsRoutes(
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
+            const runtimeDeleteSetClause = isSoftDeleteLifecycle(tc.lifecycleContract)
+                ? buildRuntimeSoftDeleteSetClause('$1', tc.lifecycleContract, tc.catalog.config)
+                : null
 
             await ctx.manager.query('BEGIN')
             try {
@@ -3528,8 +3627,7 @@ export function createApplicationsRoutes(
                         SELECT id, _upl_locked
                         FROM ${tc.parentTableIdent}
                         WHERE id = $1
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         FOR UPDATE
                     `,
                     [recordId]
@@ -3550,8 +3648,7 @@ export function createApplicationsRoutes(
                         FROM ${tc.tabTableIdent}
                         WHERE id = $1
                           AND _tp_parent_id = $2
-                          AND _upl_deleted = false
-                          AND _app_deleted = false
+                                                    AND ${runtimeRowCondition}
                         LIMIT 1
                     `,
                     [childRowId, recordId]
@@ -3569,8 +3666,7 @@ export function createApplicationsRoutes(
                             SELECT COUNT(*)::int AS cnt
                             FROM ${tc.tabTableIdent}
                             WHERE _tp_parent_id = $1
-                              AND _upl_deleted = false
-                              AND _app_deleted = false
+                                                            AND ${runtimeRowCondition}
                         `,
                         [recordId]
                     )) as Array<{ cnt: number }>
@@ -3582,18 +3678,29 @@ export function createApplicationsRoutes(
                     }
                 }
 
-                const deleted = (await ctx.manager.query(
-                    `
-                        UPDATE ${tc.tabTableIdent}
-                                                SET ${softDeleteSetClause('$1')},
-                            _upl_version = COALESCE(_upl_version, 1) + 1
-                        WHERE id = $2
-                          AND _tp_parent_id = $3
-                                                    AND ${activeAppRowCondition()}
-                        RETURNING id
-                    `,
-                    [ctx.userId, childRowId, recordId]
-                )) as Array<{ id: string }>
+                const deleted = runtimeDeleteSetClause
+                    ? ((await ctx.manager.query(
+                          `
+                              UPDATE ${tc.tabTableIdent}
+                              SET ${runtimeDeleteSetClause},
+                                  _upl_version = COALESCE(_upl_version, 1) + 1
+                              WHERE id = $2
+                                AND _tp_parent_id = $3
+                                AND ${runtimeRowCondition}
+                              RETURNING id
+                          `,
+                          [ctx.userId, childRowId, recordId]
+                      )) as Array<{ id: string }>)
+                    : ((await ctx.manager.query(
+                          `
+                              DELETE FROM ${tc.tabTableIdent}
+                              WHERE id = $1
+                                AND _tp_parent_id = $2
+                                AND ${runtimeRowCondition}
+                              RETURNING id
+                          `,
+                          [childRowId, recordId]
+                      )) as Array<{ id: string }>)
 
                 if (deleted.length === 0) {
                     await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))

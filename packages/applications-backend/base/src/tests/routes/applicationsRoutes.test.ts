@@ -1351,4 +1351,178 @@ describe('Applications Routes', () => {
             expect(insertCall?.[1]).toContain(defaultEnumValueId)
         })
     })
+
+    describe('Runtime lifecycle delete contract', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334450'
+        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334451'
+        const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334452'
+
+        it('uses physical DELETE when lifecycle contract is hard delete', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeCatalogId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: {
+                                systemFields: {
+                                    lifecycleContract: {
+                                        delete: { mode: 'hard' }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ catalogId: runtimeCatalogId })
+                .expect(200)
+
+            expect(response.body).toEqual({ status: 'deleted' })
+            const deleteCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('DELETE FROM "app_runtime_test"."orders"')
+            )
+            expect(deleteCall).toBeDefined()
+            expect(String(deleteCall?.[0])).not.toContain('_app_deleted = false')
+            expect(String(deleteCall?.[0])).not.toContain('SET _upl_deleted = true')
+        })
+
+        it('omits optional app delete audit columns when lifecycle contract disables them', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeCatalogId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: {
+                                systemFields: {
+                                    lifecycleContract: {
+                                        delete: { mode: 'soft', trackAt: false, trackBy: false }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ catalogId: runtimeCatalogId })
+                .expect(200)
+
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+            )
+            expect(updateCall).toBeDefined()
+            expect(String(updateCall?.[0])).toContain('_app_deleted = true')
+            expect(String(updateCall?.[0])).not.toContain('_app_deleted_at = now()')
+            expect(String(updateCall?.[0])).not.toContain('_app_deleted_by = $1')
+        })
+
+        it('omits platform delete predicates and updates when upl delete fields are disabled in catalog config', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeCatalogId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: {
+                                systemFields: {
+                                    fields: [
+                                        { key: 'upl.archived', enabled: false },
+                                        { key: 'upl.archived_at', enabled: false },
+                                        { key: 'upl.archived_by', enabled: false },
+                                        { key: 'upl.deleted', enabled: false },
+                                        { key: 'upl.deleted_at', enabled: false },
+                                        { key: 'upl.deleted_by', enabled: false }
+                                    ],
+                                    lifecycleContract: {
+                                        delete: { mode: 'soft', trackAt: false, trackBy: false }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ catalogId: runtimeCatalogId })
+                .expect(200)
+
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+            )
+
+            expect(updateCall).toBeDefined()
+            expect(String(updateCall?.[0])).toContain('_app_deleted = true')
+            expect(String(updateCall?.[0])).not.toContain('_upl_deleted = true')
+            expect(String(updateCall?.[0])).not.toContain('_upl_deleted = false')
+        })
+    })
 })

@@ -42,7 +42,7 @@ export { T0 }
 
 /**
  * Build minimal seed zone widgets for the basic template.
- * Only essential widgets: menuWidget (left), header (top), detailsTitle (center), columnsContainer (center).
+ * Only essential widgets: menuWidget (left), appNavbar + header (top), detailsTitle + detailsTable (center).
  */
 function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
     return [
@@ -66,19 +66,10 @@ function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 items: []
             })
         },
+        { zone: 'top', widgetKey: 'appNavbar', sortOrder: 1 },
         { zone: 'top', widgetKey: 'header', sortOrder: 2 },
         { zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 },
-        {
-            zone: 'center',
-            widgetKey: 'columnsContainer',
-            sortOrder: 7,
-            config: {
-                columns: [
-                    { id: 'seed-col-details-table', width: 9, widgets: [{ widgetKey: 'detailsTable' }] },
-                    { id: 'seed-col-sidebar', width: 3, widgets: [{ widgetKey: 'productTree' }] }
-                ]
-            }
-        }
+        { zone: 'center', widgetKey: 'detailsTable', sortOrder: 6 }
     ]
 }
 
