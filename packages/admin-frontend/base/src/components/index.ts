@@ -1,3 +1,5 @@
 export { ColorPicker } from './ColorPicker'
 export { default as LocaleDialog } from './LocaleDialog'
 export { PermissionMatrix } from './PermissionMatrix'
+export { default as RoleFormDialog } from './RoleFormDialog'
+export { default as UserFormDialog } from './UserFormDialog'

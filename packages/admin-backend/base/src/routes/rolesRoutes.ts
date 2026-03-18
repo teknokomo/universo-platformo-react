@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
+import { activeAppRowCondition, getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
+import { isUniqueViolation } from '@universo/utils/database'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { escapeLikeWildcards } from '../utils'
@@ -28,7 +29,7 @@ const ListQuerySchema = z.object({
     search: z.string().optional(),
     sortBy: z.enum(['codename', 'created', 'has_global_access']).default('codename'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
-    includeSystem: z.coerce.boolean().default(true)
+    includeSystem: z.preprocess((val) => (val === undefined ? true : val === 'true' || val === true), z.boolean())
 })
 
 /**
@@ -40,6 +41,22 @@ const RoleUsersQuerySchema = z.object({
     search: z.string().optional(),
     sortBy: z.enum(['email', 'assigned_at']).default('assigned_at'),
     sortOrder: z.enum(['asc', 'desc']).default('desc')
+})
+
+const CopyRoleSchema = z.object({
+    codename: z
+        .string()
+        .min(2)
+        .max(50)
+        .regex(/^[a-z0-9_-]+$/),
+    name: z.record(z.any()),
+    description: z.record(z.any()).optional(),
+    color: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .optional()
+        .default('#9e9e9e'),
+    copyPermissions: z.boolean().default(false)
 })
 
 export interface RolesRoutesConfig {
@@ -167,13 +184,26 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const savedRole = await createRole(exec, {
-                codename,
-                name,
-                description,
-                color,
-                is_superuser: isSuperuser
-            })
+            let savedRole
+            try {
+                savedRole = await createRole(exec, {
+                    codename,
+                    name,
+                    description,
+                    color,
+                    is_superuser: isSuperuser
+                })
+            } catch (error) {
+                if (isUniqueViolation(error)) {
+                    res.status(409).json({
+                        success: false,
+                        error: `Role with codename "${codename}" already exists`
+                    })
+                    return
+                }
+
+                throw error
+            }
 
             if (permissions && permissions.length > 0) {
                 await replacePermissions(
@@ -186,6 +216,83 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             const roleWithPermissions = await findRoleById(exec, savedRole.id)
             res.status(201).json({ success: true, data: roleWithPermissions })
+        })
+    )
+
+    router.post(
+        '/:id/copy',
+        ensureGlobalAccess('roles', 'create'),
+        asyncHandler(async (req, res) => {
+            const { id: sourceRoleId } = req.params
+            const parsed = CopyRoleSchema.safeParse(req.body)
+
+            if (!parsed.success) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid request body',
+                    details: parsed.error.errors
+                })
+                return
+            }
+
+            const exec = getRequestDbExecutor(req, getDbExecutor())
+            const sourceRole = await findRoleById(exec, sourceRoleId)
+            if (!sourceRole) {
+                res.status(404).json({ success: false, error: 'Source role not found' })
+                return
+            }
+
+            const existing = await findRoleByCodename(exec, parsed.data.codename)
+            if (existing) {
+                res.status(409).json({
+                    success: false,
+                    error: `Role with codename "${parsed.data.codename}" already exists`
+                })
+                return
+            }
+
+            let copiedRoleId: string
+            try {
+                copiedRoleId = await exec.transaction(async (trx) => {
+                    const rows = await trx.query<{ id: string }>(
+                        `INSERT INTO admin.cat_roles (codename, name, description, color, is_superuser, is_system, _upl_created_by)
+                         VALUES ($1, $2, $3, $4, false, false, $5)
+                         RETURNING id`,
+                        [
+                            parsed.data.codename,
+                            JSON.stringify(parsed.data.name),
+                            JSON.stringify(parsed.data.description ?? null),
+                            parsed.data.color,
+                            (req as RequestWithGlobalRole).user?.id ?? null
+                        ]
+                    )
+
+                    if (parsed.data.copyPermissions) {
+                        await trx.query(
+                            `INSERT INTO admin.rel_role_permissions (role_id, subject, action, conditions, fields)
+                             SELECT $1, subject, action, conditions, fields
+                             FROM admin.rel_role_permissions
+                             WHERE role_id = $2 AND ${activeAppRowCondition()}`,
+                            [rows[0].id, sourceRoleId]
+                        )
+                    }
+
+                    return rows[0].id
+                })
+            } catch (error) {
+                if (isUniqueViolation(error)) {
+                    res.status(409).json({
+                        success: false,
+                        error: `Role with codename "${parsed.data.codename}" already exists`
+                    })
+                    return
+                }
+
+                throw error
+            }
+
+            const copiedRole = await findRoleById(exec, copiedRoleId)
+            res.status(201).json({ success: true, data: copiedRole })
         })
     )
 

@@ -84,7 +84,10 @@ import ConnectorBoard from '../ConnectorBoard'
 
 const renderPage = () =>
     render(
-        <MemoryRouter initialEntries={['/a/app-1/admin/connector/connector-1']}>
+        <MemoryRouter
+            initialEntries={['/a/app-1/admin/connector/connector-1']}
+            future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
             <Routes>
                 <Route path='/a/:applicationId/admin/connector/:connectorId' element={<ConnectorBoard />} />
             </Routes>

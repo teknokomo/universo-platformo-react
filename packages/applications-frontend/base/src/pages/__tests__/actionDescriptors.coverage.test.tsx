@@ -7,7 +7,7 @@ vi.mock('@universo/template-mui', () => ({
     LocalizedInlineField: ({ label }: any) => <div data-testid='localized-inline-field'>{label}</div>,
     CodenameField: ({ label }: any) => <div data-testid='codename-field'>{label}</div>,
     useCodenameAutoFill: () => undefined,
-    useViewPreference: (key: string) => ['card', vi.fn()],
+    useViewPreference: (_key: string) => ['card', vi.fn()],
     DEFAULT_VIEW_STYLE: 'card',
     notifyError
 }))

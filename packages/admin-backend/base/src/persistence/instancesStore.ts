@@ -115,7 +115,12 @@ export async function getInstanceStats(exec: DbExecutor): Promise<{
 }> {
     const [usersResult, globalUsersResult, rolesResult] = await Promise.all([
         exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM auth.users`),
-        exec.query<{ count: string }>(`SELECT COUNT(DISTINCT user_id) AS count FROM admin.rel_user_roles WHERE ${activeAppRowCondition()}`),
+        exec.query<{ count: string }>(
+            `SELECT COUNT(DISTINCT ur.user_id) AS count
+             FROM admin.rel_user_roles ur
+             INNER JOIN admin.cat_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
+             WHERE ${activeAppRowCondition('ur')} AND r.is_superuser = true`
+        ),
         exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.cat_roles WHERE ${activeAppRowCondition()}`)
     ])
 

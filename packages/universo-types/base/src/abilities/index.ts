@@ -29,7 +29,29 @@ export type Actions = 'create' | 'read' | 'update' | 'delete' | 'manage'
 // ═══════════════════════════════════════════════════════════════
 
 /** All resource types in the platform */
-export type Subjects = 'Publication' | 'Admin' | 'Role' | 'Instance' | 'all'
+export type Subjects =
+    | 'Publication'
+    | 'Admin'
+    | 'Role'
+    | 'Instance'
+    | 'User'
+    | 'Setting'
+    | 'Metahub'
+    | 'Application'
+    | 'Profile'
+    | 'Onboarding'
+    | 'Metaverse'
+    | 'Cluster'
+    | 'Project'
+    | 'Space'
+    | 'Section'
+    | 'Organization'
+    | 'Storage'
+    | 'Credential'
+    | 'Chatflow'
+    | 'Tool'
+    | 'Assistant'
+    | 'all'
 
 // ═══════════════════════════════════════════════════════════════
 // ABILITY TYPE
@@ -56,14 +78,34 @@ export interface DbPermission {
 // ═══════════════════════════════════════════════════════════════
 
 /** Maps database module names to CASL subject types */
-const MODULE_TO_SUBJECT: Record<string, Subjects> = {
+export const ABILITY_MODULE_TO_SUBJECT: Record<string, Subjects> = {
     publications: 'Publication',
+    roles: 'Role',
+    instances: 'Instance',
+    users: 'User',
+    settings: 'Setting',
     admin: 'Admin',
+    metahubs: 'Metahub',
+    applications: 'Application',
+    profile: 'Profile',
+    profiles: 'Profile',
+    onboarding: 'Onboarding',
+    metaverses: 'Metaverse',
+    clusters: 'Cluster',
+    projects: 'Project',
+    spaces: 'Space',
+    sections: 'Section',
+    organizations: 'Organization',
+    storages: 'Storage',
+    credentials: 'Credential',
+    chatflows: 'Chatflow',
+    tools: 'Tool',
+    assistants: 'Assistant',
     '*': 'all'
 }
 
 /** Maps database action names to CASL actions */
-const ACTION_MAP: Record<string, Actions> = {
+export const ABILITY_ACTION_MAP: Record<string, Actions> = {
     create: 'create',
     read: 'read',
     update: 'update',
@@ -92,8 +134,8 @@ export function defineAbilitiesFor(userId: string, permissions: DbPermission[]):
     const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     for (const perm of permissions) {
-        const subject = MODULE_TO_SUBJECT[perm.subject] || (perm.subject as Subjects)
-        const action = ACTION_MAP[perm.action] || (perm.action as Actions)
+        const subject = ABILITY_MODULE_TO_SUBJECT[perm.subject] || (perm.subject as Subjects)
+        const action = ABILITY_ACTION_MAP[perm.action] || (perm.action as Actions)
 
         // Check if there are ABAC conditions
         const hasConditions = perm.conditions && Object.keys(perm.conditions).length > 0

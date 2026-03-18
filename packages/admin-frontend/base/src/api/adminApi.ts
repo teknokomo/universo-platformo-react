@@ -1,12 +1,21 @@
 import type { AxiosInstance, AxiosResponse } from 'axios'
-import type { GlobalUserMember, AdminStats, PaginationParams, PaginatedResponse, GlobalAssignableRole, RoleMetadata } from '../types'
+import type {
+    AdminCreateUserPayload,
+    AdminDashboardStats,
+    GlobalUserMember,
+    GlobalUserRoleAssignment,
+    PaginationParams,
+    PaginatedResponse,
+    RoleMetadata,
+    SetUserRolesPayload
+} from '../types'
 
 /**
  * Payload for granting global role (by email)
  */
 export interface GrantRolePayload {
     email: string
-    role: GlobalAssignableRole
+    role: string
     comment?: string
 }
 
@@ -14,7 +23,7 @@ export interface GrantRolePayload {
  * Payload for updating global user (role and/or comment)
  */
 export interface UpdateRolePayload {
-    role?: GlobalAssignableRole
+    role?: string
     comment?: string
 }
 
@@ -23,6 +32,7 @@ export interface UpdateRolePayload {
  */
 export interface ListGlobalUsersParams extends PaginationParams {
     roleId?: string
+    hasGlobalAccess?: boolean
 }
 
 /**
@@ -31,7 +41,19 @@ export interface ListGlobalUsersParams extends PaginationParams {
 export interface MyRoleResponse {
     role: string | null
     hasGlobalAccess: boolean
+    isSuperuser: boolean
     roleMetadata: RoleMetadata | null
+}
+
+export interface CreateAdminUserResponse {
+    userId: string
+    email: string
+    roles: GlobalUserRoleAssignment[]
+}
+
+export interface SetUserRolesResponse {
+    userId: string
+    roles: GlobalUserRoleAssignment[]
 }
 
 /**
@@ -53,6 +75,7 @@ function extractPaginationMeta(response: AxiosResponse): PaginatedResponse<unkno
 export function createAdminApi(client: AxiosInstance) {
     // Note: client.baseURL already includes '/api/v1', so only add the relative path
     const BASE_PATH = '/admin/global-users'
+    const DASHBOARD_PATH = '/admin/dashboard'
 
     return {
         /**
@@ -74,7 +97,8 @@ export function createAdminApi(client: AxiosInstance) {
                     sortBy: params?.sortBy,
                     sortOrder: params?.sortOrder,
                     search: params?.search,
-                    roleId: params?.roleId
+                    roleId: params?.roleId,
+                    hasGlobalAccess: params?.hasGlobalAccess
                 }
             })
 
@@ -87,8 +111,21 @@ export function createAdminApi(client: AxiosInstance) {
         /**
          * Get admin statistics for dashboard
          */
-        getStats: async (): Promise<AdminStats> => {
-            const { data } = await client.get<{ data: AdminStats }>(`${BASE_PATH}/stats`)
+        getStats: async (): Promise<AdminDashboardStats> => {
+            const { data } = await client.get<{ data: AdminDashboardStats }>(`${DASHBOARD_PATH}/stats`)
+            return data.data
+        },
+
+        createUser: async (payload: AdminCreateUserPayload): Promise<CreateAdminUserResponse> => {
+            const { data } = await client.post<{ data: CreateAdminUserResponse }>(`${BASE_PATH}/create-user`, payload)
+            return data.data
+        },
+
+        setUserRoles: async (payload: SetUserRolesPayload): Promise<SetUserRolesResponse> => {
+            const { data } = await client.put<{ data: SetUserRolesResponse }>(`${BASE_PATH}/${payload.userId}/roles`, {
+                roleIds: payload.roleIds,
+                comment: payload.comment
+            })
             return data.data
         },
 

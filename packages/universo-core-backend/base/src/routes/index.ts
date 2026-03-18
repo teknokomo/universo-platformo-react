@@ -1,5 +1,6 @@
 import express from 'express'
 import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import pingRouter from './ping'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
@@ -17,6 +18,7 @@ import { createApplicationsServiceRoutes } from '@universo/applications-backend'
 import { createStartServiceRoutes } from '@universo/start-backend'
 // Universo Platformo | Admin
 import {
+    createDashboardRoutes,
     createGlobalUsersRoutes,
     createGlobalAccessService,
     createInstancesRoutes,
@@ -104,7 +106,11 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 let startRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!startRouter) {
-        startRouter = createStartServiceRoutes(ensureAuthWithRls, (r) => getRequestDbExecutor(r, getPoolExecutor()))
+        startRouter = createStartServiceRoutes(
+            ensureAuthWithRls,
+            (r) => getRequestDbExecutor(r, getPoolExecutor()),
+            globalAccessService.assignSystemRole
+        )
     }
     if (startRouter) {
         startRouter(req, res, next)
@@ -119,8 +125,21 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 const globalAccessService = createGlobalAccessService({ getDbExecutor: getPoolExecutor })
 const permissionService = createPermissionService({ getDbExecutor: getPoolExecutor })
 
-const globalUsersRouter = createGlobalUsersRoutes({ globalAccessService, permissionService })
+const supabaseAdmin: SupabaseClient | undefined =
+    process.env.SUPABASE_URL && process.env.SERVICE_ROLE_KEY
+        ? createClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY, {
+              auth: {
+                  persistSession: false,
+                  autoRefreshToken: false
+              }
+          })
+        : undefined
+
+const globalUsersRouter = createGlobalUsersRoutes({ globalAccessService, permissionService, supabaseAdmin })
 router.use('/admin/global-users', ensureAuthWithRls, globalUsersRouter)
+
+const dashboardRouter = createDashboardRoutes({ globalAccessService })
+router.use('/admin/dashboard', ensureAuthWithRls, dashboardRouter)
 
 const instancesRouter = createInstancesRoutes({
     globalAccessService,

@@ -108,7 +108,7 @@ vi.mock('@universo/apps-template-mui', async () => {
 
 function renderRuntimePage() {
     return render(
-        <MemoryRouter initialEntries={['/applications/app-1/runtime']}>
+        <MemoryRouter initialEntries={['/applications/app-1/runtime']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
                 <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
             </Routes>

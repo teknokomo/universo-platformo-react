@@ -2,8 +2,8 @@ import express, { type Request, type RequestHandler } from 'express'
 import request from 'supertest'
 import { createOnboardingRoutes } from '../../routes/onboardingRoutes'
 
-const mockGetUserProfile = jest.fn()
-const mockMarkOnboardingCompleted = jest.fn()
+var mockGetUserProfile = jest.fn()
+var mockMarkOnboardingCompleted = jest.fn()
 
 jest.mock('@universo/profile-backend', () => ({
     ProfileService: jest.fn().mockImplementation(() => ({
@@ -15,8 +15,9 @@ jest.mock('@universo/profile-backend', () => ({
 const passThrough: RequestHandler = (_req, _res, next) => next()
 const readLimiter = passThrough as never
 const writeLimiter = passThrough as never
+const mockAssignSystemRole = jest.fn()
 
-const createApp = (queryImpl: jest.Mock, withUser = true, transactionImpl?: jest.Mock) => {
+const createApp = (queryImpl: jest.Mock, withUser = true, transactionImpl?: jest.Mock, assignSystemRole = mockAssignSystemRole) => {
     const app = express()
     app.use(express.json())
 
@@ -39,7 +40,8 @@ const createApp = (queryImpl: jest.Mock, withUser = true, transactionImpl?: jest
             passThrough,
             () => ({ query: queryImpl, transaction, isReleased: () => false } as never),
             readLimiter,
-            writeLimiter
+            writeLimiter,
+            assignSystemRole
         )
     )
 
@@ -60,6 +62,7 @@ describe('createOnboardingRoutes', () => {
         jest.clearAllMocks()
         mockGetUserProfile.mockResolvedValue(null)
         mockMarkOnboardingCompleted.mockResolvedValue({ onboarding_completed: true })
+        process.env.AUTO_ROLE_AFTER_ONBOARDING = 'true'
     })
 
     describe('GET /items', () => {
@@ -228,6 +231,43 @@ describe('createOnboardingRoutes', () => {
             expect(res.body.success).toBe(true)
             expect(res.body.onboardingCompleted).toBe(true)
             expect(mockMarkOnboardingCompleted).toHaveBeenCalledWith('user-1', 'user@example.com')
+            expect(mockAssignSystemRole).toHaveBeenCalledWith({
+                userId: 'user-1',
+                roleCodename: 'user',
+                reason: 'auto-assigned on onboarding completion'
+            })
+        })
+
+        it('skips automatic user-role assignment when the env flag disables it', async () => {
+            process.env.AUTO_ROLE_AFTER_ONBOARDING = 'false'
+
+            const query = jest.fn()
+            const app = createApp(query)
+            const res = await request(app).post('/onboarding/complete')
+
+            expect(res.status).toBe(200)
+            expect(mockAssignSystemRole).not.toHaveBeenCalled()
+        })
+
+        it('rolls back onboarding_completed when automatic role assignment fails for a newly completed profile', async () => {
+            const query = jest.fn()
+            const failingAssignSystemRole = jest.fn().mockRejectedValue(new Error('role assignment failed'))
+
+            mockGetUserProfile.mockResolvedValueOnce({ onboarding_completed: false })
+
+            const app = createApp(query, true, undefined, failingAssignSystemRole)
+            const res = await request(app).post('/onboarding/complete')
+
+            expect(res.status).toBe(500)
+            expect(failingAssignSystemRole).toHaveBeenCalledWith({
+                userId: 'user-1',
+                roleCodename: 'user',
+                reason: 'auto-assigned on onboarding completion'
+            })
+            expect(query).toHaveBeenCalledWith(
+                expect.stringContaining('UPDATE profiles.cat_profiles'),
+                [false, 'user-1']
+            )
         })
 
         it('returns 401 when unauthenticated', async () => {

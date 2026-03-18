@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { AppAbility, VersionedLocalizedContent } from '@universo/types'
+import { useHasGlobalAccess } from '@universo/store'
 
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
@@ -32,25 +33,72 @@ import {
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { ActionDescriptor } from '@universo/template-mui'
+import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 
 import { useCreateApplication, useUpdateApplication, useDeleteApplication, useCopyApplication } from '../hooks/mutations'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as applicationsApi from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
-import { Application, ApplicationDisplay, ApplicationLocalizedPayload, toApplicationDisplay } from '../types'
+import { Application, ApplicationDisplay, ApplicationLocalizedPayload, PaginationParams, toApplicationDisplay } from '../types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import applicationActions from './ApplicationActions'
 import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 
-// Type for application update/create data
-type ApplicationFormValues = {
+export type ApplicationFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
 }
 
-const ADMIN_PANEL_ROLES = new Set(['owner', 'admin', 'editor'])
+type ApplicationFormRenderState = {
+    values: Record<string, unknown>
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    errors?: Record<string, string>
+}
+
+type ConfirmSpec = {
+    title?: string
+    titleKey?: string
+    description?: string
+    descriptionKey?: string
+    confirmButtonName?: string
+    confirmKey?: string
+    cancelButtonName?: string
+    cancelKey?: string
+    interpolate?: Record<string, string | number>
+}
+
+type ApplicationActionContext = Partial<ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>>
+
+const hasResponseStatus = (value: unknown): value is { response: { status: number } } => {
+    if (!value || typeof value !== 'object') {
+        return false
+    }
+
+    const response = (value as { response?: unknown }).response
+    return Boolean(response && typeof response === 'object' && 'status' in response)
+}
+
+const canUseApplicationAbility = (ability: AppAbility | null | undefined, action: 'create' | 'manage') => {
+    if (!ability) {
+        return false
+    }
+
+    if (action === 'manage') {
+        return ability.can('manage', 'Application') || ability.can('update', 'Application') || ability.can('delete', 'Application')
+    }
+
+    return ability.can('manage', 'Application') || ability.can('create', 'Application')
+}
+
+const canManageApplicationRecord = (application: ApplicationDisplay): boolean => {
+    if (typeof application.permissions?.manageApplication === 'boolean') {
+        return application.permissions.manageApplication
+    }
+
+    return application.role === 'owner' || application.role === 'admin'
+}
 
 const ApplicationList = () => {
     // Use applications namespace for view-specific keys, roles and access for role/permission labels
@@ -67,6 +115,14 @@ const ApplicationList = () => {
     // Get user settings for showAll preference
     const { settings } = useUserSettings()
     const showAll = settings.admin?.showAllItems ?? false
+    const {
+        isSuperuser,
+        loading: accessLoading,
+        ability
+    } = useHasGlobalAccess() as ReturnType<typeof useHasGlobalAccess> & {
+        ability?: AppAbility | null
+    }
+    const canCreateApplications = !accessLoading && (isSuperuser || canUseApplicationAbility(ability, 'create'))
 
     const [dialogError, setDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
@@ -85,7 +141,10 @@ const ApplicationList = () => {
     )
 
     // Create query function that includes showAll parameter
-    const queryFnWithShowAll = useCallback((params: any) => applicationsApi.listApplications({ ...params, showAll }), [showAll])
+    const queryFnWithShowAll = useCallback(
+        (params: PaginationParams) => applicationsApi.listApplications({ ...params, showAll }),
+        [showAll]
+    )
 
     // Use paginated hook for applications list
     const paginationResult = usePaginated<Application, 'name' | 'created' | 'updated'>({
@@ -137,7 +196,7 @@ const ApplicationList = () => {
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(applicationsDisplay)) {
             applicationsDisplay.forEach((application) => {
                 if (application?.id) {
@@ -151,20 +210,11 @@ const ApplicationList = () => {
     const localizedFormDefaults = useMemo<ApplicationFormValues>(() => ({ nameVlc: null, descriptionVlc: null }), [])
 
     const renderLocalizedFields = useCallback(
-        ({
-            values,
-            setValue,
-            isLoading,
-            errors
-        }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
-            isLoading: boolean
-            errors?: Record<string, string>
-        }) => {
+        ({ values, setValue, isLoading, errors }: ApplicationFormRenderState) => {
             const fieldErrors = errors ?? {}
             const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+
             return (
                 <>
                     <LocalizedInlineField
@@ -195,7 +245,7 @@ const ApplicationList = () => {
     )
 
     const validateApplicationForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: Record<string, unknown>) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
                 return { nameVlc: tc('crud.nameRequired', 'Name is required') }
@@ -205,7 +255,7 @@ const ApplicationList = () => {
         [tc]
     )
 
-    const canSaveApplicationForm = useCallback((values: Record<string, any>) => {
+    const canSaveApplicationForm = useCallback((values: Record<string, unknown>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
         return hasPrimaryContent(nameVlc)
     }, [])
@@ -223,7 +273,7 @@ const ApplicationList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateApplication = (data: Record<string, any>) => {
+    const handleCreateApplication = (data: Record<string, unknown>) => {
         setDialogError(null)
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -244,7 +294,7 @@ const ApplicationList = () => {
         handleDialogSave()
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -338,7 +388,7 @@ const ApplicationList = () => {
     // Removed N+1 counts loading; counts are provided by backend list response
 
     const createApplicationContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: ApplicationActionContext) => ({
             ...baseContext,
             navigate,
             applicationMap,
@@ -386,7 +436,7 @@ const ApplicationList = () => {
                         queryKey: applicationsQueryKeys.lists()
                     })
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     // Support both direct strings and translation keys
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
@@ -429,15 +479,19 @@ const ApplicationList = () => {
 
     const buildApplicationMenuDescriptors = useCallback(
         (application: ApplicationDisplay): ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] => {
-            if (!application.role || !ADMIN_PANEL_ROLES.has(application.role)) return []
+            const canManageApplication = canManageApplicationRecord(application)
+
+            if (!canManageApplication) return []
 
             const deleteDescriptor = applicationActions.find((descriptor) => descriptor.id === 'delete')
             const shouldShowDelete = Boolean(deleteDescriptor && application.role === 'owner')
             const editDescriptor = applicationActions.find((descriptor) => descriptor.id === 'edit')
             const copyDescriptor = applicationActions.find((descriptor) => descriptor.id === 'copy')
 
-            const descriptors: ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] = [
-                {
+            const descriptors: ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] = []
+
+            if (canManageApplication) {
+                descriptors.push({
                     id: 'control-panel',
                     labelKey: 'actions.controlPanel',
                     icon: <SettingsRoundedIcon />,
@@ -446,8 +500,8 @@ const ApplicationList = () => {
                         ctx.navigate?.(`/a/${ctx.entity.id}/admin`)
                     },
                     dividerAfter: Boolean(editDescriptor || copyDescriptor || shouldShowDelete)
-                }
-            ]
+                })
+            }
 
             if (editDescriptor) {
                 descriptors.push({
@@ -496,7 +550,7 @@ const ApplicationList = () => {
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    description={!hasResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
                     action={{
                         label: t('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)
@@ -517,11 +571,15 @@ const ApplicationList = () => {
                             onViewModeChange={(mode: string) => handleChange(null, mode)}
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
+                            primaryAction={
+                                canCreateApplications
+                                    ? {
+                                          label: tc('create'),
+                                          onClick: handleAddNew,
+                                          startIcon: <AddRoundedIcon />
+                                      }
+                                    : undefined
+                            }
                         />
                     </ViewHeader>
 

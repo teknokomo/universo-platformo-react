@@ -138,6 +138,7 @@ export function useUserSettings(): {
  */
 export function resetUserSettingsCache(): void {
     settingsCache = { settings: {}, loaded: false }
+    notifySubscribers({})
 }
 
 /**

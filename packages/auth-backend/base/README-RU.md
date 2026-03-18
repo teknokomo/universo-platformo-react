@@ -220,8 +220,14 @@ const loginLimiter = rateLimit({
 })
 
 // Mount auth routes
-app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter))
+app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, {
+    getDbExecutor: () => createKnexExecutor(getKnex()),
+    assignSystemRole,
+    deleteAuthUser
+}))
 ```
+
+Третий аргумент опционален, но именно через него подключаются поддерживаемые helper'ы для назначения ролей после регистрации/онбординга и для rollback cleanup.
 
 ### RLS-Enabled Route Protection
 ```typescript

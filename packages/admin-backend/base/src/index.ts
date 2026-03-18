@@ -2,7 +2,8 @@
 export {
     createAdminSchemaMigrationDefinition,
     finalizeAdminSchemaSupportMigrationDefinition,
-    prepareAdminSchemaSupportMigrationDefinition
+    prepareAdminSchemaSupportMigrationDefinition,
+    seedAdminLifecycleRolesMigrationDefinition
 } from './platform/migrations'
 export { adminSystemAppDefinition } from './platform/systemAppDefinition'
 
@@ -31,6 +32,7 @@ export { isAdminPanelEnabled, isGlobalAdminEnabled, getAdminConfig, type AdminCo
 
 // Routes
 export { createGlobalUsersRoutes, type GlobalUsersRoutesConfig } from './routes'
+export { createDashboardRoutes, type DashboardRoutesConfig } from './routes'
 export { createInstancesRoutes, type InstancesRoutesConfig } from './routes'
 export { createRolesRoutes, type RolesRoutesConfig } from './routes/rolesRoutes'
 export { createLocalesRoutes, type LocalesRoutesConfig } from './routes'

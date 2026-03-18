@@ -11,7 +11,7 @@ import { resolveLocalizedContent } from '@universo/utils'
 import { isValidLocaleCode } from '@universo/types'
 import { useSnackbar } from 'notistack'
 
-import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, FlowListTable, useConfirm } from '@universo/template-mui'
+import { ViewHeaderMUI as ViewHeader, FlowListTable, ToolbarControls, useConfirm } from '@universo/template-mui'
 
 import * as localesApi from '../api/localesApi'
 import type { LocaleItem, UpdateLocalePayload } from '../api/localesApi'
@@ -40,6 +40,7 @@ const LocalesList = () => {
     // Dialog state
     const [dialogOpen, setDialogOpen] = useState(false)
     const [editingLocale, setEditingLocale] = useState<LocaleItem | null>(null)
+    const [searchTerm, setSearchTerm] = useState('')
 
     // Query for locales list
     const {
@@ -51,7 +52,7 @@ const LocalesList = () => {
         queryFn: () => localesApi.listLocales({ includeDisabled: true })
     })
 
-    const locales = data?.items || []
+    const locales = useMemo(() => data?.items || [], [data])
 
     // Update mutation
     const updateMutation = useMutation({
@@ -154,6 +155,18 @@ const LocalesList = () => {
         },
         [currentLang]
     )
+
+    // Client-side search filter (locales list is small)
+    const filteredLocales = useMemo(() => {
+        if (!searchTerm.trim()) return locales
+        const term = searchTerm.toLowerCase()
+        return locales.filter(
+            (l) =>
+                l.code.toLowerCase().includes(term) ||
+                getLocaleName(l).toLowerCase().includes(term) ||
+                (l.nativeName && l.nativeName.toLowerCase().includes(term))
+        )
+    }, [locales, searchTerm, getLocaleName])
 
     // Table columns definition
     const columns = useMemo(
@@ -262,25 +275,33 @@ const LocalesList = () => {
         [t, getLocaleName, handleToggleContent, handleSetDefaultContent, handleEdit, handleDelete]
     )
 
-    return (
-        <Box>
-            <ViewHeader
-                title={t('locales.title', 'Locales')}
-                description={t('locales.description', 'Manage available languages for content localization')}
-            >
-                <Tooltip title={t('locales.addNew', 'Add Locale')}>
-                    <IconButton color='primary' onClick={handleAdd}>
-                        <AddRoundedIcon />
-                    </IconButton>
-                </Tooltip>
-            </ViewHeader>
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setSearchTerm(e.target.value)
+    }, [])
 
-            <MainCard>
-                <FlowListTable data={locales} customColumns={columns} isLoading={isLoading} />
-            </MainCard>
+    return (
+        <Stack flexDirection='column' sx={{ gap: 1 }}>
+            <Box sx={{ px: { xs: 0, md: 2 } }}>
+                <ViewHeader
+                    title={t('locales.title', 'Languages')}
+                    search={true}
+                    searchPlaceholder={t('locales.searchPlaceholder', 'Search languages...')}
+                    onSearchChange={handleSearchChange}
+                >
+                    <ToolbarControls
+                        primaryAction={{
+                            label: t('locales.addNew', 'Create'),
+                            onClick: handleAdd,
+                            startIcon: <AddRoundedIcon />
+                        }}
+                    />
+                </ViewHeader>
+            </Box>
+
+            <FlowListTable data={filteredLocales} customColumns={columns} isLoading={isLoading} />
 
             <LocaleDialog open={dialogOpen} onClose={handleCloseDialog} onSuccess={handleDialogSuccess} locale={editingLocale} />
-        </Box>
+        </Stack>
     )
 }
 

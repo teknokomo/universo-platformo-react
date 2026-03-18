@@ -3,6 +3,7 @@ import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
+import { createClient } from '@supabase/supabase-js'
 import session from 'express-session'
 import csurf from 'csurf'
 import rateLimit from 'express-rate-limit'
@@ -13,6 +14,7 @@ import logger, { expressRequestLogger } from './utils/logger'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import apiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
+import { createGlobalAccessService } from '@universo/admin-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo/database'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
@@ -217,6 +219,16 @@ export class App {
 
         const csrfProtection = csurf({ cookie: false })
         const loginLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
+        const globalAccessService = createGlobalAccessService({ getDbExecutor: getPoolExecutor })
+        const supabaseAdmin =
+            process.env.SUPABASE_URL && process.env.SERVICE_ROLE_KEY
+                ? createClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY, {
+                      auth: {
+                          persistSession: false,
+                          autoRefreshToken: false
+                      }
+                  })
+                : undefined
 
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))
@@ -243,7 +255,21 @@ export class App {
         this.app.use(sanitizeMiddleware)
 
         // Auth routes (login, logout, CSRF, refresh, etc.)
-        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getPoolExecutor))
+        this.app.use(
+            '/api/v1/auth',
+            createAuthRouter(csrfProtection, loginLimiter, {
+                getDbExecutor: getPoolExecutor,
+                assignSystemRole: globalAccessService.assignSystemRole,
+                deleteAuthUser: supabaseAdmin
+                    ? async (userId: string) => {
+                          const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+                          if (error) {
+                              throw error
+                          }
+                      }
+                    : undefined
+            })
+        )
 
         // Health check endpoint (no auth required)
         this.app.get('/api/v1/health/db', async (_req: Request, res: Response) => {

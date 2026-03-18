@@ -1,10 +1,18 @@
 import React from 'react'
-import { Box, Typography, Link, Button } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Link, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 
 interface CompletionStepProps {
     /** Optional callback to restart onboarding wizard */
     onStartOver?: () => void
+    /** Final primary action for entering the app */
+    onPrimaryAction?: () => Promise<void> | void
+    /** Label for the primary action button */
+    primaryActionLabel?: string
+    /** Loading state for the primary action */
+    primaryActionLoading?: boolean
+    /** Error shown above the action buttons */
+    error?: string | null
 }
 
 /**
@@ -14,7 +22,13 @@ interface CompletionStepProps {
  * and what happens next with user's selections.
  * Styled similar to WelcomeStep with hero image.
  */
-export const CompletionStep: React.FC<CompletionStepProps> = ({ onStartOver }) => {
+export const CompletionStep: React.FC<CompletionStepProps> = ({
+    onStartOver,
+    onPrimaryAction,
+    primaryActionLabel,
+    primaryActionLoading = false,
+    error = null
+}) => {
     const { t } = useTranslation('onboarding')
 
     return (
@@ -91,13 +105,30 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({ onStartOver }) =
                 {t('completion.slogan')}
             </Typography>
 
-            {/* Start Over button - only shown when callback is provided */}
-            {onStartOver && (
-                <Box sx={{ mt: 4, textAlign: 'center' }}>
-                    <Button variant='outlined' color='primary' onClick={onStartOver}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 4, justifyContent: 'space-between' }}>
+                {onStartOver && (
+                    <Button variant='outlined' color='primary' onClick={onStartOver} disabled={primaryActionLoading}>
                         {t('buttons.startOver')}
                     </Button>
-                </Box>
+                )}
+
+                {onPrimaryAction && (
+                    <Button
+                        variant='contained'
+                        color='primary'
+                        onClick={onPrimaryAction}
+                        disabled={primaryActionLoading}
+                        startIcon={primaryActionLoading ? <CircularProgress size={16} color='inherit' /> : null}
+                    >
+                        {primaryActionLabel || t('buttons.startActing')}
+                    </Button>
+                )}
+            </Stack>
+
+            {error && (
+                <Alert severity='error' sx={{ mt: 3 }}>
+                    {error}
+                </Alert>
             )}
         </Box>
     )

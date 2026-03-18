@@ -34,12 +34,18 @@
 ### Эндпоинты глобальных пользователей
 
 ```http
-GET    /api/v1/admin/global-users          # Список глобальных пользователей (view)
-GET    /api/v1/admin/global-users/me       # Получить глобальную роль текущего пользователя
-GET    /api/v1/admin/global-users/stats    # Статистика для дашборда
-POST   /api/v1/admin/global-users          # Назначить глобальную роль (manage)
-PUT    /api/v1/admin/global-users/:id      # Обновить роль/комментарий (manage)
-DELETE /api/v1/admin/global-users/:id      # Отозвать глобальный доступ (manage)
+GET    /api/v1/admin/global-users                # Список глобальных пользователей (read)
+GET    /api/v1/admin/global-users/me             # Сводка по глобальным ролям текущего пользователя
+POST   /api/v1/admin/global-users/create-user    # Создать auth user и назначить стартовые роли
+PUT    /api/v1/admin/global-users/:memberId/roles # Полностью заменить набор ролей пользователя
+PATCH  /api/v1/admin/global-users/:memberId      # Legacy-обёртка для старого single-role API
+DELETE /api/v1/admin/global-users/:memberId      # Снять с пользователя все глобальные роли
+```
+
+### Эндпоинты дашборда
+
+```http
+GET    /api/v1/admin/dashboard/stats       # Общая статистика для admin/metapanel
 ```
 
 ### Эндпоинты ролей
@@ -47,6 +53,7 @@ DELETE /api/v1/admin/global-users/:id      # Отозвать глобальны
 ```http
 GET    /api/v1/admin/roles                 # Список всех ролей
 GET    /api/v1/admin/roles/global          # Список ролей с глобальным доступом
+POST   /api/v1/admin/roles/:id/copy        # Скопировать существующую роль в новую редактируемую роль
 ```
 
 ## Использование
@@ -55,13 +62,17 @@ GET    /api/v1/admin/roles/global          # Список ролей с глоб
 
 ```typescript
 import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
+import { getPermissionService } from '@universo/auth-backend'
 import { createKnexExecutor, getKnex } from '@universo/database'
 
 const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
-const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService })
+const permissionService = getPermissionService()
+const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService, permissionService })
 
 app.use('/api/v1/admin/global-users', globalUsersRoutes)
 ```
+
+Также передавайте `supabaseAdmin`, если включаете прямое создание пользователей из админ-панели через `POST /create-user`.
 
 ### Проверка доступа в других модулях
 

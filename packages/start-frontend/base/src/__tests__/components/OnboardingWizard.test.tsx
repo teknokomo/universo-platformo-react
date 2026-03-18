@@ -15,11 +15,10 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('../../api/onboarding', () => ({
     getOnboardingItems: vi.fn(),
-    syncSelections: vi.fn(),
-    completeOnboarding: vi.fn()
+    syncSelections: vi.fn()
 }))
 
-import { getOnboardingItems, syncSelections, completeOnboarding } from '../../api/onboarding'
+import { getOnboardingItems, syncSelections } from '../../api/onboarding'
 
 const vlc = (en: string): VersionedLocalizedContent<string> => ({
     _schema: '1',
@@ -53,7 +52,6 @@ beforeEach(() => {
         added: { goals: 0, topics: 0, features: 0 },
         removed: { goals: 0, topics: 0, features: 0 }
     })
-    vi.mocked(completeOnboarding).mockResolvedValue({ success: true, onboardingCompleted: true })
 })
 
 describe('OnboardingWizard', () => {
@@ -100,7 +98,7 @@ describe('OnboardingWizard', () => {
         await screen.findByText('steps.features.title')
     })
 
-    it('calls syncSelections and completeOnboarding on the final data step', async () => {
+    it('syncs selections before entering the completion step', async () => {
         render(<OnboardingWizard />)
 
         await screen.findByText('welcome.title')
@@ -113,13 +111,14 @@ describe('OnboardingWizard', () => {
         fireEvent.click(screen.getByText('buttons.next'))
         await screen.findByText('steps.features.title')
 
-        // Click next on features step to complete (triggers sync + complete)
+        // Click next on features step to enter completion (sync only)
         fireEvent.click(screen.getByText('buttons.next'))
 
         await waitFor(() => {
             expect(syncSelections).toHaveBeenCalledTimes(1)
-            expect(completeOnboarding).toHaveBeenCalledTimes(1)
         })
+
+        expect(screen.getByText('completion.title')).toBeDefined()
     })
 
     it('shows error on API failure', async () => {
@@ -131,7 +130,7 @@ describe('OnboardingWizard', () => {
         })
     })
 
-    it('calls onComplete callback when reaching completion step', async () => {
+    it('calls onComplete callback only from the final CTA', async () => {
         const onComplete = vi.fn()
         render(<OnboardingWizard onComplete={onComplete} />)
 
@@ -145,6 +144,11 @@ describe('OnboardingWizard', () => {
         fireEvent.click(screen.getByText('buttons.next')) // topics → features
         await screen.findByText('steps.features.title')
         fireEvent.click(screen.getByText('buttons.next')) // features → completion
+
+        await screen.findByText('buttons.startActing')
+        expect(onComplete).not.toHaveBeenCalled()
+
+        fireEvent.click(screen.getByText('buttons.startActing'))
 
         await waitFor(() => {
             expect(onComplete).toHaveBeenCalledTimes(1)

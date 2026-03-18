@@ -138,6 +138,52 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Keep source-resolution overrides local to test config when source-based tests need them.
 
 **Why**: Workspace consumers resolve exported package subpaths during package builds; stable dist outputs are required for TypeScript and bundlers to agree on the same module surface.
+## Shell-To-Feature Dependency Direction Pattern (IMPORTANT)
+
+**Rule**: Frontend feature packages rendered by `@universo/template-mui` routes must remain leaf packages and must not depend back on the shell package that imports and routes them.
+
+**Required**:
+- Keep the dependency direction one-way: `@universo/template-mui` may depend on feature frontend packages, but those feature packages must not import runtime UI helpers back from `@universo/template-mui`.
+- If a feature dashboard needs generic cards/layout primitives, either use MUI directly or move the primitive into a lower shared package that does not itself depend on routed feature packages.
+- When adding a new routed feature package, declare it explicitly in the shell package `dependencies` so PNPM/Vite resolve the package from the shell import site.
+
+**Symptoms**:
+- `pnpm install` reports a workspace cycle between the shell and a newly added feature package.
+- Production builds fail to resolve a feature package subpath imported from `MainRoutesMUI.tsx` even though the package exists in the workspace.
+
+**Detection**:
+- `rg "@universo/metapanel-frontend|MainRoutesMUI|@universo/template-mui" packages/*/base/package.json packages/universo-template-mui/base/src/routes`
+
+**Why**: The shell owns routing composition. If a routed feature package also depends on shell UI exports, PNPM creates a cycle and production consumers can fail on package-graph resolution even when local package builds appear green.
+## Workspace Shell Access Versus Admin Access Pattern (IMPORTANT)
+
+**Rule**: Workspace shell access and admin-panel access are separate contracts; admin-only roles must not inherit workspace routing just because they can reach `/admin`, and workspace access must be derived from real workspace capabilities instead of hardcoded role codenames.
+
+**Required**:
+- Resolve workspace-shell access (`/`, `/metapanel`, registered-user guards, start redirect escape, shared dashboard entry) from actual permissions/CASL ability for workspace subjects such as `Application`, `Metahub`, and `Profile`, not only from `user` / `superuser` role codenames.
+- Route authenticated admin-only roles to `/admin` instead of `/metapanel` when resolving the root/home path.
+- Keep `registered`-only users fail-closed on `/start`, even when shared dashboard/backend contracts are widened for ordinary workspace users.
+- Keep admin navigation visibility driven by `canAccessAdminPanel`, not by the workspace-shell resolver.
+- Reuse one shared frontend helper and one aligned backend helper so shell/menu/start/dashboard decisions do not drift.
+
+**Detection**:
+- `rg "resolveShellAccess|HomeRouteResolver|RegisteredUserGuard|StartAccessGuard" packages/universo-template-mui/base/src`
+
+**Why**: The admin roles / metapanel QA reopen exposed two separate failure modes: conflating admin access with workspace access routed admin-only roles into the workspace shell, and codename-only workspace checks kept custom capability-based roles out of the shell/dashboard even when their permissions should have allowed entry.
+## Compensating Lifecycle Writes Pattern (IMPORTANT)
+
+**Rule**: When auth/admin lifecycle flows cross non-transactional boundaries such as Supabase auth user creation and later role provisioning, the route must compensate already-completed earlier steps if a later required step fails.
+
+**Required**:
+- Admin-side user creation must delete the just-created Supabase auth user when `setUserRoles(...)` fails after successful `createUser(...)` or invite provisioning.
+- Registration must surface explicit rollback status when post-signup provisioning fails, and should compensate both the local profile row and the auth user when service-role cleanup is available.
+- Onboarding completion must revert `profiles.cat_profiles.onboarding_completed` when auto-promotion to `user` fails for a newly completed profile.
+- Failures after compensation should stay explicit in the HTTP response instead of being reduced to a silent generic success or ambiguous partial-success state.
+
+**Detection**:
+- `rg "deleteUser\(|cleanupRegisteredUser|onboarding_completed = \$1|create-user|assignSystemRole" packages/admin-backend packages/auth-backend packages/start-backend`
+
+**Why**: These flows cannot be made fully atomic across Supabase auth and SQL-side role/profile writes, so correctness depends on explicit compensation rather than optimistic assumption that later steps will always succeed.
 ## Browser Env Precedence Pattern (IMPORTANT)
 
 **Rule**: Shared browser-facing env helpers must resolve runtime config in this order: host-provided public env → Vite `import.meta.env` → `process.env` → browser origin.

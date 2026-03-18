@@ -147,6 +147,24 @@ import applicationsRu from '../../i18n/locales/ru/applications.json'
 import commonEn from '@universo/i18n/locales/en/common.json'
 import commonRu from '@universo/i18n/locales/ru/common.json'
 
+const mockAbility = {
+    can: vi.fn(() => true)
+}
+
+const mockGlobalAccess = {
+    isSuperuser: true,
+    hasAnyGlobalRole: true,
+    canAccessAdminPanel: true,
+    loading: false,
+    ability: mockAbility,
+    globalRoles: [{ codename: 'superuser' }],
+    adminConfig: {
+        adminPanelEnabled: true,
+        globalRolesEnabled: true,
+        superuserEnabled: true
+    }
+}
+
 // Mock API module
 vi.mock('../../api/applications', () => ({
     listApplications: vi.fn(),
@@ -167,6 +185,11 @@ vi.mock('@universo/auth-frontend', async () => {
         })
     }
 })
+
+vi.mock('@universo/store', () => ({
+    useHasGlobalAccess: () => mockGlobalAccess,
+    useAbility: () => mockGlobalAccess
+}))
 
 // Mock backend utilities
 vi.mock('@universo/utils', async () => {
@@ -290,7 +313,12 @@ const renderWithProviders = (ui: React.ReactElement) => {
                 <SnackbarProvider maxSnack={3}>
                     <Provider store={store}>
                         <I18nextProvider i18n={i18n}>
-                            <MemoryRouter initialEntries={['/applications']}>{ui}</MemoryRouter>
+                            <MemoryRouter
+                                initialEntries={['/applications']}
+                                future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+                            >
+                                {ui}
+                            </MemoryRouter>
                         </I18nextProvider>
                     </Provider>
                 </SnackbarProvider>
@@ -305,6 +333,18 @@ describe('ApplicationList', () => {
         // Mock localStorage
         Storage.prototype.getItem = vi.fn(() => 'card')
         Storage.prototype.setItem = vi.fn()
+        mockGlobalAccess.isSuperuser = true
+        mockGlobalAccess.hasAnyGlobalRole = true
+        mockGlobalAccess.canAccessAdminPanel = true
+        mockGlobalAccess.loading = false
+        mockAbility.can.mockReset()
+        mockAbility.can.mockImplementation(() => true)
+        mockGlobalAccess.globalRoles = [{ codename: 'superuser' }]
+        mockGlobalAccess.adminConfig = {
+            adminPanelEnabled: true,
+            globalRolesEnabled: true,
+            superuserEnabled: true
+        }
     })
 
     describe('Loading State', () => {
@@ -967,6 +1007,39 @@ describe('ApplicationList', () => {
 
             // ItemCard doesn't render count fields; this assertion just ensures no crash
             expect(screen.queryByText('NaN')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('Platform role gating', () => {
+        it('hides create and control-panel actions for ordinary user roles', async () => {
+            mockGlobalAccess.isSuperuser = false
+            mockGlobalAccess.hasAnyGlobalRole = true
+            mockGlobalAccess.canAccessAdminPanel = false
+            mockGlobalAccess.globalRoles = [{ codename: 'user' }]
+            mockAbility.can.mockImplementation((action: string, subject: string) => action === 'read' && subject === 'Application')
+
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse([
+                    {
+                        id: 'app-user-1',
+                        name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Reader App' } } },
+                        description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Read-only app' } } },
+                        role: 'owner',
+                        permissions: { manageApplication: false },
+                        accessType: 'direct',
+                        connectorsCount: 1,
+                        version: 1,
+                        createdAt: '2024-01-01T00:00:00Z',
+                        updatedAt: '2024-01-01T00:00:00Z'
+                    } as any
+                ])
+            )
+
+            renderWithProviders(<ApplicationList />)
+
+            expect(await screen.findByText('Reader App')).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'control-panel' })).not.toBeInTheDocument()
         })
     })
 })

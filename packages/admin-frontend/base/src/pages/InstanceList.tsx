@@ -321,7 +321,7 @@ const InstanceList = () => {
                             primaryAction={{
                                 label: tc('addNew', 'Add'),
                                 // MVP: Button disabled - remote instances will be available in future versions
-                                onClick: () => {},
+                                onClick: () => undefined,
                                 startIcon: <AddRoundedIcon />,
                                 disabled: true
                             }}

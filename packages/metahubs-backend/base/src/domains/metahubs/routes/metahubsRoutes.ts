@@ -1,6 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
+import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import { activeAppRowCondition } from '@universo/utils'
 import {
     findMetahubById,
@@ -410,12 +410,10 @@ export function createMetahubsRoutes(
             }
             const { limit, offset, sortBy, sortOrder, search, showAll } = validatedQuery
 
-            // Check if user has global access
+            // Only superusers may expand the list beyond their memberships.
             const q = dbSession && !dbSession.isReleased() ? dbSession : exec
             const isSu = await isSuperuser(q, userId)
-            const hasGlobalMetahubsAccess = await hasSubjectPermission(q, userId, 'metahubs', 'read')
-
-            const canShowAll = showAll && (isSu || hasGlobalMetahubsAccess)
+            const canShowAll = showAll && isSu
 
             const { items: metahubs, total } = await listMetahubsStore(exec, {
                 userId,
@@ -432,7 +430,7 @@ export function createMetahubsRoutes(
             })
 
             // Determine access type for each metahub
-            const globalRoleName = isSu || hasGlobalMetahubsAccess ? await getGlobalRoleCodename(q, userId) : null
+            const globalRoleName = isSu ? await getGlobalRoleCodename(q, userId) : null
 
             const result = metahubs.map((m) => {
                 const role = m.membershipRole ? (m.membershipRole as MetahubRole) : globalRoleName ? 'owner' : 'member'
@@ -799,13 +797,11 @@ export function createMetahubsRoutes(
                     createOptions: result.data.createOptions
                 })
             } catch (error) {
-                // Cleanup: remove the metahub + membership created above (CASCADE deletes membership)
+                // Cleanup: hard-delete the just-created metahub (CASCADE removes membership).
+                // Hard DELETE is used instead of soft-delete because the metahub has no
+                // meaningful data yet and must not remain as a zombie row.
                 try {
-                    const membership = await findMetahubMembership(exec, metahub.id, userId)
-                    if (membership) {
-                        await softDelete(exec, 'metahubs', 'rel_metahub_users', membership.id, userId)
-                    }
-                    await softDelete(exec, 'metahubs', 'cat_metahubs', metahub.id, userId)
+                    await exec.query(`DELETE FROM metahubs.cat_metahubs WHERE id = $1`, [metahub.id])
                 } catch (cleanupError) {
                     console.error('[metahubs] Failed to cleanup metahub after initial-branch failure', {
                         metahubId: metahub.id,

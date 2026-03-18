@@ -132,7 +132,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/a/test-applicat
             <QueryClientProvider client={queryClient}>
                 <SnackbarProvider maxSnack={3}>
                     <I18nextProvider i18n={i18n}>
-                        <MemoryRouter initialEntries={[route]}>
+                        <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                             <Routes>
                                 <Route path='/a/:applicationId/admin' element={ui} />
                             </Routes>
@@ -378,10 +378,16 @@ describe('ApplicationBoard', () => {
             // Render without applicationId in route
             vi.mocked(applicationsApi.getApplication).mockImplementation(() => new Promise(() => {}))
 
+            const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
             renderWithProviders(<ApplicationBoard />, { route: '/a//admin' })
 
             // Should not call API without valid ID
             expect(applicationsApi.getApplication).not.toHaveBeenCalled()
+
+            consoleWarnSpy.mockRestore()
+            consoleErrorSpy.mockRestore()
         })
     })
 })

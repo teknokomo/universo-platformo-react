@@ -26,7 +26,11 @@
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
         },
-        "./routes": "./src/routes/ThemeRoutes.jsx",
+        "./navigation": {
+            "types": "./dist/navigation/index.d.ts",
+            "import": "./dist/navigation/index.mjs",
+            "require": "./dist/navigation/index.js"
+        },
         "./themes": "./src/themes/legacy/index.js",
         "./layout/NavigationScroll": "./src/layout/NavigationScroll.jsx",
         "./hooks/optimisticCrud": {
@@ -103,6 +107,9 @@
     },
     "typesVersions": {
         "*": {
+            "navigation": [
+                "dist/navigation/index.d.ts"
+            ],
             "components/dialogs": [
                 "dist/components/dialogs/index.d.ts"
             ],

@@ -313,7 +313,23 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
             </Menu>
             {dialogState && (
                 <Suspense fallback={null}>
-                    <dialogState.Comp {...dialogState.props} onCancel={() => setDialogState(null)} onClose={() => setDialogState(null)} />
+                    <dialogState.Comp
+                        {...dialogState.props}
+                        onCancel={() => setDialogState(null)}
+                        onClose={() => setDialogState(null)}
+                        onSubmit={
+                            dialogState.props.onSubmit
+                                ? async (...args: unknown[]) => {
+                                      try {
+                                          await dialogState.props.onSubmit(...args)
+                                          setDialogState(null)
+                                      } catch {
+                                          // Dialog stays open; the original onSubmit handler manages its own error state
+                                      }
+                                  }
+                                : undefined
+                        }
+                    />
                 </Suspense>
             )}
         </>

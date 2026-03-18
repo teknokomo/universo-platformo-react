@@ -53,8 +53,8 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [primaryActionMenuAnchor, setPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null)
 
-    // Show settings button if enabled AND (user is superuser OR has any global role)
-    const showSettingsButton = settingsEnabled && (isSuperuser || hasAnyGlobalRole)
+    // Show settings button if enabled AND user is superuser
+    const showSettingsButton = settingsEnabled && isSuperuser
     const hasPrimaryActionMenuItems = Array.isArray(primaryActionMenuItems) && primaryActionMenuItems.length > 0
     const isPrimaryActionMenuOpen = Boolean(primaryActionMenuAnchor)
     const handleOpenPrimaryActionMenu = (event: React.MouseEvent<HTMLElement>) => {

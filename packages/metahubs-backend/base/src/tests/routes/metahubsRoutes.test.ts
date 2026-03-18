@@ -1,8 +1,12 @@
+const mockIsSuperuser = jest.fn(async () => false)
+const mockGetGlobalRoleCodename = jest.fn(async () => null)
+const mockHasSubjectPermission = jest.fn(async () => false)
+
 jest.mock('@universo/admin-backend', () => ({
     __esModule: true,
-    isSuperuser: jest.fn(async () => false),
-    getGlobalRoleCodename: jest.fn(async () => null),
-    hasSubjectPermission: jest.fn(async () => false)
+    isSuperuser: (...args: unknown[]) => mockIsSuperuser(...args),
+    getGlobalRoleCodename: (...args: unknown[]) => mockGetGlobalRoleCodename(...args),
+    hasSubjectPermission: (...args: unknown[]) => mockHasSubjectPermission(...args)
 }))
 
 const mockClone = jest.fn(async () => undefined)
@@ -167,6 +171,9 @@ describe('Metahubs Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockIsSuperuser.mockResolvedValue(false)
+        mockGetGlobalRoleCodename.mockResolvedValue(null)
+        mockHasSubjectPermission.mockResolvedValue(false)
         mockClone.mockClear()
         mockDropSchema.mockClear()
         mockAcquireAdvisoryLock.mockResolvedValue(true)
@@ -296,6 +303,41 @@ describe('Metahubs Routes', () => {
                 expect.anything(),
                 expect.objectContaining({ limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc' })
             )
+        })
+
+        it('should ignore showAll for non-superusers even if a global metahubs permission exists', async () => {
+            mockHasSubjectPermission.mockResolvedValueOnce(true)
+            mockListMetahubs.mockResolvedValue({ items: [], total: 0 })
+
+            const app = buildApp()
+
+            await request(app).get('/metahubs?showAll=true').expect(200)
+
+            expect(mockListMetahubs).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ showAll: false }))
+        })
+
+        it('should allow showAll only for superusers', async () => {
+            mockIsSuperuser.mockResolvedValueOnce(true)
+            mockGetGlobalRoleCodename.mockResolvedValueOnce('superuser')
+            mockListMetahubs.mockResolvedValue({ items: [], total: 0 })
+
+            const app = buildApp()
+
+            await request(app).get('/metahubs?showAll=true').expect(200)
+
+            expect(mockListMetahubs).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ showAll: true }))
+        })
+
+        it('should correctly parse showAll=false for superusers (not coerce string "false" to true)', async () => {
+            mockIsSuperuser.mockResolvedValueOnce(true)
+            mockGetGlobalRoleCodename.mockResolvedValueOnce('superuser')
+            mockListMetahubs.mockResolvedValue({ items: [], total: 0 })
+
+            const app = buildApp()
+
+            await request(app).get('/metahubs?showAll=false').expect(200)
+
+            expect(mockListMetahubs).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ showAll: false }))
         })
 
         it('should return 401 when user is not authenticated', async () => {
@@ -1177,7 +1219,7 @@ describe('Metahubs Routes', () => {
             )
         })
 
-        it('soft-deletes created metahub metadata when initial branch bootstrap fails', async () => {
+        it('hard-deletes created metahub when initial branch bootstrap fails', async () => {
             mockFindMetahubByCodename.mockResolvedValue(null)
             mockCreateMetahub.mockResolvedValue({
                 id: 'mock-id',
@@ -1211,10 +1253,10 @@ describe('Metahubs Routes', () => {
             const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'NewHub' }).expect(500)
 
             expect(response.body).toMatchObject({ error: 'branch bootstrap failed' })
-            expect(mockSoftDelete).toHaveBeenNthCalledWith(1, mockExec, 'metahubs', 'rel_metahub_users', 'membership-owner', 'test-user-id')
-            expect(mockSoftDelete).toHaveBeenNthCalledWith(2, mockExec, 'metahubs', 'cat_metahubs', 'mock-id', 'test-user-id')
+            // Cleanup uses hard DELETE (not soft-delete) to prevent zombie metahubs
+            expect(mockSoftDelete).not.toHaveBeenCalled()
             expect(mockExec.query.mock.calls.some(([sql]: [string]) => String(sql).includes('DELETE FROM metahubs.cat_metahubs'))).toBe(
-                false
+                true
             )
         })
 

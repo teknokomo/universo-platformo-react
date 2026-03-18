@@ -25,6 +25,7 @@
   "dependencies": {
     "@casl/ability": "^6.7.5",
     "@casl/react": "^5.0.0",
+    "@universo/types": "workspace:*",
     "redux": "^5.0.1"
   },
   "peerDependencies": {

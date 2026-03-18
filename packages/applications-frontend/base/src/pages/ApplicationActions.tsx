@@ -2,14 +2,26 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material'
-import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
+import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
 import { LocalizedInlineField } from '@universo/template-mui'
 import type { ApplicationCopyOptions, VersionedLocalizedContent } from '@universo/types'
 import { normalizeApplicationCopyOptions } from '@universo/utils'
 import type { Application, ApplicationDisplay, ApplicationLocalizedPayload } from '../types'
+import type { ApplicationFormValues } from './ApplicationList'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
 
-const buildInitialValues = (ctx: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>) => {
+type ApplicationDialogValues = ApplicationFormValues & Partial<ApplicationCopyOptions>
+
+type ApplicationDialogRenderProps = {
+    values: ApplicationDialogValues
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    errors?: Record<string, string>
+}
+
+type ApplicationActionContext = ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>
+
+const buildInitialValues = (ctx: ApplicationActionContext) => {
     const applicationMap = ctx.applicationMap as Map<string, Application> | undefined
     const raw = applicationMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -66,7 +78,7 @@ const appendLocalizedCopySuffix = (
     }
 }
 
-const buildCopyInitialValues = (ctx: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>) => {
+const buildCopyInitialValues = (ctx: ApplicationActionContext) => {
     const initial = buildInitialValues(ctx)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
 
@@ -81,7 +93,7 @@ const buildCopyInitialValues = (ctx: ActionContext<ApplicationDisplay, Applicati
     }
 }
 
-const validateApplicationForm = (ctx: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>, values: Record<string, any>) => {
+const validateApplicationForm = (ctx: ApplicationActionContext, values: ApplicationDialogValues) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
         return { nameVlc: ctx.t('common:crud.nameRequired', 'Name is required') }
@@ -89,12 +101,12 @@ const validateApplicationForm = (ctx: ActionContext<ApplicationDisplay, Applicat
     return null
 }
 
-const canSaveApplicationForm = (values: Record<string, any>) => {
+const canSaveApplicationForm = (values: ApplicationDialogValues) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     return hasPrimaryContent(nameVlc)
 }
 
-const getApplicationCopyOptions = (values: Record<string, any>): ApplicationCopyOptions => {
+const getApplicationCopyOptions = (values: ApplicationDialogValues): ApplicationCopyOptions => {
     return normalizeApplicationCopyOptions({
         copyConnector: values.copyConnector,
         createSchema: values.createSchema,
@@ -102,7 +114,7 @@ const getApplicationCopyOptions = (values: Record<string, any>): ApplicationCopy
     })
 }
 
-const toPayload = (values: Record<string, any>): ApplicationLocalizedPayload => {
+const toPayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
 
@@ -141,7 +153,7 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: any) => {
+                    extraFields: ({ values, setValue, isLoading, errors }: ApplicationDialogRenderProps) => {
                         const fieldErrors = errors ?? {}
                         return (
                             <>
@@ -169,7 +181,7 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                             </>
                         )
                     },
-                    validate: (values: Record<string, any>) => validateApplicationForm(ctx, values),
+                    validate: (values: ApplicationDialogValues) => validateApplicationForm(ctx, values),
                     canSave: canSaveApplicationForm,
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
@@ -179,7 +191,7 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSave: (data: Record<string, any>) => {
+                    onSave: (data: ApplicationDialogValues) => {
                         const payload = toPayload(data)
                         return ctx.api?.updateEntity?.(ctx.entity.id, payload)
                     }
@@ -210,7 +222,7 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: ({ values, setValue, isLoading, errors }: any) => {
+                    tabs: ({ values, setValue, isLoading, errors }: ApplicationDialogRenderProps): TabConfig[] => {
                         const fieldErrors = errors ?? {}
                         const copyOptions = getApplicationCopyOptions(values)
 
@@ -298,12 +310,12 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                             }
                         ]
                     },
-                    validate: (values: Record<string, any>) => validateApplicationForm(ctx, values),
+                    validate: (values: ApplicationDialogValues) => validateApplicationForm(ctx, values),
                     canSave: canSaveApplicationForm,
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSave: (data: Record<string, any>) => {
+                    onSave: (data: ApplicationDialogValues) => {
                         const payload = toPayload(data)
                         const copyOptions = getApplicationCopyOptions(data)
                         return ctx.api?.copyEntity?.(ctx.entity.id, {

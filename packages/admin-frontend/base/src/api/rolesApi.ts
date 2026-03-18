@@ -1,6 +1,7 @@
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import type { PaginatedResponse } from '../types'
 import type {
+    CopyRolePayload,
     CreateRolePayload,
     UpdateRolePayload,
     PermissionInput,
@@ -172,6 +173,14 @@ export function createRolesApi(client: AxiosInstance) {
         },
 
         /**
+         * Copy an existing role into a new editable role
+         */
+        copyRole: async (id: string, payload: Omit<CopyRolePayload, 'sourceRoleId'>): Promise<RoleListItem> => {
+            const response = await client.post<{ data: Record<string, unknown> }>(`${BASE_PATH}/${id}/copy`, payload)
+            return transformRole(response.data.data)
+        },
+
+        /**
          * Delete a role
          */
         deleteRole: async (id: string): Promise<void> => {
@@ -244,6 +253,9 @@ export const createRole = rolesApiSingleton.createRole
 
 /** Update existing role */
 export const updateRole = rolesApiSingleton.updateRole
+
+/** Copy existing role */
+export const copyRole = rolesApiSingleton.copyRole
 
 /** Delete role */
 export const deleteRole = rolesApiSingleton.deleteRole

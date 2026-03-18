@@ -45,8 +45,8 @@ export { BaseEntityMenu } from './menu'
 export type { BaseEntityMenuProps, ActionDescriptor, ActionContext, TriggerProps } from './menu'
 
 // Routing components
-export { Loadable, AuthGuard, AdminGuard, ResourceGuard } from './routing'
-export type { AuthGuardProps, AdminGuardProps, ResourceGuardProps } from './routing'
+export { Loadable, AuthGuard, AdminGuard, RegisteredUserGuard, StartAccessGuard, HomeRouteResolver, ResourceGuard } from './routing'
+export type { AuthGuardProps, AdminGuardProps, RegisteredUserGuardProps, StartAccessGuardProps, ResourceGuardProps } from './routing'
 
 // Tooltip components
 export { TooltipWithParser } from './tooltips'

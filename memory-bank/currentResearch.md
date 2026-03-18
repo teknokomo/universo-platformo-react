@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-03-17: Admin roles / metapanel live-architecture revalidation
+
+- Research outcome: the corrected admin-roles/metapanel plan still had hidden integration gaps against the live repository architecture, mainly around root routing, onboarding completion timing, permission refresh ownership, menu section filtering, and dashboard stats contracts.
+- Confirmed root cause: the current app does not use TanStack Query for permission state; `AbilityContextProvider` owns `/auth/permissions` loading and exposes `refreshAbility()`, so query invalidation alone cannot refresh role-driven routing/menu state.
+- Confirmed root cause: `OnboardingWizard` currently calls `completeOnboarding()` before the completion screen is shown, which means a `CompletionStep` CTA must first move the authoritative completion mutation out of the wizard instead of calling it a second time.
+- Confirmed root cause: the current root route `/` bypasses the main shell and always enters the start flow for authenticated users, so `RegisteredUserGuard` alone cannot redirect post-onboarding users into Метапанель; a dedicated `/start` route plus root resolver is required.
+- Confirmed root cause: shell menu rendering is split between `rootMenuItems`, a separate MetaHubs section, and an Admin section derived from `isSuperuser || hasAnyGlobalRole`; filtering only `rootMenuItems` would leave visible sections that the role UX intends to hide.
+- Confirmed root cause: Метапанель currently points at a global-users-specific stats endpoint, while the desired cards aggregate multiple domains; this should be promoted to a dedicated admin dashboard stats contract shared with AdminBoard.
+- Planning fix applied: the implementation plan is now v3 and explicitly adds `/start` topology, `AbilityContext` refresh, section-aware menu gating, injected privileged system-role provisioning, and a dedicated admin dashboard stats contract.
+- No open research thread remains before implementation approval; the next action is user approval or another targeted plan QA pass.
+
 ## 2026-03-17: Configurable platform runtime `_upl_*` columns
 
 - Research outcome implemented: the remaining bug was below the metahub/publication layer. Catalog snapshots already preserved disabled `upl.*` states, but runtime application business-table generation still created configurable `_upl_archived*` / `_upl_deleted*` columns unconditionally.

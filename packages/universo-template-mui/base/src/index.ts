@@ -6,9 +6,10 @@ export { templateConfig as config } from './config'
 export { default as Dashboard } from './views/dashboard/Dashboard'
 export type { DashboardLayoutConfig, DashboardDetailsSlot } from './components/dashboard/runtimeTypes'
 
-// New exports for universal MUI routing system
+// Shared layouts for host applications
 export { default as MainLayoutMUI } from './layout/MainLayoutMUI'
-export { default as MainRoutesMUI } from './routes/MainRoutesMUI'
+export { default as StartLayoutMUI } from './layout/StartLayoutMUI'
+export { default as MinimalLayout } from './layout/MinimalLayout'
 
 // Route types will be added later if needed
 
@@ -44,6 +45,9 @@ export {
     Loadable,
     AuthGuard,
     AdminGuard,
+    RegisteredUserGuard,
+    StartAccessGuard,
+    HomeRouteResolver,
     ResourceGuard,
     TooltipWithParser,
     BaseEntityMenu,
@@ -57,6 +61,8 @@ export type {
     TriggerProps,
     AuthGuardProps,
     AdminGuardProps,
+    RegisteredUserGuardProps,
+    StartAccessGuardProps,
     ResourceGuardProps,
     TooltipWithParserProps,
     TableColumn,
@@ -213,7 +219,7 @@ export { createMemberActions, notifyMemberError } from './factories/createMember
 export type { MemberActionsConfig, MemberFormData } from './factories/createMemberActions'
 
 // Dashboard components
-export { default as StatCard } from './components/dashboard/StatCard'
+export { default as StatCard, buildRealisticTrendData } from './components/dashboard/StatCard'
 export type { StatCardProps } from './components/dashboard/StatCard'
 export { default as HighlightedCard } from './components/dashboard/HighlightedCard'
 export type { HighlightedCardProps } from './components/dashboard/HighlightedCard'

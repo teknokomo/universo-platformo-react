@@ -8,6 +8,22 @@ import Typography from '@mui/material/Typography'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { areaElementClasses } from '@mui/x-charts/LineChart'
 
+/**
+ * Build realistic sparkline trend data that shows gradual growth to the current value.
+ * When value is 0, returns a flat array of zeros.
+ * When value > 0, returns a smooth growth curve from near 0 to the current value.
+ */
+export function buildRealisticTrendData(currentValue: number, points: number = 30): number[] {
+    if (currentValue <= 0) {
+        return Array(points).fill(0)
+    }
+
+    return Array.from({ length: points }, (_, i) => {
+        const progress = i / (points - 1)
+        return Math.round(currentValue * progress)
+    })
+}
+
 export type StatCardProps = {
     title: string
     value: string | number

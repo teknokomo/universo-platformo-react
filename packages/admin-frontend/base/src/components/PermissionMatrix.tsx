@@ -200,8 +200,8 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                 </Box>
             )}
 
-            <TableContainer component={Paper} variant='outlined'>
-                <Table size='small'>
+            <TableContainer component={Paper} variant={disabled ? 'elevation' : 'outlined'} elevation={0}>
+                <Table size='small' sx={disabled ? { opacity: 0.6, '& .MuiCheckbox-root': { cursor: 'not-allowed' } } : undefined}>
                     <TableHead>
                         <TableRow>
                             <TableCell sx={{ fontWeight: 'bold', minWidth: 150 }}>{t('roles.permissions.subject', 'Subject')}</TableCell>

@@ -11,6 +11,7 @@ import type { LocaleCode } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
+import type { UpdateRolePayload } from '@universo/types'
 
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
@@ -39,14 +40,13 @@ import type { TriggerProps } from '@universo/template-mui'
 import * as rolesApi from '../api/rolesApi'
 import type { RoleListItem } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
-import { useIsSuperadmin } from '../hooks'
+import { useAdminPermission } from '../hooks'
 import roleActions from './RoleActions'
+import RoleFormDialog from '../components/RoleFormDialog'
+import type { RoleFormDialogSubmitData } from '../components/RoleFormDialog'
 
 // Type for role update/create data
-type RoleData = {
-    name: string
-    description?: string
-}
+type RoleData = UpdateRolePayload
 
 /**
  * Roles List Page
@@ -60,7 +60,9 @@ const RolesList = () => {
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const isSuperadmin = useIsSuperadmin()
+    const canCreateRoles = useAdminPermission('create', 'Role')
+    const canUpdateRoles = useAdminPermission('update', 'Role')
+    const canDeleteRoles = useAdminPermission('delete', 'Role')
     const { confirm } = useConfirm()
 
     // View state (card/list) with localStorage persistence
@@ -71,6 +73,8 @@ const RolesList = () => {
         open: boolean
         role: RoleListItem | null
     }>({ open: false, role: null })
+    const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
+    const [roleDialogError, setRoleDialogError] = useState<string | null>(null)
 
     // Get current language for display names
     const langCode = i18n.language.split('-')[0] || 'en'
@@ -95,11 +99,54 @@ const RolesList = () => {
 
     // Update mutation
     const updateRoleMutation = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: Partial<RoleListItem> }) => rolesApi.updateRole(id, data),
+        mutationFn: ({ id, data }: { id: string; data: UpdateRolePayload }) => rolesApi.updateRole(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: rolesQueryKeys.lists() })
             // Invalidate assignable roles cache in case hasGlobalAccess changed
             queryClient.invalidateQueries({ queryKey: rolesQueryKeys.assignable() })
+        }
+    })
+
+    const createRoleMutation = useMutation({
+        mutationFn: (payload: RoleFormDialogSubmitData) =>
+            rolesApi.createRole({
+                codename: payload.codename,
+                name: payload.name,
+                description: payload.description,
+                color: payload.color,
+                isSuperuser: false,
+                permissions: []
+            }),
+        onSuccess: async (createdRole) => {
+            await queryClient.invalidateQueries({ queryKey: rolesQueryKeys.lists() })
+            await queryClient.invalidateQueries({ queryKey: rolesQueryKeys.assignable() })
+            setCreateDialogOpen(false)
+            setRoleDialogError(null)
+            enqueueSnackbar(t('roles.createSuccess', 'Role created successfully'), { variant: 'success' })
+            navigate(`/admin/instance/${instanceId}/roles/${createdRole.id}`)
+        },
+        onError: (err: Error) => {
+            setRoleDialogError(err.message || t('roles.createError', 'Failed to create role'))
+        }
+    })
+
+    const copyRoleMutation = useMutation({
+        mutationFn: ({ id, payload }: { id: string; payload: RoleFormDialogSubmitData }) =>
+            rolesApi.copyRole(id, {
+                codename: payload.codename,
+                name: payload.name,
+                description: payload.description,
+                color: payload.color,
+                copyPermissions: payload.copyPermissions ?? false
+            }),
+        onSuccess: async (copiedRole) => {
+            await queryClient.invalidateQueries({ queryKey: rolesQueryKeys.lists() })
+            await queryClient.invalidateQueries({ queryKey: rolesQueryKeys.assignable() })
+            enqueueSnackbar(t('roles.copySuccess', 'Role copied successfully'), { variant: 'success' })
+            navigate(`/admin/instance/${instanceId}/roles/${copiedRole.id}`)
+        },
+        onError: (err: Error) => {
+            enqueueSnackbar(err.message || t('roles.copyError', 'Failed to copy role'), { variant: 'error' })
         }
     })
 
@@ -154,7 +201,8 @@ const RolesList = () => {
 
     // Handlers
     const handleAddNew = () => {
-        navigate(`/admin/instance/${instanceId}/roles/new`)
+        setRoleDialogError(null)
+        setCreateDialogOpen(true)
     }
 
     const handleViewChange = (_event: unknown, nextView: string | null) => {
@@ -259,7 +307,10 @@ const RolesList = () => {
             ...baseContext,
             meta: {
                 navigate,
-                instanceId
+                instanceId,
+                copyRole: async (roleId: string, data: RoleFormDialogSubmitData) => {
+                    await copyRoleMutation.mutateAsync({ id: roleId, payload: data })
+                }
             },
             api: {
                 updateEntity: async (id: string, patch: RoleData) => {
@@ -303,7 +354,7 @@ const RolesList = () => {
                 }
             }
         }),
-        [confirm, deleteRoleMutation, enqueueSnackbar, instanceId, navigate, queryClient, tc, updateRoleMutation]
+        [confirm, copyRoleMutation, deleteRoleMutation, enqueueSnackbar, instanceId, navigate, queryClient, tc, updateRoleMutation]
     )
 
     // Filter actions based on permissions
@@ -314,14 +365,19 @@ const RolesList = () => {
                 if (descriptor.id === 'delete' && role.isSystem) {
                     return false
                 }
-                // Only superadmins can edit/delete
-                if ((descriptor.id === 'edit' || descriptor.id === 'delete') && !isSuperadmin) {
+                if (descriptor.id === 'edit' && !canUpdateRoles) {
+                    return false
+                }
+                if (descriptor.id === 'copy' && !canCreateRoles) {
+                    return false
+                }
+                if (descriptor.id === 'delete' && !canDeleteRoles) {
                     return false
                 }
                 return true
             })
         },
-        [isSuperadmin]
+        [canCreateRoles, canDeleteRoles, canUpdateRoles]
     )
 
     return (
@@ -359,9 +415,9 @@ const RolesList = () => {
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
                             primaryAction={
-                                isSuperadmin
+                                canCreateRoles
                                     ? {
-                                          label: tc('addNew'),
+                                          label: t('roles.createCta', 'Создать'),
                                           onClick: handleAddNew,
                                           startIcon: <AddRoundedIcon />
                                       }
@@ -542,6 +598,23 @@ const RolesList = () => {
                             setDeleteDialogState({ open: false, role: null })
                         }
                     }
+                }}
+            />
+
+            <RoleFormDialog
+                open={isCreateDialogOpen}
+                title={t('roles.createDialogTitle', 'Create Role')}
+                submitLabel={t('roles.createDialogSubmit', 'Create and continue')}
+                loading={createRoleMutation.isPending}
+                error={roleDialogError}
+                onClose={() => {
+                    if (!createRoleMutation.isPending) {
+                        setCreateDialogOpen(false)
+                        setRoleDialogError(null)
+                    }
+                }}
+                onSubmit={async (data) => {
+                    await createRoleMutation.mutateAsync(data)
                 }}
             />
 

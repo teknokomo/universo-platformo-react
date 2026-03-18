@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, type MouseEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, Box, ButtonBase, Chip, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -26,6 +26,7 @@ import {
     LocalizedInlineField,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
+import type { ActionContext } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -50,9 +51,37 @@ type ConnectorFormValues = {
     publicationIds: string[]
 }
 
+type ConnectorFormRenderState = {
+    values: Record<string, unknown>
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    errors: Record<string, string>
+}
+
+type ConfirmSpec = {
+    title?: string
+    titleKey?: string
+    description?: string
+    descriptionKey?: string
+    confirmButtonName?: string
+    confirmKey?: string
+    cancelButtonName?: string
+    cancelKey?: string
+    interpolate?: Record<string, string | number>
+}
+
+const hasResponseStatus = (value: unknown): value is { response: { status: number } } => {
+    if (!value || typeof value !== 'object') {
+        return false
+    }
+
+    const response = (value as { response?: unknown }).response
+    return Boolean(response && typeof response === 'object' && 'status' in response)
+}
+
 type ConnectorFormFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: Record<string, unknown>
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
@@ -138,6 +167,7 @@ const ConnectorList = () => {
     }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
+    const noop = () => undefined
 
     const createConnectorMutation = useCreateConnector()
     const updateConnectorMutation = useUpdateConnector()
@@ -162,7 +192,7 @@ const ConnectorList = () => {
 
     // Memoize images object
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(connectors)) {
             connectors.forEach((connector) => {
                 if (connector?.id) {
@@ -181,7 +211,7 @@ const ConnectorList = () => {
     const localizedFormDefaults = useMemo<ConnectorFormValues>(() => ({ nameVlc: null, descriptionVlc: null, publicationIds: [] }), [])
 
     const validateConnectorForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: Record<string, unknown>) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
@@ -197,7 +227,7 @@ const ConnectorList = () => {
         [t, tc]
     )
 
-    const canSaveConnectorForm = useCallback((values: Record<string, any>) => {
+    const canSaveConnectorForm = useCallback((values: Record<string, unknown>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const publicationIds = values.publicationIds as string[] | undefined
         return hasPrimaryContent(nameVlc) && publicationIds && publicationIds.length > 0
@@ -205,17 +235,7 @@ const ConnectorList = () => {
 
     // Build tabs for create dialog
     const buildCreateTabs = useCallback(
-        ({
-            values,
-            setValue,
-            isLoading: isFormLoading,
-            errors
-        }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
-            isLoading: boolean
-            errors: Record<string, string>
-        }): TabConfig[] => {
+        ({ values, setValue, isLoading: isFormLoading, errors }: ConnectorFormRenderState): TabConfig[] => {
             return [
                 {
                     id: 'general',
@@ -241,9 +261,9 @@ const ConnectorList = () => {
                             selectedPublicationIds={(values.publicationIds as string[]) || []}
                             onSelectionChange={(ids) => setValue('publicationIds', ids)}
                             isRequiredPublication={true}
-                            onRequiredPublicationChange={() => {}}
+                            onRequiredPublicationChange={noop}
                             isSinglePublication={true}
-                            onSinglePublicationChange={() => {}}
+                            onSinglePublicationChange={noop}
                             disabled={isFormLoading}
                             togglesDisabled={true}
                             uiLocale={i18n.language}
@@ -349,7 +369,7 @@ const ConnectorList = () => {
     )
 
     const createConnectorContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: Partial<ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>>) => ({
             ...baseContext,
             connectorMap,
             applicationId, // Pass applicationId for metahub loading in edit dialog
@@ -388,7 +408,7 @@ const ConnectorList = () => {
                         void invalidateConnectorsQueries.all(queryClient, applicationId)
                     }
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
@@ -454,7 +474,7 @@ const ConnectorList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateConnector = (data: Record<string, any>) => {
+    const handleCreateConnector = (data: Record<string, unknown>) => {
         setDialogError(null)
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -487,7 +507,7 @@ const ConnectorList = () => {
         handleDialogSave()
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -509,7 +529,7 @@ const ConnectorList = () => {
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    description={!hasResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
                     action={{
                         label: t('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)
@@ -631,14 +651,14 @@ const ConnectorList = () => {
                                         data={connectors.map(getConnectorCardData)}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: any) => {
+                                        getRowLink={(row: ConnectorDisplay) => {
                                             // Navigate to connector board within Applications
                                             return applicationId && row?.id ? `/a/${applicationId}/admin/connector/${row.id}` : undefined
                                         }}
                                         onPendingInteractionAttempt={(row: ConnectorDisplay) => handlePendingConnectorInteraction(row.id)}
                                         customColumns={connectorColumns}
                                         i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
+                                        renderActions={(row: ConnectorDisplay) => {
                                             const originalConnector = connectors.find((h) => h.id === row.id)
                                             if (!originalConnector) return null
 

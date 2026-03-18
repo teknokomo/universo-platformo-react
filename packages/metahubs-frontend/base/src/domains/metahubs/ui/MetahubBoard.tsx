@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 
 // project imports
-import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard } from '@universo/template-mui'
+import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard, buildRealisticTrendData } from '@universo/template-mui'
 
 import { useMetahubDetails } from '../hooks/useMetahubDetails'
 import { toMetahubDisplay } from '../../../types'
@@ -102,13 +102,13 @@ const MetahubBoard = () => {
     const publicationsCount = boardSummary?.publicationsCount ?? 0
     const versionsCount = boardSummary?.publicationVersionsCount ?? 0
 
-    const hubsData = Array(30).fill(hubsCount)
-    const catalogsData = Array(30).fill(catalogsCount)
-    const membersData = Array(30).fill(membersCount)
-    const branchesData = Array(30).fill(branchesCount)
-    const applicationsData = Array(30).fill(applicationsCount)
-    const publicationsData = Array(30).fill(publicationsCount)
-    const versionsData = Array(30).fill(versionsCount)
+    const hubsData = buildRealisticTrendData(hubsCount)
+    const catalogsData = buildRealisticTrendData(catalogsCount)
+    const membersData = buildRealisticTrendData(membersCount)
+    const branchesData = buildRealisticTrendData(branchesCount)
+    const applicationsData = buildRealisticTrendData(applicationsCount)
+    const publicationsData = buildRealisticTrendData(publicationsCount)
+    const versionsData = buildRealisticTrendData(versionsCount)
 
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>

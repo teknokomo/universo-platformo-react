@@ -76,6 +76,20 @@ const attachRequestContext = (app: import('express').Express, requestExec: any, 
 }
 
 describe('admin routes request-scoped executor usage', () => {
+    const localizedValue = {
+        _schema: '1',
+        _primary: 'en',
+        locales: {
+            en: {
+                content: 'Editor',
+                version: 1,
+                isActive: true,
+                createdAt: '2026-03-18T00:00:00.000Z',
+                updatedAt: '2026-03-18T00:00:00.000Z'
+            }
+        }
+    }
+
     beforeEach(() => {
         jest.clearAllMocks()
 
@@ -208,6 +222,75 @@ describe('admin routes request-scoped executor usage', () => {
 
         expect(response.status).toBe(200)
         expect(rolesStore.listRoles).toHaveBeenCalledWith(requestExec, expect.any(Object))
+    })
+
+    it('returns 409 when role creation races on codename uniqueness', async () => {
+        const { poolExec, requestExec, session } = buildExecutors()
+        rolesStore.findRoleByCodename.mockResolvedValue(null)
+        rolesStore.createRole.mockRejectedValue({ code: '23505' })
+
+        const app = express()
+        app.use(express.json())
+        attachRequestContext(app, requestExec, session)
+        app.use(
+            '/roles',
+            createRolesRoutes({
+                globalAccessService: {} as never,
+                permissionService: {} as never,
+                getDbExecutor: () => poolExec as never
+            })
+        )
+
+        const response = await request(app).post('/roles').send({
+            codename: 'editor-copy',
+            name: localizedValue,
+            description: localizedValue,
+            color: '#111111',
+            isSuperuser: false,
+            permissions: []
+        })
+
+        expect(response.status).toBe(409)
+        expect(response.body.error).toContain('editor-copy')
+    })
+
+    it('returns 409 when role copy hits a concurrent codename conflict after validation', async () => {
+        const { poolExec, requestExec, session } = buildExecutors()
+        rolesStore.findRoleById.mockResolvedValue({
+            id: 'role-1',
+            codename: 'editor',
+            name: localizedValue,
+            description: localizedValue,
+            color: '#111111',
+            is_superuser: false,
+            is_system: false,
+            permissions: []
+        })
+        rolesStore.findRoleByCodename.mockResolvedValue(null)
+        requestExec.transaction.mockRejectedValue({ code: '23505' })
+
+        const app = express()
+        app.use(express.json())
+        attachRequestContext(app, requestExec, session)
+        app.use(
+            '/roles',
+            createRolesRoutes({
+                globalAccessService: {} as never,
+                permissionService: {} as never,
+                getDbExecutor: () => poolExec as never
+            })
+        )
+
+        const response = await request(app).post('/roles/role-1/copy').send({
+            codename: 'editor-copy',
+            name: localizedValue,
+            description: localizedValue,
+            color: '#111111',
+            copyPermissions: true
+        })
+
+        expect(response.status).toBe(409)
+        expect(response.body.error).toContain('editor-copy')
     })
 
     it('uses request-scoped executor in locales routes', async () => {

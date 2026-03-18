@@ -35,6 +35,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTranslation } from 'react-i18next'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector, SchemaStatus } from '../types'
 import { getVLCString } from '../types'
@@ -53,7 +54,8 @@ function formatPreviewCellValue(
         return value.length > 0 ? t('connectors.diffDialog.tableRowCount', '{{count}} rows', { count: value.length }) : ''
     }
     if (typeof value === 'object' && 'locales' in (value as Record<string, unknown>)) {
-        return getVLCString(value as any, uiLocale) || getVLCString(value as any, 'en') || ''
+        const localizedValue = value as VersionedLocalizedContent<string>
+        return getVLCString(localizedValue, uiLocale) || getVLCString(localizedValue, 'en') || ''
     }
     if (typeof value === 'object') {
         return JSON.stringify(value)
@@ -255,10 +257,10 @@ export function ConnectorDiffDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth aria-labelledby='connector-diff-dialog-title'>
-            <DialogTitle id='connector-diff-dialog-title'>
+            <DialogTitle id='connector-diff-dialog-title' component='div'>
                 {t('connectors.diffDialog.title', 'Schema Changes')}
                 {connectorName && (
-                    <Typography variant='subtitle2' color='text.secondary'>
+                    <Typography component='div' variant='subtitle2' color='text.secondary'>
                         {connectorName}
                     </Typography>
                 )}

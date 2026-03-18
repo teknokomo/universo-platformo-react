@@ -26,6 +26,7 @@ export interface ConnectorPublicationInfoWrapperProps {
  */
 export const ConnectorPublicationInfoWrapper = ({ applicationId, connectorId, uiLocale = 'en' }: ConnectorPublicationInfoWrapperProps) => {
     const { t } = useTranslation('applications')
+    const noop = () => undefined
 
     const {
         data: connectorPublicationsResponse,
@@ -35,11 +36,11 @@ export const ConnectorPublicationInfoWrapper = ({ applicationId, connectorId, ui
 
     const { data: availablePublications = [], isLoading: isLoadingAvailable, isError: isErrorAvailable } = useAvailablePublications()
 
-    // Extract items array from response - API returns ConnectorPublicationsResponse with items field
-    const linkedPublications = connectorPublicationsResponse?.items ?? []
-
-    // Convert linked publications to selected IDs
-    const selectedPublicationIds = useMemo(() => linkedPublications.map((lp) => lp.publicationId), [linkedPublications])
+    const linkedPublications = connectorPublicationsResponse?.items
+    const selectedPublicationIds = useMemo(
+        () => (linkedPublications ?? []).map((linkedPublication) => linkedPublication.publicationId),
+        [linkedPublications]
+    )
 
     const isLoading = isLoadingLinked || isLoadingAvailable
 
@@ -61,10 +62,6 @@ export const ConnectorPublicationInfoWrapper = ({ applicationId, connectorId, ui
     }
 
     // No-op handlers since the panel is disabled
-    const handleSelectionChange = () => {}
-    const handleRequiredChange = () => {}
-    const handleSingleChange = () => {}
-
     return (
         <Stack spacing={2}>
             {/* Info alert about locked settings */}
@@ -78,11 +75,11 @@ export const ConnectorPublicationInfoWrapper = ({ applicationId, connectorId, ui
             <PublicationSelectionPanel
                 availablePublications={availablePublications}
                 selectedPublicationIds={selectedPublicationIds}
-                onSelectionChange={handleSelectionChange}
+                onSelectionChange={noop}
                 isRequiredPublication={true}
-                onRequiredPublicationChange={handleRequiredChange}
+                onRequiredPublicationChange={noop}
                 isSinglePublication={true}
-                onSinglePublicationChange={handleSingleChange}
+                onSinglePublicationChange={noop}
                 disabled={true}
                 uiLocale={uiLocale}
             />

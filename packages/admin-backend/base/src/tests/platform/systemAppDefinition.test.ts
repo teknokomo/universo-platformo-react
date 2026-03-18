@@ -25,7 +25,11 @@ describe('admin system-app definition', () => {
     it('keeps the migration chain stable for admin fixed-schema bootstrap and reconciliation', () => {
         expect(
             adminSystemAppDefinition.migrations.map((entry) => (entry.kind === 'file' ? entry.migration.id : entry.definition.id))
-        ).toEqual(['PrepareAdminSchemaSupport1733400000000', 'FinalizeAdminSchemaSupport1733400000001'])
+        ).toEqual([
+            'PrepareAdminSchemaSupport1733400000000',
+            'FinalizeAdminSchemaSupport1733400000001',
+            'SeedAdminLifecycleRoles1733400000002'
+        ])
     })
 
     it('keeps manifest validation limits aligned with the physical fixed-schema contract', () => {

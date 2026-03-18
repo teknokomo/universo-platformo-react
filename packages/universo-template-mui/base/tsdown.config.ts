@@ -3,6 +3,7 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: {
     index: './src/index.ts',
+    'navigation/index': './src/navigation/index.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist',

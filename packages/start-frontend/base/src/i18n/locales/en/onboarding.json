@@ -55,6 +55,7 @@
         "back": "Back",
         "next": "Next",
         "finish": "Finish",
+        "startActing": "Start Acting",
         "startOver": "Start Over"
     },
     "errors": {

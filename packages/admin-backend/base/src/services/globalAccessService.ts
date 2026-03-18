@@ -1,4 +1,11 @@
-import type { RoleMetadata, GlobalRoleInfo, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
+import type {
+    AssignSystemRoleInput,
+    GlobalRoleInfo,
+    GlobalUserMember,
+    GlobalUserRoleAssignment,
+    RoleMetadata,
+    VersionedLocalizedContent
+} from '@universo/types'
 import {
     isGlobalRolesEnabled,
     isSuperuserEnabled,
@@ -33,6 +40,29 @@ interface UserRoleRow {
     granted_by: string | null
     comment: string | null
     _upl_created_at: Date
+}
+
+interface DashboardRoleCountRow {
+    role_codename: string
+    count: string
+}
+
+const compareGlobalRoles = (left: GlobalRoleInfo, right: GlobalRoleInfo): number => {
+    if (left.metadata.isSuperuser !== right.metadata.isSuperuser) {
+        return left.metadata.isSuperuser ? -1 : 1
+    }
+
+    return left.codename.localeCompare(right.codename)
+}
+
+interface GlobalUserListRow {
+    user_id: string
+    email: string | null
+    nickname: string | null
+    onboarding_completed: boolean | null
+    registered_at: Date | string | null
+    first_assignment_at: Date | string | null
+    roles: GlobalUserRoleAssignment[] | string
 }
 
 /**
@@ -93,6 +123,51 @@ function toRoleMetadata(role: RoleRow): RoleMetadata {
         color: role.color || '#9e9e9e',
         isSuperuser: role.is_superuser
     }
+}
+
+function toGlobalUserRoleAssignment(row: {
+    id: string
+    codename: string
+    name: VersionedLocalizedContent<string> | null
+    color: string | null
+    is_superuser?: boolean
+    is_system?: boolean
+}): GlobalUserRoleAssignment {
+    return {
+        id: row.id,
+        codename: row.codename,
+        name:
+            row.name && typeof row.name === 'object' && '_schema' in row.name
+                ? row.name
+                : {
+                      _schema: '1',
+                      _primary: 'en',
+                      locales: {
+                          en: {
+                              content: row.codename,
+                              version: 1,
+                              isActive: true,
+                              createdAt: new Date().toISOString(),
+                              updatedAt: new Date().toISOString()
+                          }
+                      }
+                  },
+        color: row.color || '#9e9e9e',
+        isSuperuser: Boolean(row.is_superuser),
+        isSystem: Boolean(row.is_system)
+    }
+}
+
+function toIsoString(value: Date | string | null | undefined): string | null {
+    if (!value) {
+        return null
+    }
+
+    if (value instanceof Date) {
+        return value.toISOString()
+    }
+
+    return String(value)
 }
 
 /**
@@ -164,6 +239,68 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     }
 
     /**
+     * Check whether the user may enter the shared workspace shell or shared dashboard.
+     * This is intentionally capability-based, not codename-based.
+     */
+    async function hasWorkspaceAccess(userId: string, dbSession?: DbSession): Promise<boolean> {
+        const [isSuperuserFlag, canAccessAdminFlag] = await Promise.all([isSuperuser(userId, dbSession), canAccessAdmin(userId, dbSession)])
+
+        if (isSuperuserFlag || canAccessAdminFlag) {
+            return true
+        }
+
+        const queryable = dbSession && !dbSession.isReleased() ? dbSession : getDbExecutor()
+        const roleScope = await queryable.query<{ has_registered_role: boolean; has_non_registered_role: boolean }>(
+            `
+            SELECT
+                EXISTS (
+                    SELECT 1
+                    FROM admin.rel_user_roles ur
+                    JOIN admin.cat_roles r ON ur.role_id = r.id
+                    WHERE ur.user_id = $1::uuid
+                      AND ur._upl_deleted = false AND ur._app_deleted = false
+                      AND r._upl_deleted = false AND r._app_deleted = false
+                      AND r.codename = 'registered'
+                ) AS has_registered_role,
+                EXISTS (
+                    SELECT 1
+                    FROM admin.rel_user_roles ur
+                    JOIN admin.cat_roles r ON ur.role_id = r.id
+                    WHERE ur.user_id = $1::uuid
+                      AND ur._upl_deleted = false AND ur._app_deleted = false
+                      AND r._upl_deleted = false AND r._app_deleted = false
+                      AND r.codename <> 'registered'
+                ) AS has_non_registered_role
+            `,
+            [userId]
+        )
+
+        if (roleScope[0]?.has_registered_role && !roleScope[0]?.has_non_registered_role) {
+            return false
+        }
+
+        const result = await queryable.query<{ has_workspace_access: boolean }>(
+            `
+            SELECT EXISTS (
+                SELECT 1
+                FROM admin.rel_user_roles ur
+                JOIN admin.cat_roles r ON ur.role_id = r.id
+                JOIN admin.rel_role_permissions rp ON r.id = rp.role_id
+                WHERE ur.user_id = $1::uuid
+                  AND ur._upl_deleted = false AND ur._app_deleted = false
+                  AND r._upl_deleted = false AND r._app_deleted = false
+                  AND rp._upl_deleted = false AND rp._app_deleted = false
+                  AND rp.subject IN ('applications', 'metahubs', 'profile')
+                  AND rp.action IN ('*', 'manage', 'read', 'create', 'update', 'delete')
+            ) AS has_workspace_access
+            `,
+            [userId]
+        )
+
+        return result[0]?.has_workspace_access ?? false
+    }
+
+    /**
      * Get user's global access info (roles with metadata)
      */
     async function getGlobalAccessInfo(userId: string, dbSession?: DbSession): Promise<GlobalAccessInfo> {
@@ -199,6 +336,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             }
         }
 
+        globalRoles.sort(compareGlobalRoles)
+
         return {
             isSuperuser: isSuperuserFlag,
             canAccessAdmin: canAccessAdminFlag,
@@ -212,7 +351,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function getGlobalRoleCodename(userId: string, dbSession?: DbSession): Promise<string | null> {
         const info = await getGlobalAccessInfo(userId, dbSession)
-        return info.globalRoles[0]?.codename ?? null
+        return info.globalRoles.find((role) => role.metadata.isSuperuser)?.codename ?? info.globalRoles[0]?.codename ?? null
     }
 
     /**
@@ -230,57 +369,77 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             sortOrder = 'desc',
             search,
             roleCodename,
-            roleId
-            // Note: hasGlobalAccess filter removed since we no longer have can_access_admin column
-            // All users with roles are returned; frontend can filter by computed hasAdminAccess
+            roleId,
+            hasGlobalAccess = 'all'
         } = params || {}
 
-        // Build dynamic WHERE conditions
-        const conditions: string[] = []
+        const conditions: string[] = ['u.deleted_at IS NULL']
         const queryParams: unknown[] = []
         let paramIndex = 1
 
-        // Filter by specific role ID
         if (roleId) {
-            conditions.push(`r.id = $${paramIndex}`)
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM admin.rel_user_roles fur
+                WHERE fur.user_id = u.id
+                  AND fur.role_id = $${paramIndex}
+                  AND ${activeAppRowCondition('fur')}
+            )`)
             queryParams.push(roleId)
             paramIndex++
         } else if (roleCodename) {
-            // Legacy support for roleCodename
-            conditions.push(`r.codename = $${paramIndex}`)
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM admin.rel_user_roles fur
+                JOIN admin.cat_roles fr ON fr.id = fur.role_id AND ${activeAppRowCondition('fr')}
+                WHERE fur.user_id = u.id
+                  AND fr.codename = $${paramIndex}
+                  AND ${activeAppRowCondition('fur')}
+            )`)
             queryParams.push(roleCodename)
             paramIndex++
         }
 
         if (search) {
             conditions.push(`(
-                EXISTS (SELECT 1 FROM auth.users u WHERE u.id = ur.user_id AND LOWER(u.email) LIKE $${paramIndex})
-                OR EXISTS (SELECT 1 FROM profiles.cat_profiles p WHERE p.user_id = ur.user_id AND ${activeAppRowCondition(
-                    'p'
-                )} AND LOWER(p.nickname) LIKE $${paramIndex})
+                LOWER(COALESCE(u.email, '')) LIKE $${paramIndex}
+                OR LOWER(COALESCE(p.nickname, '')) LIKE $${paramIndex}
             )`)
             queryParams.push(`%${search.toLowerCase()}%`)
             paramIndex++
         }
 
-        // Build WHERE clause (handle empty conditions)
-        const whereClause = conditions.length > 0 ? conditions.join(' AND ') : '1=1'
+        if (hasGlobalAccess === 'true') {
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM admin.rel_user_roles gur
+                WHERE gur.user_id = u.id AND ${activeAppRowCondition('gur')}
+            )`)
+        } else if (hasGlobalAccess === 'false') {
+            conditions.push(`NOT EXISTS (
+                SELECT 1
+                FROM admin.rel_user_roles gur
+                WHERE gur.user_id = u.id AND ${activeAppRowCondition('gur')}
+            )`)
+        }
 
-        // Build ORDER BY
+        const whereClause = conditions.join(' AND ')
+
         const sortExpressions: Record<string, string> = {
-            created: 'ur._upl_created_at',
-            role: 'r.codename',
-            email: '(SELECT u.email FROM auth.users u WHERE u.id = ur.user_id)'
+            created: 'registered_at',
+            role: `COALESCE(MIN(r.codename), '')`,
+            email: `LOWER(COALESCE(u.email, ''))`
         }
         const orderBy = sortExpressions[sortBy] || 'ur._upl_created_at'
         const direction = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
-        // Get total count
         const countResult = await exec.query<{ count: string }>(
             `
-            SELECT COUNT(*) as count
-            FROM admin.rel_user_roles ur
-            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
+            SELECT COUNT(DISTINCT u.id) as count
+            FROM auth.users u
+            LEFT JOIN profiles.cat_profiles p ON p.user_id = u.id AND ${activeAppRowCondition('p')}
+            LEFT JOIN admin.rel_user_roles ur ON ur.user_id = u.id AND ${activeAppRowCondition('ur')}
+            LEFT JOIN admin.cat_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
             WHERE ${whereClause}
         `,
             queryParams
@@ -291,24 +450,36 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             return { users: [], total: 0 }
         }
 
-        // Get paginated results
-        const rows = await exec.query<UserRoleRow & RoleRow & { role_codename: string }>(
+        const rows = await exec.query<GlobalUserListRow>(
             `
             SELECT 
-                ur.id,
-                ur.user_id,
-                ur.role_id,
-                ur.granted_by,
-                ur.comment,
-                ur._upl_created_at,
-                r.codename as role_codename,
-                r.name,
-                r.color,
-                r.is_superuser
-            FROM admin.rel_user_roles ur
-            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
+                u.id AS user_id,
+                u.email,
+                p.nickname,
+                COALESCE(p.onboarding_completed, false) AS onboarding_completed,
+                COALESCE(p._upl_created_at, MIN(ur._upl_created_at)) AS registered_at,
+                MIN(ur._upl_created_at) AS first_assignment_at,
+                COALESCE(
+                    json_agg(
+                        jsonb_build_object(
+                            'id', r.id,
+                            'codename', r.codename,
+                            'name', r.name,
+                            'color', r.color,
+                            'isSuperuser', r.is_superuser,
+                            'isSystem', r.is_system
+                        )
+                        ORDER BY r.is_superuser DESC, r.codename ASC
+                    ) FILTER (WHERE r.id IS NOT NULL),
+                    '[]'::json
+                ) AS roles
+            FROM auth.users u
+            LEFT JOIN profiles.cat_profiles p ON p.user_id = u.id AND ${activeAppRowCondition('p')}
+            LEFT JOIN admin.rel_user_roles ur ON ur.user_id = u.id AND ${activeAppRowCondition('ur')}
+            LEFT JOIN admin.cat_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
             WHERE ${whereClause}
-            ORDER BY ${orderBy} ${direction}
+            GROUP BY u.id, u.email, p.nickname, p.onboarding_completed, p._upl_created_at
+            ORDER BY ${orderBy} ${direction}, u.id ASC
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
             [...queryParams, limit, offset]
@@ -318,38 +489,42 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             return { users: [], total }
         }
 
-        // Load user emails and nicknames
-        const userIds = rows.map((r) => r.user_id)
+        const users: GlobalUserMember[] = rows.map((row) => {
+            const parsedRoles = Array.isArray(row.roles) ? row.roles : JSON.parse(String(row.roles || '[]'))
+            const roles = parsedRoles.map((role) =>
+                toGlobalUserRoleAssignment({
+                    id: role.id,
+                    codename: role.codename,
+                    name: role.name ?? null,
+                    color: role.color ?? null,
+                    is_superuser: role.isSuperuser,
+                    is_system: role.isSystem
+                })
+            )
+            const primaryRole = roles[0] ?? null
 
-        const authUsers = await exec.query<{ id: string; email: string | null }>(
-            `SELECT id, email FROM auth.users WHERE id = ANY($1::uuid[])`,
-            [userIds]
-        )
-
-        const profiles = await exec.query<{ user_id: string; nickname: string | null }>(
-            `SELECT user_id, nickname FROM profiles.cat_profiles WHERE user_id = ANY($1::uuid[]) AND ${activeAppRowCondition()}`,
-            [userIds]
-        )
-
-        const emailMap = new Map(authUsers.map((u) => [u.id, u.email ?? null]))
-        const nicknameMap = new Map(profiles.map((p) => [p.user_id, p.nickname ?? null]))
-
-        const users: GlobalUserMember[] = rows.map((row) => ({
-            id: row.id,
-            userId: row.user_id,
-            email: emailMap.get(row.user_id) ?? null,
-            nickname: nicknameMap.get(row.user_id) ?? null,
-            roleCodename: row.role_codename,
-            roleMetadata: {
-                codename: row.role_codename,
-                name: (row.name || {}) as VersionedLocalizedContent<string>,
-                color: row.color || '#9e9e9e',
-                isSuperuser: row.is_superuser
-            },
-            comment: row.comment ?? null,
-            grantedBy: row.granted_by ?? null,
-            createdAt: row._upl_created_at instanceof Date ? row._upl_created_at.toISOString() : String(row._upl_created_at)
-        }))
+            return {
+                id: row.user_id,
+                userId: row.user_id,
+                email: row.email,
+                nickname: row.nickname,
+                roles,
+                roleCodename: primaryRole?.codename ?? null,
+                roleMetadata: primaryRole
+                    ? {
+                          codename: primaryRole.codename,
+                          name: primaryRole.name,
+                          color: primaryRole.color,
+                          isSuperuser: primaryRole.isSuperuser
+                      }
+                    : null,
+                comment: null,
+                grantedBy: null,
+                createdAt: toIsoString(row.first_assignment_at) ?? undefined,
+                registeredAt: toIsoString(row.registered_at),
+                onboardingCompleted: Boolean(row.onboarding_completed)
+            }
+        })
 
         return { users, total }
     }
@@ -362,6 +537,116 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             email
         ])
         return rows[0]?.id ?? null
+    }
+
+    async function assignSystemRole({ userId, roleCodename, reason }: AssignSystemRoleInput): Promise<void> {
+        const exec = getDbExecutor()
+        const roleRows = await exec.query<{ id: string }>(
+            `SELECT id FROM admin.cat_roles WHERE codename = $1 AND ${activeAppRowCondition()} LIMIT 1`,
+            [roleCodename]
+        )
+
+        if (roleRows.length === 0) {
+            throw new Error(`System role '${roleCodename}' not found`)
+        }
+
+        const hasSuperuser = await exec.query<{ id: string }>(
+            `SELECT ur.id
+             FROM admin.rel_user_roles ur
+             JOIN admin.cat_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
+             WHERE ur.user_id = $1
+               AND ${activeAppRowCondition('ur')}
+               AND r.is_superuser = true
+             LIMIT 1`,
+            [userId]
+        )
+
+        if (hasSuperuser.length > 0) {
+            return
+        }
+
+        await exec.query(
+            `INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
+             VALUES ($1, $2, NULL, $3)
+             ON CONFLICT (user_id, role_id) WHERE _upl_deleted = false AND _app_deleted = false
+             DO UPDATE SET comment = EXCLUDED.comment, granted_by = EXCLUDED.granted_by, _upl_updated_at = NOW()`,
+            [userId, roleRows[0].id, reason]
+        )
+    }
+
+    async function setUserRoles(
+        userId: string,
+        roleIds: string[],
+        grantedBy: string,
+        comment?: string
+    ): Promise<GlobalUserRoleAssignment[]> {
+        const exec = getDbExecutor()
+        const requestedRoleIds = Array.from(new Set(roleIds))
+
+        return exec.transaction(async (trx) => {
+            let normalizedRoleIds = requestedRoleIds
+
+            if (requestedRoleIds.length > 0) {
+                const validRoles = await trx.query<{
+                    id: string
+                    codename: string
+                    name: VersionedLocalizedContent<string> | null
+                    color: string | null
+                    is_superuser: boolean
+                    is_system: boolean
+                }>(
+                    `SELECT id, codename, name, color, is_superuser, is_system
+                     FROM admin.cat_roles
+                     WHERE id = ANY($1::uuid[])
+                       AND ${activeAppRowCondition()}`,
+                    [requestedRoleIds]
+                )
+
+                if (validRoles.length !== requestedRoleIds.length) {
+                    throw Object.assign(new Error('One or more role IDs are invalid'), { statusCode: 400 })
+                }
+
+                const superuserRole = validRoles.find((role) => role.is_superuser)
+                if (superuserRole) {
+                    normalizedRoleIds = [superuserRole.id]
+                }
+            }
+
+            await trx.query(
+                `UPDATE admin.rel_user_roles
+                 SET ${softDeleteSetClause('$2')}
+                 WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+                [userId, grantedBy]
+            )
+
+            if (normalizedRoleIds.length > 0) {
+                await trx.query(
+                    `INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
+                     SELECT $1, unnest($2::uuid[]), $3, $4`,
+                    [userId, normalizedRoleIds, grantedBy, comment ?? 'bulk role assignment']
+                )
+            }
+
+            const rows = await trx.query<{
+                id: string
+                codename: string
+                name: VersionedLocalizedContent<string> | null
+                color: string | null
+                is_superuser: boolean
+                is_system: boolean
+            }>(
+                `SELECT r.id, r.codename, r.name, r.color, r.is_superuser, r.is_system
+                 FROM admin.rel_user_roles ur
+                 JOIN admin.cat_roles r ON r.id = ur.role_id
+                 WHERE ur.user_id = $1
+                   AND ${activeAppRowCondition('ur')}
+                   AND ${activeAppRowCondition('r')}
+                 ORDER BY r.is_superuser DESC, r.codename ASC`,
+                [userId]
+            )
+
+            return rows.map((row) => toGlobalUserRoleAssignment(row))
+        })
     }
 
     /**
@@ -386,53 +671,92 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
         const roleId = roleResult[0].id
 
-        // Check if user already has this role
-        const existing = await exec.query<UserRoleRow>(
-            `
-            SELECT id FROM admin.rel_user_roles
-            WHERE user_id = $1 AND role_id = $2 AND ${activeAppRowCondition()}
-        `,
-            [userId, roleId]
-        )
+        const assignmentId = await exec.transaction(async (trx) => {
+            if (roleResult[0].is_superuser) {
+                await trx.query(
+                    `UPDATE admin.rel_user_roles
+                     SET ${softDeleteSetClause('$2')}
+                     WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+                    [userId, grantedBy]
+                )
 
-        let assignmentId: string
+                const insertResult = await trx.query<{ id: string }>(
+                    `INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
+                     VALUES ($1, $2, $3, $4)
+                     RETURNING id`,
+                    [userId, roleId, grantedBy, comment ?? null]
+                )
 
-        if (existing.length > 0) {
-            // Update existing assignment
-            await exec.query(
-                `
-                UPDATE admin.rel_user_roles
-                SET granted_by = $1, comment = $2
-                WHERE user_id = $3 AND role_id = $4 AND ${activeAppRowCondition()}
-            `,
-                [grantedBy, comment ?? null, userId, roleId]
+                return insertResult[0].id
+            }
+
+            const existingSuperuser = await trx.query<{ id: string }>(
+                `SELECT ur.id
+                 FROM admin.rel_user_roles ur
+                 JOIN admin.cat_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
+                 WHERE ur.user_id = $1
+                   AND r.is_superuser = true
+                   AND ${activeAppRowCondition('ur')}`,
+                [userId]
             )
-            assignmentId = existing[0].id
-        } else {
-            // Insert new assignment (allowing multiple roles per user)
-            const insertResult = await exec.query<{ id: string }>(
-                `
-                INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
-                VALUES ($1, $2, $3, $4)
-                RETURNING id
-            `,
+
+            if (existingSuperuser.length > 0) {
+                throw Object.assign(new Error('Cannot add another role to a superuser via legacy grant route'), { statusCode: 409 })
+            }
+
+            const existing = await trx.query<UserRoleRow>(
+                `SELECT id FROM admin.rel_user_roles
+                 WHERE user_id = $1 AND role_id = $2 AND ${activeAppRowCondition()}`,
+                [userId, roleId]
+            )
+
+            if (existing.length > 0) {
+                await trx.query(
+                    `UPDATE admin.rel_user_roles
+                     SET granted_by = $1, comment = $2
+                     WHERE user_id = $3 AND role_id = $4 AND ${activeAppRowCondition()}`,
+                    [grantedBy, comment ?? null, userId, roleId]
+                )
+                return existing[0].id
+            }
+
+            const insertResult = await trx.query<{ id: string }>(
+                `INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
+                 VALUES ($1, $2, $3, $4)
+                 RETURNING id`,
                 [userId, roleId, grantedBy, comment ?? null]
             )
-            assignmentId = insertResult[0].id
-        }
+
+            return insertResult[0].id
+        })
 
         // Get user info
         const authUsers = await exec.query<{ id: string; email: string | null }>(`SELECT id, email FROM auth.users WHERE id = $1`, [userId])
-        const profileRows = await exec.query<{ user_id: string; nickname: string | null }>(
-            `SELECT user_id, nickname FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+        const profileRows = await exec.query<{
+            user_id: string
+            nickname: string | null
+            onboarding_completed: boolean
+            _upl_created_at: Date | string | null
+        }>(
+            `SELECT user_id, nickname, onboarding_completed, _upl_created_at FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
             [userId]
         )
+
+        const assignedRole = toGlobalUserRoleAssignment({
+            id: roleId,
+            codename: roleCodename,
+            name: (roleResult[0].name || null) as VersionedLocalizedContent<string> | null,
+            color: roleResult[0].color || '#9e9e9e',
+            is_superuser: roleResult[0].is_superuser,
+            is_system: false
+        })
 
         return {
             id: assignmentId,
             userId,
             email: authUsers[0]?.email ?? null,
             nickname: profileRows[0]?.nickname ?? null,
+            roles: [assignedRole],
             roleCodename,
             roleMetadata: {
                 codename: roleCodename,
@@ -442,7 +766,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             },
             comment: comment ?? null,
             grantedBy,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            registeredAt: toIsoString(profileRows[0]?._upl_created_at),
+            onboardingCompleted: Boolean(profileRows[0]?.onboarding_completed)
         }
     }
 
@@ -529,16 +855,31 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const authUsers = await exec.query<{ id: string; email: string | null }>(`SELECT id, email FROM auth.users WHERE id = $1`, [
             row.user_id
         ])
-        const profileRows = await exec.query<{ user_id: string; nickname: string | null }>(
-            `SELECT user_id, nickname FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+        const profileRows = await exec.query<{
+            user_id: string
+            nickname: string | null
+            onboarding_completed: boolean
+            _upl_created_at: Date | string | null
+        }>(
+            `SELECT user_id, nickname, onboarding_completed, _upl_created_at FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
             [row.user_id]
         )
+
+        const assignedRole = toGlobalUserRoleAssignment({
+            id: row.role_id,
+            codename: row.role_codename,
+            name: (row.name || null) as VersionedLocalizedContent<string> | null,
+            color: row.color || '#9e9e9e',
+            is_superuser: row.is_superuser,
+            is_system: row.is_system
+        })
 
         return {
             id: row.id,
             userId: row.user_id,
             email: authUsers[0]?.email ?? null,
             nickname: profileRows[0]?.nickname ?? null,
+            roles: [assignedRole],
             roleCodename: row.role_codename,
             roleMetadata: {
                 codename: row.role_codename,
@@ -548,7 +889,101 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             },
             comment: row.comment ?? null,
             grantedBy: row.granted_by ?? null,
-            createdAt: row._upl_created_at instanceof Date ? row._upl_created_at.toISOString() : String(row._upl_created_at)
+            createdAt: row._upl_created_at instanceof Date ? row._upl_created_at.toISOString() : String(row._upl_created_at),
+            registeredAt: toIsoString(profileRows[0]?._upl_created_at),
+            onboardingCompleted: Boolean(profileRows[0]?.onboarding_completed)
+        }
+    }
+
+    async function updateLegacyUserAccess(
+        userId: string,
+        updates: { roleCodename?: string; comment?: string },
+        grantedBy: string
+    ): Promise<GlobalUserMember | null> {
+        const exec = getDbExecutor()
+        const currentAssignments = await exec.query<{
+            id: string
+            role_id: string
+            role_codename: string
+            comment: string | null
+            granted_by: string | null
+            _upl_created_at: Date | string | null
+        }>(
+            `SELECT
+                ur.id,
+                ur.role_id,
+                ur.comment,
+                ur.granted_by,
+                ur._upl_created_at,
+                r.codename AS role_codename
+             FROM admin.rel_user_roles ur
+             JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
+             WHERE ur.user_id = $1
+               AND ${activeAppRowCondition('ur')}
+             ORDER BY r.is_superuser DESC, r.codename ASC`,
+            [userId]
+        )
+
+        if (currentAssignments.length === 0) {
+            return null
+        }
+
+        if (currentAssignments.length > 1) {
+            throw Object.assign(new Error('Legacy global-user route cannot modify multi-role users; use the /roles endpoint'), {
+                statusCode: 409
+            })
+        }
+
+        let roleIds = [currentAssignments[0].role_id]
+        if (updates.roleCodename && updates.roleCodename !== currentAssignments[0].role_codename) {
+            const nextRole = await exec.query<{ id: string }>(
+                `SELECT id
+                 FROM admin.cat_roles
+                 WHERE codename = $1 AND ${activeAppRowCondition()}`,
+                [updates.roleCodename]
+            )
+
+            if (nextRole.length === 0) {
+                throw new Error(`Role '${updates.roleCodename}' not found`)
+            }
+
+            roleIds = [nextRole[0].id]
+        }
+
+        const updatedRoles = await setUserRoles(userId, roleIds, grantedBy, updates.comment ?? currentAssignments[0].comment ?? undefined)
+        const authUsers = await exec.query<{ id: string; email: string | null }>(`SELECT id, email FROM auth.users WHERE id = $1`, [userId])
+        const profileRows = await exec.query<{
+            user_id: string
+            nickname: string | null
+            onboarding_completed: boolean
+            _upl_created_at: Date | string | null
+        }>(
+            `SELECT user_id, nickname, onboarding_completed, _upl_created_at FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+            [userId]
+        )
+
+        const primaryRole = updatedRoles[0] ?? null
+
+        return {
+            id: userId,
+            userId,
+            email: authUsers[0]?.email ?? null,
+            nickname: profileRows[0]?.nickname ?? null,
+            roles: updatedRoles,
+            roleCodename: primaryRole?.codename ?? null,
+            roleMetadata: primaryRole
+                ? {
+                      codename: primaryRole.codename,
+                      name: primaryRole.name,
+                      color: primaryRole.color,
+                      isSuperuser: primaryRole.isSuperuser
+                  }
+                : null,
+            comment: updates.comment ?? currentAssignments[0].comment ?? null,
+            grantedBy,
+            createdAt: toIsoString(currentAssignments[0]._upl_created_at) ?? new Date().toISOString(),
+            registeredAt: toIsoString(profileRows[0]?._upl_created_at),
+            onboardingCompleted: Boolean(profileRows[0]?.onboarding_completed)
         }
     }
 
@@ -590,24 +1025,53 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     async function getStats(): Promise<{
         totalGlobalUsers: number
         byRole: Record<string, number>
+        totalRoles: number
+        totalApplications: number
+        totalMetahubs: number
     }> {
-        const stats = await getDbExecutor().query<{ role_name: string; count: string }>(`
-            SELECT r.name as role_name, COUNT(ur.id)::text as count
-            FROM admin.rel_user_roles ur
-            JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
-            GROUP BY r.name
-        `)
+        const exec = getDbExecutor()
+        const [roleCounts, totalUsersRows, totalRolesRows, totalApplicationsRows, totalMetahubsRows] = await Promise.all([
+            exec.query<DashboardRoleCountRow>(
+                `SELECT r.codename AS role_codename, COUNT(DISTINCT ur.user_id)::text AS count
+                 FROM admin.rel_user_roles ur
+                 JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
+                 WHERE ${activeAppRowCondition('ur')}
+                 GROUP BY r.codename`
+            ),
+            exec.query<{ count: string }>(
+                `SELECT COUNT(*)::text AS count
+                 FROM auth.users`
+            ),
+            exec.query<{ count: string }>(
+                `SELECT COUNT(*)::text AS count
+                 FROM admin.cat_roles
+                 WHERE ${activeAppRowCondition()}`
+            ),
+            exec.query<{ count: string }>(
+                `SELECT COUNT(*)::text AS count
+                 FROM applications.cat_applications
+                 WHERE ${activeAppRowCondition()}`
+            ),
+            exec.query<{ count: string }>(
+                `SELECT COUNT(*)::text AS count
+                 FROM metahubs.cat_metahubs
+                 WHERE ${activeAppRowCondition()}`
+            )
+        ])
 
         const byRole: Record<string, number> = {}
-        let totalGlobalUsers = 0
-
-        for (const row of stats) {
+        for (const row of roleCounts) {
             const count = parseInt(row.count, 10)
-            byRole[row.role_name] = count
-            totalGlobalUsers += count
+            byRole[row.role_codename] = count
         }
 
-        return { totalGlobalUsers, byRole }
+        return {
+            totalGlobalUsers: parseInt(totalUsersRows[0]?.count ?? '0', 10),
+            byRole,
+            totalRoles: parseInt(totalRolesRows[0]?.count ?? '0', 10),
+            totalApplications: parseInt(totalApplicationsRows[0]?.count ?? '0', 10),
+            totalMetahubs: parseInt(totalMetahubsRows[0]?.count ?? '0', 10)
+        }
     }
 
     return {
@@ -618,14 +1082,18 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         // User access checks
         isSuperuser,
         canAccessAdmin,
+        hasWorkspaceAccess,
         getGlobalAccessInfo,
         getGlobalRoleCodename,
 
         // User management
         listGlobalUsers,
         findUserIdByEmail,
+        assignSystemRole,
         grantRole,
+        setUserRoles,
         updateAssignment,
+        updateLegacyUserAccess,
         revokeGlobalAccess,
         revokeAssignment,
 

@@ -60,6 +60,16 @@
                 "interval": "System + custom",
                 "description": "Permission roles"
             },
+            "totalApplications": {
+                "title": "Applications",
+                "interval": "Published + draft",
+                "description": "Connected application surfaces"
+            },
+            "totalMetahubs": {
+                "title": "Metahubs",
+                "interval": "All metahubs",
+                "description": "Published metahub spaces"
+            },
             "superadmins": {
                 "title": "Superadmins",
                 "interval": "Full access",
@@ -75,6 +85,11 @@
             "title": "Documentation",
             "description": "Learn about administration",
             "button": "Read Docs"
+        },
+        "roleBreakdown": {
+            "title": "Role distribution",
+            "description": "Current active global roles across the platform.",
+            "empty": "No global roles assigned"
         },
         "charts": {
             "activity": {
@@ -114,9 +129,30 @@
         "loading": "Loading...",
         "instanceNotFound": "Instance not found",
         "addUser": "Add User",
+        "createUser": "Create",
+        "createDialogTitle": "Create User",
+        "editUser": "Edit user",
+        "createSubmit": "Create",
+        "createSuccess": "User created successfully",
+        "createError": "Failed to create user",
+        "updateSuccess": "User roles updated successfully",
+        "updateError": "Failed to update user roles",
+        "clearRoles": "Clear roles",
+        "clearRolesTitle": "Clear all roles?",
+        "clearRolesDescription": "Remove all global roles for {{email}}?",
+        "clearingRoles": "Clearing roles...",
+        "clearRolesSuccess": "All user roles cleared successfully",
+        "noRoles": "No roles",
+        "onboardingCompleted": "Completed",
+        "onboardingPending": "Pending",
         "searchPlaceholder": "Search by email or nickname...",
         "noUsersFound": "No users found",
         "tryAdjustFilters": "Try adjusting your filters",
+        "table": {
+            "roles": "Roles",
+            "onboarding": "Onboarding",
+            "registered": "Registered"
+        },
         "filters": {
             "role": "Role",
             "allRoles": "All Roles",
@@ -124,6 +160,40 @@
             "allUsers": "All Users",
             "globalOnly": "Global Access Only",
             "noGlobal": "No Global Access"
+        },
+        "validation": {
+            "emailRequired": "Email is required",
+            "emailInvalid": "Enter a valid email address",
+            "roleRequired": "Select at least one role",
+            "passwordMin": "Password must contain at least 8 characters"
+        },
+        "dialog": {
+            "tabs": {
+                "main": "Main",
+                "roles": "Roles"
+            },
+            "email": "Email",
+            "password": "Password",
+            "passwordHint": "Optional. Leave empty to send an email invitation instead of setting a password manually.",
+            "comment": "Comment",
+            "commentHint": "Optional internal note for administrators.",
+            "roles": "Roles",
+            "rolesHint": "Assign one or more roles. Leaving the list empty removes all current global roles for this user.",
+            "selectedRoles": "Selected roles",
+            "noRoles": "No roles assigned",
+            "roleSelection": {
+                "title": "Roles",
+                "addButton": "Add",
+                "dialogTitle": "Select Roles",
+                "emptyMessage": "No roles assigned",
+                "noAvailableMessage": "No roles available",
+                "searchPlaceholder": "Search roles...",
+                "cancelButton": "Cancel",
+                "confirmButton": "Add",
+                "removeTitle": "Remove",
+                "nameHeader": "Name",
+                "codenameHeader": "Code Name"
+            }
         }
     },
     "roles": {
@@ -135,6 +205,7 @@
         "errorLoading": "Failed to load roles",
         "unknownError": "Unknown error",
         "addNew": "Add Role",
+        "createCta": "Create",
         "searchPlaceholder": "Search roles...",
         "empty": {
             "title": "No roles found",
@@ -155,6 +226,11 @@
         "customRole": "Custom",
         "systemRoleHint": "System roles cannot be deleted",
         "viewUsers": "View Users",
+        "copy": "Copy",
+        "copyTitle": "Copy role: {{name}}",
+        "copySubmit": "Copy role",
+        "copySuccess": "Role copied successfully",
+        "copyError": "Failed to copy role",
         "confirmDelete": "Delete Role?",
         "confirmDeleteDescription": "Are you sure you want to delete role \"{{name}}\"? This action cannot be undone.",
         "deleteConfirm": {
@@ -164,6 +240,8 @@
         "deleteSuccess": "Role deleted successfully",
         "deleteError": "Failed to delete role",
         "createTitle": "Create New Role",
+        "createDialogTitle": "Create Role",
+        "createDialogSubmit": "Create and continue",
         "createDescription": "Define a new role with permissions",
         "editTitle": "Edit Role",
         "editDescription": "Editing role: {{name}}",
@@ -176,14 +254,31 @@
             "accessSettings": "Access Settings",
             "permissions": "Permissions"
         },
+        "tabs": {
+            "settings": "Settings",
+            "permissions": "Permissions"
+        },
+        "tabDescriptions": {
+            "settings": "Manage role identity, appearance, and access-level behavior.",
+            "permissions": "Review and update subject-level permissions granted by this role."
+        },
+        "badges": {
+            "system": "System role",
+            "superuser": "Superuser"
+        },
+        "copyTabs": {
+            "main": "Main",
+            "options": "Options"
+        },
         "field": {
-            "codename": "Unique Identifier",
-            "codenameHint": "Lowercase alphanumeric with underscores/dashes (e.g. new_role)",
+            "codename": "Code Name",
+            "codenameHint": "Lowercase alphanumeric with underscores/dashes (for example new_role)",
             "name": "Name",
             "color": "Color",
             "displayNameEn": "Name (English)",
             "displayNameRu": "Name (Russian)",
             "description": "Description",
+            "copyPermissions": "Copy permissions from source role",
             "isSuperuser": "Superuser Access",
             "isSuperuserHint": "Full platform access with permission bypass - root user. System roles have this enabled permanently",
             "canAccessAdmin": "Admin Panel Access",
@@ -195,11 +290,18 @@
             "accessSettings": "Access Settings"
         },
         "validation": {
+            "codenameRequired": "Code name is required",
+            "codenameFormat": "Code name must be lowercase alphanumeric with underscores or dashes",
             "nameRequired": "Name is required",
+            "primaryNameRequired": "Primary language name is required",
             "nameFormat": "Name must be lowercase alphanumeric with underscores or dashes",
             "displayNameRequired": "English display name is required",
             "colorFormat": "Invalid color format",
             "permissionsRequired": "At least one permission is required"
+        },
+        "actions": {
+            "saveSettings": "Save settings",
+            "savePermissions": "Save permissions"
         },
         "create": "Create Role",
         "createSuccess": "Role created successfully",
@@ -214,12 +316,15 @@
             "allActionsHint": "All actions for subject",
             "hint": "Check individual cells or use row/column headers for bulk selection. \"*\" means all actions.",
             "subjects": {
-                "publications": "Publications",
                 "admin": "Administration",
                 "roles": "Roles",
                 "instances": "Instances",
                 "users": "Users",
-                "settings": "Settings"
+                "settings": "Settings",
+                "metahubs": "Metahubs",
+                "applications": "Applications",
+                "profile": "Profile",
+                "onboarding": "Onboarding"
             },
             "actions": {
                 "create": "Create",
@@ -264,7 +369,7 @@
         "description": "Manage available languages for content localization",
         "loading": "Loading languages...",
         "errorLoading": "Failed to load languages",
-        "addNew": "Add Language",
+        "addNew": "Create",
         "searchPlaceholder": "Search languages...",
         "empty": "No languages configured",
         "code": "Code",

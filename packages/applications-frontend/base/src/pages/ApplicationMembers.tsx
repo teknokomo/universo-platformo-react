@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type MouseEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -105,12 +105,21 @@ export const ApplicationMembers = () => {
 
     const { confirm } = useConfirm()
 
+    const hasResponseStatus = (value: unknown): value is { response: { status: number } } => {
+        if (!value || typeof value !== 'object') {
+            return false
+        }
+
+        const response = (value as { response?: unknown }).response
+        return Boolean(response && typeof response === 'object' && 'status' in response)
+    }
+
     const inviteMember = useInviteMember()
     const updateMemberRoleMutation = useUpdateMemberRole()
     const removeMemberMutation = useRemoveMember()
 
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(members)) {
             members.forEach((member) => {
                 if (member?.id) {
@@ -154,7 +163,7 @@ export const ApplicationMembers = () => {
         [i18n.language]
     )
 
-    const handleChange = (_event: React.MouseEvent<HTMLElement> | null, nextView: string | null) => {
+    const handleChange = (_event: MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'list')
     }
@@ -323,7 +332,7 @@ export const ApplicationMembers = () => {
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={tc('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
+                    description={!hasResponseStatus(error) ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
                     action={{
                         label: tc('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)

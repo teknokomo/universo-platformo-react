@@ -244,7 +244,7 @@ const renderWithProviders = (route: string) => {
     return render(
         <QueryClientProvider client={queryClient}>
             <SnackbarProvider>
-                <MemoryRouter initialEntries={[route]}>
+                <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                     <Routes>
                         <Route path='/a/:applicationId/admin/connectors' element={<ConnectorList />} />
                         <Route

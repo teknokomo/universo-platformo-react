@@ -109,6 +109,9 @@ export interface RoleMetadata {
     isSuperuser: boolean
 }
 
+/** Immutable system-role codenames used by platform onboarding and routing flows */
+export type SystemRoleCodename = 'superuser' | 'registered' | 'user'
+
 /**
  * Global role information for a user
  * Returned by /auth/permissions endpoint
@@ -189,7 +192,7 @@ export type PermissionInput = BasePermission
  * Extends DynamicMemberEntity pattern for dynamic roles loaded from database
  */
 export interface GlobalUserMember {
-    /** Assignment ID (from user_roles table) */
+    /** Stable row identifier used by admin user tables */
     id: string
     /** User ID */
     userId: string
@@ -197,17 +200,68 @@ export interface GlobalUserMember {
     email: string | null
     /** User nickname (from profiles) */
     nickname: string | null
-    /** Role codename (dynamic, loaded from database) */
-    roleCodename: string
-    /** Role metadata with display info */
-    roleMetadata: RoleMetadata
-    /** Comment on assignment */
-    comment: string | null
-    /** Who granted this role */
-    grantedBy: string | null
-    /** When assigned (ISO string for JSON serialization) */
-    createdAt: string
+    /** Full active role set for the user */
+    roles: GlobalUserRoleAssignment[]
+    /** Primary role codename kept for legacy single-role consumers */
+    roleCodename?: string | null
+    /** Primary role metadata kept for legacy single-role consumers */
+    roleMetadata?: RoleMetadata | null
+    /** Legacy assignment comment for single-role flows */
+    comment?: string | null
+    /** Legacy granted-by metadata for single-role flows */
+    grantedBy?: string | null
+    /** Legacy first-assignment timestamp */
+    createdAt?: string
+    /** Profile registration timestamp */
+    registeredAt?: string | null
+    /** Profile onboarding completion flag */
+    onboardingCompleted: boolean
 }
+
+/** Lightweight global role assignment entry used in multi-role user management UIs */
+export interface GlobalUserRoleAssignment {
+    id: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    color: string
+    isSuperuser: boolean
+    isSystem: boolean
+}
+
+/** Payload for replacing a user's full set of global roles */
+export interface SetUserRolesPayload {
+    userId: string
+    roleIds: string[]
+    comment?: string
+}
+
+/** Payload for copying a role into a new editable custom role */
+export interface CopyRolePayload {
+    sourceRoleId: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    color?: string
+    copyPermissions: boolean
+}
+
+/** Payload for creating a user directly from the admin panel */
+export interface AdminCreateUserPayload {
+    email: string
+    password?: string
+    roleIds: string[]
+    comment?: string
+}
+
+/** Input payload for privileged bootstrap-owned system-role assignment */
+export interface AssignSystemRoleInput {
+    userId: string
+    roleCodename: Extract<SystemRoleCodename, 'registered' | 'user'>
+    reason: string
+}
+
+/** Callback contract injected into auth/start flows for privileged system-role assignment */
+export type AssignSystemRole = (input: AssignSystemRoleInput) => Promise<void>
 
 /**
  * Request to grant a global role to a user
@@ -245,12 +299,32 @@ export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | '*'
  * Platform subjects that can have permissions assigned
  * '*' means all subjects (CASL 'all')
  */
-export type PermissionSubject = 'publications' | 'roles' | 'instances' | 'users' | 'settings' | 'admin' | '*'
+export type PermissionSubject =
+    | 'roles'
+    | 'instances'
+    | 'users'
+    | 'settings'
+    | 'admin'
+    | 'metahubs'
+    | 'applications'
+    | 'profile'
+    | 'onboarding'
+    | '*'
 
 /**
  * All available permission subjects (for UI iteration)
  */
-export const PERMISSION_SUBJECTS: PermissionSubject[] = ['publications', 'roles', 'instances', 'users', 'settings', 'admin']
+export const PERMISSION_SUBJECTS: PermissionSubject[] = [
+    'roles',
+    'instances',
+    'users',
+    'settings',
+    'admin',
+    'metahubs',
+    'applications',
+    'profile',
+    'onboarding'
+]
 
 /**
  * Admin-related permission subjects that grant access to admin panel
@@ -292,6 +366,51 @@ export interface RoleWithPermissions {
     updatedAt: string
 }
 
+/** Role list row used by admin role list tables and dialogs */
+export interface RoleListItem {
+    id: string
+    codename: string
+    description?: VersionedLocalizedContent<string>
+    name: VersionedLocalizedContent<string>
+    color: string
+    isSuperuser: boolean
+    isSystem: boolean
+    permissionCount: number
+    userCount: number
+    createdAt: string
+    updatedAt: string
+}
+
+/** Shared dashboard stats contract used by AdminBoard and metapanel */
+export interface AdminDashboardStats {
+    totalGlobalUsers: number
+    byRole: Record<string, number>
+    totalRoles: number
+    totalApplications: number
+    totalMetahubs: number
+}
+
+/** Role-aware shell visibility contract for the main application menu */
+export interface RoleMenuVisibility {
+    rootMenuIds: string[]
+    showMetahubsSection?: boolean
+}
+
+/** System-role driven menu visibility presets for the shared shell */
+export const ROLE_MENU_VISIBILITY: Record<SystemRoleCodename, RoleMenuVisibility> = {
+    superuser: {
+        rootMenuIds: ['metapanel', 'applications', 'profile', 'docs'] ,
+        showMetahubsSection: true
+    },
+    registered: {
+        rootMenuIds: []
+    },
+    user: {
+        rootMenuIds: ['metapanel', 'applications', 'profile', 'docs'],
+        showMetahubsSection: false
+    }
+}
+
 /**
  * Payload for creating a new role
  */
@@ -307,7 +426,7 @@ export interface CreateRolePayload {
     /** Whether this role grants superuser access (full permission bypass - root user) */
     isSuperuser: boolean
     /** Permission rules for this role */
-    permissions: PermissionInput[]
+    permissions?: PermissionInput[]
 }
 
 /**
