@@ -22,6 +22,8 @@ import type { RoleListItem } from '../api/rolesApi'
 
 type RoleSelectionLabels = ComponentProps<typeof EntitySelectionPanel>['labels']
 
+const EMPTY_ROLE_IDS: string[] = []
+
 export interface UserFormDialogSubmitData {
     email: string
     password?: string
@@ -131,7 +133,7 @@ export default function UserFormDialog({
     error = null,
     initialEmail = '',
     initialComment = '',
-    initialRoleIds = [],
+    initialRoleIds = EMPTY_ROLE_IDS,
     onClose,
     onSubmit
 }: UserFormDialogProps) {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Chip, Stack, Typography, Button, CircularProgress, Alert, Tab, Tabs } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -70,11 +70,13 @@ const RoleEdit = () => {
 
     // Sync permissions from server to local state on initial load
     const [syncedRoleId, setSyncedRoleId] = useState<string | null>(null)
-    if (role && role.id !== syncedRoleId) {
-        setPermissions(role.permissions)
-        setPermsDirty(false)
-        setSyncedRoleId(role.id)
-    }
+    useEffect(() => {
+        if (role && role.id !== syncedRoleId) {
+            setPermissions(role.permissions)
+            setPermsDirty(false)
+            setSyncedRoleId(role.id)
+        }
+    }, [role, syncedRoleId])
 
     const isSystemRole = role?.isSystem ?? false
     const roleDisplayName = role ? resolveLocalizedContent(role.name, uiLocale, role.codename) : ''

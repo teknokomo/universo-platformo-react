@@ -42,6 +42,28 @@
 | 0.22.0-alpha | 2025-07-27 | Global Impulse ⚡️                                 | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪                                    | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-03-19 QA Comprehensive Fix — All Issues Resolved
+
+Applied all 13 code fixes from the comprehensive QA audit across admin-backend, admin-frontend, metapanel-frontend, and universo-template-mui packages.
+
+| Area | Severity | Resolution |
+| --- | --- | --- |
+| LIKE wildcard injection | **CRITICAL** | Added `escapeLikeWildcards()` to search queries in `globalAccessService.ts` and `instancesStore.ts`. |
+| UUID validation | **CRITICAL** | Added `uuid.isValidUuid()` to 3 globalUsersRoutes params (PUT/PATCH/DELETE) and 1 rolesRoutes copy param. |
+| MetapanelDashboard test mock | **CRITICAL** | Used `importOriginal` pattern to import real `buildRealisticTrendData`. |
+| Dashboard API access | **CRITICAL** | Reviewed: by-design — uses `ensureGlobalAccess('users', 'read')` middleware. |
+| Transaction wrapping | **HIGH** | Create and update role routes now wrapped in `exec.transaction()`. |
+| Debug console.logs | **HIGH** | Removed all 10 `console.log` from `ensureGlobalAccess.ts`. |
+| StatCard gradient ID | **HIGH** | Replaced value-based SVG ID with `React.useId()`. |
+| createAuthClient | **HIGH** | Replaced `axios.create()` with shared `createAuthClient()` in metapanel-frontend. |
+| RoleEdit setState | **HIGH** | Moved render-time setState to `useEffect`. |
+| UserFormDialog render stability | **HIGH** | Extracted stable `EMPTY_ROLE_IDS` module-level constant. |
+| RoleActions index fragility | **HIGH** | Replaced `baseActions[1]` with `.find((a) => a.id === 'delete')`. |
+| Copy codename overflow | **HIGH** | Added 50-char truncation for auto-generated copy codenames. |
+| Locale hardcoding | **HIGH** | Copy/edit actions now use `i18n.language` instead of hardcoded `'en'`. |
+| Test fixes | — | Updated 4 tests: replaced non-UUID IDs with valid UUIDs, added transaction mock implementations. |
+| Validation | — | Lint 0 errors, admin-backend 34/34 tests, admin-frontend 13/13 tests, metapanel-frontend 1/1 test, full build 28/28. |
+
 ## 2026-03-19 PR #729 Bot Review Fixes
 
 Applied fixes for valid bot review comments on PR #729 (Copilot and Gemini Code Assist).

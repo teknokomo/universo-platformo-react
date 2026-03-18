@@ -1,9 +1,9 @@
-import axios from 'axios'
+import { createAuthClient } from '@universo/auth-frontend'
 import type { AdminDashboardStats } from '@universo/types'
 
-const client = axios.create({
+const client = createAuthClient({
     baseURL: '/api/v1',
-    withCredentials: true
+    redirectOn401: 'auto'
 })
 
 export async function getMetapanelStats(): Promise<AdminDashboardStats> {

@@ -184,14 +184,32 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            let savedRole
+            let roleWithPermissions
             try {
-                savedRole = await createRole(exec, {
-                    codename,
-                    name,
-                    description,
-                    color,
-                    is_superuser: isSuperuser
+                roleWithPermissions = await exec.transaction(async (trx) => {
+                    const savedRole = await createRole(trx, {
+                        codename,
+                        name,
+                        description,
+                        color,
+                        is_superuser: isSuperuser
+                    })
+
+                    if (permissions && permissions.length > 0) {
+                        await replacePermissions(
+                            trx,
+                            savedRole.id,
+                            permissions.map((p) => ({
+                                subject: p.subject!,
+                                action: p.action!,
+                                conditions: p.conditions,
+                                fields: p.fields
+                            })),
+                            (req as RequestWithGlobalRole).user?.id
+                        )
+                    }
+
+                    return findRoleById(trx, savedRole.id)
                 })
             } catch (error) {
                 if (isUniqueViolation(error)) {
@@ -205,16 +223,6 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 throw error
             }
 
-            if (permissions && permissions.length > 0) {
-                await replacePermissions(
-                    exec,
-                    savedRole.id,
-                    permissions.map((p) => ({ subject: p.subject!, action: p.action!, conditions: p.conditions, fields: p.fields })),
-                    (req as RequestWithGlobalRole).user?.id
-                )
-            }
-
-            const roleWithPermissions = await findRoleById(exec, savedRole.id)
             res.status(201).json({ success: true, data: roleWithPermissions })
         })
     )
@@ -224,6 +232,15 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
         ensureGlobalAccess('roles', 'create'),
         asyncHandler(async (req, res) => {
             const { id: sourceRoleId } = req.params
+
+            if (!uuid.isValidUuid(sourceRoleId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid role ID format. Must be a valid UUID.'
+                })
+                return
+            }
+
             const parsed = CopyRoleSchema.safeParse(req.body)
 
             if (!parsed.success) {
@@ -363,16 +380,18 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 }
             }
 
-            await updateRole(exec, id, { codename, name, description, color, is_superuser: isSuperuser })
+            await exec.transaction(async (trx) => {
+                await updateRole(trx, id, { codename, name, description, color, is_superuser: isSuperuser })
 
-            if (permissions !== undefined && !role.is_system) {
-                await replacePermissions(
-                    exec,
-                    id,
-                    permissions.map((p) => ({ subject: p.subject!, action: p.action!, conditions: p.conditions, fields: p.fields })),
-                    (req as RequestWithGlobalRole).user?.id
-                )
-            }
+                if (permissions !== undefined && !role.is_system) {
+                    await replacePermissions(
+                        trx,
+                        id,
+                        permissions.map((p) => ({ subject: p.subject!, action: p.action!, conditions: p.conditions, fields: p.fields })),
+                        (req as RequestWithGlobalRole).user?.id
+                    )
+                }
+            })
 
             const updatedRole = await findRoleById(exec, id)
             res.json({ success: true, data: updatedRole })

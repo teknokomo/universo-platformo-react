@@ -46,28 +46,22 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
      */
     return function ensureGlobalAccess(module: string, action: CrudAction) {
         return async (req: Request, res: Response, next: NextFunction) => {
-            console.log('[ensureGlobalAccess] Starting check', { module, action, path: req.path, method: req.method })
             try {
                 const dbSession = getRequestDbSession(req)
 
                 // Check if admin panel is enabled
                 if (!isAdminPanelEnabled()) {
-                    console.log('[ensureGlobalAccess] Admin panel disabled')
                     throw createError(403, 'Admin panel is disabled')
                 }
 
                 const userId = (req as RequestWithGlobalRole).user?.id
-                console.log('[ensureGlobalAccess] User ID:', userId)
 
                 if (!userId) {
-                    console.log('[ensureGlobalAccess] No userId found')
                     throw createError(401, 'Authentication required')
                 }
 
                 // Check if user can access admin panel
-                console.log('[ensureGlobalAccess] Checking admin panel access...')
                 const canAccess = await globalAccessService.canAccessAdmin(userId, dbSession)
-                console.log('[ensureGlobalAccess] canAccessAdmin result:', canAccess)
 
                 if (!canAccess) {
                     throw createError(403, 'Access denied: not an admin user')
@@ -76,14 +70,11 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
                 // Check if user is superuser (bypasses permission checks)
                 const isSuper = await globalAccessService.isSuperuser(userId, dbSession)
                 if (isSuper) {
-                    console.log('[ensureGlobalAccess] Superuser detected - bypassing permission check')
                     return next()
                 }
 
                 // Check specific permission using database-driven RBAC
-                console.log('[ensureGlobalAccess] Checking permission:', { userId, module, action })
                 const hasPermission = await permissionService.hasPermission(userId, module, action, undefined, dbSession)
-                console.log('[ensureGlobalAccess] hasPermission result:', hasPermission)
 
                 if (!hasPermission) {
                     throw createError(403, `Access denied: requires ${module}:${action} permission`)
@@ -91,7 +82,6 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
 
                 // Get role codename for request context
                 const roleCodename = await globalAccessService.getGlobalRoleCodename(userId, dbSession)
-                console.log('[ensureGlobalAccess] ✅ Access granted', { roleCodename, module, action })
 
                 // Attach role info to request
                 ;(req as RequestWithGlobalRole).globalRole = roleCodename ?? undefined

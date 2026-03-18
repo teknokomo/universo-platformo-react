@@ -1263,6 +1263,9 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.21(react@18.3.1)
+      '@universo/auth-frontend':
+        specifier: workspace:*
+        version: link:../../auth-frontend/base
       '@universo/i18n':
         specifier: workspace:*
         version: link:../../universo-i18n/base
@@ -1272,9 +1275,6 @@ importers:
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
-      axios:
-        specifier: 1.13.5
-        version: 1.13.5
       i18next:
         specifier: 'catalog:'
         version: 23.16.8
@@ -4982,7 +4982,6 @@ packages:
   '@rolldown/binding-linux-x64-gnu@1.0.0-beta.43':
     resolution: {integrity: sha512-BgynXKMjeaX4AfWLARhOKDetBOOghnSiVRjAHVvhiAaDXgdQN8e65mSmXRiVoVtD3cHXx/cfU8Gw0p0K+qYKVQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [x64]
     os: [linux]
 
   '@rolldown/binding-linux-x64-musl@1.0.0-beta.43':

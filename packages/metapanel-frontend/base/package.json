@@ -43,10 +43,10 @@
         "@mui/material": "catalog:",
         "@mui/x-charts": "catalog:",
         "@tanstack/react-query": "catalog:",
+        "@universo/auth-frontend": "workspace:*",
         "@universo/i18n": "workspace:*",
         "@universo/template-mui": "workspace:*",
         "@universo/types": "workspace:*",
-        "axios": "catalog:",
         "i18next": "catalog:",
         "react-i18next": "catalog:"
     },

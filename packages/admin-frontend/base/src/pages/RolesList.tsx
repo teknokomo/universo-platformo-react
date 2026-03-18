@@ -308,6 +308,7 @@ const RolesList = () => {
             meta: {
                 navigate,
                 instanceId,
+                locale: i18n.language.split('-')[0] || 'en',
                 copyRole: async (roleId: string, data: RoleFormDialogSubmitData) => {
                     await copyRoleMutation.mutateAsync({ id: roleId, payload: data })
                 }
@@ -354,7 +355,18 @@ const RolesList = () => {
                 }
             }
         }),
-        [confirm, copyRoleMutation, deleteRoleMutation, enqueueSnackbar, instanceId, navigate, queryClient, tc, updateRoleMutation]
+        [
+            confirm,
+            copyRoleMutation,
+            deleteRoleMutation,
+            enqueueSnackbar,
+            i18n.language,
+            instanceId,
+            navigate,
+            queryClient,
+            tc,
+            updateRoleMutation
+        ]
     )
 
     // Filter actions based on permissions

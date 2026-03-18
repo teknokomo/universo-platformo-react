@@ -228,6 +228,7 @@ describe('admin routes request-scoped executor usage', () => {
         const { poolExec, requestExec, session } = buildExecutors()
         rolesStore.findRoleByCodename.mockResolvedValue(null)
         rolesStore.createRole.mockRejectedValue({ code: '23505' })
+        requestExec.transaction.mockImplementation(async (fn: (trx: unknown) => Promise<unknown>) => fn(requestExec))
 
         const app = express()
         app.use(express.json())
@@ -256,8 +257,9 @@ describe('admin routes request-scoped executor usage', () => {
 
     it('returns 409 when role copy hits a concurrent codename conflict after validation', async () => {
         const { poolExec, requestExec, session } = buildExecutors()
+        const sourceRoleId = '00000000-0000-4000-a000-000000000001'
         rolesStore.findRoleById.mockResolvedValue({
-            id: 'role-1',
+            id: sourceRoleId,
             codename: 'editor',
             name: localizedValue,
             description: localizedValue,
@@ -281,7 +283,7 @@ describe('admin routes request-scoped executor usage', () => {
             })
         )
 
-        const response = await request(app).post('/roles/role-1/copy').send({
+        const response = await request(app).post(`/roles/${sourceRoleId}/copy`).send({
             codename: 'editor-copy',
             name: localizedValue,
             description: localizedValue,

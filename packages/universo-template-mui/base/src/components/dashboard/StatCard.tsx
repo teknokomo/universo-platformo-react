@@ -1,4 +1,5 @@
 import { useTheme } from '@mui/material/styles'
+import { useId } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -82,6 +83,7 @@ function AreaGradient({ color, id }: { color: string; id: string }) {
 
 export default function StatCard({ title, value, interval, trend, trendPercentage, description, data, xAxisLabels }: StatCardProps) {
     const theme = useTheme()
+    const gradientId = useId()
 
     // Generate default labels from current month if not provided
     const now = new Date()
@@ -155,11 +157,11 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
                                 }}
                                 sx={{
                                     [`& .${areaElementClasses.root}`]: {
-                                        fill: `url(#area-gradient-${value})`
+                                        fill: `url(#${gradientId})`
                                     }
                                 }}
                             >
-                                <AreaGradient color={chartColor} id={`area-gradient-${value}`} />
+                                <AreaGradient color={chartColor} id={gradientId} />
                             </SparkLineChart>
                         </Box>
                     )}

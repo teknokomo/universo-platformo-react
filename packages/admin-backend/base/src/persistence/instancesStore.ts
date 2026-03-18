@@ -1,5 +1,6 @@
 import type { DbExecutor } from '@universo/utils'
 import { activeAppRowCondition } from '@universo/utils'
+import { escapeLikeWildcards } from '@universo/utils/database'
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export async function listInstances(
     conditions.push(activeAppRowCondition())
 
     if (search) {
-        params.push(`%${search.toLowerCase()}%`)
+        params.push(`%${escapeLikeWildcards(search.toLowerCase())}%`)
         conditions.push(`(LOWER(codename) LIKE $${params.length} OR name::text ILIKE $${params.length})`)
     }
 

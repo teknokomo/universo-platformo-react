@@ -40,10 +40,15 @@ type RoleData = Omit<RoleFormDialogSubmitData, 'copyPermissions'>
 interface RoleActionContext {
     entity: RoleListItem
     t: (key: string, params?: Record<string, unknown>) => string
+    api?: {
+        updateEntity?: (id: string, data: RoleData) => Promise<void>
+        deleteEntity?: (id: string) => Promise<void>
+    }
     meta?: {
         navigate?: (path: string) => void
         instanceId?: string
         copyRole?: (roleId: string, data: RoleFormDialogSubmitData) => Promise<void>
+        locale?: string
     }
 }
 
@@ -65,6 +70,8 @@ const baseActions = createEntityActions<RoleListItem, RoleData>({
     })
 })
 
+const deleteAction = baseActions.find((a) => a.id === 'delete')!
+
 /**
  * Custom edit action: open dialog instead of navigating to the legacy edit flow
  */
@@ -77,30 +84,33 @@ const editRoleAction: ActionDescriptor<RoleListItem, RoleData> = {
         loader: async () => {
             return { default: RoleFormDialog }
         },
-        buildProps: (ctx: RoleActionContext) => ({
-            open: true,
-            title: ctx.t('roles.editTitle', {
-                name: resolveLocalizedContent(ctx.entity.name, 'en', ctx.entity.codename)
-            }),
-            submitLabel: ctx.t('common:actions.save', 'Save'),
-            initialCodename: ctx.entity.codename,
-            initialName: ctx.entity.name,
-            initialDescription: ctx.entity.description ?? null,
-            initialColor: ctx.entity.color,
-            codenameDisabled: ctx.entity.isSystem,
-            showCopyPermissions: false,
-            onClose: () => {
-                // BaseEntityMenu handles close state.
-            },
-            onSubmit: async (data: RoleFormDialogSubmitData) => {
-                await ctx.api?.updateEntity?.(ctx.entity.id, {
-                    codename: data.codename,
-                    name: data.name,
-                    description: data.description,
-                    color: data.color
-                })
+        buildProps: (ctx: RoleActionContext) => {
+            const locale = ctx.meta?.locale || 'en'
+            return {
+                open: true,
+                title: ctx.t('roles.editTitle', {
+                    name: resolveLocalizedContent(ctx.entity.name, locale, ctx.entity.codename)
+                }),
+                submitLabel: ctx.t('common:actions.save', 'Save'),
+                initialCodename: ctx.entity.codename,
+                initialName: ctx.entity.name,
+                initialDescription: ctx.entity.description ?? null,
+                initialColor: ctx.entity.color,
+                codenameDisabled: ctx.entity.isSystem,
+                showCopyPermissions: false,
+                onClose: () => {
+                    // BaseEntityMenu handles close state.
+                },
+                onSubmit: async (data: RoleFormDialogSubmitData) => {
+                    await ctx.api?.updateEntity?.(ctx.entity.id, {
+                        codename: data.codename,
+                        name: data.name,
+                        description: data.description,
+                        color: data.color
+                    })
+                }
             }
-        })
+        }
     }
 }
 
@@ -128,25 +138,30 @@ const copyRoleAction: ActionDescriptor<RoleListItem, RoleData> = {
         loader: async () => {
             return { default: RoleFormDialog }
         },
-        buildProps: (ctx: RoleActionContext) => ({
-            open: true,
-            title: ctx.t('roles.copyTitle', {
-                name: resolveLocalizedContent(ctx.entity.name, 'en', ctx.entity.codename)
-            }),
-            submitLabel: ctx.t('roles.copySubmit', 'Copy role'),
-            initialCodename: ctx.entity.codename ? `${ctx.entity.codename}_copy` : '',
-            initialName: appendCopySuffix(ctx.entity.name),
-            initialDescription: ctx.entity.description ?? null,
-            initialColor: ctx.entity.color,
-            initialCopyPermissions: false,
-            showCopyPermissions: true,
-            onClose: () => {
-                // BaseEntityMenu handles close state.
-            },
-            onSubmit: async (data: RoleFormDialogSubmitData) => {
-                await ctx.meta?.copyRole?.(ctx.entity.id, data)
+        buildProps: (ctx: RoleActionContext) => {
+            const locale = ctx.meta?.locale || 'en'
+            const baseCodename = ctx.entity.codename ? `${ctx.entity.codename}_copy` : ''
+            const initialCodename = baseCodename.length > 50 ? baseCodename.slice(0, 50) : baseCodename
+            return {
+                open: true,
+                title: ctx.t('roles.copyTitle', {
+                    name: resolveLocalizedContent(ctx.entity.name, locale, ctx.entity.codename)
+                }),
+                submitLabel: ctx.t('roles.copySubmit', 'Copy role'),
+                initialCodename,
+                initialName: appendCopySuffix(ctx.entity.name),
+                initialDescription: ctx.entity.description ?? null,
+                initialColor: ctx.entity.color,
+                initialCopyPermissions: false,
+                showCopyPermissions: true,
+                onClose: () => {
+                    // BaseEntityMenu handles close state.
+                },
+                onSubmit: async (data: RoleFormDialogSubmitData) => {
+                    await ctx.meta?.copyRole?.(ctx.entity.id, data)
+                }
             }
-        })
+        }
     }
 }
 
@@ -158,7 +173,7 @@ const roleActions: readonly ActionDescriptor<RoleListItem, RoleData>[] = [
     editRoleAction,
     copyRoleAction, // copy (order: 15)
     viewUsersAction, // viewUsers (order: 20)
-    baseActions[1] // delete (order: 100)
+    deleteAction // delete (order: 100)
 ]
 
 export default roleActions

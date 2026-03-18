@@ -4,7 +4,28 @@
 
 ---
 
-## Current Focus: PR #729 Bot Review Fixes — Applied
+## Current Focus: QA Comprehensive Fix — Complete
+
+- Date: 2026-03-19.
+- Applied all 13 code fixes from the comprehensive QA audit (4 CRITICAL, 10 HIGH severity):
+  1. **C1: LIKE wildcard injection** — Added `escapeLikeWildcards()` to `globalAccessService.ts` and `instancesStore.ts` search queries.
+  2. **C2: UUID validation** — Added `uuid.isValidUuid()` checks on 3 globalUsersRoutes params and 1 rolesRoutes copy param.
+  3. **C3: MetapanelDashboard test mock** — Used `importOriginal` pattern to preserve `buildRealisticTrendData` while mocking UI components.
+  4. **C4: Dashboard API access** — Reviewed and confirmed by-design (uses `ensureGlobalAccess('users', 'read')` middleware).
+  5. **H1: Transaction wrapping** — Create and update role routes now use `exec.transaction()`.
+  6. **H2: Debug console.logs** — Removed all 10 `console.log` statements from `ensureGlobalAccess.ts`.
+  7. **H3: StatCard gradient ID** — Uses `React.useId()` instead of value-based ID.
+  8. **H5: createAuthClient** — Replaced `axios.create()` with shared `createAuthClient()` in metapanel-frontend.
+  9. **H6: RoleEdit setState** — Moved render-time setState to `useEffect`.
+  10. **H7: UserFormDialog** — Extracted stable `EMPTY_ROLE_IDS` constant to prevent re-renders.
+  11. **H8: RoleActions** — Replaced fragile `baseActions[1]` index with `.find()`.
+  12. **H9: Copy codename** — Added 50-char truncation for auto-generated copy codenames.
+  13. **H10: Locale** — Copy/edit actions now use `i18n.language` instead of hardcoded `'en'`.
+- Test updates: Fixed 4 test failures caused by UUID validation and transaction wrapping changes (replaced non-UUID test IDs with valid UUIDs, added transaction mock implementations).
+- Validation: all lint 0 errors, admin-backend 34/34 tests, admin-frontend 13/13 tests, metapanel-frontend 1/1 test, full build 28/28 tasks.
+- Pending: commit and push to PR #729 branch.
+
+## Previous Focus: PR #729 Bot Review Fixes — Applied
 
 - Date: 2026-03-19.
 - Addressed all valid bot review comments from PR #729 (Copilot + Gemini Code Assist):

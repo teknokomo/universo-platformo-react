@@ -122,11 +122,12 @@ describe('dashboard and global users routes', () => {
         attachRequestContext(app, 'admin-1')
         app.use('/global-users', createGlobalUsersRoutes({ globalAccessService, permissionService: {} as never }))
 
-        const response = await request(app).patch('/global-users/user-1').send({ role: 'editor', comment: 'legacy edit' })
+        const memberId = '00000000-0000-4000-a000-000000000002'
+        const response = await request(app).patch(`/global-users/${memberId}`).send({ role: 'editor', comment: 'legacy edit' })
 
         expect(response.status).toBe(200)
         expect(globalAccessService.updateLegacyUserAccess).toHaveBeenCalledWith(
-            'user-1',
+            memberId,
             { roleCodename: 'editor', comment: 'legacy edit' },
             'admin-1'
         )
@@ -186,9 +187,10 @@ describe('dashboard and global users routes', () => {
         attachRequestContext(app, 'admin-1')
         app.use('/global-users', createGlobalUsersRoutes({ globalAccessService, permissionService: {} as never }))
 
-        const response = await request(app).delete('/global-users/user-2')
+        const memberId = '00000000-0000-4000-a000-000000000003'
+        const response = await request(app).delete(`/global-users/${memberId}`)
 
         expect(response.status).toBe(200)
-        expect(globalAccessService.revokeGlobalAccess).toHaveBeenCalledWith('user-2')
+        expect(globalAccessService.revokeGlobalAccess).toHaveBeenCalledWith(memberId)
     })
 })

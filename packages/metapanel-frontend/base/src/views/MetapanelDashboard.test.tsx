@@ -13,28 +13,32 @@ vi.mock('@mui/x-charts/SparkLineChart', () => ({
     SparkLineChart: () => <div data-testid='sparkline-chart' />
 }))
 
-vi.mock('@universo/template-mui', () => ({
-    ViewHeaderMUI: ({ title, description }: { title: string; description?: string }) => (
-        <div>
-            <h1>{title}</h1>
-            {description ? <p>{description}</p> : null}
-        </div>
-    ),
-    StatCard: ({ title, value, description }: { title: string; value: string | number; description?: string }) => (
-        <div>
-            <span>{title}</span>
-            <span>{value}</span>
-            {description ? <span>{description}</span> : null}
-        </div>
-    ),
-    HighlightedCard: ({ title, description, buttonText }: { title: string; description: string; buttonText: string }) => (
-        <div>
-            <span>{title}</span>
-            <span>{description}</span>
-            <button type='button'>{buttonText}</button>
-        </div>
-    )
-}))
+vi.mock('@universo/template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo/template-mui')>()
+    return {
+        ...actual,
+        ViewHeaderMUI: ({ title, description }: { title: string; description?: string }) => (
+            <div>
+                <h1>{title}</h1>
+                {description ? <p>{description}</p> : null}
+            </div>
+        ),
+        StatCard: ({ title, value, description }: { title: string; value: string | number; description?: string }) => (
+            <div>
+                <span>{title}</span>
+                <span>{value}</span>
+                {description ? <span>{description}</span> : null}
+            </div>
+        ),
+        HighlightedCard: ({ title, description, buttonText }: { title: string; description: string; buttonText: string }) => (
+            <div>
+                <span>{title}</span>
+                <span>{description}</span>
+                <button type='button'>{buttonText}</button>
+            </div>
+        )
+    }
+})
 
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },

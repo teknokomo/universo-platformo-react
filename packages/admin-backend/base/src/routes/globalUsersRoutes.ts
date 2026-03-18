@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
-import { activeAppRowCondition, getRequestDbSession, isAdminPanelEnabled, softDeleteSetClause } from '@universo/utils'
+import { activeAppRowCondition, getRequestDbSession, isAdminPanelEnabled, softDeleteSetClause, uuid } from '@universo/utils'
 import { GrantRoleSchema, UpdateGlobalUserSchema, formatZodError, validateListQuery } from '../schemas'
 import { z } from 'zod'
 
@@ -237,6 +237,14 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
     router.put('/:memberId/roles', ensureGlobalAccess('users', 'update'), async (req, res, next) => {
         try {
             const { memberId } = req.params
+
+            if (!uuid.isValidUuid(memberId)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid member ID format. Must be a valid UUID.'
+                })
+            }
+
             const currentUserId = (req as RequestWithGlobalRole).user!.id
 
             if (memberId === currentUserId) {
@@ -320,6 +328,14 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
     router.patch('/:memberId', ensureGlobalAccess('users', 'update'), async (req, res, next) => {
         try {
             const { memberId } = req.params
+
+            if (!uuid.isValidUuid(memberId)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid member ID format. Must be a valid UUID.'
+                })
+            }
+
             const currentUserId = (req as RequestWithGlobalRole).user!.id
 
             // Cannot update own role
@@ -366,6 +382,14 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
     router.delete('/:memberId', ensureGlobalAccess('users', 'delete'), async (req, res, next) => {
         try {
             const { memberId } = req.params
+
+            if (!uuid.isValidUuid(memberId)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid member ID format. Must be a valid UUID.'
+                })
+            }
+
             const currentUserId = (req as RequestWithGlobalRole).user!.id
 
             // Cannot revoke own role

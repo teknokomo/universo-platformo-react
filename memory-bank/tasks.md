@@ -3,6 +3,26 @@
 
 ---
 
+## QA Comprehensive Fix — 2026-03-19
+- Status: COMPLETE
+- [x] C1: Fix LIKE wildcard injection in `globalAccessService.ts` (~L408) and `instancesStore.ts` (~L50)
+- [x] C2: Add UUID validation to `globalUsersRoutes.ts` (3 routes) and `rolesRoutes.ts` copy route
+- [x] C3: Fix MetapanelDashboard.test.tsx mock to include `buildRealisticTrendData`
+- [x] C4: Dashboard API access review (by-design, no change needed)
+- [x] H1: Wrap create/update role routes in `exec.transaction()` in rolesRoutes.ts
+- [x] H2: Remove 10 `console.log` debug statements from ensureGlobalAccess.ts
+- [x] H3: Use `React.useId()` for StatCard gradient ID instead of `value`
+- [x] H5: Replace `axios.create()` with `createAuthClient()` in metapanel-frontend/api/dashboard.ts
+- [x] H6: Move setState during render to useEffect in RoleEdit.tsx
+- [x] H7: Extract `EMPTY_ROLE_IDS` constant in UserFormDialog.tsx
+- [x] H8: Replace `baseActions[1]` with `.find()` in RoleActions.tsx
+- [x] H9: Truncate codename to fit 50 char limit in copy action
+- [x] H10: Use current locale instead of hardcoded 'en' in RoleActions.tsx
+- [x] Fix test failures caused by UUID validation and transaction changes
+- [x] Validate: lint 0 errors, admin-backend 34/34 tests, admin-frontend 13/13 tests, metapanel-frontend 1/1 test, full build 28/28
+
+---
+
 ## PR #729 Bot Review Fixes — 2026-03-19
 - Status: COMPLETE
 - [x] Fix `buildRealisticTrendData()` NaN/Infinity guard for `points <= 1` in `StatCard.tsx`
@@ -11,7 +31,7 @@
 - [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in `CopyRoleSchema` (rolesRoutes.ts)
 - [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in frontend `RoleFormDialog.tsx`
 - [x] Validate: all lint 0 errors, RoleFormDialog 6/6 tests pass, full root build 28/28 in 3m4s
-- [ ] Push updated commit to PR #729 branch
+- [x] Push updated commit to PR #729 branch
 
 ---
 

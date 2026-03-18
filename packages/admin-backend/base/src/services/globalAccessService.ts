@@ -14,6 +14,7 @@ import {
     activeAppRowCondition,
     softDeleteSetClause
 } from '@universo/utils'
+import { escapeLikeWildcards } from '@universo/utils/database'
 
 /**
  * Raw role row from database
@@ -405,7 +406,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 LOWER(COALESCE(u.email, '')) LIKE $${paramIndex}
                 OR LOWER(COALESCE(p.nickname, '')) LIKE $${paramIndex}
             )`)
-            queryParams.push(`%${search.toLowerCase()}%`)
+            queryParams.push(`%${escapeLikeWildcards(search.toLowerCase())}%`)
             paramIndex++
         }
 
