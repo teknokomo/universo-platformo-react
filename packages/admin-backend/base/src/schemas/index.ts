@@ -101,7 +101,7 @@ export const CreateRoleSchema = z.object({
         .string()
         .min(2, 'Codename must be at least 2 characters')
         .max(50, 'Codename must be at most 50 characters')
-        .regex(/^[a-z0-9_-]+$/, 'Codename must be lowercase alphanumeric with underscores/dashes'),
+        .regex(/^[a-z][a-z0-9_-]*$/, 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes'),
     description: LocalizedStringOptionalSchema,
     name: LocalizedStringSchema,
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format'),
@@ -119,7 +119,7 @@ export const UpdateRoleSchema = z.object({
         .string()
         .min(2, 'Codename must be at least 2 characters')
         .max(50, 'Codename must be at most 50 characters')
-        .regex(/^[a-z0-9_-]+$/, 'Codename must be lowercase alphanumeric with underscores/dashes')
+        .regex(/^[a-z][a-z0-9_-]*$/, 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes')
         .optional(),
     description: LocalizedStringOptionalSchema,
     name: LocalizedStringSchema.optional(),

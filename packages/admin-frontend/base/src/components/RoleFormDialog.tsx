@@ -151,8 +151,13 @@ export default function RoleFormDialog({
             return null
         }
 
-        if (!/^[a-z0-9_-]+$/.test(trimmedCodename)) {
-            setValidationError(t('roles.validation.codenameFormat', 'Code name must be lowercase alphanumeric with underscores or dashes'))
+        if (!/^[a-z][a-z0-9_-]*$/.test(trimmedCodename)) {
+            setValidationError(
+                t(
+                    'roles.validation.codenameFormat',
+                    'Code name must start with a letter, only lowercase letters, digits, underscores, or dashes'
+                )
+            )
             return null
         }
 

@@ -42,6 +42,18 @@
 | 0.22.0-alpha | 2025-07-27 | Global Impulse ⚡️                                 | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪                                    | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-03-19 PR #729 Bot Review Fixes
+
+Applied fixes for valid bot review comments on PR #729 (Copilot and Gemini Code Assist).
+
+| Area | Resolution |
+| --- | --- |
+| StatCard NaN/Infinity | `buildRealisticTrendData()` now guards `points <= 0` → `[]` and `points === 1` → single-value array, preventing `i / (points - 1)` = `0/0` = NaN. |
+| OnboardingWizard CTA | "Start Acting" button now `disabled={completionLoading \|\| !onComplete}` — prevents no-op CTA when `onComplete` prop is undefined. |
+| Codename regex unification | Unified ALL codename validation schemas to `/^[a-z][a-z0-9_-]*$/` (must start with letter, allows dashes for slugify compat): `CreateRoleSchema`, `UpdateRoleSchema`, `CopyRoleSchema`, and frontend `RoleFormDialog`. |
+| Gemini suggestion (rejected) | Gemini proposed `/^[a-z][a-z0-9_]*$/` (no dashes) but this would break `slugifyCodename()` which generates kebab-case like `content-editor`. |
+| Validation | All lint 0 errors, RoleFormDialog 6/6 tests pass, full root build 28/28 tasks in 3m4s. |
+
 ## 2026-03-19 QA Closure — Post-Implementation Fixes
 
 Closed two residual defects found during the comprehensive QA audit.

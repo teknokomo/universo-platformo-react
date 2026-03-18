@@ -3,6 +3,18 @@
 
 ---
 
+## PR #729 Bot Review Fixes — 2026-03-19
+- Status: COMPLETE
+- [x] Fix `buildRealisticTrendData()` NaN/Infinity guard for `points <= 1` in `StatCard.tsx`
+- [x] Fix `OnboardingWizard.tsx` CTA disabled state when `onComplete` is undefined
+- [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in `CreateRoleSchema`, `UpdateRoleSchema` (schemas/index.ts)
+- [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in `CopyRoleSchema` (rolesRoutes.ts)
+- [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in frontend `RoleFormDialog.tsx`
+- [x] Validate: all lint 0 errors, RoleFormDialog 6/6 tests pass, full root build 28/28 in 3m4s
+- [ ] Push updated commit to PR #729 branch
+
+---
+
 ## QA Closure — Post-Implementation Fixes — 2026-03-19
 - Status: COMPLETE
 - [x] Remove redundant `.default(true)` from `includeSystem` in `admin-backend/rolesRoutes.ts` — preprocess already handles `undefined → true`

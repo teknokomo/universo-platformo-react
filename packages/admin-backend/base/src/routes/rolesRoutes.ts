@@ -48,7 +48,7 @@ const CopyRoleSchema = z.object({
         .string()
         .min(2)
         .max(50)
-        .regex(/^[a-z0-9_-]+$/),
+        .regex(/^[a-z][a-z0-9_-]*$/),
     name: z.record(z.any()),
     description: z.record(z.any()).optional(),
     color: z

@@ -206,7 +206,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                             onClick={onComplete}
                             variant='contained'
                             color='primary'
-                            disabled={completionLoading}
+                            disabled={completionLoading || !onComplete}
                             startIcon={completionLoading ? <CircularProgress size={16} color='inherit' /> : null}
                         >
                             {t('buttons.startActing')}

@@ -14,6 +14,8 @@ import { areaElementClasses } from '@mui/x-charts/LineChart'
  * When value > 0, returns a smooth growth curve from near 0 to the current value.
  */
 export function buildRealisticTrendData(currentValue: number, points: number = 30): number[] {
+    if (points <= 0) return []
+    if (points === 1) return [currentValue <= 0 ? 0 : currentValue]
     if (currentValue <= 0) {
         return Array(points).fill(0)
     }

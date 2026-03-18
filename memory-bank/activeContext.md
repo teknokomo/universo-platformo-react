@@ -4,7 +4,18 @@
 
 ---
 
-## Current Focus: QA Closure — Post-Implementation Fixes Complete
+## Current Focus: PR #729 Bot Review Fixes — Applied
+
+- Date: 2026-03-19.
+- Addressed all valid bot review comments from PR #729 (Copilot + Gemini Code Assist):
+  1. **StatCard NaN/Infinity** — `buildRealisticTrendData()` now guards `points <= 0` (return `[]`) and `points === 1` (return single-element array), preventing division by zero in `i / (points - 1)`.
+  2. **OnboardingWizard CTA** — "Start Acting" button now `disabled={completionLoading || !onComplete}` so optional `onComplete` prop doesn't create a no-op CTA.
+  3. **Codename regex unification** — All codename validation (CreateRoleSchema, UpdateRoleSchema, CopyRoleSchema, RoleFormDialog frontend) unified to `/^[a-z][a-z0-9_-]*$/` — must start with letter (stricter than before) while preserving dashes (required by `slugifyCodename()` → `@justrelate/slugify`).
+- Gemini's suggestion to use `/^[a-z][a-z0-9_]*$/` (no dashes) was rejected as incompatible with auto-generated codenames like `content-editor`.
+- Validation: lint 0 errors across all touched packages, RoleFormDialog 6/6 tests pass, full root build 28/28 tasks.
+- Pending: push updated commit to PR #729 branch.
+
+## Previous Focus: QA Closure — Post-Implementation Fixes Complete
 
 - Date: 2026-03-19.
 - Two residual QA defects from the comprehensive code audit have been closed:
