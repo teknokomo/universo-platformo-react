@@ -22,6 +22,8 @@ export interface CreateLinkedApplicationOpts {
     publicationDescription?: VersionedLocalizedContent<string> | null
     metahubName: VersionedLocalizedContent<string> | null
     metahubDescription?: VersionedLocalizedContent<string> | null
+    isPublic?: boolean
+    workspacesEnabled?: boolean
     userId: string
 }
 
@@ -44,12 +46,24 @@ export interface CreateLinkedApplicationResult {
  * - POST .../publication/:publicationId/applications endpoint
  */
 export async function createLinkedApplication(opts: CreateLinkedApplicationOpts): Promise<CreateLinkedApplicationResult> {
-    const { exec, publicationId, publicationName, publicationDescription, metahubName, metahubDescription, userId } = opts
+    const {
+        exec,
+        publicationId,
+        publicationName,
+        publicationDescription,
+        metahubName,
+        metahubDescription,
+        isPublic,
+        workspacesEnabled,
+        userId
+    } = opts
 
     // 1. Create Application
     const application = await createApplication(exec, {
         name: publicationName ?? buildLocalizedContent({ en: 'Application' }, 'en')!,
         description: publicationDescription ?? undefined,
+        isPublic,
+        workspacesEnabled,
         userId
     })
 

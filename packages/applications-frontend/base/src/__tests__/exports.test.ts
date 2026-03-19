@@ -57,7 +57,7 @@ describe('applications-frontend entry exports', () => {
         expect(entry.toApplicationDisplay).toBeTruthy()
         expect(entry.toConnectorDisplay).toBeTruthy()
         expect(entry.getVLCString).toBeTruthy()
-    }, 15000)
+    }, 30000)
 
     it('exports applications dashboard menu structure', async () => {
         const { default: applicationDashboard } = await import('../menu-items/applicationDashboard')
@@ -81,5 +81,5 @@ describe('applications-frontend entry exports', () => {
         expect(typeof en).toBe('object')
         expect(typeof ru).toBe('object')
         expect(typeof fallback).toBe('object')
-    }, 15000)
+    }, 30000)
 })

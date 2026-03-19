@@ -20,6 +20,9 @@ Frontend application for managing applications and connectors in the Universo Pl
 - **Complete Data Isolation**: Data from different applications is completely separated
 - **Role-Based Access**: User roles and permissions for application access control
 - **Context-Aware Navigation**: Application-aware routing with breadcrumbs and sidebar preservation
+- **Public Discovery + Join**: Public applications are visible to regular users and support explicit join / leave flows
+- **Workspace Isolation**: Workspace-enabled applications isolate runtime catalog rows per user workspace
+- **Workspace Limits**: Admin settings expose per-catalog row limits at the workspace boundary
 
 ### 🗂️ Connectors
 - **Connectors**: Data containers that define the structure of your application
@@ -30,6 +33,8 @@ Frontend application for managing applications and connectors in the Universo Pl
 - **Responsive Design**: Optimized for desktop and mobile experiences
 - **Table & Grid Views**: Flexible data presentation with pagination and search
 - **Dialog Forms**: Modal forms for creating and editing entities
+- **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
+- **Settings Surface**: Applications with runtime schema now expose `General` and `Limits` settings tabs
 
 ### 🔧 Technical Features
 - **TypeScript-First**: Full TypeScript implementation with strict typing
@@ -121,6 +126,10 @@ POST   /api/v1/applications                    # Create application
 GET    /api/v1/applications/:id                # Get application details
 PUT    /api/v1/applications/:id                # Update application
 DELETE /api/v1/applications/:id                # Delete application
+POST   /api/v1/applications/:id/join           # Join a public application
+POST   /api/v1/applications/:id/leave          # Leave an application and archive personal workspace
+GET    /api/v1/applications/:id/settings/limits # Read workspace catalog limits
+PUT    /api/v1/applications/:id/settings/limits # Update workspace catalog limits
 ```
 
 ### Connectors
@@ -145,8 +154,17 @@ DELETE /api/v1/applications/:id/members/:mid   # Remove member
 |---------|----------------|------------|----------------|--------------|----------------|
 | owner   | ✅              | ✅          | ✅              | ✅            | ✅              |
 | admin   | ✅              | ✅          | ✅              | ✅            | ✅              |
-| editor  | ❌              | ❌          | ✅              | ✅            | ✅              |
-| member  | ❌              | ❌          | ❌              | ❌            | ❌              |
+| editor  | ❌              | ❌          | ✅              | ✅            | ❌              |
+| member  | ❌              | ❌          | ✅              | ✅            | ✅              |
+
+## Workspace-Aware Behavior
+
+- `Public` visibility is immutable after creation.
+- The create UI auto-enables workspaces for public apps, but still allows opting out with a warning when a shared data surface is intentional.
+- `Add workspaces` is also immutable after creation.
+- On first runtime schema creation, the owner and all current members receive a personal `Main` workspace in the database.
+- Runtime catalog creation and copy flows enforce workspace boundaries automatically.
+- When a workspace limit is reached, the runtime UI disables the create action and shows an informational alert.
 
 ## Development
 

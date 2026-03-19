@@ -50,6 +50,12 @@ export interface CreatePublicationPayload {
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     autoCreateApplication?: boolean
+    applicationIsPublic?: boolean
+    applicationWorkspacesEnabled?: boolean
+    applicationName?: SimpleLocalizedInput
+    applicationDescription?: SimpleLocalizedInput
+    applicationNamePrimaryLocale?: string
+    applicationDescriptionPrimaryLocale?: string
     versionName?: SimpleLocalizedInput
     versionDescription?: SimpleLocalizedInput
     versionNamePrimaryLocale?: string

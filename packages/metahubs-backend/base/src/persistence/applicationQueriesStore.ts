@@ -19,6 +19,8 @@ export interface AppRow {
     name: VersionedLocalizedContent<string> | null
     description: VersionedLocalizedContent<string> | null
     slug: string | null
+    isPublic?: boolean
+    workspacesEnabled?: boolean
     schemaName: string | null
     schemaStatus: ApplicationSchemaStatus | null
     schemaError: string | null
@@ -60,6 +62,8 @@ const APP_SELECT = `
     name,
     description,
     slug,
+    is_public            AS "isPublic",
+    workspaces_enabled   AS "workspacesEnabled",
     schema_name         AS "schemaName",
     schema_status       AS "schemaStatus",
     schema_error        AS "schemaError",
@@ -162,14 +166,29 @@ export async function createApplication(
     input: {
         name: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
+        isPublic?: boolean
+        workspacesEnabled?: boolean
         userId: string
     }
 ): Promise<AppRow> {
     const rows = await exec.query<AppRow>(
-        `INSERT INTO applications.cat_applications (name, description, _upl_created_by, _upl_updated_by)
-         VALUES ($1, $2, $3, $3)
+        `INSERT INTO applications.cat_applications (
+             name,
+             description,
+             is_public,
+             workspaces_enabled,
+             _upl_created_by,
+             _upl_updated_by
+         )
+         VALUES ($1, $2, $3, $4, $5, $5)
          RETURNING ${APP_SELECT}`,
-        [JSON.stringify(input.name), input.description ? JSON.stringify(input.description) : null, input.userId]
+        [
+            JSON.stringify(input.name),
+            input.description ? JSON.stringify(input.description) : null,
+            input.isPublic === true,
+            input.workspacesEnabled === true,
+            input.userId
+        ]
     )
     return rows[0]
 }

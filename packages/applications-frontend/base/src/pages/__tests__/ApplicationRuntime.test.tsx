@@ -17,7 +17,14 @@ const runtimeMocks = vi.hoisted(() => ({
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key,
+        t: (_key: string, options?: string | { defaultValue?: string; [key: string]: unknown }) => {
+            if (typeof options === 'string') {
+                return options
+            }
+
+            const template = options?.defaultValue ?? _key
+            return template.replace('{{current}}', String(options?.current ?? '')).replace('{{max}}', String(options?.max ?? ''))
+        },
         i18n: { language: 'en' }
     })
 }))
@@ -38,8 +45,9 @@ vi.mock('@universo/apps-template-mui', async () => {
 
     return {
         ...actual,
-        AppsDashboard: ({ details }: { details?: { title?: string; actions?: ReactNode } }) => (
+        AppsDashboard: ({ details }: { details?: { title?: string; actions?: ReactNode; banner?: ReactNode } }) => (
             <div data-testid='apps-dashboard'>
+                <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
                 <div data-testid='apps-dashboard-title'>{details?.title}</div>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
             </div>
@@ -180,6 +188,28 @@ describe('ApplicationRuntime pending interaction safety', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders the workspace limit banner inside dashboard details area', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                catalog: { name: 'Details' },
+                workspaceLimit: {
+                    canCreate: false,
+                    currentRows: 2,
+                    maxRows: 2
+                }
+            }
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByTestId('apps-dashboard-banner')).toHaveTextContent(
+            'The workspace limit for this catalog has been reached (2 / 2).'
+        )
     })
 
     it('blocks inline BOOLEAN mutation attempts for pending rows', async () => {

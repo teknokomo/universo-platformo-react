@@ -5,6 +5,7 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Divider from '@mui/material/Divider'
+import { useQuery } from '@tanstack/react-query'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
@@ -18,6 +19,12 @@ import {
     getApplicationMenuItems,
     getInstanceMenuItems
 } from '../../navigation/menuConfigs'
+
+type ApplicationShellDetail = Record<string, unknown> & {
+    name?: unknown
+    slug?: string | null
+    schemaName?: string | null
+}
 
 export default function MenuContent() {
     const { t } = useTranslation('menu', { i18n })
@@ -40,13 +47,43 @@ export default function MenuContent() {
     const applicationAdminMatch = location.pathname.match(/^\/a\/([^/]+)\/admin(?:\/|$)/)
     const applicationId = applicationAdminMatch ? applicationAdminMatch[1] : null
 
+    const applicationDetailQuery = useQuery<ApplicationShellDetail>({
+        queryKey: applicationId ? ['applications', 'detail', applicationId] : ['applications', 'detail', 'missing-id'],
+        queryFn: async () => {
+            const response = await fetch(`/api/v1/applications/${applicationId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to load application detail for menu: ${response.status}`)
+            }
+
+            return (await response.json()) as ApplicationShellDetail
+        },
+        enabled: Boolean(applicationId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        retryOnMount: true,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false
+    })
+
     // Check if we're in an instance context (/admin/instance/:id)
     const instanceMatch = location.pathname.match(/^\/admin\/instance\/([^/]+)/)
     const instanceId = instanceMatch ? instanceMatch[1] : null
 
+    const shouldHideApplicationSettingsItem =
+        Boolean(applicationId) && applicationDetailQuery.isSuccess && !applicationDetailQuery.data?.schemaName
+
     // Use context-specific menu or root menu
     const menuItems = applicationId
-        ? getApplicationMenuItems(applicationId)
+        ? getApplicationMenuItems(applicationId).filter((item) =>
+              item.id === 'application-settings' ? !shouldHideApplicationSettingsItem : true
+          )
         : metahubId
         ? getMetahubMenuItems(metahubId)
         : instanceId
@@ -61,7 +98,12 @@ export default function MenuContent() {
                         return <Divider key={item.id} sx={{ my: 1 }} />
                     }
                     const Icon = item.icon
-                    const buttonProps = item.external
+                    const isApplicationSettingsItem = item.id === 'application-settings' && Boolean(applicationId)
+                    const isApplicationSettingsDisabled =
+                        isApplicationSettingsItem && !applicationDetailQuery.isSuccess && !applicationDetailQuery.data?.schemaName
+                    const buttonProps = isApplicationSettingsDisabled
+                        ? { component: 'div' as const }
+                        : item.external
                         ? { component: 'a', href: item.url, target: item.target ?? '_blank', rel: 'noopener noreferrer' }
                         : { component: NavLink, to: item.url }
 
@@ -74,7 +116,7 @@ export default function MenuContent() {
 
                     return (
                         <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                            <ListItemButton selected={isSelected} {...buttonProps}>
+                            <ListItemButton selected={isSelected} disabled={isApplicationSettingsDisabled} {...buttonProps}>
                                 <ListItemIcon>{<Icon size={20} stroke={1.5} />}</ListItemIcon>
                                 <ListItemText primary={t(item.titleKey)} />
                             </ListItemButton>

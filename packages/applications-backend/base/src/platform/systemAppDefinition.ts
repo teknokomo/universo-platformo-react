@@ -39,6 +39,13 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 defaultSqlExpression: 'false'
             },
             {
+                codename: 'workspaces_enabled',
+                physicalColumnName: 'workspaces_enabled',
+                dataType: AttributeDataType.BOOLEAN,
+                isRequired: true,
+                defaultSqlExpression: 'false'
+            },
+            {
                 codename: 'schema_name',
                 physicalColumnName: 'schema_name',
                 dataType: AttributeDataType.STRING,

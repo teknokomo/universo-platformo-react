@@ -17,12 +17,64 @@
             "action": "Copy",
             "actionLoading": "Copying...",
             "generalTab": "General",
-            "optionsTab": "Options",
             "copyConnector": "Copy connector",
             "createSchema": "Create application schema",
             "createSchemaDisabledHint": "Enable \"Copy connector\" to make schema creation available.",
             "copyAccess": "Copy access permissions",
             "syncFailed": "Application was copied, but schema creation failed. You can retry schema sync from the application panel."
+        },
+        "visibility": {
+            "closed": "Closed",
+            "public": "Public"
+        },
+        "parameters": {
+            "tab": "Parameters",
+            "visibilityHint": "Application visibility cannot be changed after creation.",
+            "visibilityLocked": "Application visibility is fixed after creation and cannot be changed.",
+            "workspacesEnabled": "Add workspaces",
+            "workspacesHint": "Workspace mode cannot be disabled after the application is created.",
+            "workspacesLocked": "Workspace mode is fixed after creation and cannot be changed.",
+            "publicRequiresWorkspaces": "Workspaces are recommended for public applications to isolate data for each participant.",
+            "publicWorkspacesRecommended": "Workspaces are recommended for public applications to isolate data for each participant."
+        },
+        "join": {
+            "action": "Join",
+            "dialogTitle": "Join \"{{name}}\"?",
+            "dialogDescription": "Join this application to start using it.",
+            "success": "You joined the application",
+            "error": "Failed to join the application"
+        },
+        "leave": {
+            "action": "Leave",
+            "dialogTitle": "Leave \"{{name}}\"?",
+            "dialogDescription": "If you leave this application, your workspace and all related data will be archived and removed from your view.",
+            "success": "You left the application",
+            "error": "Failed to leave the application"
+        },
+        "memberActions": {
+            "use": "Use",
+            "leave": "Leave"
+        },
+        "settings": {
+            "title": "Application Settings",
+            "tabs": {
+                "general": "General",
+                "limits": "Limits"
+            },
+            "requiresSchema": "Application settings that depend on runtime schema will become available after the schema is created.",
+            "requiresWorkspaces": "Workspace-specific settings are available only for applications created with workspace mode enabled.",
+            "generalPlaceholder": "General application settings will be available in future versions.",
+            "limitsHint": "Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.",
+            "limitsRequiresSchema": "Limits settings will become available after the application schema is created.",
+            "limitsRequiresWorkspaces": "Limits are available only for applications created with workspace mode enabled.",
+            "limitsLoadError": "Failed to load limits",
+            "limitsSaved": "Limits saved",
+            "limitsSaveError": "Failed to save limits",
+            "missingApplicationId": "Application ID is missing in URL",
+            "loadError": "Failed to load application settings",
+            "maxRows": "Max rows",
+            "emptyMeansUnlimited": "Leave empty for unlimited",
+            "save": "Save"
         },
         "actions": {
             "edit": "Edit",
@@ -108,7 +160,8 @@
             "errorUpdate": "Update failed: {{message}}",
             "errorDelete": "Delete failed: {{message}}",
             "errorCopy": "Copy failed: {{message}}",
-            "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again."
+            "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
+            "workspaceLimitReached": "The workspace limit for this catalog has been reached ({{current}} / {{max}})."
         }
     },
     "connectors": {

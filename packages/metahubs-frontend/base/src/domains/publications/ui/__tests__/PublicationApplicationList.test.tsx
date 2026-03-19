@@ -227,6 +227,8 @@ describe('PublicationApplicationList', () => {
 
         await user.click(screen.getByRole('button', { name: 'create' }))
         await user.click(screen.getByRole('button', { name: 'Fill table.name' }))
+        await user.click(screen.getByRole('radio', { name: 'Public' }))
+        await user.click(screen.getByRole('checkbox', { name: 'Add workspaces' }))
         await user.click(screen.getByRole('switch', { name: 'Create application schema' }))
         await user.click(screen.getAllByRole('button', { name: 'create' }).at(-1)!)
 
@@ -240,7 +242,9 @@ describe('PublicationApplicationList', () => {
                         description: undefined,
                         namePrimaryLocale: 'en',
                         descriptionPrimaryLocale: undefined,
-                        createApplicationSchema: true
+                        createApplicationSchema: true,
+                        isPublic: true,
+                        workspacesEnabled: false
                     }
                 },
                 expect.objectContaining({

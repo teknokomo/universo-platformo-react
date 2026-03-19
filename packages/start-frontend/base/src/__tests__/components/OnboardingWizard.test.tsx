@@ -4,6 +4,8 @@ import { OnboardingWizard } from '../../components/OnboardingWizard'
 import type { OnboardingItems, OnboardingCatalogItem } from '../../types'
 import type { VersionedLocalizedContent } from '@universo/types'
 
+const useMediaQueryMock = vi.hoisted(() => vi.fn(() => false))
+
 // Stable references to avoid re-triggering useEffect on each render
 const stableT = (key: string) => key
 const stableI18n = { language: 'en' }
@@ -11,6 +13,10 @@ const stableTranslation = { t: stableT, i18n: stableI18n }
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => stableTranslation
+}))
+
+vi.mock('@mui/material/useMediaQuery', () => ({
+    default: useMediaQueryMock
 }))
 
 vi.mock('../../api/onboarding', () => ({
@@ -46,6 +52,7 @@ const mockItemsData: OnboardingItems = {
 
 beforeEach(() => {
     vi.clearAllMocks()
+    useMediaQueryMock.mockReturnValue(false)
     vi.mocked(getOnboardingItems).mockResolvedValue(mockItemsData)
     vi.mocked(syncSelections).mockResolvedValue({
         success: true,
@@ -153,5 +160,16 @@ describe('OnboardingWizard', () => {
         await waitFor(() => {
             expect(onComplete).toHaveBeenCalledTimes(1)
         })
+    })
+
+    it('renders compact mobile progress instead of hiding onboarding navigation', async () => {
+        useMediaQueryMock.mockReturnValue(true)
+
+        render(<OnboardingWizard initialItems={mockItemsData} />)
+
+        await screen.findByText('welcome.title')
+
+        expect(screen.getByText('steps.progress')).toBeInTheDocument()
+        expect(screen.getByText('steps.welcome.label')).toBeInTheDocument()
     })
 })

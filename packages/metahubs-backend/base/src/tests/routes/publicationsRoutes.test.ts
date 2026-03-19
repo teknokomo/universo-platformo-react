@@ -302,6 +302,7 @@ describe('Publications Routes', () => {
                 expect.stringContaining('UPDATE applications.cat_applications')
             ])
         )
+        expect(compensationSql.join('\n')).toContain('_upl_version = COALESCE(cp._upl_version, 1) + 1')
     })
 
     it('runs published application runtime sync and persists synced state after successful schema generation', async () => {
@@ -365,7 +366,9 @@ describe('Publications Routes', () => {
             .send({
                 name: { en: 'Publication' },
                 autoCreateApplication: true,
-                createApplicationSchema: true
+                createApplicationSchema: true,
+                applicationIsPublic: true,
+                applicationWorkspacesEnabled: false
             })
             .expect(201)
 
@@ -397,6 +400,14 @@ describe('Publications Routes', () => {
                 }),
                 userId: 'user-1',
                 afterMigrationRecorded: expect.any(Function)
+            })
+        )
+        expect(mockCreateLinkedApplication).toHaveBeenCalledWith(
+            expect.objectContaining({
+                publicationId: 'publication-1',
+                isPublic: true,
+                workspacesEnabled: false,
+                userId: 'user-1'
             })
         )
         expect(mockRunPublishedApplicationRuntimeSync).toHaveBeenCalledWith(
@@ -460,11 +471,21 @@ describe('Publications Routes', () => {
             .post('/metahub/metahub-1/publication/publication-1/applications')
             .send({
                 name: { en: 'Application' },
-                createApplicationSchema: true
+                createApplicationSchema: true,
+                isPublic: true,
+                workspacesEnabled: false
             })
             .expect(500)
 
         expect(response.body).toEqual({ error: 'Failed to create linked application schema: ddl exploded' })
+        expect(mockCreateLinkedApplication).toHaveBeenCalledWith(
+            expect.objectContaining({
+                publicationId: 'publication-1',
+                isPublic: true,
+                workspacesEnabled: false,
+                userId: 'user-1'
+            })
+        )
         const compensationSql = transactionExecutors[1].query.mock.calls.map(([sql]) => String(sql))
 
         expect(compensationSql).toEqual(

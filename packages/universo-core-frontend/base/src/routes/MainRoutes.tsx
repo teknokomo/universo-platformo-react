@@ -31,6 +31,8 @@ const ApplicationsApplicationBoard = Loadable(lazy(() => import('@universo/appli
 const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMembers')))
 const ApplicationsApplicationMigrations = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMigrations')))
 const ApplicationsApplicationRuntime = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationRuntime')))
+const ApplicationsApplicationSettings = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationSettings')))
+const ApplicationsApplicationGuard = Loadable(lazy(() => import('@universo/applications-frontend/components/ApplicationGuard')))
 const ApplicationsApplicationAdminGuard = Loadable(lazy(() => import('@universo/applications-frontend/components/ApplicationAdminGuard')))
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
 const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorBoard')))
@@ -70,9 +72,11 @@ const AdminSettings = Loadable(lazy(() => import('@universo/admin-frontend/pages
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
 const GuardedApplicationRuntime = () => (
-    <ApplicationsMigrationGuard>
-        <ApplicationsApplicationRuntime />
-    </ApplicationsMigrationGuard>
+    <ApplicationsApplicationGuard>
+        <ApplicationsMigrationGuard>
+            <ApplicationsApplicationRuntime />
+        </ApplicationsMigrationGuard>
+    </ApplicationsApplicationGuard>
 )
 
 const HomeRoute = {
@@ -182,7 +186,8 @@ const MainRoutes = {
                 { path: 'connectors', element: <ApplicationsConnectorList /> },
                 { path: 'connector/:connectorId', element: <ApplicationsConnectorBoard /> },
                 { path: 'migrations', element: <ApplicationsApplicationMigrations /> },
-                { path: 'access', element: <ApplicationsApplicationMembers /> }
+                { path: 'access', element: <ApplicationsApplicationMembers /> },
+                { path: 'settings', element: <ApplicationsApplicationSettings /> }
             ]
         },
         {
@@ -269,4 +274,4 @@ const MainRoutes = {
     ]
 }
 
-export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, MinimalRoutes, MainRoutes]
+export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, MainRoutes, MinimalRoutes]

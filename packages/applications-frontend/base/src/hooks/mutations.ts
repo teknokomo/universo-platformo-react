@@ -35,7 +35,7 @@ import {
     isHttpStatus,
     isOptimisticLockConflict
 } from '@universo/utils'
-import type { ConnectorLocalizedPayload, ApplicationLocalizedPayload, SimpleLocalizedInput } from '../types'
+import type { Application, ApplicationMember, Connector, ConnectorLocalizedPayload, SimpleLocalizedInput } from '../types'
 import { normalizeLocale } from '../utils/localizedInput'
 import * as applicationsApi from '../api/applications'
 import * as connectorsApi from '../api/connectors'
@@ -45,16 +45,22 @@ import { applicationsQueryKeys } from '../api/queryKeys'
 // Types
 // ============================================================================
 
-type LegacyApplicationInput = { name: string; description?: string }
-
 interface UpdateApplicationParams {
     id: string
-    data: LegacyApplicationInput | ApplicationLocalizedPayload
+    data: applicationsApi.ApplicationInput
 }
 
 interface CopyApplicationParams {
     id: string
     data?: applicationsApi.ApplicationCopyInput
+}
+
+interface JoinApplicationParams {
+    id: string
+}
+
+interface LeaveApplicationParams {
+    id: string
 }
 
 class CopySyncStepError extends Error {
@@ -106,10 +112,7 @@ interface SyncConnectorParams {
 // Helpers
 // ============================================================================
 
-const buildLocalizedInput = (value: string | undefined, locale: string): SimpleLocalizedInput | undefined => {
-    if (!value) return undefined
-    return { [locale]: value }
-}
+const toOptimisticRecord = <T extends { id: string }>(entity: T): T & Record<string, unknown> => entity as T & Record<string, unknown>
 
 // ============================================================================
 // Application Mutations
@@ -125,38 +128,30 @@ export function useCreateApplication() {
 
     return useMutation({
         mutationKey: ['applications', 'create'],
-        mutationFn: async (data: LegacyApplicationInput | ApplicationLocalizedPayload) => {
-            const locale = normalizeLocale(i18n.language)
-            const payload: ApplicationLocalizedPayload =
-                typeof data.name === 'string'
-                    ? {
-                          name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
-                          description: buildLocalizedInput(data.description, locale),
-                          namePrimaryLocale: locale,
-                          descriptionPrimaryLocale: data.description ? locale : undefined
-                      }
-                    : data
-            const response = await applicationsApi.createApplication(payload)
+        mutationFn: async (data: applicationsApi.ApplicationInput) => {
+            const response = await applicationsApi.createApplication(data)
             return response.data
         },
         onMutate: async (data) => {
             const locale = normalizeLocale(i18n.language)
             const optimisticId = generateOptimisticId()
-            const displayName = typeof data.name === 'string' ? data.name : getVLCString(data.name, locale)
+            const displayName = getVLCString(data.name, locale)
 
             const context = await applyOptimisticCreate({
                 queryClient,
                 queryKeyPrefix: applicationsQueryKeys.lists(),
-                optimisticEntity: {
+                optimisticEntity: toOptimisticRecord({
                     id: optimisticId,
-                    name: typeof data.name === 'string' ? { [locale]: data.name } : data.name,
-                    description: typeof data.name === 'string' ? buildLocalizedInput(data.description, locale) : data.description,
+                    name: data.name,
+                    description: data.description,
                     displayName: displayName || '',
+                    isPublic: data.isPublic === true,
+                    workspacesEnabled: data.workspacesEnabled === true,
                     role: 'owner',
                     accessType: 'member',
                     connectorsCount: 0,
                     ...makePendingMarkers('create')
-                }
+                })
             })
 
             return context
@@ -168,7 +163,7 @@ export function useCreateApplication() {
         onSuccess: (data, _variables, context) => {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(queryClient, applicationsQueryKeys.lists(), context.optimisticId, data.id, {
-                    serverEntity: data
+                    serverEntity: toOptimisticRecord(data as Application)
                 })
             }
             enqueueSnackbar(t('createSuccess', 'Application created'), { variant: 'success' })
@@ -190,30 +185,20 @@ export function useUpdateApplication() {
     return useMutation({
         mutationKey: ['applications', 'update'],
         mutationFn: async ({ id, data }: UpdateApplicationParams) => {
-            const locale = normalizeLocale(i18n.language)
-            const payload: ApplicationLocalizedPayload =
-                typeof data.name === 'string'
-                    ? {
-                          name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
-                          description: buildLocalizedInput(data.description, locale),
-                          namePrimaryLocale: locale,
-                          descriptionPrimaryLocale: data.description ? locale : undefined
-                      }
-                    : data
-            const response = await applicationsApi.updateApplication(id, payload)
+            const response = await applicationsApi.updateApplication(id, data)
             return response.data
         },
         onMutate: async ({ id, data }) => {
             const locale = normalizeLocale(i18n.language)
-            const displayName = typeof data.name === 'string' ? data.name : getVLCString(data.name, locale)
+            const displayName = getVLCString(data.name, locale)
 
             const context = await applyOptimisticUpdate({
                 queryClient,
                 queryKeyPrefix: applicationsQueryKeys.lists(),
                 entityId: id,
                 updater: {
-                    name: typeof data.name === 'string' ? { [locale]: data.name } : data.name,
-                    description: typeof data.name === 'string' ? buildLocalizedInput(data.description, locale) : data.description,
+                    name: data.name,
+                    description: data.description,
                     ...(displayName ? { displayName } : {})
                 },
                 detailQueryKey: applicationsQueryKeys.detail(id)
@@ -231,7 +216,7 @@ export function useUpdateApplication() {
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: applicationsQueryKeys.lists() })
             confirmOptimisticUpdate(queryClient, applicationsQueryKeys.lists(), variables.id, {
-                serverEntity: data ?? null
+                serverEntity: data ? toOptimisticRecord(data as Application) : null
             })
             if (data) {
                 queryClient.setQueryData(applicationsQueryKeys.detail(variables.id), data)
@@ -312,7 +297,7 @@ export function useCopyApplication() {
 
             return copiedApplication
         },
-        onMutate: async ({ id }) => {
+        onMutate: async ({ id, data }) => {
             const optimisticId = generateOptimisticId()
             const locale = normalizeLocale(i18n.language)
             const queryKeyPrefix = applicationsQueryKeys.lists()
@@ -332,6 +317,8 @@ export function useCopyApplication() {
                     name: existingApp?.name ?? { [locale]: t('copyInProgress', 'Copying…') },
                     description: existingApp?.description,
                     displayName: typeof existingApp?.displayName === 'string' ? existingApp.displayName : '',
+                    isPublic: data?.isPublic ?? existingApp?.isPublic ?? false,
+                    workspacesEnabled: data?.workspacesEnabled ?? existingApp?.workspacesEnabled ?? false,
                     role: 'owner',
                     accessType: 'member',
                     connectorsCount: 0,
@@ -363,13 +350,62 @@ export function useCopyApplication() {
         onSuccess: (data, _variables, context) => {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(queryClient, applicationsQueryKeys.lists(), context.optimisticId, data.id, {
-                    serverEntity: data
+                    serverEntity: toOptimisticRecord(data as Application)
                 })
             }
             enqueueSnackbar(t('copySuccess', 'Application copied'), { variant: 'success' })
         },
         onSettled: () => {
             safeInvalidateQueriesInactive(queryClient, ['applications'], applicationsQueryKeys.lists())
+        }
+    })
+}
+
+export function useJoinApplication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('applications')
+
+    return useMutation({
+        mutationKey: ['applications', 'join'],
+        mutationFn: async ({ id }: JoinApplicationParams) => {
+            const response = await applicationsApi.joinApplication(id)
+            return response.data
+        },
+        onSuccess: async (_data, variables) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() }),
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(variables.id) })
+            ])
+            enqueueSnackbar(t('join.success', 'You joined the application'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('join.error', 'Failed to join the application'), { variant: 'error' })
+        }
+    })
+}
+
+export function useLeaveApplication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('applications')
+
+    return useMutation({
+        mutationKey: ['applications', 'leave'],
+        mutationFn: async ({ id }: LeaveApplicationParams) => {
+            const response = await applicationsApi.leaveApplication(id)
+            return response.data
+        },
+        onSuccess: async (_data, variables) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() }),
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(variables.id) }),
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(variables.id) })
+            ])
+            enqueueSnackbar(t('leave.success', 'You left the application'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('leave.error', 'Failed to leave the application'), { variant: 'error' })
         }
     })
 }
@@ -396,7 +432,7 @@ export function useInviteMember() {
             return applyOptimisticCreate({
                 queryClient,
                 queryKeyPrefix: applicationsQueryKeys.members(applicationId),
-                optimisticEntity: {
+                optimisticEntity: toOptimisticRecord({
                     id: generateOptimisticId(),
                     userId: generateOptimisticId(),
                     email: data.email,
@@ -406,7 +442,7 @@ export function useInviteMember() {
                     commentVlc: data.comment ?? null,
                     createdAt: new Date().toISOString(),
                     ...makePendingMarkers('create')
-                },
+                }),
                 insertPosition: 'prepend'
             })
         },
@@ -418,7 +454,7 @@ export function useInviteMember() {
                     context.optimisticId,
                     data.id,
                     {
-                        serverEntity: data
+                        serverEntity: toOptimisticRecord(data as ApplicationMember)
                     }
                 )
             }
@@ -483,7 +519,7 @@ export function useUpdateMemberRole() {
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: applicationsQueryKeys.members(variables.applicationId) })
             confirmOptimisticUpdate(queryClient, applicationsQueryKeys.members(variables.applicationId), variables.memberId, {
-                serverEntity: data ?? null
+                serverEntity: data ? toOptimisticRecord(data as ApplicationMember) : null
             })
             enqueueSnackbar(t('members.updateSuccess'), { variant: 'success' })
         },
@@ -613,7 +649,7 @@ export function useCreateConnector() {
             return applyOptimisticCreate({
                 queryClient,
                 queryKeyPrefix,
-                optimisticEntity: {
+                optimisticEntity: toOptimisticRecord({
                     id: optimisticId,
                     applicationId,
                     name: data.name,
@@ -624,7 +660,7 @@ export function useCreateConnector() {
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                     ...makePendingMarkers('create')
-                },
+                }),
                 insertPosition: 'append',
                 breadcrumb: { queryKey: ['breadcrumb', 'connector', applicationId, optimisticId, lang], name: displayName }
             })
@@ -636,7 +672,7 @@ export function useCreateConnector() {
                     applicationsQueryKeys.connectors(variables.applicationId),
                     context.optimisticId,
                     data.id,
-                    { serverEntity: data }
+                    { serverEntity: toOptimisticRecord(data as Connector) }
                 )
             }
             enqueueSnackbar(t('connectors.createSuccess', 'Connector created'), { variant: 'success' })
@@ -691,7 +727,7 @@ export function useUpdateConnector() {
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: applicationsQueryKeys.connectors(variables.applicationId) })
             confirmOptimisticUpdate(queryClient, applicationsQueryKeys.connectors(variables.applicationId), variables.connectorId, {
-                serverEntity: data ?? null
+                serverEntity: data ? toOptimisticRecord(data as Connector) : null
             })
             if (data) {
                 queryClient.setQueryData(applicationsQueryKeys.connectorDetail(variables.applicationId, variables.connectorId), data)

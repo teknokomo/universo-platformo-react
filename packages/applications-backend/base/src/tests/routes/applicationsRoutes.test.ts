@@ -18,6 +18,7 @@ jest.mock('@universo/schema-ddl', () => ({
 
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { getGlobalRoleCodename, hasSubjectPermission, isSuperuser } from '@universo/admin-backend'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
@@ -133,6 +134,9 @@ describe('Applications Routes', () => {
         mockGenerateSchemaName.mockClear()
         mockIsValidSchemaName.mockClear()
         mockIsValidSchemaName.mockReturnValue(true)
+        ;(isSuperuser as jest.Mock).mockResolvedValue(false)
+        ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue(null)
+        ;(hasSubjectPermission as jest.Mock).mockResolvedValue(false)
     })
 
     describe('GET /applications', () => {
@@ -218,6 +222,109 @@ describe('Applications Routes', () => {
             expect((dataSource.query as jest.Mock).mock.calls[0][1]).toContain('%test%')
             expect(response.body).toMatchObject({ items: [], total: 0 })
         })
+
+        it('should keep public applications joinable for ordinary read-only users', async () => {
+            const { dataSource } = buildDataSource()
+            ;(hasSubjectPermission as jest.Mock).mockImplementation(async (_executor, _userId, subject: string, action = 'read') => {
+                return subject === 'applications' && action === 'read'
+            })
+            ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue('user')
+            ;(dataSource.query as jest.Mock).mockResolvedValue([
+                {
+                    id: 'application-public',
+                    name: 'Public Application',
+                    description: 'Joinable application',
+                    slug: 'public-application',
+                    isPublic: true,
+                    workspacesEnabled: true,
+                    schemaName: 'app_public',
+                    schemaStatus: 'synced',
+                    schemaSyncedAt: null,
+                    schemaError: null,
+                    version: 1,
+                    createdAt: new Date('2025-01-01'),
+                    updatedAt: new Date('2025-01-02'),
+                    updatedBy: 'owner-id',
+                    connectorsCount: 1,
+                    membersCount: 1,
+                    membershipRole: null,
+                    windowTotal: '1'
+                }
+            ])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get('/applications').expect(200)
+
+            expect(response.body.items[0]).toMatchObject({
+                id: 'application-public',
+                role: null,
+                accessType: 'public',
+                canJoin: true,
+                canLeave: false,
+                permissions: expect.objectContaining({ manageApplication: false })
+            })
+        })
+    })
+
+    describe('GET /applications/:applicationId/runtime', () => {
+        it('allows joined members to load runtime data', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334470'
+            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334471'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeCatalogId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            presentation: null,
+                            config: null
+                        }
+                    ]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+
+                if (sql.includes('COUNT(*)::int AS total')) {
+                    return [{ total: 0 }]
+                }
+
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    return []
+                }
+
+                if (sql.includes('FROM information_schema.tables')) {
+                    return [{ layoutsExists: false, widgetsExists: false }]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
+
+            expect(response.body.catalog).toMatchObject({
+                id: runtimeCatalogId,
+                codename: 'orders'
+            })
+        })
     })
 
     describe('POST /applications', () => {
@@ -298,6 +405,51 @@ describe('Applications Routes', () => {
 
             expect(response.body.error).toContain('slug')
         })
+
+        it('should allow public application without workspaces when explicitly requested', async () => {
+            const { dataSource } = buildDataSource()
+            ;(dataSource.query as jest.Mock).mockResolvedValueOnce([])
+            ;(dataSource.manager.query as jest.Mock)
+                .mockResolvedValueOnce([{ id: 'public-application-id' }])
+                .mockResolvedValueOnce([
+                    {
+                        id: 'public-application-id',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Public Application' } }
+                        },
+                        description: null,
+                        slug: null,
+                        isPublic: true,
+                        workspacesEnabled: false,
+                        schemaName: 'app_publicapplicationid',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id'
+                    }
+                ])
+                .mockResolvedValueOnce([])
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications')
+                .send({
+                    name: 'Public Application',
+                    isPublic: true,
+                    workspacesEnabled: false
+                })
+                .expect(201)
+
+            expect(response.body).toMatchObject({
+                isPublic: true,
+                workspacesEnabled: false
+            })
+        })
     })
 
     describe('POST /applications/:applicationId/copy', () => {
@@ -311,6 +463,7 @@ describe('Applications Routes', () => {
             description: null,
             slug: 'source-app-copy',
             isPublic: false,
+            workspacesEnabled: false,
             schemaName: `app_${id.replace(/-/g, '')}`,
             schemaStatus: 'draft',
             schemaSyncedAt: null,
@@ -348,7 +501,7 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes('SELECT') && sql.includes('FROM applications.cat_applications a') && sql.includes('schema_snapshot')) {
-                    return [options.sourceApplication]
+                    return [{ workspacesEnabled: false, ...options.sourceApplication }]
                 }
 
                 if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.cat_applications')) {
@@ -492,7 +645,7 @@ describe('Applications Routes', () => {
             const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
                 sql.includes('INSERT INTO applications.cat_applications (')
             )
-            expect(insertApplicationCall?.[1]?.[6]).toBe('draft')
+            expect(insertApplicationCall?.[1]).toContain('draft')
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
                     sql.includes('INSERT INTO applications.cat_connectors (')
@@ -683,6 +836,20 @@ describe('Applications Routes', () => {
             await request(app).get('/applications/non-existent-id').expect(403)
         })
 
+        it('should deny public non-members with only global read access', async () => {
+            const { dataSource } = buildDataSource()
+            ;(hasSubjectPermission as jest.Mock).mockImplementation(async (_executor, _userId, subject: string, action = 'read') => {
+                return subject === 'applications' && action === 'read'
+            })
+            ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue('user')
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get('/applications/application-public').expect(403)
+
+            expect(response.body).toMatchObject({ error: 'Access denied to this application' })
+        })
+
         it('should return application details for member', async () => {
             const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({
@@ -804,6 +971,46 @@ describe('Applications Routes', () => {
             expect(response.body.name).toMatchObject({
                 _primary: 'en'
             })
+        })
+
+        it('should reject visibility updates after creation', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                user_id: 'test-user-id',
+                role: 'owner'
+            })
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Existing App' } }
+                        },
+                        isPublic: false,
+                        workspacesEnabled: false
+                    }
+                ]
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).patch('/applications/application-1').send({ isPublic: true }).expect(400)
+
+            expect(response.body.error).toContain('Immutable application parameters')
         })
     })
 
@@ -943,6 +1150,25 @@ describe('Applications Routes', () => {
                         return [{ id: 'new-user-id', email: 'newuser@example.com' }]
                     }
 
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                        return [{ id: 'application-1', schemaName: null, workspacesEnabled: false }]
+                    }
+
+                    if (sql.includes('FROM applications.rel_application_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
+                })
+                ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                     if (sql.includes('WITH inserted AS')) {
                         return [
                             {
@@ -956,18 +1182,6 @@ describe('Applications Routes', () => {
                                 nickname: null
                             }
                         ]
-                    }
-
-                    if (sql.includes('FROM applications.rel_application_users')) {
-                        const membership = normalizeMembershipRow(
-                            await applicationUserRepo.findOne({
-                                where: {
-                                    applicationId: params?.[0],
-                                    userId: params?.[1]
-                                }
-                            })
-                        )
-                        return membership ? [membership] : []
                     }
 
                     return []
@@ -1107,6 +1321,10 @@ describe('Applications Routes', () => {
                         return [{ id: 'member-id' }]
                     }
 
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                        return [{ id: 'application-1', schemaName: null, workspacesEnabled: false }]
+                    }
+
                     if (sql.includes('FROM applications.rel_application_users au') && sql.includes('au.id = $2')) {
                         return [
                             {
@@ -1139,7 +1357,7 @@ describe('Applications Routes', () => {
 
                 const app = buildApp(dataSource)
 
-                await request(app).delete('/applications/application-1/members/target-user').expect(204)
+                await request(app).delete('/applications/application-1/members/member-id').expect(204)
 
                 expect(dataSource.query).toHaveBeenCalled()
             })
@@ -1186,6 +1404,256 @@ describe('Applications Routes', () => {
 
                 await request(app).delete('/applications/application-1/members/owner-user').expect(403)
             })
+        })
+    })
+
+    describe('Public membership and settings endpoints', () => {
+        const limitsCatalogId = '018f8a78-7b8f-7c1d-a111-222233334499'
+
+        it('joins a public application inside one transaction', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            const publicApplicationId = '018f8a78-7b8f-7c1d-a111-222233334498'
+
+            applicationUserRepo.findOne.mockResolvedValue(null)
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM applications.cat_applications a')) {
+                    return [
+                        {
+                            id: publicApplicationId,
+                            name: 'Public App',
+                            description: null,
+                            slug: 'public-app',
+                            isPublic: true,
+                            workspacesEnabled: false,
+                            schemaName: null,
+                            schemaStatus: 'draft',
+                            schemaSyncedAt: null,
+                            schemaError: null,
+                            version: 1,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                            updatedBy: 'owner-id',
+                            connectorsCount: 0,
+                            membersCount: 1
+                        }
+                    ]
+                }
+
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    const membership = normalizeMembershipRow(
+                        await applicationUserRepo.findOne({
+                            where: {
+                                applicationId: params?.[0],
+                                userId: params?.[1]
+                            }
+                        })
+                    )
+                    return membership ? [membership] : []
+                }
+
+                return []
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('WITH inserted AS')) {
+                    return [
+                        {
+                            id: 'joined-member-id',
+                            applicationId: publicApplicationId,
+                            userId: 'test-user-id',
+                            role: 'member',
+                            comment: null,
+                            createdAt: new Date(),
+                            email: 'test@example.com',
+                            nickname: null
+                        }
+                    ]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).post(`/applications/${publicApplicationId}/join`).expect(201)
+
+            expect(response.body).toMatchObject({
+                status: 'joined',
+                member: {
+                    id: 'joined-member-id',
+                    role: 'member'
+                }
+            })
+            expect(dataSource.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('leaves an application inside one transaction', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                id: 'member-id',
+                applicationId: 'application-1',
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('FROM applications.rel_application_users au')) {
+                    return [
+                        {
+                            id: 'member-id',
+                            applicationId: 'application-1',
+                            userId: 'test-user-id',
+                            role: 'member',
+                            comment: null,
+                            createdAt: new Date(),
+                            email: 'test@example.com',
+                            nickname: null
+                        }
+                    ]
+                }
+
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                    return [{ id: 'application-1', schemaName: null, workspacesEnabled: false }]
+                }
+
+                return []
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('UPDATE applications.rel_application_users')) {
+                    return [{ id: 'member-id' }]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).post('/applications/application-1/leave').expect(200)
+
+            expect(response.body).toEqual({ status: 'left' })
+            expect(dataSource.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('updates workspace limits atomically inside one transaction', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            const limitsSchemaName = 'app_018f8a787b8f7c1da111222233334497'
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                role: 'owner'
+            })
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    const membership = normalizeMembershipRow(
+                        await applicationUserRepo.findOne({
+                            where: {
+                                applicationId: params?.[0],
+                                userId: params?.[1]
+                            }
+                        })
+                    )
+                    return membership ? [membership] : []
+                }
+
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                    return [{ id: 'application-1', schemaName: limitsSchemaName, workspacesEnabled: true }]
+                }
+
+                if (sql.includes('FROM information_schema.tables')) {
+                    return [{ exists: true }]
+                }
+
+                return []
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes(`FROM "${limitsSchemaName}"._app_objects`)) {
+                    return [{ id: limitsCatalogId }]
+                }
+
+                if (sql.includes(`UPDATE "${limitsSchemaName}"."_app_limits"`)) {
+                    return []
+                }
+
+                if (sql.includes(`LEFT JOIN "${limitsSchemaName}"."_app_limits"`)) {
+                    return [{ objectId: limitsCatalogId, maxRows: null }]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .put('/applications/application-1/settings/limits')
+                .send({
+                    limits: [{ objectId: limitsCatalogId, maxRows: null }]
+                })
+                .expect(200)
+
+            expect(response.body).toEqual({
+                items: [{ objectId: limitsCatalogId, maxRows: null }]
+            })
+            expect(dataSource.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('rejects duplicate workspace limit rows before starting a transaction', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            const limitsSchemaName = 'app_018f8a787b8f7c1da111222233334497'
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                role: 'owner'
+            })
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    const membership = normalizeMembershipRow(
+                        await applicationUserRepo.findOne({
+                            where: {
+                                applicationId: params?.[0],
+                                userId: params?.[1]
+                            }
+                        })
+                    )
+                    return membership ? [membership] : []
+                }
+
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                    return [{ id: 'application-1', schemaName: limitsSchemaName, workspacesEnabled: true }]
+                }
+
+                if (sql.includes('FROM information_schema.tables')) {
+                    return [{ exists: true }]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .put('/applications/application-1/settings/limits')
+                .send({
+                    limits: [
+                        { objectId: limitsCatalogId, maxRows: 5 },
+                        { objectId: limitsCatalogId, maxRows: 10 }
+                    ]
+                })
+                .expect(400)
+
+            expect(response.body.error).toContain('Duplicate catalog limit rows')
+            expect(dataSource.transaction).not.toHaveBeenCalled()
+        })
+
+        it('rejects member access to the application members list', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: 'application-1',
+                role: 'member'
+            })
+
+            const app = buildApp(dataSource)
+            await request(app).get('/applications/application-1/members').expect(403)
         })
     })
 
@@ -1357,6 +1825,29 @@ describe('Applications Routes', () => {
         const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334451'
         const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334452'
 
+        it('rejects runtime delete when role permissions do not allow deleting content', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ catalogId: runtimeCatalogId })
+                .expect(403)
+
+            expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+        })
+
         it('uses physical DELETE when lifecycle contract is hard delete', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
@@ -1523,6 +2014,36 @@ describe('Applications Routes', () => {
             expect(String(updateCall?.[0])).toContain('_app_deleted = true')
             expect(String(updateCall?.[0])).not.toContain('_upl_deleted = true')
             expect(String(updateCall?.[0])).not.toContain('_upl_deleted = false')
+        })
+    })
+
+    describe('Runtime tabular copy permission contract', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334560'
+        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334561'
+        const runtimeRecordId = '018f8a78-7b8f-7c1d-a111-222233334562'
+        const runtimeChildRowId = '018f8a78-7b8f-7c1d-a111-222233334564'
+
+        it('allows editor role to enter child-row copy because copy is governed by create permissions', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/not-a-uuid/${runtimeChildRowId}/copy`)
+                .query({ catalogId: runtimeCatalogId })
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'Invalid catalog or attribute ID format' })
         })
     })
 })

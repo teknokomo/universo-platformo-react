@@ -98,7 +98,7 @@ const markCreatedApplicationDeleted = async (
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
             _upl_updated_at = NOW(),
-            _upl_version = COALESCE(_upl_version, 1) + 1
+            _upl_version = COALESCE(cp._upl_version, 1) + 1
         FROM applications.cat_connectors c
         WHERE cp.connector_id = c.id
           AND c.application_id = $1
@@ -194,7 +194,9 @@ const createPublicationSchema = z.object({
     applicationName: localizedInputSchema.optional(),
     applicationDescription: localizedInputSchema.optional(),
     applicationNamePrimaryLocale: z.string().optional(),
-    applicationDescriptionPrimaryLocale: z.string().optional()
+    applicationDescriptionPrimaryLocale: z.string().optional(),
+    applicationIsPublic: z.boolean().optional(),
+    applicationWorkspacesEnabled: z.boolean().optional()
 })
 
 const updatePublicationSchema = z.object({
@@ -560,7 +562,9 @@ export function createPublicationsRoutes(
                 applicationName,
                 applicationDescription,
                 applicationNamePrimaryLocale,
-                applicationDescriptionPrimaryLocale
+                applicationDescriptionPrimaryLocale,
+                applicationIsPublic,
+                applicationWorkspacesEnabled
             } = parsed.data
 
             const metahub = await findMetahubById(exec, metahubId)
@@ -650,6 +654,8 @@ export function createPublicationsRoutes(
                         publicationDescription: appDescription,
                         metahubName: metahub.name,
                         metahubDescription: metahub.description,
+                        isPublic: applicationIsPublic === true,
+                        workspacesEnabled: applicationWorkspacesEnabled === true,
                         userId
                     })
                     applicationData = { application: linked.application, appSchemaName: linked.appSchemaName }
@@ -711,12 +717,14 @@ export function createPublicationsRoutes(
                         afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
                             await runPublishedApplicationRuntimeSync({
                                 trx,
+                                applicationId: result.applicationData!.application.id,
                                 schemaName: result.applicationData!.appSchemaName,
                                 snapshot: snapshot as unknown as PublishedApplicationSnapshot,
                                 entities: catalogDefs,
                                 migrationManager,
                                 migrationId,
-                                userId
+                                userId,
+                                workspacesEnabled: result.applicationData!.application.workspacesEnabled === true
                             })
 
                             // Bridge: wrap DDL Knex transaction as DbExecutor for domain store (Tier 3 → Tier 1 boundary)
@@ -1075,7 +1083,9 @@ export function createPublicationsRoutes(
         description: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
-        createApplicationSchema: z.boolean().optional().default(false)
+        createApplicationSchema: z.boolean().optional().default(false),
+        isPublic: z.boolean().optional(),
+        workspacesEnabled: z.boolean().optional()
     })
 
     router.post(
@@ -1105,7 +1115,8 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
-            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, createApplicationSchema } = parsed.data
+            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, createApplicationSchema, isPublic, workspacesEnabled } =
+                parsed.data
 
             // Build localized name — use provided or fall back to publication name
             const appName =
@@ -1143,6 +1154,8 @@ export function createPublicationsRoutes(
                     publicationDescription: appDescription ?? null,
                     metahubName: metahub.name,
                     metahubDescription: metahub.description ?? null,
+                    isPublic: isPublic === true,
+                    workspacesEnabled: workspacesEnabled === true,
                     userId
                 })
                 return linked
@@ -1176,12 +1189,14 @@ export function createPublicationsRoutes(
                         afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
                             await runPublishedApplicationRuntimeSync({
                                 trx,
+                                applicationId: result.application.id,
                                 schemaName: result.appSchemaName,
                                 snapshot: snapshotData as unknown as PublishedApplicationSnapshot,
                                 entities: catalogDefs,
                                 migrationManager,
                                 migrationId,
-                                userId
+                                userId,
+                                workspacesEnabled: result.application.workspacesEnabled === true
                             })
 
                             // Bridge: wrap DDL Knex transaction as DbExecutor for domain store (Tier 3 → Tier 1 boundary)

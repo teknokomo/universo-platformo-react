@@ -95,8 +95,14 @@ export const applicationsQueryKeys = {
     runtimeAll: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime'] as const,
 
     /** Key for fetching a single runtime row (raw data for edit forms). */
-    runtimeRow: (applicationId: string, rowId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime', 'row', rowId] as const
+    runtimeRow: (applicationId: string, rowId: string) =>
+        [...applicationsQueryKeys.detail(applicationId), 'runtime', 'row', rowId] as const,
+    settings: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'settings'] as const,
+    settingsLimits: (applicationId: string, locale = 'en') =>
+        [...applicationsQueryKeys.settings(applicationId), 'limits', normalizeLocaleForKey(locale)] as const
 }
+
+const normalizeLocaleForKey = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
 
 /**
  * Helper functions for cache invalidation

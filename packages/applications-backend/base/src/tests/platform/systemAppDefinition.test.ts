@@ -96,4 +96,22 @@ describe('applications system-app definition', () => {
         expect(createSql).not.toMatch(/CREATE UNIQUE INDEX(?! IF NOT EXISTS)/)
         expect(createSql).not.toMatch(/CREATE INDEX(?! IF NOT EXISTS)/)
     })
+
+    it('keeps applications RLS policies decomposed by operation for public join and membership management', () => {
+        const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+
+        for (const fragment of [
+            'CREATE POLICY "Allow users to read visible applications" ON applications.cat_applications FOR SELECT',
+            'CREATE POLICY "Allow users to create applications" ON applications.cat_applications FOR INSERT',
+            'CREATE POLICY "Allow application creators to bootstrap owner memberships" ON applications.rel_application_users FOR INSERT',
+            'CREATE POLICY "Allow users to join public applications" ON applications.rel_application_users FOR INSERT',
+            'CREATE POLICY "Allow app owners and admins to update memberships" ON applications.rel_application_users FOR UPDATE',
+            'CREATE POLICY "Allow users to leave applications" ON applications.rel_application_users FOR UPDATE'
+        ]) {
+            expect(createSql).toContain(normalizeSql(fragment))
+        }
+
+        expect(createSql).not.toContain(normalizeSql('CREATE POLICY "Allow users to manage their own applications"'))
+        expect(createSql).not.toContain(normalizeSql('CREATE POLICY "Allow users to manage their application memberships"'))
+    })
 })

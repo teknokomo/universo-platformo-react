@@ -26,7 +26,8 @@ export const ApplicationAdminGuard: React.FC<ApplicationAdminGuardProps> = ({ ch
         enabled: isAuthenticated && Boolean(applicationId),
         retry: false,
         staleTime: 60_000,
-        refetchOnWindowFocus: false
+        refetchOnWindowFocus: false,
+        refetchOnMount: 'always'
     })
 
     if (authLoading) {
@@ -54,6 +55,12 @@ export const ApplicationAdminGuard: React.FC<ApplicationAdminGuardProps> = ({ ch
 
     const permissions = applicationQuery.data?.permissions
     const role = applicationQuery.data?.role
+    const hasAccessSurface = typeof permissions?.manageApplication === 'boolean' || typeof role === 'string'
+
+    if (!hasAccessSurface && applicationQuery.isFetching) {
+        return <Loader />
+    }
+
     const canManageApplication =
         typeof permissions?.manageApplication === 'boolean' ? permissions.manageApplication : role === 'owner' || role === 'admin'
 

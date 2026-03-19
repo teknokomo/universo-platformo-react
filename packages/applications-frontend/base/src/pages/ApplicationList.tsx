@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, ButtonBase, Checkbox, FormControlLabel, Radio, RadioGroup, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -35,7 +37,14 @@ import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from 
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 
-import { useCreateApplication, useUpdateApplication, useDeleteApplication, useCopyApplication } from '../hooks/mutations'
+import {
+    useCreateApplication,
+    useUpdateApplication,
+    useDeleteApplication,
+    useCopyApplication,
+    useJoinApplication,
+    useLeaveApplication
+} from '../hooks/mutations'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as applicationsApi from '../api/applications'
@@ -48,6 +57,8 @@ import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInpu
 export type ApplicationFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
+    isPublic?: boolean
+    workspacesEnabled?: boolean
 }
 
 type ApplicationFormRenderState = {
@@ -69,7 +80,21 @@ type ConfirmSpec = {
     interpolate?: Record<string, string | number>
 }
 
-type ApplicationActionContext = Partial<ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>>
+type ApplicationActionContext = ActionContext<ApplicationDisplay, ApplicationLocalizedPayload> & {
+    navigate?: ReturnType<typeof useNavigate>
+    applicationMap?: Map<string, Application>
+    uiLocale?: string
+    api?: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>['api'] & {
+        copyEntity?: (
+            id: string,
+            payload: ApplicationLocalizedPayload & {
+                copyConnector?: boolean
+                createSchema?: boolean
+                copyAccess?: boolean
+            }
+        ) => Promise<void>
+    }
+}
 
 const hasResponseStatus = (value: unknown): value is { response: { status: number } } => {
     if (!value || typeof value !== 'object') {
@@ -181,6 +206,8 @@ const ApplicationList = () => {
     const updateApplicationMutation = useUpdateApplication()
     const deleteApplicationMutation = useDeleteApplication()
     const copyApplicationMutation = useCopyApplication()
+    const joinApplicationMutation = useJoinApplication()
+    const leaveApplicationMutation = useLeaveApplication()
 
     // Convert applications to display format
     const applicationsDisplay = useMemo(() => {
@@ -207,7 +234,10 @@ const ApplicationList = () => {
         return imagesMap
     }, [applicationsDisplay])
 
-    const localizedFormDefaults = useMemo<ApplicationFormValues>(() => ({ nameVlc: null, descriptionVlc: null }), [])
+    const localizedFormDefaults = useMemo<ApplicationFormValues>(
+        () => ({ nameVlc: null, descriptionVlc: null, isPublic: false, workspacesEnabled: false }),
+        []
+    )
 
     const renderLocalizedFields = useCallback(
         ({ values, setValue, isLoading, errors }: ApplicationFormRenderState) => {
@@ -216,7 +246,7 @@ const ApplicationList = () => {
             const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
 
             return (
-                <>
+                <Stack spacing={2}>
                     <LocalizedInlineField
                         mode='localized'
                         label={tc('fields.name', 'Name')}
@@ -238,10 +268,71 @@ const ApplicationList = () => {
                         multiline
                         rows={2}
                     />
-                </>
+                </Stack>
             )
         },
         [i18n.language, tc]
+    )
+
+    const renderCreateParametersTab = useCallback(
+        ({ values, setValue, isLoading }: ApplicationFormRenderState) => {
+            const isPublic = values.isPublic === true
+            const workspacesEnabled = values.workspacesEnabled === true
+            const handleVisibilityChange = (nextIsPublic: boolean) => {
+                setValue('isPublic', nextIsPublic)
+                if (nextIsPublic && !workspacesEnabled) {
+                    setValue('workspacesEnabled', true)
+                }
+            }
+
+            return (
+                <Stack spacing={2}>
+                    <RadioGroup
+                        value={isPublic ? 'public' : 'closed'}
+                        onChange={(event) => handleVisibilityChange(event.target.value === 'public')}
+                    >
+                        <FormControlLabel
+                            value='closed'
+                            control={<Radio />}
+                            label={t('visibility.closed', 'Closed')}
+                            disabled={isLoading}
+                        />
+                        <FormControlLabel
+                            value='public'
+                            control={<Radio />}
+                            label={t('visibility.public', 'Public')}
+                            disabled={isLoading}
+                        />
+                    </RadioGroup>
+                    <Alert severity='info'>
+                        {t('parameters.visibilityHint', 'Application visibility cannot be changed after creation.')}
+                    </Alert>
+
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={workspacesEnabled}
+                                onChange={(event) => setValue('workspacesEnabled', event.target.checked)}
+                                disabled={isLoading}
+                            />
+                        }
+                        label={t('parameters.workspacesEnabled', 'Add workspaces')}
+                    />
+                    <Alert severity='info'>
+                        {t('parameters.workspacesHint', 'Workspace mode cannot be disabled after the application is created.')}
+                    </Alert>
+                    {isPublic && !workspacesEnabled ? (
+                        <Alert severity='warning'>
+                            {t(
+                                'parameters.publicWorkspacesRecommended',
+                                'Workspaces are recommended for public applications to isolate each participant data.'
+                            )}
+                        </Alert>
+                    ) : null}
+                </Stack>
+            )
+        },
+        [t]
     )
 
     const validateApplicationForm = useCallback(
@@ -288,11 +379,52 @@ const ApplicationList = () => {
             name: nameInput,
             description: descriptionInput,
             namePrimaryLocale,
-            descriptionPrimaryLocale
+            descriptionPrimaryLocale,
+            isPublic: data.isPublic === true,
+            workspacesEnabled: data.workspacesEnabled === true
         })
 
         handleDialogSave()
     }
+
+    const handleJoinApplication = useCallback(
+        async (application: ApplicationDisplay) => {
+            const confirmed = await confirm({
+                title: t('join.dialogTitle', { name: application.name || '' }),
+                description: application.description || t('join.dialogDescription', 'Join this application to start using it.'),
+                confirmButtonName: t('join.action', 'Join'),
+                cancelButtonName: tc('actions.cancel', 'Cancel')
+            })
+
+            if (!confirmed) {
+                return
+            }
+
+            joinApplicationMutation.mutate({ id: application.id })
+        },
+        [confirm, joinApplicationMutation, t, tc]
+    )
+
+    const handleLeaveApplication = useCallback(
+        async (application: ApplicationDisplay) => {
+            const confirmed = await confirm({
+                title: t('leave.dialogTitle', { name: application.name || '' }),
+                description: t(
+                    'leave.dialogDescription',
+                    'If you leave this application, your workspace and all related data will be archived and removed from your view.'
+                ),
+                confirmButtonName: t('leave.action', 'Leave'),
+                cancelButtonName: tc('actions.cancel', 'Cancel')
+            })
+
+            if (!confirmed) {
+                return
+            }
+
+            leaveApplicationMutation.mutate({ id: application.id })
+        },
+        [confirm, leaveApplicationMutation, t, tc]
+    )
 
     const handleChange = (_event: MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
@@ -329,6 +461,17 @@ const ApplicationList = () => {
                                 {row.name || '—'}
                             </Typography>
                         </ButtonBase>
+                    ) : row.canJoin ? (
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word'
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
                     ) : (
                         <Link to={`/a/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                             <Typography
@@ -372,7 +515,24 @@ const ApplicationList = () => {
                 label: tc('table.role', 'Role'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: ApplicationDisplay) => (row.role ? <RoleChip role={row.role} accessType={row.accessType} /> : '—')
+                render: (row: ApplicationDisplay) =>
+                    row.canJoin ? (
+                        <Button
+                            size='small'
+                            variant='outlined'
+                            onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                void handleJoinApplication(row)
+                            }}
+                        >
+                            {t('join.action', 'Join')}
+                        </Button>
+                    ) : row.role ? (
+                        <RoleChip role={row.role} accessType={row.accessType} />
+                    ) : (
+                        '—'
+                    )
             },
             {
                 id: 'connectors',
@@ -382,14 +542,17 @@ const ApplicationList = () => {
                 render: (row: ApplicationDisplay) => (typeof row.connectorsCount === 'number' ? row.connectorsCount : '—')
             }
         ],
-        [handlePendingApplicationInteraction, t, tc]
+        [handleJoinApplication, handlePendingApplicationInteraction, t, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
 
     const createApplicationContext = useCallback(
-        (baseContext: ApplicationActionContext) => ({
+        (baseContext: Partial<ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>>): ApplicationActionContext => ({
             ...baseContext,
+            entity: baseContext.entity as ApplicationDisplay,
+            entityKind: (baseContext.entityKind ?? 'application') as string,
+            t: baseContext.t as ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>['t'],
             navigate,
             applicationMap,
             uiLocale: i18n.language,
@@ -419,6 +582,8 @@ const ApplicationList = () => {
                         description?: Record<string, string>
                         namePrimaryLocale?: string
                         descriptionPrimaryLocale?: string
+                        isPublic?: boolean
+                        workspacesEnabled?: boolean
                         copyConnector?: boolean
                         createSchema?: boolean
                         copyAccess?: boolean
@@ -437,16 +602,17 @@ const ApplicationList = () => {
                     })
                 },
                 confirm: async (spec: ConfirmSpec) => {
+                    const translate = baseContext.t ?? t
                     // Support both direct strings and translation keys
                     const confirmed = await confirm({
-                        title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
-                        description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
+                        title: spec.titleKey ? translate(spec.titleKey, spec.interpolate) : spec.title ?? '',
+                        description: spec.descriptionKey ? translate(spec.descriptionKey, spec.interpolate) : spec.description,
                         confirmButtonName: spec.confirmKey
-                            ? baseContext.t(spec.confirmKey)
-                            : spec.confirmButtonName || baseContext.t('confirm.delete.confirm'),
+                            ? translate(spec.confirmKey)
+                            : spec.confirmButtonName || translate('confirm.delete.confirm'),
                         cancelButtonName: spec.cancelKey
-                            ? baseContext.t(spec.cancelKey)
-                            : spec.cancelButtonName || baseContext.t('confirm.delete.cancel')
+                            ? translate(spec.cancelKey)
+                            : spec.cancelButtonName || translate('confirm.delete.cancel')
                     })
                     return confirmed
                 },
@@ -473,6 +639,7 @@ const ApplicationList = () => {
             applicationMap,
             navigate,
             queryClient,
+            t,
             updateApplicationMutation
         ]
     )
@@ -481,7 +648,39 @@ const ApplicationList = () => {
         (application: ApplicationDisplay): ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] => {
             const canManageApplication = canManageApplicationRecord(application)
 
-            if (!canManageApplication) return []
+            if (!canManageApplication) {
+                if (!application.role) return []
+
+                return [
+                    {
+                        id: 'use',
+                        labelKey: 'memberActions.use',
+                        icon: <PlayArrowRoundedIcon />,
+                        order: 10,
+                        onSelect: (ctx) => {
+                            const navigateTo = ctx.navigate as ((path: string) => void) | undefined
+                            if (navigateTo) {
+                                navigateTo(`/a/${ctx.entity.id}`)
+                            }
+                        },
+                        dividerAfter: application.canLeave === true
+                    },
+                    ...(application.canLeave
+                        ? [
+                              {
+                                  id: 'leave',
+                                  labelKey: 'memberActions.leave',
+                                  icon: <LogoutRoundedIcon />,
+                                  tone: 'danger' as const,
+                                  order: 20,
+                                  onSelect: () => {
+                                      void handleLeaveApplication(application)
+                                  }
+                              }
+                          ]
+                        : [])
+                ]
+            }
 
             const deleteDescriptor = applicationActions.find((descriptor) => descriptor.id === 'delete')
             const shouldShowDelete = Boolean(deleteDescriptor && application.role === 'owner')
@@ -497,7 +696,10 @@ const ApplicationList = () => {
                     icon: <SettingsRoundedIcon />,
                     order: 10,
                     onSelect: (ctx) => {
-                        ctx.navigate?.(`/a/${ctx.entity.id}/admin`)
+                        const navigateTo = ctx.navigate as ((path: string) => void) | undefined
+                        if (navigateTo) {
+                            navigateTo(`/a/${ctx.entity.id}/admin`)
+                        }
                     },
                     dividerAfter: Boolean(editDescriptor || copyDescriptor || shouldShowDelete)
                 })
@@ -533,7 +735,7 @@ const ApplicationList = () => {
 
             return descriptors
         },
-        []
+        [handleLeaveApplication]
     )
 
     return (
@@ -617,12 +819,24 @@ const ApplicationList = () => {
                                                 key={application.id}
                                                 data={application}
                                                 images={images[application.id] || []}
-                                                href={`/a/${application.id}`}
+                                                href={application.canJoin ? undefined : `/a/${application.id}`}
                                                 pending={isPendingEntity(application)}
                                                 pendingAction={getPendingAction(application)}
                                                 onPendingInteractionAttempt={() => handlePendingApplicationInteraction(application.id)}
                                                 footerEndContent={
-                                                    application.role ? (
+                                                    application.canJoin ? (
+                                                        <Button
+                                                            size='small'
+                                                            variant='outlined'
+                                                            onClick={(event) => {
+                                                                event.preventDefault()
+                                                                event.stopPropagation()
+                                                                void handleJoinApplication(application)
+                                                            }}
+                                                        >
+                                                            {t('join.action', 'Join')}
+                                                        </Button>
+                                                    ) : application.role ? (
                                                         <RoleChip role={application.role} accessType={application.accessType} />
                                                     ) : null
                                                 }
@@ -650,7 +864,7 @@ const ApplicationList = () => {
                                         data={applicationsDisplay}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: ApplicationDisplay) => (row?.id ? `/a/${row.id}` : undefined)}
+                                        getRowLink={(row: ApplicationDisplay) => (row?.id && !row.canJoin ? `/a/${row.id}` : undefined)}
                                         onPendingInteractionAttempt={(row: ApplicationDisplay) =>
                                             handlePendingApplicationInteraction(row.id)
                                         }
@@ -710,9 +924,20 @@ const ApplicationList = () => {
                 onSave={handleCreateApplication}
                 hideDefaultFields
                 initialExtraValues={localizedFormDefaults}
-                extraFields={renderLocalizedFields}
+                tabs={({ values, setValue, isLoading, errors }) => [
+                    {
+                        id: 'general',
+                        label: t('copy.generalTab', 'General'),
+                        content: renderLocalizedFields({ values, setValue, isLoading, errors })
+                    },
+                    {
+                        id: 'parameters',
+                        label: t('parameters.tab', 'Parameters'),
+                        content: renderCreateParametersTab({ values, setValue, isLoading, errors })
+                    }
+                ]}
                 canSave={canSaveApplicationForm}
-                validate={validateApplicationForm}
+                validate={(values) => validateApplicationForm(values)}
             />
 
             {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}

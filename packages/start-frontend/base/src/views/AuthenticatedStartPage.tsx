@@ -83,7 +83,7 @@ export default function AuthenticatedStartPage() {
         return (
             <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 <Box sx={{ flex: 1 }}>
-                    <Container maxWidth='md' sx={{ pt: { xs: 14, sm: 14 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+                    <Container maxWidth='md' sx={{ pt: { xs: 2, sm: 14 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
                         <CompletionStep
                             onStartOver={handleStartOver}
                             onPrimaryAction={handleCompletionAction}

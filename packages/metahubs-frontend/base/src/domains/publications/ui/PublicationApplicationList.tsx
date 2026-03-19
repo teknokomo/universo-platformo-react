@@ -14,6 +14,9 @@ import {
     FormControlLabel,
     Switch,
     Alert,
+    Checkbox,
+    Radio,
+    RadioGroup,
     IconButton,
     Menu,
     MenuItem,
@@ -121,6 +124,8 @@ export const PublicationApplicationList: React.FC = () => {
     const [nameVlc, setNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [descriptionVlc, setDescriptionVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [createSchema, setCreateSchema] = useState(false)
+    const [isPublic, setIsPublic] = useState(false)
+    const [workspacesEnabled, setWorkspacesEnabled] = useState(false)
 
     // ── Table data ─────────────────────────────────────────────────────
     const applications: ApplicationTableRow[] = useMemo(
@@ -257,6 +262,8 @@ export const PublicationApplicationList: React.FC = () => {
         setNameVlc(null)
         setDescriptionVlc(null)
         setCreateSchema(false)
+        setIsPublic(false)
+        setWorkspacesEnabled(false)
     }, [])
 
     const handleCreate = useCallback(() => {
@@ -273,12 +280,24 @@ export const PublicationApplicationList: React.FC = () => {
                     description: descriptionInput,
                     namePrimaryLocale,
                     descriptionPrimaryLocale,
-                    createApplicationSchema: createSchema
+                    createApplicationSchema: createSchema,
+                    isPublic,
+                    workspacesEnabled
                 }
             },
             { onSuccess: () => handleCloseCreateDialog() }
         )
-    }, [metahubId, publicationId, nameVlc, descriptionVlc, createSchema, createMutation, handleCloseCreateDialog])
+    }, [
+        metahubId,
+        publicationId,
+        nameVlc,
+        descriptionVlc,
+        createSchema,
+        isPublic,
+        workspacesEnabled,
+        createMutation,
+        handleCloseCreateDialog
+    ])
 
     // Name validation
     const hasName = nameVlc && nameVlc._primary && nameVlc.locales?.[nameVlc._primary]?.content
@@ -408,6 +427,53 @@ export const PublicationApplicationList: React.FC = () => {
                             multiline
                             rows={3}
                         />
+                        <RadioGroup
+                            value={isPublic ? 'public' : 'closed'}
+                            onChange={(event) => {
+                                const nextIsPublic = event.target.value === 'public'
+                                setIsPublic(nextIsPublic)
+                                if (nextIsPublic && !workspacesEnabled) {
+                                    setWorkspacesEnabled(true)
+                                }
+                            }}
+                        >
+                            <FormControlLabel
+                                value='closed'
+                                control={<Radio />}
+                                label={t('metahubs:publications.applicationParameters.visibility.closed', 'Closed')}
+                            />
+                            <FormControlLabel
+                                value='public'
+                                control={<Radio />}
+                                label={t('metahubs:publications.applicationParameters.visibility.public', 'Public')}
+                            />
+                        </RadioGroup>
+                        <Alert severity='info'>
+                            {t(
+                                'metahubs:publications.applicationParameters.visibilityHint',
+                                'Application visibility cannot be changed after creation.'
+                            )}
+                        </Alert>
+                        <FormControlLabel
+                            control={
+                                <Checkbox checked={workspacesEnabled} onChange={(event) => setWorkspacesEnabled(event.target.checked)} />
+                            }
+                            label={t('metahubs:publications.applicationParameters.workspacesEnabled', 'Add workspaces')}
+                        />
+                        <Alert severity='info'>
+                            {t(
+                                'metahubs:publications.applicationParameters.workspacesHint',
+                                'Workspace mode cannot be disabled after the application is created.'
+                            )}
+                        </Alert>
+                        {isPublic && !workspacesEnabled ? (
+                            <Alert severity='warning'>
+                                {t(
+                                    'metahubs:publications.applicationParameters.publicWorkspacesRecommended',
+                                    'Workspaces are recommended for public applications to isolate each participant data.'
+                                )}
+                            </Alert>
+                        ) : null}
                         <FormControlLabel
                             control={<Switch checked={createSchema} onChange={(e) => setCreateSchema(e.target.checked)} />}
                             label={t('metahubs:publications.create.createApplicationSchema', 'Create application schema')}

@@ -91,6 +91,19 @@ describe('Connectors Routes', () => {
     })
 
     describe('GET /applications/:applicationId/connectors', () => {
+        it('should reject ordinary members from reading connector metadata', async () => {
+            const dataSource = buildDataSource((sql, _params, _scope) => {
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    return [{ ...defaultMembershipRow, role: 'member' }]
+                }
+
+                return undefined
+            })
+
+            const app = buildApp(dataSource)
+            await request(app).get('/applications/application-1/connectors').expect(403)
+        })
+
         it('should return empty array when no connectors exist', async () => {
             const dataSource = buildDataSource((_sql, _params, scope) => {
                 if (scope === 'root' && _sql.includes('COUNT(*) OVER()')) {

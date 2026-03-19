@@ -61,6 +61,12 @@ import {
 import { persistApplicationSchemaSyncState } from '../services/ApplicationSchemaSyncStateStore'
 import { persistConnectorSyncTouch } from '../services/ConnectorSyncTouchStore'
 import {
+    ensureApplicationRuntimeWorkspaceSchema,
+    persistWorkspaceSeedTemplate,
+    syncWorkspaceSeededElementsForAllActiveWorkspaces,
+    withWorkspaceContract
+} from '../services/applicationWorkspaces'
+import {
     type ApplicationSyncQueryBuilder,
     type ApplicationSyncTransaction,
     acquireApplicationSyncAdvisoryLock,
@@ -85,7 +91,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<Response | vo
     }
 }
 
-const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin', 'editor']
+const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
 
 // Dashboard layout config (MVP) - show/hide template sections.
 const dashboardLayoutConfigSchema = z.object({
@@ -194,6 +200,18 @@ const schemaSnapshotArtifactSchema = z
         entities: z.record(z.unknown())
     })
     .passthrough()
+
+const toWorkspaceAwareSnapshot = (schemaSnapshot: unknown, workspacesEnabled: boolean): Record<string, unknown> | null =>
+    withWorkspaceContract(schemaSnapshot as Record<string, unknown> | null | undefined, workspacesEnabled)
+
+const toWorkspaceAwareSchemaSnapshot = (
+    schemaSnapshot: SchemaSnapshot | null | undefined,
+    workspacesEnabled: boolean
+): SchemaSnapshot | null =>
+    withWorkspaceContract(
+        schemaSnapshot as unknown as Record<string, unknown> | null | undefined,
+        workspacesEnabled
+    ) as unknown as SchemaSnapshot | null
 
 const schemaDiffSchema = z.object({
     hasChanges: z.boolean(),
@@ -1215,9 +1233,11 @@ async function syncApplicationSchemaFromSource(options: {
                 source.installSourceKind,
                 schemaSyncedAt.toISOString()
             ) as unknown as Record<string, unknown>
-            const schemaSnapshot =
+            const schemaSnapshot = toWorkspaceAwareSnapshot(
                 (application.schemaSnapshot as Record<string, unknown> | null) ??
-                (generator.generateSnapshot(source.entities) as unknown as Record<string, unknown>)
+                    (generator.generateSnapshot(source.entities) as unknown as Record<string, unknown>),
+                application.workspacesEnabled
+            )
             const { seedWarnings } = await knex.transaction(async (trx) => {
                 await generator.syncSystemMetadata(application.schemaName!, source.entities, {
                     trx,
@@ -1227,11 +1247,13 @@ async function syncApplicationSchemaFromSource(options: {
 
                 const runtimeSyncResult = await runPublishedApplicationRuntimeSync({
                     trx,
+                    applicationId: application.id,
                     schemaName: application.schemaName!,
                     snapshot: source.snapshot,
                     entities: source.entities,
                     migrationManager,
-                    userId
+                    userId,
+                    workspacesEnabled: application.workspacesEnabled
                 })
 
                 await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -1297,12 +1319,14 @@ async function syncApplicationSchemaFromSource(options: {
                 afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
                     await runPublishedApplicationRuntimeSync({
                         trx,
+                        applicationId: application.id,
                         schemaName: application.schemaName!,
                         snapshot: source.snapshot,
                         entities: source.entities,
                         migrationManager,
                         migrationId,
-                        userId
+                        userId,
+                        workspacesEnabled: application.workspacesEnabled
                     })
 
                     await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -1310,7 +1334,10 @@ async function syncApplicationSchemaFromSource(options: {
                         schemaStatus: ApplicationSchemaStatus.SYNCED,
                         schemaError: null,
                         schemaSyncedAt,
-                        schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                        schemaSnapshot: toWorkspaceAwareSnapshot(
+                            snapshotAfter as unknown as Record<string, unknown>,
+                            application.workspacesEnabled
+                        ),
                         lastSyncedPublicationVersionId: source.publicationVersionId,
                         appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                         installedReleaseMetadata,
@@ -1341,7 +1368,7 @@ async function syncApplicationSchemaFromSource(options: {
                 }
             }
 
-            const schemaSnapshot = source.bootstrapPayload.schemaSnapshot
+            const schemaSnapshot = toWorkspaceAwareSnapshot(source.bootstrapPayload.schemaSnapshot, application.workspacesEnabled)
             applyApplicationSyncState(application, {
                 schemaStatus: ApplicationSchemaStatus.SYNCED,
                 schemaError: null,
@@ -1366,7 +1393,10 @@ async function syncApplicationSchemaFromSource(options: {
             }
         }
 
-        const oldSnapshot = application.schemaSnapshot as SchemaSnapshot | null
+        const oldSnapshot = toWorkspaceAwareSchemaSnapshot(
+            application.schemaSnapshot as SchemaSnapshot | null,
+            application.workspacesEnabled
+        )
         if (source.bundle.incrementalMigration.fromVersion && !source.incrementalBaseSchemaSnapshot) {
             application.schemaStatus = ApplicationSchemaStatus.ERROR
             await updateApplicationSyncFields(exec, {
@@ -1386,7 +1416,12 @@ async function syncApplicationSchemaFromSource(options: {
             }
         }
 
-        if (!compareStableValues(oldSnapshot, source.incrementalBaseSchemaSnapshot ?? null)) {
+        if (
+            !compareStableValues(
+                oldSnapshot,
+                toWorkspaceAwareSchemaSnapshot(source.incrementalBaseSchemaSnapshot ?? null, application.workspacesEnabled)
+            )
+        ) {
             application.schemaStatus = ApplicationSchemaStatus.ERROR
             await updateApplicationSyncFields(exec, {
                 applicationId: application.id,
@@ -1420,8 +1455,11 @@ async function syncApplicationSchemaFromSource(options: {
 
             const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
             const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
-            const snapshotBefore = (application.schemaSnapshot as SchemaSnapshot | null) ?? null
-            const snapshotAfter = source.incrementalPayload.schemaSnapshot
+            const snapshotBefore = toWorkspaceAwareSchemaSnapshot(
+                (application.schemaSnapshot as SchemaSnapshot | null) ?? null,
+                application.workspacesEnabled
+            )
+            const snapshotAfter = toWorkspaceAwareSchemaSnapshot(source.incrementalPayload.schemaSnapshot, application.workspacesEnabled)
             const metaOnlyDiff = {
                 hasChanges: false,
                 additive: [],
@@ -1448,7 +1486,7 @@ async function syncApplicationSchemaFromSource(options: {
                         application.schemaName!,
                         generateMigrationName('system_sync'),
                         snapshotBefore,
-                        snapshotAfter,
+                        snapshotAfter as SchemaSnapshot,
                         metaOnlyDiff,
                         trx,
                         migrationMeta,
@@ -1459,12 +1497,14 @@ async function syncApplicationSchemaFromSource(options: {
 
                 const runtimeSyncResult = await runPublishedApplicationRuntimeSync({
                     trx,
+                    applicationId: application.id,
                     schemaName: application.schemaName!,
                     snapshot: source.snapshot,
                     entities: source.entities,
                     migrationManager,
                     migrationId,
-                    userId
+                    userId,
+                    workspacesEnabled: application.workspacesEnabled
                 })
 
                 await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -1472,7 +1512,10 @@ async function syncApplicationSchemaFromSource(options: {
                     schemaStatus: ApplicationSchemaStatus.SYNCED,
                     schemaError: null,
                     schemaSyncedAt,
-                    schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                    schemaSnapshot: toWorkspaceAwareSnapshot(
+                        snapshotAfter as unknown as Record<string, unknown>,
+                        application.workspacesEnabled
+                    ),
                     lastSyncedPublicationVersionId: source.publicationVersionId,
                     appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                     installedReleaseMetadata,
@@ -1488,7 +1531,10 @@ async function syncApplicationSchemaFromSource(options: {
                 schemaStatus: ApplicationSchemaStatus.SYNCED,
                 schemaError: null,
                 schemaSyncedAt,
-                schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                schemaSnapshot: toWorkspaceAwareSnapshot(
+                    snapshotAfter as unknown as Record<string, unknown>,
+                    application.workspacesEnabled
+                ),
                 lastSyncedPublicationVersionId: source.publicationVersionId,
                 appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                 installedReleaseMetadata
@@ -1553,12 +1599,14 @@ async function syncApplicationSchemaFromSource(options: {
                 afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
                     await runPublishedApplicationRuntimeSync({
                         trx,
+                        applicationId: application.id,
                         schemaName: application.schemaName!,
                         snapshot: source.snapshot,
                         entities: source.entities,
                         migrationManager,
                         migrationId,
-                        userId
+                        userId,
+                        workspacesEnabled: application.workspacesEnabled
                     })
 
                     await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -1566,7 +1614,10 @@ async function syncApplicationSchemaFromSource(options: {
                         schemaStatus: ApplicationSchemaStatus.SYNCED,
                         schemaError: null,
                         schemaSyncedAt,
-                        schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
+                        schemaSnapshot: toWorkspaceAwareSnapshot(
+                            snapshotAfter as unknown as Record<string, unknown>,
+                            application.workspacesEnabled
+                        ),
                         lastSyncedPublicationVersionId: source.publicationVersionId,
                         appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                         installedReleaseMetadata,
@@ -1598,7 +1649,10 @@ async function syncApplicationSchemaFromSource(options: {
             }
         }
 
-        const newSnapshot = generator.generateSnapshot(source.entities)
+        const newSnapshot = toWorkspaceAwareSnapshot(
+            generator.generateSnapshot(source.entities) as unknown as Record<string, unknown>,
+            application.workspacesEnabled
+        )
         applyApplicationSyncState(application, {
             schemaStatus: ApplicationSchemaStatus.SYNCED,
             schemaError: null,
@@ -3046,14 +3100,16 @@ export async function persistSeedWarnings(
 
 export async function runPublishedApplicationRuntimeSync(options: {
     trx: ApplicationSyncTransaction
+    applicationId: string
     schemaName: string
     snapshot: PublishedApplicationSnapshot
     entities: EntityDefinition[]
     migrationManager: DDLServices['migrationManager']
     migrationId?: string
     userId?: string | null
+    workspacesEnabled?: boolean
 }): Promise<{ seedWarnings: string[] }> {
-    const { trx, schemaName, snapshot, entities, migrationManager, migrationId, userId } = options
+    const { trx, applicationId, schemaName, snapshot, entities, migrationManager, migrationId, userId } = options
 
     await persistPublishedLayouts({
         schemaName,
@@ -3069,7 +3125,26 @@ export async function runPublishedApplicationRuntimeSync(options: {
     })
     await syncEnumerationValues(schemaName, snapshot, userId, trx)
 
-    const seedWarnings = await seedPredefinedElements(schemaName, snapshot, entities, userId, trx)
+    if (options.workspacesEnabled) {
+        await persistWorkspaceSeedTemplate(createKnexExecutor(trx), {
+            schemaName,
+            elements: snapshot.elements ?? {},
+            actorUserId: userId
+        })
+
+        await ensureApplicationRuntimeWorkspaceSchema(createKnexExecutor(trx), {
+            schemaName,
+            applicationId,
+            entities,
+            actorUserId: userId
+        })
+        await syncWorkspaceSeededElementsForAllActiveWorkspaces(createKnexExecutor(trx), {
+            schemaName,
+            actorUserId: userId
+        })
+    }
+
+    const seedWarnings = options.workspacesEnabled ? [] : await seedPredefinedElements(schemaName, snapshot, entities, userId, trx)
     await persistSeedWarnings(schemaName, migrationManager, seedWarnings, {
         trx,
         migrationId

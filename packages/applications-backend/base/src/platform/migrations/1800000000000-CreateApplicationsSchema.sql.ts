@@ -31,6 +31,52 @@ END $$;
     `
 })
 
+const AUTH_UID_SQL = `(SELECT auth.uid())`
+const IS_SUPERUSER_SQL = `(SELECT admin.is_superuser(${AUTH_UID_SQL}))`
+
+const buildActiveApplicationExistsSql = (applicationIdSql: string, extraPredicate?: string): string =>
+    `
+EXISTS (
+    SELECT 1
+    FROM applications.cat_applications a
+    WHERE a.id = ${applicationIdSql}
+      AND a._upl_deleted = false
+      AND a._app_deleted = false
+      ${extraPredicate ? `AND ${extraPredicate}` : ''}
+)
+`.trim()
+
+const buildActiveMembershipExistsSql = (applicationIdSql: string, roles?: readonly ('owner' | 'admin' | 'editor' | 'member')[]): string =>
+    `
+EXISTS (
+    SELECT 1
+    FROM applications.rel_application_users au
+    WHERE au.application_id = ${applicationIdSql}
+      AND au.user_id = ${AUTH_UID_SQL}
+      AND au._upl_deleted = false
+      AND au._app_deleted = false
+      ${roles && roles.length > 0 ? `AND au.role IN (${roles.map((role) => `'${role}'`).join(', ')})` : ''}
+)
+`.trim()
+
+const APPLICATION_POLICY_NAMES = {
+    readVisibleApps: 'Allow users to read visible applications',
+    createApps: 'Allow users to create applications',
+    updateApps: 'Allow app owners and admins to update applications',
+    readMemberships: 'Allow users to read application memberships',
+    bootstrapOwnerMemberships: 'Allow application creators to bootstrap owner memberships',
+    joinPublicApps: 'Allow users to join public applications',
+    insertMemberships: 'Allow app owners and admins to insert memberships',
+    updateMemberships: 'Allow app owners and admins to update memberships',
+    leaveApplications: 'Allow users to leave applications',
+    readConnectors: 'Allow users to read connectors in joined applications',
+    insertConnectors: 'Allow app editors to insert connectors',
+    updateConnectors: 'Allow app editors to update connectors',
+    readConnectorPublications: 'Allow users to read connector publications in joined applications',
+    insertConnectorPublications: 'Allow app editors to insert connector publications',
+    updateConnectorPublications: 'Allow app editors to update connector publications'
+} as const
+
 export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition = {
     id: 'CreateApplicationsSchema1800000000000',
     version: '1800000000000',
@@ -68,6 +114,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                     description JSONB DEFAULT '{}',
                     slug VARCHAR(100),
                     is_public BOOLEAN NOT NULL DEFAULT false,
+                    workspaces_enabled BOOLEAN NOT NULL DEFAULT false,
                     schema_name VARCHAR(100),
                     schema_status applications.application_schema_status DEFAULT 'draft',
                     schema_error TEXT,
@@ -339,111 +386,263 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
         {
             sql: `ALTER TABLE applications.rel_connector_publications ENABLE ROW LEVEL SECURITY;`
         },
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.bootstrapOwnerMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.joinPublicApps, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.leaveApplications, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readVisibleApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.createApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readConnectors, 'applications', 'cat_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertConnectors, 'applications', 'cat_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateConnectors, 'applications', 'cat_connectors'),
         createDropPolicyIfTableExistsStatement(
-            'Allow users to manage their application memberships',
+            APPLICATION_POLICY_NAMES.readConnectorPublications,
             'applications',
-            'rel_application_users'
+            'rel_connector_publications'
         ),
-        {
-            sql: `
-                CREATE POLICY "Allow users to manage their application memberships" ON applications.rel_application_users
-                FOR ALL
-                USING (
-                    user_id = (select auth.uid()) 
-                    OR (select admin.is_superuser((select auth.uid())))
-                )
-                WITH CHECK (
-                    user_id = (select auth.uid())
-                    OR (select admin.is_superuser((select auth.uid())))
-                )
-            `
-        },
-        createDropPolicyIfTableExistsStatement('Allow users to manage their own applications', 'applications', 'cat_applications'),
-        {
-            sql: `
-                CREATE POLICY "Allow users to manage their own applications" ON applications.cat_applications
-                FOR ALL
-                USING (
-                    is_public = true
-                    OR EXISTS (
-                        SELECT 1 FROM applications.rel_application_users au
-                        WHERE au.application_id = applications.cat_applications.id AND au.user_id = (select auth.uid())
-                    )
-                    OR (select admin.is_superuser((select auth.uid())))
-                )
-                WITH CHECK (
-                    EXISTS (
-                        SELECT 1 FROM applications.rel_application_users au
-                        WHERE au.application_id = applications.cat_applications.id AND au.user_id = (select auth.uid())
-                    )
-                    OR (select admin.is_superuser((select auth.uid())))
-                )
-            `
-        },
-        createDropPolicyIfTableExistsStatement('Allow users to manage connectors in their applications', 'applications', 'cat_connectors'),
-        {
-            sql: `
-                CREATE POLICY "Allow users to manage connectors in their applications" ON applications.cat_connectors
-                FOR ALL
-                USING (
-                    EXISTS (
-                        SELECT 1 FROM applications.cat_applications a
-                        LEFT JOIN applications.rel_application_users au ON a.id = au.application_id
-                        WHERE a.id = applications.cat_connectors.application_id 
-                        AND (a.is_public = true OR au.user_id = (select auth.uid()))
-                    )
-                    OR (select admin.is_superuser((select auth.uid())))
-                )
-                WITH CHECK (
-                    EXISTS (
-                        SELECT 1 FROM applications.rel_application_users au
-                        WHERE au.application_id = applications.cat_connectors.application_id AND au.user_id = (select auth.uid())
-                    )
-                    OR (select admin.is_superuser((select auth.uid())))
-                )
-            `
-        },
         createDropPolicyIfTableExistsStatement(
-            'Allow users to manage connector-publication links',
+            APPLICATION_POLICY_NAMES.insertConnectorPublications,
+            'applications',
+            'rel_connector_publications'
+        ),
+        createDropPolicyIfTableExistsStatement(
+            APPLICATION_POLICY_NAMES.updateConnectorPublications,
             'applications',
             'rel_connector_publications'
         ),
         {
             sql: `
-                CREATE POLICY "Allow users to manage connector-publication links" ON applications.rel_connector_publications
-                FOR ALL
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.readMemberships}" ON applications.rel_application_users
+                FOR SELECT
                 USING (
-                    EXISTS (
-                        SELECT 1 FROM applications.cat_connectors c
-                        JOIN applications.rel_application_users au ON c.application_id = au.application_id
-                        WHERE c.id = applications.rel_connector_publications.connector_id AND au.user_id = (select auth.uid())
+                    user_id = ${AUTH_UID_SQL}
+                    OR ${buildActiveMembershipExistsSql('applications.rel_application_users.application_id')}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.bootstrapOwnerMemberships}" ON applications.rel_application_users
+                FOR INSERT
+                WITH CHECK (
+                    user_id = ${AUTH_UID_SQL}
+                    AND role = 'owner'
+                    AND ${buildActiveApplicationExistsSql(
+                        'applications.rel_application_users.application_id',
+                        `a._upl_created_by = ${AUTH_UID_SQL}`
+                    )}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.joinPublicApps}" ON applications.rel_application_users
+                FOR INSERT
+                WITH CHECK (
+                    user_id = ${AUTH_UID_SQL}
+                    AND role = 'member'
+                    AND ${buildActiveApplicationExistsSql('applications.rel_application_users.application_id', 'a.is_public = true')}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.insertMemberships}" ON applications.rel_application_users
+                FOR INSERT
+                WITH CHECK (
+                    (
+                        ${buildActiveMembershipExistsSql('applications.rel_application_users.application_id', ['owner', 'admin'])}
+                        AND role IN ('member', 'editor', 'admin')
                     )
-                    OR (select admin.is_superuser((select auth.uid())))
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateMemberships}" ON applications.rel_application_users
+                FOR UPDATE
+                USING (
+                    ${buildActiveMembershipExistsSql('applications.rel_application_users.application_id', ['owner', 'admin'])}
+                    OR ${IS_SUPERUSER_SQL}
                 )
                 WITH CHECK (
-                    EXISTS (
-                        SELECT 1 FROM applications.cat_connectors c
-                        JOIN applications.rel_application_users au ON c.application_id = au.application_id
-                        WHERE c.id = applications.rel_connector_publications.connector_id AND au.user_id = (select auth.uid())
+                    (
+                        role IN ('member', 'editor', 'admin')
+                        OR (_upl_deleted = true AND _app_deleted = true)
                     )
-                    OR (select admin.is_superuser((select auth.uid())))
+                    AND (
+                        ${buildActiveMembershipExistsSql('applications.rel_application_users.application_id', ['owner', 'admin'])}
+                        OR ${IS_SUPERUSER_SQL}
+                    )
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.leaveApplications}" ON applications.rel_application_users
+                FOR UPDATE
+                USING (
+                    user_id = ${AUTH_UID_SQL}
+                )
+                WITH CHECK (
+                    (
+                        user_id = ${AUTH_UID_SQL}
+                        AND role <> 'owner'
+                        AND _upl_deleted = true
+                        AND _app_deleted = true
+                    )
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.readVisibleApps}" ON applications.cat_applications
+                FOR SELECT
+                USING (
+                    is_public = true
+                    OR ${buildActiveMembershipExistsSql('applications.cat_applications.id')}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.createApps}" ON applications.cat_applications
+                FOR INSERT
+                WITH CHECK (
+                    _upl_created_by = ${AUTH_UID_SQL}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateApps}" ON applications.cat_applications
+                FOR UPDATE
+                USING (
+                    ${buildActiveMembershipExistsSql('applications.cat_applications.id', ['owner', 'admin'])}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+                WITH CHECK (
+                    ${buildActiveMembershipExistsSql('applications.cat_applications.id', ['owner', 'admin'])}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.readConnectors}" ON applications.cat_connectors
+                FOR SELECT
+                USING (
+                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id')}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.insertConnectors}" ON applications.cat_connectors
+                FOR INSERT
+                WITH CHECK (
+                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id', ['owner', 'admin', 'editor'])}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateConnectors}" ON applications.cat_connectors
+                FOR UPDATE
+                USING (
+                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id', ['owner', 'admin', 'editor'])}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+                WITH CHECK (
+                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id', ['owner', 'admin', 'editor'])}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.readConnectorPublications}" ON applications.rel_connector_publications
+                FOR SELECT
+                USING (
+                    ${buildActiveMembershipExistsSql(
+                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)'
+                    )}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.insertConnectorPublications}" ON applications.rel_connector_publications
+                FOR INSERT
+                WITH CHECK (
+                    ${buildActiveMembershipExistsSql(
+                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
+                        ['owner', 'admin', 'editor']
+                    )}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+            `
+        },
+        {
+            sql: `
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateConnectorPublications}" ON applications.rel_connector_publications
+                FOR UPDATE
+                USING (
+                    ${buildActiveMembershipExistsSql(
+                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
+                        ['owner', 'admin', 'editor']
+                    )}
+                    OR ${IS_SUPERUSER_SQL}
+                )
+                WITH CHECK (
+                    ${buildActiveMembershipExistsSql(
+                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
+                        ['owner', 'admin', 'editor']
+                    )}
+                    OR ${IS_SUPERUSER_SQL}
                 )
             `
         }
     ],
     down: [
         createDropPolicyIfTableExistsStatement(
-            'Allow users to manage connector-publication links',
+            APPLICATION_POLICY_NAMES.updateConnectorPublications,
             'applications',
             'rel_connector_publications'
         ),
-        createDropPolicyIfTableExistsStatement('Allow users to manage connectors in their applications', 'applications', 'cat_connectors'),
-        createDropPolicyIfTableExistsStatement('Allow users to manage their own applications', 'applications', 'cat_applications'),
         createDropPolicyIfTableExistsStatement(
-            'Allow users to manage their application memberships',
+            APPLICATION_POLICY_NAMES.insertConnectorPublications,
             'applications',
-            'rel_application_users'
+            'rel_connector_publications'
         ),
+        createDropPolicyIfTableExistsStatement(
+            APPLICATION_POLICY_NAMES.readConnectorPublications,
+            'applications',
+            'rel_connector_publications'
+        ),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateConnectors, 'applications', 'cat_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertConnectors, 'applications', 'cat_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readConnectors, 'applications', 'cat_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.createApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readVisibleApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.leaveApplications, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.joinPublicApps, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.bootstrapOwnerMemberships, 'applications', 'rel_application_users'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readMemberships, 'applications', 'rel_application_users'),
         {
             sql: `ALTER TABLE applications.rel_connector_publications DISABLE ROW LEVEL SECURITY;`
         },

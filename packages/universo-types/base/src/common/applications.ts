@@ -11,3 +11,8 @@ export enum ApplicationSchemaStatus {
     UPDATE_AVAILABLE = 'update_available',
     MAINTENANCE = 'maintenance'
 }
+
+export enum ApplicationMembershipState {
+    JOINED = 'joined',
+    NOT_JOINED = 'not_joined'
+}
