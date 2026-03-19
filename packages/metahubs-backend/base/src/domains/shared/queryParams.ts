@@ -24,7 +24,9 @@ export const ListQuerySchema = z.object({
         .transform((val) => val || undefined), // Convert empty string to undefined
 
     // Admin filter (show all entities regardless of membership)
-    showAll: z.coerce.boolean().default(false)
+    // NOTE: z.coerce.boolean() is unsafe for query strings — Boolean("false") === true.
+    // Use preprocess to correctly handle string values from Express req.query.
+    showAll: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false)
 })
 
 export type ListQueryParams = z.infer<typeof ListQuerySchema>

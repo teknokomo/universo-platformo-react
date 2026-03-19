@@ -2,6 +2,7 @@ import type { PaginationParams } from '../types'
 import type { InstancesListParams } from './instancesApi'
 import type { RolesListParams } from './rolesApi'
 import type { LocalesListParams } from './localesApi'
+import type { ListGlobalUsersParams } from './adminApi'
 
 /**
  * Query keys for admin module
@@ -14,11 +15,14 @@ export const adminQueryKeys = {
     // Stats query
     stats: () => [...adminQueryKeys.all, 'stats'] as const,
 
+    // Dedicated dashboard stats query
+    dashboardStats: () => [...adminQueryKeys.all, 'dashboard-stats'] as const,
+
     // Global users list
     globalUsers: () => [...adminQueryKeys.all, 'global-users'] as const,
 
     // Global users list with pagination params
-    globalUsersList: (params?: PaginationParams) => [...adminQueryKeys.globalUsers(), 'list', params] as const,
+    globalUsersList: (params?: ListGlobalUsersParams | PaginationParams) => [...adminQueryKeys.globalUsers(), 'list', params] as const,
 
     // Current user's role
     myRole: () => [...adminQueryKeys.all, 'my-role'] as const

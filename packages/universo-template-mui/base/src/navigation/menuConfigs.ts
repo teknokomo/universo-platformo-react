@@ -162,6 +162,12 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
 
 export const rootMenuItems: TemplateMenuItem[] = [
     {
+        id: 'metapanel',
+        titleKey: 'metapanel',
+        url: '/',
+        icon: IconLayoutDashboard
+    },
+    {
         id: 'applications',
         titleKey: 'applications',
         url: '/applications',

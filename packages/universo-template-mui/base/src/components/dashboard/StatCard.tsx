@@ -1,4 +1,5 @@
 import { useTheme } from '@mui/material/styles'
+import { useId } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -7,6 +8,24 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { areaElementClasses } from '@mui/x-charts/LineChart'
+
+/**
+ * Build realistic sparkline trend data that shows gradual growth to the current value.
+ * When value is 0, returns a flat array of zeros.
+ * When value > 0, returns a smooth growth curve from near 0 to the current value.
+ */
+export function buildRealisticTrendData(currentValue: number, points: number = 30): number[] {
+    if (points <= 0) return []
+    if (points === 1) return [currentValue <= 0 ? 0 : currentValue]
+    if (currentValue <= 0) {
+        return Array(points).fill(0)
+    }
+
+    return Array.from({ length: points }, (_, i) => {
+        const progress = i / (points - 1)
+        return Math.round(currentValue * progress)
+    })
+}
 
 export type StatCardProps = {
     title: string
@@ -64,6 +83,7 @@ function AreaGradient({ color, id }: { color: string; id: string }) {
 
 export default function StatCard({ title, value, interval, trend, trendPercentage, description, data, xAxisLabels }: StatCardProps) {
     const theme = useTheme()
+    const gradientId = useId()
 
     // Generate default labels from current month if not provided
     const now = new Date()
@@ -137,11 +157,11 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
                                 }}
                                 sx={{
                                     [`& .${areaElementClasses.root}`]: {
-                                        fill: `url(#area-gradient-${value})`
+                                        fill: `url(#${gradientId})`
                                     }
                                 }}
                             >
-                                <AreaGradient color={chartColor} id={`area-gradient-${value}`} />
+                                <AreaGradient color={chartColor} id={gradientId} />
                             </SparkLineChart>
                         </Box>
                     )}

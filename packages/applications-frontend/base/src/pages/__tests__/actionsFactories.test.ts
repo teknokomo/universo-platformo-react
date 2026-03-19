@@ -6,7 +6,7 @@ const createMemberActions = vi.fn((config: any) => config)
 vi.mock('@universo/template-mui', () => ({
     createEntityActions,
     createMemberActions,
-    useViewPreference: (key: string) => ['card', vi.fn()],
+    useViewPreference: (_key: string) => ['card', vi.fn()],
     DEFAULT_VIEW_STYLE: 'card'
 }))
 

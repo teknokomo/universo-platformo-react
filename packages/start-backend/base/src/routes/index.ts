@@ -2,6 +2,7 @@ import { Router, type RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
 import type { DbExecutor } from '@universo/utils/database'
+import type { AssignSystemRole } from '@universo/types'
 import { createOnboardingRoutes } from './onboardingRoutes'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
@@ -32,12 +33,16 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 /**
  * Create all start service routes
  */
-export function createStartServiceRoutes(ensureAuth: RequestHandler, getRequestDbExecutor: (req: unknown) => DbExecutor): Router {
+export function createStartServiceRoutes(
+    ensureAuth: RequestHandler,
+    getRequestDbExecutor: (req: unknown) => DbExecutor,
+    assignSystemRole?: AssignSystemRole
+): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
 
-    router.use('/onboarding', createOnboardingRoutes(ensureAuth, getRequestDbExecutor, read, write))
+    router.use('/onboarding', createOnboardingRoutes(ensureAuth, getRequestDbExecutor, read, write, assignSystemRole))
 
     return router
 }

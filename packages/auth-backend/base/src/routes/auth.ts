@@ -12,9 +12,10 @@ import {
     getLoginCaptchaConfig,
     isLoginCaptchaRequired
 } from '../services/captchaService'
-import { activeAppRowCondition } from '@universo/utils'
+import { activeAppRowCondition, softDeleteSetClause } from '@universo/utils'
 import { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled } from '@universo/utils/auth'
 import type { DbExecutor } from '@universo/utils/database'
+import type { AssignSystemRole } from '@universo/types'
 
 const LoginSchema = z.object({
     email: z.string().email().max(320),
@@ -36,7 +37,13 @@ const RegisterSchema = z.object({
 
 type MiddlewareFn = (...args: any[]) => unknown
 
-type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getDbExecutor?: () => DbExecutor) => Router
+interface AuthRouterOptions {
+    getDbExecutor?: () => DbExecutor
+    assignSystemRole?: AssignSystemRole
+    deleteAuthUser?: (userId: string) => Promise<void>
+}
+
+type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, options?: AuthRouterOptions) => Router
 
 const maskEmail = (email: string | null | undefined): string | null => {
     if (!email) {
@@ -77,8 +84,43 @@ const serializeErrorForLog = (error: unknown): Record<string, string> => {
     }
 }
 
-export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getDbExecutor) => {
+export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, options) => {
     const router = Router()
+    const getDbExecutor = options?.getDbExecutor
+    const assignSystemRole = options?.assignSystemRole
+    const deleteAuthUser = options?.deleteAuthUser
+
+    const cleanupRegisteredUser = async (userId: string) => {
+        const cleanupErrors: string[] = []
+
+        if (getDbExecutor) {
+            try {
+                await getDbExecutor().query(
+                    `UPDATE profiles.cat_profiles
+                     SET ${softDeleteSetClause('$2')}
+                     WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+                    [userId, null]
+                )
+            } catch (profileCleanupError) {
+                cleanupErrors.push(`profile cleanup failed: ${serializeErrorForLog(profileCleanupError).message}`)
+            }
+        }
+
+        if (deleteAuthUser) {
+            try {
+                await deleteAuthUser(userId)
+            } catch (authCleanupError) {
+                cleanupErrors.push(`auth cleanup failed: ${serializeErrorForLog(authCleanupError).message}`)
+            }
+        } else {
+            cleanupErrors.push('auth cleanup skipped: service-role delete helper is unavailable')
+        }
+
+        return {
+            cleaned: cleanupErrors.length === 0,
+            cleanupErrors
+        }
+    }
 
     // Captcha configuration endpoint (public, no auth required)
     // Returns separate configurations for registration and login forms
@@ -142,6 +184,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             }
         }
 
+        let createdUserId: string | null = null
+
         try {
             const supa = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
                 auth: { persistSession: false }
@@ -167,6 +211,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             if (error || !data?.user) {
                 return res.status(400).json({ error: error?.message ?? 'Registration failed' })
             }
+
+            createdUserId = data.user.id
 
             // Save consent data to profile (profile is auto-created by Supabase trigger)
             // Using retry pattern with RETURNING clause for reliable affected row check
@@ -293,9 +339,33 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                 console.warn('[auth:profile] getDbExecutor not available, skipping profile consent save')
             }
 
+            if (assignSystemRole) {
+                await assignSystemRole({
+                    userId: data.user.id,
+                    roleCodename: 'registered',
+                    reason: 'auto-assigned on registration'
+                })
+            }
+
             console.info('[auth] register success', { email: maskEmail(data.user.email), userId: compactId(data.user.id) })
             return res.status(201).json({ user: { id: data.user.id, email: data.user.email } })
         } catch (error) {
+            if (createdUserId) {
+                const cleanupResult = await cleanupRegisteredUser(createdUserId)
+                console.error('[auth] Registration rollback result', {
+                    userId: compactId(createdUserId),
+                    cleaned: cleanupResult.cleaned,
+                    cleanupErrors: cleanupResult.cleanupErrors
+                })
+
+                const cleanupMessage = cleanupResult.cleaned
+                    ? 'Registration failed and the new account was rolled back'
+                    : `Registration failed after account creation. Cleanup errors: ${cleanupResult.cleanupErrors.join('; ')}`
+
+                console.error('[auth] Registration failed', serializeErrorForLog(error))
+                return res.status(500).json({ error: cleanupMessage })
+            }
+
             console.error('[auth] Registration failed', serializeErrorForLog(error))
             return res.status(500).json({ error: 'Server error' })
         }

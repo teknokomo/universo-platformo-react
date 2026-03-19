@@ -34,12 +34,18 @@ Backend service for global admin management (superadmins and supermoderators) wi
 ### Global Users Endpoints
 
 ```http
-GET    /api/v1/admin/global-users          # List global users (view permission)
-GET    /api/v1/admin/global-users/me       # Get current user's global role
-GET    /api/v1/admin/global-users/stats    # Dashboard statistics
-POST   /api/v1/admin/global-users          # Grant global role (manage permission)
-PUT    /api/v1/admin/global-users/:id      # Update role/comment (manage permission)
-DELETE /api/v1/admin/global-users/:id      # Revoke global access (manage permission)
+GET    /api/v1/admin/global-users                # List global users (read permission)
+GET    /api/v1/admin/global-users/me             # Get current user's global-role summary
+POST   /api/v1/admin/global-users/create-user    # Provision auth user + assign initial roles
+PUT    /api/v1/admin/global-users/:memberId/roles # Replace the user's full role set
+PATCH  /api/v1/admin/global-users/:memberId      # Legacy single-role compatibility wrapper
+DELETE /api/v1/admin/global-users/:memberId      # Revoke all global roles for the user
+```
+
+### Dashboard Endpoints
+
+```http
+GET    /api/v1/admin/dashboard/stats       # Shared admin/metapanel dashboard statistics
 ```
 
 ### Roles Endpoints
@@ -47,6 +53,7 @@ DELETE /api/v1/admin/global-users/:id      # Revoke global access (manage permis
 ```http
 GET    /api/v1/admin/roles                 # List all roles
 GET    /api/v1/admin/roles/global          # List roles with global access
+POST   /api/v1/admin/roles/:id/copy        # Copy an existing role into a new editable role
 ```
 
 ## Usage
@@ -55,13 +62,17 @@ GET    /api/v1/admin/roles/global          # List roles with global access
 
 ```typescript
 import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
+import { getPermissionService } from '@universo/auth-backend'
 import { createKnexExecutor, getKnex } from '@universo/database'
 
 const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
-const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService })
+const permissionService = getPermissionService()
+const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService, permissionService })
 
 app.use('/api/v1/admin/global-users', globalUsersRoutes)
 ```
+
+Pass `supabaseAdmin` as well when you enable direct admin-side user provisioning via `POST /create-user`.
 
 ### Access Guard in Other Modules
 

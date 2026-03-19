@@ -6,7 +6,7 @@ export interface MenuItem {
     title: string
     type: 'item' | 'group' | 'collapse'
     url?: string
-    icon?: ComponentType<any>
+    icon?: ComponentType<Record<string, unknown>>
     breadcrumbs?: boolean
     children?: MenuItem[]
 }

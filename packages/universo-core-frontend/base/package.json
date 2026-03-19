@@ -26,6 +26,7 @@
         "@universo/applications-frontend": "workspace:*",
         "@universo/auth-frontend": "workspace:*",
         "@universo/i18n": "workspace:*",
+        "@universo/metapanel-frontend": "workspace:*",
         "@universo/metahubs-frontend": "workspace:*",
         "@universo/profile-frontend": "workspace:*",
         "@universo/types": "workspace:*",

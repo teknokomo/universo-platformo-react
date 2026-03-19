@@ -425,6 +425,7 @@ describe('platformMigrations', () => {
             'FinalizeStartSchemaSupport1710000000001',
             'PrepareAdminSchemaSupport1733400000000',
             'FinalizeAdminSchemaSupport1733400000001',
+            'SeedAdminLifecycleRoles1733400000002',
             'ApplyStartSchemaPolicies1733400000500',
             'PrepareProfileSchemaSupport1741277504477',
             'FinalizeProfileSchemaSupport1741277504478',

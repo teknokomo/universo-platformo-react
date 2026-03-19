@@ -4,14 +4,16 @@ import { useTranslation } from 'react-i18next'
 import { WelcomeStep } from './WelcomeStep'
 import { SelectionStep } from './SelectionStep'
 import { CompletionStep } from './CompletionStep'
-import { getOnboardingItems, syncSelections, completeOnboarding } from '../api/onboarding'
+import { getOnboardingItems, syncSelections } from '../api/onboarding'
 import type { OnboardingItems, OnboardingStep } from '../types'
 
 const STEPS: OnboardingStep[] = ['welcome', 'goals', 'topics', 'features', 'completion']
 
 interface OnboardingWizardProps {
     initialItems?: OnboardingItems | null
-    onComplete?: () => void
+    onComplete?: () => Promise<void> | void
+    completionLoading?: boolean
+    completionError?: string | null
 }
 
 const buildInitialSelections = (data: OnboardingItems): { goals: string[]; topics: string[]; features: string[] } => {
@@ -32,7 +34,12 @@ const buildInitialSelections = (data: OnboardingItems): { goals: string[]; topic
     return { goals, topics, features }
 }
 
-export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ initialItems = null, onComplete }) => {
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
+    initialItems = null,
+    onComplete,
+    completionLoading = false,
+    completionError = null
+}) => {
     const { t } = useTranslation('onboarding')
     const [activeStep, setActiveStep] = useState(0)
     const [items, setItems] = useState<OnboardingItems | null>(null)
@@ -72,7 +79,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ initialItems
     const handleNext = useCallback(async () => {
         const currentStepName = STEPS[activeStep]
 
-        // Save selections and complete onboarding when moving from the last data step
+        // Save selections before entering the completion step.
         if (currentStepName === 'features') {
             try {
                 setIsSaving(true)
@@ -82,7 +89,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ initialItems
                     topics: selectedTopics,
                     features: selectedFeatures
                 })
-                await completeOnboarding()
             } catch (err) {
                 console.error('[OnboardingWizard] Failed to save selections:', err)
                 setError(t('errors.saveFailed'))
@@ -93,14 +99,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ initialItems
             }
         }
 
-        // Move to next step
         if (activeStep < STEPS.length - 1) {
             setActiveStep((prev) => prev + 1)
-            if (STEPS[activeStep + 1] === 'completion' && onComplete) {
-                onComplete()
-            }
         }
-    }, [activeStep, selectedGoals, selectedTopics, selectedFeatures, onComplete, t])
+    }, [activeStep, selectedGoals, selectedTopics, selectedFeatures, t])
 
     const handleBack = useCallback(() => {
         if (activeStep > 0) {
@@ -157,7 +159,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ initialItems
                     />
                 )
             case 'completion':
-                return <CompletionStep />
+                return <CompletionStep primaryActionLoading={completionLoading} error={completionError} />
             default:
                 return null
         }
@@ -194,21 +196,35 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ initialItems
 
             {/* Navigation buttons */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: { xs: 2, sm: 4 }, pb: { xs: 2, sm: 0 } }}>
-                {activeStep === 0 ? (
-                    <Box /> // Empty placeholder for first step
-                ) : (
-                    <Button onClick={handleBack} disabled={isSaving} variant='outlined'>
-                        {t('buttons.back')}
-                    </Button>
-                )}
                 {activeStep === STEPS.length - 1 ? (
-                    <Button onClick={handleStartOver} variant='contained' color='primary'>
-                        {t('buttons.startOver')}
-                    </Button>
+                    // Completion step: Start Over (left) + Start Acting (right)
+                    <>
+                        <Button onClick={handleStartOver} variant='outlined' color='primary' disabled={completionLoading}>
+                            {t('buttons.startOver')}
+                        </Button>
+                        <Button
+                            onClick={onComplete}
+                            variant='contained'
+                            color='primary'
+                            disabled={completionLoading || !onComplete}
+                            startIcon={completionLoading ? <CircularProgress size={16} color='inherit' /> : null}
+                        >
+                            {t('buttons.startActing')}
+                        </Button>
+                    </>
                 ) : (
-                    <Button onClick={handleNext} disabled={isLoading || isSaving} variant='contained' color='primary'>
-                        {isSaving ? <CircularProgress size={24} color='inherit' /> : t('buttons.next')}
-                    </Button>
+                    <>
+                        {activeStep === 0 ? (
+                            <Box /> // Empty placeholder for first step
+                        ) : (
+                            <Button onClick={handleBack} disabled={isSaving} variant='outlined'>
+                                {t('buttons.back')}
+                            </Button>
+                        )}
+                        <Button onClick={handleNext} disabled={isLoading || isSaving} variant='contained' color='primary'>
+                            {isSaving ? <CircularProgress size={24} color='inherit' /> : t('buttons.next')}
+                        </Button>
+                    </>
                 )}
             </Box>
         </Container>

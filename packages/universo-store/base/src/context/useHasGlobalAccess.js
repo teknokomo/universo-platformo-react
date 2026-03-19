@@ -31,6 +31,7 @@ import AbilityContext from './AbilityContext'
  *   isSuperuser: boolean,
  *   hasAdminAccess: boolean,
  *   hasAnyGlobalRole: boolean,
+ *   ability: import('@universo/types').AppAbility | null,
  *   globalRoles: Array<{name: string, metadata: Object}>,
  *   rolesMetadata: Object<string, {name: string, displayName: Object, color: string, isSuperuser: boolean}>,
  *   loading: boolean,
@@ -48,6 +49,7 @@ export function useHasGlobalAccess() {
                 isSuperuser: false,
                 hasAdminAccess: false,
                 hasAnyGlobalRole: false,
+                ability: null,
                 globalRoles: [],
                 rolesMetadata: {},
                 loading: false,
@@ -66,19 +68,11 @@ export function useHasGlobalAccess() {
         // 2. User has admin-related permissions (roles:read, instances:read, or users:read)
         const canAccessAdminPanel = adminConfig.adminPanelEnabled && hasAdminAccess
 
-        console.log('[useHasGlobalAccess] Computed values', {
-            isSuperuser,
-            hasAdminAccess,
-            hasAnyGlobalRole,
-            adminConfig,
-            canAccessAdminPanel,
-            contextLoading: context.loading
-        })
-
         return {
             isSuperuser,
             hasAdminAccess,
             hasAnyGlobalRole,
+            ability: context.ability ?? null,
             globalRoles: context.globalRoles ?? [],
             rolesMetadata: context.rolesMetadata ?? {},
             loading: context.loading ?? false,

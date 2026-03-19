@@ -4,6 +4,7 @@ export {
     useHasGlobalAccess,
     useCurrentGlobalRole,
     useGlobalRoleMetadata,
+    useAdminPermission,
     globalRoleQueryKey
 } from './useGlobalRole'
 export { useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole, adminQueryKeys } from './mutations'

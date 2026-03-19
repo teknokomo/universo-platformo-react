@@ -224,6 +224,84 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /admin/global-users/{memberId}/roles:
+    put:
+      tags:
+        - Admin Global Users
+      summary: PUT /admin/global-users/{memberId}/roles
+      description: Auto-generated from
+        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
+      operationId: Admin_Global_Users_put_admin_global_users_memberId_roles
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: memberId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /admin/global-users/create-user:
+    post:
+      tags:
+        - Admin Global Users
+      summary: POST /admin/global-users/create-user
+      description: Auto-generated from
+        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
+      operationId: Admin_Global_Users_post_admin_global_users_create_user
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /admin/global-users/me:
     get:
       tags:
@@ -772,6 +850,49 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+      security: *a1
+  /admin/roles/{id}/copy:
+    post:
+      tags:
+        - Admin Roles
+      summary: POST /admin/roles/{id}/copy
+      description: Auto-generated from
+        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
+      operationId: Admin_Roles_post_admin_roles_id_copy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: id path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
       security: *a1
   /admin/roles/{id}/users:
     get:

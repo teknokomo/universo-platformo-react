@@ -45,6 +45,7 @@
     "dependencies": {
         "@google-cloud/logging-winston": "^6.0.0",
         "@oclif/core": "4.0.7",
+        "@supabase/supabase-js": "^2.45.4",
         "@universo/admin-backend": "workspace:*",
         "@universo/applications-backend": "workspace:*",
         "@universo/auth-backend": "workspace:*",

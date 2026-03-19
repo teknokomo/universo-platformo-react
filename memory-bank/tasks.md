@@ -2,12 +2,325 @@
 > Active and planned work only. Durable completed outcomes live in progress.md; reusable implementation rules live in systemPatterns.md.
 
 ---
+
+## QA Comprehensive Fix — 2026-03-19
+- Status: COMPLETE
+- [x] C1: Fix LIKE wildcard injection in `globalAccessService.ts` (~L408) and `instancesStore.ts` (~L50)
+- [x] C2: Add UUID validation to `globalUsersRoutes.ts` (3 routes) and `rolesRoutes.ts` copy route
+- [x] C3: Fix MetapanelDashboard.test.tsx mock to include `buildRealisticTrendData`
+- [x] C4: Dashboard API access review (by-design, no change needed)
+- [x] H1: Wrap create/update role routes in `exec.transaction()` in rolesRoutes.ts
+- [x] H2: Remove 10 `console.log` debug statements from ensureGlobalAccess.ts
+- [x] H3: Use `React.useId()` for StatCard gradient ID instead of `value`
+- [x] H5: Replace `axios.create()` with `createAuthClient()` in metapanel-frontend/api/dashboard.ts
+- [x] H6: Move setState during render to useEffect in RoleEdit.tsx
+- [x] H7: Extract `EMPTY_ROLE_IDS` constant in UserFormDialog.tsx
+- [x] H8: Replace `baseActions[1]` with `.find()` in RoleActions.tsx
+- [x] H9: Truncate codename to fit 50 char limit in copy action
+- [x] H10: Use current locale instead of hardcoded 'en' in RoleActions.tsx
+- [x] Fix test failures caused by UUID validation and transaction changes
+- [x] Validate: lint 0 errors, admin-backend 34/34 tests, admin-frontend 13/13 tests, metapanel-frontend 1/1 test, full build 28/28
+
+---
+
+## PR #729 Bot Review Fixes — 2026-03-19
+- Status: COMPLETE
+- [x] Fix `buildRealisticTrendData()` NaN/Infinity guard for `points <= 1` in `StatCard.tsx`
+- [x] Fix `OnboardingWizard.tsx` CTA disabled state when `onComplete` is undefined
+- [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in `CreateRoleSchema`, `UpdateRoleSchema` (schemas/index.ts)
+- [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in `CopyRoleSchema` (rolesRoutes.ts)
+- [x] Unify codename regex to `/^[a-z][a-z0-9_-]*$/` in frontend `RoleFormDialog.tsx`
+- [x] Validate: all lint 0 errors, RoleFormDialog 6/6 tests pass, full root build 28/28 in 3m4s
+- [x] Push updated commit to PR #729 branch
+
+---
+
+## QA Closure — Post-Implementation Fixes — 2026-03-19
+- Status: COMPLETE
+- [x] Remove redundant `.default(true)` from `includeSystem` in `admin-backend/rolesRoutes.ts` — preprocess already handles `undefined → true`
+- [x] Add `notifySubscribers({})` to `resetUserSettingsCache()` in `useUserSettings.ts` — ensures active hook instances receive reset notification instead of holding stale state
+- [x] Validate: admin-backend lint 0 errors, 34/34 tests; template-mui build OK; full root build 28/28 in 2m56s
+
+---
+
+## Fix Superuser Metahub Visibility (showAll query param) — 2026-03-18
+- Status: COMPLETE
+- [x] Root-cause: `z.coerce.boolean()` in query param schemas treats string `"false"` as `Boolean("false")===true` — superuser always sees all metahubs regardless of settings toggle
+- [x] Fix `queryParams.ts` in metahubs-backend, applications-backend, admin-backend: replace `z.coerce.boolean()` with `z.preprocess()` that correctly maps `"true"`→true, `"false"`→false
+- [x] Add regression test: superuser with `showAll=false` query param should pass `showAll: false` to store
+- [x] Validate: metahubs-backend 38/38 test suites, 254/254 tests passed; full root build 28/28 in 3m11s
+
+---
+
+## Admin Padding + Metahub Cache/Creation Fixes — 2026-03-18
+- Status: COMPLETE
+- [x] Fix RoleEdit padding: removed extra `px` from header section Stack so all elements have consistent MainLayout-level padding
+- [x] Fix stale cache on login/logout: added `useEffect` in App.tsx that watches auth user identity and clears React Query cache + user-settings singleton when user changes (login/logout/switch)
+- [x] Fix metahub creation cleanup: replaced soft-delete with hard `DELETE FROM metahubs.cat_metahubs` when initial-branch creation fails, preventing zombie metahub rows without branches/schemas
+- [x] Validate all changes: admin-frontend lint 0 errors, 13/13 tests; metahubs-backend lint 0 errors, 35/35 tests; start-frontend 20/20 tests; full root `pnpm build` 28/28 tasks in 3m13.772s
+- [x] Update memory-bank (activeContext, progress)
+
+---
+
+## Admin UX & Metahub Access Corrections — 2026-03-18
+- Status: COMPLETE
+- [x] Fix role detail header side inset so title/description align visually with the permissions section below
+- [x] Restore fully localized role-create dialog wording and remove English fallback exposure in the create flow
+- [x] Auto-generate role codename from the localized role name in create dialogs without breaking edit/copy defaults
+- [x] Remove the `publications` permission subject from the shared admin role configuration and update role-permissions labels accordingly
+- [x] Fix admin users create-dialog title/spacing and compact user-card role rendering to one role plus overflow count
+- [x] Restrict metahub cross-user visibility to superusers only when `showAllItems` is enabled, and remove the generic `metahubs:read` bypass from backend access guards
+- [x] Run touched validation, then resync `activeContext.md` and `progress.md`
+  - Note: `pnpm --filter @universo/admin-frontend lint` passed, `pnpm --filter @universo/admin-frontend test` passed with 4/4 files and 12/12 tests, `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/metahubsRoutes.test.ts` passed with 35/35 active tests, and the final root `pnpm build` passed with 28/28 successful tasks in 3m28.542s.
+
+## UX Corrections Wave 3 — QA Fixes — 2026-03-18
+- Status: COMPLETE
+- [x] Fix AuthenticatedStartPage test: expect `navigate('/', { replace: true })` for registered-only users (architecture: HomeRouteResolver handles routing)
+- [x] Fix OnboardingWizard prettier: collapse CompletionStep JSX to single line
+- [x] Fix RoleEdit, RoleFormDialog, AdminBoard, LocalesList, RoleActions prettier formatting (ran `prettier --write`)
+- [x] Fix RoleFormDialog copy test: `initialCodename` is now `'editor_copy'` (matches auto-generated codename from Wave 2)
+- [x] Fix RoleFormDialog validate stale closure: added `isSuperuser, showIsSuperuser` to useCallback deps
+- [x] Fix BaseEntityMenu onSubmit wrapper: added try-catch so dialog stays open on error, prevents unhandled rejection
+- [x] Fix LocalesList warning: wrapped `data?.items || []` in useMemo to stabilize reference
+- [x] Full validation: start-frontend 18/18 tests, admin-frontend 7/7 tests, all lint clean (0 errors), full build 28/28 (2m23s)
+
+## UX Corrections Wave 4 — 2026-03-18
+- Status: COMPLETE
+- [x] Fix CompletionStep revisit layout so the completion buttons keep the canonical left/right order outside the wizard shell
+  - Note: `CompletionStep` now renders `Start over` on the left and the primary action on the right with `justifyContent='space-between'`.
+- [x] Remove extra side padding from admin role detail informational blocks
+  - Note: `RoleEdit` now aligns the view header, back action, alert, and main content flush with the page layout instead of wrapping them in extra horizontal boxes.
+- [x] Restore standard Locales page side padding and shorten the create CTA label
+  - Note: `LocalesList` header now matches the table gutter and the create action uses `Create` / `Создать`.
+- [x] Shorten the Users create CTA label to the shared `Create` wording
+  - Note: both i18n values and `InstanceUsers` fallback strings now use the shorter label consistently.
+- [x] Narrow UserFormDialog and increase action-area padding to match the role dialog contract
+  - Note: the dialog now uses `maxWidth='sm'`, `DialogContent` top padding parity, and `DialogActions sx={{ p: 3, pt: 2 }}`.
+- [x] Replace the UserFormDialog roles tab with the catalog-style entity selection panel
+  - Note: the old autocomplete/chip legacy UI was removed; the roles tab now uses `EntitySelectionPanel` with localized labels and stable workspace-build-safe props.
+- [x] Full validation: `@universo/admin-frontend` lint, `@universo/template-mui` build, admin-frontend tests 7/7, start-frontend tests 18/18, root `pnpm build` 28/28 (3m3.03s)
+
+## UX Corrections Wave 4 — QA Follow-Through — 2026-03-18
+- Status: COMPLETE
+- [x] Remove the remaining EntitySelectionPanel type workaround from `UserFormDialog` and replace it with a stable package-level typing/export contract
+  - Note: `UserFormDialog` now derives the labels type from `ComponentProps<typeof EntitySelectionPanel>['labels']`, avoids the unavailable root type export, and keeps the explicit optional props required by the current `@universo/template-mui` declaration contract so root builds stay green.
+- [x] Add direct regression coverage for `UserFormDialog` create/edit behavior and role-tab validation instead of only mocking the dialog from `InstanceUsers`
+  - Note: the regression coverage is now anchored at the pure `validateUserFormDialog(...)` contract, which directly proves create/edit payload trimming, missing-role routing to the roles tab, short-password handling, and edit-mode email preservation without relying on fragile dialog-portal internals.
+- [x] Add direct regression coverage for the completion-step action contract so CTA order/availability and loading/error states are pinned in tests
+  - Note: `CompletionStep.test.tsx` now verifies left/right CTA order, callback dispatch, primary-only rendering, loading disablement, and error visibility.
+- [x] Re-run touched validation and final root build, then resync memory-bank closure state
+  - Note: `pnpm --filter @universo/admin-frontend lint` passed, `pnpm --filter @universo/admin-frontend test` passed with 4/4 files and 11/11 tests, `pnpm --filter @universo/start-frontend test` passed with 5/5 files and 20/20 tests, and the final root `pnpm build` passed successfully.
+
+## UX Corrections Wave 3 — 2026-03-18
+- Status: COMPLETE
+- [x] Onboarding last page: "Начать сначала" left, "Начать действовать" right, no "Назад" on last step
+  - Note: Removed onPrimaryAction from CompletionStep in wizard; rewrote nav buttons layout
+- [x] Fix "Начать действовать" redirect to `/` instead of `/start`
+  - Note: Replaced shouldResolveAfterCompletion effect with direct `navigate('/', { replace: true })`
+- [x] Metapanel: remove subtitle, side padding, "Текущий срез платформы", simplify descriptions
+  - Note: Updated MetapanelDashboard + en/ru metapanel.json i18n files
+- [x] Fix superusers count (showed 2, should be 1)
+  - Note: SQL now JOINs rel_user_roles with cat_roles filtering `r.is_superuser = true`
+- [x] Role edit dialog: fix content clipped at top
+  - Note: Changed DialogContent sx to `{ mt: 1, pt: '16px !important' }`
+- [x] Role detail: remove border, fix untranslated permissions, disabled checkboxes for system roles
+  - Note: Replaced MainCard with Box; added 4 missing i18n keys (metahubs/applications/profile/onboarding) en+ru; PermissionMatrix uses elevation variant + opacity when disabled
+- [x] Role edit dialog from list doesn't close after save
+  - Note: BaseEntityMenu now wraps onSubmit to auto-close dialog via setDialogState(null)
+- [x] Locales page: standard padding, button, filter, remove border
+  - Note: Rewrote LocalesList with Stack + ViewHeader with search + ToolbarControls + flat FlowListTable; removed MainCard wrapper
+- [x] Full build validation passed (28/28 packages, 2m34s)
+
+## UX Corrections Wave 2 — 2026-03-18
+- Status: COMPLETE
+- [x] Allow /start access after onboarding completion (StartAccessGuard)
+  - Note: Removed all redirect logic; now only requires authentication
+- [x] Fix role dialogs: i18n, padding, star icon overflow, remove left ColorPicker (keep native)
+  - Note: Replaced `t('common.cancel')` with `tc('actions.cancel')`, added `sx={{ p: 3, pt: 2 }}` to DialogActions, increased `mt: 2` for star icon; ColorPicker trimmed to native-only
+- [x] Fix copy role dialog: auto-append "(копия)"/"(copy)" suffix, auto-generate codename, "Параметры" tab with copy options
+  - Note: Added `appendCopySuffix()` to RoleActions, auto-generates `{codename}_copy`, added Tabs to RoleFormDialog when `showCopyPermissions=true`
+- [x] Fix edit role dialog: make codename editable for non-system roles (verify UUID bindings — confirmed)
+  - Note: Backend uses UUID in `rel_user_roles.role_id`, codename is already editable for non-system roles; verified no changes needed
+- [x] Remove demo charts (SessionsChart + PageViewsBarChart) from InstanceBoard
+- [x] Full build validation passed (28/28 packages)
+
+---
+
+## UX Corrections Wave — 2026-03-18
+- Status: COMPLETE
+- [x] Remove metahubs 'read' permission from 'user' system role seed and fix menu divider visibility
+- [x] Fix applications settings button — only visible for superusers, not hasAnyGlobalRole
+- [x] Fix dashboard user count — change totalGlobalUsers SQL from rel_user_roles COUNT to auth.users COUNT
+- [x] Fix all dashboard graphs to show realistic growth instead of fake wave/flat patterns
+  - Note: added shared buildRealisticTrendData helper; applied in MetapanelDashboard, AdminBoard, InstanceBoard, MetahubBoard, ApplicationBoard
+- [x] Rewrite admin roles RoleEdit page to match catalog pattern
+  - Note: Permissions tab stays with PermissionMatrix; Settings tab now opens RoleFormDialog dialog; removed inline settings form, Access Settings section, isSuperuser toggle from page; added isSuperuser support to RoleFormDialog
+- [x] Full build validation passed (28/28 packages)
+
+---
+
 ## Previous Completed Waves — 2026-03-13
 > Status: COMPLETE — older same-day closure waves were archived into `progress.md` to keep this file focused on the canonical active queue plus the most actionable recent completions.
 - [x] Metahub frontend regression reopen closure archived; see `progress.md` for the Settings continuity, confirm rendering, and optimistic publication feedback details.
 - [x] QA follow-through closure archived; see `progress.md` for the profile fail-closed hardening, runtime release-bundle lineage fix, and shared helper reuse details.
 - [x] Optional global catalog QA follow-through closure archived; see `progress.md` for the profile ownership hardening, true incremental artifact contract, and validation details.
 ## Active Open Tasks (Canonical)
+### QA Residual Contract Closure — 2026-03-18
+- Status: COMPLETE
+- [x] Stabilize the admin primary-role contract so superuser detection does not depend on unordered role rows
+  - Note: `admin.get_user_global_roles(...)`, `globalAccessService`, and `/admin/global-users/me` now prefer superuser deterministically and expose an explicit `isSuperuser` boolean for frontend consumers.
+- [x] Align admin frontend action gating with backend RBAC permissions instead of superuser-only shortcuts
+  - Note: admin roles/users create-edit-delete affordances now use shared CASL subject/action checks through the store-backed admin hook instead of superuser-only UI shortcuts.
+- [x] Align role codename validation across frontend and backend
+  - Note: the role dialog now blocks codenames outside the backend 2..50 length contract before submit, preventing avoidable 400 responses.
+- [x] Clear touched admin-backend lint debt and rerun focused validation plus final root build
+  - Note: `pnpm --filter @universo/admin-frontend lint` passed, `pnpm --filter @universo/admin-frontend test` passed with 4/4 files and 13/13 tests, `pnpm --filter @universo/admin-frontend build` passed, `pnpm --filter @universo/admin-backend lint` passed with warning-only pre-existing debt and 0 errors, `pnpm --filter @universo/admin-backend test` passed with 6/6 suites and 34/34 tests, `pnpm --filter @universo/admin-backend build` passed, `pnpm install --lockfile-only` completed, and the final root `pnpm build` passed with 28/28 successful tasks in 3m27.908s.
+- [x] Update activeContext/progress after all fixes and validations pass
+
+### QA Follow-Through Closure — 2026-03-18
+- Status: COMPLETE — the residual QA follow-through is closed. The `@universo/template-mui/navigation` subpath now resolves to built artifacts, direct admin user-management frontend regressions cover the create/edit/clear-roles seams, backend README examples match the current route factory contracts, and final validation finished with a green root `pnpm build` in 3m2.94s.
+- [x] Fix the `@universo/template-mui/navigation` subpath export contract so package consumers resolve built JS for both ESM and CJS
+  - Note: the subpath must stop pointing ESM consumers at raw TS source while CJS points to the root bundle; emit a dedicated built entry and keep package exports/types aligned.
+- [x] Add direct admin user-management frontend regression coverage
+  - Note: cover the create/edit/clear-roles UI seam around `InstanceUsers` and `UserActions` so payload wiring and `userId`-based actions are validated in frontend tests instead of only backend service tests.
+- [x] Resync backend package README examples with the current route factory contracts
+  - Note: `admin-backend` and `auth-backend` examples should reflect the current required factory arguments/options so future integrations do not copy stale code.
+- [x] Re-run targeted validation, final root build, and then resync memory-bank closure state
+  - Note: `pnpm --filter @universo/template-mui build` passed, the focused `@universo/admin-frontend` Vitest run passed with 3/3 files and 7/7 tests, `pnpm --filter @universo/admin-frontend lint` passed cleanly, README EN/RU parity stayed aligned, and the final root `pnpm build` passed with 28/28 successful tasks in 3m2.94s.
+
+### QA Residual Debt Closure — 2026-03-18
+- Status: COMPLETE — the last residual QA debt from the admin roles / metapanel wave is closed. The store package contract is explicit, touched applications lint is clean again, admin dialog loading no longer mixes eager and lazy paths, and validation finished with a green `@universo/applications-frontend` lint plus a successful root `pnpm build` (28/28 tasks in 2m26.514s).
+- [x] Fix the `@universo/store` package contract so runtime imports from `@universo/types` are declared explicitly
+  - Note: the root build warning around `ABILITY_MODULE_TO_SUBJECT` indicates a real manifest/dependency seam, not just noisy tooling output.
+- [x] Remove the remaining touched lint warnings from `@universo/applications-frontend`
+  - Note: finish the warning cleanup without broad unrelated refactors; the target is a clean touched package lint surface, not partial suppression.
+- [x] Make admin dialog lazy-loading architecture internally consistent
+  - Note: `RoleFormDialog` and `UserFormDialog` should either be truly lazy or truly eager, but not both dynamic and static at the same time.
+- [x] Re-run targeted validation, final root build, and then resync memory-bank closure state
+  - Note: validation must include the touched package lints/tests/build signals plus the final root `pnpm build`.
+
+### Post-QA Full Completion Reopen — 2026-03-18
+- Status: COMPLETE — the final reopen is closed. Role-management wording/detail UX now matches the requested contract more closely, metapanel uses shared dashboard primitives, touched applications warning debt is removed, the unexpected metapanel package build seam is fixed, and the final root `pnpm build` passed with 28/28 successful tasks in 2m36.104s.
+- [x] Finish the remaining role-management UX gaps against the original metahub-style contract
+  - Note: codename wording now uses `Кодовое имя` / `Code Name`, the role detail surface is settings/permissions-aware, and dialog/detail labels were aligned end-to-end through i18n and tests.
+- [x] Rebuild the metapanel implementation to use the same shared dashboard primitives/patterns as the metahub board
+  - Note: the dashboard now uses shared `StatCard` / `HighlightedCard` / `ViewHeader` primitives from `@universo/template-mui`; the final reopen additionally fixed the package contract by declaring `@universo/template-mui` and `@mui/icons-material` in `@universo/metapanel-frontend` and externalizing them in `tsdown` so build no longer parses foreign SVG assets.
+- [x] Remove warning-level debt introduced or left visible in touched applications frontend surfaces
+  - Note: connector admin DOM-nesting warnings and touched router/test warning noise were removed without broad unrelated refactors.
+- [x] Re-run targeted validation, final root build, and then resync memory-bank closure state
+  - Note: targeted admin/metapanel/applications validation was green, `pnpm --filter @universo/metapanel-frontend build` passed after the package-contract fix, `pnpm install --lockfile-only` resynced the workspace lockfile, and the final root `pnpm build` passed with 28/28 successful tasks in 2m36.104s.
+
+### Post-QA Corrective Reopen — 2026-03-18
+- Status: COMPLETE — the registered-only shell leak is fail-closed in both shared frontend/backend access resolvers, the touched start/applications regression surfaces are green again, and the final root `pnpm build` passed with 28/28 successful tasks in 2m26.925s.
+- [x] Tighten the registered-user workspace-access contract so Profile read cannot unlock the workspace shell
+  - Note: `registered` users must remain fail-closed on `/start`; capability-based shell access should not treat plain Profile visibility as sufficient workspace access when lifecycle policy says the user is still pre-workspace.
+- [x] Restore a green and realistic `@universo/start-frontend` regression surface around onboarding completion routing
+  - Note: narrow the `resolveShellAccess` import/test seam and align `useAbility` mocks with the actual runtime contract (`refreshAbility`, `globalRoles`, `ability`, `isSuperuser`).
+- [x] Restore a green `@universo/applications-frontend` test contract for the new permission gating
+  - Note: test mocks must match `useHasGlobalAccess()` and shared settings-dialog expectations so permission-gating regressions are validated instead of hidden behind partial mock shape drift.
+- [x] Re-run targeted validation, final root build, and then close the reopen in memory-bank
+  - Note: required validation includes the touched frontend/backend test suites plus the final root `pnpm build`.
+
+### Admin Roles & Metapanel Corrective Completion Wave — 2026-03-18
+- Status: COMPLETE — workspace access is now capability-based in the shared shell, admin create-user rollback compensates both profile and auth state, lifecycle role seeding is single-source again with legacy `manage` normalization, application admin affordances follow real permissions, route ownership moved back into `@universo/core-frontend`, targeted validation passed, touched-package lint is error-free, and the final root `pnpm build` passed with 28/28 successful tasks in 2m38.654s.
+- [x] Replace codename-based workspace access with shared capability-based shell/dashboard/start access
+  - Note: frontend shell/start routing and backend shared dashboard access must derive workspace eligibility from real permissions/CASL ability instead of only the `user` codename, while still keeping `registered` users fail-closed.
+- [x] Make admin create-user rollback compensate both profile and auth state
+  - Note: if role assignment fails after Supabase user provisioning, the admin flow must soft-delete `profiles.cat_profiles` before deleting the auth user, mirroring the registration cleanup contract.
+- [x] Remove duplicate lifecycle system-role seed execution and normalize legacy permission action drift
+  - Note: lifecycle seed/backfill must run from one canonical migration path only, and the seeded `user` role must stop relying on legacy `manage` rows that backend permission SQL does not interpret consistently.
+- [x] Align applications management affordances with actual application/global capabilities
+  - Note: application create/control-panel access must use real ability/application permission semantics instead of inheriting visibility from admin-panel access alone.
+- [x] Extract feature route ownership out of the shared template shell where necessary
+  - Note: `@universo/template-mui` should stop owning routed feature composition that forces new leaf-feature dependencies like metapanel into the shared shell package.
+- [x] Re-run targeted validation and final root build, then close memory-bank state
+  - Note: admin-backend focused route tests passed (5/5), the new template shell-access regression passed (3/3), `@universo/template-mui`, `@universo/core-frontend`, `@universo/start-frontend`, and `@universo/applications-frontend` builds passed, touched-package lint returned warning-only pre-existing noise with 0 errors, and the final root `pnpm build` passed with 28/28 successful tasks in 2m38.654s.
+
+### Admin Roles & Metapanel UX Rework — 2026-03-18
+- Status: COMPLETE — root/start routing now follows the requested guest vs `registered` vs `user` contract, the metapanel has been rebuilt into the requested dashboard shape on `/`, admin roles now use dialog-first edit UX plus a permissions-first detail page, ordinary `user` users no longer see application create/control-panel actions, and validation is green again.
+- [x] Restore the correct root/start routing contract for guest, `registered`, and `user` states
+  - Note: `/` must render the unauthenticated start page for guests, `/start` must remain the authenticated onboarding surface for `registered` users, and `/` must resolve to metapanel only for authenticated `user` users.
+- [x] Add and document the onboarding auto-promotion environment switch in the backend env templates
+  - Note: both `.env.example` and the local `.env` must clearly expose the setting that controls whether onboarding completion auto-grants the `user` role or leaves promotion for manual admin action.
+- [x] Rebuild the metapanel from the metaproject dashboard pattern instead of the current custom layout
+  - Note: reuse the same shared dashboard components/patterns from the metahub/metaproject implementation, keep one row with three chart cards plus one documentation card, fix breadcrumb translation, and delete the current throwaway metapanel-only UI files that are no longer needed.
+- [x] Refactor admin role create/edit/detail UX to match the requested metahub patterns
+  - Note: roles list should use a `Создать` action, create/edit must open metahub-style dialogs with name/description first and codename at the bottom, `Редактировать` must no longer navigate to the legacy page, and the role detail page must mirror the catalog attribute detail layout with `Разрешения` + `Настройки` tabs.
+- [x] Hide admin-only application actions from ordinary `user` users
+  - Note: ordinary users must not see application creation or admin settings actions; those controls should remain visible only for the intended privileged roles.
+- [x] Re-run targeted validation, final root build, and update memory-bank closure state
+  - Note: metapanel regression Vitest passed (1/1), admin role dialog Vitest passed (4/4), targeted applications gating regression passed with the focused `-t "hides create and control-panel actions for ordinary user roles"` run, touched frontend lints passed, and the final root `pnpm build` passed with 28/28 successful tasks in 2m32.91s.
+
+### Admin Roles Refactoring & Метапанель Final QA Completion Reopen — 2026-03-18
+- Status: COMPLETE — the legacy single-role seam is now compatibility-safe on top of the multi-role model, the role-copy flow contract is aligned end-to-end, the promised backend/frontend regressions are in place, and final validation is green again.
+- Plan: `memory-bank/plan/admin-roles-metapanel-refactoring-plan-2026-03-17.md`
+- [x] Close the remaining legacy role-assignment seam so superuser exclusivity and multi-role invariants hold across every still-supported backend/frontend entry point
+  - Note: remove or harden the old single-role grant/update surfaces so they cannot bypass `setUserRoles(...)` semantics or preserve invalid mixed-role state.
+- [x] Finish the role-copy flow contract end-to-end
+  - Note: the copy dialog must clear codename by default, expose the optional `copyPermissions` choice, and keep backend/frontend validation rules aligned.
+- [x] Add the missing direct regression coverage promised by the approved plan and cover the reopened QA findings
+  - Note: add focused backend/frontend tests for the legacy role seam, copy dialog behavior, and any touched routing/contract edge cases introduced by the cleanup.
+- [x] Remove the touched residual runtime/type debt and revalidate the full workspace
+  - Note: clear the debug logging / touched editor debt that remains from this wave, rerun targeted package checks, then finish with the full root `pnpm build`.
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the final closure only after all validations pass
+  - Note: targeted backend tests passed (19/19), admin-frontend Vitest passed (3/3), metapanel Vitest passed (1/1), touched frontend lints passed, and the final root `pnpm build` passed with 28/28 successful tasks in 2m38.24s.
+
+### Admin Roles Refactoring & Метапанель QA Corrective Reopen — 2026-03-17
+- Status: COMPLETE — the shared dashboard/user contract, lifecycle rollback handling, shell-access semantics, touched dialog/test/lint debt, and the final validation sweep are now closed.
+- Plan: `memory-bank/plan/admin-roles-metapanel-refactoring-plan-2026-03-17.md`
+- [x] Reopen the QA corrective plan in code and align the shared dashboard stats authorization with the metapanel/user role contract
+  - Note: the shared stats route is consumed by both AdminBoard and metapanel, so it must allow real workspace users without weakening registered-only access rules.
+- [x] Add compensation-safe lifecycle handling for admin-created users, registration, and onboarding completion
+  - Note: when a later role-assignment step fails after auth/profile writes succeed, the route must either roll back the earlier state or fail with explicit cleanup instead of leaving hidden partial success.
+- [x] Harden the touched admin user-management dialog UX and clear the touched backend/frontend regression debt
+  - Note: remove edit-flow loading/null-email edge cases, fix the stale globalAccessService test expectation, and clear the remaining touched lint warning before final validation.
+- [x] Re-run targeted validation plus the final root build, then resync memory-bank closure state
+  - Note: `@universo/admin-backend` tests passed, `@universo/start-backend` tests passed, `@universo/auth-backend` tests passed, `@universo/admin-frontend lint` passed cleanly, `@universo/template-mui build` passed, and the final root `pnpm build` passed with 28/28 successful tasks in 3m9.663s.
+
+### Admin Roles Refactoring & Метапанель — 2026-03-17
+- Status: COMPLETE — all phases of the v3 implementation are now merged in code, the metapanel package integration seam is closed, and final validation passed including the full root build.
+- Plan: `memory-bank/plan/admin-roles-metapanel-refactoring-plan-2026-03-17.md`
+- [x] **Phase 0**: Extend shared types and align AbilityContext (CASL Subjects, shared subject map, admin types, section-aware role-menu mapping)
+  - Note: make `@universo/types` the single source of truth for CASL module-to-subject mapping before backend/frontend role lifecycle work.
+- [x] **Phase 1**: Database migrations & backend core
+  - [x] Seed `registered` and `user` system roles + permissions
+  - [x] Introduce a privileged injected helper for system-role provisioning
+  - [x] Auto-assign `registered` role after registration via the injected helper
+  - [x] Onboarding completion role transition via the same helper (ENV-controlled)
+  - [x] Role copy backend route (POST /:id/copy, Zod validation, transaction)
+  - [x] Multi-role set endpoint (PUT /:memberId/roles, superuser exclusivity, self-mod guard)
+  - [x] Add `setUserRoles()` to GlobalAccessService (transaction-wrapped)
+  - [x] Admin-side user creation (POST /create-user, Supabase Admin API, bootstrap-injected `supabaseAdmin`)
+  - [x] Update user list to LEFT JOIN (show users without roles)
+  - [x] Add dedicated admin dashboard stats route/contract for AdminBoard + Метапанель
+  - [x] One-time data migration for existing users
+- [x] **Phase 2**: Roles UI refactoring
+  - [x] Create RoleFormDialog (basic fields only: name, codename, color, desc)
+  - [x] Refactor RoleEdit.tsx into tabbed layout (Permissions + Settings tabs) — reuse existing PermissionMatrix + ColorPicker
+  - [x] Update RolesList to use BaseEntityMenu + navigate-to-detail
+  - [x] TanStack Query mutations for role CRUD + copy
+- [x] **Phase 3**: User management & multi-role assignment
+  - [x] Create UserFormDialog with "Основное" + "Роли" tabs (including user creation)
+  - [x] Update InstanceUsers.tsx for multi-role chips + roleless users + create user button
+  - [x] Replace MemberFormDialog with UserFormDialog
+- [x] **Phase 4**: Onboarding integration
+  - [x] Refactor OnboardingWizard so completion is not called before the CTA
+  - [x] "Start Acting" button in CompletionStep + `AbilityContext` refresh
+  - [x] Preserve completed registered-only `/start` state when auto role assignment is disabled
+- [x] **Phase 5**: Метапанель & role-based menus
+  - [x] Create `metapanel-frontend` package (dual-build TSX)
+  - [x] MetapanelDashboard with stat summaries, role distribution, and dedicated i18n namespace
+  - [x] Add explicit `/start` route and root home resolver
+  - [x] Add `RegisteredUserGuard` + `StartAccessGuard` (typed, no `any`)
+  - [x] Add section-aware role-based menu filtering in MenuContent
+  - [x] Wrap main shell and add `/metapanel` route, rootMenuItems update, i18n namespace
+- [x] **Phase 6**: Final integration closure
+  - [x] Fix the `@universo/metapanel-frontend` package build/export surface so workspace consumers can resolve `@universo/metapanel-frontend/i18n` during the full shell build
+  - [x] Refresh the root lockfile/workspace metadata so Turbo and PNPM both see the new package/dependency graph
+  - [x] Re-run the full root `pnpm build` and close the implementation wave only after the workspace passes end-to-end
+  - [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the final implementation/validation outcome
+  - Note: the final integration fix added an explicit `tsdown` subpath entry for `./i18n`, declared the workspace dependency from `@universo/template-mui` to `@universo/metapanel-frontend`, removed the reverse metapanel -> template dependency to break the cycle, and the final root `pnpm build` passed with 28/28 successful tasks in 2m49.995s.
+
 ### QA Transactional Consistency Remediation — 2026-03-17
 - Status: COMPLETE — attribute create/copy/update/delete/display/required mutations and child-attribute create now run schema sync inside the same transaction runner, catalog create routes seed managed system attributes atomically, new route tests assert runner propagation, targeted route tests passed 43/43, and the final root `pnpm build` completed successfully.
 - [x] Make metahub attribute mutation routes fully atomic with schema sync

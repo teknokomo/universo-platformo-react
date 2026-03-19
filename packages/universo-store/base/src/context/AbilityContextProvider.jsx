@@ -31,25 +31,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { createMongoAbility } from '@casl/ability'
+import { ABILITY_MODULE_TO_SUBJECT } from '@universo/types'
 import AbilityContext from './AbilityContext'
-
-// Module to CASL subject mapping (must match backend)
-const MODULE_TO_SUBJECT = {
-    metaverses: 'Metaverse',
-    clusters: 'Cluster',
-    projects: 'Project',
-    spaces: 'Space',
-    sections: 'Section',
-    organizations: 'Organization',
-    storages: 'Storage',
-    credentials: 'Credential',
-    chatflows: 'Chatflow',
-    tools: 'Tool',
-    assistants: 'Assistant',
-    users: 'User',
-    roles: 'Role',
-    instances: 'Instance'
-}
 
 // Action mapping
 const ACTION_MAP = {
@@ -77,7 +60,7 @@ const buildAbilityFromPermissions = (permissions) => {
 
     for (const perm of permissions) {
         // Map subject to CASL subject ('metaverses' -> 'Metaverse', '*' -> 'all')
-        const subject = perm.subject === '*' ? 'all' : (MODULE_TO_SUBJECT[perm.subject] || perm.subject)
+        const subject = perm.subject === '*' ? 'all' : (ABILITY_MODULE_TO_SUBJECT[perm.subject] || perm.subject)
 
         // Map action ('*' -> 'manage')
         const action = ACTION_MAP[perm.action] || perm.action

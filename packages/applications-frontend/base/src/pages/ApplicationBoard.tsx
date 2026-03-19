@@ -6,7 +6,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
 
 // project imports
-import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard } from '@universo/template-mui'
+import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard, buildRealisticTrendData } from '@universo/template-mui'
 
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { toApplicationDisplay } from '../types'
@@ -74,17 +74,13 @@ const ApplicationBoard = () => {
     }
 
     // Success state with dashboard
-    // Demo trend data for SparkLineChart (30 data points)
-    // TODO: Replace with real historical data when analytics service is ready
-    const connectorsData = [
-        8, 9, 9, 10, 10, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11
-    ]
+    // Trend data for SparkLineChart
+    const connectorsData = buildRealisticTrendData(applicationDisplay.connectorsCount ?? 0)
 
-    const membersData = [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+    const membersData = buildRealisticTrendData(applicationDisplay.membersCount ?? 0)
 
-    // TODO: Replace with real migrations count when backend analytics is ready.
     const migrationsCount = 0
-    const migrationsData = Array(30).fill(migrationsCount)
+    const migrationsData = buildRealisticTrendData(migrationsCount)
 
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>

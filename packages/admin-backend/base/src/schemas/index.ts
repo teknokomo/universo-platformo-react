@@ -65,7 +65,18 @@ export function validateListQuery(query: unknown): ListQueryInput {
 /**
  * Available permission subjects (CASL standard terminology)
  */
-const PermissionSubjects = ['publications', 'roles', 'instances', 'users', 'settings', 'admin', '*'] as const
+const PermissionSubjects = [
+    'roles',
+    'instances',
+    'users',
+    'settings',
+    'admin',
+    'metahubs',
+    'applications',
+    'profile',
+    'onboarding',
+    '*'
+] as const
 
 /**
  * Available permission actions
@@ -90,12 +101,12 @@ export const CreateRoleSchema = z.object({
         .string()
         .min(2, 'Codename must be at least 2 characters')
         .max(50, 'Codename must be at most 50 characters')
-        .regex(/^[a-z0-9_-]+$/, 'Codename must be lowercase alphanumeric with underscores/dashes'),
+        .regex(/^[a-z][a-z0-9_-]*$/, 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes'),
     description: LocalizedStringOptionalSchema,
     name: LocalizedStringSchema,
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format'),
     isSuperuser: z.boolean(),
-    permissions: z.array(PermissionRuleSchema).min(1, 'At least one permission is required')
+    permissions: z.array(PermissionRuleSchema).default([])
 })
 
 export type CreateRoleInput = z.infer<typeof CreateRoleSchema>
@@ -108,7 +119,7 @@ export const UpdateRoleSchema = z.object({
         .string()
         .min(2, 'Codename must be at least 2 characters')
         .max(50, 'Codename must be at most 50 characters')
-        .regex(/^[a-z0-9_-]+$/, 'Codename must be lowercase alphanumeric with underscores/dashes')
+        .regex(/^[a-z][a-z0-9_-]*$/, 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes')
         .optional(),
     description: LocalizedStringOptionalSchema,
     name: LocalizedStringSchema.optional(),
@@ -117,7 +128,7 @@ export const UpdateRoleSchema = z.object({
         .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format')
         .optional(),
     isSuperuser: z.boolean().optional(),
-    permissions: z.array(PermissionRuleSchema).min(1, 'At least one permission is required').optional()
+    permissions: z.array(PermissionRuleSchema).optional()
 })
 
 export type UpdateRoleInput = z.infer<typeof UpdateRoleSchema>
@@ -170,7 +181,7 @@ export type UpdateLocaleInput = z.infer<typeof UpdateLocaleSchema>
  * Schema for listing locales query parameters
  */
 export const LocalesListQuerySchema = z.object({
-    includeDisabled: z.coerce.boolean().default(false),
+    includeDisabled: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
     sortBy: z.enum(['code', 'sort_order', '_upl_created_at']).default('sort_order'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
     // Optional pagination (locales list is typically small)

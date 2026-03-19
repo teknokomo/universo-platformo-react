@@ -2,7 +2,9 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ProfileService } from '@universo/profile-backend'
+import type { AssignSystemRole } from '@universo/types'
 import type { DbExecutor } from '@universo/utils/database'
+import { activeAppRowCondition } from '@universo/utils'
 import {
     fetchCatalogItems,
     fetchAllUserSelections,
@@ -34,7 +36,8 @@ export function createOnboardingRoutes(
     ensureAuth: RequestHandler,
     getRequestDbExecutor: (req: unknown) => DbExecutor,
     readLimiter: RateLimitRequestHandler,
-    writeLimiter: RateLimitRequestHandler
+    writeLimiter: RateLimitRequestHandler,
+    assignSystemRole?: AssignSystemRole
 ): Router {
     const router = Router({ mergeParams: true })
 
@@ -155,7 +158,34 @@ export function createOnboardingRoutes(
         const profileService = new ProfileService(exec)
 
         try {
+            const previousProfile = await profileService.getUserProfile(userId)
             const profile = await profileService.markOnboardingCompleted(userId, email)
+
+            if (process.env.AUTO_ROLE_AFTER_ONBOARDING !== 'false' && assignSystemRole) {
+                try {
+                    await assignSystemRole({
+                        userId,
+                        roleCodename: 'user',
+                        reason: 'auto-assigned on onboarding completion'
+                    })
+                } catch (roleAssignmentError) {
+                    if (!previousProfile?.onboarding_completed) {
+                        try {
+                            await exec.query(
+                                `UPDATE profiles.cat_profiles
+                                 SET onboarding_completed = $1, _upl_updated_at = NOW()
+                                 WHERE user_id = $2 AND ${activeAppRowCondition()}`,
+                                [false, userId]
+                            )
+                        } catch (rollbackError) {
+                            console.error('[onboarding] Failed to roll back onboarding completion after role assignment error:', rollbackError)
+                        }
+                    }
+
+                    throw roleAssignmentError
+                }
+            }
+
             res.json({ success: true, onboardingCompleted: profile.onboarding_completed })
         } catch (error) {
             console.error('[onboarding] Error completing onboarding:', error)

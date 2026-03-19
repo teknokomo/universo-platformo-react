@@ -30,7 +30,8 @@
         "clean": "rimraf dist",
         "build": "tsdown",
         "dev": "tsdown --watch",
-        "lint": "eslint --ext .ts,.tsx src/"
+        "lint": "eslint --ext .ts,.tsx src/",
+        "test": "vitest run --config vitest.config.ts"
     },
     "keywords": [
         "universo",
@@ -46,6 +47,7 @@
         "@tabler/icons-react": "^3.30.0",
         "@tanstack/react-query": "catalog:",
         "@universo/auth-frontend": "workspace:*",
+        "@universo/store": "workspace:*",
         "@universo/types": "workspace:*",
         "react-i18next": "catalog:",
         "i18next": "catalog:",
@@ -58,9 +60,12 @@
         "react-router-dom": ">=6"
     },
     "devDependencies": {
+        "@testing-library/jest-dom": "catalog:",
+        "@testing-library/react": "catalog:",
         "@types/react": "catalog:",
         "eslint": "catalog:",
         "rimraf": "^5.0.5",
-        "tsdown": "catalog:"
+        "tsdown": "catalog:",
+        "vitest": "catalog:"
     }
 }

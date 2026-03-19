@@ -146,6 +146,8 @@ export default function NavbarBreadcrumbs() {
 
     // Clean keys without 'menu.' prefix since we're already using 'menu' namespace
     const menuMap: Record<string, string> = {
+        applications: 'applications',
+        metapanel: 'metapanel',
         metahubs: 'metahubs',
         profile: 'profile',
         docs: 'docs',
@@ -156,7 +158,7 @@ export default function NavbarBreadcrumbs() {
 
     const crumbs = (() => {
         if (segments.length === 0) {
-            return [{ label: t('applications'), to: '/applications' }]
+            return [{ label: t('metapanel'), to: '/' }]
         }
 
         const primary = segments[0]

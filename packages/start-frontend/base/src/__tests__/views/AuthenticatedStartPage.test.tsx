@@ -4,7 +4,37 @@ import AuthenticatedStartPage from '../../views/AuthenticatedStartPage'
 import type { OnboardingItems } from '../../types'
 
 vi.mock('../../api/onboarding', () => ({
-    getOnboardingItems: vi.fn()
+    getOnboardingItems: vi.fn(),
+    completeOnboarding: vi.fn()
+}))
+
+const navigateMock = vi.fn()
+const refreshMock = vi.fn()
+const refreshAbilityMock = vi.fn()
+const mockAbility = null
+let mockGlobalRoles: Array<{ codename: string; metadata: Record<string, unknown> }> = []
+
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+    return {
+        ...actual,
+        useNavigate: () => navigateMock
+    }
+})
+
+vi.mock('@universo/auth-frontend', () => ({
+    useAuth: () => ({
+        refresh: refreshMock
+    })
+}))
+
+vi.mock('@universo/store', () => ({
+    useAbility: () => ({
+        refreshAbility: refreshAbilityMock,
+        globalRoles: mockGlobalRoles,
+        ability: mockAbility,
+        isSuperuser: false
+    })
 }))
 
 vi.mock('../../components/OnboardingWizard', () => ({
@@ -17,10 +47,20 @@ vi.mock('../../components/OnboardingWizard', () => ({
 }))
 
 vi.mock('../../components/CompletionStep', () => ({
-    CompletionStep: ({ onStartOver }: { onStartOver?: () => void }) => (
+    CompletionStep: ({
+        onStartOver,
+        onPrimaryAction,
+        error
+    }: {
+        onStartOver?: () => void
+        onPrimaryAction?: () => void
+        error?: string | null
+    }) => (
         <div>
             <div>completion-screen</div>
+            <button onClick={onPrimaryAction}>start-acting</button>
             <button onClick={onStartOver}>start-over</button>
+            {error ? <div>{error}</div> : null}
         </div>
     )
 }))
@@ -29,7 +69,7 @@ vi.mock('../../components/StartFooter', () => ({
     StartFooter: () => <div>start-footer</div>
 }))
 
-import { getOnboardingItems } from '../../api/onboarding'
+import { completeOnboarding, getOnboardingItems } from '../../api/onboarding'
 
 const mockItems: OnboardingItems = {
     onboardingCompleted: false,
@@ -74,6 +114,10 @@ const mockItems: OnboardingItems = {
 describe('AuthenticatedStartPage', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockGlobalRoles = []
+        refreshMock.mockResolvedValue(null)
+        refreshAbilityMock.mockResolvedValue(undefined)
+        vi.mocked(completeOnboarding).mockResolvedValue({ success: true, onboardingCompleted: true })
     })
 
     it('passes prefetched onboarding items into the wizard', async () => {
@@ -107,6 +151,44 @@ describe('AuthenticatedStartPage', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('wizard-props').textContent).toBe('no-items')
+        })
+    })
+
+    it('completes onboarding, refreshes auth state, and navigates when workspace access appears', async () => {
+        vi.mocked(getOnboardingItems).mockResolvedValue(mockItems)
+        refreshAbilityMock.mockImplementation(async () => {
+            mockGlobalRoles = [{ codename: 'user', metadata: {} }]
+        })
+
+        render(<AuthenticatedStartPage />)
+
+        await screen.findByTestId('wizard-props')
+        fireEvent.click(screen.getByText('complete-onboarding'))
+
+        await waitFor(() => {
+            expect(completeOnboarding).toHaveBeenCalledTimes(1)
+            expect(refreshMock).toHaveBeenCalledTimes(1)
+            expect(refreshAbilityMock).toHaveBeenCalledTimes(1)
+            expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
+        })
+    })
+
+    it('navigates to HomeRouteResolver after completion even when only registered role remains', async () => {
+        vi.mocked(getOnboardingItems).mockResolvedValue(mockItems)
+        refreshAbilityMock.mockImplementation(async () => {
+            mockGlobalRoles = [{ codename: 'registered', metadata: {} }]
+        })
+
+        render(<AuthenticatedStartPage />)
+
+        await screen.findByTestId('wizard-props')
+        fireEvent.click(screen.getByText('complete-onboarding'))
+
+        await waitFor(() => {
+            expect(completeOnboarding).toHaveBeenCalledTimes(1)
+            expect(refreshMock).toHaveBeenCalledTimes(1)
+            expect(refreshAbilityMock).toHaveBeenCalledTimes(1)
+            expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
         })
     })
 })

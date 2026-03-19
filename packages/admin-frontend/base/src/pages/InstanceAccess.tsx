@@ -39,7 +39,7 @@ import type { MemberFormData } from '@universo/template-mui'
 import apiClient from '../api/apiClient'
 import { createAdminApi } from '../api/adminApi'
 import { adminQueryKeys } from '../api/queryKeys'
-import { useIsSuperadmin, useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole, useAssignableGlobalRoles } from '../hooks'
+import { useAdminPermission, useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole, useAssignableGlobalRoles } from '../hooks'
 import { useInstanceDetails } from '../hooks/useInstanceDetails'
 import type { GlobalUserMember, GlobalAssignableRole, PaginationParams, PaginatedResponse } from '../types'
 import memberActions from './MemberActions'
@@ -91,7 +91,9 @@ const InstanceAccess = () => {
     // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
-    const isSuperadmin = useIsSuperadmin()
+    const canCreateUsers = useAdminPermission('create', 'User')
+    const canUpdateUsers = useAdminPermission('update', 'User')
+    const canDeleteUsers = useAdminPermission('delete', 'User')
 
     // Load roles dynamically for global user assignment
     const { roleOptions: availableRoles, roleLabels, isLoading: isLoadingRoles, error: rolesError } = useAssignableGlobalRoles()
@@ -410,7 +412,7 @@ const InstanceAccess = () => {
                                 cardViewTitle={tc('cardView')}
                                 listViewTitle={tc('listView')}
                                 primaryAction={
-                                    isSuperadmin
+                                    canCreateUsers
                                         ? {
                                               label: tc('actions.add', 'Add'),
                                               onClick: handleAddNew,
@@ -451,8 +453,20 @@ const InstanceAccess = () => {
                                         }}
                                     >
                                         {members.map((member: GlobalUserMember) => {
-                                            // Filter actions: only superadmin can manage, can't manage self
-                                            const descriptors = isSuperadmin && member.userId !== user?.id ? memberActions : []
+                                            const descriptors =
+                                                member.userId !== user?.id
+                                                    ? memberActions.filter((descriptor) => {
+                                                          if (descriptor.id === 'edit') {
+                                                              return canUpdateUsers
+                                                          }
+
+                                                          if (descriptor.id === 'delete') {
+                                                              return canDeleteUsers
+                                                          }
+
+                                                          return false
+                                                      })
+                                                    : []
 
                                             return (
                                                 <ItemCard
@@ -509,12 +523,25 @@ const InstanceAccess = () => {
                                             customColumns={memberColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: GlobalUserMember) => {
-                                                // Only superadmin can manage, can't manage self
-                                                if (!isSuperadmin || row.userId === user?.id) {
+                                                if (row.userId === user?.id) {
                                                     return null
                                                 }
 
-                                                const descriptors = memberActions
+                                                const descriptors = memberActions.filter((descriptor) => {
+                                                    if (descriptor.id === 'edit') {
+                                                        return canUpdateUsers
+                                                    }
+
+                                                    if (descriptor.id === 'delete') {
+                                                        return canDeleteUsers
+                                                    }
+
+                                                    return false
+                                                })
+
+                                                if (descriptors.length === 0) {
+                                                    return null
+                                                }
 
                                                 return (
                                                     <BaseEntityMenu<GlobalUserMember, MemberFormData>

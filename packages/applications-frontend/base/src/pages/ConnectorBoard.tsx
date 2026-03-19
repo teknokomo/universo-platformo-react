@@ -64,9 +64,9 @@ const InfoRow = ({ label, value }: InfoRowProps) => (
         <Typography variant='body2' color='text.secondary'>
             {label}
         </Typography>
-        <Typography variant='body2' sx={{ fontWeight: 500 }}>
+        <Box component='span' sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', fontWeight: 500 }}>
             {value}
-        </Typography>
+        </Box>
     </Box>
 )
 

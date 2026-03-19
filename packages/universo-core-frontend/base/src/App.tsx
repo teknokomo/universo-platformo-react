@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from '@universo/i18n'
 import type { i18n as I18nInstance } from 'i18next'
@@ -7,16 +7,21 @@ import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline, StyledEngineProvider } from '@mui/material'
 
 // routing
-import Routes from '@universo/template-mui/routes'
+import Routes from '@/routes/ThemeRoutes'
 
 // defaultTheme
 import themes from '@universo/template-mui/themes'
 
 // project imports
 import NavigationScroll from '@universo/template-mui/layout/NavigationScroll'
+import { resetUserSettingsCache } from '@universo/template-mui'
 
 // CASL Ability context
 import { AbilityContextProvider } from '@universo/store'
+
+// Auth cache sync
+import { useAuth } from '@universo/auth-frontend'
+import { useQueryClient } from '@tanstack/react-query'
 
 // ==============================|| APP ||============================== //
 
@@ -65,6 +70,22 @@ const App: React.FC = () => {
     const { i18n } = useTranslation()
     const [i18nInitialized, setI18nInitialized] = useState(false)
     const customization = useSelector((state: CustomizationState) => state.customization)
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+    const prevUserIdRef = useRef<string | null | undefined>(undefined)
+
+    // Clear all caches when user identity changes (login/logout/switch)
+    useEffect(() => {
+        const currentUserId = user?.id ?? null
+        const prevUserId = prevUserIdRef.current
+
+        if (prevUserId !== undefined && prevUserId !== currentUserId) {
+            queryClient.clear()
+            resetUserSettingsCache()
+        }
+
+        prevUserIdRef.current = currentUserId
+    }, [user, queryClient])
 
     const themeFactory = useMemo((): ((customization: Record<string, unknown>) => Record<string, unknown>) => {
         if (typeof themes === 'function') {

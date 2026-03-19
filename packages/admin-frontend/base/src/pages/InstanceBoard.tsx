@@ -14,8 +14,7 @@ import {
     APIEmptySVG,
     StatCard,
     HighlightedCard,
-    SessionsChart,
-    PageViewsBarChart
+    buildRealisticTrendData
 } from '@universo/template-mui'
 
 import { useInstanceDetails, useInstanceStats } from '../hooks/useInstanceDetails'
@@ -100,8 +99,8 @@ const InstanceBoard = () => {
     const globalAccessUsers = stats?.available ? stats.globalAccessUsers ?? 0 : 0
 
     // Demo trend data for SparkLineChart (30 data points)
-    const totalUsersData = Array(30).fill(totalUsers)
-    const globalUsersData = Array(30).fill(globalAccessUsers)
+    const totalUsersData = buildRealisticTrendData(totalUsers)
+    const globalUsersData = buildRealisticTrendData(globalAccessUsers)
 
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
@@ -166,7 +165,7 @@ const InstanceBoard = () => {
                             title={t('board.stats.roles.title', 'Roles')}
                             value={stats?.totalRoles ?? 0}
                             interval={t('board.stats.roles.interval', 'System + custom')}
-                            data={Array(30).fill(stats?.totalRoles ?? 0)}
+                            data={buildRealisticTrendData(stats?.totalRoles ?? 0)}
                         />
                     </Grid>
 
@@ -181,22 +180,6 @@ const InstanceBoard = () => {
                             onButtonClick={() => window.open('https://teknokomo.gitbook.io/up', '_blank', 'noopener,noreferrer')}
                         />
                     </Grid>
-
-                    {/* Activity Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <SessionsChart
-                            title={t('board.charts.activity.title', 'Activity')}
-                            description={t('board.charts.activity.description', 'Instance activity over time')}
-                        />
-                    </Grid>
-
-                    {/* Users Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <PageViewsBarChart
-                            title={t('board.charts.users.title', 'Users')}
-                            description={t('board.charts.users.description', 'User distribution')}
-                        />
-                    </Grid>
                 </Grid>
 
                 {/* Navigation to Access page */}
@@ -204,7 +187,7 @@ const InstanceBoard = () => {
                     <Button
                         variant='text'
                         startIcon={<ArrowBackRoundedIcon />}
-                        onClick={() => navigate(`/admin/instance/${instanceId}/access`)}
+                        onClick={() => navigate(`/admin/instance/${instanceId}/users`)}
                     >
                         {t('board.manageAccess', 'Manage Access')}
                     </Button>

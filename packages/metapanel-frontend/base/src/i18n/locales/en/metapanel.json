@@ -1,0 +1,29 @@
+{
+    "title": "Metapanel",
+    "overview": "Overview",
+    "errors": {
+        "loadFailed": "Failed to load dashboard statistics"
+    },
+    "stats": {
+        "applications": {
+            "title": "Applications",
+            "interval": "Total",
+            "description": "Installed application surfaces"
+        },
+        "metahubs": {
+            "title": "Metahubs",
+            "interval": "Total",
+            "description": "Published metahub workspaces"
+        },
+        "users": {
+            "title": "Registered Users",
+            "interval": "Total",
+            "description": "Authenticated platform users"
+        }
+    },
+    "documentation": {
+        "title": "Documentation",
+        "description": "Platform guides and product documentation.",
+        "button": "Open documentation"
+    }
+}

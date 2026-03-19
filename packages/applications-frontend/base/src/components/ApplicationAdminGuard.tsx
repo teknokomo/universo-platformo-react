@@ -6,9 +6,6 @@ import { isAccessDeniedError } from '@universo/template-mui'
 import { useAuth } from '@universo/auth-frontend'
 import { getApplication } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
-import type { ApplicationRole } from '../types'
-
-const ALLOWED_ROLES: ApplicationRole[] = ['owner', 'admin', 'editor']
 
 export interface ApplicationAdminGuardProps {
     children: React.ReactNode
@@ -55,8 +52,12 @@ export const ApplicationAdminGuard: React.FC<ApplicationAdminGuardProps> = ({ ch
         return <Navigate to='/' replace />
     }
 
+    const permissions = applicationQuery.data?.permissions
     const role = applicationQuery.data?.role
-    if (!role || !ALLOWED_ROLES.includes(role)) {
+    const canManageApplication =
+        typeof permissions?.manageApplication === 'boolean' ? permissions.manageApplication : role === 'owner' || role === 'admin'
+
+    if (!canManageApplication) {
         return <Navigate to={`/a/${applicationId}`} replace />
     }
 

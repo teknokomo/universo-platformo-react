@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Box, Typography, Stack, CircularProgress, Alert, Grid, Button } from '@mui/material'
+import { Box, Typography, Stack, CircularProgress, Alert, Grid, Button, Chip } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -13,8 +13,7 @@ import {
     APIEmptySVG,
     StatCard,
     HighlightedCard,
-    SessionsChart,
-    PageViewsBarChart
+    buildRealisticTrendData
 } from '@universo/template-mui'
 
 import apiClient from '../api/apiClient'
@@ -48,7 +47,7 @@ const AdminBoard = () => {
         error,
         isError
     } = useQuery({
-        queryKey: adminQueryKeys.stats(),
+        queryKey: adminQueryKeys.dashboardStats(),
         queryFn: () => adminApi.getStats()
     })
 
@@ -84,10 +83,10 @@ const AdminBoard = () => {
         )
     }
 
-    // Demo trend data for SparkLineChart (30 data points)
-    const totalUsersData = Array(30).fill(stats.totalGlobalUsers)
-    const superadminsData = Array(30).fill(stats.superadmins)
-    const supermoderatorsData = Array(30).fill(stats.supermoderators)
+    const totalUsersData = buildRealisticTrendData(stats.totalGlobalUsers)
+    const rolesData = buildRealisticTrendData(stats.totalRoles)
+    const applicationsData = buildRealisticTrendData(stats.totalApplications)
+    const metahubsData = buildRealisticTrendData(stats.totalMetahubs)
 
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
@@ -116,28 +115,38 @@ const AdminBoard = () => {
                         />
                     </Grid>
 
-                    {/* Superadmins Count */}
+                    {/* Roles Count */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.superadmins.title', 'Superadmins')}
-                            value={stats.superadmins}
-                            interval={t('board.stats.superadmins.interval', 'Full access')}
-                            data={superadminsData}
+                            title={t('board.stats.roles.title', 'Roles')}
+                            value={stats.totalRoles}
+                            interval={t('board.stats.roles.interval', 'System + custom')}
+                            data={rolesData}
                         />
                     </Grid>
 
-                    {/* Supermoderators Count */}
+                    {/* Applications Count */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.supermoderators.title', 'Supermoderators')}
-                            value={stats.supermoderators}
-                            interval={t('board.stats.supermoderators.interval', 'View access')}
-                            data={supermoderatorsData}
+                            title={t('board.stats.totalApplications.title', 'Applications')}
+                            value={stats.totalApplications}
+                            interval={t('board.stats.totalApplications.interval', 'Published + draft')}
+                            data={applicationsData}
+                        />
+                    </Grid>
+
+                    {/* Metahubs Count */}
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <StatCard
+                            title={t('board.stats.totalMetahubs.title', 'Metahubs')}
+                            value={stats.totalMetahubs}
+                            interval={t('board.stats.totalMetahubs.interval', 'All metahubs')}
+                            data={metahubsData}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                    <Grid size={{ xs: 12, lg: 6 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title', 'Documentation')}
@@ -148,27 +157,31 @@ const AdminBoard = () => {
                         />
                     </Grid>
 
-                    {/* Activity Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <SessionsChart
-                            title={t('board.charts.activity.title', 'Activity')}
-                            description={t('board.charts.activity.description', 'Platform activity over time')}
-                        />
-                    </Grid>
-
-                    {/* Global Users Chart (Demo Data) */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <PageViewsBarChart
-                            title={t('board.charts.users.title', 'Global Users')}
-                            description={t('board.charts.users.description', 'Distribution of global roles')}
-                        />
+                    <Grid size={{ xs: 12, lg: 6 }}>
+                        <Box sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: '100%' }}>
+                            <Typography variant='h6' sx={{ mb: 1.5 }}>
+                                {t('board.roleBreakdown.title', 'Role distribution')}
+                            </Typography>
+                            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                                {t('board.roleBreakdown.description', 'Current active global roles across the platform.')}
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {Object.entries(stats.byRole).length > 0 ? (
+                                    Object.entries(stats.byRole).map(([codename, count]) => (
+                                        <Chip key={codename} label={`${codename}: ${count}`} variant='outlined' />
+                                    ))
+                                ) : (
+                                    <Chip label={t('board.roleBreakdown.empty', 'No global roles assigned')} variant='outlined' />
+                                )}
+                            </Box>
+                        </Box>
                     </Grid>
                 </Grid>
 
                 {/* Navigation to Access page */}
                 <Box display='flex' justifyContent='center' sx={{ mt: 2 }}>
-                    <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/admin/access')}>
-                        {t('board.manageAccess', 'Manage Global Access')}
+                    <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/admin')}>
+                        {t('board.manageAccess', 'Open administration')}
                     </Button>
                 </Box>
             </Box>

@@ -204,7 +204,7 @@ const renderWithProviders = async (ui: ReactElement, { route = '/a/test-applicat
             <QueryClientProvider client={queryClient}>
                 <SnackbarProvider maxSnack={3}>
                     <I18nextProvider i18n={i18n}>
-                        <MemoryRouter initialEntries={[route]}>
+                        <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                             <Routes>
                                 <Route path='/a/:applicationId/admin/access' element={ui} />
                                 <Route path='/access' element={ui} />

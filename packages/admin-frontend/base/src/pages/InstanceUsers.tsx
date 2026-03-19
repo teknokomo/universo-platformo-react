@@ -8,14 +8,11 @@ import { IconSearch } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frontend'
-import { extractAxiosError, isHttpStatus, isApiError } from '@universo/utils'
 
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
-
-// Project imports
 import {
     TemplateMainCard as MainCard,
     ItemCard,
@@ -31,36 +28,25 @@ import {
     ConfirmDialog,
     useConfirm,
     RoleChip,
-    FilterToolbar
+    FilterToolbar,
+    BaseEntityMenu,
+    ViewHeaderMUI as ViewHeader
 } from '@universo/template-mui'
 import type { TableColumn, TriggerProps, ActionContext, FilterConfig, FilterValues } from '@universo/template-mui'
-import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
-import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { MemberFormData } from '@universo/template-mui'
 
 import apiClient from '../api/apiClient'
-import { createAdminApi, type ListGlobalUsersParams } from '../api/adminApi'
+import { createAdminApi, type AdminCreateUserPayload, type ListGlobalUsersParams } from '../api/adminApi'
 import { adminQueryKeys } from '../api/queryKeys'
-import { useIsSuperadmin, useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole, useRoles } from '../hooks'
+import { useAdminPermission, useRoles } from '../hooks'
 import { useInstanceDetails } from '../hooks/useInstanceDetails'
-import type { GlobalUserMember, GlobalAssignableRole, PaginationParams, PaginatedResponse } from '../types'
-import memberActions from './MemberActions'
+import type { GlobalUserMember, PaginationParams, PaginatedResponse } from '../types'
+import type { RoleListItem } from '../api/rolesApi'
+import UserFormDialog from '../components/UserFormDialog'
+import type { UserFormDialogSubmitData } from '../components/UserFormDialog'
+import userActions from './UserActions'
 
-// Singleton instance of adminApi
 const adminApi = createAdminApi(apiClient)
 
-/**
- * Type guard to check if data is MemberFormData
- */
-function isMemberFormData(data: unknown): data is MemberFormData {
-    if (!data || typeof data !== 'object') return false
-    const d = data as Record<string, unknown>
-    return typeof d.email === 'string' && typeof d.role === 'string'
-}
-
-/**
- * Confirm dialog specification with support for translation keys
- */
 interface ConfirmSpec {
     title?: string
     titleKey?: string
@@ -73,11 +59,14 @@ interface ConfirmSpec {
     interpolate?: Record<string, string | number>
 }
 
-/**
- * Instance Users Page
- * Manages ALL users (not just global access) within an instance context
- * Provides filtering by role and global access status
- */
+interface UserActionContext extends ActionContext<GlobalUserMember, UserFormDialogSubmitData> {
+    meta?: {
+        roles?: RoleListItem[]
+        loading?: boolean
+        error?: string | null
+    }
+}
+
 const InstanceUsers = () => {
     const { instanceId } = useParams<{ instanceId: string }>()
     const navigate = useNavigate()
@@ -88,85 +77,58 @@ const InstanceUsers = () => {
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.INSTANCE_USERS_DISPLAY_STYLE)
-
-    // Filter state
-    const [filterValues, setFilterValues] = useState<FilterValues>({
-        roleId: 'all'
+    const [dialogState, setDialogState] = useState<{ open: boolean; mode: 'create' | 'edit'; member: GlobalUserMember | null }>({
+        open: false,
+        mode: 'create',
+        member: null
     })
-
-    // Keep ref to current filter values for use in closures
+    const [dialogError, setDialogError] = useState<string | null>(null)
+    const [filterValues, setFilterValues] = useState<FilterValues>({ roleId: 'all' })
     const filterValuesRef = useRef(filterValues)
+
     useEffect(() => {
         filterValuesRef.current = filterValues
     }, [filterValues])
 
-    // State management for invite dialog error (special handling for 404/409)
-    const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
+    const canCreateUsers = useAdminPermission('create', 'User')
+    const canUpdateUsers = useAdminPermission('update', 'User')
 
-    const isSuperadmin = useIsSuperadmin()
+    const { roles: allRoles, roleLabelsById, isLoading: isLoadingAllRoles } = useRoles({ filter: 'all' })
 
-    // Load roles for invite dialog (only assignable/global access roles)
-    const {
-        roleOptions: assignableRoles,
-        roleLabels: assignableRoleLabels,
-        isLoading: isLoadingAssignableRoles,
-        error: rolesError
-    } = useRoles({ filter: 'assignable' })
+    const filterConfigs: FilterConfig[] = useMemo(
+        () => [
+            {
+                key: 'roleId',
+                type: 'select',
+                label: t('users.filters.role', 'Role'),
+                placeholder: t('users.filters.allRoles', 'All roles'),
+                options: allRoles.map((role) => ({
+                    value: role.id,
+                    label: roleLabelsById[role.id] || role.codename
+                }))
+            }
+        ],
+        [allRoles, roleLabelsById, t]
+    )
 
-    // Load ALL roles for filter dropdown and edit dialog
-    const {
-        roles: allRoles,
-        roleLabelsById,
-        roleOptions: allRoleOptions,
-        roleLabels: allRoleLabels,
-        isLoading: isLoadingAllRoles
-    } = useRoles({ filter: 'all' })
-
-    // Build filter configs
-    const filterConfigs: FilterConfig[] = useMemo(() => {
-        const configs: FilterConfig[] = []
-
-        // Role filter
-        configs.push({
-            key: 'roleId',
-            type: 'select',
-            label: t('users.filters.role', 'Role'),
-            placeholder: t('users.filters.allRoles', 'All Roles'),
-            options: allRoles.map((role) => ({
-                value: role.id,
-                label: roleLabelsById[role.id] || role.codename
-            }))
-        })
-
-        return configs
-    }, [allRoles, roleLabelsById, t])
-
-    // Handle filter change - invalidate cache and refetch
     const handleFilterChange = useCallback(
-        (newFilters: FilterValues) => {
-            // Update ref synchronously BEFORE invalidating cache
-            filterValuesRef.current = newFilters
-            setFilterValues(newFilters)
-            // Invalidate cache to force refetch with new filters
-            queryClient.invalidateQueries({
-                queryKey: adminQueryKeys.globalUsers()
-            })
+        (nextFilters: FilterValues) => {
+            filterValuesRef.current = nextFilters
+            setFilterValues(nextFilters)
+            queryClient.invalidateQueries({ queryKey: adminQueryKeys.globalUsers() })
         },
         [queryClient]
     )
 
-    // Fetch instance details
     const { data: instance, isLoading: instanceLoading, error: instanceError, isError: instanceIsError } = useInstanceDetails(instanceId)
 
-    // Use paginated hook for users list with filters
-    const paginationResult = usePaginated<GlobalUserMember, 'email' | 'role' | 'created'>({
+    const paginationResult = usePaginated<GlobalUserMember, 'email' | 'created'>({
         queryKeyFn: (params: PaginationParams) => {
             const currentFilters = filterValuesRef.current
             const fullParams: ListGlobalUsersParams = {
                 ...params,
-                roleId: currentFilters.roleId === 'all' ? undefined : (currentFilters.roleId as string)
+                roleId: currentFilters.roleId === 'all' ? undefined : String(currentFilters.roleId)
             }
             return adminQueryKeys.globalUsersList(fullParams)
         },
@@ -174,7 +136,7 @@ const InstanceUsers = () => {
             const currentFilters = filterValuesRef.current
             const fullParams: ListGlobalUsersParams = {
                 ...params,
-                roleId: currentFilters.roleId === 'all' ? undefined : (currentFilters.roleId as string)
+                roleId: currentFilters.roleId === 'all' ? undefined : String(currentFilters.roleId)
             }
             return adminApi.listGlobalUsers(fullParams)
         },
@@ -186,182 +148,222 @@ const InstanceUsers = () => {
 
     const { data: members = [], isLoading, error } = paginationResult
 
-    // Instant search for better UX (backend has rate limiting protection)
     const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
 
-    // State for independent ConfirmDeleteDialog
-    const [removeDialogState, setRemoveDialogState] = useState<{
-        open: boolean
-        member: GlobalUserMember | null
-    }>({ open: false, member: null })
-
     const { confirm } = useConfirm()
 
-    // Mutation hooks
-    const grantMutation = useGrantGlobalRole()
-    const updateMutation = useUpdateGlobalRole()
-    const revokeMutation = useRevokeGlobalRole()
-
-    // Memoize images object (empty for global users - no avatars)
-    const images = useMemo(() => {
-        const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(members)) {
-            members.forEach((member) => {
-                if (member?.id) {
-                    imagesMap[member.id] = []
-                }
-            })
+    const createUserMutation = useMutation({
+        mutationFn: (payload: AdminCreateUserPayload) => adminApi.createUser(payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: adminQueryKeys.globalUsers() })
+            await queryClient.invalidateQueries({ queryKey: adminQueryKeys.dashboardStats() })
+            enqueueSnackbar(t('users.createSuccess', 'User created successfully'), { variant: 'success' })
+            setDialogState({ open: false, mode: 'create', member: null })
+            setDialogError(null)
+        },
+        onError: (mutationError: Error) => {
+            setDialogError(mutationError.message || t('users.createError', 'Failed to create user'))
         }
-        return imagesMap
+    })
+
+    const setUserRolesMutation = useMutation({
+        mutationFn: ({ userId, roleIds, comment }: { userId: string; roleIds: string[]; comment?: string }) =>
+            adminApi.setUserRoles({ userId, roleIds, comment }),
+        onSuccess: async (_data, variables) => {
+            await queryClient.invalidateQueries({ queryKey: adminQueryKeys.globalUsers() })
+            await queryClient.invalidateQueries({ queryKey: adminQueryKeys.dashboardStats() })
+            enqueueSnackbar(
+                variables.roleIds.length > 0
+                    ? t('users.updateSuccess', 'User roles updated successfully')
+                    : t('users.clearRolesSuccess', 'All user roles cleared successfully'),
+                { variant: 'success' }
+            )
+        }
+    })
+
+    const dialogLoading = createUserMutation.isPending || setUserRolesMutation.isPending
+
+    const editErrorMessage = setUserRolesMutation.error instanceof Error ? setUserRolesMutation.error.message : null
+
+    const images = useMemo(() => {
+        const map: Record<string, unknown[]> = {}
+        members.forEach((member) => {
+            map[member.id] = []
+        })
+        return map
     }, [members])
 
-    const handleAddNew = () => {
-        setInviteDialogOpen(true)
-    }
-
-    const handleInviteDialogClose = () => {
-        setInviteDialogOpen(false)
-        setInviteDialogError(null)
-    }
-
-    const handleInviteDialogSave = () => {
-        setInviteDialogOpen(false)
-        setInviteDialogError(null)
-    }
-
-    const handleInviteMember = async (data: { email: string; role: string; comment?: string }) => {
-        setInviteDialogError(null)
-        try {
-            await grantMutation.mutateAsync({
-                email: data.email,
-                role: data.role as GlobalAssignableRole,
-                comment: data.comment
-            })
-            // Success: close dialog (notification handled by mutation hook)
-            handleInviteDialogSave()
-        } catch (error: unknown) {
-            let message = t('access.grantError', 'Failed to grant access')
-
-            // Use type-safe axios error utilities for special cases
-            if (isHttpStatus(error, 404)) {
-                message = tc('members.userNotFound', { email: data.email })
-            } else if (isHttpStatus(error, 409) && isApiError(error, 'GLOBAL_USER_EXISTS')) {
-                message = t('access.userAlreadyHasAccess', { email: data.email, defaultValue: 'User {{email}} already has global access' })
-            } else {
-                // Extract generic error message
-                const apiError = extractAxiosError(error)
-                message = apiError.message || message
+    const renderRoleChips = useCallback(
+        (member: GlobalUserMember, size: 'small' | 'medium' = 'small', compact = false) => {
+            if (member.roles.length === 0) {
+                return <Chip size={size} label={t('users.noRoles', 'No roles')} variant='outlined' />
             }
 
-            // Error: show error message but DON'T close dialog
-            setInviteDialogError(message)
-            console.error('Failed to grant global access', error)
-        }
-    }
+            const visibleRoles = compact ? member.roles.slice(0, 1) : member.roles
+            const hiddenRolesCount = compact ? member.roles.length - visibleRoles.length : 0
+
+            return (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: size === 'small' ? 'flex-start' : 'center' }}>
+                    {visibleRoles.map((role) => (
+                        <RoleChip
+                            key={role.id}
+                            role={role.codename}
+                            roleMetadata={{
+                                codename: role.codename,
+                                name: role.name,
+                                color: role.color,
+                                isSuperuser: role.isSuperuser
+                            }}
+                            size={size}
+                        />
+                    ))}
+                    {hiddenRolesCount > 0 && <Chip size={size} label={`+${hiddenRolesCount}`} variant='outlined' />}
+                </Box>
+            )
+        },
+        [t]
+    )
 
     const handleChange = (_event: React.MouseEvent<HTMLElement> | null, nextView: string | null) => {
-        if (nextView === null) return
+        if (!nextView) {
+            return
+        }
         setView(nextView as 'card' | 'table')
     }
+
+    const openCreateDialog = useCallback(() => {
+        if (!canCreateUsers) {
+            return
+        }
+
+        setDialogError(null)
+        setDialogState({ open: true, mode: 'create', member: null })
+    }, [canCreateUsers])
+
+    const closeDialog = useCallback(() => {
+        if (dialogLoading) {
+            return
+        }
+
+        setDialogState({ open: false, mode: 'create', member: null })
+        setDialogError(null)
+    }, [dialogLoading])
+
+    const handleDialogSubmit = useCallback(
+        async (data: UserFormDialogSubmitData) => {
+            if (dialogState.mode === 'create') {
+                if (!canCreateUsers) {
+                    return
+                }
+
+                await createUserMutation.mutateAsync({
+                    email: data.email,
+                    password: data.password,
+                    roleIds: data.roleIds,
+                    comment: data.comment
+                })
+                return
+            }
+
+            if (!dialogState.member) {
+                return
+            }
+
+            if (!canUpdateUsers) {
+                return
+            }
+
+            await setUserRolesMutation.mutateAsync({
+                userId: dialogState.member.userId,
+                roleIds: data.roleIds,
+                comment: data.comment
+            })
+
+            setDialogState({ open: false, mode: 'create', member: null })
+            setDialogError(null)
+        },
+        [canCreateUsers, canUpdateUsers, createUserMutation, dialogState, setUserRolesMutation]
+    )
 
     const memberColumns = [
         {
             id: 'email',
             label: tc('members.table.email'),
-            width: '30%',
+            width: '28%',
             align: 'left',
-            render: (row: GlobalUserMember) => {
-                if (!row.email) return null
-                return <Typography variant='body2'>{row.email}</Typography>
-            }
+            render: (row: GlobalUserMember) => (row.email ? <Typography variant='body2'>{row.email}</Typography> : null)
         },
         {
             id: 'nickname',
             label: tc('members.table.nickname'),
-            width: '20%',
+            width: '18%',
             align: 'left',
-            render: (row: GlobalUserMember) => {
-                if (!row.nickname) return null
-                return <Typography variant='body2'>{row.nickname}</Typography>
-            }
+            render: (row: GlobalUserMember) => (row.nickname ? <Typography variant='body2'>{row.nickname}</Typography> : null)
         },
         {
-            id: 'comment',
-            label: tc('members.table.comment'),
-            width: '20%',
+            id: 'roles',
+            label: t('users.table.roles', 'Roles'),
+            width: '29%',
             align: 'left',
-            render: (row: GlobalUserMember) => {
-                if (!row.comment) return null
-                return (
-                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
-                        {row.comment}
-                    </Typography>
+            render: (row: GlobalUserMember) => renderRoleChips(row)
+        },
+        {
+            id: 'onboarding',
+            label: t('users.table.onboarding', 'Onboarding'),
+            width: '12%',
+            align: 'left',
+            render: (row: GlobalUserMember) =>
+                row.onboardingCompleted ? (
+                    <Chip size='small' label={t('users.onboardingCompleted', 'Completed')} color='success' variant='outlined' />
+                ) : (
+                    <Chip size='small' label={t('users.onboardingPending', 'Pending')} color='warning' variant='outlined' />
                 )
-            }
         },
         {
-            id: 'role',
-            label: tc('members.table.role'),
-            width: '15%',
-            align: 'center',
-            render: (row: GlobalUserMember) => {
-                return <RoleChip role={row.roleCodename} roleMetadata={row.roleMetadata} />
-            }
-        },
-        {
-            id: 'added',
-            label: tc('members.table.added'),
-            width: '15%',
+            id: 'registered',
+            label: t('users.table.registered', 'Registered'),
+            width: '13%',
             align: 'left',
-            render: (row: GlobalUserMember) => {
-                if (!row.createdAt) return null
-                return <Typography variant='body2'>{new Date(row.createdAt).toLocaleDateString()}</Typography>
-            }
+            render: (row: GlobalUserMember) => (
+                <Typography variant='body2'>{row.registeredAt ? new Date(row.registeredAt).toLocaleDateString() : '-'}</Typography>
+            )
         }
     ] satisfies TableColumn<GlobalUserMember>[]
 
-    const createMemberContext = useCallback(
-        (baseContext: Partial<ActionContext<GlobalUserMember, MemberFormData>>): ActionContext<GlobalUserMember, MemberFormData> => ({
+    const createUserContext = useCallback(
+        (baseContext: Partial<ActionContext<GlobalUserMember, UserFormDialogSubmitData>>): UserActionContext => ({
             ...baseContext,
             entity: baseContext.entity!,
-            entityKind: 'member',
+            entityKind: 'user',
             resource: baseContext.resource!,
             t: baseContext.t!,
-            // Pass ALL roles loaded from API to action handlers (for edit dialog)
             meta: {
                 ...baseContext.meta,
-                dynamicRoles: allRoleOptions,
-                dynamicRoleLabels: allRoleLabels
+                roles: allRoles,
+                loading: dialogLoading,
+                error: editErrorMessage
             },
             api: {
-                updateEntity: async (id: string, data: MemberFormData) => {
-                    // Validate data
-                    if (!isMemberFormData(data)) {
-                        throw new Error('Invalid member data format')
-                    }
-                    await updateMutation.mutateAsync({
-                        memberId: id,
-                        role: data.role as GlobalAssignableRole,
+                updateEntity: async (userId: string, data: UserFormDialogSubmitData) => {
+                    await setUserRolesMutation.mutateAsync({
+                        userId,
+                        roleIds: data.roleIds,
                         comment: data.comment
                     })
                 },
-                deleteEntity: async (id: string) => {
-                    await revokeMutation.mutateAsync(id)
+                deleteEntity: async (userId: string) => {
+                    await setUserRolesMutation.mutateAsync({ userId, roleIds: [] })
                 }
             },
             helpers: {
                 refreshList: async () => {
-                    // Explicit cache invalidation
-                    await queryClient.invalidateQueries({
-                        queryKey: adminQueryKeys.globalUsers()
-                    })
+                    await queryClient.invalidateQueries({ queryKey: adminQueryKeys.globalUsers() })
                 },
-                confirm: async (spec: ConfirmSpec) => {
-                    // Support both direct strings and translation keys
-                    const confirmed = await confirm({
+                confirm: async (spec: ConfirmSpec) =>
+                    confirm({
                         title: spec.titleKey && baseContext.t ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title || '',
                         description:
                             spec.descriptionKey && baseContext.t
@@ -375,27 +377,20 @@ const InstanceUsers = () => {
                             spec.cancelKey && baseContext.t
                                 ? baseContext.t(spec.cancelKey)
                                 : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
-                    })
-                    return confirmed
-                },
+                    }),
                 enqueueSnackbar: (payload: {
                     message: string
                     options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
                 }) => {
-                    if (payload?.message) {
+                    if (payload.message) {
                         enqueueSnackbar(payload.message, payload.options)
                     }
-                },
-                // Helper to open ConfirmDeleteDialog independently from BaseEntityMenu
-                openDeleteDialog: (member: GlobalUserMember) => {
-                    setRemoveDialogState({ open: true, member })
                 }
             }
         }),
-        [allRoleLabels, allRoleOptions, confirm, enqueueSnackbar, queryClient, revokeMutation, updateMutation]
+        [allRoles, confirm, dialogLoading, editErrorMessage, enqueueSnackbar, queryClient, setUserRolesMutation]
     )
 
-    // Instance loading state
     if (instanceLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
@@ -409,7 +404,6 @@ const InstanceUsers = () => {
         )
     }
 
-    // Instance error state
     if (instanceIsError || !instance) {
         const errorMessage = instanceError instanceof Error ? instanceError.message : t('users.instanceNotFound', 'Instance not found')
 
@@ -425,7 +419,7 @@ const InstanceUsers = () => {
                 </Alert>
                 <Box display='flex' justifyContent='center'>
                     <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/admin')}>
-                        {t('common.back', 'Back')}
+                        {tc('back', 'Back')}
                     </Button>
                 </Box>
             </Stack>
@@ -434,7 +428,6 @@ const InstanceUsers = () => {
 
     return (
         <>
-            {/* Instance Status Chips - outside MainCard to allow edge alignment */}
             <Box sx={{ pb: 2 }}>
                 <Stack direction='row' spacing={1} alignItems='center'>
                     <Chip
@@ -479,10 +472,10 @@ const InstanceUsers = () => {
                                 cardViewTitle={tc('cardView')}
                                 listViewTitle={tc('listView')}
                                 primaryAction={
-                                    isSuperadmin
+                                    canCreateUsers
                                         ? {
-                                              label: tc('actions.add', 'Add'),
-                                              onClick: handleAddNew,
+                                              label: t('users.createUser', 'Create'),
+                                              onClick: openCreateDialog,
                                               startIcon: <AddRoundedIcon />
                                           }
                                         : undefined
@@ -490,7 +483,6 @@ const InstanceUsers = () => {
                             />
                         </ViewHeader>
 
-                        {/* Filter Bar - styled like PaginationControls */}
                         <Box
                             sx={{
                                 mx: { xs: -1.5, md: -2 },
@@ -506,7 +498,6 @@ const InstanceUsers = () => {
                                 bgcolor: 'background.paper'
                             }}
                         >
-                            {/* Left: Search field */}
                             <OutlinedInput
                                 size='small'
                                 sx={{
@@ -525,7 +516,6 @@ const InstanceUsers = () => {
                                 type='search'
                             />
 
-                            {/* Right: Filter dropdowns */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <FilterToolbar
                                     filters={filterConfigs}
@@ -549,9 +539,7 @@ const InstanceUsers = () => {
                                 imageAlt='No users'
                                 title={t('users.noUsersFound', 'No users found')}
                                 description={
-                                    filterValues.roleId && filterValues.roleId !== 'all'
-                                        ? t('users.tryAdjustFilters', 'Try adjusting your filters')
-                                        : undefined
+                                    filterValues.roleId !== 'all' ? t('users.tryAdjustFilters', 'Try adjusting your filters') : undefined
                                 }
                             />
                         ) : (
@@ -572,9 +560,13 @@ const InstanceUsers = () => {
                                             alignContent: 'start'
                                         }}
                                     >
-                                        {members.map((member: GlobalUserMember) => {
-                                            // Filter actions: only superadmin can manage, can't manage self
-                                            const descriptors = isSuperadmin && member.userId !== user?.id ? [...memberActions] : []
+                                        {members.map((member) => {
+                                            const descriptors =
+                                                canUpdateUsers && member.userId !== user?.id
+                                                    ? userActions.filter(
+                                                          (descriptor) => descriptor.id !== 'clearRoles' || member.roles.length > 0
+                                                      )
+                                                    : []
 
                                             return (
                                                 <ItemCard
@@ -587,19 +579,17 @@ const InstanceUsers = () => {
                                                     }}
                                                     images={images[member.id] || []}
                                                     onClick={undefined}
-                                                    footerEndContent={
-                                                        <RoleChip role={member.roleName} roleMetadata={member.roleMetadata} size='small' />
-                                                    }
+                                                    footerEndContent={renderRoleChips(member, 'small', true)}
                                                     headerAction={
                                                         descriptors.length > 0 ? (
-                                                            <Box onClick={(e) => e.stopPropagation()}>
-                                                                <BaseEntityMenu<GlobalUserMember, MemberFormData>
+                                                            <Box onClick={(event) => event.stopPropagation()}>
+                                                                <BaseEntityMenu<GlobalUserMember, UserFormDialogSubmitData>
                                                                     entity={member}
-                                                                    entityKind='member'
+                                                                    entityKind='user'
                                                                     descriptors={descriptors}
                                                                     namespace='admin'
                                                                     i18nInstance={i18n}
-                                                                    createContext={createMemberContext}
+                                                                    createContext={createUserContext}
                                                                     renderTrigger={(props: TriggerProps) => (
                                                                         <IconButton
                                                                             size='small'
@@ -627,22 +617,23 @@ const InstanceUsers = () => {
                                             customColumns={memberColumns}
                                             i18nNamespace='flowList'
                                             renderActions={(row: GlobalUserMember) => {
-                                                // Only superadmin can manage, can't manage self
-                                                if (!isSuperadmin || row.userId === user?.id) {
+                                                if (!canUpdateUsers || row.userId === user?.id) {
                                                     return null
                                                 }
 
-                                                const descriptors = [...memberActions]
+                                                const descriptors = userActions.filter(
+                                                    (descriptor) => descriptor.id !== 'clearRoles' || row.roles.length > 0
+                                                )
 
                                                 return (
-                                                    <BaseEntityMenu<GlobalUserMember, MemberFormData>
+                                                    <BaseEntityMenu<GlobalUserMember, UserFormDialogSubmitData>
                                                         entity={row}
-                                                        entityKind='member'
+                                                        entityKind='user'
                                                         descriptors={descriptors}
                                                         namespace='admin'
                                                         menuButtonLabelKey='flowList:menu.button'
                                                         i18nInstance={i18n}
-                                                        createContext={createMemberContext}
+                                                        createContext={createUserContext}
                                                     />
                                                 )
                                             }}
@@ -652,7 +643,6 @@ const InstanceUsers = () => {
                             </>
                         )}
 
-                        {/* Bottom Pagination Controls */}
                         {!isLoading && members.length > 0 && (
                             <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                                 <PaginationControls
@@ -667,70 +657,19 @@ const InstanceUsers = () => {
                     </Stack>
                 )}
 
-                <MemberFormDialog
-                    open={isInviteDialogOpen}
-                    mode='create'
-                    title={t('users.addUser', 'Add User')}
-                    emailLabel={tc('members.emailLabel')}
-                    roleLabel={tc('members.roleLabel')}
-                    commentLabel={tc('members.commentLabel')}
-                    commentPlaceholder={tc('members.commentPlaceholder')}
-                    commentCharacterCountFormatter={(count, max) => tc('members.validation.commentCharacterCount', { count, max })}
-                    saveButtonText={tc('actions.save', 'Save')}
-                    savingButtonText={tc('actions.saving', 'Saving...')}
-                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={grantMutation.isPending || isLoadingAssignableRoles}
-                    error={inviteDialogError || (rolesError ? t('access.rolesLoadError') : undefined)}
-                    onClose={handleInviteDialogClose}
-                    onSave={handleInviteMember}
-                    autoCloseOnSuccess={false}
-                    availableRoles={assignableRoles}
-                    roleLabels={assignableRoleLabels}
-                />
-
-                {/* Independent ConfirmDeleteDialog for Remove button in edit dialog */}
-                <ConfirmDeleteDialog
-                    open={removeDialogState.open}
-                    title={
-                        removeDialogState.member?.userId === user?.id
-                            ? t('access.selfActionWarning', 'Cannot remove yourself')
-                            : t('access.confirmRemove', 'Remove global access?')
-                    }
-                    description={
-                        removeDialogState.member?.userId === user?.id
-                            ? t('access.selfActionWarning', 'Cannot remove yourself')
-                            : t('access.confirmRemoveDescription', {
-                                  email: removeDialogState.member?.email || '',
-                                  defaultValue: 'Remove global access for {{email}}?'
-                              })
-                    }
-                    confirmButtonText={tc('actions.remove', 'Remove')}
-                    deletingButtonText={tc('actions.deleting', 'Removing...')}
-                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setRemoveDialogState({ open: false, member: null })}
-                    onConfirm={async () => {
-                        if (removeDialogState.member) {
-                            try {
-                                await revokeMutation.mutateAsync(removeDialogState.member.userId)
-                                setRemoveDialogState({ open: false, member: null })
-                            } catch (err: unknown) {
-                                const responseMessage =
-                                    err && typeof err === 'object' && 'response' in err
-                                        ? (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-                                        : undefined
-                                const message =
-                                    typeof responseMessage === 'string'
-                                        ? responseMessage
-                                        : err instanceof Error
-                                        ? err.message
-                                        : typeof err === 'string'
-                                        ? err
-                                        : t('access.revokeError', 'Failed to revoke access')
-                                enqueueSnackbar(message, { variant: 'error' })
-                                setRemoveDialogState({ open: false, member: null })
-                            }
-                        }
-                    }}
+                <UserFormDialog
+                    open={dialogState.open}
+                    mode={dialogState.mode}
+                    title={dialogState.mode === 'create' ? t('users.createDialogTitle', 'Create User') : t('users.editUser', 'Edit user')}
+                    submitLabel={dialogState.mode === 'create' ? t('users.createSubmit', 'Create') : tc('actions.save')}
+                    roles={allRoles}
+                    loading={dialogLoading}
+                    error={dialogState.mode === 'create' ? dialogError : editErrorMessage}
+                    initialEmail={dialogState.member?.email ?? ''}
+                    initialComment={dialogState.member?.comment ?? ''}
+                    initialRoleIds={dialogState.member?.roles.map((role) => role.id) ?? []}
+                    onClose={closeDialog}
+                    onSubmit={handleDialogSubmit}
                 />
 
                 <ConfirmDialog />

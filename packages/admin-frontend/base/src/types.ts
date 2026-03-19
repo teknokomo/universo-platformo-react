@@ -1,7 +1,25 @@
-import type { GlobalRole, RoleMetadata, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
+import type {
+    AdminCreateUserPayload,
+    AdminDashboardStats,
+    GlobalRole,
+    GlobalUserMember,
+    GlobalUserRoleAssignment,
+    RoleMetadata,
+    SetUserRolesPayload,
+    VersionedLocalizedContent
+} from '@universo/types'
 
 // Re-export types from @universo/types for convenience
-export type { GlobalRole, RoleMetadata, GlobalUserMember, VersionedLocalizedContent }
+export type {
+    AdminCreateUserPayload,
+    AdminDashboardStats,
+    GlobalRole,
+    GlobalUserMember,
+    GlobalUserRoleAssignment,
+    RoleMetadata,
+    SetUserRolesPayload,
+    VersionedLocalizedContent
+}
 
 /**
  * Instance status type
@@ -56,10 +74,7 @@ export type GlobalAssignableRole = string
 /**
  * Stats response from admin API
  */
-export interface AdminStats {
-    totalGlobalUsers: number
-    byRole: Record<string, number>
-}
+export type AdminStats = AdminDashboardStats
 
 /**
  * Pagination types - re-exported from @universo/types (canonical source)

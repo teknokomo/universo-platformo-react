@@ -1,6 +1,10 @@
 import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo/migrations-core'
 import { AttributeDataType } from '@universo/types'
-import { finalizeAdminSchemaSupportMigrationDefinition, prepareAdminSchemaSupportMigrationDefinition } from './migrations'
+import {
+    finalizeAdminSchemaSupportMigrationDefinition,
+    prepareAdminSchemaSupportMigrationDefinition,
+    seedAdminLifecycleRolesMigrationDefinition
+} from './migrations'
 
 const p = createSystemAppManifestPresentation
 
@@ -312,6 +316,11 @@ export const adminSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: finalizeAdminSchemaSupportMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: seedAdminLifecycleRolesMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

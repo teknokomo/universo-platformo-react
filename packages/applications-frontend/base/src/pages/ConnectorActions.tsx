@@ -8,7 +8,25 @@ import type { Connector, ConnectorDisplay, ConnectorLocalizedPayload } from '../
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
 import { ConnectorPublicationInfoWrapper } from '../components'
 
-const buildInitialValues = (ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>) => {
+type ConnectorDialogValues = {
+    nameVlc?: VersionedLocalizedContent<string> | null
+    descriptionVlc?: VersionedLocalizedContent<string> | null
+}
+
+type ConnectorActionContext = ActionContext<ConnectorDisplay, ConnectorLocalizedPayload> & {
+    connectorMap?: Map<string, Connector>
+    applicationId?: string
+    uiLocale?: string
+}
+
+type ConnectorDialogRenderProps = {
+    values: ConnectorDialogValues
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    errors?: Record<string, string>
+}
+
+const buildInitialValues = (ctx: ConnectorActionContext) => {
     const connectorMap = ctx.connectorMap as Map<string, Connector> | undefined
     const raw = connectorMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
@@ -21,7 +39,7 @@ const buildInitialValues = (ctx: ActionContext<ConnectorDisplay, ConnectorLocali
     }
 }
 
-const validateConnectorForm = (ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>, values: Record<string, any>) => {
+const validateConnectorForm = (ctx: ConnectorActionContext, values: ConnectorDialogValues) => {
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
@@ -30,12 +48,12 @@ const validateConnectorForm = (ctx: ActionContext<ConnectorDisplay, ConnectorLoc
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveConnectorForm = (values: Record<string, any>) => {
+const canSaveConnectorForm = (values: ConnectorDialogValues) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     return hasPrimaryContent(nameVlc)
 }
 
-const toPayload = (values: Record<string, any>): ConnectorLocalizedPayload => {
+const toPayload = (values: ConnectorDialogValues): ConnectorLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
@@ -57,11 +75,11 @@ const ConnectorEditFields = ({
     t,
     uiLocale
 }: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: ConnectorDialogValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors?: Record<string, string>
-    t: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>['t']
+    t: ConnectorActionContext['t']
     uiLocale?: string
 }) => {
     const fieldErrors = errors ?? {}
@@ -99,18 +117,8 @@ const ConnectorEditFields = ({
  * Tab 1: General (name, description)
  * Tab 2: Publications (read-only display of linked publications with locked constraints)
  */
-const buildFormTabs = (ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>, applicationId: string, connectorId: string) => {
-    return ({
-        values,
-        setValue,
-        isLoading: isFormLoading,
-        errors
-    }: {
-        values: Record<string, any>
-        setValue: (name: string, value: any) => void
-        isLoading: boolean
-        errors: Record<string, string>
-    }): TabConfig[] => {
+const buildFormTabs = (ctx: ConnectorActionContext, applicationId: string, connectorId: string) => {
+    return ({ values, setValue, isLoading: isFormLoading, errors }: ConnectorDialogRenderProps): TabConfig[] => {
         const tabs: TabConfig[] = [
             {
                 id: 'general',
@@ -155,7 +163,7 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
             },
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
-                const applicationId = (ctx as any).applicationId as string | undefined
+                const applicationId = ctx.applicationId
                 const connectorId = ctx.entity.id
 
                 return {
@@ -173,7 +181,7 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
                     // Fallback to extraFields if applicationId is not available
                     extraFields: applicationId
                         ? undefined
-                        : ({ values, setValue, isLoading, errors }: any) => (
+                        : ({ values, setValue, isLoading, errors }: ConnectorDialogRenderProps) => (
                               <ConnectorEditFields
                                   values={values}
                                   setValue={setValue}
@@ -183,7 +191,7 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
                                   uiLocale={ctx.uiLocale as string}
                               />
                           ),
-                    validate: (values: Record<string, any>) => validateConnectorForm(ctx, values),
+                    validate: (values: ConnectorDialogValues) => validateConnectorForm(ctx, values),
                     canSave: canSaveConnectorForm,
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
@@ -194,7 +202,7 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSave: (data: Record<string, any>) => {
+                    onSave: (data: ConnectorDialogValues) => {
                         const payload = toPayload(data)
                         return ctx.api?.updateEntity?.(ctx.entity.id, payload)
                     }

@@ -5,7 +5,7 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useQuery } from '@tanstack/react-query'
-import { formatDate } from '@universo/utils'
+import { formatDate, resolveLocalizedContent } from '@universo/utils'
 
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
@@ -99,11 +99,7 @@ const RoleUsers = () => {
     // Get role display name
     const roleDisplayName = useMemo(() => {
         if (!role) return ''
-        const displayNameObj = role.displayName
-        if (displayNameObj) {
-            return displayNameObj[currentLang] || displayNameObj['en'] || displayNameObj['ru'] || role.codename
-        }
-        return role.codename
+        return resolveLocalizedContent(role.name, currentLang, role.codename)
     }, [role, currentLang])
 
     // View change handler

@@ -44,6 +44,7 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@supabase/supabase-js": "^2.45.4",
         "@universo/auth-backend": "workspace:*",
         "@universo/migrations-core": "workspace:*",
         "@universo/types": "workspace:*",

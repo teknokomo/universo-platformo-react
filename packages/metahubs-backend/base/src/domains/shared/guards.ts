@@ -1,7 +1,7 @@
 import * as httpErrors from 'http-errors'
 import { MetahubRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
+import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import type { DbSession, DbExecutor } from '@universo/utils'
 import type { SqlQueryable, MetahubUserRow } from '../../persistence/types'
 import { activeMetahubRowCondition } from '../../persistence/metahubsQueryHelpers'
@@ -137,17 +137,15 @@ export async function ensureMetahubAccess(
     // Prefer active dbSession (RLS-enabled) for all queries
     const q = dbSession && !dbSession.isReleased() ? dbSession : exec
 
-    // First check if user has global metahubs permission / superuser bypass
+    // Only superusers may bypass membership checks for direct metahub access.
     const isSuper = await isSuperuser(q, userId)
-    const hasGlobalMetahubsAccess = await hasSubjectPermission(q, userId, 'metahubs', 'read')
 
-    if (isSuper || hasGlobalMetahubsAccess) {
-        // User has global access - create synthetic membership with owner role
+    if (isSuper) {
         const globalRoleName = await getGlobalRoleCodename(q, userId)
         const syntheticMembership = {
             userId,
             metahubId,
-            role: 'owner', // Global role users get owner-level access
+            role: 'owner',
             _uplCreatedAt: new Date()
         } as MetahubUserRow
 

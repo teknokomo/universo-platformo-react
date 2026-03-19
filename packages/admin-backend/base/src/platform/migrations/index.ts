@@ -33,6 +33,231 @@ END $$;
     `
 })
 
+const adminLifecycleRoleSeedStatements = [
+    {
+        sql: `
+INSERT INTO admin.cat_roles (codename, description, name, color, is_superuser, is_system)
+VALUES
+    (
+        'registered',
+        '{
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Newly registered user before onboarding completion",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Новый зарегистрированный пользователь до завершения онбординга",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                }
+            }
+        }'::jsonb,
+        '{
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Registered",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Зарегистрированный",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                }
+            }
+        }'::jsonb,
+        '#2196f3',
+        false,
+        true
+    ),
+    (
+        'user',
+        '{
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Standard platform user with product access after onboarding",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Стандартный пользователь платформы после завершения онбординга",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                }
+            }
+        }'::jsonb,
+        '{
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "User",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Пользователь",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-03-17T00:00:00.000Z",
+                    "updatedAt": "2026-03-17T00:00:00.000Z"
+                }
+            }
+        }'::jsonb,
+        '#4caf50',
+        false,
+        true
+    )
+ON CONFLICT (codename) WHERE _upl_deleted = false AND _app_deleted = false
+DO UPDATE SET
+    description = EXCLUDED.description,
+    name = EXCLUDED.name,
+    color = EXCLUDED.color,
+    is_superuser = EXCLUDED.is_superuser,
+    is_system = EXCLUDED.is_system
+        `
+    },
+    {
+        sql: `
+INSERT INTO admin.rel_role_permissions (role_id, subject, action, conditions, fields)
+SELECT r.id, p.subject, p.action, p.conditions, p.fields
+FROM admin.cat_roles r
+CROSS JOIN (
+    VALUES
+        ('onboarding', 'read', '{}'::jsonb, ARRAY[]::text[]),
+        ('profile', 'read', '{}'::jsonb, ARRAY[]::text[])
+) AS p(subject, action, conditions, fields)
+WHERE r.codename = 'registered'
+  AND r._upl_deleted = false AND r._app_deleted = false
+ON CONFLICT (role_id, subject, action) WHERE _upl_deleted = false AND _app_deleted = false
+DO UPDATE SET
+    conditions = EXCLUDED.conditions,
+    fields = EXCLUDED.fields
+        `
+    },
+    {
+        sql: `
+INSERT INTO admin.rel_role_permissions (role_id, subject, action, conditions, fields)
+SELECT r.id, p.subject, p.action, p.conditions, p.fields
+FROM admin.cat_roles r
+CROSS JOIN (
+    VALUES
+        ('applications', 'read', '{}'::jsonb, ARRAY[]::text[]),
+        ('profile', '*', '{}'::jsonb, ARRAY[]::text[]),
+        ('onboarding', 'read', '{}'::jsonb, ARRAY[]::text[])
+) AS p(subject, action, conditions, fields)
+WHERE r.codename = 'user'
+  AND r._upl_deleted = false AND r._app_deleted = false
+ON CONFLICT (role_id, subject, action) WHERE _upl_deleted = false AND _app_deleted = false
+DO UPDATE SET
+    conditions = EXCLUDED.conditions,
+    fields = EXCLUDED.fields
+            `
+    },
+    {
+        sql: `
+UPDATE admin.rel_role_permissions rp
+SET action = '*'
+FROM admin.cat_roles r
+WHERE rp.role_id = r.id
+    AND r.codename = 'user'
+    AND r._upl_deleted = false AND r._app_deleted = false
+    AND rp.subject = 'profile'
+    AND rp.action = 'manage'
+    AND rp._upl_deleted = false AND rp._app_deleted = false
+            `
+    }
+] as const satisfies readonly SqlMigrationStatement[]
+
+const adminLifecycleRoleBackfillStatements = [
+    {
+        sql: `
+INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
+SELECT
+    p.user_id,
+    r.id,
+    p.user_id,
+    'migration: auto-assigned user role for onboarded users'
+FROM profiles.cat_profiles p
+JOIN auth.users u ON u.id = p.user_id
+CROSS JOIN admin.cat_roles r
+WHERE p.onboarding_completed = true
+  AND u.deleted_at IS NULL
+  AND r.codename = 'user'
+  AND r._upl_deleted = false AND r._app_deleted = false
+  AND NOT EXISTS (
+      SELECT 1
+      FROM admin.rel_user_roles aur
+      JOIN admin.cat_roles sr ON sr.id = aur.role_id
+      WHERE aur.user_id = p.user_id
+        AND aur._upl_deleted = false AND aur._app_deleted = false
+        AND sr._upl_deleted = false AND sr._app_deleted = false
+        AND sr.is_superuser = true
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM admin.rel_user_roles aur
+      WHERE aur.user_id = p.user_id
+        AND aur.role_id = r.id
+        AND aur._upl_deleted = false AND aur._app_deleted = false
+  )
+        `
+    },
+    {
+        sql: `
+INSERT INTO admin.rel_user_roles (user_id, role_id, granted_by, comment)
+SELECT
+    p.user_id,
+    r.id,
+    p.user_id,
+    'migration: auto-assigned registered role for pre-onboarding users'
+FROM profiles.cat_profiles p
+JOIN auth.users u ON u.id = p.user_id
+CROSS JOIN admin.cat_roles r
+WHERE COALESCE(p.onboarding_completed, false) = false
+  AND u.deleted_at IS NULL
+  AND r.codename = 'registered'
+  AND r._upl_deleted = false AND r._app_deleted = false
+  AND NOT EXISTS (
+      SELECT 1
+      FROM admin.rel_user_roles aur
+      JOIN admin.cat_roles sr ON sr.id = aur.role_id
+      WHERE aur.user_id = p.user_id
+        AND aur._upl_deleted = false AND aur._app_deleted = false
+        AND sr._upl_deleted = false AND sr._app_deleted = false
+        AND sr.is_superuser = true
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM admin.rel_user_roles aur
+      WHERE aur.user_id = p.user_id
+        AND aur.role_id = r.id
+        AND aur._upl_deleted = false AND aur._app_deleted = false
+  )
+        `
+    }
+] as const satisfies readonly SqlMigrationStatement[]
+
 export const createAdminSchemaMigrationDefinition: SqlMigrationDefinition = {
     id: 'CreateAdminSchema1733400000000',
     version: '1733400000000',
@@ -357,7 +582,7 @@ BEGIN
           AND r._upl_deleted = false AND r._app_deleted = false
           AND rp._upl_deleted = false AND rp._app_deleted = false
           AND (rp.subject = '*' OR rp.subject = p_subject)
-          AND (rp.action = '*' OR rp.action = p_action)
+          AND (rp.action = '*' OR rp.action = 'manage' OR rp.action = p_action)
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_temp STABLE
@@ -463,7 +688,11 @@ BEGIN
     JOIN admin.cat_roles r ON ur.role_id = r.id
     WHERE ur.user_id = p_user_id
       AND ur._upl_deleted = false AND ur._app_deleted = false
-      AND r._upl_deleted = false AND r._app_deleted = false;
+            AND r._upl_deleted = false AND r._app_deleted = false
+        ORDER BY
+                CASE WHEN r.is_superuser THEN 0 ELSE 1 END,
+                LOWER(r.codename),
+                r.id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_temp STABLE
         `
@@ -883,5 +1112,13 @@ export const finalizeAdminSchemaSupportMigrationDefinition: SqlMigrationDefiniti
     version: '1733400000001',
     summary: 'Finalize admin support objects after definition-driven schema generation',
     up: adminSchemaPostGenerationStatements,
+    down: [] as const
+}
+
+export const seedAdminLifecycleRolesMigrationDefinition: SqlMigrationDefinition = {
+    id: 'SeedAdminLifecycleRoles1733400000002',
+    version: '1733400000002',
+    summary: 'Seed registered and user lifecycle roles plus backfill assignments for existing profiles',
+    up: [...adminLifecycleRoleSeedStatements, ...adminLifecycleRoleBackfillStatements],
     down: [] as const
 }

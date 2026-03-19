@@ -9,6 +9,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useHasGlobalAccess } from '@universo/store'
+import { resolveShellAccess } from '../../navigation/roleAccess'
 import {
     rootMenuItems,
     getMetahubsMenuItem,
@@ -22,9 +23,14 @@ export default function MenuContent() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
 
-    // Check if user has admin access (for showing Admin menu in root sidebar)
-    const { isSuperuser, hasAnyGlobalRole } = useHasGlobalAccess()
-    const canAccessAdmin = isSuperuser || hasAnyGlobalRole
+    const { isSuperuser, canAccessAdminPanel, globalRoles, ability } = useHasGlobalAccess() as ReturnType<typeof useHasGlobalAccess> & {
+        ability?: { can(action: string, subject: string): boolean } | null
+    }
+    const shellAccess = resolveShellAccess({
+        globalRoles,
+        isSuperuser,
+        ability
+    })
 
     // Check if we're in a metahub context (/metahub/:id)
     const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
@@ -45,7 +51,7 @@ export default function MenuContent() {
         ? getMetahubMenuItems(metahubId)
         : instanceId
         ? getInstanceMenuItems(instanceId)
-        : rootMenuItems
+        : rootMenuItems.filter((item) => shellAccess.visibility.rootMenuIds.includes(item.id))
 
     return (
         <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
@@ -77,30 +83,29 @@ export default function MenuContent() {
                 })}
 
                 {/* Applications, Metahubs, Admin sections — only in root context */}
-                {!instanceId && !applicationId && !metahubId && (
+                {!instanceId && !applicationId && !metahubId && (shellAccess.visibility.showMetahubsSection || canAccessAdminPanel) && (
                     <>
                         <Divider sx={{ my: 1 }} />
-                        {/* Metahubs menu items */}
-                        {getMetahubsMenuItem().map((item) => {
-                            if (item.type === 'divider') return null
-                            const Icon = item.icon
-                            const isSelected =
-                                location.pathname === item.url ||
-                                location.pathname.startsWith('/metahubs') ||
-                                location.pathname.startsWith('/metahub/')
-                            return (
-                                <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                                    <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
-                                        <ListItemIcon>
-                                            <Icon size={20} stroke={1.5} />
-                                        </ListItemIcon>
-                                        <ListItemText primary={t(item.titleKey)} />
-                                    </ListItemButton>
-                                </ListItem>
-                            )
-                        })}
-                        {/* Admin menu items - only for users with admin access */}
-                        {canAccessAdmin &&
+                        {shellAccess.visibility.showMetahubsSection &&
+                            getMetahubsMenuItem().map((item) => {
+                                if (item.type === 'divider') return null
+                                const Icon = item.icon
+                                const isSelected =
+                                    location.pathname === item.url ||
+                                    location.pathname.startsWith('/metahubs') ||
+                                    location.pathname.startsWith('/metahub/')
+                                return (
+                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                            <ListItemIcon>
+                                                <Icon size={20} stroke={1.5} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={t(item.titleKey)} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                )
+                            })}
+                        {canAccessAdminPanel &&
                             getAdminMenuItems().map((item) => {
                                 if (item.type === 'divider') return null
                                 const Icon = item.icon

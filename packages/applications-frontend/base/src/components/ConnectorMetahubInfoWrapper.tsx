@@ -23,6 +23,7 @@ export interface ConnectorMetahubInfoWrapperProps {
  */
 export const ConnectorMetahubInfoWrapper = ({ applicationId, connectorId, uiLocale = 'en' }: ConnectorMetahubInfoWrapperProps) => {
     const { t } = useTranslation('applications')
+    const noop = () => undefined
 
     const {
         data: connectorMetahubsResponse,
@@ -32,11 +33,8 @@ export const ConnectorMetahubInfoWrapper = ({ applicationId, connectorId, uiLoca
 
     const { data: availableMetahubs = [], isLoading: isLoadingAvailable, isError: isErrorAvailable } = useAvailableMetahubs()
 
-    // Extract items array from response - API returns ConnectorMetahubsResponse with items field
-    const linkedMetahubs = connectorMetahubsResponse?.items ?? []
-
-    // Convert linked metahubs to selected IDs
-    const selectedMetahubIds = useMemo(() => linkedMetahubs.map((lm) => lm.metahubId), [linkedMetahubs])
+    const linkedMetahubs = connectorMetahubsResponse?.items
+    const selectedMetahubIds = useMemo(() => (linkedMetahubs ?? []).map((linkedMetahub) => linkedMetahub.metahubId), [linkedMetahubs])
 
     const isLoading = isLoadingLinked || isLoadingAvailable
 
@@ -58,10 +56,6 @@ export const ConnectorMetahubInfoWrapper = ({ applicationId, connectorId, uiLoca
     }
 
     // No-op handlers since the panel is disabled
-    const handleSelectionChange = () => {}
-    const handleRequiredChange = () => {}
-    const handleSingleChange = () => {}
-
     return (
         <Stack spacing={2}>
             {/* Info alert about locked settings */}
@@ -75,11 +69,11 @@ export const ConnectorMetahubInfoWrapper = ({ applicationId, connectorId, uiLoca
             <MetahubSelectionPanel
                 availableMetahubs={availableMetahubs}
                 selectedMetahubIds={selectedMetahubIds}
-                onSelectionChange={handleSelectionChange}
+                onSelectionChange={noop}
                 isRequiredMetahub={true}
-                onRequiredMetahubChange={handleRequiredChange}
+                onRequiredMetahubChange={noop}
                 isSingleMetahub={true}
-                onSingleMetahubChange={handleSingleChange}
+                onSingleMetahubChange={noop}
                 disabled={true}
                 uiLocale={uiLocale}
             />

@@ -36,7 +36,7 @@ vi.mock('@universo/apps-template-mui', () => ({
 
 const renderGuard = (route: string) =>
     render(
-        <MemoryRouter initialEntries={[route]}>
+        <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
                 <Route path='/' element={<div data-testid='root-page'>root-page</div>} />
                 <Route

@@ -13,7 +13,7 @@ import type {
     VersionedLocalizedContent,
     AdminConfig
 } from '@universo/types'
-import { defineAbilitiesFor } from '@universo/types'
+import { defineAbilitiesFor, ADMIN_PERMISSION_SUBJECTS } from '@universo/types'
 import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled, type DbSession } from '@universo/utils'
 import type { DbExecutor } from '@universo/utils/database'
 
@@ -171,9 +171,8 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
         }
 
         // Compute admin access from permissions (roles:read, instances:read, users:read, or wildcard)
-        const ADMIN_PERMISSION_SUBJECTS = ['roles', 'instances', 'users']
         const hasAdminAccess = permissions.some(
-            (p) => (ADMIN_PERMISSION_SUBJECTS.includes(p.subject) || p.subject === '*') && (p.action === 'read' || p.action === '*')
+            (p) => (ADMIN_PERMISSION_SUBJECTS.includes(p.subject as (typeof ADMIN_PERMISSION_SUBJECTS)[number]) || p.subject === '*') && (p.action === 'read' || p.action === '*')
         )
 
         // Build global roles list (all roles assigned to the user)
