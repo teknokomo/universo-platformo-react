@@ -167,7 +167,9 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
                                 _schema: 'v1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Generated from publication flow' } }
-                            }
+                            },
+                            applicationIsPublic: true,
+                            applicationWorkspacesEnabled: false
                         })
                     }
                 >
@@ -328,7 +330,9 @@ describe('PublicationList', () => {
                     applicationName: { en: 'Generated App' },
                     applicationDescription: { en: 'Generated from publication flow' },
                     applicationNamePrimaryLocale: 'en',
-                    applicationDescriptionPrimaryLocale: 'en'
+                    applicationDescriptionPrimaryLocale: 'en',
+                    applicationIsPublic: true,
+                    applicationWorkspacesEnabled: false
                 }
             })
         })

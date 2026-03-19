@@ -8,7 +8,7 @@
         "applications": {
             "title": "Applications",
             "interval": "Total",
-            "description": "Installed application surfaces"
+            "description": "Created applications"
         },
         "metahubs": {
             "title": "Metahubs",

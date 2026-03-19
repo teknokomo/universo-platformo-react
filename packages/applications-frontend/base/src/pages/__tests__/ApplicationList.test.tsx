@@ -142,6 +142,7 @@ import ApplicationList from '../ApplicationList'
 import * as applicationsApi from '../../api/applications'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
+import { STORAGE_KEYS } from '../../constants/storage'
 import applicationsEn from '../../i18n/locales/en/applications.json'
 import applicationsRu from '../../i18n/locales/ru/applications.json'
 import commonEn from '@universo/i18n/locales/en/common.json'
@@ -171,7 +172,9 @@ vi.mock('../../api/applications', () => ({
     createApplication: vi.fn(),
     updateApplication: vi.fn(),
     deleteApplication: vi.fn(),
-    copyApplication: vi.fn()
+    copyApplication: vi.fn(),
+    joinApplication: vi.fn(),
+    leaveApplication: vi.fn()
 }))
 
 // Mock useAuth hook
@@ -570,14 +573,16 @@ describe('ApplicationList', () => {
         beforeEach(() => {
             vi.mocked(applicationsApi.listApplications).mockResolvedValue(makePaginatedResponse([], { total: 0 }))
             vi.mocked(applicationsApi.createApplication).mockResolvedValue({
-                id: 'new-application',
-                name: 'New Application',
-                description: 'Newly created',
-                role: 'admin',
-                membersCount: 1,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            })
+                data: {
+                    id: 'new-application',
+                    name: 'New Application',
+                    description: 'Newly created',
+                    role: 'admin',
+                    membersCount: 1,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+            } as any)
         })
 
         it('should open create dialog when add button clicked', async () => {
@@ -633,10 +638,50 @@ describe('ApplicationList', () => {
                     name: { en: 'New Application' },
                     description: { en: 'Created from acceptance' },
                     namePrimaryLocale: 'en',
-                    descriptionPrimaryLocale: 'en'
+                    descriptionPrimaryLocale: 'en',
+                    isPublic: false,
+                    workspacesEnabled: false
                 })
             })
-        })
+        }, 15_000)
+
+        it('submits public create payload even when workspaces are manually disabled', async () => {
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText(/no applications/i) || screen.getByText(/get started/i)).toBeInTheDocument()
+            })
+
+            const addButtons = screen.getAllByRole('button')
+            const addButton = addButtons.find(
+                (btn) => btn.querySelector('[data-testid="AddRoundedIcon"]') || btn.textContent?.includes('Add')
+            )
+
+            expect(addButton).toBeTruthy()
+
+            await user.click(addButton!)
+
+            await waitFor(() => {
+                expect(screen.getByRole('dialog')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'Fill Name' }))
+            await user.click(screen.getByRole('tab', { name: 'Parameters' }))
+            await user.click(screen.getByRole('radio', { name: 'Public' }))
+            await user.click(screen.getByRole('checkbox', { name: 'Add workspaces' }))
+            await user.click(screen.getByRole('button', { name: 'Create' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.createApplication).toHaveBeenCalledWith({
+                    name: { en: 'New Application' },
+                    description: undefined,
+                    namePrimaryLocale: 'en',
+                    descriptionPrimaryLocale: undefined,
+                    isPublic: true,
+                    workspacesEnabled: false
+                })
+            })
+        }, 15_000)
     })
 
     describe('Control Panel Navigation', () => {
@@ -758,7 +803,8 @@ describe('ApplicationList', () => {
                     name: { en: 'Edited Application' },
                     description: { en: 'Edited Application Description' },
                     namePrimaryLocale: 'en',
-                    descriptionPrimaryLocale: 'en'
+                    descriptionPrimaryLocale: 'en',
+                    expectedVersion: undefined
                 })
             })
         })
@@ -823,11 +869,93 @@ describe('ApplicationList', () => {
                     description: { en: 'Copied Application Description' },
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
+                    isPublic: false,
+                    workspacesEnabled: false,
                     copyConnector: true,
                     createSchema: false,
                     copyAccess: true
                 })
             })
+        })
+    })
+
+    describe('Public Application Membership', () => {
+        beforeEach(() => {
+            mockGlobalAccess.isSuperuser = false
+            mockGlobalAccess.hasAnyGlobalRole = true
+            mockGlobalAccess.canAccessAdminPanel = false
+            mockGlobalAccess.globalRoles = [{ codename: 'user' }]
+            mockAbility.can.mockImplementation((action: string, subject: string) => action === 'read' && subject === 'Application')
+
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'public-application',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Public Application' }
+                                }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Joinable application' }
+                                }
+                            },
+                            isPublic: true,
+                            workspacesEnabled: true,
+                            membershipState: 'not_joined',
+                            canJoin: true,
+                            canLeave: false,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(applicationsApi.joinApplication).mockResolvedValue({
+                data: {
+                    status: 'joined',
+                    member: {
+                        id: 'membership-public',
+                        userId: 'test-user-id',
+                        email: 'test@example.com',
+                        nickname: 'tester',
+                        role: 'member',
+                        createdAt: new Date().toISOString()
+                    }
+                }
+            } as any)
+        })
+
+        it('shows join action for public applications', async () => {
+            renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Public Application')).toBeInTheDocument()
+            })
+
+            expect(screen.getByRole('button', { name: 'Join' })).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'control-panel' })).not.toBeInTheDocument()
+            expect(screen.queryByText(/member|owner|admin|editor/i)).not.toBeInTheDocument()
+        })
+
+        it('does not render a direct runtime link for public non-members in table view', async () => {
+            localStorage.setItem(STORAGE_KEYS.APPLICATION_DISPLAY_STYLE, 'table')
+
+            renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Public Application')).toBeInTheDocument()
+            })
+
+            expect(screen.queryByRole('link', { name: 'Public Application' })).not.toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Join' })).toBeInTheDocument()
         })
     })
 

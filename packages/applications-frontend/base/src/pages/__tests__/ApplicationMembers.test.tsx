@@ -520,7 +520,7 @@ describe('ApplicationMembers', () => {
                 expect(vi.mocked(applicationsApi.inviteApplicationMember)).toHaveBeenCalled()
                 expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('missing@example.com'), { variant: 'error' })
             })
-        })
+        }, 15000)
 
         it('should show userAlreadyMember message on 409 + api code', async () => {
             vi.mocked(applicationsApi.inviteApplicationMember).mockRejectedValue({

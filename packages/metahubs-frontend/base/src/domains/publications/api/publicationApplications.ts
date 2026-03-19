@@ -11,6 +11,8 @@ export interface CreatePublicationApplicationPayload {
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     createApplicationSchema?: boolean
+    isPublic?: boolean
+    workspacesEnabled?: boolean
 }
 
 /**

@@ -14,7 +14,10 @@ import {
     MenuItem,
     FormHelperText,
     FormControlLabel,
-    Switch
+    Switch,
+    Checkbox,
+    Radio,
+    RadioGroup
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
@@ -64,6 +67,11 @@ type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
     versionBranchId?: string | null
+    applicationIsPublic?: boolean
+    applicationWorkspacesEnabled?: boolean
+}
+
+type PublicationFormFieldsProps = {
     values: Record<string, any>
     setValue: (name: string, value: any) => void
     isLoading: boolean
@@ -319,7 +327,13 @@ const PublicationList = () => {
                 }
             }
         }
-        return { nameVlc, descriptionVlc: null, versionBranchId: defaultBranchId ?? null }
+        return {
+            nameVlc,
+            descriptionVlc: null,
+            versionBranchId: defaultBranchId ?? null,
+            applicationIsPublic: false,
+            applicationWorkspacesEnabled: false
+        }
     }, [metahub, defaultBranchId, i18n.language])
 
     const createDialogKey = useMemo(() => {
@@ -365,6 +379,14 @@ const PublicationList = () => {
             errors: Record<string, string>
         }): TabConfig[] => {
             const fieldErrors = errors ?? {}
+            const applicationIsPublic = values.applicationIsPublic === true
+            const applicationWorkspacesEnabled = values.applicationWorkspacesEnabled === true
+            const handleApplicationVisibilityChange = (nextIsPublic: boolean) => {
+                setValue('applicationIsPublic', nextIsPublic)
+                if (nextIsPublic && !applicationWorkspacesEnabled) {
+                    setValue('applicationWorkspacesEnabled', true)
+                }
+            }
 
             return [
                 {
@@ -497,6 +519,53 @@ const PublicationList = () => {
                                             multiline
                                             rows={2}
                                         />
+                                        <RadioGroup
+                                            value={applicationIsPublic ? 'public' : 'closed'}
+                                            onChange={(event) => handleApplicationVisibilityChange(event.target.value === 'public')}
+                                        >
+                                            <FormControlLabel
+                                                value='closed'
+                                                control={<Radio />}
+                                                label={t('publications.applicationParameters.visibility.closed', 'Closed')}
+                                                disabled={isFormLoading}
+                                            />
+                                            <FormControlLabel
+                                                value='public'
+                                                control={<Radio />}
+                                                label={t('publications.applicationParameters.visibility.public', 'Public')}
+                                                disabled={isFormLoading}
+                                            />
+                                        </RadioGroup>
+                                        <Alert severity='info'>
+                                            {t(
+                                                'publications.applicationParameters.visibilityHint',
+                                                'Application visibility cannot be changed after creation.'
+                                            )}
+                                        </Alert>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={applicationWorkspacesEnabled}
+                                                    onChange={(event) => setValue('applicationWorkspacesEnabled', event.target.checked)}
+                                                    disabled={isFormLoading}
+                                                />
+                                            }
+                                            label={t('publications.applicationParameters.workspacesEnabled', 'Add workspaces')}
+                                        />
+                                        <Alert severity='info'>
+                                            {t(
+                                                'publications.applicationParameters.workspacesHint',
+                                                'Workspace mode cannot be disabled after the application is created.'
+                                            )}
+                                        </Alert>
+                                        {applicationIsPublic && !applicationWorkspacesEnabled ? (
+                                            <Alert severity='warning'>
+                                                {t(
+                                                    'publications.applicationParameters.publicWorkspacesRecommended',
+                                                    'Workspaces are recommended for public applications to isolate each participant data.'
+                                                )}
+                                            </Alert>
+                                        ) : null}
                                     </Stack>
                                 </CollapsibleSection>
                             )}
@@ -773,7 +842,9 @@ const PublicationList = () => {
                 applicationName: applicationNameInput,
                 applicationDescription: applicationDescriptionInput,
                 applicationNamePrimaryLocale,
-                applicationDescriptionPrimaryLocale
+                applicationDescriptionPrimaryLocale,
+                applicationIsPublic: Boolean(data.applicationIsPublic),
+                applicationWorkspacesEnabled: Boolean(data.applicationWorkspacesEnabled)
             }
         })
 

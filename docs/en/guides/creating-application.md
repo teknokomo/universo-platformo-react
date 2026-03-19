@@ -10,10 +10,13 @@ controlled schema behavior, and frontend or backend package integration.
 
 ## Recommended Approach
 
-1. Decide whether the application needs only managed metadata or its own runtime schema.
-2. Clarify how it relates to metahubs, publications, and memberships.
-3. Add or extend backend routes and SQL-first persistence only where necessary.
-4. Connect the frontend through the shared shell and API client packages.
-5. Validate behavior with targeted tests and a root build.
+1. Decide the immutable application parameters first:
+   visibility (`closed` or `public`) and whether workspaces are enabled.
+2. If the application is public, enable workspaces from the start so every participant gets isolated data.
+3. Clarify how the application relates to metahubs, publications, memberships, and runtime schema sync.
+4. Reuse the shared `General / Parameters` dialog pattern in admin UI instead of inventing a custom form flow.
+5. When runtime schema is created from a publication, keep workspace support inside the same canonical snapshot lineage.
+6. Add or extend backend routes and SQL-first persistence only where necessary.
+7. Validate behavior with targeted tests and a root build.
 
 Treat application creation as a platform design task with shared runtime implications.

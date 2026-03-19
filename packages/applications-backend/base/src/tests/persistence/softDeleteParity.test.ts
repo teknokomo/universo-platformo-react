@@ -98,6 +98,7 @@ describe('Applications backend soft-delete parity', () => {
         expect(txExecutor.query.mock.calls[1][0]).toContain('UPDATE applications.rel_connector_publications')
         expect(txExecutor.query.mock.calls[1][0]).toContain('_upl_deleted = true')
         expect(txExecutor.query.mock.calls[1][0]).toContain('_app_deleted = true')
+        expect(txExecutor.query.mock.calls[1][0]).toContain('_upl_version = COALESCE(cp._upl_version, 1) + 1')
         expect(txExecutor.query.mock.calls[1][0]).not.toContain('c._upl_deleted = false AND c._app_deleted = false')
         // Cascade soft-delete connectors
         expect(txExecutor.query.mock.calls[2][0]).toContain('UPDATE applications.cat_connectors')

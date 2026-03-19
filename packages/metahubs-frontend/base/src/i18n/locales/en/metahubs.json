@@ -1288,6 +1288,16 @@
             "createApplicationSchema": "Create application schema",
             "applicationWillBeCreated": "An application and a connector linked to this Metahub will be created."
         },
+        "applicationParameters": {
+            "visibility": {
+                "closed": "Closed",
+                "public": "Public"
+            },
+            "visibilityHint": "Application visibility cannot be changed after creation.",
+            "workspacesEnabled": "Add workspaces",
+            "workspacesHint": "Workspace mode cannot be disabled after the application is created.",
+            "publicWorkspacesRecommended": "Workspaces are recommended for public applications to isolate data for each participant."
+        },
         "createDialog": {
             "title": "Create Publication",
             "description": "A new PostgreSQL schema will be created with tables matching your metahub structure"

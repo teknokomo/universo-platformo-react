@@ -18,10 +18,20 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 ## Main Responsibilities
 
 - Manage applications, connectors, memberships, and publication links.
+- Enforce immutable application parameters for visibility and workspace mode.
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 - Persist schema sync state in `applications.cat_applications` through SQL-first stores.
 - Keep runtime release metadata in the same central sync-state surface.
 - Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
+
+## Workspaces, Public Access, and Limits
+
+- Applications can now be created as `closed` or `public`. Visibility is immutable after creation.
+- Public applications default to `workspacesEnabled = true` in the UI, but owners may turn workspace mode off during creation when they intentionally want a shared data surface.
+- Runtime schema bootstrap creates workspace support tables, seeds `owner` and `member` workspace roles, and provisions a personal `Main` workspace for the owner and every current member.
+- Adding a new member to an application with initialized workspace runtime support provisions a personal workspace automatically.
+- Leaving an application or removing a member archives the personal workspace instead of hard-deleting business rows.
+- Catalog tables and TABLE child tables become workspace-scoped in runtime schemas, and backend routes enforce per-workspace row limits before inserts and copies.
 
 ## Database Access Rules
 
@@ -35,12 +45,14 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 
 - Publication-driven sync and file-bundle install share the same schema sync engine.
 - Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.cat_applications`.
+- Workspace-enabled applications also persist a workspace contract marker inside the canonical runtime snapshot lineage so incremental sync keeps workspace DDL intact.
 - Advisory locking serializes sync work per application before schema changes begin.
 - Maintenance and error states are persisted through the same central store contract.
 
 ## Package Surface
 
 - `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
+- The route surface now includes public join/leave flows and settings endpoints for per-workspace catalog limits.
 - `initializeRateLimiters()` prepares package-level rate limiting before route creation.
 - Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.
 - Platform migration definitions stay in the package migration surface instead of route handlers.

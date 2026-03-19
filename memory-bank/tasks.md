@@ -3,6 +3,139 @@
 
 ---
 
+## Application Workspace QA Closure — Tabular Copy, Docs/Plan Sync, And Seed Regression — 2026-03-19
+- Status: COMPLETE
+- [x] QW1: Fix the runtime tabular child-row copy permission seam so copy requires create-capability instead of delete-capability
+- [x] QW2: Synchronize the published application role matrix and related package docs with the implemented backend permission contract
+- [x] QW3: Bring the workspace/public-access implementation plan artifact into its final completed state so it no longer advertises stale unchecked work
+- [x] QW4: Add a deeper regression around workspace seed propagation/runtime lifecycle and rerun touched lint/tests/build validation
+  - Note: focused backend route/service regressions passed (44/44), the full `@universo/applications-backend` suite passed (10/10 suites, 108/108 tests), `@universo/applications-backend` lint passed, `@universo/applications-frontend` lint stayed green, standalone `@universo/applications-backend` build passed after dependency rebuild, and the final root `pnpm build` completed green with 28/28 successful tasks.
+
+---
+
+## Auth Start Spacing, Application Shell Refresh, Runtime Access, And Limit Banner Closure — 2026-03-19
+- Status: COMPLETE
+- [x] AS1: Remove the extra authenticated mobile start-page top gap without regressing the already-correct desktop guest/authenticated layouts
+- [x] AS2: Stop application admin entry clicks from falling through to runtime navigation and restore stable `/a/:applicationId/admin` access from the application list action menu
+- [x] AS3: Align application admin-shell refresh behavior so breadcrumbs and `Settings` stop degrading to `...` / hidden state on cold admin-board reloads
+- [x] AS4: Move runtime workspace-limit messaging into the centered dashboard content area, add member action icons, and restore ordinary-member runtime access after `Join`
+- [x] AS5: Add/update focused regressions, rerun touched tests/lint/build checks, and sync memory-bank closure state
+  - Note: focused `@universo/start-frontend` tests passed (21/21), focused `@universo/applications-backend` route tests passed (40/40), focused `@universo/applications-frontend` suites passed (24/24 files, 117/117 tests), `@universo/template-mui` tests/build passed, `@universo/applications-backend` lint/build passed, `@universo/applications-frontend` lint passed, and `@universo/core-frontend` build passed.
+
+---
+
+## Start Page Header Offset And Mobile Onboarding Progress Closure — 2026-03-19
+- Status: COMPLETE
+- [x] SP1: Remove the shared fixed-header spacer for guest start pages while preserving the authenticated start/onboarding offset
+- [x] SP2: Replace the hidden mobile onboarding stepper gap with a compact responsive mobile progress pattern
+- [x] SP3: Rename the final onboarding step label from `Completion` / `Завершение` to `Acting` / `Действуем`
+- [x] SP4: Add/update focused tests, rerun touched builds, and sync memory-bank closure state
+  - Note: focused `@universo/start-frontend` tests passed (21/21), `@universo/template-mui` build passed, and `@universo/core-frontend` build passed after rebuilding shared artifacts in dependency order.
+
+---
+
+## Publications Refresh, Workspace DDL, And Application Admin Route Reopen Closure — 2026-03-19
+- Status: COMPLETE
+- [x] PR1: Harden metahub/application breadcrumb detail loading on hard refresh so publication/admin paths stop falling back to `...` after a cold reload
+- [x] PR2: Remove the multi-statement workspace policy recreation pattern from runtime DDL so publication-linked schema generation no longer trips the executor/statement-timeout seam
+- [x] PR3: Restore application admin routing precedence so `Control panel` resolves to `/a/:applicationId/admin` instead of being captured by the runtime route
+- [x] PR4: Re-run touched lint/tests/builds plus final root `pnpm build`, then sync memory-bank closure state
+  - Note: focused `template-mui` tests passed, focused `applications-backend` tests passed (41/41), `metahubs-backend` publication-route tests passed (4/4) after the full workspace rebuild, `@universo/core-frontend` build passed, and the final root `pnpm build` completed green with 28/28 successful tasks.
+
+---
+
+## Application Workspaces UX, Breadcrumbs, Seed Data, And Limits Closure — 2026-03-19
+- Status: COMPLETE
+- [x] W1: Fix metahub/application breadcrumb and admin-menu refresh behavior so publications/settings resolve correctly on hard reload
+- [x] W2: Refine application settings UX for pre-schema limits availability and localized catalog/codename rendering
+- [x] W3: Rename runtime limits storage to `_app_limits` with forward-compatible scope/metric/period fields and keep current workspace-row limits working
+- [x] W4: Seed predefined metahub catalog elements into each personal workspace instead of leaving workspace-less rows in workspace-enabled runtimes
+- [x] W5: Tighten runtime limit UX so the create action closes immediately when the limit is reached instead of only failing on submit
+- [x] W6: Add/update focused regressions, rerun touched lint/tests/builds, and sync memory-bank closure state
+  - Note: touched lint/test/build validation passed for `@universo/applications-backend`, `@universo/applications-frontend`, `@universo/apps-template-mui`, and `@universo/template-mui`, and the final root `pnpm build` completed green with 28/28 successful tasks.
+
+---
+
+## Application Admin Surface And Runtime Role Enforcement Closure — 2026-03-19
+- Status: COMPLETE
+- [x] S1: Restrict application admin metadata routes (`members`, connector metadata, connector publications, sync) to real application admins/owners instead of plain membership
+- [x] S2: Enforce runtime row/content mutations against published role permissions so `editor` can no longer delete content outside its contract
+- [x] S3: Fail closed for public non-members by returning an explicit no-permissions surface until membership exists
+- [x] S4: Stabilize the full `@universo/applications-frontend` package suite and keep the real shell/runtime route validation green
+- [x] S5: Re-run touched lint/tests/builds plus final root `pnpm build`, then sync memory-bank closure state
+
+---
+
+## Application Public Runtime Guard And Permission Contract Closure — 2026-03-19
+- Status: COMPLETE
+- [x] G1: Protect the real `/a/:applicationId/*` runtime route with `ApplicationGuard` so public non-members cannot bypass the intended join flow via direct URL access
+- [x] G2: Remove the remaining table-view direct runtime link for public non-members and keep `Join` as the only entry point before membership exists
+- [x] G3: Align the published `member` permission contract with the implemented workspace-scoped runtime CRUD capabilities and update package documentation
+- [x] G4: Stabilize the full `@universo/applications-frontend` package test run under coverage and add regression coverage for the table-view public non-member state
+- [x] G5: Re-run touched lint/tests/builds plus final root `pnpm build`, then sync memory-bank closure state
+
+---
+
+## Application Workspaces + Public Access + Limits Implementation — 2026-03-19
+- Status: COMPLETE
+- [x] I1: Extend applications system schema, DTOs, contracts, and immutable create/copy/update behavior for `isPublic` + `workspacesEnabled`
+- [x] I2: Refactor application list/detail/member access semantics for explicit membership state, public discovery, and safe guard split
+- [x] I3: Implement runtime workspace subsystem DDL, canonical snapshot/release-lineage integration, and first-sync/member bootstrap
+- [x] I4: Implement runtime access resolution, workspace-scoped CRUD, child-table enforcement, and per-workspace limits backend
+- [x] I5: Implement public join/leave and member add/remove lifecycle with personal workspace archive semantics
+- [x] I6: Implement applications frontend create/edit/copy parameter tabs, public join/leave UX, settings navigation, and limits/settings UI
+- [x] I7: Add/update i18n, shared query contracts, tests, package docs, GitBook docs, and final validation
+
+---
+
+## Application Public Access Reopen Closure — 2026-03-19
+- Status: COMPLETE
+- [x] A1: Restore correct top offset for authenticated start-page content under the fixed start app bar in desktop layout
+- [x] A2: Remove synthetic application-admin access for ordinary global `applications:read` users so public apps remain join/use-only until membership exists
+- [x] A3: Add regression coverage for read-only public app list semantics and member-safe frontend actions, then rerun touched lint/tests/builds plus final root build
+
+---
+
+## Application Workspaces QA Remediation — 2026-03-19
+- Status: COMPLETE
+- [x] R1: Rebuild `applications` RLS policies for create/public/member/admin flows so request-scoped RLS execution matches the implemented routes
+- [x] R2: Enforce single-owner semantics in application copy flows when `copyAccess=true`
+- [x] R3: Make workspace limit bulk updates atomic and fail-closed
+- [x] R4: Strengthen runtime workspace integrity and add focused regression coverage for the new risk areas
+- [x] R5: Re-run targeted lint/tests/builds, then update memory-bank closure state
+
+---
+
+## Application Workspaces QA Follow-Up Closure — 2026-03-19
+- Status: COMPLETE
+- [x] F1: Fix applications edit flow so immutable parameters remain visible but are never sent in update payloads
+- [x] F2: Extend workspace leave/remove lifecycle to soft-delete workspace-scoped business rows before archiving the personal workspace
+- [x] F3: Tighten settings UX so `Limits` only appears when runtime schema + workspace mode are actually available
+- [x] F4: Add regression coverage for edit payload contract, workspace business-row archival, and settings gating
+- [x] F5: Re-run touched lint/tests/builds, then update memory-bank closure state
+
+---
+
+## Application/Publications Create Flow Remediation — 2026-03-19
+- Status: COMPLETE
+- [x] P1: Remove the hard backend invariant `public => workspaces` from application create/copy flows and keep UI guidance instead of a silent submit blocker
+- [x] P2: Extend publication auto-create and publication-linked application creation contracts to accept visibility/workspace parameters end-to-end
+- [x] P3: Align standalone and publication-linked create dialogs with the shared parameter UX, including spacing, immutable info alerts, and public-without-workspaces warning
+- [x] P4: Add/update focused regression coverage for standalone create and publication create flows, then rerun touched lint/tests/builds
+  - Note: Focused validations passed with `applications-backend` route tests, direct `vitest` runs for `ApplicationList` and publication application flows, touched package lint runs (warning-only residual debt in `metahubs-*`), and a final green root `pnpm build` (`28 successful, 28 total`).
+
+---
+
+## Application Workspaces Final Closure — 2026-03-19
+- Status: COMPLETE
+- [x] FC1: Fix metapanel application copy text and publication/application schema generation regressions found during manual runtime verification
+- [x] FC2: Remove prepared-statement-incompatible workspace DDL helper pattern and qualify connector-publication soft-delete updates
+- [x] FC3: Make application admin `Settings` menu obey runtime-schema availability instead of showing a dead-end entry up front
+- [x] FC4: Add focused regression coverage for menu gating and rerun touched lint/tests/builds
+  - Note: the real `@universo/template-mui` dashboard shell now gates the menu entry from cached application detail, focused `MenuContent` / menu-config tests passed, and the final root `pnpm build` completed green with 28/28 successful tasks.
+
+---
+
 ## QA Comprehensive Fix — 2026-03-19
 - Status: COMPLETE
 - [x] C1: Fix LIKE wildcard injection in `globalAccessService.ts` (~L408) and `instancesStore.ts` (~L50)

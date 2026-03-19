@@ -1,16 +1,20 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material'
+import { Alert, Checkbox, FormControlLabel, Radio, RadioGroup, Stack, Typography } from '@mui/material'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
 import { LocalizedInlineField } from '@universo/template-mui'
 import type { ApplicationCopyOptions, VersionedLocalizedContent } from '@universo/types'
-import { normalizeApplicationCopyOptions } from '@universo/utils'
+import { createLocalizedContent, normalizeApplicationCopyOptions, updateLocalizedContentLocale } from '@universo/utils'
 import type { Application, ApplicationDisplay, ApplicationLocalizedPayload } from '../types'
 import type { ApplicationFormValues } from './ApplicationList'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
 
-type ApplicationDialogValues = ApplicationFormValues & Partial<ApplicationCopyOptions>
+type ApplicationDialogValues = ApplicationFormValues &
+    Partial<ApplicationCopyOptions> & {
+        isPublic?: boolean
+        workspacesEnabled?: boolean
+    }
 
 type ApplicationDialogRenderProps = {
     values: ApplicationDialogValues
@@ -19,7 +23,13 @@ type ApplicationDialogRenderProps = {
     errors?: Record<string, string>
 }
 
-type ApplicationActionContext = ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>
+type ApplicationActionContext = ActionContext<ApplicationDisplay, ApplicationLocalizedPayload> & {
+    applicationMap?: Map<string, Application>
+    uiLocale?: string
+    api?: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>['api'] & {
+        copyEntity?: (id: string, data: ApplicationLocalizedPayload & Partial<ApplicationCopyOptions>) => Promise<void>
+    }
+}
 
 const buildInitialValues = (ctx: ApplicationActionContext) => {
     const applicationMap = ctx.applicationMap as Map<string, Application> | undefined
@@ -30,7 +40,9 @@ const buildInitialValues = (ctx: ApplicationActionContext) => {
 
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
-        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback)
+        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
+        isPublic: raw?.isPublic ?? ctx.entity?.isPublic ?? false,
+        workspacesEnabled: raw?.workspacesEnabled ?? ctx.entity?.workspacesEnabled ?? false
     }
 }
 
@@ -44,38 +56,35 @@ const appendLocalizedCopySuffix = (
         const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
         const content = (fallback || '').trim()
         const nextContent = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
-        return {
-            _schema: 'v1',
-            _primary: locale,
-            locales: {
-                [locale]: { content: nextContent }
-            }
-        }
+        return createLocalizedContent(locale, nextContent)
     }
 
-    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
-    const localeEntries = Object.entries(nextLocales)
+    let nextValue = value
+    const localeEntries = Object.entries(value.locales || {})
     for (const [locale, localeValue] of localeEntries) {
         const normalizedLocale = normalizeLocale(locale)
         const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
         const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
         if (content.length > 0) {
-            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
+            nextValue = updateLocalizedContentLocale(nextValue, locale, `${content}${suffix}`)
         }
     }
 
-    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    const hasAnyContent = Object.values(nextValue.locales).some(
+        (entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0
+    )
     if (!hasAnyContent) {
         const locale = normalizeLocale(uiLocale)
         const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
         const content = (fallback || '').trim()
-        nextLocales[locale] = { content: content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}` }
+        nextValue = updateLocalizedContentLocale(
+            nextValue,
+            locale,
+            content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        )
     }
 
-    return {
-        ...value,
-        locales: nextLocales
-    }
+    return nextValue
 }
 
 const buildCopyInitialValues = (ctx: ApplicationActionContext) => {
@@ -114,6 +123,81 @@ const getApplicationCopyOptions = (values: ApplicationDialogValues): Application
     })
 }
 
+const renderParametersTab = (
+    ctx: ApplicationActionContext,
+    values: ApplicationDialogValues,
+    setValue: ApplicationDialogRenderProps['setValue'],
+    isLoading: boolean,
+    mode: 'create' | 'edit' | 'copy'
+) => {
+    const isPublic = values.isPublic === true
+    const workspacesEnabled = values.workspacesEnabled === true
+    const parametersLocked = mode === 'edit'
+    const handleVisibilityChange = (nextIsPublic: boolean) => {
+        setValue('isPublic', nextIsPublic)
+        if (nextIsPublic && !workspacesEnabled) {
+            setValue('workspacesEnabled', true)
+        }
+    }
+
+    return (
+        <Stack spacing={2}>
+            <RadioGroup
+                value={isPublic ? 'public' : 'closed'}
+                onChange={(event) => handleVisibilityChange(event.target.value === 'public')}
+            >
+                <FormControlLabel
+                    value='closed'
+                    control={<Radio />}
+                    label={ctx.t('visibility.closed', 'Closed')}
+                    disabled={isLoading || parametersLocked}
+                />
+                <FormControlLabel
+                    value='public'
+                    control={<Radio />}
+                    label={ctx.t('visibility.public', 'Public')}
+                    disabled={isLoading || parametersLocked}
+                />
+            </RadioGroup>
+            <Alert severity='info'>
+                {ctx.t(
+                    parametersLocked ? 'parameters.visibilityLocked' : 'parameters.visibilityHint',
+                    parametersLocked
+                        ? 'Application visibility is fixed after creation and cannot be changed.'
+                        : 'Application visibility cannot be changed after creation.'
+                )}
+            </Alert>
+
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={workspacesEnabled}
+                        onChange={(event) => setValue('workspacesEnabled', event.target.checked)}
+                        disabled={isLoading || parametersLocked}
+                    />
+                }
+                label={ctx.t('parameters.workspacesEnabled', 'Add workspaces')}
+            />
+            <Alert severity='info'>
+                {ctx.t(
+                    parametersLocked ? 'parameters.workspacesLocked' : 'parameters.workspacesHint',
+                    parametersLocked
+                        ? 'Workspace mode is fixed after creation and cannot be changed.'
+                        : 'Workspace mode cannot be disabled after the application is created.'
+                )}
+            </Alert>
+            {isPublic && !workspacesEnabled ? (
+                <Alert severity='warning'>
+                    {ctx.t(
+                        'parameters.publicWorkspacesRecommended',
+                        'Workspaces are recommended for public applications to isolate each participant data.'
+                    )}
+                </Alert>
+            ) : null}
+        </Stack>
+    )
+}
+
 const toPayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -125,8 +209,15 @@ const toPayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
-        descriptionPrimaryLocale
+        descriptionPrimaryLocale,
+        isPublic: values.isPublic === true,
+        workspacesEnabled: values.workspacesEnabled === true
     }
+}
+
+const toUpdatePayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload => {
+    const { isPublic: _isPublic, workspacesEnabled: _workspacesEnabled, ...payload } = toPayload(values)
+    return payload
 }
 
 const applicationActions: readonly ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] = [
@@ -153,33 +244,45 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: ApplicationDialogRenderProps) => {
+                    tabs: ({ values, setValue, isLoading, errors }: ApplicationDialogRenderProps): TabConfig[] => {
                         const fieldErrors = errors ?? {}
-                        return (
-                            <>
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={ctx.t('common:fields.name')}
-                                    required
-                                    disabled={isLoading}
-                                    value={values.nameVlc ?? null}
-                                    onChange={(next) => setValue('nameVlc', next)}
-                                    error={fieldErrors.nameVlc || null}
-                                    helperText={fieldErrors.nameVlc}
-                                    uiLocale={ctx.uiLocale as string}
-                                />
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={ctx.t('common:fields.description')}
-                                    disabled={isLoading}
-                                    value={values.descriptionVlc ?? null}
-                                    onChange={(next) => setValue('descriptionVlc', next)}
-                                    uiLocale={ctx.uiLocale as string}
-                                    multiline
-                                    rows={2}
-                                />
-                            </>
-                        )
+
+                        return [
+                            {
+                                id: 'general',
+                                label: ctx.t('copy.generalTab', 'General'),
+                                content: (
+                                    <Stack spacing={2}>
+                                        <LocalizedInlineField
+                                            mode='localized'
+                                            label={ctx.t('common:fields.name')}
+                                            required
+                                            disabled={isLoading}
+                                            value={values.nameVlc ?? null}
+                                            onChange={(next) => setValue('nameVlc', next)}
+                                            error={fieldErrors.nameVlc || null}
+                                            helperText={fieldErrors.nameVlc}
+                                            uiLocale={ctx.uiLocale as string}
+                                        />
+                                        <LocalizedInlineField
+                                            mode='localized'
+                                            label={ctx.t('common:fields.description')}
+                                            disabled={isLoading}
+                                            value={values.descriptionVlc ?? null}
+                                            onChange={(next) => setValue('descriptionVlc', next)}
+                                            uiLocale={ctx.uiLocale as string}
+                                            multiline
+                                            rows={2}
+                                        />
+                                    </Stack>
+                                )
+                            },
+                            {
+                                id: 'parameters',
+                                label: ctx.t('parameters.tab', 'Parameters'),
+                                content: renderParametersTab(ctx, values, setValue, isLoading, 'edit')
+                            }
+                        ]
                     },
                     validate: (values: ApplicationDialogValues) => validateApplicationForm(ctx, values),
                     canSave: canSaveApplicationForm,
@@ -192,7 +295,7 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                         // BaseEntityMenu handles dialog closing
                     },
                     onSave: (data: ApplicationDialogValues) => {
-                        const payload = toPayload(data)
+                        const payload = toUpdatePayload(data)
                         return ctx.api?.updateEntity?.(ctx.entity.id, payload)
                     }
                 }
@@ -257,10 +360,11 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                                 )
                             },
                             {
-                                id: 'options',
-                                label: ctx.t('copy.optionsTab', 'Options'),
+                                id: 'parameters',
+                                label: ctx.t('parameters.tab', 'Parameters'),
                                 content: (
-                                    <Stack spacing={1}>
+                                    <Stack spacing={2}>
+                                        {renderParametersTab(ctx, values, setValue, isLoading, 'copy')}
                                         <FormControlLabel
                                             control={
                                                 <Checkbox

@@ -7,7 +7,14 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 
 // project imports
-import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard, buildRealisticTrendData } from '@universo/template-mui'
+import {
+    ViewHeaderMUI as ViewHeader,
+    EmptyListState,
+    APIEmptySVG,
+    StatCard,
+    HighlightedCard,
+    buildRealisticTrendData
+} from '@universo/template-mui'
 
 import { useMetahubDetails } from '../hooks/useMetahubDetails'
 import { toMetahubDisplay } from '../../../types'

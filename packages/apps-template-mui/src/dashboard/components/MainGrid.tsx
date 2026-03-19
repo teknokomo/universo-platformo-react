@@ -123,6 +123,7 @@ export default function MainGrid({
             {/* Details section */}
             {(showDetailsTitle || showColumnsContainer || showDetailsTable) && (
                 <>
+                    {details?.banner ? <Box sx={{ mb: 2 }}>{details.banner}</Box> : null}
                     {showDetailsTitle && (
                         <Typography component='h2' variant='h6' sx={{ mb: 1 }}>
                             {detailsTitle}

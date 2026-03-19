@@ -70,6 +70,8 @@ const resolveConnectorSortBy = (sortBy: string): 'name' | 'created' | 'updated' 
     return 'updated'
 }
 
+const APPLICATION_ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
+
 export function createConnectorsRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
@@ -140,7 +142,7 @@ export function createConnectorsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId } = req.params
-            const userId = await ensureAccess(req, res, applicationId)
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
 
             let validatedQuery
@@ -182,7 +184,7 @@ export function createConnectorsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const userId = await ensureAccess(req, res, applicationId)
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const connector = await findConnector(
                 {
@@ -218,7 +220,7 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId } = req.params
-            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const application = await findApplicationStatus(
                 {
@@ -300,7 +302,7 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const connector = await findConnector(
                 {
@@ -405,7 +407,7 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin'])
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const connector = await findConnector(
                 {
@@ -440,7 +442,7 @@ export function createConnectorsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const userId = await ensureAccess(req, res, applicationId)
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const connector = await findConnector(
                 {
@@ -478,7 +480,7 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const bodySchema = z.object({
                 publicationId: z.string().uuid(),
@@ -563,7 +565,7 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId, linkId } = req.params
-            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            const userId = await ensureAccess(req, res, applicationId, APPLICATION_ADMIN_ROLES)
             if (!userId) return
             const connector = await findConnector(
                 {

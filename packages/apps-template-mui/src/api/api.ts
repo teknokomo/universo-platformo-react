@@ -151,6 +151,13 @@ export const appDataResponseSchema = z.object({
         limit: z.number(),
         offset: z.number()
     }),
+    workspaceLimit: z
+        .object({
+            maxRows: z.number().int().positive().nullable(),
+            currentRows: z.number().int().nonnegative(),
+            canCreate: z.boolean()
+        })
+        .optional(),
     // Added by backend for dashboard rendering; optional for backward compatibility.
     layoutConfig: dashboardLayoutConfigSchema,
     zoneWidgets: z

@@ -164,7 +164,11 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
     const [busyActionId, setBusyActionId] = useState<string | null>(null)
 
     const open = Boolean(anchorEl)
-    const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
+    const handleOpen = (e: React.MouseEvent<HTMLElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setAnchorEl(e.currentTarget)
+    }
     const handleClose = () => setAnchorEl(null)
 
     const ctx = createContext({
@@ -186,7 +190,9 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
         groups[g].push(d)
     })
 
-    const doAction = async (d: ActionDescriptor) => {
+    const doAction = async (event: React.MouseEvent<HTMLElement>, d: ActionDescriptor) => {
+        event.preventDefault()
+        event.stopPropagation()
         if (busyActionId) return
         handleClose()
         try {
@@ -271,7 +277,19 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                 'aria-haspopup': 'true',
                 disabled: busyActionId !== null
             })}
-            <Menu open={open} onClose={handleClose} anchorEl={anchorEl} disableAutoFocusItem MenuListProps={{ autoFocusItem: false }}>
+            <Menu
+                open={open}
+                onClose={handleClose}
+                anchorEl={anchorEl}
+                disableAutoFocusItem
+                MenuListProps={{
+                    autoFocusItem: false,
+                    onClick: (event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                }}
+            >
                 {Object.entries(groups).map(([group, acts], gi, arr) => (
                     <React.Fragment key={group}>
                         {acts.map((a) => {
@@ -283,7 +301,7 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                                     {a.dividerBefore && <Divider />}
                                     <MenuItem
                                         disabled={disabled}
-                                        onClick={() => doAction(a)}
+                                        onClick={(event) => void doAction(event, a)}
                                         sx={
                                             isDanger
                                                 ? {

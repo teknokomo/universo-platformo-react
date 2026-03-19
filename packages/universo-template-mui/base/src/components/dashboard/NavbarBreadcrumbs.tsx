@@ -4,14 +4,13 @@ import Breadcrumbs, { breadcrumbsClasses } from '@mui/material/Breadcrumbs'
 import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import Link from '@mui/material/Link'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useHasGlobalAccess } from '@universo/store'
 import {
-    useMetahubName,
     truncateMetahubName,
-    useApplicationName,
     truncateApplicationName,
     useMetahubPublicationName,
     useHubName,
@@ -44,6 +43,48 @@ const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     }
 }))
 
+type LocalizedValue = {
+    _primary?: string
+    locales?: Record<string, { content?: unknown }>
+}
+
+const extractLocalizedString = (value: unknown): string | null => {
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed.length > 0 ? trimmed : null
+    }
+
+    if (!value || typeof value !== 'object') {
+        return null
+    }
+
+    const locale = (i18n.resolvedLanguage || i18n.language || 'en').split(/[-_]/)[0].toLowerCase()
+    const localized = value as LocalizedValue
+    const primary = typeof localized._primary === 'string' ? localized._primary : 'en'
+    const current = localized.locales?.[locale]?.content
+    if (typeof current === 'string' && current.trim().length > 0) {
+        return current.trim()
+    }
+
+    const primaryValue = localized.locales?.[primary]?.content
+    if (typeof primaryValue === 'string' && primaryValue.trim().length > 0) {
+        return primaryValue.trim()
+    }
+
+    const fallbackValue = localized.locales?.en?.content
+    if (typeof fallbackValue === 'string' && fallbackValue.trim().length > 0) {
+        return fallbackValue.trim()
+    }
+
+    return null
+}
+
+type ApplicationShellDetail = Record<string, unknown> & {
+    name?: unknown
+    slug?: string | null
+    schemaName?: string | null
+}
+
 export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
@@ -51,7 +92,27 @@ export default function NavbarBreadcrumbs() {
     // Extract metahubId from URL for dynamic name loading (both singular and plural routes)
     const metahubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)/)
     const metahubId = metahubIdMatch ? metahubIdMatch[1] : null
-    const metahubName = useMetahubName(metahubId)
+    const metahubDetailQuery = useQuery({
+        queryKey: metahubId ? ['metahubs', 'detail', metahubId] : ['metahubs', 'detail', 'missing-id'],
+        queryFn: async () => {
+            const response = await fetch(`/api/v1/metahub/${metahubId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) {
+                throw new Error(`Failed to load metahub detail for breadcrumbs: ${response.status}`)
+            }
+            return (await response.json()) as { name?: unknown; codename?: string | null }
+        },
+        enabled: Boolean(metahubId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        retryOnMount: true,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false
+    })
+    const metahubName = extractLocalizedString(metahubDetailQuery.data?.name) ?? metahubDetailQuery.data?.codename ?? null
 
     // Extract layoutId from URL for dynamic name loading (under metahub context)
     // Pattern: /metahub/:metahubId/layouts/:layoutId
@@ -64,7 +125,27 @@ export default function NavbarBreadcrumbs() {
     // Pattern: /a/:applicationId/admin/...
     const applicationIdMatch = location.pathname.match(/^\/a\/([^/]+)\/admin(?:\/|$)/)
     const applicationId = applicationIdMatch ? applicationIdMatch[1] : null
-    const applicationName = useApplicationName(applicationId)
+    const applicationDetailQuery = useQuery<ApplicationShellDetail>({
+        queryKey: applicationId ? ['applications', 'detail', applicationId] : ['applications', 'detail', 'missing-id'],
+        queryFn: async () => {
+            const response = await fetch(`/api/v1/applications/${applicationId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) {
+                throw new Error(`Failed to load application detail for breadcrumbs: ${response.status}`)
+            }
+            return (await response.json()) as ApplicationShellDetail
+        },
+        enabled: Boolean(applicationId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        retryOnMount: true,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false
+    })
+    const applicationName = extractLocalizedString(applicationDetailQuery.data?.name) ?? applicationDetailQuery.data?.slug ?? null
 
     // Extract connectorId from URL for dynamic name loading (under application admin context)
     // Pattern: /a/:applicationId/admin/connector/:connectorId
@@ -170,9 +251,9 @@ export default function NavbarBreadcrumbs() {
         if (primary === 'metahub') {
             const items = [{ label: t(menuMap.metahubs), to: '/metahubs' }]
 
-            if (segments[1] && metahubName) {
+            if (segments[1]) {
                 items.push({
-                    label: truncateMetahubName(metahubName),
+                    label: metahubName ? truncateMetahubName(metahubName) : '...',
                     to: `/metahub/${segments[1]}`
                 })
 
@@ -436,11 +517,6 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'migrations') {
                     items.push({ label: t('migrations'), to: `/metahub/${segments[1]}/migrations` })
                 }
-            } else if (segments[1]) {
-                items.push({
-                    label: '...',
-                    to: `/metahub/${segments[1]}`
-                })
             }
 
             return items
@@ -457,9 +533,9 @@ export default function NavbarBreadcrumbs() {
             const currentApplicationId = segments[1]
             const adminSection = segments[2]
 
-            if (currentApplicationId && applicationName && adminSection === 'admin') {
+            if (currentApplicationId && adminSection === 'admin') {
                 items.push({
-                    label: truncateApplicationName(applicationName),
+                    label: applicationName ? truncateApplicationName(applicationName) : '...',
                     to: `/a/${currentApplicationId}/admin`
                 })
 
@@ -469,6 +545,8 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('access'), to: location.pathname })
                 } else if (segments[3] === 'migrations') {
                     items.push({ label: t('migrations'), to: location.pathname })
+                } else if (segments[3] === 'settings') {
+                    items.push({ label: t('settings'), to: location.pathname })
                 } else if (segments[3] === 'connector' && segments[4]) {
                     items.push({ label: t('connectors'), to: `/a/${currentApplicationId}/admin/connectors` })
                     if (connectorName) {

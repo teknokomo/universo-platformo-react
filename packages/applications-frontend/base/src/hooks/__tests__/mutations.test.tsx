@@ -69,6 +69,8 @@ describe('applications mutation hooks', () => {
             updateApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             deleteApplication: vi.fn().mockResolvedValue({ data: {} }),
             copyApplication: vi.fn().mockResolvedValue({ data: { id: 'm2' } }),
+            joinApplication: vi.fn().mockResolvedValue({ data: { status: 'joined' } }),
+            leaveApplication: vi.fn().mockResolvedValue({ data: { status: 'left' } }),
             inviteApplicationMember: vi.fn().mockResolvedValue({ data: { id: 'u2' } }),
             updateApplicationMemberRole: vi.fn().mockResolvedValue({ data: {} }),
             removeApplicationMember: vi.fn().mockResolvedValue({ data: {} })
@@ -93,6 +95,8 @@ describe('applications mutation hooks', () => {
         let updateApplication: ReturnType<typeof hooks.useUpdateApplication> | undefined
         let deleteApplication: ReturnType<typeof hooks.useDeleteApplication> | undefined
         let copyApplication: ReturnType<typeof hooks.useCopyApplication> | undefined
+        let joinApplication: ReturnType<typeof hooks.useJoinApplication> | undefined
+        let leaveApplication: ReturnType<typeof hooks.useLeaveApplication> | undefined
 
         let memberMutations: ReturnType<typeof hooks.useMemberMutations> | undefined
         let connectorMutations: ReturnType<typeof hooks.useConnectorMutations> | undefined
@@ -102,6 +106,8 @@ describe('applications mutation hooks', () => {
             updateApplication = hooks.useUpdateApplication()
             deleteApplication = hooks.useDeleteApplication()
             copyApplication = hooks.useCopyApplication()
+            joinApplication = hooks.useJoinApplication()
+            leaveApplication = hooks.useLeaveApplication()
 
             memberMutations = hooks.useMemberMutations('m1')
             connectorMutations = hooks.useConnectorMutations('m1')
@@ -116,13 +122,26 @@ describe('applications mutation hooks', () => {
         )
 
         await act(async () => {
-            await createApplication!.mutateAsync({ name: 'Name', description: 'Desc' })
-            await updateApplication!.mutateAsync({ id: 'm1', data: { name: 'Name2' } })
+            await createApplication!.mutateAsync({
+                name: { en: 'Name' },
+                description: { en: 'Desc' },
+                namePrimaryLocale: 'en',
+                descriptionPrimaryLocale: 'en'
+            })
+            await updateApplication!.mutateAsync({
+                id: 'm1',
+                data: {
+                    name: { en: 'Name2' },
+                    namePrimaryLocale: 'en'
+                }
+            })
             await deleteApplication!.mutateAsync('m1')
             await copyApplication!.mutateAsync({
                 id: 'm1',
                 data: { name: { en: 'Name copy' }, copyConnector: true, createSchema: true, copyAccess: true }
             })
+            await joinApplication!.mutateAsync({ id: 'm3' })
+            await leaveApplication!.mutateAsync({ id: 'm3' })
 
             await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
             await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
@@ -153,6 +172,8 @@ describe('applications mutation hooks', () => {
             createSchema: true,
             copyAccess: true
         })
+        expect(applicationsApi.joinApplication).toHaveBeenCalledWith('m3')
+        expect(applicationsApi.leaveApplication).toHaveBeenCalledWith('m3')
         expect(connectorsApi.syncApplication).toHaveBeenCalledWith('m2', false)
 
         expect(applicationsApi.inviteApplicationMember).toHaveBeenCalledWith('m1', { email: 'a@b.c', role: 'viewer' })
@@ -242,6 +263,8 @@ describe('applications mutation hooks', () => {
             updateApplication: vi.fn(),
             deleteApplication: vi.fn(),
             copyApplication: vi.fn(),
+            joinApplication: vi.fn(),
+            leaveApplication: vi.fn(),
             inviteApplicationMember: vi.fn(),
             updateApplicationMemberRole: vi.fn(),
             removeApplicationMember: vi.fn()
@@ -271,7 +294,12 @@ describe('applications mutation hooks', () => {
         )
 
         await act(async () => {
-            await expect(createApplication!.mutateAsync({ name: 'Name' })).rejects.toThrow('boom')
+            await expect(
+                createApplication!.mutateAsync({
+                    name: { en: 'Name' },
+                    namePrimaryLocale: 'en'
+                })
+            ).rejects.toThrow('boom')
         })
 
         expect(enqueueSnackbar).toHaveBeenCalled()

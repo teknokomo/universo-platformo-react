@@ -6,7 +6,14 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
 
 // project imports
-import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard, buildRealisticTrendData } from '@universo/template-mui'
+import {
+    ViewHeaderMUI as ViewHeader,
+    EmptyListState,
+    APIEmptySVG,
+    StatCard,
+    HighlightedCard,
+    buildRealisticTrendData
+} from '@universo/template-mui'
 
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { toApplicationDisplay } from '../types'

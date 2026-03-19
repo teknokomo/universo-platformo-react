@@ -28,6 +28,36 @@
 | 0.36.0-alpha | 2025-11-07 | Revolutionary Indicators 📈                        | dayjs migration, publish-frontend, Metaverse Dashboard                                              |
 | 0.35.0-alpha | 2025-10-30 | Bold Steps 💃                                      | i18n TypeScript migration, Rate limiting                                                            |
 | 0.34.0-alpha | 2025-10-23 | Black Hole ☕️                                     | Global monorepo refactoring, tsdown build system                                                    |
+
+## 2026-03-19 Application Workspace QA Closure — Tabular Copy, Docs/Plan Sync, And Seed Regression
+
+Closed the last QA reopen on the application workspaces/public-access implementation by fixing the remaining runtime permission seam, syncing the published role contract, and turning the draft plan artifact into a truthful completed record.
+
+| Area | Resolution |
+| --- | --- |
+| Tabular copy permission contract | Runtime child-row copy now requires `createContent` instead of `deleteContent`, so `editor` can copy TABLE child rows without regaining delete capability. |
+| Documentation consistency | The applications frontend READMEs now match the backend role matrix and no longer claim that `editor` can delete content. |
+| Plan closure fidelity | The application workspaces/public-access plan now reflects the delivered implementation instead of leaving stale unchecked tasks in the artifact. |
+| Seed regression depth | Added a deeper service regression proving that newly created personal workspaces materialize predefined seed rows with workspace ownership and seed-source tracking. |
+| Validation | Focused backend route/service regressions passed (44/44), the full `@universo/applications-backend` suite passed (10/10 suites, 108/108 tests), `@universo/applications-backend` lint passed, `@universo/applications-frontend` lint stayed green, standalone `@universo/applications-backend` build passed after dependency rebuild, and the final root `pnpm build` completed green with 28/28 successful tasks in 2m51.348s. |
+
+## Auth Start Spacing, Application Shell Refresh, Runtime Access, And Limit Banner Closure COMPLETE (2026-03-19)
+
+The last reopen on the application workspaces/public-access wave closed the remaining UX and access regressions around authenticated mobile start pages, application admin entry, admin-shell refresh, and runtime limit messaging.
+| Area | Resolution |
+| --- | --- |
+| Authenticated mobile start spacing | The authenticated onboarding/completion containers now use mobile-safe top padding that works with the authenticated fixed-header spacer without reintroducing guest desktop/header regressions. |
+| Application admin entry stability | BaseEntityMenu now prevents trigger/menu click fallthrough, so `Control panel` navigation stays on `/a/:applicationId/admin` instead of being overwritten by card/runtime navigation. |
+| Admin-shell refresh consistency | Application menu and breadcrumb detail queries now use a consistent detail shape with mount retries/revalidation, preventing `...` labels and missing `Settings` on cold admin-board refreshes. |
+| Runtime limit messaging | The workspace-limit alert now renders inside the centered dashboard details area instead of spanning under the shell sidebar, while member mini-menu actions also gained explicit icons. |
+| Joined-member runtime access | The runtime bootstrap path now resolves through membership-aware runtime schema access rather than owner/admin-only gating, so ordinary joined members can load the application runtime after `Join`. |
+Validation:
+
+- focused `@universo/start-frontend` tests passed (`21/21`).
+- focused `@universo/applications-backend` route tests passed (`40/40`) and `@universo/applications-backend` lint/build passed.
+- focused `@universo/applications-frontend` suites passed (`24/24` files, `117/117` tests) and `@universo/applications-frontend` lint passed.
+- focused `@universo/template-mui` tests/build passed.
+- `@universo/core-frontend` build passed.
 | 0.33.0-alpha | 2025-10-16 | School Test 💼                                     | Publication system fixes, Metaverses module                                                         |
 | 0.32.0-alpha | 2025-10-09 | Straight Path 🛴                                   | Canvas versioning, Telemetry, Pagination                                                            |
 | 0.31.0-alpha | 2025-10-02 | Victory Versions 🏆                                | Quiz editing, Canvas refactor, MUI Template                                                         |
@@ -41,6 +71,114 @@
 | 0.23.0-alpha | 2025-08-05 | Vanishing Asteroid ☄️                              | Russian docs, UPDL node params                                                                      |
 | 0.22.0-alpha | 2025-07-27 | Global Impulse ⚡️                                 | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | Firm Resolve 💪                                    | Handler refactoring, PlayCanvas stabilization                                                       |
+
+## 2026-03-19 Start Page Header Offset And Mobile Onboarding Progress Closure
+
+Closed a UI reopen on the start/onboarding surface after the earlier fixed-header offset correction introduced a guest-only top gap and left the mobile onboarding progress area blank.
+
+| Area | Resolution |
+| --- | --- |
+| Guest start page top gap | `StartLayoutMUI` now renders the fixed-header spacer only for authenticated users, so guest landing pages no longer show an empty strip above the hero while the authenticated onboarding shell keeps the needed offset under the fixed app bar. |
+| Mobile onboarding progress | `OnboardingWizard` now follows a compact responsive MUI pattern on small screens: a labeled mobile progress block with current-step text plus `MobileStepper` dots instead of hiding the stepper entirely and leaving dead whitespace. |
+| Final step naming | The last onboarding step label now reads `Acting` / `Действуем` instead of `Complete` / `Завершение`, matching the requested wording and the existing `Start Acting` CTA direction. |
+| Validation | Focused `@universo/start-frontend` tests passed with 21/21 tests, `@universo/template-mui` build passed, and `@universo/core-frontend` build passed after rebuilding shared artifacts in dependency order. |
+
+## 2026-03-19 Publications Refresh, Workspace DDL, And Application Admin Route Reopen Closure
+
+Closed the final reopen after the clean-database retest exposed three live regressions: metahub publication breadcrumbs still collapsing to `...` on hard refresh, publication-linked application schema generation still failing inside workspace policy DDL, and application `Control panel` navigation falling through to the runtime route instead of the admin surface.
+
+| Area | Resolution |
+| --- | --- |
+| Breadcrumb refresh resilience | `NavbarBreadcrumbs` now revalidates metahub/application detail queries on mount with stronger retry semantics, so cold refreshes on publications and application-admin pages no longer stay stuck on `...` after an early transient fetch failure. |
+| Workspace policy DDL safety | `applicationWorkspaces.ts` no longer recreates workspace RLS policies through a single multi-statement `DROP POLICY ...; CREATE POLICY ...` call. The helper now executes drop and create as separate parameter-safe DDL steps, which removed the executor timeout seam in publication-linked schema generation. |
+| Application admin route precedence | `@universo/core-frontend` now exports `MainRoutes` before the wildcard runtime branch so `/a/:applicationId/admin` is matched by the real admin tree again instead of being swallowed by the runtime `a/:applicationId/*` route. |
+| Validation | Focused `@universo/template-mui` tests passed, focused `@universo/applications-backend` tests passed with 41/41 tests, focused `@universo/metahubs-backend` publication-route tests passed with 4/4 tests after the full rebuild, `@universo/core-frontend` build passed, and the final root `pnpm build` completed green with 28/28 successful tasks in 2m41.592s. |
+
+## 2026-03-19 Application Workspaces UX, Breadcrumbs, Seed Data, And Limits Closure
+
+Closed the final UX/data-consistency follow-up around publications breadcrumbs, application settings breadcrumbs/menu refresh, localized limits labels, workspace seed propagation, and limit enforcement behavior.
+
+| Area | Resolution |
+| --- | --- |
+| Breadcrumb resilience on hard reload | Publications and application-settings breadcrumbs now render their full path even before the metahub/application name query resolves, and the real dashboard menu fetches application detail on refresh so `Settings` remains visible when runtime schema already exists. |
+| Settings limits prerequisites | `Application Settings -> Limits` now stays reachable but shows explicit informational alerts when runtime schema is not created yet or workspace mode is disabled instead of surfacing an error state. |
+| Localized limits labels | Limits payloads now resolve both the catalog display name and codename from VLC presentation data using the active locale, so Russian labels render correctly when available. |
+| Forward-compatible runtime limits schema | Workspace row limits moved from `_app_workspace_limits` to `_app_limits` with scope/object/metric/period fields so future application-wide, role-based, and time-window limits can reuse the same table contract. |
+| Workspace seed propagation | Workspace-enabled runtime sync now persists a seed template from publication predefined elements and materializes a personal seeded copy for every active workspace, including child TABLE rows, instead of creating workspace-less default rows. |
+| Immediate limit UX | CRUD dashboards now update workspace limit counters optimistically after create/delete, block create/copy dialogs as soon as `canCreate` becomes false, and keep active query invalidation so the disabled-state/banner shows immediately after the limit is reached. |
+| Validation | `@universo/applications-backend` lint passed; focused backend suites passed (2 suites, 41 tests) and backend build passed. `@universo/applications-frontend` lint passed; frontend package suite passed (24 files, 116 tests, 61.80% statements coverage) and frontend build passed. `@universo/apps-template-mui` focused tests passed (3 files, 10 tests) and build passed. `@universo/template-mui` focused tests passed (2 suites, 3 tests) and build passed. Final root `pnpm build` passed with 28/28 successful tasks in 3m2.14s. |
+
+## 2026-03-19 Application Admin Surface And Runtime Role Enforcement Closure
+
+Closed the remaining backend/admin-surface and runtime-role gaps that the last QA pass still identified after the public join-flow fixes.
+
+| Area | Resolution |
+| --- | --- |
+| Admin metadata boundary | Application members, connector metadata, connector publication links, and application sync routes now require real `owner/admin` application roles instead of any joined membership. |
+| Runtime role enforcement | Workspace-scoped runtime mutations now enforce the published role-permission contract directly, so `editor` can create and edit content but can no longer delete rows outside its declared capability set. |
+| Public non-member contract | Public applications that are visible before `Join` now return an explicit no-permissions surface until membership is created, preventing future UI drift from mistaking discovery access for runtime/admin access. |
+| Frontend validation stability | The full `@universo/applications-frontend` package suite is green again after stabilizing the long-running export and members tests and keeping the public/list/runtime regressions intact. |
+| Validation | `@universo/applications-backend` lint passed and the backend full suite passed (10/10 suites, 105/105 tests). `@universo/applications-frontend` lint passed and the frontend full suite passed (24/24 files, 116/116 tests, 61.86% statements coverage). `@universo/core-frontend` build passed. Final root `pnpm build` passed with 28/28 successful tasks in 3m7.158s. |
+
+## 2026-03-19 Application Public Runtime Guard And Permission Contract Closure
+
+Closed the last access-contract and validation gaps left after the previous public-application reopen passes.
+
+| Area | Resolution |
+| --- | --- |
+| Runtime route protection | The real `/a/:applicationId/*` runtime shell route is now wrapped with `ApplicationGuard` before the migration/runtime surface mounts, so public non-members can no longer bypass the explicit join flow by navigating directly to the runtime URL. |
+| Public list entry safety | The applications table view no longer renders a direct runtime link for public non-members; before membership exists, the row keeps the explicit `Join` action instead of exposing a clickable application name. |
+| Member permission contract | The published `member` permission surface is now aligned with the implemented workspace-scoped runtime CRUD behavior, so frontend/backend contracts no longer claim that members cannot create or edit content while the runtime actually allows it. |
+| Frontend suite stability | The full `@universo/applications-frontend` package test run now completes green under coverage after raising the timeout budget for the heavy create-dialog integration tests and adding regression coverage for the table-view public non-member state. |
+| Validation | `@universo/applications-backend` lint passed and the backend full suite passed (10/10 suites, 102/102 tests). `@universo/applications-frontend` lint passed and the frontend full suite passed (24/24 files, 116/116 tests, 61.86% statements coverage). `@universo/core-frontend` build passed. Final root `pnpm build` passed with 28/28 successful tasks in 3m7.078s. |
+
+## 2026-03-19 Application Public Access Reopen Closure
+
+Closed the follow-up reopen around start-page layout offset and public application access semantics for ordinary workspace users.
+
+| Area | Resolution |
+| --- | --- |
+| Start-page desktop offset | The shared start layout now renders a toolbar-height offset below the fixed start app bar, and the bar itself uses `top` instead of margin shifting so onboarding/completion content no longer starts hidden behind the header. |
+| Public app access boundary | Ordinary users with only global `applications:read` no longer receive synthetic application-owner access. Public apps remain discoverable and joinable, but admin routes and control-panel actions now require true application membership or elevated global admin access. |
+| Frontend action safety | The applications list continues to show `Join` for public non-members and no longer exposes control-panel affordances in the read-only public-user scenario. |
+| Regression coverage | Added backend route coverage for public list/detail semantics under read-only global access and frontend list coverage for the join-only public-user state. |
+| Validation | `@universo/applications-backend` route suite passed (37/37), `@universo/applications-backend` lint passed, `@universo/applications-frontend` focused Vitest run passed (1 file, 24 tests), `@universo/applications-frontend` lint passed, `@universo/template-mui` build passed, and final root `pnpm build` passed with 28/28 successful tasks in 3m5.691s. |
+
+## 2026-03-19 Application Workspaces Final Closure
+
+Closed the last remaining shell-level gap for Applications workspaces and revalidated the full workspace after the final menu gating fix.
+
+| Area | Resolution |
+| --- | --- |
+| Real shell menu gating | The actually used `@universo/template-mui` dashboard shell now hides `Application Settings` until the cached application detail proves that a runtime schema exists, so the menu contract matches the intended application lifecycle instead of exposing a dead-end entry. |
+| Regression coverage | Added direct `MenuContent` regression coverage that seeds the shared React Query cache and proves `Settings` appears only for applications with `schemaName`, while keeping the dedicated menu-config contract test in place. |
+| Lint hygiene | Removed the only warning introduced by the final closure pass itself from the new menu test; remaining `template-mui` lint warnings are pre-existing package debt outside this change-set. |
+| Validation | `@universo/template-mui` focused tests passed (2 suites, 3 tests). `@universo/applications-frontend` focused Vitest run passed (2 files, 26 tests). `@universo/template-mui` build passed. Final root `pnpm build` passed with 28/28 successful tasks in 2m39.573s. |
+
+## 2026-03-19 Application Workspaces QA Follow-Up Closure
+
+Closed the last follow-up defects found during QA for Applications workspaces, public access, and limits.
+
+| Area | Resolution |
+| --- | --- |
+| Edit payload contract | The applications edit dialog still shows immutable `Public` / `Add workspaces` parameters, but update submissions now omit them entirely so normal name/description edits no longer fail against the immutable backend contract. |
+| Workspace archival lifecycle | Leaving an application or removing a member now soft-deletes all workspace-scoped runtime catalog and TABLE rows for the archived personal workspace before soft-deleting the workspace relation rows and the workspace record itself. |
+| Settings UX gating | `ApplicationSettings` now hides the `Limits` tab until runtime schema + workspace mode are actually available and shows explicit informational alerts when schema/workspace prerequisites are missing. |
+| Regression coverage | Added backend regression coverage for runtime business-row archival and frontend regression coverage for the corrected edit payload contract plus settings gating when schema/workspace support is unavailable. |
+| Validation | `@universo/applications-backend` lint passed; backend full suite passed (10/10 suites, 100/100 tests); backend build passed. `@universo/applications-frontend` lint passed; frontend full suite passed (24/24 files, 114/114 tests); frontend build passed. Final root `pnpm build` passed with 28/28 successful tasks in 2m56.552s. |
+
+## 2026-03-19 Application Workspaces QA Remediation Closure
+
+Closed the post-QA remediation pass for Applications workspaces, public membership, and limits.
+
+| Area | Resolution |
+| --- | --- |
+| Applications RLS | Replaced coarse `FOR ALL` policies with operation-specific `SELECT` / `INSERT` / `UPDATE` policies for applications, memberships, connectors, and connector-publication links so request-scoped RLS aligns with create/join/member/admin flows. |
+| Copy ownership | Application copy access duplication now demotes copied `owner` memberships to `admin`, preserving a single owner in the new application. |
+| Limits atomicity | `PUT /applications/:id/settings/limits` now rejects duplicate payload rows, validates active catalog targets, and runs the full update inside one transaction. |
+| Runtime integrity | Workspace-scoped runtime tables now add FK constraints to `_app_workspaces`, tighten workspace RLS visibility to active workspace rows, and add explicit SQL-side workspace filtering in runtime row conditions. |
+| Regression coverage | Added focused backend coverage for copy-owner semantics, migration policy contracts, runtime workspace DDL guards, join/leave/settings limits routes, plus a frontend `ApplicationSettings` limits save flow. |
+| Validation | `@universo/applications-backend` lint passed; backend targeted suites passed (44/44). `@universo/applications-frontend` Vitest run passed (24 files, 113 tests) and coverage stayed green for the new settings surface. `@universo/applications-backend` and `@universo/applications-frontend` builds passed. |
 
 ## 2026-03-19 QA Comprehensive Fix — All Issues Resolved
 

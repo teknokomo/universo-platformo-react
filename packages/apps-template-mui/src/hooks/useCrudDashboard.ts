@@ -432,6 +432,27 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     })
 
     const appData = listQuery.data
+    const applyWorkspaceLimitDelta = useCallback(
+        (delta: number) => {
+            queryClient.setQueriesData<AppDataResponse>({ queryKey: queryKeyPrefix }, (old) => {
+                if (!old?.workspaceLimit) {
+                    return old
+                }
+
+                const nextCurrentRows = Math.max(0, old.workspaceLimit.currentRows + delta)
+                const maxRows = old.workspaceLimit.maxRows
+                return {
+                    ...old,
+                    workspaceLimit: {
+                        ...old.workspaceLimit,
+                        currentRows: nextCurrentRows,
+                        canCreate: maxRows === null ? true : nextCurrentRows < maxRows
+                    }
+                }
+            })
+        },
+        [queryClient, queryKeyPrefix]
+    )
     const guardPendingRowInteraction = useCallback(
         (rowId: string) => {
             const queryEntries = queryClient.getQueriesData<AppDataResponse>({ queryKey: queryKeyPrefix })
@@ -562,9 +583,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                     serverEntity: data
                 })
             }
+            applyWorkspaceLimitDelta(1)
         },
         onSettled: () => {
-            safeInvalidateQueriesInactive(queryClient, queryKeyPrefix, queryKeyPrefix)
+            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
         }
     })
 
@@ -625,6 +647,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         onError: (_error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
         },
+        onSuccess: () => {
+            applyWorkspaceLimitDelta(-1)
+        },
         onSettled: () => {
             safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
         }
@@ -632,6 +657,17 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- CRUD handlers -----
     const handleOpenCreate = useCallback(() => {
+        if (appData?.workspaceLimit?.canCreate === false) {
+            enqueueSnackbar(
+                t('app.workspaceLimitReached', {
+                    defaultValue: 'The workspace limit for this catalog has been reached ({{current}} / {{max}}).',
+                    current: appData.workspaceLimit.currentRows,
+                    max: appData.workspaceLimit.maxRows ?? '∞'
+                }),
+                { variant: 'info' }
+            )
+            return
+        }
         formRequestIdRef.current += 1
         setCopyRowId(null)
         setCopyError(null)
@@ -639,7 +675,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setFormError(null)
         formColumnsRef.current = currentSchemaFingerprint
         setFormOpen(true)
-    }, [currentSchemaFingerprint])
+    }, [appData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, t])
 
     const handleOpenEdit = useCallback(
         (rowId: string) => {
@@ -790,6 +826,17 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const handleOpenCopy = useCallback(
         (rowId: string) => {
             if (guardPendingRowInteraction(rowId)) return
+            if (appData?.workspaceLimit?.canCreate === false) {
+                enqueueSnackbar(
+                    t('app.workspaceLimitReached', {
+                        defaultValue: 'The workspace limit for this catalog has been reached ({{current}} / {{max}}).',
+                        current: appData.workspaceLimit.currentRows,
+                        max: appData.workspaceLimit.maxRows ?? '∞'
+                    }),
+                    { variant: 'info' }
+                )
+                return
+            }
             formRequestIdRef.current += 1
             setFormOpen(true)
             setCopyError(null)
@@ -798,7 +845,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setEditRowId(null)
             formColumnsRef.current = currentSchemaFingerprint
         },
-        [currentSchemaFingerprint, guardPendingRowInteraction]
+        [appData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, guardPendingRowInteraction, t]
     )
 
     const handleCloseCopy = useCallback(() => {

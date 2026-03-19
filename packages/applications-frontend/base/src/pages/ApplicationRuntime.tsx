@@ -98,16 +98,37 @@ const ApplicationRuntime = () => {
 
     const createActions = useMemo(
         () => (
-            <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+            <Button
+                variant='contained'
+                size='small'
+                startIcon={<AddIcon />}
+                onClick={state.handleOpenCreate}
+                disabled={state.appData?.workspaceLimit?.canCreate === false}
+            >
                 {t('app.createRow', 'Create')}
             </Button>
         ),
-        [state.handleOpenCreate, t]
+        [state.appData?.workspaceLimit?.canCreate, state.handleOpenCreate, t]
+    )
+
+    const workspaceLimitBanner = useMemo(
+        () =>
+            state.appData?.workspaceLimit?.canCreate === false ? (
+                <Alert severity='info'>
+                    {t('app.workspaceLimitReached', {
+                        defaultValue: 'The workspace limit for this catalog has been reached ({{current}} / {{max}}).',
+                        current: state.appData.workspaceLimit.currentRows,
+                        max: state.appData.workspaceLimit.maxRows ?? '∞'
+                    })}
+                </Alert>
+            ) : null,
+        [state.appData?.workspaceLimit, t]
     )
 
     const details = useMemo<DashboardDetailsSlot>(
         () => ({
             title: detailsTitle,
+            banner: workspaceLimitBanner,
             rows: state.rows,
             columns: state.columns,
             loading: state.isFetching,
@@ -128,7 +149,8 @@ const ApplicationRuntime = () => {
             state.setPaginationModel,
             state.pageSizeOptions,
             state.localeText,
-            createActions
+            createActions,
+            workspaceLimitBanner
         ]
     )
 

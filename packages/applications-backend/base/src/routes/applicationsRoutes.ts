@@ -4,12 +4,12 @@ import { isSuperuser as isSuperuserCheck, getGlobalRoleCodename, hasSubjectPermi
 import { generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo/schema-ddl'
 import { ApplicationSchemaStatus } from '../persistence/contracts'
 import { ensureApplicationAccess, ROLE_PERMISSIONS, assertNotOwner } from './guards'
-import type { ApplicationRole } from './guards'
+import type { ApplicationRole, RolePermission } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { getVLCString } from '@universo/utils/vlc'
-import type { ApplicationLifecycleContract, VersionedLocalizedContent } from '@universo/types'
+import { ApplicationMembershipState, type ApplicationLifecycleContract, type VersionedLocalizedContent } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import {
     database,
@@ -38,6 +38,18 @@ import {
     updateApplicationMember,
     updateApplication
 } from '../persistence/applicationsStore'
+import {
+    archivePersonalWorkspaceForUser,
+    enforceCatalogWorkspaceLimit,
+    getCatalogWorkspaceLimit,
+    ensurePersonalWorkspaceForUser,
+    getCatalogWorkspaceUsage,
+    listCatalogWorkspaceLimits,
+    resolveRuntimeWorkspaceAccess,
+    runtimeWorkspaceTablesExist,
+    setRuntimeWorkspaceContext,
+    upsertCatalogWorkspaceLimits
+} from '../services/applicationWorkspaces'
 
 /**
  * Thrown inside `executor.transaction()` callbacks to signal a business-logic
@@ -47,6 +59,14 @@ class UpdateFailure extends Error {
     constructor(public readonly statusCode: number, public readonly body: Record<string, unknown>) {
         super('Update failed')
     }
+}
+
+const NO_APPLICATION_PERMISSIONS: Record<RolePermission, boolean> = {
+    manageMembers: false,
+    manageApplication: false,
+    createContent: false,
+    editContent: false,
+    deleteContent: false
 }
 
 interface RequestUser {
@@ -72,12 +92,19 @@ const quoteIdentifier = (identifier: string): string => {
     return `"${identifier}"`
 }
 
+const quoteUuidLiteral = (value: string): string => {
+    if (!UUID_REGEX.test(value)) {
+        throw new Error(`Unsafe UUID literal: ${value}`)
+    }
+    return `'${value.toLowerCase()}'::uuid`
+}
+
 const normalizeLocale = (locale?: string): string => {
     if (!locale) return 'en'
     return locale.split('-')[0].split('_')[0].toLowerCase()
 }
 
-const resolvePresentationName = (presentation: unknown, locale: string, fallback: string): string => {
+const resolvePresentationLocalizedField = (presentation: unknown, field: 'name' | 'codename', locale: string, fallback: string): string => {
     if (!presentation || typeof presentation !== 'object') return fallback
 
     const presentationObj = presentation as {
@@ -85,22 +112,33 @@ const resolvePresentationName = (presentation: unknown, locale: string, fallback
             _primary?: string
             locales?: Record<string, { content?: string }>
         }
+        codename?: {
+            _primary?: string
+            locales?: Record<string, { content?: string }>
+        }
     }
 
-    const locales = presentationObj.name?.locales
+    const localizedField = presentationObj[field]
+    const locales = localizedField?.locales
     if (!locales || typeof locales !== 'object') return fallback
 
     const normalized = normalizeLocale(locale)
     const direct = locales[normalized]?.content
     if (typeof direct === 'string' && direct.trim().length > 0) return direct
 
-    const primary = presentationObj.name?._primary
+    const primary = localizedField?._primary
     const primaryValue = primary ? locales[primary]?.content : undefined
     if (typeof primaryValue === 'string' && primaryValue.trim().length > 0) return primaryValue
 
     const first = Object.values(locales).find((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
     return first?.content ?? fallback
 }
+
+const resolvePresentationName = (presentation: unknown, locale: string, fallback: string): string =>
+    resolvePresentationLocalizedField(presentation, 'name', locale, fallback)
+
+const resolvePresentationCodename = (presentation: unknown, locale: string, fallback: string): string =>
+    resolvePresentationLocalizedField(presentation, 'codename', locale, fallback)
 
 const resolveLocalizedContent = (value: unknown, locale: string, fallback: string): string => {
     if (typeof value === 'string') {
@@ -180,7 +218,12 @@ const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: 
 
 const isSoftDeleteLifecycle = (contract: ApplicationLifecycleContract): boolean => contract.delete.mode === 'soft'
 
-const buildRuntimeActiveRowCondition = (contract: ApplicationLifecycleContract, platformConfig?: unknown, alias?: string): string => {
+const buildRuntimeActiveRowCondition = (
+    contract: ApplicationLifecycleContract,
+    platformConfig?: unknown,
+    alias?: string,
+    workspaceId?: string | null
+): string => {
     const prefix = alias ? `${alias}.` : ''
     const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
     const clauses: string[] = []
@@ -191,6 +234,10 @@ const buildRuntimeActiveRowCondition = (contract: ApplicationLifecycleContract, 
 
     if (isSoftDeleteLifecycle(contract)) {
         clauses.push(`${prefix}_app_deleted = false`)
+    }
+
+    if (workspaceId) {
+        clauses.push(`${prefix}workspace_id = ${quoteUuidLiteral(workspaceId)}`)
     }
 
     return clauses.length > 0 ? clauses.join(' AND ') : 'TRUE'
@@ -246,6 +293,15 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
         result[locale] = `${content}${suffix}`
     }
     return result
+}
+
+const hasGlobalApplicationAdminAccess = async (executor: DbExecutor, userId: string): Promise<boolean> => {
+    const [canUpdate, canDelete] = await Promise.all([
+        hasSubjectPermission(executor, userId, 'applications', 'update'),
+        hasSubjectPermission(executor, userId, 'applications', 'delete')
+    ])
+
+    return canUpdate || canDelete
 }
 
 const buildCopiedApplicationSlugCandidate = (sourceSlug: string, attempt: number): string => {
@@ -372,7 +428,8 @@ export function createApplicationsRoutes(
             const { limit, offset, sortBy, sortOrder, search, showAll } = validatedQuery
 
             const isSuperuser = await isSuperuserCheck(ds, userId)
-            const hasGlobalApplicationsAccess = await hasSubjectPermission(ds, userId, 'applications', 'read')
+            const hasGlobalApplicationsReadAccess = await hasSubjectPermission(ds, userId, 'applications', 'read')
+            const hasGlobalApplicationsAdminAccess = isSuperuser ? true : await hasGlobalApplicationAdminAccess(ds, userId)
             const escapedSearch = search ? escapeLikeWildcards(search) : undefined
             const { items: applications, total } = await listApplications(
                 {
@@ -380,7 +437,7 @@ export function createApplicationsRoutes(
                 },
                 {
                     userId,
-                    showAll: showAll && (isSuperuser || hasGlobalApplicationsAccess),
+                    showAll: showAll && (isSuperuser || hasGlobalApplicationsReadAccess),
                     limit,
                     offset,
                     sortBy: sortBy === 'name' || sortBy === 'created' || sortBy === 'updated' ? sortBy : 'updated',
@@ -389,12 +446,19 @@ export function createApplicationsRoutes(
                 }
             )
 
-            const globalRoleName = isSuperuser || hasGlobalApplicationsAccess ? await getGlobalRoleCodename(ds, userId) : null
+            const elevatedGlobalRoleName = hasGlobalApplicationsAdminAccess ? await getGlobalRoleCodename(ds, userId) : null
 
             const result = applications.map((a) => {
-                const role = a.membershipRole ? (a.membershipRole as ApplicationRole) : globalRoleName ? 'owner' : 'member'
-                const accessType = a.membershipRole ? 'member' : globalRoleName ?? 'member'
-                const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
+                const membershipState = a.membershipRole ? ApplicationMembershipState.JOINED : ApplicationMembershipState.NOT_JOINED
+                const role = a.membershipRole ? (a.membershipRole as ApplicationRole) : elevatedGlobalRoleName ? 'owner' : null
+                const accessType = a.membershipRole
+                    ? 'member'
+                    : elevatedGlobalRoleName
+                    ? isSuperuser
+                        ? 'superadmin'
+                        : 'supermoderator'
+                    : 'public'
+                const permissions = role ? ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member : NO_APPLICATION_PERMISSIONS
 
                 return {
                     id: a.id,
@@ -402,6 +466,7 @@ export function createApplicationsRoutes(
                     description: a.description,
                     slug: a.slug,
                     isPublic: a.isPublic,
+                    workspacesEnabled: a.workspacesEnabled,
                     version: a.version || 1,
                     createdAt: a.createdAt,
                     updatedAt: a.updatedAt,
@@ -409,7 +474,10 @@ export function createApplicationsRoutes(
                     membersCount: a.membersCount ?? 0,
                     role,
                     accessType,
-                    permissions
+                    permissions,
+                    membershipState,
+                    canJoin: membershipState === ApplicationMembershipState.NOT_JOINED && a.isPublic === true && !elevatedGlobalRoleName,
+                    canLeave: membershipState === ApplicationMembershipState.JOINED && role !== 'owner'
                 }
             })
 
@@ -447,6 +515,7 @@ export function createApplicationsRoutes(
                 description: application.description,
                 slug: application.slug,
                 isPublic: application.isPublic,
+                workspacesEnabled: application.workspacesEnabled,
                 version: application.version || 1,
                 createdAt: application.createdAt,
                 updatedAt: application.updatedAt,
@@ -458,7 +527,10 @@ export function createApplicationsRoutes(
                 membersCount: application.membersCount,
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
-                permissions
+                permissions,
+                membershipState: ApplicationMembershipState.JOINED,
+                canJoin: false,
+                canLeave: role !== 'owner'
             })
         })
     )
@@ -473,9 +545,6 @@ export function createApplicationsRoutes(
 
             const { applicationId } = req.params
             if (!UUID_REGEX.test(applicationId)) return res.status(400).json({ error: 'Invalid application ID format' })
-            const ds = getRequestDbExecutor(req, getDbExecutor())
-
-            await ensureApplicationAccess(ds, userId, applicationId)
 
             const parsedQuery = runtimeQuerySchema.safeParse(req.query)
             if (!parsedQuery.success) {
@@ -485,25 +554,12 @@ export function createApplicationsRoutes(
             const { limit, offset, locale } = parsedQuery.data
             const requestedLocale = normalizeLocale(locale)
             const requestedCatalogId = parsedQuery.data.catalogId ?? null
-            const application = await findApplicationSchemaInfo(
-                {
-                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                },
-                applicationId
-            )
-            if (!application) return res.status(404).json({ error: 'Application not found' })
+            const runtimeContext = await resolveRuntimeSchema(req, res, applicationId)
+            if (!runtimeContext) return
 
-            if (!application.schemaName) {
-                return res.status(400).json({ error: 'Application schema is not configured' })
-            }
-
-            const schemaName = application.schemaName
-            if (!IDENTIFIER_REGEX.test(schemaName)) {
-                return res.status(400).json({ error: 'Invalid application schema name' })
-            }
-
-            const schemaIdent = quoteIdentifier(schemaName)
-            const manager = ds
+            const { schemaName, schemaIdent } = runtimeContext
+            const manager = runtimeContext.manager
+            const currentWorkspaceId = runtimeContext.currentWorkspaceId
 
             const catalogs = await manager.query(
                 `
@@ -802,7 +858,9 @@ export function createApplicationsRoutes(
 
                     const targetCatalogActiveRowCondition = buildRuntimeActiveRowCondition(
                         resolveApplicationLifecycleContractFromConfig(targetCatalog.config),
-                        targetCatalog.config
+                        targetCatalog.config,
+                        undefined,
+                        currentWorkspaceId
                     )
 
                     const targetAttrs = attrsByCatalogId.get(targetCatalog.id) ?? []
@@ -852,7 +910,12 @@ export function createApplicationsRoutes(
             }
 
             const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
-            const activeCatalogRowCondition = buildRuntimeActiveRowCondition(activeCatalog.lifecycleContract, activeCatalog.config)
+            const activeCatalogRowCondition = buildRuntimeActiveRowCondition(
+                activeCatalog.lifecycleContract,
+                activeCatalog.config,
+                undefined,
+                currentWorkspaceId
+            )
             // Use physicalAttributes for SQL — TABLE attrs have no physical column in parent table
             const selectColumns = ['id', ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))]
 
@@ -907,6 +970,25 @@ export function createApplicationsRoutes(
 
                 return mappedRow
             })
+
+            let workspaceLimit: { maxRows: number | null; currentRows: number; canCreate: boolean } | undefined
+            if (runtimeContext.workspacesEnabled && currentWorkspaceId) {
+                const maxRows = await getCatalogWorkspaceLimit(manager, {
+                    schemaName,
+                    objectId: activeCatalog.id
+                })
+                const currentRows = await getCatalogWorkspaceUsage(manager, {
+                    schemaName,
+                    tableName: activeCatalog.table_name,
+                    workspaceId: currentWorkspaceId,
+                    runtimeRowCondition: activeCatalogRowCondition
+                })
+                workspaceLimit = {
+                    maxRows,
+                    currentRows,
+                    canCreate: maxRows === null ? true : currentRows < maxRows
+                }
+            }
 
             // Optional layout config for runtime UI (Dashboard sections show/hide).
             // Source of truth: _app_layouts (default active layout). Kept in dynamic schema with migrations.
@@ -1462,6 +1544,7 @@ export function createApplicationsRoutes(
                     limit,
                     offset
                 },
+                ...(workspaceLimit ? { workspaceLimit } : {}),
                 layoutConfig,
                 zoneWidgets,
                 menus,
@@ -1639,7 +1722,16 @@ export function createApplicationsRoutes(
         req: Request,
         res: Response,
         applicationId: string
-    ): Promise<{ schemaIdent: string; manager: DbExecutor; userId: string } | null> => {
+    ): Promise<{
+        schemaName: string
+        schemaIdent: string
+        manager: DbExecutor
+        userId: string
+        role: ApplicationRole
+        permissions: Record<RolePermission, boolean>
+        currentWorkspaceId: string | null
+        workspacesEnabled: boolean
+    } | null> => {
         if (!UUID_REGEX.test(applicationId)) {
             res.status(400).json({ error: 'Invalid application ID format' })
             return null
@@ -1652,7 +1744,9 @@ export function createApplicationsRoutes(
             return null
         }
 
-        await ensureApplicationAccess(ds, userId, applicationId)
+        const accessContext = await ensureApplicationAccess(ds, userId, applicationId)
+        const role = (accessContext.membership.role || 'member') as ApplicationRole
+        const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
 
         const application = await findApplicationSchemaInfo(
             {
@@ -1675,11 +1769,47 @@ export function createApplicationsRoutes(
             return null
         }
 
+        let currentWorkspaceId: string | null = null
+        if (application.workspacesEnabled) {
+            const workspaceAccess = await resolveRuntimeWorkspaceAccess(ds, {
+                schemaName,
+                workspacesEnabled: application.workspacesEnabled,
+                userId,
+                actorUserId: userId
+            })
+
+            currentWorkspaceId = workspaceAccess.defaultWorkspaceId
+            if (!currentWorkspaceId) {
+                res.status(403).json({ error: 'No active workspace is available for the current user' })
+                return null
+            }
+
+            await setRuntimeWorkspaceContext(ds, currentWorkspaceId)
+        }
+
         return {
+            schemaName,
             schemaIdent: quoteIdentifier(schemaName),
             manager: ds,
-            userId
+            userId,
+            role,
+            permissions,
+            currentWorkspaceId,
+            workspacesEnabled: application.workspacesEnabled
         }
+    }
+
+    const ensureRuntimePermission = (
+        res: Response,
+        ctx: { permissions: Record<RolePermission, boolean> },
+        permission: RolePermission
+    ): boolean => {
+        if (ctx.permissions[permission]) {
+            return true
+        }
+
+        res.status(403).json({ error: 'Insufficient permissions for this action' })
+        return false
     }
 
     const getEnumPresentationMode = (uiConfig?: Record<string, unknown>): 'select' | 'radio' | 'label' => {
@@ -1815,7 +1945,12 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                catalog.lifecycleContract,
+                catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
 
             const attr = attrs.find((a) => a.column_name === field)
             if (!attr) return res.status(404).json({ error: 'Attribute not found' })
@@ -1933,6 +2068,7 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
             const parsedBody = runtimeBulkUpdateBodySchema.safeParse(req.body)
             if (!parsedBody.success) {
@@ -1943,7 +2079,12 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                catalog.lifecycleContract,
+                catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
             const runtimeDeleteSetClause = isSoftDeleteLifecycle(catalog.lifecycleContract)
                 ? buildRuntimeSoftDeleteSetClause('$1', catalog.lifecycleContract, catalog.config)
                 : null
@@ -2261,6 +2402,9 @@ export function createApplicationsRoutes(
                         }
                         const dataColumns = [...dataColSet]
                         const headerCols: string[] = ['_tp_parent_id', '_tp_sort_order']
+                        if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                            headerCols.push(quoteIdentifier('workspace_id'))
+                        }
                         if (ctx.userId) headerCols.push('_upl_created_by')
                         const allColumns = [...headerCols, ...dataColumns.map((c) => quoteIdentifier(c))]
                         const allValues: unknown[] = []
@@ -2274,6 +2418,10 @@ export function createApplicationsRoutes(
                             allValues.push(rowId)
                             ph.push(`$${pIdx++}`)
                             allValues.push(rowIdx)
+                            if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                                ph.push(`$${pIdx++}`)
+                                allValues.push(ctx.currentWorkspaceId)
+                            }
                             if (ctx.userId) {
                                 ph.push(`$${pIdx++}`)
                                 allValues.push(ctx.userId)
@@ -2333,6 +2481,7 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
             const parsedBody = runtimeCreateBodySchema.safeParse(req.body)
             if (!parsedBody.success) {
@@ -2343,6 +2492,12 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                catalog.lifecycleContract,
+                catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
             // Build column→value pairs from input data
             const columnValues: Array<{ column: string; value: unknown }> = []
             const safeAttrs = attrs.filter(
@@ -2422,6 +2577,12 @@ export function createApplicationsRoutes(
             const colNames = columnValues.map((cv) => quoteIdentifier(cv.column))
             const placeholders = columnValues.map((_, i) => `$${i + 1}`)
             const values = columnValues.map((cv) => cv.value)
+
+            if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                colNames.push(quoteIdentifier('workspace_id'))
+                placeholders.push(`$${values.length + 1}`)
+                values.push(ctx.currentWorkspaceId)
+            }
 
             // Add audit field
             if (ctx.userId) {
@@ -2580,6 +2741,24 @@ export function createApplicationsRoutes(
             // Use transaction if TABLE data is present to ensure atomicity
             // Helper: insert parent row + batch-insert child rows
             const performCreate = async (mgr: DbExecutor): Promise<string> => {
+                if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                    const limitState = await enforceCatalogWorkspaceLimit(mgr, {
+                        schemaName: ctx.schemaName,
+                        objectId: catalog.id,
+                        tableName: catalog.table_name,
+                        workspaceId: ctx.currentWorkspaceId,
+                        runtimeRowCondition
+                    })
+
+                    if (!limitState.canCreate) {
+                        throw new UpdateFailure(409, {
+                            error: 'Workspace catalog row limit reached',
+                            code: 'WORKSPACE_LIMIT_REACHED',
+                            details: limitState
+                        })
+                    }
+                }
+
                 const [inserted] = (await mgr.query(insertSql, values)) as Array<{ id: string }>
                 const parentId = inserted.id
 
@@ -2596,6 +2775,9 @@ export function createApplicationsRoutes(
                     }
                     const dataColumns = [...dataColSet]
                     const headerCols: string[] = ['_tp_parent_id', '_tp_sort_order']
+                    if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                        headerCols.push(quoteIdentifier('workspace_id'))
+                    }
                     if (ctx.userId) headerCols.push('_upl_created_by')
                     const allColumns = [...headerCols, ...dataColumns.map((c) => quoteIdentifier(c))]
                     const allValues: unknown[] = []
@@ -2609,6 +2791,10 @@ export function createApplicationsRoutes(
                         allValues.push(parentId)
                         ph.push(`$${pIdx++}`)
                         allValues.push(rowIdx)
+                        if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                            ph.push(`$${pIdx++}`)
+                            allValues.push(ctx.currentWorkspaceId)
+                        }
                         if (ctx.userId) {
                             ph.push(`$${pIdx++}`)
                             allValues.push(ctx.userId)
@@ -2627,12 +2813,26 @@ export function createApplicationsRoutes(
             }
 
             let parentId: string
-            if (tableDataEntries.length > 0) {
-                parentId = await ctx.manager.transaction(async (txManager) => {
-                    return performCreate(txManager)
-                })
+            if (tableDataEntries.length > 0 || (ctx.workspacesEnabled && ctx.currentWorkspaceId)) {
+                try {
+                    parentId = await ctx.manager.transaction(async (txManager) => {
+                        return performCreate(txManager)
+                    })
+                } catch (error) {
+                    if (error instanceof UpdateFailure) {
+                        return res.status(error.statusCode).json(error.body)
+                    }
+                    throw error
+                }
             } else {
-                parentId = await performCreate(ctx.manager)
+                try {
+                    parentId = await performCreate(ctx.manager)
+                } catch (error) {
+                    if (error instanceof UpdateFailure) {
+                        return res.status(error.statusCode).json(error.body)
+                    }
+                    throw error
+                }
             }
             return res.status(201).json({ id: parentId, status: 'created' })
         })
@@ -2653,6 +2853,7 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
             const {
                 catalog,
@@ -2670,7 +2871,12 @@ export function createApplicationsRoutes(
                 return Boolean(attr.is_required) || (minRows !== null && minRows > 0)
             })
             const copyChildTables = hasRequiredChildTables ? true : parsedBody.data.copyChildTables !== false
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                catalog.lifecycleContract,
+                catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
             const sourceRows = (await ctx.manager.query(
@@ -2690,6 +2896,11 @@ export function createApplicationsRoutes(
             const insertColumns = nonTableAttrs.map((attr) => quoteIdentifier(attr.column_name))
             const insertValues = nonTableAttrs.map((attr) => sourceRow[attr.column_name] ?? null)
             const placeholders = insertValues.map((_, index) => `$${index + 1}`)
+            if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                insertColumns.push(quoteIdentifier('workspace_id'))
+                insertValues.push(ctx.currentWorkspaceId)
+                placeholders.push(`$${insertValues.length}`)
+            }
             if (ctx.userId) {
                 insertColumns.push('_upl_created_by')
                 insertValues.push(ctx.userId)
@@ -2697,6 +2908,24 @@ export function createApplicationsRoutes(
             }
 
             const performCopy = async (mgr: DbExecutor) => {
+                if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                    const limitState = await enforceCatalogWorkspaceLimit(mgr, {
+                        schemaName: ctx.schemaName,
+                        objectId: catalog.id,
+                        tableName: catalog.table_name,
+                        workspaceId: ctx.currentWorkspaceId,
+                        runtimeRowCondition
+                    })
+
+                    if (!limitState.canCreate) {
+                        throw new UpdateFailure(409, {
+                            error: 'Workspace catalog row limit reached',
+                            code: 'WORKSPACE_LIMIT_REACHED',
+                            details: limitState
+                        })
+                    }
+                }
+
                 const [insertedParent] = (await mgr.query(
                     `INSERT INTO ${dataTableIdent} (${insertColumns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`,
                     insertValues
@@ -2752,7 +2981,12 @@ export function createApplicationsRoutes(
 
                         if (sourceChildRows.length === 0) continue
 
-                        const headerColumns = ['_tp_parent_id', '_tp_sort_order', ...(ctx.userId ? ['_upl_created_by'] : [])]
+                        const headerColumns = [
+                            '_tp_parent_id',
+                            '_tp_sort_order',
+                            ...(ctx.workspacesEnabled && ctx.currentWorkspaceId ? [quoteIdentifier('workspace_id')] : []),
+                            ...(ctx.userId ? ['_upl_created_by'] : [])
+                        ]
                         const allColumns = [...headerColumns, ...validChildColumns.map((column) => quoteIdentifier(column))]
                         const values: unknown[] = []
                         const valueTuples: string[] = []
@@ -2764,6 +2998,10 @@ export function createApplicationsRoutes(
                             values.push(insertedParent.id)
                             tuple.push(`$${paramIndex++}`)
                             values.push(index)
+                            if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                                tuple.push(`$${paramIndex++}`)
+                                values.push(ctx.currentWorkspaceId)
+                            }
                             if (ctx.userId) {
                                 tuple.push(`$${paramIndex++}`)
                                 values.push(ctx.userId)
@@ -2783,7 +3021,9 @@ export function createApplicationsRoutes(
 
             try {
                 const copiedId =
-                    tableAttrs.length > 0 ? await ctx.manager.transaction((tx) => performCopy(tx)) : await performCopy(ctx.manager)
+                    tableAttrs.length > 0 || (ctx.workspacesEnabled && ctx.currentWorkspaceId)
+                        ? await ctx.manager.transaction((tx) => performCopy(tx))
+                        : await performCopy(ctx.manager)
                 return res.status(201).json({
                     id: copiedId,
                     status: 'created',
@@ -2814,7 +3054,12 @@ export function createApplicationsRoutes(
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                catalog.lifecycleContract,
+                catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
 
             const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
             const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name))]
@@ -2856,12 +3101,18 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(catalog.lifecycleContract, catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                catalog.lifecycleContract,
+                catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
             const runtimeDeleteSetClause = isSoftDeleteLifecycle(catalog.lifecycleContract)
                 ? buildRuntimeSoftDeleteSetClause('$1', catalog.lifecycleContract, catalog.config)
                 : null
@@ -3056,10 +3307,16 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                tc.lifecycleContract,
+                tc.catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
 
             const safeChildAttrs = tc.childAttrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
             const selectCols = ['id', '_tp_sort_order', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
@@ -3115,10 +3372,16 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                tc.lifecycleContract,
+                tc.catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
             const data = (req.body?.data ?? req.body) as Record<string, unknown>
             const sortOrder = typeof data._tp_sort_order === 'number' ? data._tp_sort_order : 0
 
@@ -3126,6 +3389,13 @@ export function createApplicationsRoutes(
             const placeholders: string[] = ['$1', '$2']
             const values: unknown[] = [recordId, sortOrder]
             let pIdx = 3
+
+            if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                colNames.push(quoteIdentifier('workspace_id'))
+                placeholders.push(`$${pIdx}`)
+                values.push(ctx.currentWorkspaceId)
+                pIdx++
+            }
 
             if (ctx.userId) {
                 colNames.push('_upl_created_by')
@@ -3295,10 +3565,16 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                tc.lifecycleContract,
+                tc.catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
 
             const parsedBody = tabularUpdateBodySchema.safeParse(req.body ?? {})
             if (!parsedBody.success) {
@@ -3492,10 +3768,16 @@ export function createApplicationsRoutes(
 
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
+            if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                tc.lifecycleContract,
+                tc.catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
 
             await ctx.manager.query('BEGIN')
             try {
@@ -3569,12 +3851,21 @@ export function createApplicationsRoutes(
                 )
 
                 const copyColumns = tc.childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
-                const headerColumns = ['_tp_parent_id', '_tp_sort_order', ...(ctx.userId ? ['_upl_created_by'] : [])]
+                const headerColumns = [
+                    '_tp_parent_id',
+                    '_tp_sort_order',
+                    ...(ctx.workspacesEnabled && ctx.currentWorkspaceId ? [quoteIdentifier('workspace_id')] : []),
+                    ...(ctx.userId ? ['_upl_created_by'] : [])
+                ]
                 const allColumns = [...headerColumns, ...copyColumns.map((column) => quoteIdentifier(column))]
                 const values: unknown[] = [recordId, sourceSortOrder + 1]
                 const placeholders: string[] = ['$1', '$2']
 
                 let paramIndex = 3
+                if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                    placeholders.push(`$${paramIndex++}`)
+                    values.push(ctx.currentWorkspaceId)
+                }
                 if (ctx.userId) {
                     placeholders.push(`$${paramIndex++}`)
                     values.push(ctx.userId)
@@ -3615,7 +3906,12 @@ export function createApplicationsRoutes(
 
             const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
             if (tc.error) return res.status(400).json({ error: tc.error })
-            const runtimeRowCondition = buildRuntimeActiveRowCondition(tc.lifecycleContract, tc.catalog.config)
+            const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                tc.lifecycleContract,
+                tc.catalog.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
             const runtimeDeleteSetClause = isSoftDeleteLifecycle(tc.lifecycleContract)
                 ? buildRuntimeSoftDeleteSetClause('$1', tc.lifecycleContract, tc.catalog.config)
                 : null
@@ -3743,7 +4039,8 @@ export function createApplicationsRoutes(
                     .max(100)
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .optional(),
-                isPublic: z.boolean().optional()
+                isPublic: z.boolean().optional(),
+                workspacesEnabled: z.boolean().optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -3751,7 +4048,9 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale } = result.data
+            const { name, description, slug, isPublic, workspacesEnabled, namePrimaryLocale, descriptionPrimaryLocale } = result.data
+            const resolvedIsPublic = isPublic ?? false
+            const resolvedWorkspacesEnabled = workspacesEnabled ?? false
 
             const sanitizedName = sanitizeLocalizedInput(name)
             if (Object.keys(sanitizedName).length === 0) {
@@ -3797,7 +4096,8 @@ export function createApplicationsRoutes(
                     name: nameVlc,
                     description: descriptionVlc ?? null,
                     slug,
-                    isPublic: isPublic ?? false,
+                    isPublic: resolvedIsPublic,
+                    workspacesEnabled: resolvedWorkspacesEnabled,
                     userId,
                     resolveSchemaName: generateSchemaName,
                     validateSchemaName: (schemaName) =>
@@ -3816,6 +4116,7 @@ export function createApplicationsRoutes(
                 description: saved.description,
                 slug: saved.slug,
                 isPublic: saved.isPublic,
+                workspacesEnabled: saved.workspacesEnabled,
                 version: saved.version || 1,
                 createdAt: saved.createdAt,
                 updatedAt: saved.updatedAt,
@@ -3823,7 +4124,10 @@ export function createApplicationsRoutes(
                 membersCount: 1,
                 role: 'owner',
                 accessType: 'member',
-                permissions: ROLE_PERMISSIONS.owner
+                permissions: ROLE_PERMISSIONS.owner,
+                membershipState: ApplicationMembershipState.JOINED,
+                canJoin: false,
+                canLeave: false
             })
         })
     )
@@ -3861,6 +4165,7 @@ export function createApplicationsRoutes(
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .optional(),
                 isPublic: z.boolean().optional(),
+                workspacesEnabled: z.boolean().optional(),
                 copyConnector: z.boolean().optional(),
                 copyAccess: z.boolean().optional().default(false)
             })
@@ -3883,6 +4188,8 @@ export function createApplicationsRoutes(
             if (!sourceApplication) {
                 return res.status(404).json({ error: 'Application not found' })
             }
+            const resolvedIsPublic = parsed.data.isPublic ?? sourceApplication.isPublic
+            const resolvedWorkspacesEnabled = parsed.data.workspacesEnabled ?? sourceApplication.workspacesEnabled
 
             const requestedName = parsed.data.name
                 ? sanitizeLocalizedInput(parsed.data.name)
@@ -3974,7 +4281,8 @@ export function createApplicationsRoutes(
                     copiedName: nameVlc,
                     copiedDescription: descriptionVlc ?? null,
                     slug: slugCandidate ?? null,
-                    isPublic: parsed.data.isPublic ?? sourceApplication.isPublic,
+                    isPublic: resolvedIsPublic,
+                    workspacesEnabled: resolvedWorkspacesEnabled,
                     schemaName: newSchemaName,
                     schemaStatus: copyOptions.copyConnector ? ApplicationSchemaStatus.OUTDATED : ApplicationSchemaStatus.DRAFT,
                     copyAccess: copyOptions.copyAccess,
@@ -4016,6 +4324,7 @@ export function createApplicationsRoutes(
                 description: copied.description,
                 slug: copied.slug,
                 isPublic: copied.isPublic,
+                workspacesEnabled: copied.workspacesEnabled,
                 version: copied.version || 1,
                 createdAt: copied.createdAt,
                 updatedAt: copied.updatedAt,
@@ -4023,7 +4332,10 @@ export function createApplicationsRoutes(
                 membersCount: undefined,
                 role: 'owner',
                 accessType: 'member',
-                permissions: ROLE_PERMISSIONS.owner
+                permissions: ROLE_PERMISSIONS.owner,
+                membershipState: ApplicationMembershipState.JOINED,
+                canJoin: false,
+                canLeave: false
             })
         })
     )
@@ -4070,6 +4382,7 @@ export function createApplicationsRoutes(
                     .nullable()
                     .optional(),
                 isPublic: z.boolean().optional(),
+                workspacesEnabled: z.boolean().optional(),
                 expectedVersion: z.number().int().positive().optional()
             })
 
@@ -4078,7 +4391,18 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = result.data
+            const { name, description, slug, isPublic, workspacesEnabled, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } =
+                result.data
+
+            if (isPublic !== undefined || workspacesEnabled !== undefined) {
+                return res.status(400).json({
+                    error: 'Immutable application parameters',
+                    details: {
+                        isPublic: ['Application visibility cannot be changed after creation'],
+                        workspacesEnabled: ['Workspace mode cannot be changed after creation']
+                    }
+                })
+            }
 
             // Optimistic locking check
             if (expectedVersion !== undefined) {
@@ -4148,7 +4472,6 @@ export function createApplicationsRoutes(
                     name: name !== undefined ? nextName : undefined,
                     description: description !== undefined ? nextDescription : undefined,
                     slug: slug !== undefined ? nextSlug : undefined,
-                    isPublic,
                     userId,
                     expectedVersion
                 }
@@ -4191,12 +4514,16 @@ export function createApplicationsRoutes(
                 description: saved.description,
                 slug: saved.slug,
                 isPublic: saved.isPublic,
+                workspacesEnabled: saved.workspacesEnabled,
                 version: saved.version || 1,
                 createdAt: saved.createdAt,
                 updatedAt: saved.updatedAt,
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
-                permissions
+                permissions,
+                membershipState: ApplicationMembershipState.JOINED,
+                canJoin: false,
+                canLeave: role !== 'owner'
             })
         })
     )
@@ -4237,6 +4564,250 @@ export function createApplicationsRoutes(
         })
     )
 
+    // ============ JOIN PUBLIC APPLICATION ============
+    router.post(
+        '/:applicationId/join',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId } = req.params
+            const ds = getRequestDbExecutor(req, getDbExecutor())
+            const executor = {
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+            }
+
+            const application = await findApplicationDetails(executor, applicationId)
+            if (!application) {
+                return res.status(404).json({ error: 'Application not found' })
+            }
+            if (!application.isPublic) {
+                return res.status(403).json({ error: 'Only public applications can be joined directly' })
+            }
+
+            const existingMember = await findApplicationMemberByUserId(executor, { applicationId, userId })
+            if (existingMember) {
+                return res.json({ status: 'joined', member: mapMember(existingMember) })
+            }
+
+            const joinedMember = await ds.transaction(async (trx) => {
+                const member = await insertApplicationMember(trx, {
+                    applicationId,
+                    userId,
+                    role: 'member',
+                    comment: null,
+                    createdBy: userId,
+                    updatedBy: userId
+                })
+
+                if (!member) {
+                    throw new Error('Failed to create application membership')
+                }
+
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    await ensurePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId,
+                        actorUserId: userId,
+                        defaultRoleCodename: 'owner'
+                    })
+                }
+
+                return member
+            })
+
+            return res.status(201).json({ status: 'joined', member: mapMember(joinedMember) })
+        })
+    )
+
+    // ============ LEAVE APPLICATION ============
+    router.post(
+        '/:applicationId/leave',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId } = req.params
+            const ds = getRequestDbExecutor(req, getDbExecutor())
+            const executor = {
+                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+            }
+
+            const member = await findApplicationMemberByUserId(executor, { applicationId, userId })
+            if (!member) {
+                return res.status(404).json({ error: 'Membership not found' })
+            }
+            assertNotOwner(member, 'Application owner cannot leave the application')
+
+            const application = await findApplicationSchemaInfo(executor, applicationId)
+            if (!application) {
+                return res.status(404).json({ error: 'Application not found' })
+            }
+
+            await ds.transaction(async (trx) => {
+                await deleteApplicationMember(trx, { applicationId, memberId: member.id, userId })
+
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    await archivePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId,
+                        actorUserId: userId
+                    })
+                }
+            })
+
+            return res.json({ status: 'left' })
+        })
+    )
+
+    // ============ APPLICATION SETTINGS: LIMITS ============
+    router.get(
+        '/:applicationId/settings/limits',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId } = req.params
+            const ds = getRequestDbExecutor(req, getDbExecutor())
+            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
+
+            const application = await findApplicationSchemaInfo(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
+            if (!application) return res.status(404).json({ error: 'Application not found' })
+            if (!application.schemaName) return res.status(400).json({ error: 'Application schema is not configured' })
+            if (!application.workspacesEnabled) return res.status(400).json({ error: 'Workspace limits require workspace mode' })
+            if (!IDENTIFIER_REGEX.test(application.schemaName)) return res.status(400).json({ error: 'Invalid application schema name' })
+            if (!(await runtimeWorkspaceTablesExist(ds, application.schemaName))) {
+                return res.status(400).json({ error: 'Workspace subsystem is not initialized yet' })
+            }
+
+            const schemaIdent = quoteIdentifier(application.schemaName)
+            const catalogs = (await ds.query(
+                `
+                SELECT id, codename, table_name, presentation
+                FROM ${schemaIdent}._app_objects
+                WHERE kind = 'catalog'
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
+                ORDER BY codename ASC
+                `
+            )) as Array<{ id: string; codename: string; table_name: string; presentation?: unknown }>
+
+            const limits = await listCatalogWorkspaceLimits(ds, { schemaName: application.schemaName })
+            const limitMap = new Map(limits.map((limit) => [limit.objectId, limit.maxRows]))
+
+            return res.json({
+                items: catalogs.map((catalog) => ({
+                    objectId: catalog.id,
+                    codename: catalog.codename,
+                    codenameDisplay: resolvePresentationCodename(
+                        catalog.presentation,
+                        normalizeLocale(req.query.locale as string | undefined),
+                        catalog.codename
+                    ),
+                    tableName: catalog.table_name,
+                    name: resolvePresentationName(
+                        catalog.presentation,
+                        normalizeLocale(req.query.locale as string | undefined),
+                        catalog.codename
+                    ),
+                    maxRows: limitMap.get(catalog.id) ?? null
+                }))
+            })
+        })
+    )
+
+    router.put(
+        '/:applicationId/settings/limits',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId } = req.params
+            const ds = getRequestDbExecutor(req, getDbExecutor())
+            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
+
+            const payloadSchema = z.object({
+                limits: z.array(
+                    z.object({
+                        objectId: z.string().uuid(),
+                        maxRows: z.number().int().positive().nullable()
+                    })
+                )
+            })
+
+            const parsed = payloadSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid body', details: parsed.error.flatten() })
+            }
+
+            const application = await findApplicationSchemaInfo(
+                {
+                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+                },
+                applicationId
+            )
+            if (!application) return res.status(404).json({ error: 'Application not found' })
+            if (!application.schemaName) return res.status(400).json({ error: 'Application schema is not configured' })
+            if (!application.workspacesEnabled) return res.status(400).json({ error: 'Workspace limits require workspace mode' })
+            if (!IDENTIFIER_REGEX.test(application.schemaName)) return res.status(400).json({ error: 'Invalid application schema name' })
+            if (!(await runtimeWorkspaceTablesExist(ds, application.schemaName))) {
+                return res.status(400).json({ error: 'Workspace subsystem is not initialized yet' })
+            }
+
+            const uniqueObjectIds = new Set(parsed.data.limits.map((limit) => limit.objectId))
+            if (uniqueObjectIds.size !== parsed.data.limits.length) {
+                return res.status(400).json({ error: 'Duplicate catalog limit rows are not allowed' })
+            }
+
+            const limitsSchemaName = application.schemaName
+            const updatedLimits = await ds.transaction(async (trx) => {
+                const catalogRows = await trx.query<{ id: string }>(
+                    `
+                    SELECT id
+                    FROM ${quoteIdentifier(limitsSchemaName)}._app_objects
+                    WHERE kind = 'catalog'
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
+                      AND id = ANY($1::uuid[])
+                    `,
+                    [parsed.data.limits.map((limit) => limit.objectId)]
+                )
+
+                if (catalogRows.length !== uniqueObjectIds.size) {
+                    throw new UpdateFailure(400, { error: 'Limits can only be updated for active catalogs' })
+                }
+
+                await upsertCatalogWorkspaceLimits(trx, {
+                    schemaName: limitsSchemaName,
+                    actorUserId: userId,
+                    limits: parsed.data.limits
+                })
+
+                return listCatalogWorkspaceLimits(trx, { schemaName: limitsSchemaName })
+            })
+            return res.json({ items: updatedLimits })
+        })
+    )
+
     // ============ LIST MEMBERS ============
     router.get(
         '/:applicationId/members',
@@ -4248,7 +4819,7 @@ export function createApplicationsRoutes(
             const { applicationId } = req.params
             const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            await ensureApplicationAccess(ds, userId, applicationId)
+            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
             let validatedQuery
             try {
@@ -4292,7 +4863,7 @@ export function createApplicationsRoutes(
 
             const schema = z.object({
                 email: z.string().email(),
-                role: z.enum(['member', 'editor', 'admin', 'owner']).default('member'),
+                role: z.enum(['member', 'editor', 'admin']).default('member'),
                 comment: memberCommentInputSchema.nullable().optional(),
                 commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
             })
@@ -4325,19 +4896,42 @@ export function createApplicationsRoutes(
                 return res.status(409).json({ error: 'User is already a member', code: 'APPLICATION_MEMBER_EXISTS' })
             }
 
-            try {
-                const member = await insertApplicationMember(executor, {
-                    applicationId,
-                    userId: user.id,
-                    role,
-                    comment: normalizedComment.commentVlc,
-                    createdBy: userId,
-                    updatedBy: userId
-                })
+            const application = await findApplicationSchemaInfo(executor, applicationId)
+            if (!application) {
+                return res.status(404).json({ error: 'Application not found' })
+            }
 
-                if (!member) {
-                    return res.status(500).json({ error: 'Failed to create application member' })
-                }
+            try {
+                const member = await ds.transaction(async (trx) => {
+                    const insertedMember = await insertApplicationMember(trx, {
+                        applicationId,
+                        userId: user.id,
+                        role,
+                        comment: normalizedComment.commentVlc,
+                        createdBy: userId,
+                        updatedBy: userId
+                    })
+
+                    if (!insertedMember) {
+                        throw new Error('Failed to create application member')
+                    }
+
+                    if (
+                        application.workspacesEnabled &&
+                        application.schemaName &&
+                        IDENTIFIER_REGEX.test(application.schemaName) &&
+                        (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                    ) {
+                        await ensurePersonalWorkspaceForUser(trx, {
+                            schemaName: application.schemaName,
+                            userId: user.id,
+                            actorUserId: userId,
+                            defaultRoleCodename: 'owner'
+                        })
+                    }
+
+                    return insertedMember
+                })
 
                 return res.status(201).json(mapMember(member))
             } catch (error) {
@@ -4360,7 +4954,7 @@ export function createApplicationsRoutes(
             const { applicationId, memberId } = req.params
             const ds = getRequestDbExecutor(req, getDbExecutor())
 
-            const ctx = await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
+            await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
             const executor = {
                 query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
@@ -4374,7 +4968,7 @@ export function createApplicationsRoutes(
             assertNotOwner(member, 'Cannot modify owner role')
 
             const schema = z.object({
-                role: z.enum(['member', 'editor', 'admin', 'owner']).optional(),
+                role: z.enum(['member', 'editor', 'admin']).optional(),
                 comment: memberCommentInputSchema.nullable().optional(),
                 commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
             })
@@ -4398,12 +4992,7 @@ export function createApplicationsRoutes(
 
             const { role } = result.data
 
-            if (role !== undefined) {
-                if (role === 'owner' && ctx.membership.role !== 'owner') {
-                    return res.status(403).json({ error: 'Only owner can transfer ownership' })
-                }
-                member.role = role
-            }
+            if (role !== undefined) member.role = role
 
             const updatedMember = await updateApplicationMember(executor, {
                 applicationId,
@@ -4445,7 +5034,27 @@ export function createApplicationsRoutes(
 
             assertNotOwner(member, 'Cannot remove owner')
 
-            await deleteApplicationMember(executor, { applicationId, memberId, userId })
+            const application = await findApplicationSchemaInfo(executor, applicationId)
+            if (!application) {
+                return res.status(404).json({ error: 'Application not found' })
+            }
+
+            await ds.transaction(async (trx) => {
+                await deleteApplicationMember(trx, { applicationId, memberId, userId })
+
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    await archivePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId: member.userId,
+                        actorUserId: userId
+                    })
+                }
+            })
             return res.status(204).send()
         })
     )

@@ -49,6 +49,8 @@ The visible state of the project is still far from the scale of the long-term vi
 
 ## Contact Information
 
+Various ways to financially support the project are available at [https://boosty.to/universo](https://boosty.to/universo). If you want to support the project, please consider subscribing on Boosty, which will help accelerate development and ensure more stable releases.
+
 To join our work, you can write to Vladimir Levadnij without any hesitation:
 
 -   Telegram: [https://t.me/Vladimir_Levadnij](https://t.me/Vladimir_Levadnij)

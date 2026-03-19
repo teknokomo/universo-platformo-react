@@ -36,9 +36,9 @@ export const ROLE_PERMISSIONS: Record<ApplicationRole, Record<string, boolean>> 
     member: {
         manageMembers: false,
         manageApplication: false,
-        createContent: false,
-        editContent: false,
-        deleteContent: false
+        createContent: true,
+        editContent: true,
+        deleteContent: true
     }
 }
 
@@ -50,6 +50,15 @@ export interface ApplicationMembershipContext {
     entityId?: string
     isSynthetic?: boolean
     globalRole?: string | null
+}
+
+const hasGlobalApplicationAdminAccess = async (executor: DbExecutor, userId: string): Promise<boolean> => {
+    const [canUpdate, canDelete] = await Promise.all([
+        hasSubjectPermission(executor, userId, 'applications', 'update'),
+        hasSubjectPermission(executor, userId, 'applications', 'delete')
+    ])
+
+    return canUpdate || canDelete
 }
 
 const runQuery = async <TRow = unknown>(executor: DbExecutor, sql: string, params: unknown[]): Promise<TRow[]> => {
@@ -110,12 +119,10 @@ export async function ensureApplicationAccess(
     applicationId: string,
     requiredRoles?: ApplicationRole[]
 ): Promise<ApplicationMembershipContext> {
-    // First check if user has global applications permission / superuser bypass
     const isSuper = await isSuperuser(executor, userId)
-    const hasGlobalApplicationsAccess = await hasSubjectPermission(executor, userId, 'applications', 'read')
+    const hasGlobalAdminAccess = isSuper ? true : await hasGlobalApplicationAdminAccess(executor, userId)
 
-    if (isSuper || hasGlobalApplicationsAccess) {
-        // User has global access - create synthetic membership with owner role
+    if (hasGlobalAdminAccess) {
         const globalRoleName = await getGlobalRoleCodename(executor, userId)
         const syntheticMembership: ApplicationMembershipRecord = {
             userId,

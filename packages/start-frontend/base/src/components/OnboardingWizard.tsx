@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Box, Button, Container, Step, StepLabel, Stepper, CircularProgress, Alert } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Container, MobileStepper, Step, StepLabel, Stepper, Typography } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTranslation } from 'react-i18next'
 import { WelcomeStep } from './WelcomeStep'
 import { SelectionStep } from './SelectionStep'
@@ -41,6 +43,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     completionError = null
 }) => {
     const { t } = useTranslation('onboarding')
+    const theme = useTheme()
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
     const [activeStep, setActiveStep] = useState(0)
     const [items, setItems] = useState<OnboardingItems | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -174,15 +178,53 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     ]
 
     return (
-        <Container maxWidth='md' sx={{ pt: { xs: 14, sm: 4 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 }, overflow: 'hidden' }}>
-            {/* Stepper - hide labels on mobile to prevent overflow */}
-            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: { xs: 2, sm: 4 }, display: { xs: 'none', sm: 'flex' } }}>
-                {stepLabels.map((label, index) => (
-                    <Step key={index}>
-                        <StepLabel>{label}</StepLabel>
-                    </Step>
-                ))}
-            </Stepper>
+        <Container maxWidth='md' sx={{ pt: { xs: 2, sm: 4 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 }, overflow: 'hidden' }}>
+            {isMobile ? (
+                <Box
+                    sx={{
+                        mb: 3,
+                        px: 1,
+                        py: 1.5,
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'background.paper',
+                        boxShadow: 1
+                    }}
+                >
+                    <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 0.5 }}>
+                        {t('steps.progress', { current: activeStep + 1, total: STEPS.length })}
+                    </Typography>
+                    <Typography variant='subtitle2' sx={{ fontWeight: 600, mb: 1 }}>
+                        {stepLabels[activeStep]}
+                    </Typography>
+                    <MobileStepper
+                        variant='dots'
+                        steps={STEPS.length}
+                        position='static'
+                        activeStep={activeStep}
+                        nextButton={<Box sx={{ width: 1, height: 1 }} />}
+                        backButton={<Box sx={{ width: 1, height: 1 }} />}
+                        sx={{
+                            px: 0,
+                            py: 0,
+                            justifyContent: 'center',
+                            bgcolor: 'transparent',
+                            '& .MuiMobileStepper-dots': {
+                                gap: 0.75
+                            }
+                        }}
+                    />
+                </Box>
+            ) : (
+                <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: { xs: 2, sm: 4 } }}>
+                    {stepLabels.map((label, index) => (
+                        <Step key={index}>
+                            <StepLabel>{label}</StepLabel>
+                        </Step>
+                    ))}
+                </Stepper>
+            )}
 
             {/* Error message */}
             {error && (

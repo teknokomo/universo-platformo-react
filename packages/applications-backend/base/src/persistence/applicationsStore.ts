@@ -9,6 +9,7 @@ export interface ApplicationRecord {
     description: VersionedLocalizedContent<string> | null
     slug: string | null
     isPublic: boolean
+    workspacesEnabled: boolean
     schemaName: string | null
     schemaStatus: string | null
     schemaSyncedAt: Date | null
@@ -44,6 +45,7 @@ export interface ApplicationMemberRecord {
 export interface ApplicationSchemaInfoRecord {
     id: string
     schemaName: string | null
+    workspacesEnabled: boolean
 }
 
 export interface ApplicationCopySourceRecord extends ApplicationRecord {
@@ -103,6 +105,7 @@ const APPLICATION_SELECT = `
     a.description,
     a.slug,
     a.is_public AS "isPublic",
+    a.workspaces_enabled AS "workspacesEnabled",
     a.schema_name AS "schemaName",
     a.schema_status AS "schemaStatus",
     a.schema_synced_at AS "schemaSyncedAt",
@@ -125,6 +128,7 @@ const APPLICATION_RETURNING = `
     description,
     slug,
     is_public AS "isPublic",
+    workspaces_enabled AS "workspacesEnabled",
     schema_name AS "schemaName",
     schema_status AS "schemaStatus",
     schema_synced_at AS "schemaSyncedAt",
@@ -206,7 +210,7 @@ export async function listApplications(
 ): Promise<{ items: ApplicationListItemRecord[]; total: number }> {
     const parameters: unknown[] = [input.userId, input.showAll]
     let whereSql = `WHERE ${activeRowPredicate('a')}
-        AND ($2::boolean = true OR membership.user_id IS NOT NULL)`
+        AND ($2::boolean = true OR a.is_public = true OR membership.user_id IS NOT NULL)`
 
     if (input.search) {
         parameters.push(`%${input.search}%`)
@@ -265,7 +269,7 @@ export async function findApplicationSchemaInfo(
 ): Promise<ApplicationSchemaInfoRecord | null> {
     const rows = await executor.query<ApplicationSchemaInfoRecord>(
         `
-        SELECT id, schema_name AS "schemaName"
+        SELECT id, schema_name AS "schemaName", workspaces_enabled AS "workspacesEnabled"
         FROM applications.cat_applications
         WHERE id = $1
                     AND ${activeRowPredicate()}
@@ -606,6 +610,7 @@ export async function createApplicationWithOwner(
         description: VersionedLocalizedContent<string> | null
         slug?: string
         isPublic: boolean
+        workspacesEnabled: boolean
         userId: string
         resolveSchemaName: (applicationId: string) => string
         validateSchemaName?: (schemaName: string) => boolean
@@ -626,11 +631,12 @@ export async function createApplicationWithOwner(
                 description,
                 slug,
                 is_public,
+                workspaces_enabled,
                 schema_name,
                 _upl_created_by,
                 _upl_updated_by
             )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8)
+            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8, $9)
             RETURNING ${APPLICATION_RETURNING}
             `,
             [
@@ -639,6 +645,7 @@ export async function createApplicationWithOwner(
                 JSON.stringify(input.description),
                 input.slug ?? null,
                 input.isPublic,
+                input.workspacesEnabled,
                 schemaName,
                 input.userId,
                 input.userId
@@ -673,6 +680,7 @@ export async function copyApplicationWithOptions(
         copiedDescription: VersionedLocalizedContent<string> | null
         slug: string | null
         isPublic: boolean
+        workspacesEnabled: boolean
         schemaName: string
         schemaStatus: string
         copyAccess: boolean
@@ -689,6 +697,7 @@ export async function copyApplicationWithOptions(
                 description,
                 slug,
                 is_public,
+                workspaces_enabled,
                 schema_name,
                 schema_status,
                 schema_synced_at,
@@ -699,7 +708,7 @@ export async function copyApplicationWithOptions(
                 _upl_created_by,
                 _upl_updated_by
             )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $8, $9)
+            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $9, $10)
             RETURNING ${APPLICATION_RETURNING}
             `,
             [
@@ -708,6 +717,7 @@ export async function copyApplicationWithOptions(
                 JSON.stringify(input.copiedDescription),
                 input.slug,
                 input.isPublic,
+                input.workspacesEnabled,
                 input.schemaName,
                 input.schemaStatus,
                 input.actorUserId,
@@ -743,7 +753,10 @@ export async function copyApplicationWithOptions(
                 SELECT
                     $1,
                     user_id,
-                    role,
+                    CASE
+                        WHEN role = 'owner' THEN 'admin'
+                        ELSE role
+                    END,
                     comment,
                     $2,
                     $3
@@ -829,7 +842,6 @@ export async function updateApplication(
         name?: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
         slug?: string | null
-        isPublic?: boolean
         userId: string
         expectedVersion?: number
     }
@@ -850,11 +862,6 @@ export async function updateApplication(
     if (input.slug !== undefined) {
         parameters.push(input.slug)
         assignments.push(`slug = $${parameters.length}`)
-    }
-
-    if (input.isPublic !== undefined) {
-        parameters.push(input.isPublic)
-        assignments.push(`is_public = $${parameters.length}`)
     }
 
     parameters.push(input.userId)
@@ -983,7 +990,7 @@ export async function deleteApplicationWithSchema(
             `
             UPDATE applications.rel_connector_publications cp
                         SET ${softDeleteSetClause('$2')},
-                _upl_version = COALESCE(_upl_version, 1) + 1
+                _upl_version = COALESCE(cp._upl_version, 1) + 1
             FROM applications.cat_connectors c
             WHERE cp.connector_id = c.id
               AND c.application_id = $1

@@ -7,7 +7,8 @@ import {
     PaginationParams,
     PaginatedResponse,
     ApplicationLocalizedPayload,
-    ApplicationRuntimeResponse
+    ApplicationRuntimeResponse,
+    ApplicationWorkspaceLimitItem
 } from '../types'
 import type { SimpleLocalizedInput } from '../types'
 
@@ -15,6 +16,7 @@ import type { SimpleLocalizedInput } from '../types'
 export interface ApplicationInput extends ApplicationLocalizedPayload {
     slug?: string
     isPublic?: boolean
+    workspacesEnabled?: boolean
     expectedVersion?: number
 }
 
@@ -74,6 +76,10 @@ export const copyApplication = (id: string, data: ApplicationCopyInput = {}) => 
     const { createSchema: _createSchema, ...backendPayload } = data
     return apiClient.post<Application>(`/applications/${id}/copy`, backendPayload)
 }
+
+export const joinApplication = (id: string) => apiClient.post<{ status: 'joined'; member: ApplicationMember }>(`/applications/${id}/join`)
+
+export const leaveApplication = (id: string) => apiClient.post<{ status: 'left' }>(`/applications/${id}/leave`)
 
 export const getApplicationRuntime = async (
     applicationId: string,
@@ -231,3 +237,20 @@ export const updateApplicationMemberRole = (
 
 export const removeApplicationMember = (applicationId: string, memberId: string) =>
     apiClient.delete<void>(`/applications/${applicationId}/members/${memberId}`)
+
+export const getApplicationWorkspaceLimits = async (applicationId: string, locale?: string): Promise<ApplicationWorkspaceLimitItem[]> => {
+    const response = await apiClient.get<{ items: ApplicationWorkspaceLimitItem[] }>(`/applications/${applicationId}/settings/limits`, {
+        params: locale ? { locale } : undefined
+    })
+    return response.data.items ?? []
+}
+
+export const updateApplicationWorkspaceLimits = async (
+    applicationId: string,
+    limits: Array<{ objectId: string; maxRows: number | null }>
+): Promise<ApplicationWorkspaceLimitItem[]> => {
+    const response = await apiClient.put<{ items: ApplicationWorkspaceLimitItem[] }>(`/applications/${applicationId}/settings/limits`, {
+        limits
+    })
+    return response.data.items ?? []
+}

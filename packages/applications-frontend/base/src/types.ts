@@ -1,4 +1,4 @@
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { ApplicationMembershipState, VersionedLocalizedContent } from '@universo/types'
 // Re-export centralized VLC utilities
 export {
     getVLCString,
@@ -16,7 +16,7 @@ import type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/
 export type ApplicationRole = 'owner' | 'admin' | 'editor' | 'member'
 
 // Access type indicates how user obtained access to the entity
-export type AccessType = 'member' | 'superadmin' | 'supermoderator'
+export type AccessType = 'member' | 'public' | 'superadmin' | 'supermoderator'
 
 export type ApplicationAssignableRole = Exclude<ApplicationRole, 'owner'>
 
@@ -50,10 +50,12 @@ export type SchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
 
 export interface Application {
     id: string
+    version?: number
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
     slug?: string
     isPublic: boolean
+    workspacesEnabled: boolean
     createdAt: string
     updatedAt: string
     schemaName?: string | null
@@ -64,9 +66,12 @@ export interface Application {
     lastSyncedPublicationVersionId?: string | null
     connectorsCount?: number
     membersCount?: number
-    role?: ApplicationRole
+    role?: ApplicationRole | null
     accessType?: AccessType
     permissions?: ApplicationPermissions
+    membershipState?: ApplicationMembershipState
+    canJoin?: boolean
+    canLeave?: boolean
 }
 
 /**
@@ -78,13 +83,17 @@ export interface ApplicationDisplay {
     description: string
     slug?: string
     isPublic: boolean
+    workspacesEnabled: boolean
     createdAt: string
     updatedAt: string
     connectorsCount?: number
     membersCount?: number
-    role?: ApplicationRole
+    role?: ApplicationRole | null
     accessType?: AccessType
     permissions?: ApplicationPermissions
+    membershipState?: ApplicationMembershipState
+    canJoin?: boolean
+    canLeave?: boolean
 }
 
 export interface ApplicationLocalizedPayload {
@@ -93,7 +102,9 @@ export interface ApplicationLocalizedPayload {
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     slug?: string
+    expectedVersion?: number
     isPublic?: boolean
+    workspacesEnabled?: boolean
 }
 
 /**
@@ -102,6 +113,7 @@ export interface ApplicationLocalizedPayload {
 export interface Connector {
     id: string
     applicationId: string
+    version?: number
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
@@ -253,6 +265,11 @@ export interface ApplicationRuntimeResponse {
         limit: number
         offset: number
     }
+    workspaceLimit?: {
+        maxRows: number | null
+        currentRows: number
+        canCreate: boolean
+    }
     layoutConfig?: Record<string, unknown>
     zoneWidgets?: {
         left: Array<{
@@ -278,6 +295,15 @@ export interface ApplicationRuntimeResponse {
     activeMenuId?: string | null
 }
 
+export interface ApplicationWorkspaceLimitItem {
+    objectId: string
+    codename: string
+    codenameDisplay?: string
+    tableName?: string
+    name?: string
+    maxRows: number | null
+}
+
 // ============ HELPER FUNCTIONS ============
 
 /**
@@ -290,13 +316,17 @@ export function toApplicationDisplay(application: Application, locale = 'en'): A
         description: getVLCString(application.description, normalizeLocale(locale)),
         slug: application.slug,
         isPublic: application.isPublic,
+        workspacesEnabled: application.workspacesEnabled,
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
         connectorsCount: application.connectorsCount,
         membersCount: application.membersCount,
         role: application.role,
         accessType: application.accessType,
-        permissions: application.permissions
+        permissions: application.permissions,
+        membershipState: application.membershipState,
+        canJoin: application.canJoin,
+        canLeave: application.canLeave
     }
 }
 

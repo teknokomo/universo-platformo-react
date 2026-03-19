@@ -34,6 +34,7 @@ export interface DashboardLayoutConfig {
 
 export interface DashboardDetailsSlot {
     title: string
+    banner?: React.ReactNode
     rows: Array<Record<string, unknown> & { id: string }>
     columns: GridColDef[]
     loading?: boolean
