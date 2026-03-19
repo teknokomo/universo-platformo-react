@@ -11,6 +11,7 @@ import {
     isSuperuserEnabled,
     type DbSession,
     type DbExecutor,
+    type SqlQueryable,
     activeAppRowCondition,
     softDeleteSetClause
 } from '@universo/utils'
@@ -47,6 +48,18 @@ interface DashboardRoleCountRow {
     role_codename: string
     count: string
 }
+
+interface RoleMutationGuardRow {
+    id: string
+    codename: string
+    is_superuser: boolean
+    is_system: boolean
+}
+
+const PROTECTED_ROLE_ASSIGNMENT_ERROR = 'Only superusers can modify superuser or system-role assignments'
+
+const isProtectedRoleAssignment = (role: Pick<RoleMutationGuardRow, 'is_superuser' | 'is_system'>): boolean =>
+    role.is_superuser || role.is_system
 
 const compareGlobalRoles = (left: GlobalRoleInfo, right: GlobalRoleInfo): number => {
     if (left.metadata.isSuperuser !== right.metadata.isSuperuser) {
@@ -182,6 +195,59 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         }
 
         return getDbExecutor().query<T>(sql, params)
+    }
+
+    const isUserSuperuserWithQueryable = async (queryable: SqlQueryable, userId: string): Promise<boolean> => {
+        const result = await queryable.query<{ is_super: boolean }>(
+            `
+            SELECT admin.is_superuser($1::uuid) as is_super
+        `,
+            [userId]
+        )
+
+        return result[0]?.is_super ?? false
+    }
+
+    const listActiveRolesForUser = async (queryable: SqlQueryable, userId: string): Promise<RoleMutationGuardRow[]> => {
+        return queryable.query<RoleMutationGuardRow>(
+            `SELECT r.id, r.codename, r.is_superuser, r.is_system
+             FROM admin.rel_user_roles ur
+             JOIN admin.cat_roles r ON r.id = ur.role_id
+             WHERE ur.user_id = $1
+               AND ${activeAppRowCondition('ur')}
+               AND ${activeAppRowCondition('r')}`,
+            [userId]
+        )
+    }
+
+    const assertCanMutateProtectedRoles = async (
+        queryable: SqlQueryable,
+        {
+            actorUserId,
+            targetUserId,
+            requestedRoles
+        }: {
+            actorUserId?: string | null
+            targetUserId: string
+            requestedRoles: Array<Pick<RoleMutationGuardRow, 'is_superuser' | 'is_system'>>
+        }
+    ): Promise<void> => {
+        if (!actorUserId) {
+            return
+        }
+
+        const actorIsSuperuser = await isUserSuperuserWithQueryable(queryable, actorUserId)
+        if (actorIsSuperuser) {
+            return
+        }
+
+        const currentTargetRoles = await listActiveRolesForUser(queryable, targetUserId)
+        const touchesProtectedCurrentRole = currentTargetRoles.some(isProtectedRoleAssignment)
+        const touchesProtectedRequestedRole = requestedRoles.some(isProtectedRoleAssignment)
+
+        if (touchesProtectedCurrentRole || touchesProtectedRequestedRole) {
+            throw Object.assign(new Error(PROTECTED_ROLE_ASSIGNMENT_ERROR), { statusCode: 403 })
+        }
     }
 
     /**
@@ -578,7 +644,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     async function setUserRoles(
         userId: string,
         roleIds: string[],
-        grantedBy: string,
+        grantedBy: string | null,
         comment?: string
     ): Promise<GlobalUserRoleAssignment[]> {
         const exec = getDbExecutor()
@@ -607,10 +673,22 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                     throw Object.assign(new Error('One or more role IDs are invalid'), { statusCode: 400 })
                 }
 
+                await assertCanMutateProtectedRoles(trx, {
+                    actorUserId: grantedBy,
+                    targetUserId: userId,
+                    requestedRoles: validRoles
+                })
+
                 const superuserRole = validRoles.find((role) => role.is_superuser)
                 if (superuserRole) {
                     normalizedRoleIds = [superuserRole.id]
                 }
+            } else {
+                await assertCanMutateProtectedRoles(trx, {
+                    actorUserId: grantedBy,
+                    targetUserId: userId,
+                    requestedRoles: []
+                })
             }
 
             await trx.query(
@@ -657,9 +735,16 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const exec = getDbExecutor()
 
         // Get role ID (any role, not filtered by can_access_admin)
-        const roleResult = await exec.query<{ id: string; name: VersionedLocalizedContent<string>; color: string; is_superuser: boolean }>(
+        const roleResult = await exec.query<{
+            id: string
+            name: VersionedLocalizedContent<string>
+            color: string
+            is_superuser: boolean
+            is_system: boolean
+        }>(
             `
             SELECT id, name, color, is_superuser
+                   , is_system
             FROM admin.cat_roles
             WHERE codename = $1 AND ${activeAppRowCondition()}
         `,
@@ -673,6 +758,12 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const roleId = roleResult[0].id
 
         const assignmentId = await exec.transaction(async (trx) => {
+            await assertCanMutateProtectedRoles(trx, {
+                actorUserId: grantedBy,
+                targetUserId: userId,
+                requestedRoles: [{ is_superuser: roleResult[0].is_superuser, is_system: roleResult[0].is_system }]
+            })
+
             if (roleResult[0].is_superuser) {
                 await trx.query(
                     `UPDATE admin.rel_user_roles
@@ -749,7 +840,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             name: (roleResult[0].name || null) as VersionedLocalizedContent<string> | null,
             color: roleResult[0].color || '#9e9e9e',
             is_superuser: roleResult[0].is_superuser,
-            is_system: false
+            is_system: roleResult[0].is_system
         })
 
         return {
@@ -778,7 +869,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function updateAssignment(
         assignmentId: string,
-        updates: { roleCodename?: string; comment?: string }
+        updates: { roleCodename?: string; comment?: string },
+        changedBy?: string | null
     ): Promise<GlobalUserMember | null> {
         const exec = getDbExecutor()
 
@@ -798,28 +890,41 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         }
 
         const assignment = current[0]
+        const currentRoleRows = await exec.query<RoleMutationGuardRow>(
+            `SELECT r.id, r.codename, r.is_superuser, r.is_system
+             FROM admin.cat_roles r
+             WHERE r.id = $1
+               AND ${activeAppRowCondition('r')}`,
+            [assignment.role_id]
+        )
+        const nextRoleRows =
+            updates.roleCodename && updates.roleCodename !== assignment.role_codename
+                ? await exec.query<RoleMutationGuardRow>(
+                      `SELECT id, codename, is_superuser, is_system
+                       FROM admin.cat_roles
+                       WHERE codename = $1 AND ${activeAppRowCondition()}`,
+                      [updates.roleCodename]
+                  )
+                : currentRoleRows
+
+        if (nextRoleRows.length === 0) {
+            throw new Error(`Role '${updates.roleCodename}' not found`)
+        }
+
+        await assertCanMutateProtectedRoles(exec, {
+            actorUserId: changedBy,
+            targetUserId: assignment.user_id,
+            requestedRoles: nextRoleRows
+        })
 
         if (updates.roleCodename && updates.roleCodename !== assignment.role_codename) {
-            // Get new role ID (allow any role)
-            const newRole = await exec.query<{ id: string }>(
-                `
-                SELECT id FROM admin.cat_roles
-                WHERE codename = $1 AND ${activeAppRowCondition()}
-            `,
-                [updates.roleCodename]
-            )
-
-            if (newRole.length === 0) {
-                throw new Error(`Role '${updates.roleCodename}' not found`)
-            }
-
             await exec.query(
                 `
                 UPDATE admin.rel_user_roles
                 SET role_id = $1, comment = $2
                 WHERE id = $3 AND ${activeAppRowCondition()}
             `,
-                [newRole[0].id, updates.comment ?? assignment.comment, assignmentId]
+                [nextRoleRows[0].id, updates.comment ?? assignment.comment, assignmentId]
             )
         } else if (updates.comment !== undefined) {
             await exec.query(
@@ -840,7 +945,8 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 r.codename as role_codename,
                 r.name,
                 r.color,
-                r.is_superuser
+                r.is_superuser,
+                r.is_system
             FROM admin.rel_user_roles ur
             JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
             WHERE ur.id = $1
@@ -991,33 +1097,78 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     /**
      * Revoke global access from a user (remove all global roles)
      */
-    async function revokeGlobalAccess(userId: string): Promise<boolean> {
-        const result = await getDbExecutor().query<{ id: string }>(
-            `
-            UPDATE admin.rel_user_roles
-            SET ${softDeleteSetClause('$2')}
-            WHERE user_id = $1
-              AND ${activeAppRowCondition()}
-            RETURNING id
-        `,
-            [userId, null]
-        )
-        return result.length > 0
+    async function revokeGlobalAccess(userId: string, revokedBy?: string | null): Promise<boolean> {
+        const exec = getDbExecutor()
+
+        return exec.transaction(async (trx) => {
+            await assertCanMutateProtectedRoles(trx, {
+                actorUserId: revokedBy,
+                targetUserId: userId,
+                requestedRoles: []
+            })
+
+            const result = await trx.query<{ id: string }>(
+                `
+                UPDATE admin.rel_user_roles
+                SET ${softDeleteSetClause('$2')}
+                WHERE user_id = $1
+                  AND ${activeAppRowCondition()}
+                RETURNING id
+            `,
+                [userId, revokedBy ?? null]
+            )
+
+            return result.length > 0
+        })
     }
 
     /**
      * Revoke specific role assignment (SQL)
      */
-    async function revokeAssignment(assignmentId: string): Promise<boolean> {
-        const result = await getDbExecutor().query<{ id: string }>(
-            `UPDATE admin.rel_user_roles
-             SET ${softDeleteSetClause('$2')}
-             WHERE id = $1
-               AND ${activeAppRowCondition()}
-             RETURNING id`,
-            [assignmentId, null]
-        )
-        return result.length > 0
+    async function revokeAssignment(assignmentId: string, revokedBy?: string | null): Promise<boolean> {
+        const exec = getDbExecutor()
+
+        return exec.transaction(async (trx) => {
+            const assignmentRows = await trx.query<{
+                user_id: string
+                role_id: string
+            }>(
+                `SELECT user_id, role_id
+                 FROM admin.rel_user_roles
+                 WHERE id = $1
+                   AND ${activeAppRowCondition()}`,
+                [assignmentId]
+            )
+
+            if (assignmentRows.length === 0) {
+                return false
+            }
+
+            const targetRoleRows = await trx.query<RoleMutationGuardRow>(
+                `SELECT id, codename, is_superuser, is_system
+                 FROM admin.cat_roles
+                 WHERE id = $1
+                   AND ${activeAppRowCondition()}`,
+                [assignmentRows[0].role_id]
+            )
+
+            await assertCanMutateProtectedRoles(trx, {
+                actorUserId: revokedBy,
+                targetUserId: assignmentRows[0].user_id,
+                requestedRoles: targetRoleRows
+            })
+
+            const result = await trx.query<{ id: string }>(
+                `UPDATE admin.rel_user_roles
+                 SET ${softDeleteSetClause('$2')}
+                 WHERE id = $1
+                   AND ${activeAppRowCondition()}
+                 RETURNING id`,
+                [assignmentId, revokedBy ?? null]
+            )
+
+            return result.length > 0
+        })
     }
 
     /**
@@ -1104,11 +1255,6 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 }
 
 export type GlobalAccessService = ReturnType<typeof createGlobalAccessService>
-
-/** Minimal interface for SQL query execution — satisfied by DbSession, DbExecutor, and DataSource */
-interface SqlQueryable {
-    query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]>
-}
 
 // ── Neutral versions (accept any SqlQueryable) ──
 

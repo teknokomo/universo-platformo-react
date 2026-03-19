@@ -18,6 +18,15 @@ export {
     type ListGlobalUsersParams,
     type GlobalAccessInfo
 } from './services/globalAccessService'
+export {
+    createAuthUserProvisioningService,
+    type AuthUserProvisioningService,
+    type AuthUserProvisioningServiceDeps,
+    type ProvisionAuthUserWithRoleIdsInput,
+    type ProvisionAuthUserWithRoleIdsResult,
+    type EnsureBootstrapSuperuserInput,
+    type EnsureBootstrapSuperuserResult
+} from './services/authUserProvisioningService'
 
 // Guards
 export {

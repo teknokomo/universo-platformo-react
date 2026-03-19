@@ -61,18 +61,32 @@ POST   /api/v1/admin/roles/:id/copy        # Скопировать сущест
 ### Интеграция с Express
 
 ```typescript
-import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
+import {
+  createAuthUserProvisioningService,
+  createGlobalUsersRoutes,
+  createGlobalAccessService
+} from '@universo/admin-backend'
 import { getPermissionService } from '@universo/auth-backend'
 import { createKnexExecutor, getKnex } from '@universo/database'
+import { createClient } from '@supabase/supabase-js'
 
 const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
 const permissionService = getPermissionService()
-const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService, permissionService })
+const supabaseAdmin = createClient(process.env.SUPABASE_URL!, process.env.SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false }
+})
+const provisioningService = createAuthUserProvisioningService({
+  getDbExecutor: () => createKnexExecutor(getKnex()),
+  globalAccessService,
+  supabaseAdmin
+})
+const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService, permissionService, provisioningService })
 
 app.use('/api/v1/admin/global-users', globalUsersRoutes)
 ```
 
-Также передавайте `supabaseAdmin`, если включаете прямое создание пользователей из админ-панели через `POST /create-user`.
+Для прямого создания пользователей из админ-панели через `POST /create-user` используйте общий provisioning service.
+Так startup bootstrap и admin-side create-user будут идти через один rollback-safe pipeline.
 
 ### Проверка доступа в других модулях
 

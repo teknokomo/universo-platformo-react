@@ -4,7 +4,63 @@
 
 ---
 
-## Current Focus: QA Comprehensive Fix — Complete
+## Current Focus: Bootstrap Superuser Final QA Remediation — Complete
+
+- Date: 2026-03-20.
+- Closed the final QA remediation wave for bootstrap superuser by fixing the remaining operational template defect and proving the live Supabase integration suite with the real client instead of the global Jest mock.
+- The bootstrap env contract is now internally consistent end to end:
+  1. `.env.example` uses `demo-admin@example.com` / `ChangeMe_123456!`.
+  2. The runtime warning in `bootstrapSuperuser.ts` watches the same demo credentials.
+  3. Root/package README files and GitBook docs already point to the same values.
+- The live integration boundary is now genuinely executable in Jest:
+  1. The integration suite imports the real `createClient(...)` via `jest.requireActual('@supabase/supabase-js')`.
+  2. The test no longer reuses the global mocked Supabase client from the shared backend test harness.
+  3. A real `UP-test` run now passes both the bootstrap happy-path and rollback failure-path scenarios.
+- Validation: live `@universo/admin-backend` integration suite passed (2/2) against `UP-test`, focused admin regression suites passed (23/23), focused core bootstrap tests passed (6/6), and touched admin lint stayed green on errors with the same pre-existing warning-only debt outside this closure.
+
+## Previous Focus: Bootstrap Superuser QA Reopen Closure — Complete
+
+- Date: 2026-03-19.
+- Closed the second QA reopen for startup bootstrap and admin-side provisioning by removing the last rollback consistency seam and adding the missing real failure-path coverage.
+- Auth-user provisioning rollback is now privilege-safe end to end:
+  1. Compensation no longer depends on request-scoped RLS sessions.
+  2. Profile cleanup now always runs through the privileged executor before auth-user deletion, so admin create-user failures do not leave orphan active profile rows behind.
+  3. The admin route no longer passes request-scoped cleanup state into the provisioning service.
+- The live Supabase integration suite now covers both edges of the critical external boundary:
+  1. Real bootstrap/provision happy-path against Supabase Auth + profile/role persistence.
+  2. Real rollback behavior when role synchronization fails after auth-user creation, including verification that both auth and profile rows are cleaned up.
+- Startup bootstrap now emits an explicit warning when the public demo bootstrap credentials are still configured, reducing the risk of an unsafe deployment with unchanged defaults.
+- Validation: `@universo/admin-backend` tests `43 passed / 2 skipped / 45 total`, `@universo/core-backend` tests 23/23, touched admin/core lint green with warning-only pre-existing debt outside this change-set, standalone admin/core builds green, final root `pnpm build` green (28/28 tasks in 2m52.491s).
+
+## Previous Focus: Bootstrap Superuser QA Closure — Complete
+
+- Date: 2026-03-19.
+- Closed the post-implementation QA reopen for startup bootstrap and admin-side user provisioning with no remaining open remediation work in that wave.
+- Role-assignment mutation paths are now fail-closed for protected roles:
+  1. Non-superusers cannot assign `superuser` or any `is_system=true` role through `setUserRoles(...)`.
+  2. Non-superusers cannot use legacy `grantRole(...)` to promote another account into `superuser` / system-role state.
+  3. Non-superusers cannot revoke or downgrade an account that currently holds a protected role through `revokeGlobalAccess(...)`, `revokeAssignment(...)`, or the legacy single-role update path.
+- The shared provisioning service now has deeper regression coverage for invite-based provisioning (`inviteUserByEmail(...)`) in addition to password-based admin creation, rollback, bootstrap no-op, and bootstrap fail-fast behavior.
+- `@universo/admin-backend` now also carries an env-gated live integration suite for real Supabase provisioning. It stays skipped in default local/CI runs unless `DATABASE_TEST_URL`, `SUPABASE_URL`, and `SERVICE_ROLE_KEY` are present, but it closes the earlier “mocks only” coverage gap for a real auth/profile/role bootstrap path.
+- Bootstrap config coverage now includes invalid-email rejection, and `.env.example` has been restored to neutral demo credentials: `demo-admin@example.com` / `ChangeMe_123456!`.
+- Validation: `@universo/admin-backend` tests `43 passed / 1 skipped / 44 total`, `@universo/core-backend` tests 22/22, touched admin/core lint green with warning-only pre-existing debt outside this change-set, standalone admin/core builds green, final root `pnpm build` green (28/28 tasks in 2m40.814s).
+
+## Previous Focus: Bootstrap Superuser Startup Closure — Complete
+
+- Date: 2026-03-19.
+- Implemented a shared auth-user provisioning pipeline in `@universo/admin-backend` and moved both startup bootstrap and admin-side create-user onto that same rollback-safe flow.
+- `@universo/core-backend` now runs bootstrap-superuser provisioning during `App.initDatabase()` after migrations/role seed, protected by a transaction-scoped advisory lock and strict env validation.
+- Bootstrap behavior is now fail-closed:
+  1. If `BOOTSTRAP_SUPERUSER_ENABLED=false`, startup skips the feature.
+  2. If bootstrap is enabled but `SUPABASE_URL`, `SERVICE_ROLE_KEY`, email, or password are invalid, startup fails fast before the HTTP server comes up.
+  3. If the configured bootstrap email already belongs to an existing non-superuser account, startup fails instead of silently elevating that account.
+  4. If the account already exists and is already a superuser, startup is a safe no-op that only repairs the missing profile row.
+- The bootstrap flow creates a real Supabase auth user, repairs the profile row through `ProfileService.getOrCreateProfile(...)`, and assigns the exclusive global `superuser` role without synthesizing public-registration legal-consent acceptance.
+- CLI/env parity is now in place for `SERVICE_ROLE_KEY`, `BOOTSTRAP_SUPERUSER_ENABLED`, `BOOTSTRAP_SUPERUSER_EMAIL`, and `BOOTSTRAP_SUPERUSER_PASSWORD`.
+- Docs updated: root README/README-RU, `@universo/core-backend` README/README-RU, `@universo/admin-backend` README/README-RU, and GitBook pages under `docs/en` + `docs/ru`.
+- Validation: `@universo/admin-backend` tests 39/39, `@universo/core-backend` tests 21/21, touched lint green with warning-only pre-existing debt, standalone admin/core builds green, final root `pnpm build` green (28/28 tasks in 3m25.588s).
+
+## Previous Focus: QA Comprehensive Fix — Complete
 
 - Date: 2026-03-19.
 - Applied all 13 code fixes from the comprehensive QA audit (4 CRITICAL, 10 HIGH severity):
@@ -65,7 +121,12 @@
 
 ## Current State
 
+- Startup bootstrap superuser support is now live and documented end-to-end.
+- Shared auth-user provisioning now has one canonical backend path for create-user, profile repair, role sync, and rollback, instead of separate startup/admin implementations.
+- Core backend startup now depends on explicit server-only Supabase provisioning configuration when bootstrap is enabled, and the demo bootstrap credentials are documented as local/dev-only values that must be changed for real deployments.
 - The residual QA follow-through items are closed with no remaining open implementation work in this wave.
+- Protected-role mutation now requires a superuser actor end-to-end across shared role-sync, legacy grant/update paths, and global-access revocation paths.
+- Bootstrap regression coverage now includes invite provisioning and stricter config validation, and the public env template once again ships only neutral demo bootstrap credentials.
 - Shared contracts, backend role lifecycle work, admin frontend refactoring, multi-role user management, onboarding completion flow, explicit `/start` routing, role-aware shell guards, and the new `@universo/metapanel-frontend` package are all in place.
 - Root routing now follows the final UX contract: guests see the landing/start surface on `/`, authenticated `registered`-only users stay on `/start`, authenticated workspace users render the metapanel directly on `/`, and admin-only users are redirected to `/admin` instead of leaking into the workspace shell.
 - The registered-only shell leak is now fail-closed in both shared frontend/backend access contracts: `resolveShellAccess(...)` rejects `registered`-only role sets even when `profile:read` exists, and `hasWorkspaceAccess(...)` mirrors that policy on the backend before capability checks.
@@ -102,6 +163,8 @@
 - AD-16: Post-auth lifecycle helpers must compensate prior writes when later role-assignment steps fail; rollback status should be explicit instead of hidden behind a generic 500.
 - AD-20: Lifecycle system-role seeding/backfill must execute from one canonical migration path, and legacy admin permission rows using `manage` must be normalized because backend SQL helper contracts are defined around exact action or `*`.
 - AD-21: Shared feature-route composition belongs in `@universo/core-frontend`, not in `@universo/template-mui`, when the route graph imports leaf feature packages such as metapanel.
+- AD-22: Startup bootstrap superuser provisioning must reuse the same shared backend provisioning service as admin-side create-user, so auth-user creation, profile repair, role sync, and rollback remain behaviorally identical.
+- AD-23: Automatic startup bootstrap may create a new superuser or confirm an existing superuser, but it must never auto-elevate an existing non-superuser account and must not auto-reset the password of an existing account in v1.
 
 ## Key QA Corrections Applied (v1 → v3)
 

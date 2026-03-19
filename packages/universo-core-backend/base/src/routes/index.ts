@@ -1,6 +1,6 @@
 import express from 'express'
 import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import pingRouter from './ping'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
@@ -18,6 +18,7 @@ import { createApplicationsServiceRoutes } from '@universo/applications-backend'
 import { createStartServiceRoutes } from '@universo/start-backend'
 // Universo Platformo | Admin
 import {
+    createAuthUserProvisioningService,
     createDashboardRoutes,
     createGlobalUsersRoutes,
     createGlobalAccessService,
@@ -32,6 +33,7 @@ import { createProfileRoutes } from '@universo/profile-backend'
 import { getKnex, getPoolExecutor } from '@universo/database'
 import { OptimisticLockError, lookupUserEmail, isDatabaseConnectTimeoutError, getRequestDbExecutor } from '@universo/utils'
 import helmet from 'helmet'
+import { createSupabaseAdminClient } from '../utils/supabaseAdmin'
 
 const router: ExpressRouter = express.Router()
 
@@ -89,11 +91,7 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 let applicationsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!applicationsRouter) {
-        applicationsRouter = createApplicationsServiceRoutes(
-            ensureAuthWithRls,
-            getPoolExecutor,
-            loadPublishedPublicationRuntimeSource
-        )
+        applicationsRouter = createApplicationsServiceRoutes(ensureAuthWithRls, getPoolExecutor, loadPublishedPublicationRuntimeSource)
     }
     if (applicationsRouter) {
         applicationsRouter(req, res, next)
@@ -127,15 +125,22 @@ const permissionService = createPermissionService({ getDbExecutor: getPoolExecut
 
 const supabaseAdmin: SupabaseClient | undefined =
     process.env.SUPABASE_URL && process.env.SERVICE_ROLE_KEY
-        ? createClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY, {
-              auth: {
-                  persistSession: false,
-                  autoRefreshToken: false
-              }
-          })
+        ? createSupabaseAdminClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY)
         : undefined
 
-const globalUsersRouter = createGlobalUsersRoutes({ globalAccessService, permissionService, supabaseAdmin })
+const provisioningService = supabaseAdmin
+    ? createAuthUserProvisioningService({
+          getDbExecutor: getPoolExecutor,
+          globalAccessService,
+          supabaseAdmin
+      })
+    : undefined
+
+const globalUsersRouter = createGlobalUsersRoutes({
+    globalAccessService,
+    permissionService,
+    provisioningService
+})
 router.use('/admin/global-users', ensureAuthWithRls, globalUsersRouter)
 
 const dashboardRouter = createDashboardRoutes({ globalAccessService })

@@ -61,18 +61,32 @@ POST   /api/v1/admin/roles/:id/copy        # Copy an existing role into a new ed
 ### Express Integration
 
 ```typescript
-import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
+import {
+  createAuthUserProvisioningService,
+  createGlobalUsersRoutes,
+  createGlobalAccessService
+} from '@universo/admin-backend'
 import { getPermissionService } from '@universo/auth-backend'
 import { createKnexExecutor, getKnex } from '@universo/database'
+import { createClient } from '@supabase/supabase-js'
 
 const globalAccessService = createGlobalAccessService({ getDbExecutor: () => createKnexExecutor(getKnex()) })
 const permissionService = getPermissionService()
-const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService, permissionService })
+const supabaseAdmin = createClient(process.env.SUPABASE_URL!, process.env.SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false }
+})
+const provisioningService = createAuthUserProvisioningService({
+  getDbExecutor: () => createKnexExecutor(getKnex()),
+  globalAccessService,
+  supabaseAdmin
+})
+const globalUsersRoutes = createGlobalUsersRoutes({ globalAccessService, permissionService, provisioningService })
 
 app.use('/api/v1/admin/global-users', globalUsersRoutes)
 ```
 
-Pass `supabaseAdmin` as well when you enable direct admin-side user provisioning via `POST /create-user`.
+Use the shared provisioning service when you enable direct admin-side user provisioning via `POST /create-user`.
+This keeps startup bootstrap and admin-side create-user on the same rollback-safe pipeline.
 
 ### Access Guard in Other Modules
 

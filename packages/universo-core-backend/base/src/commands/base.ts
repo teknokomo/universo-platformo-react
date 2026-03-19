@@ -17,7 +17,11 @@ export abstract class BaseCommand extends Command {
         SESSION_SECRET: Flags.string(),
         SUPABASE_URL: Flags.string(),
         SUPABASE_ANON_KEY: Flags.string(),
+        SERVICE_ROLE_KEY: Flags.string(),
         SUPABASE_JWT_SECRET: Flags.string(),
+        BOOTSTRAP_SUPERUSER_ENABLED: Flags.string(),
+        BOOTSTRAP_SUPERUSER_EMAIL: Flags.string(),
+        BOOTSTRAP_SUPERUSER_PASSWORD: Flags.string(),
         SESSION_COOKIE_NAME: Flags.string(),
         SESSION_COOKIE_MAXAGE: Flags.string(),
         SESSION_COOKIE_SAMESITE: Flags.string(),
@@ -102,7 +106,11 @@ export abstract class BaseCommand extends Command {
         if (flags.SESSION_SECRET) process.env.SESSION_SECRET = flags.SESSION_SECRET
         if (flags.SUPABASE_URL) process.env.SUPABASE_URL = flags.SUPABASE_URL
         if (flags.SUPABASE_ANON_KEY) process.env.SUPABASE_ANON_KEY = flags.SUPABASE_ANON_KEY
+        if (flags.SERVICE_ROLE_KEY) process.env.SERVICE_ROLE_KEY = flags.SERVICE_ROLE_KEY
         if (flags.SUPABASE_JWT_SECRET) process.env.SUPABASE_JWT_SECRET = flags.SUPABASE_JWT_SECRET
+        if (flags.BOOTSTRAP_SUPERUSER_ENABLED) process.env.BOOTSTRAP_SUPERUSER_ENABLED = flags.BOOTSTRAP_SUPERUSER_ENABLED
+        if (flags.BOOTSTRAP_SUPERUSER_EMAIL) process.env.BOOTSTRAP_SUPERUSER_EMAIL = flags.BOOTSTRAP_SUPERUSER_EMAIL
+        if (flags.BOOTSTRAP_SUPERUSER_PASSWORD) process.env.BOOTSTRAP_SUPERUSER_PASSWORD = flags.BOOTSTRAP_SUPERUSER_PASSWORD
         if (flags.SESSION_COOKIE_NAME) process.env.SESSION_COOKIE_NAME = flags.SESSION_COOKIE_NAME
         if (flags.SESSION_COOKIE_MAXAGE) process.env.SESSION_COOKIE_MAXAGE = flags.SESSION_COOKIE_MAXAGE
         if (flags.SESSION_COOKIE_SAMESITE) process.env.SESSION_COOKIE_SAMESITE = flags.SESSION_COOKIE_SAMESITE

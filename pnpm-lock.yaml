@@ -354,6 +354,9 @@ importers:
       '@universo/migrations-core':
         specifier: workspace:*
         version: link:../../universo-migrations-core/base
+      '@universo/profile-backend':
+        specifier: workspace:*
+        version: link:../../profile-backend/base
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
@@ -382,6 +385,9 @@ importers:
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@universo/database':
+        specifier: workspace:*
+        version: link:../../universo-database/base
       eslint:
         specifier: 'catalog:'
         version: 8.57.1
@@ -4982,6 +4988,7 @@ packages:
   '@rolldown/binding-linux-x64-gnu@1.0.0-beta.43':
     resolution: {integrity: sha512-BgynXKMjeaX4AfWLARhOKDetBOOghnSiVRjAHVvhiAaDXgdQN8e65mSmXRiVoVtD3cHXx/cfU8Gw0p0K+qYKVQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
     os: [linux]
 
   '@rolldown/binding-linux-x64-musl@1.0.0-beta.43':

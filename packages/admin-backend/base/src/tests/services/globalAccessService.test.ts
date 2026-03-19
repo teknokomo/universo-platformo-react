@@ -63,19 +63,45 @@ describe('createGlobalAccessService', () => {
     })
 
     it('updates an existing role assignment instead of inserting a duplicate', async () => {
-        const exec = createMockExecutor([
-            [{ id: 'role-1', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#222222', is_superuser: false }],
-            [],
-            [{ id: 'assignment-1' }],
-            [],
-            [{ id: 'user-1', email: 'neo@example.com' }],
-            [{ user_id: 'user-1', nickname: 'neo' }]
-        ])
+        const txQuery = jest
+            .fn()
+            .mockResolvedValueOnce([{ is_super: false }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ id: 'assignment-1' }])
+            .mockResolvedValueOnce([])
+
+        const exec = {
+            query: jest
+                .fn()
+                .mockResolvedValueOnce([
+                    {
+                        id: 'role-1',
+                        name: { _schema: '1', _primary: 'en', locales: {} },
+                        color: '#222222',
+                        is_superuser: false,
+                        is_system: false
+                    }
+                ])
+                .mockResolvedValueOnce([{ id: 'user-1', email: 'neo@example.com' }])
+                .mockResolvedValueOnce([
+                    {
+                        user_id: 'user-1',
+                        nickname: 'neo',
+                        onboarding_completed: false,
+                        _upl_created_at: new Date('2026-03-18T00:00:00.000Z')
+                    }
+                ]),
+            transaction: jest.fn(async (callback: (trx: MockTransaction) => Promise<unknown>) =>
+                callback({ query: txQuery, transaction: jest.fn(), isReleased: jest.fn(() => false) })
+            ),
+            isReleased: jest.fn(() => false)
+        }
         const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
 
         const result = await service.grantRole('user-1', 'editor', 'admin-1', 'keep current assignment')
 
-        const executedSql = exec.query.mock.calls.map(([sql]) => String(sql))
+        const executedSql = [...txQuery.mock.calls, ...exec.query.mock.calls].map(([sql]) => String(sql))
 
         expect(result).toEqual(
             expect.objectContaining({
@@ -174,6 +200,7 @@ describe('createGlobalAccessService', () => {
                     is_system: false
                 }
             ])
+            .mockResolvedValueOnce([{ is_super: true }])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([
@@ -199,12 +226,74 @@ describe('createGlobalAccessService', () => {
         const result = await service.setUserRoles('user-1', ['role-super', 'role-editor'], 'admin-1', 'exclusive assignment')
 
         expect(result).toEqual([expect.objectContaining({ codename: 'superuser', isSuperuser: true })])
-        expect(txQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
+        expect(txQuery).toHaveBeenNthCalledWith(4, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
             'user-1',
             ['role-super'],
             'admin-1',
             'exclusive assignment'
         ])
+    })
+
+    it('blocks non-superusers from assigning protected roles through setUserRoles', async () => {
+        const txQuery = jest
+            .fn()
+            .mockResolvedValueOnce([
+                {
+                    id: 'role-super',
+                    codename: 'superuser',
+                    name: { _schema: '1', _primary: 'en', locales: {} },
+                    color: '#d32f2f',
+                    is_superuser: true,
+                    is_system: true
+                }
+            ])
+            .mockResolvedValueOnce([{ is_super: false }])
+            .mockResolvedValueOnce([])
+
+        const exec = {
+            query: jest.fn(),
+            transaction: jest.fn(async (callback: (trx: MockTransaction) => Promise<unknown>) =>
+                callback({ query: txQuery, transaction: jest.fn(), isReleased: jest.fn(() => false) })
+            ),
+            isReleased: jest.fn(() => false)
+        }
+
+        const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
+
+        await expect(service.setUserRoles('user-1', ['role-super'], 'admin-editor', 'unauthorized promotion')).rejects.toThrow(
+            'Only superusers can modify superuser or system-role assignments'
+        )
+
+        expect(txQuery).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE admin.rel_user_roles'), expect.anything())
+        expect(txQuery).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO admin.rel_user_roles'), expect.anything())
+    })
+
+    it('blocks non-superusers from revoking an existing protected role assignment', async () => {
+        const txQuery = jest
+            .fn()
+            .mockResolvedValueOnce([{ is_super: false }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'role-super',
+                    codename: 'superuser',
+                    is_superuser: true,
+                    is_system: true
+                }
+            ])
+
+        const exec = {
+            query: jest.fn(),
+            transaction: jest.fn(async (callback: (trx: MockTransaction) => Promise<unknown>) =>
+                callback({ query: txQuery, transaction: jest.fn(), isReleased: jest.fn(() => false) })
+            ),
+            isReleased: jest.fn(() => false)
+        }
+
+        const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
+
+        await expect(service.revokeGlobalAccess('user-1', 'admin-editor')).rejects.toThrow(
+            'Only superusers can modify superuser or system-role assignments'
+        )
     })
 
     it('keeps registered-only users outside shared workspace access even if they still retain profile visibility', async () => {
@@ -222,13 +311,18 @@ describe('createGlobalAccessService', () => {
     })
 
     it('soft-deletes role assignments when revoking access', async () => {
-        const exec = createMockExecutor([[{ id: 'assignment-1' }], [{ id: 'assignment-2' }]])
+        const exec = createMockExecutor([
+            [{ id: 'assignment-1' }],
+            [{ user_id: 'user-1', role_id: 'role-1' }],
+            [{ id: 'role-1', codename: 'editor', is_superuser: false, is_system: false }],
+            [{ id: 'assignment-2' }]
+        ])
         const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
 
         await service.revokeGlobalAccess('user-1')
         await service.revokeAssignment('assignment-2')
 
-        const [[revokeAllSql, revokeAllParams], [revokeOneSql, revokeOneParams]] = exec.query.mock.calls
+        const [[revokeAllSql, revokeAllParams], , , [revokeOneSql, revokeOneParams]] = exec.query.mock.calls
 
         expect(String(revokeAllSql)).toContain('UPDATE admin.rel_user_roles')
         expect(String(revokeAllSql)).toContain('_upl_deleted = true')
@@ -246,6 +340,7 @@ describe('createGlobalAccessService', () => {
     it('replaces existing roles when legacy grant assigns superuser', async () => {
         const txQuery = jest
             .fn()
+            .mockResolvedValueOnce([{ is_super: true }])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([{ id: 'assignment-super' }])
 
@@ -253,7 +348,13 @@ describe('createGlobalAccessService', () => {
             query: jest
                 .fn()
                 .mockResolvedValueOnce([
-                    { id: 'role-super', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#111111', is_superuser: true }
+                    {
+                        id: 'role-super',
+                        name: { _schema: '1', _primary: 'en', locales: {} },
+                        color: '#111111',
+                        is_superuser: true,
+                        is_system: true
+                    }
                 ])
                 .mockResolvedValueOnce([{ id: 'user-1', email: 'neo@example.com' }])
                 .mockResolvedValueOnce([
@@ -274,12 +375,42 @@ describe('createGlobalAccessService', () => {
         const result = await service.grantRole('user-1', 'superuser', 'admin-1', 'promoted')
 
         expect(result.roleCodename).toBe('superuser')
-        expect(txQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('UPDATE admin.rel_user_roles'), ['user-1', 'admin-1'])
-        expect(txQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
+        expect(result.roles[0]).toEqual(expect.objectContaining({ isSuperuser: true, isSystem: true }))
+        expect(txQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('UPDATE admin.rel_user_roles'), ['user-1', 'admin-1'])
+        expect(txQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
             'user-1',
             'role-super',
             'admin-1',
             'promoted'
         ])
+    })
+
+    it('blocks non-superusers from granting superuser through the legacy grant route', async () => {
+        const txQuery = jest
+            .fn()
+            .mockResolvedValueOnce([{ is_super: false }])
+            .mockResolvedValueOnce([])
+
+        const exec = {
+            query: jest.fn().mockResolvedValueOnce([
+                {
+                    id: 'role-super',
+                    name: { _schema: '1', _primary: 'en', locales: {} },
+                    color: '#111111',
+                    is_superuser: true,
+                    is_system: true
+                }
+            ]),
+            transaction: jest.fn(async (callback: (trx: MockTransaction) => Promise<unknown>) =>
+                callback({ query: txQuery, transaction: jest.fn(), isReleased: jest.fn(() => false) })
+            ),
+            isReleased: jest.fn(() => false)
+        }
+
+        const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
+
+        await expect(service.grantRole('user-1', 'superuser', 'admin-editor', 'unauthorized')).rejects.toThrow(
+            'Only superusers can modify superuser or system-role assignments'
+        )
     })
 })

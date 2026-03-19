@@ -159,8 +159,14 @@ Each implementation shares the same strategic direction, and the high-level abst
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
+        SERVICE_ROLE_KEY=your_server_only_service_role_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+        BOOTSTRAP_SUPERUSER_ENABLED=true
+        BOOTSTRAP_SUPERUSER_EMAIL=demo-admin@example.com
+        BOOTSTRAP_SUPERUSER_PASSWORD=ChangeMe_123456!
         ```
+    - `SERVICE_ROLE_KEY` is required for server-side provisioning tasks such as startup superuser bootstrap and admin-side user creation.
+    - `BOOTSTRAP_SUPERUSER_EMAIL` and `BOOTSTRAP_SUPERUSER_PASSWORD` are demo credentials for first local bootstrap only. Change both before any real deployment.
     - Optionally create `.env` in `packages/universo-core-frontend/base` for UI-specific settings such as `VITE_PORT`.
 
 4. Build the workspace.
