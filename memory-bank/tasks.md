@@ -3,6 +3,18 @@
 
 ---
 
+## PR #731 Bot Review Closure — 2026-03-19
+- Status: COMPLETE
+- [x] PR731-1: Review every bot comment from PR #731 against the live code and accept only the changes that are technically justified and safe
+- [x] PR731-2: Restore stable declaration-based path mapping for `@universo/applications-backend` in `metahubs-backend` for Node16/exports consistency
+- [x] PR731-3: Keep the application `Settings` menu item visible in a disabled/loading state until application detail resolves, and hide it only after a definitive `schemaName = null`
+- [x] PR731-4: Add/update focused regressions and rerun touched validation without changing purely stylistic or false-positive review suggestions
+  - Note: focused `@universo/template-mui` tests passed (3/3), `@universo/template-mui` build passed, `@universo/metahubs-backend` build passed, `@universo/template-mui` lint stayed green apart from pre-existing warning-only debt outside this change-set, and the final root `pnpm build` passed with 28/28 successful tasks.
+  - Accepted bot comments: `metahubs-backend` declaration path mapping and `application-settings` loading/visibility behavior in `MenuContent`.
+  - Rejected bot comments: false-positive `UUID_REGEX` warning and two style-only suggestions that did not improve correctness or safety.
+
+---
+
 ## Application Workspace QA Closure — Tabular Copy, Docs/Plan Sync, And Seed Regression — 2026-03-19
 - Status: COMPLETE
 - [x] QW1: Fix the runtime tabular child-row copy permission seam so copy requires create-capability instead of delete-capability

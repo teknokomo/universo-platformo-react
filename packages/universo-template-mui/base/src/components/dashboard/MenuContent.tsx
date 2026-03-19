@@ -76,10 +76,13 @@ export default function MenuContent() {
     const instanceMatch = location.pathname.match(/^\/admin\/instance\/([^/]+)/)
     const instanceId = instanceMatch ? instanceMatch[1] : null
 
+    const shouldHideApplicationSettingsItem =
+        Boolean(applicationId) && applicationDetailQuery.isSuccess && !applicationDetailQuery.data?.schemaName
+
     // Use context-specific menu or root menu
     const menuItems = applicationId
         ? getApplicationMenuItems(applicationId).filter((item) =>
-              item.id === 'application-settings' ? Boolean(applicationDetailQuery.data?.schemaName) : true
+              item.id === 'application-settings' ? !shouldHideApplicationSettingsItem : true
           )
         : metahubId
         ? getMetahubMenuItems(metahubId)
@@ -95,7 +98,12 @@ export default function MenuContent() {
                         return <Divider key={item.id} sx={{ my: 1 }} />
                     }
                     const Icon = item.icon
-                    const buttonProps = item.external
+                    const isApplicationSettingsItem = item.id === 'application-settings' && Boolean(applicationId)
+                    const isApplicationSettingsDisabled =
+                        isApplicationSettingsItem && !applicationDetailQuery.isSuccess && !applicationDetailQuery.data?.schemaName
+                    const buttonProps = isApplicationSettingsDisabled
+                        ? { component: 'div' as const }
+                        : item.external
                         ? { component: 'a', href: item.url, target: item.target ?? '_blank', rel: 'noopener noreferrer' }
                         : { component: NavLink, to: item.url }
 
@@ -108,7 +116,7 @@ export default function MenuContent() {
 
                     return (
                         <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                            <ListItemButton selected={isSelected} {...buttonProps}>
+                            <ListItemButton selected={isSelected} disabled={isApplicationSettingsDisabled} {...buttonProps}>
                                 <ListItemIcon>{<Icon size={20} stroke={1.5} />}</ListItemIcon>
                                 <ListItemText primary={t(item.titleKey)} />
                             </ListItemButton>

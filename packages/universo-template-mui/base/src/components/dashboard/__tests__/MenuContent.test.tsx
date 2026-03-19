@@ -32,6 +32,22 @@ jest.mock('react-i18next', () => ({
 }))
 
 const theme = createTheme()
+const fetchMock = jest.fn()
+
+beforeAll(() => {
+    Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock
+    })
+})
+
+beforeEach(() => {
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue({
+        ok: false,
+        status: 503
+    } satisfies Partial<Response>)
+})
 
 const renderMenu = (path: string, applicationDetail?: { schemaName?: string | null }) => {
     const queryClient = new QueryClient({
@@ -63,6 +79,15 @@ describe('MenuContent', () => {
         renderMenu('/a/app-1/admin', { schemaName: 'app_runtime' })
 
         expect(screen.getByRole('link', { name: 'settings' })).toHaveAttribute('href', '/a/app-1/admin/settings')
+    })
+
+    it('keeps application settings visible in a disabled state while detail is still unresolved', () => {
+        fetchMock.mockImplementation(() => new Promise(() => undefined))
+
+        renderMenu('/a/app-1/admin')
+
+        expect(screen.getByText('settings')).toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'settings' })).not.toBeInTheDocument()
     })
 
     it('hides application settings when runtime schema is not created yet', () => {

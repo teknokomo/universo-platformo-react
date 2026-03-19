@@ -29,6 +29,18 @@
 | 0.35.0-alpha | 2025-10-30 | Bold Steps 💃                                      | i18n TypeScript migration, Rate limiting                                                            |
 | 0.34.0-alpha | 2025-10-23 | Black Hole ☕️                                     | Global monorepo refactoring, tsdown build system                                                    |
 
+## 2026-03-19 PR #731 Bot Review Closure
+
+Validated every bot review comment on PR #731 against the live codebase and only accepted the recommendations that improved correctness without regressing the recently delivered application workspace/public-access functionality.
+
+| Area | Resolution |
+| --- | --- |
+| TypeScript path stability | Restored declaration-based path resolution for `@universo/applications-backend` in `metahubs-backend`, aligning it with the package's other backend declaration mappings and avoiding package-root resolution drift under Node16/exports semantics. |
+| Settings menu cold-load UX | The shared dashboard `MenuContent` now keeps the application `Settings` item visible in a disabled/loading state until application detail definitively resolves, and only hides the item after a confirmed `schemaName = null`. This removes the transient disappearance reported in the bot review without exposing a dead-end active link. |
+| Review triage discipline | Rejected one false-positive backend warning (`UUID_REGEX` was already defined) and two purely stylistic frontend suggestions that did not improve safety, behavior, or maintainability. |
+| Regression coverage | Added a focused `MenuContent` regression for the unresolved-detail state while preserving the existing positive/negative schema visibility checks. |
+| Validation | Focused `@universo/template-mui` tests passed (3/3), `@universo/template-mui` lint stayed green apart from pre-existing warning-only debt outside this change-set, `@universo/template-mui` build passed, `@universo/metahubs-backend` build passed, and the final root `pnpm build` completed green with 28/28 successful tasks in 2m51.348s. |
+
 ## 2026-03-19 Application Workspace QA Closure — Tabular Copy, Docs/Plan Sync, And Seed Regression
 
 Closed the last QA reopen on the application workspaces/public-access implementation by fixing the remaining runtime permission seam, syncing the published role contract, and turning the draft plan artifact into a truthful completed record.
