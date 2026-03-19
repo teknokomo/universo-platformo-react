@@ -47,6 +47,7 @@
         "@supabase/supabase-js": "^2.45.4",
         "@universo/auth-backend": "workspace:*",
         "@universo/migrations-core": "workspace:*",
+        "@universo/profile-backend": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",
@@ -54,6 +55,7 @@
         "zod": "catalog:"
     },
     "devDependencies": {
+        "@universo/database": "workspace:*",
         "@types/express": "^4.17.21",
         "@types/http-errors": "catalog:",
         "@types/jest": "^29.5.12",

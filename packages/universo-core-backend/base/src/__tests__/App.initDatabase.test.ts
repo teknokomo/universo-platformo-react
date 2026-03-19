@@ -71,6 +71,10 @@ const mockSyncRegisteredPlatformDefinitionsToCatalog = jest.fn().mockResolvedVal
     }
 })
 const mockIsGlobalMigrationCatalogEnabled = jest.fn(() => true)
+const mockBootstrapStartupSuperuser = jest.fn().mockResolvedValue({
+    enabled: false,
+    status: 'disabled'
+})
 const mockKnex = { tag: 'knex' }
 const mockGetKnex = jest.fn(() => mockKnex)
 const mockDestroyKnex = jest.fn().mockResolvedValue(undefined)
@@ -94,6 +98,10 @@ jest.mock('../utils', () => ({
 jest.mock('../routes', () => ({
     __esModule: true,
     default: express.Router()
+}))
+
+jest.mock('../bootstrap/bootstrapSuperuser', () => ({
+    bootstrapStartupSuperuser: (...args: unknown[]) => mockBootstrapStartupSuperuser(...args)
 }))
 
 jest.mock('../middlewares/errors', () => ({
@@ -244,6 +252,10 @@ describe('App.initDatabase', () => {
                 orderedKeys: ['platform_migration.platform_schema.metahubs.PrepareMetahubsSchemaSupport1766351182000::custom']
             }
         })
+        mockBootstrapStartupSuperuser.mockResolvedValue({
+            enabled: false,
+            status: 'disabled'
+        })
     })
 
     it('initializes database and runs unified platform migrations', async () => {
@@ -286,6 +298,10 @@ describe('App.initDatabase', () => {
                 source: 'core-backend-initDatabase'
             })
         )
+        expect(mockBootstrapStartupSuperuser).toHaveBeenCalledTimes(1)
+        expect(mockBootstrapStartupSuperuser.mock.invocationCallOrder[0]).toBeGreaterThan(
+            mockSyncRegisteredPlatformDefinitionsToCatalog.mock.invocationCallOrder[0]
+        )
         expect(mockDestroyKnex).not.toHaveBeenCalled()
     })
 
@@ -302,6 +318,7 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockBootstrapStartupSuperuser).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })

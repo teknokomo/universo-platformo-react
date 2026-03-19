@@ -3,7 +3,6 @@ import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
-import { createClient } from '@supabase/supabase-js'
 import session from 'express-session'
 import csurf from 'csurf'
 import rateLimit from 'express-rate-limit'
@@ -35,6 +34,8 @@ import { initializeRateLimiters as initializeStartRateLimiters } from '@universo
 import errorHandlerMiddleware from './middlewares/errors'
 import { API_WHITELIST_URLS, isGlobalMigrationCatalogEnabled } from '@universo/utils'
 import 'global-agent/bootstrap'
+import { bootstrapStartupSuperuser } from './bootstrap/bootstrapSuperuser'
+import { createSupabaseAdminClient } from './utils/supabaseAdmin'
 
 const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
     if (!value) return 'lax'
@@ -151,6 +152,8 @@ export class App {
                 logger.info('[server]: Global migration catalog is disabled; skipping catalog definition sync')
             }
 
+            await bootstrapStartupSuperuser()
+
             logger.info('📦 [server]: Database has been initialized!')
         } catch (error) {
             logger.error('❌ [server]: Error during database initialization:', error)
@@ -222,12 +225,7 @@ export class App {
         const globalAccessService = createGlobalAccessService({ getDbExecutor: getPoolExecutor })
         const supabaseAdmin =
             process.env.SUPABASE_URL && process.env.SERVICE_ROLE_KEY
-                ? createClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY, {
-                      auth: {
-                          persistSession: false,
-                          autoRefreshToken: false
-                      }
-                  })
+                ? createSupabaseAdminClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY)
                 : undefined
 
         // Allow access from specified domains

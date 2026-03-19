@@ -32,6 +32,7 @@ jest.mock('@universo/auth-backend', () => {
 jest.mock('@universo/database', () => ({
     __esModule: true,
     getKnex: jest.fn(() => ({})),
+    getPoolExecutor: jest.fn(() => mockExecutor),
     createKnexExecutor: jest.fn(() => mockExecutor)
 }))
 
@@ -170,6 +171,7 @@ jest.mock('@universo/admin-backend', () => {
     return {
         __esModule: true,
         createGlobalAccessService: jest.fn(() => ({})),
+        createDashboardRoutes: jest.fn(emptyRouter),
         createGlobalUsersRoutes: jest.fn(emptyRouter),
         createInstancesRoutes: jest.fn(emptyRouter),
         createRolesRoutes: jest.fn(emptyRouter),

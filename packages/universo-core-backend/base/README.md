@@ -30,9 +30,10 @@ packages/universo-core-backend/base/
 1. Validate required auth configuration such as `SUPABASE_JWT_SECRET`.
 2. Initialize the shared Knex singleton from `@universo/database`.
 3. Validate and run registered platform migrations through `@universo/migrations-platform`.
-4. Configure sessions, CSRF, CORS, JWT auth, sanitization, and request logging.
-5. Initialize rate limiters for downstream service packages.
-6. Mount `/api/v1` routers and serve the frontend bundle from `@universo/core-frontend`.
+4. If `BOOTSTRAP_SUPERUSER_ENABLED=true`, create or confirm the startup superuser through the Supabase Admin API, repair the profile row if needed, and enforce the exclusive global `superuser` role.
+5. Configure sessions, CSRF, CORS, JWT auth, sanitization, and request logging.
+6. Initialize rate limiters for downstream service packages.
+7. Mount `/api/v1` routers and serve the frontend bundle from `@universo/core-frontend`.
 
 ## Key Integrations
 
@@ -57,6 +58,29 @@ Request-scoped database access is derived from the shared Knex runtime and reque
 pnpm --filter @universo/core-backend build
 pnpm --filter @universo/core-backend test
 ```
+
+## Bootstrap Superuser
+
+The core backend can provision the first platform superuser automatically during startup.
+This flow is intended for a fresh platform bootstrap and uses a real Supabase auth account instead of direct SQL writes into `auth.users`.
+
+Required backend env contract when bootstrap is enabled:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SERVICE_ROLE_KEY=your_server_only_service_role_key
+BOOTSTRAP_SUPERUSER_ENABLED=true
+BOOTSTRAP_SUPERUSER_EMAIL=demo-admin@example.com
+BOOTSTRAP_SUPERUSER_PASSWORD=ChangeMe_123456!
+```
+
+Notes:
+
+- `BOOTSTRAP_SUPERUSER_ENABLED` defaults to `true`.
+- `BOOTSTRAP_SUPERUSER_EMAIL` and `BOOTSTRAP_SUPERUSER_PASSWORD` ship as demo credentials for local/dev bootstrap only.
+- Change the demo email and password before any real deployment.
+- If the bootstrap email already belongs to an existing non-superuser account, startup fails fast instead of silently elevating that account.
+- If the account already exists and is already a superuser, startup becomes a safe no-op and only repairs the missing profile row if necessary.
 
 ## Migration Commands
 

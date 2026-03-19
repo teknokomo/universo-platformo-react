@@ -1,16 +1,16 @@
 import { Router } from 'express'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
+import type { AuthUserProvisioningService } from '../services/authUserProvisioningService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
-import { activeAppRowCondition, getRequestDbSession, isAdminPanelEnabled, softDeleteSetClause, uuid } from '@universo/utils'
+import { getRequestDbSession, isAdminPanelEnabled, uuid } from '@universo/utils'
 import { GrantRoleSchema, UpdateGlobalUserSchema, formatZodError, validateListQuery } from '../schemas'
 import { z } from 'zod'
 
 export interface GlobalUsersRoutesConfig {
     globalAccessService: GlobalAccessService
     permissionService: IPermissionService
-    supabaseAdmin?: SupabaseClient
+    provisioningService?: AuthUserProvisioningService
 }
 
 const SetUserRolesSchema = z.object({
@@ -29,52 +29,9 @@ const CreateUserSchema = z.object({
  * Create routes for global users management
  * Uses new GlobalAccessService with RBAC and role metadata
  */
-export function createGlobalUsersRoutes({ globalAccessService, permissionService, supabaseAdmin }: GlobalUsersRoutesConfig): Router {
+export function createGlobalUsersRoutes({ globalAccessService, permissionService, provisioningService }: GlobalUsersRoutesConfig): Router {
     const router = Router()
     const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
-
-    const cleanupProvisionedUser = async (
-        userId: string,
-        dbSession?: { query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]>; isReleased(): boolean } | null
-    ) => {
-        const cleanupErrors: string[] = []
-
-        if (dbSession && !dbSession.isReleased()) {
-            try {
-                await dbSession.query(
-                    `UPDATE profiles.cat_profiles
-                     SET ${softDeleteSetClause('$2')}
-                     WHERE user_id = $1 AND ${activeAppRowCondition()}`,
-                    [userId, null]
-                )
-            } catch (profileCleanupError) {
-                cleanupErrors.push(
-                    `profile cleanup failed: ${
-                        profileCleanupError instanceof Error ? profileCleanupError.message : String(profileCleanupError)
-                    }`
-                )
-            }
-        }
-
-        if (!supabaseAdmin) {
-            cleanupErrors.push('auth cleanup skipped: Supabase Admin API is not configured')
-            return {
-                cleaned: false,
-                cleanupErrors
-            }
-        }
-
-        const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
-
-        if (error) {
-            cleanupErrors.push(`auth cleanup failed: ${error.message}`)
-        }
-
-        return {
-            cleaned: cleanupErrors.length === 0,
-            cleanupErrors
-        }
-    }
 
     /**
      * GET /api/v1/admin/global-users
@@ -169,10 +126,10 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
 
     router.post('/create-user', ensureGlobalAccess('users', 'create'), async (req, res, next) => {
         try {
-            if (!supabaseAdmin) {
+            if (!provisioningService) {
                 return res.status(503).json({
                     success: false,
-                    error: 'Supabase Admin API is not configured on the backend'
+                    error: 'Auth user provisioning is not configured on the backend'
                 })
             }
 
@@ -186,47 +143,20 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
 
             const { email, password, roleIds, comment } = parsed.data
             const grantedBy = (req as RequestWithGlobalRole).user!.id
-            const adminResponse = password
-                ? await supabaseAdmin.auth.admin.createUser({
-                      email,
-                      password,
-                      email_confirm: true
-                  })
-                : await supabaseAdmin.auth.admin.inviteUserByEmail(email)
-
-            if (adminResponse.error || !adminResponse.data.user) {
-                return res.status(400).json({
-                    success: false,
-                    error: adminResponse.error?.message || 'Failed to create user'
-                })
-            }
-
-            let roles
-
-            try {
-                roles = await globalAccessService.setUserRoles(
-                    adminResponse.data.user.id,
-                    roleIds,
-                    grantedBy,
-                    comment || 'created from admin panel'
-                )
-            } catch (roleAssignmentError) {
-                const cleanupResult = await cleanupProvisionedUser(adminResponse.data.user.id, getRequestDbSession(req))
-                const cleanupSuffix = cleanupResult.cleaned
-                    ? ' Newly created auth account was rolled back.'
-                    : ` Cleanup failed: ${cleanupResult.cleanupErrors.join('; ')}`
-
-                const wrappedError = new Error(`Failed to assign roles to the newly created user.${cleanupSuffix}`)
-                ;(wrappedError as Error & { cause?: unknown }).cause = roleAssignmentError
-                throw wrappedError
-            }
+            const result = await provisioningService.provisionAuthUserWithRoleIds({
+                email,
+                password,
+                roleIds,
+                grantedBy,
+                comment: comment || 'created from admin panel'
+            })
 
             res.status(201).json({
                 success: true,
                 data: {
-                    userId: adminResponse.data.user.id,
-                    email: adminResponse.data.user.email ?? email,
-                    roles
+                    userId: result.userId,
+                    email: result.email,
+                    roles: result.roles
                 }
             })
         } catch (error) {
@@ -400,7 +330,7 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
                 })
             }
 
-            const success = await globalAccessService.revokeGlobalAccess(memberId)
+            const success = await globalAccessService.revokeGlobalAccess(memberId, currentUserId)
             if (!success) {
                 return res.status(404).json({
                     success: false,

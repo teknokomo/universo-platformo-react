@@ -3,6 +3,45 @@
 
 ---
 
+## Bootstrap Superuser Final QA Remediation — 2026-03-20
+- Status: COMPLETE
+- [x] BSF1: Align `.env.example` bootstrap demo credentials with the runtime warning contract and the README / GitBook documentation
+- [x] BSF2: Fix the env-gated live Supabase integration harness so it uses the real `@supabase/supabase-js` client instead of the global Jest mock
+- [x] BSF3: Re-run real Supabase integration verification plus touched bootstrap/admin regressions and sync memory-bank closure state
+  - Note: `.env.example` now uses `demo-admin@example.com` / `ChangeMe_123456!`, the integration suite bypasses the global Jest `createClient` mock via `jest.requireActual(...)`, the live Supabase suite passed (`2/2`) against `UP-test`, focused admin regressions passed (`23/23`), focused core bootstrap tests passed (`6/6`), and touched admin lint remained green on errors with the same pre-existing `no-explicit-any` warnings outside this closure.
+
+---
+
+## Bootstrap Superuser QA Reopen — 2026-03-19
+- Status: COMPLETE
+- [x] BSR1: Remove request-scoped / RLS-dependent cleanup from auth-user provisioning rollback so admin create-user compensation always uses a privileged executor
+- [x] BSR2: Add live failure-path regression coverage for real Supabase rollback so auth/profile cleanup is verified beyond mock-only tests
+- [x] BSR3: Add an explicit startup warning when demo bootstrap credentials are still in use, then rerun touched validation and sync memory-bank closure state
+  - Note: rollback cleanup now uses the privileged executor only, the env-gated live integration suite covers both real bootstrap happy-path and a real rollback failure-path, `@universo/admin-backend` tests passed with `43 passed / 2 skipped / 45 total`, `@universo/core-backend` tests passed (23/23), touched admin/core lint stayed green with warning-only pre-existing debt outside this change-set, standalone `@universo/admin-backend` and `@universo/core-backend` builds passed, and the final root `pnpm build` completed green with 28/28 successful tasks in 2m52.491s.
+
+---
+
+## Bootstrap Superuser QA Closure — 2026-03-19
+- Status: COMPLETE
+- [x] BQ1: Harden role-assignment security so non-superusers cannot create, elevate, downgrade, or revoke `superuser` / system-role assignments through admin user-management flows
+- [x] BQ2: Add deeper regression coverage for role-assignment restrictions, invite-path provisioning, bootstrap config contract, and failure-path behavior
+- [x] BQ3: Restore safe neutral demo bootstrap credentials in `.env.example`, revalidate touched packages, and sync memory-bank closure state
+  - Note: `@universo/admin-backend` now includes an env-gated live Supabase integration suite (`1 skipped` without test env) alongside the focused unit/regression suite (`43 passed`, `44 total`); `@universo/core-backend` tests passed (22/22), touched admin/core lint stayed green with warning-only pre-existing debt outside this change-set, standalone `@universo/admin-backend` and `@universo/core-backend` builds passed, and the final root `pnpm build` completed green with 28/28 successful tasks in 2m40.814s.
+
+---
+
+## Bootstrap Superuser Startup Implementation — 2026-03-19
+- Status: COMPLETE
+- [x] BS1: Extract shared backend auth-user provisioning / rollback / profile-repair service in `@universo/admin-backend`
+- [x] BS2: Implement startup bootstrap orchestrator in `@universo/core-backend` with strict env validation, advisory lock, and fail-fast existing-user policy
+- [x] BS3: Add CLI/env parity for `SERVICE_ROLE_KEY` and bootstrap superuser env flags in core-backend commands
+- [x] BS4: Refactor admin create-user route to reuse the shared provisioning pipeline without breaking existing behavior
+- [x] BS5: Add deep regression coverage for startup bootstrap, shared provisioning, rollback, existing-user conflict, and route reuse
+- [x] BS6: Update `.env.example`, root/package README files, GitBook docs, and memory-bank closure state; rerun focused validation and final root build
+  - Note: `@universo/admin-backend` tests passed (39/39), `@universo/core-backend` tests passed (21/21), touched lint passed with warning-only pre-existing debt outside this change-set, standalone `@universo/admin-backend` and `@universo/core-backend` builds passed, and the final root `pnpm build` completed green with 28/28 successful tasks in 3m25.588s.
+
+---
+
 ## PR #731 Bot Review Closure — 2026-03-19
 - Status: COMPLETE
 - [x] PR731-1: Review every bot comment from PR #731 against the live code and accept only the changes that are technically justified and safe

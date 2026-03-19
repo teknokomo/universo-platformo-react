@@ -159,8 +159,14 @@ Universo Platformo разрабатывается на нескольких те
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
+        SERVICE_ROLE_KEY=your_server_only_service_role_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+        BOOTSTRAP_SUPERUSER_ENABLED=true
+        BOOTSTRAP_SUPERUSER_EMAIL=demo-admin@example.com
+        BOOTSTRAP_SUPERUSER_PASSWORD=ChangeMe_123456!
         ```
+    - `SERVICE_ROLE_KEY` обязателен для server-side provisioning-задач, включая стартовый bootstrap суперпользователя и создание пользователей из админ-панели.
+    - `BOOTSTRAP_SUPERUSER_EMAIL` и `BOOTSTRAP_SUPERUSER_PASSWORD` являются demo credentials только для первого локального bootstrap. Перед любым реальным развёртыванием обязательно замените их.
     - При необходимости создайте `.env` в `packages/universo-core-frontend/base` для UI-специфичных настроек, например `VITE_PORT`.
 
 4. Соберите workspace.

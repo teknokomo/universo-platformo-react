@@ -13,6 +13,19 @@ description: Описывает аутентификацию, сессии, CSRF
 - Фронтенд-хелперы auth и UI-потоки живут в `@universo/auth-frontend`.
 - Клиенты используют запросы с учётом сессии и CSRF-защиту.
 - Для защищённых операций с базой применяется RLS-контекст, привязанный к запросу.
+- Server-side provisioning-потоки используют Supabase Admin API через server-only client, собранный из `SUPABASE_URL` + `SERVICE_ROLE_KEY`.
+
+## Стартовый bootstrap суперпользователя
+
+Во время первого запуска платформы `@universo/core-backend` может автоматически создать или подтвердить bootstrap superuser, если `BOOTSTRAP_SUPERUSER_ENABLED=true`.
+
+Этот поток намеренно строгий:
+
+- создаёт реальный Supabase auth account через `supabase.auth.admin.createUser(...)`;
+- восстанавливает profile row через общий profile service, если триггерный профиль отсутствует;
+- назначает эксклюзивную глобальную роль `superuser` через общий admin provisioning pipeline;
+- не имитирует acceptance legal-consent из публичной регистрации;
+- завершает старт явной ошибкой, если настроенный bootstrap email уже принадлежит существующему non-superuser аккаунту.
 
 ## Важные контракты
 

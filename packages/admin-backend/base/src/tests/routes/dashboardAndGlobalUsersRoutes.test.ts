@@ -70,31 +70,24 @@ describe('dashboard and global users routes', () => {
     })
 
     it('rolls back a newly created auth user when role assignment fails', async () => {
-        const globalAccessService = {
-            setUserRoles: jest.fn().mockRejectedValue(new Error('role assignment failed'))
-        }
-        const deleteUser = jest.fn().mockResolvedValue({ data: { user: null }, error: null })
-        const supabaseAdmin = {
-            auth: {
-                admin: {
-                    createUser: jest.fn().mockResolvedValue({
-                        data: { user: { id: 'user-1', email: 'neo@example.com' } },
-                        error: null
-                    }),
-                    deleteUser
-                }
-            }
+        const globalAccessService = {}
+        const provisioningService = {
+            provisionAuthUserWithRoleIds: jest
+                .fn()
+                .mockRejectedValue(
+                    new Error('Failed to assign roles to the newly created user. Newly created auth account was rolled back.')
+                )
         }
 
         const app = express()
         app.use(express.json())
-        const { sessionQuery } = attachRequestContext(app, 'admin-1')
+        attachRequestContext(app, 'admin-1')
         app.use(
             '/global-users',
             createGlobalUsersRoutes({
                 globalAccessService,
                 permissionService: {} as never,
-                supabaseAdmin: supabaseAdmin as never
+                provisioningService: provisioningService as never
             })
         )
 
@@ -107,8 +100,13 @@ describe('dashboard and global users routes', () => {
             })
 
         expect(response.status).toBe(500)
-        expect(sessionQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.cat_profiles'), ['user-1', null])
-        expect(deleteUser).toHaveBeenCalledWith('user-1')
+        expect(provisioningService.provisionAuthUserWithRoleIds).toHaveBeenCalledWith({
+            email: 'neo@example.com',
+            password: 'password123',
+            roleIds: ['00000000-0000-4000-a000-000000000001'],
+            grantedBy: 'admin-1',
+            comment: 'created from admin panel'
+        })
         expect(response.text).toContain('rolled back')
     })
 
@@ -191,6 +189,6 @@ describe('dashboard and global users routes', () => {
         const response = await request(app).delete(`/global-users/${memberId}`)
 
         expect(response.status).toBe(200)
-        expect(globalAccessService.revokeGlobalAccess).toHaveBeenCalledWith(memberId)
+        expect(globalAccessService.revokeGlobalAccess).toHaveBeenCalledWith(memberId, 'admin-1')
     })
 })
