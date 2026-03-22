@@ -4,7 +4,31 @@
 
 ---
 
-## Current Focus: Bootstrap Superuser Final QA Remediation — Complete
+## Current Focus: Predefined Element Create Validation Fix — Complete
+
+- Date: 2026-03-21.
+- Closed a live metahub-elements regression where creating a predefined catalog element with TABLE child rows returned HTTP 400 and then disappeared from the UI after submit.
+- Root causes:
+  1. `InlineTableEditor` serialized localized child STRING values into an obsolete hand-built VLC shape that backend `isLocalizedContent(...)` no longer recognizes.
+  2. `ElementList` create/copy submit handlers used `mutation.mutate(...)` inside `try/catch`, so async mutation failures closed the dialog before the user could see the server validation message.
+- Resolution:
+  1. Replaced the custom TABLE child VLC serializer with `createLocalizedContent(...)` from `@universo/utils`, keeping the payload contract aligned with current backend/frontend localized-content helpers.
+  2. Switched element create/copy submit handlers to `await mutateAsync(...)`, so failed requests keep the dialog open and populate the dialog-level error state.
+  3. Added focused frontend regressions for canonical VLC row payloads and failed create-dialog behavior.
+- Validation: focused touched-file ESLint passed, focused Vitest regressions passed (`2/2`), and `@universo/metahubs-frontend` build passed.
+
+## Previous Focus: Table Child Attributes Reload Fix — Complete
+
+- Date: 2026-03-21.
+- Closed a live runtime regression found during manual testing of metahub catalogs with TABLE attributes and child attributes after a hard page reload.
+- Root cause: `MetahubAttributesService.findChildAttributes(...)` passed `this.mapRowToAttribute` directly into `Array.map(...)`, which stripped the class `this` context and made `this.getSystemMetadata(...)` undefined on the reload/read path.
+- Resolution:
+  1. `mapRowToAttribute` is now an instance-bound arrow function, so callback usage keeps the service context.
+  2. Added a direct regression proving `findChildAttributes(...)` maps child rows and preserves `system` metadata.
+  3. Revalidated the full `@universo/metahubs-backend` package after the fix.
+- Validation: `@universo/metahubs-backend` tests passed (`38 suites`, `255 passed`, `3 skipped`, `258 total`), lint stayed green on errors with the same pre-existing warning-only debt outside this closure, and `build` passed.
+
+## Previous Focus: Bootstrap Superuser Final QA Remediation — Complete
 
 - Date: 2026-03-20.
 - Closed the final QA remediation wave for bootstrap superuser by fixing the remaining operational template defect and proving the live Supabase integration suite with the real client instead of the global Jest mock.

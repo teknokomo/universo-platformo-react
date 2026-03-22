@@ -28,7 +28,7 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import Divider from '@mui/material/Divider'
 import Menu from '@mui/material/Menu'
 import { useTranslation } from 'react-i18next'
-import { buildTableConstraintText, NUMBER_DEFAULTS, validateNumber, toNumberRules } from '@universo/utils'
+import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, validateNumber, toNumberRules } from '@universo/utils'
 import { ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui'
 
@@ -95,13 +95,7 @@ function extractDisplayString(value: unknown, locale: string): string {
  */
 function toVlcString(value: string, locale: string): Record<string, unknown> {
     const normalizedLocale = locale.split(/[-_]/)[0].toLowerCase()
-    return {
-        _primary: normalizedLocale,
-        _version: 1,
-        locales: {
-            [normalizedLocale]: { content: value, version: 1 }
-        }
-    }
+    return createLocalizedContent(normalizedLocale, value)
 }
 
 /**

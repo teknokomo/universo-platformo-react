@@ -2,8 +2,8 @@ import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import { buildSchemaSnapshot, calculateSchemaDiff, type EntityDefinition, type SchemaDiff, type SchemaSnapshot } from '@universo/schema-ddl'
 import { serialization } from '@universo/utils'
-import type { CatalogSystemFieldsSnapshot } from '@universo/types'
 import type { PublishedApplicationSnapshot } from './applicationSyncContracts'
+import { resolveExecutablePayloadEntities } from './publishedApplicationSnapshotEntities'
 
 export type ApplicationReleaseBundleSourceKind = 'publication' | 'application'
 export type ApplicationReleaseInstallSourceKind = 'publication' | 'release_bundle'
@@ -96,44 +96,11 @@ const stringifyForChecksum = (value: unknown): string => stableStringify(value) 
 
 const compareValues = (left: unknown, right: unknown): boolean => stringifyForChecksum(left) === stringifyForChecksum(right)
 
-const asRecord = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {})
-
-const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Record<string, CatalogSystemFieldsSnapshot> | null => {
-    if (!snapshot.systemFields || typeof snapshot.systemFields !== 'object') {
-        return null
-    }
-
-    return snapshot.systemFields as Record<string, CatalogSystemFieldsSnapshot>
-}
-
-const resolveReleaseBundleEntities = (snapshot: PublishedApplicationSnapshot): EntityDefinition[] => {
-    const snapshotSystemFields = resolveSnapshotSystemFields(snapshot)
-
-    return Object.values(snapshot.entities ?? {})
-        .map((entity) => {
-            const entitySystemFields = snapshotSystemFields?.[entity.id]
-            if (!entitySystemFields) {
-                return entity
-            }
-
-            const entityConfig = asRecord(entity.config)
-
-            return {
-                ...entity,
-                config: {
-                    ...entityConfig,
-                    systemFields: entitySystemFields
-                }
-            }
-        })
-        .sort((left, right) => left.id.localeCompare(right.id))
-}
-
 const buildExecutablePayloadFromSnapshot = (
     snapshot: PublishedApplicationSnapshot,
     generatedAt: string
 ): ApplicationReleaseBundleExecutablePayload => {
-    const entities = resolveReleaseBundleEntities(snapshot)
+    const entities = resolveExecutablePayloadEntities(snapshot)
     const schemaSnapshot = buildSchemaSnapshot(entities)
 
     return {

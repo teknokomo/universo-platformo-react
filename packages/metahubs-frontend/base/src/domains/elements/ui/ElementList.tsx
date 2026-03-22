@@ -1753,9 +1753,10 @@ const ElementList = () => {
 
     const handleCreateElement = async (data: Record<string, unknown>) => {
         setDialogError(null)
+        setSubmitting(true)
         try {
             const normalizedData = applySetReferenceDefaultsToPayload(data)
-            createElementMutation.mutate({
+            await createElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
@@ -1817,9 +1818,10 @@ const ElementList = () => {
     const handleCopyElement = async (values: Record<string, unknown>) => {
         if (!copyingElement) return
         setCopyDialogError(null)
+        setSubmitting(true)
         try {
             const normalizedData = applySetReferenceDefaultsToPayload(values)
-            createElementMutation.mutate({
+            await createElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,

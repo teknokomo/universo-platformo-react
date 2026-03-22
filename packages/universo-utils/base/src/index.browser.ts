@@ -42,7 +42,8 @@ export {
     buildVLC,
     ensureVLC,
     getVLCString,
-    getVLCStringWithFallback
+    getVLCStringWithFallback,
+    normalizeLocale
 } from './vlc'
 
 // Number validation utilities for precision/scale constraints

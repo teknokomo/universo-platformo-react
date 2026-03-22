@@ -43,6 +43,50 @@ describe('MetahubAttributesService active-row filtering', () => {
         expect(mockExecQuery.mock.calls[0][1]).toEqual([['parent-1']])
     })
 
+    it('maps child attributes without losing service context', async () => {
+        mockExecQuery.mockResolvedValueOnce([
+            {
+                id: 'child-1',
+                object_id: 'catalog-1',
+                codename: 'childCode',
+                presentation: { name: { en: 'Child field' } },
+                data_type: 'STRING',
+                is_required: false,
+                is_display_attribute: false,
+                target_object_id: null,
+                target_object_kind: null,
+                target_constant_id: null,
+                parent_attribute_id: 'parent-1',
+                sort_order: 1,
+                validation_rules: null,
+                ui_config: null,
+                is_system: true,
+                system_key: 'app.deleted',
+                is_system_managed: true,
+                is_system_enabled: true,
+                _upl_version: 2,
+                _upl_created_at: '2026-03-21T00:00:00.000Z',
+                _upl_updated_at: '2026-03-21T00:00:00.000Z'
+            }
+        ])
+
+        const result = await service.findChildAttributes('metahub-1', 'parent-1', 'user-1')
+
+        expect(result).toEqual([
+            expect.objectContaining({
+                id: 'child-1',
+                parentAttributeId: 'parent-1',
+                codename: 'childCode',
+                system: expect.objectContaining({
+                    isSystem: true,
+                    systemKey: 'app.deleted',
+                    isManaged: true,
+                    isEnabled: true
+                })
+            })
+        ])
+    })
+
     it('adds branch active-row predicates to attribute lookup by id', async () => {
         await service.findById('metahub-1', 'attr-1', 'user-1')
 

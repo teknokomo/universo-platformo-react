@@ -58,6 +58,7 @@ import {
     type ApplicationReleaseBundleExecutablePayload,
     type ApplicationReleaseInstallSourceKind
 } from '../services/applicationReleaseBundle'
+import { resolveExecutablePayloadEntities } from '../services/publishedApplicationSnapshotEntities'
 import { persistApplicationSchemaSyncState } from '../services/ApplicationSchemaSyncStateStore'
 import { persistConnectorSyncTouch } from '../services/ConnectorSyncTouchStore'
 import {
@@ -297,6 +298,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function compareStableValues(left: unknown, right: unknown): boolean {
     return stableStringify(left) === stableStringify(right)
+}
+
+export function toStructuralSchemaSnapshot(snapshot: SchemaSnapshot | null): Pick<SchemaSnapshot, 'hasSystemTables' | 'entities'> | null {
+    if (!snapshot) {
+        return null
+    }
+
+    return {
+        hasSystemTables: snapshot.hasSystemTables,
+        entities: snapshot.entities
+    }
 }
 
 function quoteSchemaName(schemaName: string): string {
@@ -1214,11 +1226,23 @@ async function syncApplicationSchemaFromSource(options: {
         publicationId: source.publicationId ?? undefined,
         publicationVersionId: source.publicationVersionId ?? undefined
     }
+    const trackedSchemaSnapshot = toWorkspaceAwareSchemaSnapshot(
+        application.schemaSnapshot as SchemaSnapshot | null,
+        application.workspacesEnabled
+    )
+    const expectedReleaseSchemaSnapshot = toWorkspaceAwareSchemaSnapshot(
+        source.incrementalPayload.schemaSnapshot,
+        application.workspacesEnabled
+    )
+    const releaseSchemaSnapshotMatchesTrackedState = compareStableValues(
+        toStructuralSchemaSnapshot(trackedSchemaSnapshot),
+        toStructuralSchemaSnapshot(expectedReleaseSchemaSnapshot)
+    )
 
     if (schemaExists) {
         const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
         const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
-        if (lastAppliedHash && lastAppliedHash === source.snapshotHash) {
+        if (lastAppliedHash && lastAppliedHash === source.snapshotHash && releaseSchemaSnapshotMatchesTrackedState) {
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName, snapshot: source.snapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName, snapshot: source.snapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
@@ -1393,10 +1417,7 @@ async function syncApplicationSchemaFromSource(options: {
             }
         }
 
-        const oldSnapshot = toWorkspaceAwareSchemaSnapshot(
-            application.schemaSnapshot as SchemaSnapshot | null,
-            application.workspacesEnabled
-        )
+        const oldSnapshot = trackedSchemaSnapshot
         if (source.bundle.incrementalMigration.fromVersion && !source.incrementalBaseSchemaSnapshot) {
             application.schemaStatus = ApplicationSchemaStatus.ERROR
             await updateApplicationSyncFields(exec, {
@@ -2483,6 +2504,7 @@ type DiffTableFieldDetails = {
     codename: string
     dataType: string
     isRequired: boolean
+    parentAttributeId: string | null
 }
 
 type DiffTableDetails = {
@@ -2626,7 +2648,8 @@ function buildCreateTableDetails(options: {
                 id: f.id,
                 codename: f.codename,
                 dataType: f.dataType,
-                isRequired: Boolean(f.isRequired)
+                isRequired: Boolean(f.isRequired),
+                parentAttributeId: f.parentAttributeId ?? null
             }))
 
             const elements = (snapshot.elements && (snapshot.elements as Record<string, unknown[]>)[entity.id]) as unknown[] | undefined
@@ -3525,10 +3548,11 @@ export function createApplicationSyncRoutes(
                 })
             }
 
-            const { snapshot, snapshotHash, entities: catalogDefs } = syncContext
+            const { snapshot, snapshotHash } = syncContext
             if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
                 return res.status(400).json({ error: 'Invalid publication snapshot' })
             }
+            const executableCatalogDefs = resolveExecutablePayloadEntities(snapshot)
 
             const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
 
@@ -3536,7 +3560,7 @@ export function createApplicationSyncRoutes(
             const schemaExists = await generator.schemaExists(schemaName)
 
             if (!schemaExists) {
-                const createTables = buildCreateTableDetails({ entities: catalogDefs, snapshot })
+                const createTables = buildCreateTableDetails({ entities: executableCatalogDefs, snapshot })
 
                 // Keep human-readable additive strings for backward compatibility.
                 // Frontend should prefer `diff.details.create.tables` for i18n-friendly rendering.
@@ -3597,7 +3621,7 @@ export function createApplicationSyncRoutes(
             }
 
             const oldSnapshot = application.schemaSnapshot as SchemaSnapshot | null
-            const diff = migrator.calculateDiff(oldSnapshot, catalogDefs)
+            const diff = migrator.calculateDiff(oldSnapshot, executableCatalogDefs)
             const hasDestructiveChanges = diff.destructive.length > 0
 
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
@@ -3609,7 +3633,7 @@ export function createApplicationSyncRoutes(
                     .map((change: SchemaChange) => String(change.entityId))
             )
             const createTables = buildCreateTableDetails({
-                entities: catalogDefs,
+                entities: executableCatalogDefs,
                 snapshot,
                 includeEntityIds: addedTableEntityIds
             })

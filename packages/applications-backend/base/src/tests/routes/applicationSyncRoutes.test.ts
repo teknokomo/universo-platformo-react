@@ -142,7 +142,7 @@ jest.mock('../../services/ConnectorSyncTouchStore', () => ({
     persistConnectorSyncTouch: (...args: unknown[]) => mockPersistConnectorSyncTouch(...args)
 }))
 
-import { createApplicationSyncRoutes } from '../../routes/applicationSyncRoutes'
+import { createApplicationSyncRoutes, toStructuralSchemaSnapshot } from '../../routes/applicationSyncRoutes'
 import { calculateSchemaDiff, createDDLServices } from '@universo/schema-ddl'
 import {
     calculateApplicationReleaseChecksum,
@@ -445,6 +445,123 @@ describe('applicationSyncRoutes', () => {
         )
     })
 
+    it('includes TABLE child field metadata in create diff details for preview rendering', async () => {
+        mockFindApplicationCopySource.mockResolvedValue({
+            id: 'application-1',
+            schemaName: null,
+            schemaSnapshot: null,
+            schemaStatus: 'draft'
+        })
+
+        const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
+        const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
+
+        const previewSnapshot = {
+            versionEnvelope: {
+                structureVersion: '53.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1 as const
+            },
+            entities: {
+                'catalog-resources': {
+                    id: 'catalog-resources',
+                    codename: 'resources',
+                    kind: 'catalog',
+                    fields: [
+                        {
+                            id: tableFieldId,
+                            codename: 'NestedResources',
+                            dataType: 'TABLE',
+                            isRequired: false,
+                            isDisplayAttribute: false,
+                            presentation: { name: {} },
+                            validationRules: {},
+                            uiConfig: {},
+                            sortOrder: 1,
+                            childFields: [
+                                {
+                                    id: childFieldId,
+                                    codename: 'NestedTitle',
+                                    dataType: 'STRING',
+                                    isRequired: true,
+                                    isDisplayAttribute: true,
+                                    presentation: { name: {} },
+                                    validationRules: { localized: true },
+                                    uiConfig: {},
+                                    sortOrder: 1,
+                                    parentAttributeId: tableFieldId
+                                }
+                            ]
+                        }
+                    ],
+                    presentation: { name: {} },
+                    config: {},
+                    physicalTableName: 'resources'
+                }
+            },
+            elements: {
+                'catalog-resources': [
+                    {
+                        id: 'element-1',
+                        sortOrder: 0,
+                        data: {
+                            NestedResources: [
+                                {
+                                    NestedTitle: {
+                                        _schema: '1',
+                                        _primary: 'ru',
+                                        locales: {
+                                            ru: {
+                                                content: 'Чистая вода',
+                                                version: 1,
+                                                isActive: true
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            layouts: []
+        }
+
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue({
+            publicationId: 'publication-1',
+            publicationVersionId: 'publication-version-1',
+            snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(previewSnapshot, 'publication'),
+            snapshot: previewSnapshot,
+            entities: Object.values(previewSnapshot.entities),
+            publicationSnapshot: previewSnapshot
+        })
+
+        configureDdlServices({
+            schemaExists: false
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        const response = await request(app).get('/application/application-1/diff').expect(200)
+
+        expect(response.body.diff.details.create.tables[0].fields).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: childFieldId,
+                    parentAttributeId: tableFieldId
+                })
+            ])
+        )
+        expect(response.body.diff.details.create.tables[0].predefinedElementsPreview[0].data.NestedResources).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    NestedTitle: expect.objectContaining({
+                        _primary: 'ru'
+                    })
+                })
+            ])
+        )
+    })
+
     it('hydrates publication lifecycle contract into the generated schema payload', async () => {
         mockFindApplicationCopySource.mockResolvedValue({
             id: 'application-1',
@@ -563,6 +680,413 @@ describe('applicationSyncRoutes', () => {
                 recordMigration: true
             })
         )
+    })
+
+    it('normalizes publication TABLE child fields and set constants before initial schema generation', async () => {
+        mockFindApplicationCopySource.mockResolvedValue({
+            id: 'application-1',
+            schemaName: null,
+            schemaSnapshot: null,
+            schemaStatus: 'draft'
+        })
+
+        const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
+        const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
+        const setFieldId = '019d10e2-8c41-7725-813e-598731237ab2'
+        const setId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
+        const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
+
+        const rawCatalogEntity = {
+            id: 'catalog-resources',
+            codename: 'resources',
+            kind: 'catalog',
+            fields: [
+                {
+                    id: tableFieldId,
+                    codename: 'NestedResources',
+                    dataType: 'TABLE',
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    presentation: { name: {} },
+                    validationRules: {},
+                    uiConfig: {},
+                    sortOrder: 1,
+                    childFields: [
+                        {
+                            id: childFieldId,
+                            codename: 'NestedTitle',
+                            dataType: 'STRING',
+                            isRequired: true,
+                            isDisplayAttribute: true,
+                            presentation: { name: {} },
+                            validationRules: { localized: true, versioned: true },
+                            uiConfig: {},
+                            sortOrder: 1,
+                            parentAttributeId: tableFieldId
+                        }
+                    ]
+                },
+                {
+                    id: setFieldId,
+                    codename: 'Motto',
+                    dataType: 'REF',
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    targetEntityId: setId,
+                    targetEntityKind: 'set',
+                    targetConstantId: constantId,
+                    presentation: { name: {} },
+                    validationRules: {},
+                    uiConfig: {},
+                    sortOrder: 2
+                }
+            ],
+            presentation: { name: {} },
+            config: {},
+            physicalTableName: 'resources'
+        }
+
+        const complexSyncSnapshot = {
+            versionEnvelope: {
+                structureVersion: '53.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1 as const
+            },
+            entities: {
+                'catalog-resources': rawCatalogEntity
+            },
+            constants: {
+                [setId]: [
+                    {
+                        id: constantId,
+                        objectId: setId,
+                        codename: 'MottoConstant',
+                        dataType: 'STRING',
+                        presentation: {
+                            name: {
+                                _schema: '1',
+                                _primary: 'ru',
+                                locales: {
+                                    ru: { content: 'Девиз', version: 1, isActive: true }
+                                }
+                            }
+                        },
+                        validationRules: {},
+                        uiConfig: {},
+                        value: {
+                            _schema: '1',
+                            _primary: 'ru',
+                            locales: {
+                                ru: { content: 'Все миры будут нашими!', version: 1, isActive: true }
+                            }
+                        },
+                        sortOrder: 0
+                    }
+                ]
+            },
+            elements: {},
+            layouts: []
+        }
+
+        const syncContextWithNestedPublicationFields = {
+            publicationId: 'publication-1',
+            publicationVersionId: 'publication-version-1',
+            snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(complexSyncSnapshot, 'publication'),
+            snapshot: complexSyncSnapshot,
+            entities: [rawCatalogEntity],
+            publicationSnapshot: complexSyncSnapshot
+        }
+
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(syncContextWithNestedPublicationFields)
+        const { generator } = configureDdlServices({
+            schemaExists: false,
+            latestMigrations: [{ meta: { seedWarnings: [] } }],
+            generateFullSchemaResult: {
+                success: true,
+                schemaName: 'app_application1',
+                tablesCreated: ['resources'],
+                errors: []
+            }
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        await request(app).post('/application/application-1/sync').send({ confirmDestructive: false }).expect(200)
+
+        expect(generator.generateFullSchema).toHaveBeenCalledWith(
+            'app_application1',
+            [
+                expect.objectContaining({
+                    id: 'catalog-resources',
+                    fields: expect.arrayContaining([
+                        expect.objectContaining({
+                            id: tableFieldId,
+                            dataType: 'TABLE',
+                            childFields: [
+                                expect.objectContaining({
+                                    id: childFieldId,
+                                    parentAttributeId: tableFieldId
+                                })
+                            ]
+                        }),
+                        expect.objectContaining({
+                            id: childFieldId,
+                            parentAttributeId: tableFieldId,
+                            dataType: 'STRING'
+                        }),
+                        expect.objectContaining({
+                            id: setFieldId,
+                            targetConstantId: constantId,
+                            uiConfig: expect.objectContaining({
+                                targetConstantId: constantId,
+                                setConstantRef: expect.objectContaining({
+                                    id: constantId,
+                                    codename: 'MottoConstant',
+                                    dataType: 'STRING',
+                                    value: expect.objectContaining({
+                                        _primary: 'ru'
+                                    })
+                                })
+                            })
+                        })
+                    ])
+                })
+            ],
+            expect.objectContaining({
+                recordMigration: true
+            })
+        )
+    })
+
+    it('migrates an existing schema even when publication hash matches but the executable payload changed', async () => {
+        const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
+        const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
+        const setFieldId = '019d10e2-8c41-7725-813e-598731237ab2'
+        const setId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
+        const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
+
+        const rawCatalogEntity = {
+            id: 'catalog-resources',
+            codename: 'resources',
+            kind: 'catalog',
+            fields: [
+                {
+                    id: tableFieldId,
+                    codename: 'NestedResources',
+                    dataType: 'TABLE',
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    presentation: { name: {} },
+                    validationRules: {},
+                    uiConfig: {},
+                    sortOrder: 1,
+                    childFields: [
+                        {
+                            id: childFieldId,
+                            codename: 'NestedTitle',
+                            dataType: 'STRING',
+                            isRequired: true,
+                            isDisplayAttribute: true,
+                            presentation: { name: {} },
+                            validationRules: { localized: true, versioned: true },
+                            uiConfig: {},
+                            sortOrder: 1,
+                            parentAttributeId: tableFieldId
+                        }
+                    ]
+                },
+                {
+                    id: setFieldId,
+                    codename: 'Motto',
+                    dataType: 'REF',
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    targetEntityId: setId,
+                    targetEntityKind: 'set',
+                    targetConstantId: constantId,
+                    presentation: { name: {} },
+                    validationRules: {},
+                    uiConfig: {},
+                    sortOrder: 2
+                }
+            ],
+            presentation: { name: {} },
+            config: {},
+            physicalTableName: 'resources'
+        }
+
+        const publicationSnapshot = {
+            versionEnvelope: {
+                structureVersion: '53.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1 as const
+            },
+            entities: {
+                'catalog-resources': rawCatalogEntity
+            },
+            constants: {
+                [setId]: [
+                    {
+                        id: constantId,
+                        objectId: setId,
+                        codename: 'MottoConstant',
+                        dataType: 'STRING',
+                        presentation: {
+                            name: {
+                                _schema: '1',
+                                _primary: 'ru',
+                                locales: {
+                                    ru: { content: 'Девиз', version: 1, isActive: true }
+                                }
+                            }
+                        },
+                        validationRules: {},
+                        uiConfig: {},
+                        value: {
+                            _schema: '1',
+                            _primary: 'ru',
+                            locales: {
+                                ru: { content: 'Все миры будут нашими!', version: 1, isActive: true }
+                            }
+                        },
+                        sortOrder: 0
+                    }
+                ]
+            },
+            elements: {},
+            layouts: []
+        }
+        const publicationSnapshotHash = calculateCanonicalApplicationReleaseSnapshotHash(publicationSnapshot, 'publication')
+
+        mockFindApplicationCopySource.mockResolvedValue({
+            id: 'application-1',
+            schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
+            schemaSnapshot: {
+                version: 1,
+                generatedAt: '2026-03-13T09:00:00.000Z',
+                hasSystemTables: true,
+                entities: {
+                    'catalog-resources': {
+                        id: 'catalog-resources',
+                        codename: 'resources',
+                        kind: 'catalog',
+                        fields: [
+                            {
+                                id: tableFieldId,
+                                codename: 'NestedResources',
+                                dataType: 'TABLE',
+                                childFields: [
+                                    {
+                                        id: childFieldId,
+                                        codename: 'NestedTitle',
+                                        dataType: 'STRING',
+                                        parentAttributeId: tableFieldId
+                                    }
+                                ]
+                            },
+                            {
+                                id: setFieldId,
+                                codename: 'Motto',
+                                dataType: 'REF',
+                                targetEntityId: setId,
+                                targetEntityKind: 'set',
+                                targetConstantId: constantId,
+                                uiConfig: {
+                                    setConstantRef: {
+                                        id: constantId
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            schemaStatus: 'ready',
+            installedReleaseMetadata: {
+                releaseVersion: 'publication-version-1',
+                snapshotHash: publicationSnapshotHash
+            }
+        })
+
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue({
+            publicationId: 'publication-1',
+            publicationVersionId: 'publication-version-1',
+            snapshotHash: publicationSnapshotHash,
+            snapshot: publicationSnapshot,
+            entities: [rawCatalogEntity],
+            publicationSnapshot
+        })
+        const { migrator } = configureDdlServices({
+            schemaExists: true,
+            latestMigrations: [{ meta: { publicationSnapshotHash } }, { meta: { seedWarnings: [] } }],
+            applyAllChangesResult: {
+                success: true,
+                changesApplied: ['Repair resources schema'],
+                errors: []
+            }
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        const response = await request(app).post('/application/application-1/sync').send({ confirmDestructive: false }).expect(200)
+
+        expect(response.body).toEqual({
+            status: 'migrated',
+            schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
+            changesApplied: ['Repair resources schema'],
+            message: 'Schema migration applied successfully'
+        })
+        expect(migrator.applyAllChanges).toHaveBeenCalledWith(
+            'app_019ccefc2f7b7b3682f485cdb1312268',
+            expect.objectContaining({
+                hasChanges: true
+            }),
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'catalog-resources',
+                    fields: expect.arrayContaining([
+                        expect.objectContaining({
+                            id: childFieldId,
+                            parentAttributeId: tableFieldId
+                        }),
+                        expect.objectContaining({
+                            id: setFieldId,
+                            uiConfig: expect.objectContaining({
+                                setConstantRef: expect.objectContaining({
+                                    id: constantId,
+                                    codename: 'MottoConstant'
+                                })
+                            })
+                        })
+                    ])
+                })
+            ]),
+            false,
+            expect.objectContaining({
+                migrationDescription: 'schema_sync',
+                publicationSnapshot,
+                afterMigrationRecorded: expect.any(Function)
+            })
+        )
+    })
+
+    it('normalizes schema snapshots to structural data without generatedAt noise', () => {
+        const releaseBundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'application-1',
+            releaseVersion: 'publication-version-1',
+            sourceKind: 'publication',
+            snapshot: baseSyncContext.snapshot,
+            snapshotHash: baseSyncContext.snapshotHash,
+            publicationId: 'publication-1',
+            publicationVersionId: 'publication-version-1'
+        })
+        const releaseSchemaSnapshot = releaseBundle.incrementalMigration.payload.schemaSnapshot
+
+        expect(
+            toStructuralSchemaSnapshot({
+                ...releaseSchemaSnapshot,
+                generatedAt: '2026-03-14T09:00:00.000Z'
+            })
+        ).toEqual(toStructuralSchemaSnapshot(releaseSchemaSnapshot))
     })
 
     it('returns pending_confirmation when destructive changes are detected without confirmation', async () => {

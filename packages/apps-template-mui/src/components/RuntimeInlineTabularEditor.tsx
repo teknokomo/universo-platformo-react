@@ -27,6 +27,7 @@ import {
     type TabularRowsResponse
 } from '../api/api'
 import { buildTabularColumns } from '../utils/tabularColumns'
+import { normalizeTabularCellValue, normalizeTabularRowValues } from '../utils/tabularCellValues'
 
 /**
  * Extract the most useful error message from an API failure.
@@ -172,13 +173,14 @@ export function RuntimeInlineTabularEditor({
             const payload = nextGridRows.map((row) => {
                 const mapped: Record<string, unknown> = {}
                 for (const field of childFields) {
-                    mapped[field.id] = row[field.id] === undefined ? null : row[field.id]
+                    const cellValue = row[field.id] === undefined ? null : row[field.id]
+                    mapped[field.id] = normalizeTabularCellValue(field, cellValue, resolvedLocale)
                 }
                 return mapped
             })
             onChange(payload)
         },
-        [deferPersistence, onChange, childFields]
+        [deferPersistence, onChange, childFields, resolvedLocale]
     )
 
     useEffect(() => {
@@ -424,7 +426,7 @@ export function RuntimeInlineTabularEditor({
             if (deferPersistence) {
                 const rowId = String(newRow.id)
                 // Validate NUMBER fields — revert invalid values
-                const validatedRow = { ...newRow }
+                const validatedRow = normalizeTabularRowValues(newRow, childFields, resolvedLocale)
                 for (const field of childFields) {
                     if (
                         field.type === 'NUMBER' &&
@@ -452,7 +454,7 @@ export function RuntimeInlineTabularEditor({
             const data: Record<string, unknown> = {}
             for (const field of childFields) {
                 if (newRow[field.id] !== undefined) {
-                    let value = newRow[field.id]
+                    let value = normalizeTabularCellValue(field, newRow[field.id], resolvedLocale)
                     if (field.type === 'REF' && value === '') {
                         value = null
                     }
@@ -500,6 +502,7 @@ export function RuntimeInlineTabularEditor({
             draftRows,
             emitRowsChange,
             childFields,
+            resolvedLocale,
             apiBaseUrl,
             applicationId,
             parentRecordId,

@@ -73,7 +73,12 @@ describe('applicationReleaseBundle', () => {
                 kind: 'baseline_sql',
                 checksum: expect.any(String),
                 payload: {
-                    entities: [snapshot.entities.catalog_products],
+                    entities: [
+                        expect.objectContaining({
+                            ...snapshot.entities.catalog_products,
+                            config: {}
+                        })
+                    ],
                     schemaSnapshot: expect.objectContaining({
                         hasSystemTables: expect.any(Boolean),
                         entities: expect.any(Object)
@@ -91,7 +96,12 @@ describe('applicationReleaseBundle', () => {
                     destructive: expect.any(Array)
                 }),
                 payload: {
-                    entities: [snapshot.entities.catalog_products],
+                    entities: [
+                        expect.objectContaining({
+                            ...snapshot.entities.catalog_products,
+                            config: {}
+                        })
+                    ],
                     schemaSnapshot: expect.objectContaining({
                         hasSystemTables: expect.any(Boolean),
                         entities: expect.any(Object)
@@ -445,5 +455,154 @@ describe('applicationReleaseBundle', () => {
                 })
             })
         ])
+    })
+
+    it('flattens TABLE child fields and enriches set constants inside executable payload entities', () => {
+        const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
+        const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
+        const setFieldId = '019d10e2-8c41-7725-813e-598731237ab2'
+        const setId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
+        const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
+
+        const complexSnapshot = {
+            versionEnvelope: {
+                structureVersion: '53.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1 as const
+            },
+            entities: {
+                'catalog-resources': {
+                    id: 'catalog-resources',
+                    codename: 'resources',
+                    kind: 'catalog',
+                    presentation: { name: {} },
+                    config: {},
+                    fields: [
+                        {
+                            id: tableFieldId,
+                            codename: 'NestedResources',
+                            dataType: 'TABLE',
+                            isRequired: false,
+                            isDisplayAttribute: false,
+                            presentation: { name: {} },
+                            validationRules: {},
+                            uiConfig: {},
+                            sortOrder: 1,
+                            childFields: [
+                                {
+                                    id: childFieldId,
+                                    codename: 'NestedTitle',
+                                    dataType: 'STRING',
+                                    isRequired: true,
+                                    isDisplayAttribute: true,
+                                    presentation: { name: {} },
+                                    validationRules: { localized: true, versioned: true },
+                                    uiConfig: {},
+                                    sortOrder: 1,
+                                    parentAttributeId: tableFieldId
+                                }
+                            ]
+                        },
+                        {
+                            id: setFieldId,
+                            codename: 'Motto',
+                            dataType: 'REF',
+                            isRequired: false,
+                            isDisplayAttribute: false,
+                            targetEntityId: setId,
+                            targetEntityKind: 'set',
+                            targetConstantId: constantId,
+                            presentation: { name: {} },
+                            validationRules: {},
+                            uiConfig: {},
+                            sortOrder: 2
+                        }
+                    ]
+                }
+            },
+            constants: {
+                [setId]: [
+                    {
+                        id: constantId,
+                        objectId: setId,
+                        codename: 'MottoConstant',
+                        dataType: 'STRING',
+                        presentation: {
+                            name: {
+                                _schema: '1',
+                                _primary: 'ru',
+                                locales: {
+                                    ru: { content: 'Девиз', version: 1, isActive: true }
+                                }
+                            }
+                        },
+                        validationRules: {},
+                        uiConfig: {},
+                        value: {
+                            _schema: '1',
+                            _primary: 'ru',
+                            locales: {
+                                ru: { content: 'Все миры будут нашими!', version: 1, isActive: true }
+                            }
+                        },
+                        sortOrder: 0
+                    }
+                ]
+            }
+        }
+
+        const bundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'resources-app',
+            releaseVersion: 'publication-version-1',
+            sourceKind: 'publication',
+            snapshot: complexSnapshot,
+            snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(complexSnapshot, 'publication')
+        })
+
+        const [catalogEntity] = bundle.bootstrap.payload.entities
+        const rootTableField = catalogEntity.fields.find((field) => field.id === tableFieldId)
+        const flatChildField = catalogEntity.fields.find((field) => field.id === childFieldId)
+        const setField = catalogEntity.fields.find((field) => field.id === setFieldId)
+
+        expect(rootTableField).toEqual(
+            expect.objectContaining({
+                id: tableFieldId,
+                dataType: 'TABLE',
+                childFields: [
+                    expect.objectContaining({
+                        id: childFieldId,
+                        parentAttributeId: tableFieldId
+                    })
+                ]
+            })
+        )
+        expect(flatChildField).toEqual(
+            expect.objectContaining({
+                id: childFieldId,
+                parentAttributeId: tableFieldId,
+                dataType: 'STRING'
+            })
+        )
+        expect(setField).toEqual(
+            expect.objectContaining({
+                id: setFieldId,
+                targetConstantId: constantId,
+                uiConfig: expect.objectContaining({
+                    targetConstantId: constantId,
+                    setConstantRef: expect.objectContaining({
+                        id: constantId,
+                        codename: 'MottoConstant',
+                        dataType: 'STRING',
+                        value: expect.objectContaining({
+                            _primary: 'ru'
+                        }),
+                        name: expect.objectContaining({
+                            _primary: 'ru'
+                        })
+                    })
+                })
+            })
+        )
     })
 })

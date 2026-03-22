@@ -90,7 +90,17 @@ export default defineConfig(async ({ mode }) => {
                 { find: '@ui', replacement: resolve(__dirname, 'src') },
                 { find: '@tabler/icons-react', replacement: tablerIconsEsm },
                 // Force browser version of @universo/utils (only bare import)
-                { find: /^@universo\/utils$/, replacement: resolve(__dirname, '../../universo-utils/base/src/index.browser.ts') }
+                { find: /^@universo\/utils$/, replacement: resolve(__dirname, '../../universo-utils/base/src/index.browser.ts') },
+                { find: /^@universo\/utils\/env$/, replacement: resolve(__dirname, '../../universo-utils/base/src/env/index.browser.ts') },
+                {
+                    find: /^@universo\/utils\/validation\/codename$/,
+                    replacement: resolve(__dirname, '../../universo-utils/base/src/validation/codename.ts')
+                },
+                { find: /^@universo\/utils\/vlc$/, replacement: resolve(__dirname, '../../universo-utils/base/src/vlc/index.ts') },
+                {
+                    find: /^@universo\/utils\/optimistic-crud$/,
+                    replacement: resolve(__dirname, '../../universo-utils/base/src/optimisticCrud.ts')
+                }
             ]
         },
         root: resolve(__dirname),
