@@ -63,6 +63,52 @@ function formatPreviewCellValue(
     return String(value)
 }
 
+type PreviewTableField = {
+    id: string
+    codename: string
+    dataType: string
+    isRequired: boolean
+    parentAttributeId?: string | null
+}
+
+function resolvePreviewChildFieldValue(
+    rowData: Record<string, unknown> | undefined,
+    field: PreviewTableField,
+    fields: PreviewTableField[],
+    uiLocale: string,
+    t: (key: string, fallback: string, params?: Record<string, unknown>) => string
+): string {
+    const directValue = rowData?.[field.codename]
+    if (directValue !== null && directValue !== undefined) {
+        return formatPreviewCellValue(directValue, uiLocale, t)
+    }
+
+    if (!field.parentAttributeId) {
+        return ''
+    }
+
+    const parentField = fields.find((candidate) => candidate.id === field.parentAttributeId)
+    if (!parentField) {
+        return ''
+    }
+
+    const parentValue = rowData?.[parentField.codename]
+    if (!Array.isArray(parentValue)) {
+        return ''
+    }
+
+    return parentValue
+        .map((childRow) => {
+            if (!childRow || typeof childRow !== 'object') {
+                return ''
+            }
+
+            return formatPreviewCellValue((childRow as Record<string, unknown>)[field.codename], uiLocale, t)
+        })
+        .filter((value) => value.length > 0)
+        .join(', ')
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -295,7 +341,7 @@ export function ConnectorDiffDialog({
                                 </Typography>
 
                                 {createTables.map((table) => {
-                                    const fields = table.fields ?? []
+                                    const fields = (table.fields ?? []) as PreviewTableField[]
                                     const preview = (table.predefinedElementsPreview ?? [])
                                         .slice()
                                         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
@@ -366,8 +412,10 @@ export function ConnectorDiffDialog({
                                                                 {preview.map((row) => (
                                                                     <TableRow key={row.id}>
                                                                         {fields.map((f) => {
-                                                                            const display = formatPreviewCellValue(
-                                                                                row.data?.[f.codename],
+                                                                            const display = resolvePreviewChildFieldValue(
+                                                                                row.data,
+                                                                                f,
+                                                                                fields,
                                                                                 uiLocale,
                                                                                 t
                                                                             )
@@ -443,7 +491,7 @@ export function ConnectorDiffDialog({
                                 {hasCreateTableDetails && (
                                     <Box sx={{ mb: 2 }}>
                                         {createTables.map((table) => {
-                                            const fields = table.fields ?? []
+                                            const fields = (table.fields ?? []) as PreviewTableField[]
                                             const preview = (table.predefinedElementsPreview ?? [])
                                                 .slice()
                                                 .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
@@ -518,8 +566,10 @@ export function ConnectorDiffDialog({
                                                                         {preview.map((row) => (
                                                                             <TableRow key={row.id}>
                                                                                 {fields.map((f) => {
-                                                                                    const display = formatPreviewCellValue(
-                                                                                        row.data?.[f.codename],
+                                                                                    const display = resolvePreviewChildFieldValue(
+                                                                                        row.data,
+                                                                                        f,
+                                                                                        fields,
                                                                                         uiLocale,
                                                                                         t
                                                                                     )

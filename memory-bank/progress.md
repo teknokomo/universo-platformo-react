@@ -29,6 +29,29 @@
 | 0.35.0-alpha | 2025-10-30 | Bold Steps 💃                                      | i18n TypeScript migration, Rate limiting                                                            |
 | 0.34.0-alpha | 2025-10-23 | Black Hole ☕️                                     | Global monorepo refactoring, tsdown build system                                                    |
 
+## 2026-03-21 Predefined Element Create Validation Fix
+
+Closed a metahub-elements regression where creating a predefined catalog element with TABLE child rows returned HTTP 400 and the create dialog still closed, making the failure look silent from the page state alone.
+
+| Area | Resolution |
+| --- | --- |
+| Root cause | TABLE child localized STRING cells were serialized by `InlineTableEditor` into a legacy VLC object shape, while backend element validation now recognizes only the canonical localized-content contract produced by `createLocalizedContent(...)`. |
+| Payload contract fix | Replaced the custom TABLE child VLC builder with `createLocalizedContent(...)` from `@universo/utils`, so child row payloads now match the same localized-content shape used by the rest of the platform. |
+| Submit-flow fix | `ElementList` create/copy handlers now `await mutateAsync(...)` instead of calling `mutate(...)` inside `try/catch`, which keeps the dialog open and surfaces the API validation message when element creation fails. |
+| Regression coverage | Added a focused `InlineTableEditor` regression that proves localized child rows emit canonical VLC objects, plus an `ElementList` regression that proves failed create requests keep the dialog open and show the server error. |
+| Validation | Focused ESLint on touched files passed, focused Vitest regressions passed (`2/2`), and `@universo/metahubs-frontend` build passed. |
+
+## 2026-03-21 Table Child Attributes Reload Fix
+
+Closed a runtime regression where reloading the catalog attributes page after creating a TABLE attribute with child attributes caused `GET .../attribute/:id/children` to fail with `TypeError: Cannot read properties of undefined (reading 'getSystemMetadata')`.
+
+| Area | Resolution |
+| --- | --- |
+| Root cause | `MetahubAttributesService.findChildAttributes(...)` used `rows.map(this.mapRowToAttribute)`, which passed the class method as an unbound callback and dropped the service `this` context. |
+| Service fix | Converted `mapRowToAttribute` into an instance-bound arrow function so all callback-style usages preserve access to `getSystemMetadata(...)` and any future instance helpers. |
+| Regression coverage | Added a direct service regression proving `findChildAttributes(...)` maps child attribute rows correctly and keeps the `system` metadata for a fresh read path. |
+| Validation | `@universo/metahubs-backend` tests passed (`38 suites`, `255 passed`, `3 skipped`, `258 total`), lint remained green on errors with the same pre-existing warning-only debt outside this closure, and `build` passed. |
+
 ## 2026-03-20 Bootstrap Superuser Final QA Remediation
 
 Closed the final bootstrap-superuser QA follow-up by correcting the last unsafe template mismatch and fixing the previously unexecuted live integration harness so it runs against real Supabase instead of the global Jest mock.

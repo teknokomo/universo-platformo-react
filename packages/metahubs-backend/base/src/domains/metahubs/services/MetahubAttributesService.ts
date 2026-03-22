@@ -1463,7 +1463,7 @@ export class MetahubAttributesService {
         return Number.isFinite(parsed) ? parsed + 1 : 1
     }
 
-    private mapRowToAttribute(row: any) {
+    private mapRowToAttribute = (row: any) => {
         return {
             id: row.id,
             catalogId: row.object_id,

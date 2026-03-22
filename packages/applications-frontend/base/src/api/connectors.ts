@@ -89,6 +89,7 @@ export interface SchemaDiffResponse {
                         codename: string
                         dataType: string
                         isRequired: boolean
+                        parentAttributeId?: string | null
                     }>
                     predefinedElementsCount: number
                     predefinedElementsPreview: Array<{

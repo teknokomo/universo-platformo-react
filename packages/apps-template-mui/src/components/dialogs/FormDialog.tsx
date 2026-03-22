@@ -32,6 +32,7 @@ import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { TabularPartEditor } from '../TabularPartEditor'
 import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
+import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
 
 export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
@@ -493,7 +494,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             if (field.type === 'TABLE' && Array.isArray(value)) {
                 payload[field.id] = value.map((row: Record<string, unknown>) => {
                     const { _localId, __rowId, ...rest } = row
-                    return rest
+                    return field.childFields ? normalizeTabularRowValues(rest, field.childFields, normalizedLocale) : rest
                 })
             } else {
                 payload[field.id] = value

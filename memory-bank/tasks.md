@@ -3,6 +3,24 @@
 
 ---
 
+## Predefined Element Create Validation Fix — 2026-03-21
+- Status: COMPLETE
+- [x] PEC1: Fix TABLE child localized-string payload generation so inline row editors emit canonical VLC objects accepted by backend element validation
+- [x] PEC2: Fix `ElementList` create/copy async submit flow so failed mutations keep the dialog open and surface the API error instead of closing immediately
+- [x] PEC3: Add focused frontend regressions for canonical VLC row payloads and create-error dialog handling, then rerun targeted validation
+  - Note: `InlineTableEditor` now uses `createLocalizedContent(...)`, `ElementList` create/copy submit handlers await `mutateAsync(...)`, focused ESLint on touched files passed, focused Vitest regressions passed (`2/2`), and `@universo/metahubs-frontend` build passed.
+
+---
+
+## Table Child Attributes Reload Fix — 2026-03-21
+- Status: COMPLETE
+- [x] TCR1: Fix child-attribute reload crash in `MetahubAttributesService.findChildAttributes(...)` caused by losing the service `this` context inside `mapRowToAttribute`
+- [x] TCR2: Add a direct regression proving child attributes are mapped with system metadata after a fresh read path
+- [x] TCR3: Re-run `@universo/metahubs-backend` validation and sync memory-bank closure state
+  - Note: `mapRowToAttribute` is now an instance-bound arrow function, `@universo/metahubs-backend` tests passed (`38 suites`, `255 passed`, `3 skipped`, `258 total`), `lint` remained green on errors with the same large pre-existing warning-only debt outside this closure, and `build` passed.
+
+---
+
 ## Bootstrap Superuser Final QA Remediation — 2026-03-20
 - Status: COMPLETE
 - [x] BSF1: Align `.env.example` bootstrap demo credentials with the runtime warning contract and the README / GitBook documentation

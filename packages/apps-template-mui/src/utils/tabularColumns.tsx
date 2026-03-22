@@ -1,4 +1,12 @@
-import { useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+    useEffect,
+    useRef,
+    useState,
+    type ChangeEvent,
+    type FocusEvent,
+    type KeyboardEvent,
+    type MouseEvent as ReactMouseEvent
+} from 'react'
 import type { GridColDef, GridRenderEditCellParams } from '@mui/x-data-grid'
 import IconButton from '@mui/material/IconButton'
 import InputBase from '@mui/material/InputBase'
@@ -15,6 +23,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import { NUMBER_DEFAULTS, validateNumber, toNumberRules } from '@universo/utils'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
+import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
 
 type RefOption = { id: string; label: string }
 
@@ -299,6 +308,34 @@ function NumberEditCell({ id, field, value, api, nonNegative, scale, maxIntegerD
     )
 }
 
+interface LocalizedStringEditCellProps extends GridRenderEditCellParams {
+    locale: string
+}
+
+function LocalizedStringEditCell({ id, field, value, api, locale }: LocalizedStringEditCellProps) {
+    const [inputValue, setInputValue] = useState<string>(() => getTabularStringDisplayValue(value, locale))
+    const currentValueRef = useRef<unknown>(value)
+
+    useEffect(() => {
+        currentValueRef.current = value
+        setInputValue(getTabularStringDisplayValue(value, locale))
+    }, [value, locale])
+
+    const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const nextText = event.target.value
+        const nextValue = updateLocalizedTabularStringValue(currentValueRef.current, nextText, locale)
+        currentValueRef.current = nextValue
+        setInputValue(nextText)
+        api.setEditCellValue({
+            id,
+            field,
+            value: nextValue
+        })
+    }
+
+    return <InputBase value={inputValue} onChange={handleChange} fullWidth sx={{ fontSize: 'inherit', '& input': { px: 0.5, py: 0 } }} />
+}
+
 /**
  * Resolve the effective selected value for a REF enum field.
  * If the raw value is empty or missing, fall back to defaultEnumValueId when available.
@@ -511,6 +548,15 @@ export function buildTabularColumns({
                 minWidth: 120,
                 editable: true,
                 type: field.type === 'NUMBER' ? 'number' : field.type === 'BOOLEAN' ? 'boolean' : field.type === 'DATE' ? 'date' : 'string'
+            }
+
+            if (field.type === 'STRING') {
+                colDef.renderCell = (params) => getTabularStringDisplayValue(params.value, locale)
+                colDef.valueFormatter = (value: unknown) => getTabularStringDisplayValue(value, locale)
+
+                if (isLocalizedStringField(field)) {
+                    colDef.renderEditCell = (params) => <LocalizedStringEditCell {...params} locale={locale} />
+                }
             }
 
             // Customize NUMBER columns: custom edit cell + validation + alignment

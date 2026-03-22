@@ -15,6 +15,7 @@ import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 import { buildTabularColumns } from '../utils/tabularColumns'
+import { normalizeTabularCellValue } from '../utils/tabularCellValues'
 
 export interface TabularPartEditorProps {
     /** Display label for the table section. */
@@ -239,7 +240,7 @@ export function TabularPartEditor({
                             const patched = { ...row }
                             for (const field of childFields) {
                                 if (newRow[field.id] !== undefined) {
-                                    let cellValue = newRow[field.id]
+                                    let cellValue = normalizeTabularCellValue(field, newRow[field.id], resolvedLocale)
                                     // Convert empty string to null for REF fields (singleSelect empty option)
                                     if (field.type === 'REF' && cellValue === '') {
                                         cellValue = null
