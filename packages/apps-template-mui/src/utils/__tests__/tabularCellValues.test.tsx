@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { buildTabularColumns } from '../tabularColumns'
-import { normalizeTabularRowValues } from '../tabularCellValues'
+import { isLocalizedStringField, normalizeTabularRowValues } from '../tabularCellValues'
 
 const localizedChildField = {
     id: 'title',
@@ -13,6 +13,20 @@ const localizedChildField = {
 }
 
 describe('tabularCellValues', () => {
+    it('treats versioned string fields as localized even when localized=false is explicit', () => {
+        expect(
+            isLocalizedStringField({
+                id: 'versioned-title',
+                type: 'STRING',
+                localized: false,
+                validationRules: {
+                    localized: false,
+                    versioned: true
+                }
+            })
+        ).toBe(true)
+    })
+
     it('renders localized child STRING values as text instead of object stringification', () => {
         const columns = buildTabularColumns({
             childFields: [localizedChildField],

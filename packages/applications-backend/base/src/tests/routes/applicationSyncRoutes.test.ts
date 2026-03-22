@@ -142,7 +142,7 @@ jest.mock('../../services/ConnectorSyncTouchStore', () => ({
     persistConnectorSyncTouch: (...args: unknown[]) => mockPersistConnectorSyncTouch(...args)
 }))
 
-import { createApplicationSyncRoutes } from '../../routes/applicationSyncRoutes'
+import { createApplicationSyncRoutes, toStructuralSchemaSnapshot } from '../../routes/applicationSyncRoutes'
 import { calculateSchemaDiff, createDDLServices } from '@universo/schema-ddl'
 import {
     calculateApplicationReleaseChecksum,
@@ -1066,6 +1066,27 @@ describe('applicationSyncRoutes', () => {
                 afterMigrationRecorded: expect.any(Function)
             })
         )
+    })
+
+    it('normalizes schema snapshots to structural data without generatedAt noise', () => {
+        const releaseBundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'application-1',
+            releaseVersion: 'publication-version-1',
+            sourceKind: 'publication',
+            snapshot: baseSyncContext.snapshot,
+            snapshotHash: baseSyncContext.snapshotHash,
+            publicationId: 'publication-1',
+            publicationVersionId: 'publication-version-1'
+        })
+        const releaseSchemaSnapshot = releaseBundle.incrementalMigration.payload.schemaSnapshot
+
+        expect(
+            toStructuralSchemaSnapshot({
+                ...releaseSchemaSnapshot,
+                generatedAt: '2026-03-14T09:00:00.000Z'
+            })
+        ).toEqual(toStructuralSchemaSnapshot(releaseSchemaSnapshot))
     })
 
     it('returns pending_confirmation when destructive changes are detected without confirmation', async () => {

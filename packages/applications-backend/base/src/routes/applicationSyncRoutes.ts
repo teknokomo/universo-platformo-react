@@ -300,6 +300,17 @@ function compareStableValues(left: unknown, right: unknown): boolean {
     return stableStringify(left) === stableStringify(right)
 }
 
+export function toStructuralSchemaSnapshot(snapshot: SchemaSnapshot | null): Pick<SchemaSnapshot, 'hasSystemTables' | 'entities'> | null {
+    if (!snapshot) {
+        return null
+    }
+
+    return {
+        hasSystemTables: snapshot.hasSystemTables,
+        entities: snapshot.entities
+    }
+}
+
 function quoteSchemaName(schemaName: string): string {
     assertCanonicalSchemaName(schemaName)
     return quoteIdentifier(schemaName)
@@ -1223,7 +1234,10 @@ async function syncApplicationSchemaFromSource(options: {
         source.incrementalPayload.schemaSnapshot,
         application.workspacesEnabled
     )
-    const releaseSchemaSnapshotMatchesTrackedState = compareStableValues(trackedSchemaSnapshot, expectedReleaseSchemaSnapshot)
+    const releaseSchemaSnapshotMatchesTrackedState = compareStableValues(
+        toStructuralSchemaSnapshot(trackedSchemaSnapshot),
+        toStructuralSchemaSnapshot(expectedReleaseSchemaSnapshot)
+    )
 
     if (schemaExists) {
         const latestMigration = await migrationManager.getLatestMigration(application.schemaName)

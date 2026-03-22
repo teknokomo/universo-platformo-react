@@ -298,4 +298,76 @@ describe('ConnectorDiffDialog', () => {
         expect(screen.getByText('Чистая вода, Сахар')).toBeInTheDocument()
         expect(screen.getByText('0.7, 0.2')).toBeInTheDocument()
     })
+
+    it('renders direct child preview values safely when parent lookup metadata is missing', async () => {
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: false,
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: [],
+                        details: {
+                            create: {
+                                tables: [
+                                    {
+                                        id: 'catalog-1',
+                                        codename: 'Resources',
+                                        tableName: 'cat_resources',
+                                        fields: [
+                                            {
+                                                id: 'field-child-name',
+                                                codename: 'NestedTitle',
+                                                dataType: 'STRING',
+                                                isRequired: true,
+                                                parentAttributeId: 'missing-parent'
+                                            }
+                                        ],
+                                        predefinedElementsCount: 1,
+                                        predefinedElementsPreview: [
+                                            {
+                                                id: 'row-1',
+                                                sortOrder: 0,
+                                                data: {
+                                                    NestedTitle: {
+                                                        _schema: '1',
+                                                        _primary: 'ru',
+                                                        locales: {
+                                                            ru: {
+                                                                content: 'Чистая вода',
+                                                                version: 1,
+                                                                isActive: true
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={vi.fn()}
+                isSyncing={false}
+                uiLocale='ru'
+                schemaStatus='draft'
+            />
+        )
+
+        await userEvent.click(screen.getByText('Resources'))
+
+        expect(screen.getByText('Чистая вода')).toBeInTheDocument()
+    })
 })

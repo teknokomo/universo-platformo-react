@@ -11,7 +11,8 @@ import type { FieldConfig } from '../components/dialogs/FormDialog'
 type TabularFieldLike = Pick<FieldConfig, 'id' | 'type' | 'localized' | 'validationRules'>
 
 export const isLocalizedStringField = (field: TabularFieldLike): boolean =>
-    field.type === 'STRING' && Boolean(field.validationRules?.localized ?? field.validationRules?.versioned ?? field.localized)
+    field.type === 'STRING' &&
+    (field.validationRules?.localized === true || field.validationRules?.versioned === true || field.localized === true)
 
 export const getTabularStringDisplayValue = (value: unknown, locale: string): string => {
     if (value === null || value === undefined) return ''
