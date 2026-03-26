@@ -132,8 +132,9 @@ export class SystemTableMigrator {
                         [SystemChangeType.RENAME_INDEX]: 30,
                         [SystemChangeType.ADD_COLUMN]: 40,
                         [SystemChangeType.ALTER_COLUMN]: 50,
-                        [SystemChangeType.ADD_INDEX]: 60,
-                        [SystemChangeType.ADD_FK]: 70,
+                        [SystemChangeType.ALTER_INDEX]: 60,
+                        [SystemChangeType.ADD_INDEX]: 70,
+                        [SystemChangeType.ADD_FK]: 80,
                         [SystemChangeType.DROP_TABLE]: 1000,
                         [SystemChangeType.DROP_COLUMN]: 1000,
                         [SystemChangeType.DROP_INDEX]: 1000,
@@ -174,6 +175,11 @@ export class SystemTableMigrator {
                         }
                         case SystemChangeType.ADD_INDEX: {
                             await this.addIndex(trx, change.tableName, change.definition as SystemIndexDef)
+                            applied.push(change.description)
+                            break
+                        }
+                        case SystemChangeType.ALTER_INDEX: {
+                            await this.alterIndex(trx, change.tableName, change.definition as SystemIndexDef)
                             applied.push(change.description)
                             break
                         }
@@ -250,6 +256,16 @@ export class SystemTableMigrator {
      * Creates an index on an existing table.
      */
     private async addIndex(trx: Knex, tableName: string, idx: SystemIndexDef): Promise<void> {
+        await trx.raw(buildIndexSQL(this.schemaName, tableName, idx))
+    }
+
+    /**
+     * Recreates an existing index when its definition changes.
+     */
+    private async alterIndex(trx: Knex, tableName: string, idx: SystemIndexDef): Promise<void> {
+        const qSchema = this.quoteIdent(this.schemaName)
+        const qIndex = this.quoteIdent(idx.name)
+        await trx.raw(`DROP INDEX IF EXISTS ${qSchema}.${qIndex}`)
         await trx.raw(buildIndexSQL(this.schemaName, tableName, idx))
     }
 

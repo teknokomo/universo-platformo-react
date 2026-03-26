@@ -7,6 +7,7 @@ import {
     resolveCatalogSystemAttributeSeedPlan,
     resolvePlatformSystemAttributesPolicyRows
 } from '../../shared/platformSystemAttributesPolicy'
+import { ensureCodenameValue } from '../../shared/codename'
 
 export interface EnsureCatalogSystemAttributesResult {
     inserted: number
@@ -75,7 +76,7 @@ export async function ensureCatalogSystemAttributesSeed(
                 .from('_mhb_attributes')
                 .where({ id: existing.id })
                 .update({
-                    codename: seed.codename,
+                    codename: ensureCodenameValue(seed.codename),
                     data_type: seed.dataType,
                     presentation: seed.presentation,
                     sort_order: seed.sortOrder,
@@ -92,36 +93,39 @@ export async function ensureCatalogSystemAttributesSeed(
             continue
         }
 
-        await qb.withSchema(schemaName).into('_mhb_attributes').insert({
-            object_id: catalogId,
-            codename: seed.codename,
-            data_type: seed.dataType,
-            presentation: seed.presentation,
-            validation_rules: {},
-            ui_config: {},
-            sort_order: seed.sortOrder,
-            is_required: false,
-            is_display_attribute: false,
-            target_object_id: null,
-            target_object_kind: null,
-            target_constant_id: null,
-            parent_attribute_id: null,
-            is_system: seed.isSystem,
-            system_key: seed.key,
-            is_system_managed: seed.isSystemManaged,
-            is_system_enabled: seed.isSystemEnabled,
-            _upl_created_at: now,
-            _upl_created_by: actorId,
-            _upl_updated_at: now,
-            _upl_updated_by: actorId,
-            _upl_version: 1,
-            _upl_archived: false,
-            _upl_deleted: false,
-            _upl_locked: false,
-            _mhb_published: true,
-            _mhb_archived: false,
-            _mhb_deleted: false
-        })
+        await qb
+            .withSchema(schemaName)
+            .into('_mhb_attributes')
+            .insert({
+                object_id: catalogId,
+                codename: ensureCodenameValue(seed.codename),
+                data_type: seed.dataType,
+                presentation: seed.presentation,
+                validation_rules: {},
+                ui_config: {},
+                sort_order: seed.sortOrder,
+                is_required: false,
+                is_display_attribute: false,
+                target_object_id: null,
+                target_object_kind: null,
+                target_constant_id: null,
+                parent_attribute_id: null,
+                is_system: seed.isSystem,
+                system_key: seed.key,
+                is_system_managed: seed.isSystemManaged,
+                is_system_enabled: seed.isSystemEnabled,
+                _upl_created_at: now,
+                _upl_created_by: actorId,
+                _upl_updated_at: now,
+                _upl_updated_by: actorId,
+                _upl_version: 1,
+                _upl_archived: false,
+                _upl_deleted: false,
+                _upl_locked: false,
+                _mhb_published: true,
+                _mhb_archived: false,
+                _mhb_deleted: false
+            })
         inserted += 1
     }
 

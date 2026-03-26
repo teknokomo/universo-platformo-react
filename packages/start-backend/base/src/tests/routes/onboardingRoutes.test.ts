@@ -233,7 +233,7 @@ describe('createOnboardingRoutes', () => {
             expect(mockMarkOnboardingCompleted).toHaveBeenCalledWith('user-1', 'user@example.com')
             expect(mockAssignSystemRole).toHaveBeenCalledWith({
                 userId: 'user-1',
-                roleCodename: 'user',
+                roleCodename: 'User',
                 reason: 'auto-assigned on onboarding completion'
             })
         })
@@ -261,13 +261,10 @@ describe('createOnboardingRoutes', () => {
             expect(res.status).toBe(500)
             expect(failingAssignSystemRole).toHaveBeenCalledWith({
                 userId: 'user-1',
-                roleCodename: 'user',
+                roleCodename: 'User',
                 reason: 'auto-assigned on onboarding completion'
             })
-            expect(query).toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE profiles.cat_profiles'),
-                [false, 'user-1']
-            )
+            expect(query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.cat_profiles'), [false, 'user-1'])
         })
 
         it('returns 401 when unauthenticated', async () => {

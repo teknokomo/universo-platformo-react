@@ -3,11 +3,11 @@ import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable, qSchema } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { incrementVersion, updateWithVersionCheck } from '../../../utils/optimisticLock'
+import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 
 interface EnumerationValueCreateInput {
     enumerationId: string
-    codename: string
-    codenameLocalized?: unknown
+    codename: unknown
     name: unknown
     description?: unknown
     sortOrder?: number
@@ -16,8 +16,7 @@ interface EnumerationValueCreateInput {
 }
 
 interface EnumerationValueUpdateInput {
-    codename?: string
-    codenameLocalized?: unknown
+    codename?: unknown
     name?: unknown
     description?: unknown
     sortOrder?: number
@@ -96,7 +95,7 @@ export class MetahubEnumerationValuesService {
         const row = await queryOne<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt}
-             WHERE object_id = $1 AND codename = $2 AND ${ACTIVE}
+             WHERE object_id = $1 AND ${codenamePrimaryTextSql('codename')} = $2 AND ${ACTIVE}
              LIMIT 1`,
             [enumerationId, codename]
         )
@@ -123,6 +122,7 @@ export class MetahubEnumerationValuesService {
 
             const nextSortOrder =
                 typeof data.sortOrder === 'number' ? data.sortOrder : await this.getNextSortOrder(schemaName, data.enumerationId, tx)
+            const codename = ensureCodenameValue(data.codename)
 
             const created = await queryOneOrThrow<Record<string, unknown>>(
                 tx,
@@ -133,8 +133,8 @@ export class MetahubEnumerationValuesService {
                  RETURNING *`,
                 [
                     data.enumerationId,
-                    data.codename,
-                    JSON.stringify({ codename: data.codenameLocalized, name: data.name, description: data.description }),
+                    JSON.stringify(codename),
+                    JSON.stringify({ name: data.name, description: data.description }),
                     nextSortOrder,
                     data.isDefault ?? false,
                     new Date(),
@@ -163,14 +163,15 @@ export class MetahubEnumerationValuesService {
                 _upl_updated_by: data.updatedBy ?? null
             }
 
-            if (data.codename !== undefined) updateData.codename = data.codename
+            if (data.codename !== undefined) {
+                updateData.codename = ensureCodenameValue(data.codename ?? current.codename)
+            }
             if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-            if (data.name !== undefined || data.description !== undefined || data.codenameLocalized !== undefined) {
+            if (data.name !== undefined || data.description !== undefined) {
                 const currentPresentation = (current.presentation as Record<string, unknown>) ?? {}
                 updateData.presentation = JSON.stringify({
                     ...currentPresentation,
-                    ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                     ...(data.name !== undefined ? { name: data.name } : {}),
                     ...(data.description !== undefined ? { description: data.description } : {})
                 })
@@ -371,8 +372,7 @@ export class MetahubEnumerationValuesService {
         return {
             id: row.id,
             objectId: row.object_id,
-            codename: row.codename,
-            codenameLocalized: presentation?.codename ?? null,
+            codename: ensureCodenameValue(row.codename),
             name: presentation?.name ?? {},
             description: presentation?.description ?? {},
             sortOrder: (row.sort_order as number) ?? 0,

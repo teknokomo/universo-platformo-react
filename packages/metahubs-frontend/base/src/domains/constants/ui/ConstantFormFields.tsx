@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
 import { Box, FormControl, FormControlLabel, FormHelperText, InputLabel, MenuItem, Select, Stack, Switch, TextField } from '@mui/material'
-import { CollapsibleSection, LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync } from '@universo/template-mui'
+import { CollapsibleSection, LocalizedInlineField, useCodenameAutoFillVlc } from '@universo/template-mui'
 import type { ConstantDataType, VersionedLocalizedContent } from '@universo/types'
 import { NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
-import { getVLCString } from '../../../types'
 import { CodenameField } from '../../../components'
 import { sanitizeCodenameForStyle } from '../../../utils/codename'
 import { ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -98,38 +97,18 @@ export const ConstantGeneralFields = ({
 }: ConstantGeneralFieldsProps) => {
     const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
     const dataType = (values.dataType as ConstantDataType | undefined) ?? 'STRING'
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
 
     const validationRules = useMemo(
         () => ensureConstantValidationRules(dataType, values.validationRules as Record<string, unknown> | undefined),
         [dataType, values.validationRules]
     )
 
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -139,7 +118,7 @@ export const ConstantGeneralFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     const updateValidationRule = (key: string, value: unknown): void => {
@@ -308,9 +287,6 @@ export const ConstantGeneralFields = ({
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={labels.codename}
                 helperText={labels.codenameHelper}

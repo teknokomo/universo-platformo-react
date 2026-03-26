@@ -6,7 +6,8 @@ import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQue
 import { queryMany, queryOne } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
 import { findMetahubById } from '../../../persistence'
-import { ensureMetahubAccess } from '../../shared/guards'
+import { ensureMetahubAccess, createEnsureMetahubRouteAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { database, normalizeHubCopyOptions } from '@universo/utils'
@@ -22,19 +23,17 @@ import {
     CODENAME_RETRY_MAX_ATTEMPTS,
     CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT
 } from '../../shared/codenameStyleHelper'
-
-type RequestUser = {
-    id?: string
-    sub?: string
-    user_id?: string
-    userId?: string
-}
-
-type RequestWithUser = Request & { user?: RequestUser }
+import {
+    getCodenamePayloadText,
+    optionalCodenamePayloadSchema,
+    requiredCodenamePayloadSchema,
+    syncOptionalCodenamePayloadText,
+    syncCodenamePayloadText
+} from '../../shared/codenamePayload'
 
 type HubListItemRow = {
     id: string
-    codename: string
+    codename: unknown
     name?: unknown
     description?: unknown
     sort_order?: number
@@ -52,16 +51,11 @@ type RelatedObjectRow = {
 }
 
 type CopiedHubRow = HubListItemRow & {
-    codenameLocalized?: unknown
     name?: unknown
     description?: unknown
 }
 
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as RequestWithUser).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
+const getHubCodenameText = (codename: unknown): string => getCodenamePayloadText(codename as Parameters<typeof getCodenamePayloadText>[0])
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
 
@@ -112,54 +106,53 @@ const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transfo
 const optionalLocalizedInputSchema = z
     .union([z.string(), z.record(z.string())])
     .transform((val) => (typeof val === 'string' ? { en: val } : val))
-const localizedCodenameInputSchema = z
-    .union([z.string(), z.record(z.string())])
-    .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
-const createHubSchema = z.object({
-    codename: z.string().min(1).max(100),
-    codenameInput: localizedCodenameInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional(),
-    parentHubId: z.string().uuid().nullable().optional()
-})
+const createHubSchema = z
+    .object({
+        codename: requiredCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        sortOrder: z.number().int().optional(),
+        parentHubId: z.string().uuid().nullable().optional()
+    })
+    .strict()
 
-const updateHubSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedCodenameInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional(),
-    parentHubId: z.string().uuid().nullable().optional(),
-    expectedVersion: z.number().int().positive().optional() // For optimistic locking
-})
+const updateHubSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        sortOrder: z.number().int().optional(),
+        parentHubId: z.string().uuid().nullable().optional(),
+        expectedVersion: z.number().int().positive().optional() // For optimistic locking
+    })
+    .strict()
 
-const copyHubSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedCodenameInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    parentHubId: z.string().uuid().nullable().optional(),
-    copyAllRelations: z.boolean().optional(),
-    copyCatalogRelations: z.boolean().optional(),
-    copySetRelations: z.boolean().optional(),
-    copyEnumerationRelations: z.boolean().optional()
-})
+const copyHubSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        parentHubId: z.string().uuid().nullable().optional(),
+        copyAllRelations: z.boolean().optional(),
+        copyCatalogRelations: z.boolean().optional(),
+        copySetRelations: z.boolean().optional(),
+        copyEnumerationRelations: z.boolean().optional()
+    })
+    .strict()
 
-const reorderHubsSchema = z.object({
-    hubId: z.string().uuid(),
-    newSortOrder: z.number().int().min(1)
-})
+const reorderHubsSchema = z
+    .object({
+        hubId: z.string().uuid(),
+        newSortOrder: z.number().int().min(1)
+    })
+    .strict()
 
 export function createHubsRoutes(
     ensureAuth: RequestHandler,
@@ -399,6 +392,8 @@ export function createHubsRoutes(
         return { ok: true }
     }
 
+    const ensureMetahubRouteAccess = createEnsureMetahubRouteAccess(getDbExecutor)
+
     /**
      * GET /metahub/:metahubId/hubs
      * List all hubs in a metahub (from _mhb_objects with kind='hub')
@@ -409,7 +404,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
             const { hubsService, objectsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             let validatedQuery
             try {
@@ -494,7 +490,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { exec: listExec, schemaService, hubsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const parentHub = await hubsService.findById(metahubId, hubId, userId)
             if (!parentHub) {
@@ -632,7 +629,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { hubsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
 
@@ -664,7 +662,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
             const { exec, hubsService, settingsService, schemaService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             // Verify metahub exists
             const metahub = await findMetahubById(exec, metahubId)
@@ -677,17 +676,7 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const {
-                codename,
-                codenameInput,
-                codenamePrimaryLocale,
-                name,
-                description,
-                sortOrder,
-                parentHubId,
-                namePrimaryLocale,
-                descriptionPrimaryLocale
-            } = parsed.data
+            const { codename, name, description, sortOrder, parentHubId, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
 
             const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
             if (!allowHubNesting && parentHubId) {
@@ -699,7 +688,7 @@ export function createHubsRoutes(
                 alphabet: codenameAlphabet,
                 allowMixed
             } = await getCodenameSettings(settingsService, metahubId, userId)
-            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            const normalizedCodename = normalizeCodenameForStyle(getCodenamePayloadText(codename), codenameStyle, codenameAlphabet)
             if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
@@ -731,11 +720,7 @@ export function createHubsRoutes(
                 }
             }
 
-            const sanitizedCodenameInput = sanitizeLocalizedInput(codenameInput ?? {})
-            const codenameLocalizedVlc =
-                Object.keys(sanitizedCodenameInput).length > 0
-                    ? buildLocalizedContent(sanitizedCodenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
-                    : null
+            const codenamePayload = syncOptionalCodenamePayloadText(codename, namePrimaryLocale ?? 'en', normalizedCodename)
 
             const parentValidation = await validateHubParentRelation({
                 metahubId,
@@ -753,8 +738,7 @@ export function createHubsRoutes(
                 saved = await hubsService.create(
                     metahubId,
                     {
-                        codename: normalizedCodename,
-                        codenameLocalized: (codenameLocalizedVlc as unknown as Record<string, unknown>) ?? null,
+                        codename: codenamePayload ?? normalizedCodename,
                         name: nameVlc as unknown as Record<string, unknown>,
                         description: descriptionVlc as unknown as Record<string, unknown> | undefined,
                         sortOrder,
@@ -773,7 +757,6 @@ export function createHubsRoutes(
             res.status(201).json({
                 id: saved.id,
                 codename: saved.codename,
-                codenameLocalized: saved.codenameLocalized ?? null,
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
@@ -849,22 +832,6 @@ export function createHubsRoutes(
                 }
             }
 
-            let codenameLocalizedVlc: unknown = sourceHub.codenameLocalized ?? null
-            if (parsed.data.codenameInput !== undefined) {
-                const sanitizedCodenameInput = sanitizeLocalizedInput(parsed.data.codenameInput)
-                codenameLocalizedVlc =
-                    Object.keys(sanitizedCodenameInput).length > 0
-                        ? buildLocalizedContent(
-                              sanitizedCodenameInput,
-                              parsed.data.codenamePrimaryLocale,
-                              parsed.data.namePrimaryLocale ?? sourceNamePrimary
-                          )
-                        : null
-            }
-            const codenamePrimaryLocale = normalizeLocaleCode(
-                parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceNamePrimary
-            )
-
             const {
                 style: codenameStyle,
                 alphabet: codenameAlphabet,
@@ -872,7 +839,9 @@ export function createHubsRoutes(
             } = await getCodenameSettings(settingsService, metahubId, userId)
             const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
             const normalizedBaseCodename = normalizeCodenameForStyle(
-                parsed.data.codename ?? `${sourceHub.codename}${copySuffix}`,
+                parsed.data.codename
+                    ? getCodenamePayloadText(parsed.data.codename)
+                    : `${getHubCodenameText(sourceHub.codename)}${copySuffix}`,
                 codenameStyle,
                 codenameAlphabet
             )
@@ -915,16 +884,27 @@ export function createHubsRoutes(
 
             const createHubCopy = async (codename: string) => {
                 return exec.transaction(async (trx: SqlQueryable) => {
-                    const codenameLocalizedForCopy =
-                        parsed.data.codenameInput === undefined
-                            ? buildLocalizedContent({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
-                            : codenameLocalizedVlc
+                    const codenamePayloadForCopy =
+                        parsed.data.codename === undefined
+                            ? syncCodenamePayloadText(
+                                  undefined,
+                                  parsed.data.namePrimaryLocale ?? sourceNamePrimary,
+                                  codename,
+                                  codenameStyle,
+                                  codenameAlphabet
+                              )
+                            : syncCodenamePayloadText(
+                                  parsed.data.codename,
+                                  parsed.data.namePrimaryLocale ?? sourceNamePrimary,
+                                  codename,
+                                  codenameStyle,
+                                  codenameAlphabet
+                              )
 
                     const copiedHub = (await hubsService.create(
                         metahubId,
                         {
-                            codename,
-                            codenameLocalized: (codenameLocalizedForCopy as unknown as Record<string, unknown> | null | undefined) ?? null,
+                            codename: codenamePayloadForCopy ?? codename,
                             name: nameVlc as unknown as Record<string, unknown>,
                             description: (descriptionVlc as unknown as Record<string, unknown> | undefined) ?? undefined,
                             parentHubId: targetParentHubId ?? null,
@@ -1040,7 +1020,6 @@ export function createHubsRoutes(
             return res.status(201).json({
                 id: copiedHub.id,
                 codename: copiedHub.codename,
-                codenameLocalized: copiedHub.codenameLocalized ?? null,
                 name: copiedHub.name ?? {},
                 description: copiedHub.description ?? null,
                 sortOrder: copiedHub.sort_order ?? 0,
@@ -1062,7 +1041,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { exec, hubsService, settingsService, schemaService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
@@ -1074,18 +1054,8 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const {
-                codename,
-                codenameInput,
-                codenamePrimaryLocale,
-                name,
-                description,
-                sortOrder,
-                parentHubId,
-                namePrimaryLocale,
-                descriptionPrimaryLocale,
-                expectedVersion
-            } = parsed.data
+            const { codename, name, description, sortOrder, parentHubId, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } =
+                parsed.data
 
             const updateData: Record<string, unknown> = {}
             const currentParentHubId = resolveParentHubId(hub as Record<string, unknown>)
@@ -1096,20 +1066,21 @@ export function createHubsRoutes(
                     alphabet: codenameAlphabet,
                     allowMixed
                 } = await getCodenameSettings(settingsService, metahubId, userId)
-                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                const normalizedCodename = normalizeCodenameForStyle(getCodenamePayloadText(codename), codenameStyle, codenameAlphabet)
                 if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
                         details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
-                if (normalizedCodename !== hub.codename) {
+                if (normalizedCodename !== getHubCodenameText(hub.codename)) {
                     const existing = await hubsService.findByCodename(metahubId, normalizedCodename, userId)
                     if (existing) {
                         return res.status(409).json({ error: 'Hub with this codename already exists' })
                     }
-                    updateData.codename = normalizedCodename
                 }
+                updateData.codename =
+                    syncOptionalCodenamePayloadText(codename, namePrimaryLocale ?? 'en', normalizedCodename) ?? normalizedCodename
             }
 
             if (name !== undefined) {
@@ -1143,18 +1114,6 @@ export function createHubsRoutes(
                 } else {
                     updateData.description = null
                 }
-            }
-
-            if (codenameInput !== undefined) {
-                const sanitizedCodenameInput = sanitizeLocalizedInput(codenameInput)
-                updateData.codenameLocalized =
-                    Object.keys(sanitizedCodenameInput).length > 0
-                        ? (buildLocalizedContent(
-                              sanitizedCodenameInput,
-                              codenamePrimaryLocale,
-                              namePrimaryLocale ?? 'en'
-                          ) as unknown as Record<string, unknown>)
-                        : null
             }
 
             if (sortOrder !== undefined) {
@@ -1210,7 +1169,6 @@ export function createHubsRoutes(
             res.json({
                 id: saved.id,
                 codename: saved.codename,
-                codenameLocalized: saved.codenameLocalized ?? null,
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
@@ -1234,7 +1192,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { exec: blockExec, hubsService, schemaService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
@@ -1272,7 +1231,8 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { exec: delExec, hubsService, schemaService, settingsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
+            if (!userId) return
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {

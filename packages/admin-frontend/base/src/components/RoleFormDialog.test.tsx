@@ -43,6 +43,22 @@ type MockColorPickerProps = {
     onChange: (value: string) => void
 }
 
+type MockCodenameFieldProps = {
+    label: string
+    value: { _primary?: string; locales?: Record<string, { content?: string }> } | null
+    onChange: (value: ReturnType<typeof buildLocalizedValue>) => void
+    onTouchedChange: (touched: boolean) => void
+    disabled?: boolean
+}
+
+const expectVlcWithContent = (content: string) =>
+    expect.objectContaining({
+        _primary: 'en',
+        locales: expect.objectContaining({
+            en: expect.objectContaining({ content })
+        })
+    })
+
 vi.mock('react-i18next', async (importOriginal) => {
     const actual = await importOriginal<typeof import('react-i18next')>()
 
@@ -80,6 +96,31 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                     })
                 }
             />
+        ),
+        CodenameField: ({ label, value, onChange, onTouchedChange, disabled }: MockCodenameFieldProps) => (
+            <div className='MuiFormControl-root'>
+                <span>{label}</span>
+                <input
+                    value={value?.locales?.[value?._primary || 'en']?.content ?? ''}
+                    disabled={disabled}
+                    onChange={(event) => {
+                        onTouchedChange(true)
+                        onChange({
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: {
+                                    content: event.target.value,
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '2026-03-18T00:00:00.000Z',
+                                    updatedAt: '2026-03-18T00:00:00.000Z'
+                                }
+                            }
+                        })
+                    }}
+                />
+            </div>
         )
     }
 })
@@ -88,6 +129,15 @@ vi.mock('./ColorPicker', () => ({
     ColorPicker: ({ label, value, onChange }: MockColorPickerProps) => (
         <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
     )
+}))
+
+vi.mock('../hooks/usePlatformCodenameConfig', () => ({
+    usePlatformCodenameConfig: () => ({
+        style: 'pascal-case' as const,
+        alphabet: 'en-ru' as const,
+        allowMixed: false,
+        autoConvertMixedAlphabets: true
+    })
 }))
 
 describe('RoleFormDialog', () => {
@@ -99,14 +149,14 @@ describe('RoleFormDialog', () => {
         const codenameInput = getCodenameInput()
         const nameInput = screen.getByLabelText('Name')
 
-        fireEvent.change(codenameInput, { target: { value: 'editor-copy' } })
+        fireEvent.change(codenameInput, { target: { value: 'EditorCopy' } })
         fireEvent.change(nameInput, { target: { value: 'Editor Copy' } })
         fireEvent.click(screen.getByRole('button', { name: 'Copy role' }))
 
         await waitFor(() => {
             expect(onSubmit).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    codename: 'editor-copy',
+                    codename: expectVlcWithContent('EditorCopy'),
                     copyPermissions: false
                 })
             )
@@ -121,7 +171,7 @@ describe('RoleFormDialog', () => {
         const codenameInput = getCodenameInput()
         const nameInput = screen.getByLabelText('Name')
 
-        fireEvent.change(codenameInput, { target: { value: 'editor-copy' } })
+        fireEvent.change(codenameInput, { target: { value: 'EditorCopy' } })
         fireEvent.change(nameInput, { target: { value: 'Editor Copy' } })
         fireEvent.click(screen.getByLabelText('Copy permissions from source role'))
         fireEvent.click(screen.getByRole('button', { name: 'Copy role' }))
@@ -129,7 +179,7 @@ describe('RoleFormDialog', () => {
         await waitFor(() => {
             expect(onSubmit).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    codename: 'editor-copy',
+                    codename: expectVlcWithContent('EditorCopy'),
                     copyPermissions: true
                 })
             )
@@ -142,7 +192,7 @@ describe('RoleFormDialog', () => {
         fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Content Editor' } })
 
         await waitFor(() => {
-            expect(getCodenameInput().value).toBe('content-editor')
+            expect(getCodenameInput().value).toBe('ContentEditor')
         })
     })
 
@@ -167,7 +217,7 @@ describe('RoleFormDialog', () => {
         const props = copyAction?.dialog?.buildProps({
             entity: {
                 id: 'role-1',
-                codename: 'editor',
+                codename: buildLocalizedValue('editor'),
                 name: buildLocalizedValue('Editor'),
                 description: buildLocalizedValue('Editor role'),
                 color: '#111111',
@@ -181,7 +231,7 @@ describe('RoleFormDialog', () => {
 
         expect(props).toEqual(
             expect.objectContaining({
-                initialCodename: 'editor_copy',
+                initialCodename: expectVlcWithContent('editor_copy'),
                 initialCopyPermissions: false,
                 showCopyPermissions: true
             })
@@ -193,7 +243,7 @@ describe('RoleFormDialog', () => {
         const props = editAction?.dialog?.buildProps({
             entity: {
                 id: 'role-1',
-                codename: 'editor',
+                codename: buildLocalizedValue('editor'),
                 name: buildLocalizedValue('Editor'),
                 description: buildLocalizedValue('Editor role'),
                 color: '#111111',
@@ -208,7 +258,7 @@ describe('RoleFormDialog', () => {
         expect(editAction?.dialog).toBeTruthy()
         expect(props).toEqual(
             expect.objectContaining({
-                initialCodename: 'editor',
+                initialCodename: buildLocalizedValue('editor'),
                 codenameDisabled: false,
                 showCopyPermissions: false
             })

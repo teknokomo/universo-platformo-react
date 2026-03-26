@@ -1,9 +1,7 @@
 # Technical Context
 
 ## 🔄 Custom Modifications to Preserve
-
 ### Authentication Architecture - **COMPLETED MIGRATION**
-
 **Previous**: Multi-user Supabase JWT authentication
 **Current**: Passport.js + Supabase hybrid authentication with session management
 **Integration Point**: Bridge between Supabase JWT ↔ Passport.js successfully implemented
@@ -65,9 +63,18 @@ if (!userId) return
 -   **Shared validation source**: Codename normalization/validation lives in `@universo/utils/validation/codename` and is consumed by frontend + backend.
 -   **Shared retry policy**: Backend codename copy/rename flows use centralized constants in `domains/shared/codenameStyleHelper.ts` (`CODENAME_RETRY_MAX_ATTEMPTS`, `CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT`).
 -   **Style-safe retry generation**: `buildCodenameAttempt()` now preserves style correctness for retry suffixes (`-N` for kebab-case, `N` for pascal-case) while respecting max-length limits.
+-   **Single-field storage contract**: shared types, fixed admin/metahubs schemas, and runtime application metadata now converge on one persisted `codename JSONB` field using the canonical VLC shape.
+-   **Canonical machine identifier**: lookups, uniqueness, and ordering use the extracted primary locale content from the codename JSONB document instead of a second persisted string field.
+-   **Locale sanitization rule**: codename normalization must sanitize every locale entry in the VLC payload under the active codename policy; backend hard uniqueness still remains primary-only.
+-   **Fixed-schema rollout rule**: changing the admin/metahubs fixed-schema codename contract for live installations requires a new versioned platform migration file because edits to already-applied bootstrap definitions do not rerun on deployed databases.
+-   **Runtime request seam**: applications runtime routes now normalize codename JSON to primary text before using codename as a request-body field key or presentation fallback, preventing JSONB codename from leaking into string-only route assumptions.
+-   **Copy-flow seam**: backend copy flows must extract primary codename text for retry/uniqueness generation and then persist the final value through canonical VLC/store helpers; raw SQL string inserts and `String(jsonbValue)` coercion are invalid for copied codename payloads.
 -   **Test coverage**:
   - `packages/universo-utils/base/src/validation/__tests__/codename.test.ts`
+  - `packages/universo-utils/base/src/vlc/__tests__/getters.test.ts`
+  - `packages/universo-utils/base/src/vlc/__tests__/index.test.ts`
   - `packages/metahubs-backend/base/src/tests/services/codenameStyleHelper.test.ts`
+  - `packages/metahubs-backend/base/src/tests/shared/codenamePayload.test.ts`
 
 #### 3.2.3 Platform System Attributes Governance
 -   **Global policy source**: platform catalog system-attribute behavior is resolved from `admin.cfg_settings` under the `metahubs` category, not from per-metahub settings alone.
@@ -123,12 +130,10 @@ if (!userId) return
 -   **Risk**: Medium - Isolated from core shell changes but needs verification
 
 ## Platform Foundation
-
 **Legacy upstream shell 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
 **Supabase Integration** - Multi-user functionality with Postgres-only database support
 
 ### Database Pooling (Supabase Tier-Scalable)
-
 **Target**: Supabase Nano tier by default (Pool Size 15, PG max_connections 60).
 
 **Pool model** (as of 2026-03-10):
@@ -172,13 +177,13 @@ if (!userId) return
 
 - **CSRF contract**: `EBADCSRFTOKEN` → HTTP 419; clients clear cached CSRF token and retry once when safe.
 - **Public routes**: centralized allowlists in `@universo/utils/routes` (`PUBLIC_UI_ROUTES`, `API_WHITELIST_URLS`).
+- **Admin SQL helper boundary**: request-scoped authenticated sessions may call admin helper functions only for their own `auth.uid()`; cross-user permission/role introspection is reserved for pool/service-role style backend execution where no request JWT user is present.
 
 **RLS request context (Knex + Postgres/Supabase)**:
 - `ensureAuthWithRls` pins a request-scoped connection, sets `request.jwt.claims` for RLS policies, exposes neutral request helpers, and resets context on cleanup.
 - No DB role switching (`SET role = ...`) required; see [systemPatterns.md](systemPatterns.md) and [rls-integration-pattern.md](rls-integration-pattern.md).
 
 ## APPs Architecture (v0.21.0-alpha)
-
 **6 Working Applications** with modular architecture minimizing core shell changes:
 
 -   **UPDL**: High-level abstract nodes (Space, Entity, Component, Event, Action, Data, Universo)
@@ -189,7 +194,6 @@ if (!userId) return
 -   **Uniks Frontend/Backend**: Workspace functionality with modular architecture
 
 ### Key Architecture Benefits
-
 -   **Workspace Packages**: `@universo/profile-backend`, `@universo/resources-backend` with clean imports and professional structure
 -   **Template-First**: Reusable export templates across multiple technologies
 -   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
@@ -197,26 +201,22 @@ if (!userId) return
 -   **Future-Ready**: Prepared for plugin extraction and microservices evolution
 
 ## Build System Architecture (Updated 2025-10-18)
-
 **Primary Tool**: tsdown v0.15.7 (Rolldown + Oxc), 100% coverage (15 custom packages).  
 **Output**: Dual-format (ESM + CJS), TypeScript declarations (.d.ts/.d.mts), tree-shaking, ~50% faster than tsc.  
 **Pattern**: Single `tsdown.config.ts`, platform neutral/node, manual package.json exports control.
 
 ### Browser env entrypoint note
-
 - `@universo/utils` now emits a dedicated browser env sub-entry (`dist/env/index.browser.*`) and maps the browser export for `./env` to that entry.
 - Current root build is green, but rolldown emits a non-failing warning that `import.meta` is empty in the CJS output of that browser-only env entry; the intended browser/Vite consumption path is the ESM/browser export.
+- The package also relies on export parity between `src/index.ts` and `src/index.browser.ts` for browser-safe helpers. When shared codename/VLC helpers were added only to the main entrypoint, downstream shell builds failed on `@universo/metahubs-frontend` dist imports until the browser entrypoint was brought back into sync.
 
 ### REST docs generation note
-
 - `@universo/rest-docs` now regenerates `src/openapi/index.yml` from live backend route files through `scripts/generate-openapi-source.js` before package validation and build.
 - The package is authoritative for current path and method inventory, but payload schemas remain generic unless promoted from stable backend contracts.
 - GitBook API-reference pages now link to the standalone interactive docs flow and document `pnpm --filter @universo/rest-docs build` plus `start` as the canonical launch path.
 
 ## UPDL Core System (v0.21.0-alpha)
-
 ### High-Level Abstract Nodes ✅ **COMPLETE**
-
 **7 Core Nodes:** Space, Entity, Component, Event, Action, Data, Universo
 
 **Key Features:**
@@ -231,7 +231,6 @@ if (!userId) return
 **Architecture Details:** See [systemPatterns.md](systemPatterns.md) for comprehensive patterns and design principles.
 
 ### Multi-Technology Export Architecture
-
 **Template-Based System** with clear technology separation:
 
 -   **AR.js**: Production-ready with iframe-based rendering and quiz functionality
@@ -241,7 +240,6 @@ if (!userId) return
 -   **Future-Ready**: Extensible for additional technologies (Babylon.js, Three.js)
 
 ### Publication System ✅ **COMPLETE**
-
 **Template-First Architecture** with reusable templates across technologies:
 
 -   **Quiz Template**: Educational AR experiences with scoring and lead collection
@@ -250,21 +248,17 @@ if (!userId) return
 -   **Multi-Technology**: AR.js (production), PlayCanvas (ready), extensible system
 
 ## Development Environment
-
 **Package Management**: PNPM workspaces with monorepo architecture
 **Build System**: TypeScript + React frontend, Node.js + Express backend
 **Base Platform**: legacy upstream shell 2.2.8 with enhanced ASSISTANT support
 
 ## Critical Technical Patterns
-
 ### React Performance Optimization
-
 -   Avoid API objects in useEffect dependencies
 -   Use useRef for API request state tracking
 -   Minimize useEffect dependencies
 
 ### Request-Scoped DB Access Pattern (Unified Database Access Standard)
-
 **Database Access Pattern** - All backend database access uses one of three permitted tiers with neutral contracts.
 
 **Three Access Tiers:**
@@ -293,7 +287,6 @@ if (!userId) return
 -   UNIQUE constraints on junction tables to prevent duplicates
 
 ### UUID v7 Architecture
-
 **Time-Ordered UUID System** - Project-wide UUID v7 for better database indexing performance
 
 **Migration Status**: ✅ Complete (2025-12-10) - All 75 migrations + 31 service files updated
@@ -337,18 +330,15 @@ const newId = uuidv7()
 - Migration registry: `packages/universo-core-backend/base/src/database/migrations/postgres/index.ts` (infrastructure migration first)
 - Backend module: `packages/universo-utils/base/src/uuid/index.ts`
 
-
 **Current UUID v7 Contract:**
 - SQL-first migrations and schema bootstrap use `DEFAULT public.uuid_generate_v7()` directly.
 - Backend services generate UUID v7 through `@universo/utils/uuid` when they need client-side identifiers.
 - Database verification previously confirmed the default is present across the PostgreSQL schema.
 
 ### Data Isolation Architecture
-
 **Note**: The original cluster-based isolation (Clusters → Domains → Resources) was removed in the legacy packages cleanup (2026-02-28). Current data isolation is handled via RLS policies and tenant-scoped queries (see `rls-integration-pattern.md`).
 
 ### Material-UI Validation Pattern
-
 **Frontend Validation** - Consistent form validation with clear user feedback
 
 **Key Implementation Details:**
@@ -360,7 +350,6 @@ const newId = uuidv7()
 -   No empty options for required select fields
 
 ### AR.js Rendering Architecture
-
 **Iframe-Based Rendering** - Essential for proper script execution in React context
 
 **Key Implementation Details:**
@@ -371,7 +360,6 @@ const newId = uuidv7()
 -   CDN independence for restricted regions
 
 ### Rate Limiting Architecture
-
 **Redis-Based Distributed Rate Limiting** - Production-ready DoS protection for multi-instance deployments
 
 **Key Implementation Details:**

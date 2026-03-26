@@ -11,6 +11,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createHubsRoutes } from '../../domains/hubs/routes/hubsRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'metahub-1' }))
 
@@ -24,7 +25,17 @@ const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef12345678
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
-    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess: () => async (req: any, res: any, metahubId: string, permission?: string) => {
+        const user = (req as any).user
+        const userId = user?.id ?? user?.sub ?? user?.user_id ?? user?.userId
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await mockEnsureMetahubAccess({}, userId, metahubId, permission)
+        return userId
+    }
 }))
 
 jest.mock('../../domains/ddl', () => ({
@@ -154,7 +165,6 @@ describe('Hubs Routes', () => {
         mockHubsService.create.mockResolvedValue({
             id: 'hub-copy-id',
             codename: 'MainHubCopy',
-            codenameLocalized: null,
             name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub (copy)' } } },
             description: null,
             sort_order: 4,
@@ -229,7 +239,10 @@ describe('Hubs Routes', () => {
             mockFindMetahubById.mockResolvedValueOnce(null)
 
             const app = buildApp()
-            const response = await request(app).post('/metahub/missing/hub/hub-1/copy').send({ codename: 'hub-copy' }).expect(404)
+            const response = await request(app)
+                .post('/metahub/missing/hub/hub-1/copy')
+                .send({ codename: testCodenameVlc('hub-copy') })
+                .expect(404)
 
             expect(response.body.error).toBe('Metahub not found')
             expect(mockEnsureMetahubAccess).not.toHaveBeenCalled()
@@ -240,7 +253,10 @@ describe('Hubs Routes', () => {
             mockEnsureMetahubAccess.mockRejectedValueOnce(forbidden)
 
             const app = buildApp()
-            const response = await request(app).post('/metahub/metahub-1/hub/hub-1/copy').send({ codename: 'hub-copy' }).expect(403)
+            const response = await request(app)
+                .post('/metahub/metahub-1/hub/hub-1/copy')
+                .send({ codename: testCodenameVlc('hub-copy') })
+                .expect(403)
 
             expect(response.body.error).toBe('Access denied to this metahub')
             expect(mockHubsService.findById).not.toHaveBeenCalled()
@@ -264,7 +280,10 @@ describe('Hubs Routes', () => {
             )
 
             const app = buildApp()
-            const response = await request(app).post('/metahub/metahub-1/hub/hub-1/copy').send({ codename: 'main-hub-copy' }).expect(201)
+            const response = await request(app)
+                .post('/metahub/metahub-1/hub/hub-1/copy')
+                .send({ codename: testCodenameVlc('main-hub-copy') })
+                .expect(201)
 
             expect(response.body.id).toBe('hub-copy-id')
             expect(trx.query).toHaveBeenCalledTimes(1)
@@ -289,7 +308,7 @@ describe('Hubs Routes', () => {
             const response = await request(app)
                 .post('/metahub/metahub-1/hub/hub-1/copy')
                 .send({
-                    codename: 'main-hub-copy',
+                    codename: testCodenameVlc('main-hub-copy'),
                     copyAllRelations: false
                 })
                 .expect(201)
@@ -322,7 +341,10 @@ describe('Hubs Routes', () => {
                 .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(trxSuccess))
 
             const app = buildApp()
-            const response = await request(app).post('/metahub/metahub-1/hub/hub-1/copy').send({ codename: 'main-hub-copy' }).expect(201)
+            const response = await request(app)
+                .post('/metahub/metahub-1/hub/hub-1/copy')
+                .send({ codename: testCodenameVlc('main-hub-copy') })
+                .expect(201)
 
             expect(response.body.id).toBe('hub-copy-id')
             expect(mockExec.transaction).toHaveBeenCalledTimes(2)

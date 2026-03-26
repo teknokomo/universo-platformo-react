@@ -19,7 +19,7 @@ export interface ShellAccessResolution {
 
 const getRoleCodename = (role: GlobalRoleLike): string => role.codename ?? role.name ?? ''
 
-const hasOnlyRegisteredRole = (roleCodenames: Set<string>): boolean => roleCodenames.size === 1 && roleCodenames.has('registered')
+const hasOnlyRegisteredRole = (roleCodenames: Set<string>): boolean => roleCodenames.size === 1 && roleCodenames.has('Registered')
 
 const WORKSPACE_ACTIONS = ['manage', 'read', 'create', 'update', 'delete'] as const
 
@@ -64,7 +64,7 @@ export function resolveShellAccess({ globalRoles, isSuperuser, ability }: Resolv
         return {
             hasWorkspaceAccess: true,
             isRegisteredOnly: false,
-            visibility: ROLE_MENU_VISIBILITY.superuser
+            visibility: ROLE_MENU_VISIBILITY.Superuser
         }
     }
 
@@ -72,19 +72,19 @@ export function resolveShellAccess({ globalRoles, isSuperuser, ability }: Resolv
         return {
             hasWorkspaceAccess: false,
             isRegisteredOnly: true,
-            visibility: ROLE_MENU_VISIBILITY.registered
+            visibility: ROLE_MENU_VISIBILITY.Registered
         }
     }
 
     if (!ability) {
-        const hasWorkspaceAccess = roleCodenames.has('user')
-        const isRegisteredOnly = !hasWorkspaceAccess && roleCodenames.has('registered')
+        const hasWorkspaceAccess = roleCodenames.has('User')
+        const isRegisteredOnly = !hasWorkspaceAccess && roleCodenames.has('Registered')
 
-        if (roleCodenames.has('user')) {
+        if (roleCodenames.has('User')) {
             return {
                 hasWorkspaceAccess,
                 isRegisteredOnly,
-                visibility: ROLE_MENU_VISIBILITY.user
+                visibility: ROLE_MENU_VISIBILITY.User
             }
         }
 
@@ -92,7 +92,7 @@ export function resolveShellAccess({ globalRoles, isSuperuser, ability }: Resolv
             return {
                 hasWorkspaceAccess,
                 isRegisteredOnly,
-                visibility: ROLE_MENU_VISIBILITY.registered
+                visibility: ROLE_MENU_VISIBILITY.Registered
             }
         }
 
@@ -107,13 +107,13 @@ export function resolveShellAccess({ globalRoles, isSuperuser, ability }: Resolv
     const canAccessMetahubs = hasSubjectCapability(ability, 'Metahub')
     const canAccessProfile = hasSubjectCapability(ability, 'Profile')
     const hasWorkspaceAccess = canAccessApplications || canAccessMetahubs || canAccessProfile
-    const isRegisteredOnly = !hasWorkspaceAccess && roleCodenames.has('registered')
+    const isRegisteredOnly = !hasWorkspaceAccess && roleCodenames.has('Registered')
 
     if (isRegisteredOnly) {
         return {
             hasWorkspaceAccess,
             isRegisteredOnly,
-            visibility: ROLE_MENU_VISIBILITY.registered
+            visibility: ROLE_MENU_VISIBILITY.Registered
         }
     }
 

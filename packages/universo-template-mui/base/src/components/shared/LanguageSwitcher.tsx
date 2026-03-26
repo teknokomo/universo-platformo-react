@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useState, useEffect, useMemo } from 'react'
-import { Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, Badge, Box, IconButton } from '@mui/material'
+import { Menu, MenuItem, ListItemIcon, ListItemText, ListSubheader, Tooltip, Divider, Badge, Box, IconButton } from '@mui/material'
 import { styled, useTheme } from '@mui/material/styles'
 import LanguageIcon from '@mui/icons-material/Language'
 import CheckIcon from '@mui/icons-material/Check'
@@ -110,9 +110,9 @@ export default function LanguageSwitcher() {
                     }
                 }}
             >
-                <MenuItem disabled>
-                    <ListItemText primary={t('language.menuTitle')} />
-                </MenuItem>
+                <ListSubheader component='div' sx={{ lineHeight: '36px' }}>
+                    {t('language.menuTitle')}
+                </ListSubheader>
                 <Divider />
                 {availableLanguages.map((l) => {
                     const selected = currentLang === normalizeLang(l.code)

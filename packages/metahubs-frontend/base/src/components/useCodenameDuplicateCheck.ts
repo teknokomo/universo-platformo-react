@@ -1,67 +1,34 @@
 /**
  * Universo Platformo | Codename Duplicate Check Hook
  *
- * Reactively checks whether the current codename (and VLC locale variants)
- * conflicts with any existing entity codename. Handles both simple and VLC
- * cross-locale uniqueness checking.
- *
- * When VLC is enabled, ALL codename values across ALL locales of ALL entities
- * are collected into a single flat set — duplicates are detected across
- * locale boundaries (e.g. EN "Nazvanie" conflicts with RU "Nazvanie" of
- * another entity).
+ * Reactively checks whether the current canonical primary codename conflicts
+ * with any existing entity primary codename. Non-primary localized aliases are
+ * preserved for editing, but they are not part of the v1 hard uniqueness rule.
  */
 
 import { useMemo } from 'react'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { getCodenamePrimary } from '@universo/utils'
 import type { ExistingCodenameEntity } from './ExistingCodenamesContext'
+import { ensureEntityCodenameContent } from '../utils/localizedInput'
 
-/**
- * Extract all non-empty codename values from an entity, including:
- * - the primary `codename` string
- * - all localized variants from `codenameLocalized.locales`
- *
- * Returns an array of { original, lower } pairs so callers can
- * compare case-insensitively while preserving the original form
- * for display in error messages.
- */
-function collectAllCodenameValues(
-    codename: string,
-    codenameLocalized?: VersionedLocalizedContent<string> | null
-): { original: string; lower: string }[] {
-    const seen = new Set<string>()
-    const values: { original: string; lower: string }[] = []
-
-    const add = (raw: string) => {
-        const lower = raw.toLowerCase()
-        if (!seen.has(lower)) {
-            seen.add(lower)
-            values.push({ original: raw, lower })
-        }
+const getCanonicalCodenameValue = (
+    codename: VersionedLocalizedContent<string> | null
+): { original: string; lower: string } | null => {
+    const primary = getCodenamePrimary(codename).trim()
+    if (!primary) {
+        return null
     }
 
-    if (codename) {
-        add(codename)
+    return {
+        original: primary,
+        lower: primary.toLowerCase()
     }
-
-    if (codenameLocalized?.locales) {
-        for (const entry of Object.values(codenameLocalized.locales)) {
-            const content = typeof entry?.content === 'string' ? entry.content.trim() : ''
-            if (content) {
-                add(content)
-            }
-        }
-    }
-
-    return values
 }
 
 export interface CodenameDuplicateCheckOptions {
-    /** Current plain codename value */
-    codename: string
-    /** Current VLC codename value (when VLC is enabled) */
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    /** Whether VLC mode is active */
-    localizedEnabled: boolean
+    /** Current VLC codename value */
+    codename: VersionedLocalizedContent<string> | null
     /** List of existing entities to check against */
     existingEntities: ExistingCodenameEntity[]
     /** ID of the entity being edited (excluded from duplicate check). Null/undefined for create mode. */
@@ -76,54 +43,42 @@ export interface CodenameDuplicateCheckResult {
 }
 
 /**
- * Hook that checks the current codename (+ VLC variants) against existing entities.
+ * Hook that checks the current canonical primary codename against existing entities.
  *
  * Returns an error string when a duplicate is detected, null otherwise.
- * The check is case-insensitive and works across VLC locale boundaries.
+ * The check is case-insensitive and intentionally follows the backend primary-only contract.
  */
 export function useCodenameDuplicateCheck({
     codename,
-    codenameVlc,
-    localizedEnabled,
     existingEntities,
     editingEntityId
 }: CodenameDuplicateCheckOptions): CodenameDuplicateCheckResult {
     return useMemo(() => {
         // Don't check empty codenames
-        if (!codename && (!localizedEnabled || !codenameVlc)) {
+        if (!codename) {
             return { error: null, duplicateValue: null }
         }
 
-        // Collect all codename values from the current entity (with original case)
-        const currentValues = localizedEnabled
-            ? collectAllCodenameValues(codename, codenameVlc)
-            : codename
-            ? [{ original: codename, lower: codename.toLowerCase() }]
-            : []
+        const currentValue = getCanonicalCodenameValue(ensureEntityCodenameContent({ codename }, 'en', ''))
 
-        if (currentValues.length === 0) {
+        if (!currentValue) {
             return { error: null, duplicateValue: null }
         }
 
-        // Build a flat set of all lowercase codename values from other entities
         const existingValuesSet = new Set<string>()
         for (const entity of existingEntities) {
-            // Skip the entity being edited
             if (editingEntityId && entity.id === editingEntityId) continue
 
-            const entityValues = collectAllCodenameValues(entity.codename, entity.codenameLocalized)
-            for (const { lower } of entityValues) {
-                existingValuesSet.add(lower)
+            const entityValue = getCanonicalCodenameValue(ensureEntityCodenameContent(entity, 'en', entity.codename))
+            if (entityValue) {
+                existingValuesSet.add(entityValue.lower)
             }
         }
 
-        // Check for intersection — return the original-case value for the error message
-        for (const { original, lower } of currentValues) {
-            if (existingValuesSet.has(lower)) {
-                return { error: 'duplicate', duplicateValue: original }
-            }
+        if (existingValuesSet.has(currentValue.lower)) {
+            return { error: 'duplicate', duplicateValue: currentValue.original }
         }
 
         return { error: null, duplicateValue: null }
-    }, [codename, codenameVlc, localizedEnabled, existingEntities, editingEntityId])
+    }, [codename, existingEntities, editingEntityId])
 }

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
 import type { SqlQueryable } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubSettingsService } from '../services/MetahubSettingsService'
 import { METAHUB_SETTINGS_REGISTRY, getSettingDefinition } from '@universo/types'
@@ -12,25 +13,19 @@ import { validateSettingValue } from '../../shared/validateSettingValue'
 
 type RegistryEntry = (typeof METAHUB_SETTINGS_REGISTRY)[number]
 
-type RequestWithUser = Request & { user?: { id?: string; sub?: string; user_id?: string; userId?: string } }
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as RequestWithUser).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-const settingsUpdateSchema = z.object({
-    settings: z
-        .array(
-            z.object({
-                key: z.string().min(1).max(100),
-                value: z.record(z.unknown())
-            })
-        )
-        .min(1)
-        .max(50)
-})
+const settingsUpdateSchema = z
+    .object({
+        settings: z
+            .array(
+                z.object({
+                    key: z.string().min(1).max(100),
+                    value: z.record(z.unknown())
+                })
+            )
+            .min(1)
+            .max(50)
+    })
+    .strict()
 
 /**
  * Merge database rows with the registry defaults into a unified array.

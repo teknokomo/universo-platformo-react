@@ -3,6 +3,16 @@ import type { SqlQueryable, MetahubBranchRow } from './types'
 import { uplFieldAliases, appFieldAliases } from './types'
 import { activeMetahubRowCondition } from './metahubsQueryHelpers'
 
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const branchCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
+const resolveCodenameJson = (codename: VersionedLocalizedContent<string> | undefined): string | null =>
+    codename ? JSON.stringify(codename) : null
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SELECT fragments
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -14,8 +24,7 @@ const BRANCH_SELECT = (alias: string) =>
     ${alias}.source_branch_id AS "sourceBranchId",
     ${alias}.name,
     ${alias}.description,
-    ${alias}.codename,
-    ${alias}.codename_localized AS "codenameLocalized",
+    ${alias}.codename AS codename,
     ${alias}.branch_number AS "branchNumber",
     ${alias}.schema_name AS "schemaName",
     ${alias}.structure_version AS "structureVersion",
@@ -59,7 +68,7 @@ export async function findBranchByCodename(exec: SqlQueryable, metahubId: string
         `SELECT ${BRANCH_SELECT('b')}
          FROM metahubs.cat_metahub_branches b
          WHERE b.metahub_id = $1
-           AND b.codename = $2
+                     AND ${branchCodenameTextSql('b.codename')} = $2
                      AND ${activeMetahubRowCondition('b')}
          LIMIT 1`,
         [metahubId, codename]
@@ -155,8 +164,7 @@ export interface CreateBranchInput {
     sourceBranchId?: string | null
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: VersionedLocalizedContent<string>
     branchNumber: number
     schemaName: string
     structureVersion?: string
@@ -170,20 +178,19 @@ export async function createBranch(exec: SqlQueryable, input: CreateBranchInput)
     const rows = await exec.query<MetahubBranchRow>(
         `INSERT INTO metahubs.cat_metahub_branches (
             metahub_id, source_branch_id, name, description,
-            codename, codename_localized, branch_number, schema_name,
+                codename, branch_number, schema_name,
             structure_version,
             last_template_version_id, last_template_version_label, last_template_synced_at,
             _upl_created_by, _upl_updated_by
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
          RETURNING ${BRANCH_SELECT('metahubs.cat_metahub_branches')}`,
         [
             input.metahubId,
             input.sourceBranchId ?? null,
             JSON.stringify(input.name),
             input.description ? JSON.stringify(input.description) : null,
-            input.codename,
-            input.codenameLocalized ? JSON.stringify(input.codenameLocalized) : null,
+            resolveCodenameJson(input.codename),
             input.branchNumber,
             input.schemaName,
             input.structureVersion ?? '0.1.0',
@@ -199,8 +206,7 @@ export async function createBranch(exec: SqlQueryable, input: CreateBranchInput)
 export interface UpdateBranchInput {
     name?: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
-    codename?: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename?: VersionedLocalizedContent<string>
     structureVersion?: string
     lastTemplateVersionId?: string | null
     lastTemplateVersionLabel?: string | null
@@ -222,9 +228,8 @@ export async function updateBranch(exec: SqlQueryable, id: string, input: Update
 
     if (input.name !== undefined) push('name', JSON.stringify(input.name))
     if (input.description !== undefined) push('description', input.description ? JSON.stringify(input.description) : null)
-    if (input.codename !== undefined) push('codename', input.codename)
-    if (input.codenameLocalized !== undefined)
-        push('codename_localized', input.codenameLocalized ? JSON.stringify(input.codenameLocalized) : null)
+    const codenameJson = resolveCodenameJson(input.codename)
+    if (codenameJson !== null) push('codename', codenameJson)
     if (input.structureVersion !== undefined) push('structure_version', input.structureVersion)
     if (input.lastTemplateVersionId !== undefined) push('last_template_version_id', input.lastTemplateVersionId)
     if (input.lastTemplateVersionLabel !== undefined) push('last_template_version_label', input.lastTemplateVersionLabel)

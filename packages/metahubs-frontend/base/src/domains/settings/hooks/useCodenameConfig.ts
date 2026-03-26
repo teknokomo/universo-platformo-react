@@ -32,7 +32,7 @@ export interface CodenameConfig {
     autoReformat: boolean
     /** Block save until codename is updated to the new format (only when autoReformat is off) */
     requireReformat: boolean
-    /** Enable localized (VLC) codename input mode with locale switch */
+    /** Whether localized (multi-locale) codenames are enabled. When false, codename uses a single locale without language switching. */
     localizedEnabled: boolean
 }
 
@@ -93,7 +93,6 @@ export const useCodenameConfig = (): CodenameConfig => {
     const autoReformat = useSettingValue<boolean>('general.codenameAutoReformat')
     const requireReformat = useSettingValue<boolean>('general.codenameRequireReformat')
     const localizedEnabled = useSettingValue<boolean>('general.codenameLocalizedEnabled')
-
     // Platform-level defaults (fetched only when no metahubId in URL)
     const { data: defaults } = usePlatformCodenameDefaults()
 
@@ -105,7 +104,7 @@ export const useCodenameConfig = (): CodenameConfig => {
             autoConvertMixedAlphabets: autoConvertMixedAlphabets ?? defaults?.autoConvertMixedAlphabets ?? true,
             autoReformat: autoReformat ?? true,
             requireReformat: requireReformat ?? true,
-            localizedEnabled: localizedEnabled ?? defaults?.localizedEnabled ?? false
+            localizedEnabled: localizedEnabled ?? defaults?.localizedEnabled ?? true
         }
     }, [style, alphabet, allowMixed, autoConvertMixedAlphabets, autoReformat, requireReformat, localizedEnabled, defaults])
 }

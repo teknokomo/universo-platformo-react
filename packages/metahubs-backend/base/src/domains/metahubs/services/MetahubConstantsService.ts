@@ -6,6 +6,7 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 import { buildCodenameAttempt, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/codenameStyleHelper'
 import { toJsonbValue } from '../../shared/jsonb'
 import type { ConstantDataType } from '@universo/types'
+import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 
 const ALLOWED_CONSTANT_TYPES: ConstantDataType[] = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 const ACTIVE = `_upl_deleted = false AND _mhb_deleted = false`
@@ -85,7 +86,7 @@ export class MetahubConstantsService {
         const row = await queryOne<Record<string, unknown>>(
             db ?? this.exec,
             `SELECT * FROM ${qt}
-             WHERE object_id = $1 AND codename = $2 AND ${ACTIVE}
+             WHERE object_id = $1 AND ${codenamePrimaryTextSql('codename')} = $2 AND ${ACTIVE}
              LIMIT 1`,
             [setId, codename]
         )
@@ -96,10 +97,9 @@ export class MetahubConstantsService {
         metahubId: string,
         data: {
             setId: string
-            codename: string
+            codename: unknown
             dataType: ConstantDataType
             name: unknown
-            codenameLocalized?: unknown
             validationRules?: Record<string, unknown>
             uiConfig?: Record<string, unknown>
             value?: unknown
@@ -119,18 +119,19 @@ export class MetahubConstantsService {
         const qt = qSchemaTable(schemaName, '_mhb_constants')
         const now = new Date()
 
+        const codename = ensureCodenameValue(data.codename)
         const row = await queryOneOrThrow<Record<string, unknown>>(
             runner,
             `INSERT INTO ${qt}
                 (object_id, codename, data_type, presentation, validation_rules, ui_config,
                  value_json, sort_order, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $9, $10)
+             VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8, $9, $10, $9, $10)
              RETURNING *`,
             [
                 data.setId,
-                data.codename,
+                JSON.stringify(codename),
                 data.dataType,
-                JSON.stringify({ codename: data.codenameLocalized ?? null, name: data.name }),
+                JSON.stringify({ name: data.name }),
                 JSON.stringify(data.validationRules ?? {}),
                 JSON.stringify(data.uiConfig ?? {}),
                 toJsonbValue(data.value),
@@ -149,10 +150,9 @@ export class MetahubConstantsService {
         metahubId: string,
         id: string,
         data: {
-            codename?: string
+            codename?: unknown
             dataType?: ConstantDataType
             name?: unknown
-            codenameLocalized?: unknown
             validationRules?: Record<string, unknown>
             uiConfig?: Record<string, unknown>
             value?: unknown
@@ -174,19 +174,21 @@ export class MetahubConstantsService {
             _upl_updated_by: data.updatedBy ?? null
         }
 
-        if (data.codename !== undefined) updateData.codename = data.codename
+        if (data.codename !== undefined) {
+            const current = await queryOne<Record<string, unknown>>(this.exec, `SELECT codename FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
+            updateData.codename = ensureCodenameValue(data.codename ?? current?.codename)
+        }
         if (data.dataType !== undefined) updateData.data_type = data.dataType
         if (data.validationRules !== undefined) updateData.validation_rules = JSON.stringify(data.validationRules)
         if (data.uiConfig !== undefined) updateData.ui_config = JSON.stringify(data.uiConfig)
         if (data.value !== undefined) updateData.value_json = toJsonbValue(data.value)
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-        if (data.name !== undefined || data.codenameLocalized !== undefined) {
+        if (data.name !== undefined) {
             const current = await queryOne<Record<string, unknown>>(this.exec, `SELECT presentation FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
             const currentPresentation = (current?.presentation as Record<string, unknown>) ?? {}
             updateData.presentation = JSON.stringify({
                 ...currentPresentation,
-                ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                 ...(data.name !== undefined ? { name: data.name } : {})
             })
         }
@@ -338,7 +340,7 @@ export class MetahubConstantsService {
                AND attr.target_object_kind = 'set'
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
-             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
             [targetSetId]
         )
 
@@ -347,7 +349,7 @@ export class MetahubConstantsService {
             attributeCodename: row.attribute_codename,
             attributeName: (row.attribute_presentation as Record<string, unknown>)?.name ?? null,
             sourceCatalogId: row.source_catalog_id,
-            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
             sourceCatalogName: (row.source_catalog_presentation as Record<string, unknown>)?.name ?? null
         }))
     }
@@ -403,8 +405,7 @@ export class MetahubConstantsService {
         return {
             id: row.id,
             setId: row.object_id,
-            codename: row.codename,
-            codenameLocalized: presentation?.codename ?? null,
+            codename: ensureCodenameValue(row.codename),
             dataType: row.data_type,
             sortOrder: row.sort_order,
             value: row.value_json ?? null,

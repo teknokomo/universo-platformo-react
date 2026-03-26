@@ -19,8 +19,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 /** Minimal shape: only the fields needed for duplicate checking */
 export interface ExistingCodenameEntity {
     id: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: VersionedLocalizedContent<string> | string | null
 }
 
 interface ExistingCodenamesContextValue {

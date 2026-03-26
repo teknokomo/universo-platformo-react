@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { resolveLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, getCodenamePrimary } from '@universo/utils'
 import { getRole } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
 import type { LocaleCode } from '@universo/types'
@@ -48,7 +48,7 @@ export function useRoleDetails(roleId: string | null, options?: UseRoleDetailsOp
 
     return {
         role,
-        name: role ? resolveLocalizedContent(role.name, locale, role.codename) : undefined,
+        name: role ? resolveLocalizedContent(role.name, locale, getCodenamePrimary(role.codename)) : undefined,
         description: role?.description ? resolveLocalizedContent(role.description, locale) : undefined,
         isLoading: query.isLoading,
         error: query.error

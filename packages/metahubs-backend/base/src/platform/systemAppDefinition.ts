@@ -37,11 +37,9 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.STRING,
-                physicalDataType: 'VARCHAR(100)',
+                dataType: AttributeDataType.JSON,
                 isRequired: true
             },
-            { codename: 'codename_localized', physicalColumnName: 'codename_localized', dataType: AttributeDataType.JSON },
             { codename: 'slug', physicalColumnName: 'slug', dataType: AttributeDataType.STRING, physicalDataType: 'VARCHAR(100)' },
             {
                 codename: 'default_branch_id',
@@ -116,11 +114,9 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.STRING,
-                physicalDataType: 'VARCHAR(100)',
+                dataType: AttributeDataType.JSON,
                 isRequired: true
             },
-            { codename: 'codename_localized', physicalColumnName: 'codename_localized', dataType: AttributeDataType.JSON },
             {
                 codename: 'branch_number',
                 physicalColumnName: 'branch_number',
@@ -198,8 +194,7 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.STRING,
-                physicalDataType: 'VARCHAR(100)',
+                dataType: AttributeDataType.JSON,
                 isRequired: true
             },
             {

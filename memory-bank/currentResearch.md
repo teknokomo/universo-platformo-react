@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-03-23: Unified codename JSONB architecture revalidation
+
+- Research outcome: the user-correct target architecture is not the previously implemented dual-field model. The new target is one field only, `codename JSONB`, across metahubs root entities, child entities, admin roles, and runtime application metadata.
+- Verified repository state: the live branch still contains three codename contracts at once: `codename VARCHAR + codename_localized JSONB`, plain `codename` plus `presentation.codename`, and string-only `codename` in admin/runtime metadata.
+- Verified frontend state: `useCodenameVlcSync` and `general.codenameLocalizedEnabled` exist only because the UI still edits dual codename surfaces. Both become architectural removal targets under the new contract.
+- Verified runtime state: `packages/schema-ddl/base/src/SchemaGenerator.ts` and applications runtime SQL still assume plain text `codename` for `_app_objects` and `_app_attributes`, so runtime metadata must be migrated together with design-time schemas.
+- External PostgreSQL guidance confirmed that JSONB is viable here, but ordering and uniqueness should use immutable expression indexes on extracted text, not whole-document JSONB equality checks.
+- Live Supabase `UP-test` inspection confirmed the mixed contract is not just theoretical code drift; the real test database still stores metahub dual codename columns and string runtime/admin codename columns.
+- Planning conclusion: the safest implementation path is to standardize on the existing VLC `VersionedLocalizedContent<string>` shape, use the extracted `_primary` locale content as the canonical machine identifier, and remove `codename_localized`, `presentation.codename`, and string-only codename storage entirely.
+- Closure update 2026-03-24: the touched backend/frontend request-contract slice is now implemented and validated; no open research thread remains for this specific codename payload seam.
+
 ## 2026-03-17: Admin roles / metapanel live-architecture revalidation
 
 - Research outcome: the corrected admin-roles/metapanel plan still had hidden integration gaps against the live repository architecture, mainly around root routing, onboarding completion timing, permission refresh ownership, menu section filtering, and dashboard stats contracts.

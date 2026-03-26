@@ -9,7 +9,7 @@ import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { PermissionInput, UpdateRolePayload } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
-import { resolveLocalizedContent, filterLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, filterLocalizedContent, getCodenamePrimary } from '@universo/utils'
 
 // Project imports
 import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG } from '@universo/template-mui'
@@ -79,7 +79,7 @@ const RoleEdit = () => {
     }, [role, syncedRoleId])
 
     const isSystemRole = role?.isSystem ?? false
-    const roleDisplayName = role ? resolveLocalizedContent(role.name, uiLocale, role.codename) : ''
+    const roleDisplayName = role ? resolveLocalizedContent(role.name, uiLocale, getCodenamePrimary(role.codename)) : ''
     const roleDescription = role?.description ? resolveLocalizedContent(role.description, uiLocale, '') : ''
 
     // Update mutation for permissions
@@ -215,7 +215,11 @@ const RoleEdit = () => {
                     <Button startIcon={<ArrowBackRoundedIcon />} onClick={handleBack} size='small'>
                         {t('roles.backToList', 'Back to Roles')}
                     </Button>
-                    <Chip label={`${t('roles.field.codename', 'Code Name')}: ${role.codename}`} variant='outlined' size='small' />
+                    <Chip
+                        label={`${t('roles.field.codename', 'Code Name')}: ${getCodenamePrimary(role.codename)}`}
+                        variant='outlined'
+                        size='small'
+                    />
                     {role.isSystem && <Chip label={t('roles.badges.system', 'System role')} color='info' variant='outlined' size='small' />}
                     {role.isSuperuser && (
                         <Chip label={t('roles.badges.superuser', 'Superuser')} color='warning' variant='outlined' size='small' />

@@ -9,6 +9,7 @@ import type {
 } from '@universo/types'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
+import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
 import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
 
@@ -259,7 +260,8 @@ export class TemplateSeedExecutor {
             const existing = await qb
                 .withSchema(this.schemaName)
                 .from('_mhb_objects')
-                .where({ codename: entity.codename, kind: entity.kind, _upl_deleted: false, _mhb_deleted: false })
+                .where({ kind: entity.kind, _upl_deleted: false, _mhb_deleted: false })
+                .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [entity.codename])
                 .first()
 
             if (existing) {
@@ -284,7 +286,7 @@ export class TemplateSeedExecutor {
                 .into('_mhb_objects')
                 .insert({
                     kind: entity.kind,
-                    codename: entity.codename,
+                    codename: ensureCodenameValue(entity.codename),
                     table_name: null,
                     presentation: { name: entity.name, description: entity.description },
                     config: entityConfig,
@@ -325,10 +327,10 @@ export class TemplateSeedExecutor {
                     .from('_mhb_constants')
                     .where({
                         object_id: setId,
-                        codename: constant.codename,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [constant.codename])
                     .first()
 
                 if (existing) {
@@ -341,7 +343,7 @@ export class TemplateSeedExecutor {
                     .into('_mhb_constants')
                     .insert({
                         object_id: setId,
-                        codename: constant.codename,
+                        codename: ensureCodenameValue(constant.codename),
                         data_type: constant.dataType,
                         presentation: {
                             codename: null,
@@ -391,10 +393,10 @@ export class TemplateSeedExecutor {
                     .from('_mhb_attributes')
                     .where({
                         object_id: entityId,
-                        codename: attr.codename,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [attr.codename])
                     .first()
 
                 let parentAttributeId: string | null = attrExists?.id ?? null
@@ -404,7 +406,7 @@ export class TemplateSeedExecutor {
                         .into('_mhb_attributes')
                         .insert({
                             object_id: entityId,
-                            codename: attr.codename,
+                            codename: ensureCodenameValue(attr.codename),
                             data_type: attr.dataType,
                             presentation: { name: attr.name, description: attr.description },
                             validation_rules: attr.validationRules ?? {},
@@ -449,10 +451,10 @@ export class TemplateSeedExecutor {
                             .from('_mhb_attributes')
                             .where({
                                 parent_attribute_id: parentAttributeId,
-                                codename: child.codename as string,
                                 _upl_deleted: false,
                                 _mhb_deleted: false
                             })
+                            .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [child.codename as string])
                             .first()
 
                         if (childExists) continue
@@ -463,7 +465,7 @@ export class TemplateSeedExecutor {
                             .insert({
                                 object_id: entityId,
                                 parent_attribute_id: parentAttributeId,
-                                codename: child.codename as string,
+                                codename: ensureCodenameValue(child.codename as string),
                                 data_type: child.dataType as string,
                                 presentation: {
                                     name: child.name,
@@ -534,10 +536,10 @@ export class TemplateSeedExecutor {
                     .from('_mhb_values')
                     .where({
                         object_id: objectId,
-                        codename: value.codename,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [value.codename])
                     .first()
 
                 if (exists) continue
@@ -563,7 +565,7 @@ export class TemplateSeedExecutor {
                     .into('_mhb_values')
                     .insert({
                         object_id: objectId,
-                        codename: value.codename,
+                        codename: ensureCodenameValue(value.codename),
                         presentation: { name: value.name, description: value.description },
                         sort_order: value.sortOrder ?? index,
                         is_default: value.isDefault ?? false,

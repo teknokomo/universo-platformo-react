@@ -80,51 +80,63 @@ const allowedZonesMap = new Map<DashboardLayoutWidgetKey, readonly DashboardLayo
 
 const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(DASHBOARD_LAYOUT_WIDGETS.filter((w) => w.multiInstance).map((w) => w.key))
 
-export const createLayoutSchema = z.object({
-    templateKey: layoutTemplateKeySchema.default('dashboard'),
-    name: z.any(),
-    description: z.any().optional().nullable(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    isActive: z.boolean().optional(),
-    isDefault: z.boolean().optional(),
-    sortOrder: z.number().int().optional(),
-    config: z.record(z.unknown()).optional()
-})
+export const createLayoutSchema = z
+    .object({
+        templateKey: layoutTemplateKeySchema.default('dashboard'),
+        name: z.any(),
+        description: z.any().optional().nullable(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        isActive: z.boolean().optional(),
+        isDefault: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+        config: z.record(z.unknown()).optional()
+    })
+    .strict()
 
-export const updateLayoutSchema = z.object({
-    templateKey: layoutTemplateKeySchema.optional(),
-    name: z.any().optional(),
-    description: z.any().optional().nullable(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    isActive: z.boolean().optional(),
-    isDefault: z.boolean().optional(),
-    sortOrder: z.number().int().optional(),
-    config: z.record(z.unknown()).optional(),
-    expectedVersion: z.number().int().positive().optional()
-})
+export const updateLayoutSchema = z
+    .object({
+        templateKey: layoutTemplateKeySchema.optional(),
+        name: z.any().optional(),
+        description: z.any().optional().nullable(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        isActive: z.boolean().optional(),
+        isDefault: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+        config: z.record(z.unknown()).optional(),
+        expectedVersion: z.number().int().positive().optional()
+    })
+    .strict()
 
-export const assignLayoutZoneWidgetSchema = z.object({
-    zone: layoutZoneSchema,
-    widgetKey: layoutWidgetKeySchema,
-    sortOrder: z.number().int().positive().optional(),
-    config: z.record(z.unknown()).optional()
-})
+export const assignLayoutZoneWidgetSchema = z
+    .object({
+        zone: layoutZoneSchema,
+        widgetKey: layoutWidgetKeySchema,
+        sortOrder: z.number().int().positive().optional(),
+        config: z.record(z.unknown()).optional()
+    })
+    .strict()
 
-export const moveLayoutZoneWidgetSchema = z.object({
-    widgetId: z.string().uuid(),
-    targetZone: layoutZoneSchema.optional(),
-    targetIndex: z.number().int().min(0).optional()
-})
+export const moveLayoutZoneWidgetSchema = z
+    .object({
+        widgetId: z.string().uuid(),
+        targetZone: layoutZoneSchema.optional(),
+        targetIndex: z.number().int().min(0).optional()
+    })
+    .strict()
 
-export const updateLayoutZoneWidgetConfigSchema = z.object({
-    config: z.record(z.unknown())
-})
+export const updateLayoutZoneWidgetConfigSchema = z
+    .object({
+        config: z.record(z.unknown())
+    })
+    .strict()
 
-export const toggleLayoutZoneWidgetActiveSchema = z.object({
-    isActive: z.boolean()
-})
+export const toggleLayoutZoneWidgetActiveSchema = z
+    .object({
+        isActive: z.boolean()
+    })
+    .strict()
 
 export class MetahubLayoutsService {
     constructor(private readonly exec: DbExecutor, private readonly schemaService: MetahubSchemaService) {}
@@ -323,7 +335,7 @@ export class MetahubLayoutsService {
 
         const orderColumn =
             sortBy === 'name'
-                ? "COALESCE(name->'locales'->>(name->>'_primary'), name->'locales'->>'en', '')"
+                ? "COALESCE(name->'locales'->(name->>'_primary')->>'content', name->'locales'->'en'->>'content', '')"
                 : sortBy === 'created'
                 ? '_upl_created_at'
                 : '_upl_updated_at'

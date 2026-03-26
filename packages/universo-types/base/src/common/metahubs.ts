@@ -159,10 +159,9 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         key: 'general.codenameLocalizedEnabled',
         tab: 'general',
         valueType: 'boolean',
-        defaultValue: false,
+        defaultValue: true,
         sortOrder: 9
     },
-
     // ── Hubs ──
     {
         key: 'hubs.allowCopy',

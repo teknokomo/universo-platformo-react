@@ -111,10 +111,7 @@ export const deleteAttribute = (metahubId: string, hubId: string, catalogId: str
 export const moveAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string, direction: 'up' | 'down') =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/move`, { direction })
 
-export type AttributeCopyInput = Partial<AttributeLocalizedPayload> &
-    Partial<AttributeCopyOptions> & {
-        codename?: string
-    }
+export type AttributeCopyInput = Partial<AttributeLocalizedPayload> & Partial<AttributeCopyOptions>
 
 export const copyAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string, data: AttributeCopyInput) =>
     apiClient.post<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/copy`, data)
@@ -362,8 +359,7 @@ export const createChildAttributeDirect = (
 
 export interface AttributeCodenameEntry {
     id: string
-    codename: string
-    codenameLocalized?: Record<string, unknown> | null
+    codename: Record<string, unknown> | string | null
 }
 
 /**

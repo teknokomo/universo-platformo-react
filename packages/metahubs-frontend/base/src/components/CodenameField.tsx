@@ -21,8 +21,6 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({ editingEntityId, o
     const existingEntities = useExistingCodenames()
     const { error: duplicateError, duplicateValue } = useCodenameDuplicateCheck({
         codename: props.value,
-        codenameVlc: props.localizedValue,
-        localizedEnabled,
         existingEntities,
         editingEntityId
     })
@@ -31,7 +29,7 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({ editingEntityId, o
     const duplicateCheckEnabled = !props.disabled
     const duplicateErrorMessage =
         duplicateCheckEnabled && !props.error && duplicateError
-            ? localizedEnabled && duplicateValue
+            ? duplicateValue
                 ? t('validation.codenameDuplicateVlc', {
                       value: duplicateValue,
                       defaultValue: `Codename "${duplicateValue}" already used by another entity`
@@ -90,6 +88,7 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({ editingEntityId, o
             error={mergedError}
             helperText={dynamicHelperText}
             normalizeOnBlur={props.normalizeOnBlur ?? settingsBasedNormalize}
+            localizedEnabled={localizedEnabled}
         />
     )
 }

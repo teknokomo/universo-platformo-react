@@ -67,7 +67,6 @@ export const basicDemoTemplate: MetahubTemplateManifest = {
             { key: 'general.codenameAutoConvertMixedAlphabets', value: { _value: true } },
             { key: 'general.codenameAutoReformat', value: { _value: true } },
             { key: 'general.codenameRequireReformat', value: { _value: true } },
-            { key: 'general.codenameLocalizedEnabled', value: { _value: false } },
             { key: 'catalogs.allowAttributeCopy', value: { _value: true } },
             { key: 'catalogs.allowAttributeDelete', value: { _value: true } },
             { key: 'catalogs.allowDeleteLastDisplayAttribute', value: { _value: true } }

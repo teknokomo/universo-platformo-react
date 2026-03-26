@@ -1,4 +1,4 @@
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { CodenameVLC, VersionedLocalizedContent } from '@universo/types'
 
 /**
  * Simple localized input format for forms
@@ -101,6 +101,35 @@ export function getVLCString(
 
     // Fall back to SimpleLocalizedInput format
     return getSimpleLocalizedValue(field as SimpleLocalizedInput, locale)
+}
+
+/**
+ * Resolve the primary locale string from a VLC value.
+ * Falls back to the generic VLC fallback chain when the primary entry is missing.
+ */
+export function getVLCPrimaryString(
+    field: VersionedLocalizedContent<string> | VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null
+): string {
+    if (!field) return ''
+    if (typeof field === 'string') return field
+    if (typeof field !== 'object') return ''
+
+    if ('locales' in field && field.locales && typeof field.locales === 'object') {
+        const primary = typeof field._primary === 'string' ? field._primary : undefined
+        if (primary) {
+            const primaryEntry = field.locales[primary]
+            if (primaryEntry && typeof primaryEntry.content === 'string') {
+                return primaryEntry.content
+            }
+        }
+    }
+
+    return getVLCString(field, 'en')
+}
+
+/** Canonical extractor for persisted codename JSONB payloads. */
+export function getCodenamePrimary(codename: CodenameVLC | string | undefined | null): string {
+    return getVLCPrimaryString(codename)
 }
 
 /**

@@ -81,7 +81,7 @@ describe('createAuthRouter registration rollback', () => {
         expect(response.body.error).toContain('rolled back')
         expect(assignSystemRole).toHaveBeenCalledWith({
             userId: 'user-1',
-            roleCodename: 'registered',
+            roleCodename: 'Registered',
             reason: 'auto-assigned on registration'
         })
         expect(deleteAuthUser).toHaveBeenCalledWith('user-1')

@@ -31,12 +31,20 @@ import {
 } from '../../../persistence'
 import { activeMetahubRowCondition } from '../../../persistence/metahubsQueryHelpers'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { codenameErrorMessage } from '../../shared/codenameStyleHelper'
+import {
+    requiredCodenamePayloadSchema,
+    optionalCodenamePayloadSchema,
+    getCodenamePayloadText,
+    syncCodenamePayloadText,
+    syncOptionalCodenamePayloadText
+} from '../../shared/codenamePayload'
 import type { CodenameStyle, CodenameAlphabet } from '@universo/types'
 import { OptimisticLockError } from '@universo/utils'
 import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
@@ -81,7 +89,7 @@ const getGlobalMetahubCodenameConfig = async (exec: SqlQueryable): Promise<Globa
         alphabet: DEFAULT_CODENAME_ALPHABET,
         allowMixed: DEFAULT_CODENAME_ALLOW_MIXED,
         autoConvertMixedAlphabets: DEFAULT_CODENAME_AUTO_CONVERT_MIXED,
-        localizedEnabled: false
+        localizedEnabled: true
     }
 
     try {
@@ -117,17 +125,11 @@ const getGlobalMetahubCodenameConfig = async (exec: SqlQueryable): Promise<Globa
             alphabet: isCodenameAlphabet(rawAlphabet) ? rawAlphabet : fallback.alphabet,
             allowMixed: rawAllowMixed === true,
             autoConvertMixedAlphabets: rawAutoConvertMixed !== false,
-            localizedEnabled: rawLocalizedEnabled === true
+            localizedEnabled: rawLocalizedEnabled !== false
         }
     } catch {
         return fallback
     }
-}
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as any).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
 const isManagedMetahubSchemaName = (schemaName: string): boolean => schemaName.startsWith('mhb_') && isManagedDynamicSchemaName(schemaName)
@@ -280,21 +282,6 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     return result
 }
 
-const localizedCodenameInputSchema = z
-    .union([z.string(), z.record(z.string())])
-    .transform((val) => (typeof val === 'string' ? { en: val } : val))
-
-const buildCodenameLocalizedVlc = (
-    input: Record<string, string> | undefined,
-    primaryLocale?: string,
-    fallbackPrimaryLocale?: string
-): VersionedLocalizedContent<string> | null => {
-    if (!input) return null
-    const sanitized = sanitizeLocalizedInput(input)
-    if (Object.keys(sanitized).length === 0) return null
-    return buildLocalizedContent(sanitized, primaryLocale, fallbackPrimaryLocale ?? 'en') ?? null
-}
-
 export function createMetahubsRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
@@ -442,7 +429,6 @@ export function createMetahubsRoutes(
                     name: m.name,
                     description: m.description,
                     codename: m.codename,
-                    codenameLocalized: m.codenameLocalized ?? null,
                     slug: m.slug,
                     isPublic: m.isPublic,
                     templateId: m.templateId ?? null,
@@ -508,7 +494,6 @@ export function createMetahubsRoutes(
                 name: metahub.name,
                 description: metahub.description,
                 codename: metahub.codename,
-                codenameLocalized: metahub.codenameLocalized ?? null,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 templateId: metahub.templateId ?? null,
@@ -640,9 +625,7 @@ export function createMetahubsRoutes(
                 description: optionalLocalizedInputSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
-                codename: z.string().min(1).max(100),
-                codenameInput: localizedCodenameInputSchema.optional(),
-                codenamePrimaryLocale: z.string().optional(),
+                codename: requiredCodenamePayloadSchema,
                 slug: z
                     .string()
                     .min(1)
@@ -669,7 +652,11 @@ export function createMetahubsRoutes(
             const { exec, branchesService } = services(req)
             const codenameConfig = await getGlobalMetahubCodenameConfig(exec)
 
-            const normalizedCodename = normalizeCodenameForStyle(result.data.codename, codenameConfig.style, codenameConfig.alphabet)
+            const normalizedCodename = normalizeCodenameForStyle(
+                getCodenamePayloadText(result.data.codename),
+                codenameConfig.style,
+                codenameConfig.alphabet
+            )
             if (
                 !normalizedCodename ||
                 !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
@@ -717,11 +704,16 @@ export function createMetahubsRoutes(
                 }
             }
 
-            const codenameLocalizedVlc = buildCodenameLocalizedVlc(
-                result.data.codenameInput,
-                result.data.codenamePrimaryLocale,
-                result.data.namePrimaryLocale ?? 'en'
+            const codenameVlc = syncCodenamePayloadText(
+                result.data.codename,
+                result.data.namePrimaryLocale ?? 'en',
+                normalizedCodename,
+                codenameConfig.style,
+                codenameConfig.alphabet
             )
+            if (!codenameVlc) {
+                return res.status(400).json({ error: 'Invalid input', details: { codename: ['Codename is required'] } })
+            }
 
             // Resolve template (optional — falls back to default)
             let templateId: string | undefined
@@ -760,8 +752,7 @@ export function createMetahubsRoutes(
                     const saved = await createMetahubStore(tx, {
                         name: nameVlc,
                         description: descriptionVlc,
-                        codename: normalizedCodename,
-                        codenameLocalized: codenameLocalizedVlc,
+                        codename: codenameVlc,
                         slug: result.data.slug,
                         isPublic: result.data.isPublic ?? false,
                         templateId: templateId ?? null,
@@ -816,7 +807,6 @@ export function createMetahubsRoutes(
                 name: metahub.name,
                 description: metahub.description,
                 codename: metahub.codename,
-                codenameLocalized: metahub.codenameLocalized ?? null,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 templateId: metahub.templateId ?? null,
@@ -858,9 +848,7 @@ export function createMetahubsRoutes(
                 description: optionalLocalizedInputSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
-                codename: z.string().min(1).max(100).optional(),
-                codenameInput: localizedCodenameInputSchema.optional(),
-                codenamePrimaryLocale: z.string().optional(),
+                codename: optionalCodenamePayloadSchema,
                 slug: z
                     .string()
                     .min(1)
@@ -919,19 +907,14 @@ export function createMetahubsRoutes(
                 }
             }
 
-            let codenameLocalizedVlc: VersionedLocalizedContent<string> | null | undefined = sourceMetahub.codenameLocalized ?? null
-            if (parsed.data.codenameInput !== undefined) {
-                codenameLocalizedVlc = buildCodenameLocalizedVlc(
-                    parsed.data.codenameInput,
-                    parsed.data.codenamePrimaryLocale,
-                    parsed.data.namePrimaryLocale ?? sourceMetahub.name?._primary ?? 'en'
-                )
-            }
+            const codenameFallbackLocale = parsed.data.namePrimaryLocale ?? sourceMetahub.name?._primary ?? 'en'
 
             const codenameConfig = await getGlobalMetahubCodenameConfig(exec)
             const copySuffix = codenameConfig.style === 'pascal-case' ? 'Copy' : '-copy'
             const normalizedCodename = normalizeCodenameForStyle(
-                parsed.data.codename ?? `${sourceMetahub.codename}${copySuffix}`,
+                parsed.data.codename
+                    ? getCodenamePayloadText(parsed.data.codename)
+                    : `${getCodenamePayloadText(sourceMetahub.codename)}${copySuffix}`,
                 codenameConfig.style,
                 codenameConfig.alphabet
             )
@@ -947,17 +930,15 @@ export function createMetahubsRoutes(
                 })
             }
 
-            if (parsed.data.codenameInput === undefined) {
-                const fallbackLocale = normalizeLocaleCode(
-                    parsed.data.codenamePrimaryLocale ?? parsed.data.namePrimaryLocale ?? sourceMetahub.name?._primary ?? 'en'
-                )
-                codenameLocalizedVlc = buildCodenameLocalizedVlc({ [fallbackLocale]: normalizedCodename }, fallbackLocale, fallbackLocale)
-                console.info('[metahub-copy] codename_localized built from normalizedCodename', {
-                    sourceCodename: sourceMetahub.codename,
-                    normalizedCodename,
-                    fallbackLocale,
-                    codenameLocalizedVlc: JSON.stringify(codenameLocalizedVlc)
-                })
+            const codenameVlc = syncCodenamePayloadText(
+                parsed.data.codename ?? sourceMetahub.codename,
+                codenameFallbackLocale,
+                normalizedCodename,
+                codenameConfig.style,
+                codenameConfig.alphabet
+            )
+            if (!codenameVlc) {
+                return res.status(400).json({ error: 'Invalid input', details: { codename: ['Codename is required'] } })
             }
 
             const existingCodename = await findMetahubByCodename(exec, normalizedCodename)
@@ -1012,8 +993,7 @@ export function createMetahubsRoutes(
                         id: newMetahubId,
                         name: nameVlc,
                         description: descriptionVlc,
-                        codename: normalizedCodename,
-                        codenameLocalized: codenameLocalizedVlc ?? null,
+                        codename: codenameVlc,
                         slug: slugCandidate,
                         isPublic: parsed.data.isPublic ?? sourceMetahub.isPublic,
                         lastBranchNumber: branchClonePlan.length,
@@ -1023,10 +1003,8 @@ export function createMetahubsRoutes(
                     })
                     console.info('[metahub-copy] saving copied metahub entity', {
                         id: copiedMetahub.id,
-                        codename: copiedMetahub.codename,
-                        codenameLocalized: JSON.stringify(copiedMetahub.codenameLocalized),
-                        sourceCodename: sourceMetahub.codename,
-                        sourceCodenameLocalized: JSON.stringify(sourceMetahub.codenameLocalized)
+                        codename: JSON.stringify(copiedMetahub.codename),
+                        sourceCodename: JSON.stringify(sourceMetahub.codename)
                     })
 
                     const branchIdMap = new Map<string, string>()
@@ -1036,7 +1014,6 @@ export function createMetahubsRoutes(
                             name: planItem.sourceBranch.name,
                             description: planItem.sourceBranch.description ?? null,
                             codename: planItem.sourceBranch.codename,
-                            codenameLocalized: planItem.sourceBranch.codenameLocalized ?? null,
                             branchNumber: planItem.branchNumber,
                             schemaName: planItem.schemaName,
                             structureVersion: structureVersionToSemver(planItem.sourceBranch.structureVersion),
@@ -1109,7 +1086,6 @@ export function createMetahubsRoutes(
                     name: copied.name,
                     description: copied.description,
                     codename: copied.codename,
-                    codenameLocalized: copied.codenameLocalized ?? null,
                     slug: copied.slug,
                     isPublic: copied.isPublic,
                     version: copied._uplVersion || 1,
@@ -1165,9 +1141,7 @@ export function createMetahubsRoutes(
                 description: optionalLocalizedInputSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
-                codename: z.string().min(1).max(100).optional(),
-                codenameInput: localizedCodenameInputSchema.optional(),
-                codenamePrimaryLocale: z.string().optional(),
+                codename: optionalCodenamePayloadSchema,
                 slug: z
                     .string()
                     .min(1)
@@ -1191,11 +1165,15 @@ export function createMetahubsRoutes(
 
             // Build update fields
             const updateInput: Parameters<typeof updateMetahubStore>[2] = { userId }
-            let resolvedCodename = metahub.codename
+            let resolvedCodename = getCodenamePayloadText(metahub.codename)
             let resolvedSlug = metahub.slug
 
-            if (result.data.codename !== undefined && result.data.codename !== metahub.codename) {
-                const normalizedCodename = normalizeCodenameForStyle(result.data.codename, codenameConfig.style, codenameConfig.alphabet)
+            if (result.data.codename !== undefined) {
+                const normalizedCodename = normalizeCodenameForStyle(
+                    getCodenamePayloadText(result.data.codename),
+                    codenameConfig.style,
+                    codenameConfig.alphabet
+                )
                 if (
                     !normalizedCodename ||
                     !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
@@ -1211,7 +1189,15 @@ export function createMetahubsRoutes(
                 if (existingCodename && existingCodename.id !== metahubId) {
                     return res.status(409).json({ error: 'Codename already in use' })
                 }
-                updateInput.codename = normalizedCodename
+                const nextCodename = syncOptionalCodenamePayloadText(
+                    result.data.codename,
+                    result.data.namePrimaryLocale ?? metahub.name?._primary ?? 'en',
+                    normalizedCodename
+                )
+                if (!nextCodename) {
+                    return res.status(400).json({ error: 'Invalid input', details: { codename: ['Codename is required'] } })
+                }
+                updateInput.codename = nextCodename
                 resolvedCodename = normalizedCodename
             }
 
@@ -1250,14 +1236,6 @@ export function createMetahubsRoutes(
                 } else {
                     updateInput.description = null
                 }
-            }
-
-            if (result.data.codenameInput !== undefined) {
-                updateInput.codenameLocalized = buildCodenameLocalizedVlc(
-                    result.data.codenameInput,
-                    result.data.codenamePrimaryLocale,
-                    result.data.namePrimaryLocale ?? metahub.name?._primary ?? 'en'
-                )
             }
             if (result.data.isPublic !== undefined) {
                 updateInput.isPublic = result.data.isPublic
@@ -1309,7 +1287,6 @@ export function createMetahubsRoutes(
                 name: updated.name,
                 description: updated.description,
                 codename: updated.codename,
-                codenameLocalized: updated.codenameLocalized ?? null,
                 slug: updated.slug,
                 isPublic: updated.isPublic,
                 version: updated._uplVersion || 1,

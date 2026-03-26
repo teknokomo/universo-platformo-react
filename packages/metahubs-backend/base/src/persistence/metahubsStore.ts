@@ -3,6 +3,16 @@ import type { SqlQueryable, MetahubRow, MetahubUserRow } from './types'
 import { uplFieldAliases, appFieldAliases } from './types'
 import { activeMetahubRowCondition, softDelete } from './metahubsQueryHelpers'
 
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const metahubCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
+const resolveCodenameJson = (codename: VersionedLocalizedContent<string> | undefined): string | null =>
+    codename ? JSON.stringify(codename) : null
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SELECT fragments
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -12,8 +22,7 @@ const METAHUB_SELECT = (alias: string) =>
     ${alias}.id,
     ${alias}.name,
     ${alias}.description,
-    ${alias}.codename,
-    ${alias}.codename_localized AS "codenameLocalized",
+    ${alias}.codename AS codename,
     ${alias}.slug,
     ${alias}.default_branch_id AS "defaultBranchId",
     ${alias}.last_branch_number AS "lastBranchNumber",
@@ -112,7 +121,7 @@ export async function findMetahubByCodename(exec: SqlQueryable, codename: string
     const rows = await exec.query<MetahubRow>(
         `SELECT ${METAHUB_SELECT('m')}
          FROM metahubs.cat_metahubs m
-         WHERE m.codename = $1
+         WHERE ${metahubCodenameTextSql('m.codename')} = $1
                      AND ${activeMetahubRowCondition('m')}
          LIMIT 1`,
         [codename]
@@ -181,7 +190,9 @@ export async function listMetahubs(
     if (input.search) {
         params.push(`%${input.search}%`)
         conditions.push(
-            `(m.name::text ILIKE $${params.length} OR COALESCE(m.description::text, '') ILIKE $${params.length} OR COALESCE(m.slug, '') ILIKE $${params.length} OR COALESCE(m.codename, '') ILIKE $${params.length})`
+            `(m.name::text ILIKE $${params.length} OR COALESCE(m.description::text, '') ILIKE $${
+                params.length
+            } OR COALESCE(m.slug, '') ILIKE $${params.length} OR ${metahubCodenameTextSql('m.codename')} ILIKE $${params.length})`
         )
     }
 
@@ -193,7 +204,7 @@ export async function listMetahubs(
         input.sortBy === 'name'
             ? `COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')`
             : input.sortBy === 'codename'
-            ? 'm.codename'
+            ? metahubCodenameTextSql('m.codename')
             : input.sortBy === 'created'
             ? 'm._upl_created_at'
             : 'm._upl_updated_at'
@@ -242,8 +253,7 @@ export interface CreateMetahubInput {
     id?: string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: VersionedLocalizedContent<string>
     slug?: string | null
     isPublic?: boolean
     lastBranchNumber?: number
@@ -257,7 +267,6 @@ export async function createMetahub(exec: SqlQueryable, input: CreateMetahubInpu
         'name',
         'description',
         'codename',
-        'codename_localized',
         'slug',
         'is_public',
         'template_id',
@@ -268,8 +277,7 @@ export async function createMetahub(exec: SqlQueryable, input: CreateMetahubInpu
     const vals: unknown[] = [
         JSON.stringify(input.name),
         input.description ? JSON.stringify(input.description) : null,
-        input.codename,
-        input.codenameLocalized ? JSON.stringify(input.codenameLocalized) : null,
+        resolveCodenameJson(input.codename),
         input.slug ?? null,
         input.isPublic ?? false,
         input.templateId ?? null,
@@ -300,8 +308,7 @@ export async function createMetahub(exec: SqlQueryable, input: CreateMetahubInpu
 export interface UpdateMetahubInput {
     name?: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
-    codename?: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename?: VersionedLocalizedContent<string>
     slug?: string | null
     isPublic?: boolean
     defaultBranchId?: string | null
@@ -325,9 +332,8 @@ export async function updateMetahub(exec: SqlQueryable, id: string, input: Updat
 
     if (input.name !== undefined) push('name', JSON.stringify(input.name))
     if (input.description !== undefined) push('description', input.description ? JSON.stringify(input.description) : null)
-    if (input.codename !== undefined) push('codename', input.codename)
-    if (input.codenameLocalized !== undefined)
-        push('codename_localized', input.codenameLocalized ? JSON.stringify(input.codenameLocalized) : null)
+    const codenameJson = resolveCodenameJson(input.codename)
+    if (codenameJson !== null) push('codename', codenameJson)
     if (input.slug !== undefined) push('slug', input.slug)
     if (input.isPublic !== undefined) push('is_public', input.isPublic)
     if (input.defaultBranchId !== undefined) push('default_branch_id', input.defaultBranchId)

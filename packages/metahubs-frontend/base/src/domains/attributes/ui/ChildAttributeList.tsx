@@ -25,6 +25,7 @@ import {
     AttributeDisplay,
     AttributeLocalizedPayload,
     AttributeValidationRules,
+    getVLCString,
     toAttributeDisplay,
     getDefaultValidationRules,
     getPhysicalDataType,
@@ -34,7 +35,7 @@ import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../uti
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
+import { extractLocalizedInput, hasPrimaryContent, ensureEntityCodenameContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
 import * as attributesApi from '../api'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import {
@@ -747,8 +748,7 @@ const ChildAttributeList = ({
         const defaultDataType = allowedChildDataTypes.includes('STRING') ? 'STRING' : allowedChildDataTypes[0] ?? 'STRING'
         return {
             nameVlc: null,
-            codenameVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             dataType: defaultDataType as AttributeDataType,
             isRequired: childAttributes.length === 0,
@@ -772,7 +772,11 @@ const ChildAttributeList = ({
             if (!hasPrimaryContent(values.nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const normalized = normalizeCodenameForStyle(values.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const normalized = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalized) errors.codename = t('attributes.validation.codenameRequired', 'Codename is required')
             else if (!isValidCodenameForStyle(normalized, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed))
                 errors.codename = t('attributes.validation.codenameInvalid')
@@ -797,11 +801,15 @@ const ChildAttributeList = ({
 
     const canSave = useCallback(
         (values: GenericFormValues) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const hasBasic =
                 !values._hasCodenameDuplicate &&
                 hasPrimaryContent(values.nameVlc) &&
                 isValidCodenameForStyle(
-                    normalizeCodenameForStyle(values.codename ?? '', codenameConfig.style, codenameConfig.alphabet),
+                    normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet),
                     codenameConfig.style,
                     codenameConfig.alphabet,
                     codenameConfig.allowMixed
@@ -926,18 +934,20 @@ const ChildAttributeList = ({
         setDialogError(null)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired'))
                 return
             }
-            const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
+            const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const codename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!codename) {
                 setDialogError(t('attributes.validation.codenameRequired'))
                 return
             }
+            const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
             const dataType = (data.dataType as string) ?? 'STRING'
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null | undefined) ?? null : undefined
             const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null | undefined) ?? null : undefined
@@ -951,9 +961,7 @@ const ChildAttributeList = ({
                 targetEntityId?: string | null
                 targetEntityKind?: MetaEntityKind | null
             } = {
-                codename,
-                codenameInput,
-                codenamePrimaryLocale,
+                codename: codenamePayload,
                 dataType: dataType as AttributeDataType,
                 isRequired: Boolean(data.isRequired),
                 isDisplayAttribute: Boolean(data.isDisplayAttribute),
@@ -1018,18 +1026,20 @@ const ChildAttributeList = ({
         setEditDialogError(null)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setEditDialogError(tc('crud.nameRequired'))
                 return
             }
-            const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
+            const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const codename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!codename) {
                 setEditDialogError(t('attributes.validation.codenameRequired'))
                 return
             }
+            const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
             const dataType = (data.dataType as string) ?? editState.attribute.dataType
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null | undefined) ?? null : null
             const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null | undefined) ?? null : null
@@ -1043,9 +1053,7 @@ const ChildAttributeList = ({
                 targetEntityId?: string | null
                 targetEntityKind?: MetaEntityKind | null
             } = {
-                codename,
-                codenameInput,
-                codenamePrimaryLocale,
+                codename: codenamePayload,
                 dataType: dataType as AttributeDataType,
                 isRequired: Boolean(data.isRequired),
                 name: nameInput,
@@ -1097,19 +1105,21 @@ const ChildAttributeList = ({
         const currentAttribute = copyState.attribute
         setCopyDialogError(null)
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
         if (!nameInput || !namePrimaryLocale) {
             setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
             return
         }
 
-        const codename = normalizeCodenameForStyle(data.codename ?? '', codenameConfig.style, codenameConfig.alphabet)
+        const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale
+        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+        const codename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         if (!codename) {
             setCopyDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
             return
         }
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
 
         setCopyState({ open: false, attribute: null })
         copyChildAttributeMutation.mutate(
@@ -1120,9 +1130,7 @@ const ChildAttributeList = ({
                 parentAttributeId,
                 attributeId: currentAttribute.id,
                 data: {
-                    codename,
-                    codenameInput,
-                    codenamePrimaryLocale,
+                    codename: codenamePayload,
                     name: nameInput,
                     namePrimaryLocale,
                     validationRules: data.validationRules ?? currentAttribute.validationRules ?? {},
@@ -1149,8 +1157,7 @@ const ChildAttributeList = ({
         const attr = editState.attribute
         return {
             nameVlc: attr.name,
-            codenameVlc: attr.codenameLocalized ?? null,
-            codename: attr.codename,
+            codename: ensureEntityCodenameContent(attr, i18n.language, attr.codename || ''),
             codenameTouched: true,
             dataType: attr.dataType as AttributeDataType,
             isRequired: attr.isRequired,
@@ -1169,12 +1176,11 @@ const ChildAttributeList = ({
     const copyInitialValues = useMemo(() => {
         if (!copyState.attribute) return null
         const source = copyState.attribute
-        const sourceName = source.codename || 'attribute'
+        const sourceName = getVLCString(source.codename) || 'attribute'
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
-            codenameVlc: source.codenameLocalized ?? null,
-            codename: normalizeCodenameForStyle(`${source.codename}-copy`, codenameConfig.style, codenameConfig.alphabet),
-            codenameTouched: true,
+            codename: null,
+            codenameTouched: false,
             dataType: source.dataType as AttributeDataType,
             isRequired: source.isRequired ?? false,
             targetEntityId: source.targetEntityId ?? null,

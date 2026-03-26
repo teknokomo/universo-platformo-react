@@ -6,7 +6,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
-import { resolveLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, getCodenamePrimary } from '@universo/utils'
 import type { LocaleCode } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
 import { useSnackbar } from 'notistack'
@@ -167,7 +167,7 @@ const RolesList = () => {
     // Helper: Get localized role name from VLC
     const getRoleName = useCallback(
         (role: RoleListItem): string => {
-            return resolveLocalizedContent(role.name, currentLang, role.codename)
+            return resolveLocalizedContent(role.name, currentLang, getCodenamePrimary(role.codename))
         },
         [currentLang]
     )

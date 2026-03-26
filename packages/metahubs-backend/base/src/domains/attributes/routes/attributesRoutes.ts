@@ -30,15 +30,17 @@ import {
     getAllowAttributeMoveBetweenChildLists,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
+import {
+    requiredCodenamePayloadSchema,
+    optionalCodenamePayloadSchema,
+    getCodenamePayloadText,
+    syncCodenamePayloadText,
+    syncOptionalCodenamePayloadText
+} from '../../shared/codenamePayload'
 import { readPlatformSystemAttributesPolicy, shouldExposeCatalogSystemField } from '../../shared'
+import { createEnsureMetahubRouteAccess } from '../../shared/guards'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 import { uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as any).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
 
 const isTableChildLimitReachedError = (error: unknown): error is Error & { code?: string; maxChildAttributes?: number } => {
     if (!(error instanceof Error)) return false
@@ -224,20 +226,9 @@ const uiConfigSchema = z
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 
-const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: string, fallbackPrimary = 'en'): unknown => {
-    if (codenameInput === undefined) return undefined
-    const codenameRecord: Record<string, string | undefined> =
-        typeof codenameInput === 'string' ? { en: codenameInput } : (codenameInput as Record<string, string | undefined>)
-    const sanitizedCodename = sanitizeLocalizedInput(codenameRecord)
-    if (Object.keys(sanitizedCodename).length === 0) return null
-    return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
-}
-
 const createAttributeSchema = z
     .object({
-        codename: z.string().min(1).max(100),
-        codenameInput: localizedInputSchema.optional(),
-        codenamePrimaryLocale: z.string().optional(),
+        codename: requiredCodenamePayloadSchema,
         dataType: z.enum(ATTRIBUTE_DATA_TYPES),
         name: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
@@ -257,9 +248,7 @@ const createAttributeSchema = z
 
 const updateAttributeSchema = z
     .object({
-        codename: z.string().min(1).max(100).optional(),
-        codenameInput: localizedInputSchema.optional(),
-        codenamePrimaryLocale: z.string().optional(),
+        codename: optionalCodenamePayloadSchema,
         dataType: z.enum(ATTRIBUTE_DATA_TYPES).optional(),
         name: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
@@ -277,23 +266,25 @@ const updateAttributeSchema = z
     })
     .strict()
 
-const moveAttributeSchema = z.object({
-    direction: z.enum(['up', 'down'])
-})
+const moveAttributeSchema = z
+    .object({
+        direction: z.enum(['up', 'down'])
+    })
+    .strict()
 
-const copyAttributeSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    copyChildAttributes: z.boolean().optional(),
-    // Optional overrides — when provided, the copy uses these instead of the source values
-    validationRules: validationRulesSchema,
-    uiConfig: uiConfigSchema,
-    isRequired: z.boolean().optional(),
-    targetConstantId: z.string().uuid().nullable().optional()
-})
+const copyAttributeSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        copyChildAttributes: z.boolean().optional(),
+        // Optional overrides — when provided, the copy uses these instead of the source values
+        validationRules: validationRulesSchema,
+        uiConfig: uiConfigSchema,
+        isRequired: z.boolean().optional(),
+        targetConstantId: z.string().uuid().nullable().optional()
+    })
+    .strict()
 
 const ATTRIBUTE_LIMIT = 100
 
@@ -368,6 +359,8 @@ export function createAttributesRoutes(
         }
     }
 
+    const ensureMetahubRouteAccess = createEnsureMetahubRouteAccess(getDbExecutor)
+
     /**
      * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attributes
      * GET /metahub/:metahubId/catalog/:catalogId/attributes
@@ -379,7 +372,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { attributesService, exec } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
             const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
 
             let validatedQuery
@@ -539,7 +533,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
 
@@ -562,7 +557,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             // Verify catalog exists
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
@@ -586,8 +582,6 @@ export function createAttributesRoutes(
 
             const {
                 codename,
-                codenameInput,
-                codenamePrimaryLocale,
                 dataType,
                 name,
                 namePrimaryLocale,
@@ -649,7 +643,7 @@ export function createAttributesRoutes(
             const codenameStyle = extractCodenameStyle(allSettings)
             const codenameAlphabet = extractCodenameAlphabet(allSettings)
             const allowMixed = extractAllowMixedAlphabets(allSettings)
-            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            const normalizedCodename = normalizeCodenameForStyle(getCodenamePayloadText(codename), codenameStyle, codenameAlphabet)
             if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
@@ -767,7 +761,13 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+            const codenamePayload = syncCodenamePayloadText(
+                codename,
+                namePrimaryLocale ?? 'en',
+                normalizedCodename,
+                codenameStyle,
+                codenameAlphabet
+            )
 
             let globalCodenameLockKey: string | null = null
             if (codenameScope === 'global') {
@@ -802,8 +802,7 @@ export function createAttributesRoutes(
                         metahubId,
                         {
                             catalogId,
-                            codename: normalizedCodename,
-                            codenameLocalized,
+                            codename: codenamePayload ?? normalizedCodename,
                             dataType,
                             name: nameVlc,
                             targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
@@ -871,7 +870,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, constantsService, exec, settingsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const source = await attributesService.findById(metahubId, attributeId, userId)
             if (!source || source.catalogId !== catalogId) {
@@ -902,7 +902,7 @@ export function createAttributesRoutes(
             } = await getCodenameSettings(settingsService, metahubId, userId)
             const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
             const normalizedBaseCodename = normalizeCodenameForStyle(
-                parsed.data.codename ?? `${source.codename}${copySuffix}`,
+                parsed.data.codename ? getCodenamePayloadText(parsed.data.codename) : `${source.codename}${copySuffix}`,
                 codenameStyle,
                 codenameAlphabet
             )
@@ -924,20 +924,7 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const copyCodenameLocalized =
-                parsed.data.codenameInput !== undefined
-                    ? buildCodenameLocalizedVlc(
-                          parsed.data.codenameInput,
-                          parsed.data.codenamePrimaryLocale,
-                          parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en'
-                      )
-                    : source.codenameLocalized
-            const codenamePrimaryLocale = (
-                parsed.data.codenamePrimaryLocale ??
-                parsed.data.namePrimaryLocale ??
-                source.name?._primary ??
-                'en'
-            )
+            const codenamePrimaryLocale = (parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en')
                 .split('-')[0]
                 .split('_')[0]
                 .toLowerCase()
@@ -1017,15 +1004,14 @@ export function createAttributesRoutes(
                                 metahubId,
                                 {
                                     catalogId,
-                                    codename: codenameCandidate,
-                                    codenameLocalized:
-                                        parsed.data.codenameInput === undefined
-                                            ? buildCodenameLocalizedVlc(
-                                                  { [codenamePrimaryLocale]: codenameCandidate },
-                                                  codenamePrimaryLocale,
-                                                  codenamePrimaryLocale
-                                              )
-                                            : copyCodenameLocalized,
+                                    codename:
+                                        syncCodenamePayloadText(
+                                            parsed.data.codename ?? source.codename,
+                                            codenamePrimaryLocale,
+                                            codenameCandidate,
+                                            codenameStyle,
+                                            codenameAlphabet
+                                        ) ?? codenameCandidate,
                                     dataType: source.dataType,
                                     name: copyName,
                                     validationRules: copyValidationRules,
@@ -1164,7 +1150,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
@@ -1178,8 +1165,6 @@ export function createAttributesRoutes(
 
             const {
                 codename,
-                codenameInput,
-                codenamePrimaryLocale,
                 dataType,
                 name,
                 namePrimaryLocale,
@@ -1301,13 +1286,13 @@ export function createAttributesRoutes(
             let effectiveTargetEntityKind = attribute.targetEntityKind ?? null
             let effectiveTargetConstantId = attribute.targetConstantId ?? null
 
-            if (codename && codename !== attribute.codename) {
+            if (codename !== undefined) {
                 const {
                     style: codenameStyle,
                     alphabet: codenameAlphabet,
                     allowMixed
                 } = await getCodenameSettings(settingsService, metahubId, userId)
-                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                const normalizedCodename = normalizeCodenameForStyle(getCodenamePayloadText(codename), codenameStyle, codenameAlphabet)
                 if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
@@ -1318,6 +1303,9 @@ export function createAttributesRoutes(
                     codenameScope = await getAttributeCodenameScope(settingsService, metahubId, userId)
                     updateData.codename = normalizedCodename
                 }
+                updateData.codename =
+                    syncOptionalCodenamePayloadText(codename, attribute.name?._primary ?? namePrimaryLocale ?? 'en', normalizedCodename) ??
+                    normalizedCodename
             }
 
             // dataType is intentionally NOT updatable (see validation above)
@@ -1332,14 +1320,6 @@ export function createAttributesRoutes(
                 if (nameVlc) {
                     updateData.name = nameVlc
                 }
-            }
-
-            if (codenameInput !== undefined) {
-                updateData.codenameLocalized = buildCodenameLocalizedVlc(
-                    codenameInput,
-                    codenamePrimaryLocale,
-                    attribute.name?._primary ?? namePrimaryLocale ?? 'en'
-                )
             }
 
             // Handle polymorphic reference update
@@ -1582,7 +1562,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const parsed = moveAttributeSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -1612,12 +1593,14 @@ export function createAttributesRoutes(
      * PATCH /metahub/:metahubId/catalog/:catalogId/attributes/reorder
      * Reorder an attribute within its list, or transfer to a different parent list (cross-list DnD)
      */
-    const reorderAttributeSchema = z.object({
-        attributeId: z.string().uuid(),
-        newSortOrder: z.number().int().min(1),
-        newParentAttributeId: z.string().uuid().nullable().optional(),
-        autoRenameCodename: z.boolean().optional()
-    })
+    const reorderAttributeSchema = z
+        .object({
+            attributeId: z.string().uuid(),
+            newSortOrder: z.number().int().min(1),
+            newParentAttributeId: z.string().uuid().nullable().optional(),
+            autoRenameCodename: z.boolean().optional()
+        })
+        .strict()
 
     router.patch(
         [
@@ -1628,7 +1611,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { attributesService, settingsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const parsed = reorderAttributeSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -1704,7 +1688,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, enumerationValuesService, exec } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
@@ -1796,7 +1781,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, exec } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
@@ -1849,7 +1835,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, exec } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
@@ -1894,7 +1881,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, settingsService, exec } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
+            if (!userId) return
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
@@ -1976,14 +1964,14 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { attributesService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const allAttributes = await attributesService.findAllFlat(metahubId, catalogId, userId)
 
             const items = allAttributes.map((attr) => ({
                 id: attr.id,
-                codename: attr.codename,
-                codenameLocalized: attr.codenameLocalized ?? null
+                codename: attr.codename
             }))
 
             res.json({ items })
@@ -2005,7 +1993,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const parent = await attributesService.findById(metahubId, attributeId, userId)
             if (!parent || parent.catalogId !== catalogId) {
@@ -2034,7 +2023,8 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             // Verify parent TABLE attribute exists
             const parent = await attributesService.findById(metahubId, attributeId, userId)
@@ -2056,8 +2046,6 @@ export function createAttributesRoutes(
 
             const {
                 codename,
-                codenameInput,
-                codenamePrimaryLocale,
                 dataType,
                 name,
                 namePrimaryLocale,
@@ -2096,7 +2084,7 @@ export function createAttributesRoutes(
             const codenameStyle = extractCodenameStyle(allSettings)
             const codenameAlphabet = extractCodenameAlphabet(allSettings)
             const allowMixed = extractAllowMixedAlphabets(allSettings)
-            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            const normalizedCodename = normalizeCodenameForStyle(getCodenamePayloadText(codename), codenameStyle, codenameAlphabet)
             if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
@@ -2216,7 +2204,13 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+            const codenamePayload = syncCodenamePayloadText(
+                codename,
+                namePrimaryLocale ?? 'en',
+                normalizedCodename,
+                codenameStyle,
+                codenameAlphabet
+            )
 
             let globalCodenameLockKey: string | null = null
             if (codenameScope === 'global') {
@@ -2247,8 +2241,7 @@ export function createAttributesRoutes(
                         metahubId,
                         {
                             catalogId,
-                            codename: normalizedCodename,
-                            codenameLocalized,
+                            codename: codenamePayload ?? normalizedCodename,
                             dataType,
                             name: nameVlc,
                             validationRules: validationRules ?? {},

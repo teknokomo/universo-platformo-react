@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { OptimisticLockError } from '@universo/utils'
 import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
-import { ensureMetahubAccess } from '../../shared/guards'
+import { ensureMetahubAccess, createEnsureMetahubRouteAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
@@ -14,12 +15,6 @@ import { AttributeDataType } from '@universo/types'
 
 const { normalizeElementCopyOptions } = validation
 
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as any).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
 const extractErrorCode = (error: unknown): string | undefined => {
     if (!error || typeof error !== 'object' || !('code' in error)) return undefined
     const code = (error as { code?: unknown }).code
@@ -27,29 +22,39 @@ const extractErrorCode = (error: unknown): string | undefined => {
 }
 
 // Request body schemas
-const createElementSchema = z.object({
-    data: z.record(z.unknown()),
-    sortOrder: z.number().int().optional()
-})
+const createElementSchema = z
+    .object({
+        data: z.record(z.unknown()),
+        sortOrder: z.number().int().optional()
+    })
+    .strict()
 
-const updateElementSchema = z.object({
-    data: z.record(z.unknown()).optional(),
-    sortOrder: z.number().int().optional(),
-    expectedVersion: z.number().int().positive().optional() // For optimistic locking
-})
+const updateElementSchema = z
+    .object({
+        data: z.record(z.unknown()).optional(),
+        sortOrder: z.number().int().optional(),
+        expectedVersion: z.number().int().positive().optional() // For optimistic locking
+    })
+    .strict()
 
-const copyElementSchema = z.object({
-    copyChildTables: z.boolean().optional()
-})
+const copyElementSchema = z
+    .object({
+        copyChildTables: z.boolean().optional()
+    })
+    .strict()
 
-const moveElementSchema = z.object({
-    direction: z.enum(['up', 'down'])
-})
+const moveElementSchema = z
+    .object({
+        direction: z.enum(['up', 'down'])
+    })
+    .strict()
 
-const reorderElementSchema = z.object({
-    elementId: z.string().uuid(),
-    newSortOrder: z.number().int().min(1)
-})
+const reorderElementSchema = z
+    .object({
+        elementId: z.string().uuid(),
+        newSortOrder: z.number().int().min(1)
+    })
+    .strict()
 
 export function createElementsRoutes(
     ensureAuth: RequestHandler,
@@ -80,6 +85,8 @@ export function createElementsRoutes(
         }
     }
 
+    const ensureMetahubRouteAccess = createEnsureMetahubRouteAccess(getDbExecutor)
+
     /**
      * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements
      * GET /metahub/:metahubId/catalog/:catalogId/elements (direct, without hub)
@@ -91,7 +98,8 @@ export function createElementsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { elementsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             let validatedQuery
             try {
@@ -143,7 +151,8 @@ export function createElementsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, elementId } = req.params
             const { elementsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const element = await elementsService.findById(metahubId, catalogId, elementId, userId)
 
@@ -166,7 +175,8 @@ export function createElementsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { elementsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const parsed = createElementSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -214,7 +224,8 @@ export function createElementsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, elementId } = req.params
             const { elementsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const parsed = updateElementSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -342,7 +353,8 @@ export function createElementsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, elementId } = req.params
             const { elementsService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
+            if (!userId) return
 
             try {
                 await elementsService.delete(metahubId, catalogId, elementId, userId)
@@ -371,7 +383,8 @@ export function createElementsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, elementId } = req.params
             const { elementsService, attributesService } = services(req)
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
+            if (!userId) return
 
             const source = await elementsService.findById(metahubId, catalogId, elementId, userId)
             if (!source) {

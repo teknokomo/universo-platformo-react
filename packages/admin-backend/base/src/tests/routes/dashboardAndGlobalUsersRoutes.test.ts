@@ -147,9 +147,9 @@ describe('dashboard and global users routes', () => {
                         }
                     },
                     {
-                        codename: 'superuser',
+                        codename: 'Superuser',
                         metadata: {
-                            codename: 'superuser',
+                            codename: 'Superuser',
                             name: { _schema: '1', _primary: 'en', locales: {} },
                             color: '#111111',
                             isSuperuser: true
@@ -168,10 +168,10 @@ describe('dashboard and global users routes', () => {
         expect(response.status).toBe(200)
         expect(response.body.data).toEqual(
             expect.objectContaining({
-                role: 'superuser',
+                role: 'Superuser',
                 hasGlobalAccess: true,
                 isSuperuser: true,
-                roleMetadata: expect.objectContaining({ codename: 'superuser', isSuperuser: true })
+                roleMetadata: expect.objectContaining({ codename: 'Superuser', isSuperuser: true })
             })
         )
     })

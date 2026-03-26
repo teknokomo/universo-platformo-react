@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+    getCodenamePrimary,
     getVLCString,
+    getVLCPrimaryString,
     getVLCStringWithFallback,
     getSimpleLocalizedValue,
     normalizeLocale,
@@ -193,5 +195,45 @@ describe('getVLCStringWithFallback', () => {
     it('should not double-try English if already requested', () => {
         const field: SimpleLocalizedInput = { ru: 'Русский' }
         expect(getVLCStringWithFallback(field, 'en', 'fallback')).toBe('Русский')
+    })
+})
+
+describe('getVLCPrimaryString', () => {
+    it('returns primary locale content when available', () => {
+        const field: VersionedLocalizedContent<string> = {
+            _schema: '1',
+            _primary: 'ru',
+            locales: {
+                en: {
+                    content: 'en-code',
+                    version: 1,
+                    isActive: true,
+                    createdAt: '2024-01-01T00:00:00Z',
+                    updatedAt: '2024-01-01T00:00:00Z'
+                },
+                ru: {
+                    content: 'ru-code',
+                    version: 1,
+                    isActive: true,
+                    createdAt: '2024-01-01T00:00:00Z',
+                    updatedAt: '2024-01-01T00:00:00Z'
+                }
+            }
+        }
+
+        expect(getVLCPrimaryString(field)).toBe('ru-code')
+        expect(getCodenamePrimary(field)).toBe('ru-code')
+    })
+
+    it('falls back when the primary locale entry is missing', () => {
+        const field: VersatileLocalizedContent = {
+            _schema: '1',
+            _primary: 'de',
+            locales: {
+                en: { content: 'fallback-code' }
+            }
+        }
+
+        expect(getVLCPrimaryString(field)).toBe('fallback-code')
     })
 })

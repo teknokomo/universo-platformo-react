@@ -11,6 +11,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createCatalogsRoutes } from '../../domains/catalogs/routes/catalogsRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'test-metahub-id' }))
 
@@ -25,7 +26,17 @@ const mockGenerateTableName = jest.fn((id: string, kind: string) => `${kind}_${i
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
-    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess: () => async (req: any, res: any, metahubId: string, permission?: string) => {
+        const user = (req as any).user
+        const userId = user?.id ?? user?.sub ?? user?.user_id ?? user?.userId
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await mockEnsureMetahubAccess({}, userId, metahubId, permission)
+        return userId
+    }
 }))
 
 jest.mock('../../domains/ddl', () => ({
@@ -331,14 +342,19 @@ describe('Catalogs Routes', () => {
             )
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
-                .send({ codename: 'new-catalog', name: 'New Catalog' })
+                .send({ codename: testCodenameVlc('new-catalog'), name: 'New Catalog' })
                 .expect(201)
 
             expect(response.body).toMatchObject({ id: 'catalog-new', codename: 'NewCatalog' })
             expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
                 'test-metahub-id',
                 expect.objectContaining({
-                    codename: 'NewCatalog',
+                    codename: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'NewCatalog' })
+                        })
+                    }),
                     config: expect.objectContaining({ hubs: [] })
                 }),
                 'test-user-id',
@@ -365,7 +381,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
-                .send({ codename: 'existing', name: 'Existing' })
+                .send({ codename: testCodenameVlc('existing'), name: 'Existing' })
                 .expect(409)
 
             expect(response.body.error).toContain('already exists')
@@ -378,7 +394,7 @@ describe('Catalogs Routes', () => {
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
                 .send({
-                    codename: 'catalog-with-hub',
+                    codename: testCodenameVlc('catalog-with-hub'),
                     name: 'Catalog',
                     hubIds: ['00000000-0000-0000-0000-000000000001']
                 })
@@ -393,14 +409,14 @@ describe('Catalogs Routes', () => {
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
                 .send({
-                    codename: 'Products',
+                    codename: testCodenameVlc('Products'),
                     name: { en: 'Products' },
                     isSingleHub: true,
                     hubIds: ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
                 })
                 .expect(400)
 
-            expect(response.body.error).toContain('single hub')
+            expect(response.body.error).toBe('This catalog is restricted to a single hub')
             expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
         })
     })
@@ -426,14 +442,19 @@ describe('Catalogs Routes', () => {
             )
             const response = await request(app)
                 .post('/metahub/test-metahub-id/hub/hub-1/catalogs')
-                .send({ codename: 'hub-catalog', name: 'Hub Catalog' })
+                .send({ codename: testCodenameVlc('hub-catalog'), name: 'Hub Catalog' })
                 .expect(201)
 
             expect(response.body).toMatchObject({ id: 'catalog-hub-new', codename: 'HubCatalog' })
             expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
                 'test-metahub-id',
                 expect.objectContaining({
-                    codename: 'HubCatalog',
+                    codename: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'HubCatalog' })
+                        })
+                    }),
                     config: expect.objectContaining({ hubs: ['hub-1'] })
                 }),
                 'test-user-id',
@@ -465,14 +486,14 @@ describe('Catalogs Routes', () => {
             const response = await request(app)
                 .post('/metahub/test-metahub-id/hub/hub-1/catalogs')
                 .send({
-                    codename: 'Products',
+                    codename: testCodenameVlc('Products'),
                     name: { en: 'Products' },
                     isSingleHub: true,
                     hubIds: ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
                 })
                 .expect(400)
 
-            expect(response.body.error).toContain('single hub')
+            expect(response.body.error).toBe('This catalog is restricted to a single hub')
             expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
         })
     })
@@ -617,7 +638,10 @@ describe('Catalogs Routes', () => {
             mockFindMetahubById.mockResolvedValueOnce(null)
 
             const app = buildApp()
-            const response = await request(app).post('/metahub/missing/catalog/catalog-1/copy').send({ codename: 'copy-1' }).expect(404)
+            const response = await request(app)
+                .post('/metahub/missing/catalog/catalog-1/copy')
+                .send({ codename: testCodenameVlc('copy-1') })
+                .expect(404)
 
             expect(response.body.error).toBe('Metahub not found')
             expect(mockEnsureMetahubAccess).not.toHaveBeenCalled()
@@ -630,7 +654,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
-                .send({ codename: 'copy-1' })
+                .send({ codename: testCodenameVlc('copy-1') })
                 .expect(403)
 
             expect(response.body.error).toBe('Access denied to this metahub')
@@ -643,7 +667,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
-                .send({ codename: 'copy-1' })
+                .send({ codename: testCodenameVlc('copy-1') })
                 .expect(404)
 
             expect(response.body.error).toBe('Catalog not found')
@@ -662,7 +686,7 @@ describe('Catalogs Routes', () => {
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
                 .send({
-                    codename: 'products-copy',
+                    codename: testCodenameVlc('products-copy'),
                     copyAttributes: false,
                     copyElements: true
                 })
@@ -705,7 +729,7 @@ describe('Catalogs Routes', () => {
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
                 .send({
-                    codename: 'products-copy',
+                    codename: testCodenameVlc('products-copy'),
                     copyAttributes: false,
                     copyElements: false
                 })
@@ -779,7 +803,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
-                .send({ codename: 'products-copy' })
+                .send({ codename: testCodenameVlc('products-copy') })
                 .expect(201)
 
             expect(response.body.attributesCount).toBe(1)
@@ -836,7 +860,7 @@ describe('Catalogs Routes', () => {
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
                 .send({
-                    codename: 'products-copy',
+                    codename: testCodenameVlc('products-copy'),
                     copyAttributes: false,
                     copyElements: false
                 })

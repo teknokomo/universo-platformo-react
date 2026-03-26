@@ -18,8 +18,7 @@ const adminBusinessTables = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.STRING,
-                physicalDataType: 'VARCHAR(100)',
+                dataType: AttributeDataType.JSON,
                 isRequired: true
             },
             {
@@ -62,14 +61,9 @@ const adminBusinessTables = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.STRING,
-                physicalDataType: 'VARCHAR(50)',
+                dataType: AttributeDataType.JSON,
                 isRequired: true,
-                presentation: p('Role Codename', 'Stable internal role identifier'),
-                validationRules: {
-                    maxLength: 50,
-                    pattern: '^[a-z0-9:_-]+$'
-                }
+                presentation: p('Role Codename', 'Stable internal role identifier stored as canonical localized JSONB')
             },
             {
                 codename: 'name',

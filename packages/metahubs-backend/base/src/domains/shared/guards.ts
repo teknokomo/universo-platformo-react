@@ -264,5 +264,27 @@ export async function ensureHubAccess(
 // Access control for dynamic schema objects is handled by MetahubObjectsService logic (using ensureMetahubAccess + manual checks if needed)
 // Or by route handlers using ensureMetahubAccess and then checking association.
 
+// ============ ROUTE-LEVEL ACCESS HELPERS ============
+
+import type { Request, Response } from 'express'
+import { getRequestDbExecutor, getRequestDbSession } from '@universo/utils/database'
+import { resolveUserId } from './routeAuth'
+
+/**
+ * Create a route-level metahub access helper bound to a specific DB executor factory.
+ * Returns userId on success, sends 401 and returns null on unauthenticated request.
+ */
+export function createEnsureMetahubRouteAccess(getDbExecutor: () => DbExecutor) {
+    return async (req: Request, res: Response, metahubId: string, permission?: RolePermission): Promise<string | null> => {
+        const userId = resolveUserId(req)
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await ensureMetahubAccess(getRequestDbExecutor(req, getDbExecutor()), userId, metahubId, permission, getRequestDbSession(req))
+        return userId
+    }
+}
+
 // Suppress unused variable warning for createError (used in assertNotOwner)
 void createError

@@ -131,6 +131,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 describe('Metahubs Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -229,7 +230,6 @@ describe('Metahubs Routes', () => {
                     name: 'Test Metahub',
                     description: 'Test Description',
                     codename: null,
-                    codenameLocalized: null,
                     slug: null,
                     isPublic: false,
                     templateId: null,
@@ -318,7 +318,7 @@ describe('Metahubs Routes', () => {
 
         it('should allow showAll only for superusers', async () => {
             mockIsSuperuser.mockResolvedValueOnce(true)
-            mockGetGlobalRoleCodename.mockResolvedValueOnce('superuser')
+            mockGetGlobalRoleCodename.mockResolvedValueOnce('Superuser')
             mockListMetahubs.mockResolvedValue({ items: [], total: 0 })
 
             const app = buildApp()
@@ -330,7 +330,7 @@ describe('Metahubs Routes', () => {
 
         it('should correctly parse showAll=false for superusers (not coerce string "false" to true)', async () => {
             mockIsSuperuser.mockResolvedValueOnce(true)
-            mockGetGlobalRoleCodename.mockResolvedValueOnce('superuser')
+            mockGetGlobalRoleCodename.mockResolvedValueOnce('Superuser')
             mockListMetahubs.mockResolvedValue({ items: [], total: 0 })
 
             const app = buildApp()
@@ -375,7 +375,6 @@ describe('Metahubs Routes', () => {
                     name: 'Test Metahub',
                     description: 'A test description',
                     codename: null,
-                    codenameLocalized: null,
                     slug: null,
                     isPublic: false,
                     templateId: null,
@@ -404,7 +403,6 @@ describe('Metahubs Routes', () => {
                     name: 'Test Metahub',
                     description: 'Test Description',
                     codename: null,
-                    codenameLocalized: null,
                     slug: null,
                     isPublic: false,
                     templateId: null,
@@ -459,7 +457,6 @@ describe('Metahubs Routes', () => {
                     isPublic: false,
                     name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Source Metahub (copy)' } } },
                     description: null,
-                    codenameLocalized: null,
                     _uplVersion: 1,
                     _uplCreatedAt: new Date(),
                     _uplUpdatedAt: new Date()
@@ -472,7 +469,6 @@ describe('Metahubs Routes', () => {
                     sourceBranchId: null,
                     branchNumber: 1,
                     codename: 'main',
-                    codenameLocalized: null,
                     schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
                     structureVersion: '0.1.0',
                     lastTemplateVersionId: 'tpl-v100',
@@ -489,7 +485,6 @@ describe('Metahubs Routes', () => {
                     sourceBranchId: 'branch-1',
                     branchNumber: 2,
                     codename: 'feature',
-                    codenameLocalized: null,
                     schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2',
                     structureVersion: '0.1.0',
                     lastTemplateVersionId: 'tpl-v100',
@@ -550,7 +545,7 @@ describe('Metahubs Routes', () => {
                 .post('/metahub/metahub-1/copy')
                 .send({
                     name: { en: 'Source Metahub (copy)' },
-                    codename: 'source-hub-copy',
+                    codename: testCodenameVlc('source-hub-copy'),
                     copyDefaultBranchOnly: true,
                     copyAccess: true
                 })
@@ -1174,7 +1169,6 @@ describe('Metahubs Routes', () => {
                 name: 'New Hub',
                 description: null,
                 codename: 'NewHub',
-                codenameLocalized: null,
                 slug: null,
                 isPublic: false,
                 templateId: null,
@@ -1195,7 +1189,7 @@ describe('Metahubs Routes', () => {
                 .post('/metahubs')
                 .send({
                     name: 'New Hub',
-                    codename: 'NewHub',
+                    codename: testCodenameVlc('NewHub'),
                     createOptions: {
                         createHub: false,
                         createCatalog: true,
@@ -1226,7 +1220,6 @@ describe('Metahubs Routes', () => {
                 name: 'New Hub',
                 description: null,
                 codename: 'NewHub',
-                codenameLocalized: null,
                 slug: null,
                 isPublic: false,
                 templateId: null,
@@ -1250,7 +1243,10 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'NewHub' }).expect(500)
+            const response = await request(app)
+                .post('/metahubs')
+                .send({ name: 'New Hub', codename: testCodenameVlc('NewHub') })
+                .expect(500)
 
             expect(response.body).toMatchObject({ error: 'branch bootstrap failed' })
             // Cleanup uses hard DELETE (not soft-delete) to prevent zombie metahubs
@@ -1268,7 +1264,10 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'new-hub' }).expect(409)
+            const response = await request(app)
+                .post('/metahubs')
+                .send({ name: 'New Hub', codename: testCodenameVlc('new-hub') })
+                .expect(409)
 
             expect(response.body).toMatchObject({ error: 'Codename already in use' })
         })
@@ -1283,7 +1282,10 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'new-hub' }).expect(409)
+            const response = await request(app)
+                .post('/metahubs')
+                .send({ name: 'New Hub', codename: testCodenameVlc('new-hub') })
+                .expect(409)
 
             expect(response.body).toMatchObject({ error: 'Unique constraint conflict' })
         })
@@ -1309,7 +1311,10 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const response = await request(app).put('/metahub/metahub-1').send({ codename: 'new-codename', expectedVersion: 1 }).expect(409)
+            const response = await request(app)
+                .put('/metahub/metahub-1')
+                .send({ codename: testCodenameVlc('new-codename'), expectedVersion: 1 })
+                .expect(409)
 
             expect(response.body).toMatchObject({ error: 'Codename already in use' })
             expect(mockFindMetahubByCodename).toHaveBeenCalledWith(expect.anything(), 'NewCodename')
@@ -1353,7 +1358,6 @@ describe('Metahubs Routes', () => {
                 name: 'test',
                 description: null,
                 codename: 'TestMetahub',
-                codenameLocalized: null,
                 slug: null,
                 isPublic: false,
                 templateId: null,
@@ -1376,7 +1380,10 @@ describe('Metahubs Routes', () => {
             }
 
             // POST should still work (separate write counter)
-            await request(app).post('/metahubs').send({ name: 'test', description: 'test', codename: 'test-metahub' }).expect(201)
+            await request(app)
+                .post('/metahubs')
+                .send({ name: 'test', description: 'test', codename: testCodenameVlc('test-metahub') })
+                .expect(201)
         })
 
         it.skip('should include rate limit headers in response (requires real Redis)', async () => {

@@ -22,8 +22,7 @@ import {
     FlowListTable,
     ViewHeaderMUI as ViewHeader,
     LocalizedInlineField,
-    useCodenameAutoFill,
-    useCodenameVlcSync,
+    useCodenameAutoFillVlc,
     BaseEntityMenu,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
@@ -50,7 +49,13 @@ import type {
     PaginatedResponse
 } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
-import { normalizeLocale, extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
+import {
+    normalizeLocale,
+    extractLocalizedInput,
+    hasPrimaryContent,
+    ensureLocalizedContent,
+    ensureEntityCodenameContent
+} from '../../../utils/localizedInput'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { CodenameField, ExistingCodenamesProvider } from '../../../components'
@@ -69,8 +74,7 @@ import { DragOverlayValueRow } from './dnd'
 type ValueFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename: string
+    codename: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     isDefault?: boolean
 }
@@ -78,8 +82,7 @@ type ValueFormValues = {
 type CopyValueFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename: string
+    codename: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     isDefault?: boolean
 }
@@ -157,32 +160,11 @@ const ValueFormFields = ({
     const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent: string) =>
             sanitizeCodenameForStyle(
@@ -192,7 +174,7 @@ const ValueFormFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -236,13 +218,10 @@ const ValueFormFields = ({
 
             <CodenameField
                 value={codename}
-                onChange={(value: string) => setValue('codename', value)}
+                onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc}
-                onLocalizedChange={(next: VersionedLocalizedContent<string> | null) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={translate('enumerationValues.codename', 'Codename')}
                 helperText={translate('enumerationValues.codenameHelper', 'Unique identifier')}
@@ -660,8 +639,7 @@ const EnumerationValueList = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
-            codenameVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             isDefault: false
         }),
@@ -673,8 +651,7 @@ const EnumerationValueList = () => {
         return {
             nameVlc: editingValue.name ?? null,
             descriptionVlc: editingValue.description ?? null,
-            codenameVlc: editingValue.codenameLocalized ?? null,
-            codename: editingValue.codename,
+            codename: ensureEntityCodenameContent(editingValue, i18n.language, editingValue.codename || ''),
             codenameTouched: true,
             isDefault: editingValue.isDefault ?? false
         }
@@ -685,20 +662,18 @@ const EnumerationValueList = () => {
             return {
                 nameVlc: null,
                 descriptionVlc: null,
-                codenameVlc: null,
-                codename: '',
+                codename: null,
                 codenameTouched: false,
                 isDefault: false
             }
         }
         const source = copyState.value
-        const sourceName = source.codename || 'value'
+        const sourceName = getVLCString(source.codename) || 'value'
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
             descriptionVlc: source.description ?? null,
-            codenameVlc: source.codenameLocalized ?? null,
-            codename: normalizeCodenameForStyle(`${source.codename}-copy`, codenameConfig.style, codenameConfig.alphabet),
-            codenameTouched: true,
+            codename: null,
+            codenameTouched: false,
             isDefault: false
         }
     }, [codenameConfig.alphabet, codenameConfig.style, copyState.value, i18n.language])
@@ -709,7 +684,9 @@ const EnumerationValueList = () => {
         if (!hasPrimaryContent(nameVlc)) {
             errors.nameVlc = tc('crud.nameRequired', 'Name is required')
         }
-        const rawCodename = typeof valuesToValidate.codename === 'string' ? valuesToValidate.codename : ''
+        const codenameValue = valuesToValidate.codename as VersionedLocalizedContent<string> | null | undefined
+        const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
         const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         if (!normalizedCodename) {
             errors.codename = t('enumerationValues.validation.codenameRequired', 'Codename is required')
@@ -721,7 +698,9 @@ const EnumerationValueList = () => {
 
     const canSaveForm = (valuesToValidate: GenericFormValues) => {
         const nameVlc = valuesToValidate.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof valuesToValidate.codename === 'string' ? valuesToValidate.codename : ''
+        const codenameValue = valuesToValidate.codename as VersionedLocalizedContent<string> | null | undefined
+        const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
         const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         return (
             !valuesToValidate._hasCodenameDuplicate &&
@@ -737,12 +716,14 @@ const EnumerationValueList = () => {
 
         const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-        const codenameVlc = formValues.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+    const codenameValue = formValues.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-        const codename = normalizeCodenameForStyle(String(formValues.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+    const codenameRaw = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+    const codename = normalizeCodenameForStyle(codenameRaw, codenameConfig.style, codenameConfig.alphabet)
         const isDefault = Boolean(formValues.isDefault)
+    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
         if (!nameInput || !namePrimaryLocale) {
             setDialogError(tc('crud.nameRequired', 'Name is required'))
@@ -758,9 +739,7 @@ const EnumerationValueList = () => {
                 metahubId,
                 enumerationId,
                 data: {
-                    codename,
-                    codenameInput,
-                    codenamePrimaryLocale,
+                    codename: codenamePayload,
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
@@ -786,9 +765,7 @@ const EnumerationValueList = () => {
                 enumerationId,
                 valueId: currentEditingValue.id,
                 data: {
-                    codename,
-                    codenameInput,
-                    codenamePrimaryLocale,
+                    codename: codenamePayload,
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
@@ -1014,16 +991,14 @@ const EnumerationValueList = () => {
 
                         const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
                         const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-                        const codenameVlc = formValues.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-                        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+                        const codenameValue = formValues.codename as VersionedLocalizedContent<string> | null | undefined
                         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
                         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-                        const codename = normalizeCodenameForStyle(
-                            String(formValues.codename || ''),
-                            codenameConfig.style,
-                            codenameConfig.alphabet
-                        )
+                        const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+                        const codenameRaw = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+                        const codename = normalizeCodenameForStyle(codenameRaw, codenameConfig.style, codenameConfig.alphabet)
                         const isDefault = Boolean(formValues.isDefault)
+                        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
                         if (!nameInput || !namePrimaryLocale) {
                             setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
@@ -1039,9 +1014,7 @@ const EnumerationValueList = () => {
                             enumerationId,
                             valueId: copyState.value.id,
                             data: {
-                                codename,
-                                codenameInput,
-                                codenamePrimaryLocale,
+                                codename: codenamePayload,
                                 name: nameInput,
                                 description: descriptionInput,
                                 namePrimaryLocale,

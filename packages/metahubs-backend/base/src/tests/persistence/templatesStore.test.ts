@@ -33,7 +33,16 @@ describe('templatesStore audit user normalization', () => {
             userId: ''
         })
 
-        expect(exec.query).toHaveBeenCalledWith(expect.any(String), ['basic', JSON.stringify(baseName), null, null, true, true, 0, null])
+        expect(exec.query).toHaveBeenCalledWith(expect.any(String), [
+            expect.stringContaining('"content":"basic"'),
+            JSON.stringify(baseName),
+            null,
+            null,
+            true,
+            true,
+            0,
+            null
+        ])
     })
 
     it('stores null audit user ids when template version creation receives an empty system user id', async () => {

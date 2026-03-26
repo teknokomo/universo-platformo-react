@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { activeAppRowCondition, getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
+import { activeAppRowCondition, getCodenamePrimary, getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
+import { enforceSingleLocaleCodename } from '@universo/utils/vlc'
 import { isUniqueViolation } from '@universo/utils/database'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
@@ -17,7 +18,8 @@ import {
     countUsersByRoleId,
     listRoleUsers
 } from '../persistence/rolesStore'
-import { CreateRoleSchema, UpdateRoleSchema } from '../schemas'
+import { findSetting } from '../persistence/settingsStore'
+import { CreateRoleSchema, RoleCodenameSchema, UpdateRoleSchema } from '../schemas'
 import { z } from 'zod'
 
 /**
@@ -44,11 +46,7 @@ const RoleUsersQuerySchema = z.object({
 })
 
 const CopyRoleSchema = z.object({
-    codename: z
-        .string()
-        .min(2)
-        .max(50)
-        .regex(/^[a-z][a-z0-9_-]*$/),
+    codename: RoleCodenameSchema,
     name: z.record(z.any()),
     description: z.record(z.any()).optional(),
     color: z
@@ -74,6 +72,15 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
         (req, res, next) => {
             fn(req, res).catch(next)
         }
+
+    /** Read codenameLocalizedEnabled from admin.cfg_settings */
+    async function isCodenameLocalizedEnabled(exec: DbExecutor): Promise<boolean> {
+        const row = await findSetting(exec, 'metahubs', 'codenameLocalizedEnabled')
+        if (!row) return true
+        const raw = row.value
+        const val = typeof raw === 'object' && raw !== null && '_value' in raw ? (raw as { _value: unknown })._value : raw
+        return val !== false
+    }
 
     router.get(
         '/assignable',
@@ -172,14 +179,17 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const { codename, description, name, color, isSuperuser, permissions } = parsed.data
+            const { codename: rawCodename, description, name, color, isSuperuser, permissions } = parsed.data
             const exec = getRequestDbExecutor(req, getDbExecutor())
+            const localizedEnabled = await isCodenameLocalizedEnabled(exec)
+            const codename = enforceSingleLocaleCodename(rawCodename, localizedEnabled)
+            const codenameText = getCodenamePrimary(codename)
 
-            const existing = await findRoleByCodename(exec, codename)
+            const existing = await findRoleByCodename(exec, codenameText)
             if (existing) {
                 res.status(409).json({
                     success: false,
-                    error: `Role with codename "${codename}" already exists`
+                    error: `Role with codename "${codenameText}" already exists`
                 })
                 return
             }
@@ -192,7 +202,8 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                         name,
                         description,
                         color,
-                        is_superuser: isSuperuser
+                        is_superuser: isSuperuser,
+                        created_by: (req as RequestWithGlobalRole).user?.id ?? null
                     })
 
                     if (permissions && permissions.length > 0) {
@@ -215,7 +226,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 if (isUniqueViolation(error)) {
                     res.status(409).json({
                         success: false,
-                        error: `Role with codename "${codename}" already exists`
+                        error: `Role with codename "${codenameText}" already exists`
                     })
                     return
                 }
@@ -253,17 +264,20 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             }
 
             const exec = getRequestDbExecutor(req, getDbExecutor())
+            const localizedEnabled = await isCodenameLocalizedEnabled(exec)
+            const enforcedCopyCodename = enforceSingleLocaleCodename(parsed.data.codename, localizedEnabled)
+            const requestedCodename = getCodenamePrimary(enforcedCopyCodename)
             const sourceRole = await findRoleById(exec, sourceRoleId)
             if (!sourceRole) {
                 res.status(404).json({ success: false, error: 'Source role not found' })
                 return
             }
 
-            const existing = await findRoleByCodename(exec, parsed.data.codename)
+            const existing = await findRoleByCodename(exec, requestedCodename)
             if (existing) {
                 res.status(409).json({
                     success: false,
-                    error: `Role with codename "${parsed.data.codename}" already exists`
+                    error: `Role with codename "${requestedCodename}" already exists`
                 })
                 return
             }
@@ -271,18 +285,14 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             let copiedRoleId: string
             try {
                 copiedRoleId = await exec.transaction(async (trx) => {
-                    const rows = await trx.query<{ id: string }>(
-                        `INSERT INTO admin.cat_roles (codename, name, description, color, is_superuser, is_system, _upl_created_by)
-                         VALUES ($1, $2, $3, $4, false, false, $5)
-                         RETURNING id`,
-                        [
-                            parsed.data.codename,
-                            JSON.stringify(parsed.data.name),
-                            JSON.stringify(parsed.data.description ?? null),
-                            parsed.data.color,
-                            (req as RequestWithGlobalRole).user?.id ?? null
-                        ]
-                    )
+                    const savedRole = await createRole(trx, {
+                        codename: enforcedCopyCodename,
+                        name: parsed.data.name,
+                        description: parsed.data.description,
+                        color: parsed.data.color,
+                        is_superuser: false,
+                        created_by: (req as RequestWithGlobalRole).user?.id ?? null
+                    })
 
                     if (parsed.data.copyPermissions) {
                         await trx.query(
@@ -290,17 +300,17 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                              SELECT $1, subject, action, conditions, fields
                              FROM admin.rel_role_permissions
                              WHERE role_id = $2 AND ${activeAppRowCondition()}`,
-                            [rows[0].id, sourceRoleId]
+                            [savedRole.id, sourceRoleId]
                         )
                     }
 
-                    return rows[0].id
+                    return savedRole.id
                 })
             } catch (error) {
                 if (isUniqueViolation(error)) {
                     res.status(409).json({
                         success: false,
-                        error: `Role with codename "${parsed.data.codename}" already exists`
+                        error: `Role with codename "${requestedCodename}" already exists`
                     })
                     return
                 }
@@ -340,7 +350,6 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             if (!parsed.success) {
                 console.error('[UpdateRole] Validation failed:', {
                     roleId: id,
-                    body: JSON.stringify(req.body, null, 2),
                     errors: parsed.error.errors
                 })
                 res.status(400).json({
@@ -351,30 +360,34 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const { codename, description, name, color, isSuperuser, permissions } = parsed.data
+            const { codename: rawUpdateCodename, description, name, color, isSuperuser, permissions } = parsed.data
+            const localizedEnabled = await isCodenameLocalizedEnabled(exec)
+            const codename = rawUpdateCodename !== undefined ? enforceSingleLocaleCodename(rawUpdateCodename, localizedEnabled) : undefined
+            const nextCodenameText = codename !== undefined ? getCodenamePrimary(codename) : undefined
 
             // Protect system roles from critical changes
             if (role.is_system) {
                 const forbiddenFields: string[] = []
-                if (codename !== undefined && codename !== role.codename) forbiddenFields.push('codename')
+                if (nextCodenameText !== undefined && nextCodenameText !== getCodenamePrimary(role.codename))
+                    forbiddenFields.push('codename')
                 if (isSuperuser !== undefined && isSuperuser !== role.is_superuser) forbiddenFields.push('isSuperuser')
                 if (permissions !== undefined) forbiddenFields.push('permissions')
 
                 if (forbiddenFields.length > 0) {
                     res.status(403).json({
                         success: false,
-                        error: `Cannot modify ${forbiddenFields.join(', ')} of system role "${role.codename}"`
+                        error: `Cannot modify ${forbiddenFields.join(', ')} of system role "${getCodenamePrimary(role.codename)}"`
                     })
                     return
                 }
             }
 
-            if (codename !== undefined && codename !== role.codename) {
-                const existing = await findRoleByCodename(exec, codename)
+            if (nextCodenameText !== undefined && nextCodenameText !== getCodenamePrimary(role.codename)) {
+                const existing = await findRoleByCodename(exec, nextCodenameText)
                 if (existing) {
                     res.status(409).json({
                         success: false,
-                        error: `Role with codename "${codename}" already exists`
+                        error: `Role with codename "${nextCodenameText}" already exists`
                     })
                     return
                 }
@@ -423,7 +436,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             if (role.is_system) {
                 res.status(403).json({
                     success: false,
-                    error: `Cannot delete system role "${role.codename}"`
+                    error: `Cannot delete system role "${getCodenamePrimary(role.codename)}"`
                 })
                 return
             }
@@ -432,13 +445,15 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             if (assignedUsers > 0) {
                 res.status(409).json({
                     success: false,
-                    error: `Cannot delete role "${role.codename}" because it is assigned to ${assignedUsers} user(s). Remove assignments first.`
+                    error: `Cannot delete role "${getCodenamePrimary(
+                        role.codename
+                    )}" because it is assigned to ${assignedUsers} user(s). Remove assignments first.`
                 })
                 return
             }
 
             await deleteRole(exec, id, (req as RequestWithGlobalRole).user?.id)
-            res.json({ success: true, message: `Role "${role.codename}" deleted successfully` })
+            res.json({ success: true, message: `Role "${getCodenamePrimary(role.codename)}" deleted successfully` })
         })
     )
 
@@ -493,7 +508,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             res.json({
                 success: true,
-                data: { roleId: id, roleCodename: role.codename, users }
+                data: { roleId: id, roleCodename: getCodenamePrimary(role.codename), users }
             })
         })
     )

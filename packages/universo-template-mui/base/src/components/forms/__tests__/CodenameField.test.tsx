@@ -1,6 +1,15 @@
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CodenameField, CodenameFieldProps } from '../CodenameField'
+import { createCodenameVLC } from '@universo/utils'
+
+jest.mock('@universo/i18n', () => ({
+    useCommonTranslations: () => ({
+        t: (_key: string, fallback?: string) => fallback ?? _key
+    })
+}))
 
 // Mock sanitizeCodename
 jest.mock('@universo/utils/validation/codename', () => ({
@@ -12,9 +21,21 @@ jest.mock('@universo/utils/validation/codename', () => ({
             .replace(/^-|-$/g, '')
 }))
 
+const renderWithProviders = (ui: React.ReactElement) => {
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false
+            }
+        }
+    })
+
+    return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
+
 describe('CodenameField', () => {
     const defaultProps: CodenameFieldProps = {
-        value: '',
+        value: createCodenameVLC('en', ''),
         onChange: jest.fn(),
         touched: false,
         onTouchedChange: jest.fn(),
@@ -23,31 +44,64 @@ describe('CodenameField', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                locales: [
+                    { code: 'en', label: 'English', isDefault: true },
+                    { code: 'ru', label: 'Русский', isDefault: false }
+                ],
+                defaultLocale: 'en'
+            })
+        }) as jest.Mock
     })
 
     it('should render with label', () => {
-        render(<CodenameField {...defaultProps} />)
+        renderWithProviders(<CodenameField {...defaultProps} />)
         expect(screen.getByLabelText('Codename')).toBeInTheDocument()
     })
 
     it('should display current value', () => {
-        render(<CodenameField {...defaultProps} value='test-codename' />)
+        renderWithProviders(<CodenameField {...defaultProps} value={createCodenameVLC('en', 'test-codename')} />)
         expect(screen.getByDisplayValue('test-codename')).toBeInTheDocument()
     })
 
     it('should call onChange when value changes', async () => {
         const onChange = jest.fn()
-        render(<CodenameField {...defaultProps} onChange={onChange} />)
+
+        const ControlledField = () => {
+            const [value, setValue] = React.useState(createCodenameVLC('en', ''))
+
+            return (
+                <CodenameField
+                    {...defaultProps}
+                    value={value}
+                    onChange={(nextValue) => {
+                        setValue(nextValue ?? createCodenameVLC('en', ''))
+                        onChange(nextValue)
+                    }}
+                />
+            )
+        }
+
+        renderWithProviders(<ControlledField />)
 
         const input = screen.getByLabelText('Codename')
         await userEvent.type(input, 'new-value')
 
         expect(onChange).toHaveBeenCalled()
+        expect(onChange.mock.calls.at(-1)?.[0]).toEqual(
+            expect.objectContaining({
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'new-value' })
+                })
+            })
+        )
     })
 
     it('should mark as touched on first change', async () => {
         const onTouchedChange = jest.fn()
-        render(<CodenameField {...defaultProps} onTouchedChange={onTouchedChange} />)
+        renderWithProviders(<CodenameField {...defaultProps} onTouchedChange={onTouchedChange} />)
 
         const input = screen.getByLabelText('Codename')
         await userEvent.type(input, 'a')
@@ -57,7 +111,7 @@ describe('CodenameField', () => {
 
     it('should not call onTouchedChange if already touched', async () => {
         const onTouchedChange = jest.fn()
-        render(<CodenameField {...defaultProps} touched={true} onTouchedChange={onTouchedChange} />)
+        renderWithProviders(<CodenameField {...defaultProps} touched={true} onTouchedChange={onTouchedChange} />)
 
         const input = screen.getByLabelText('Codename')
         await userEvent.type(input, 'a')
@@ -67,23 +121,27 @@ describe('CodenameField', () => {
 
     it('should normalize value on blur', () => {
         const onChange = jest.fn()
-        render(<CodenameField {...defaultProps} value='Test Value' onChange={onChange} />)
+        renderWithProviders(<CodenameField {...defaultProps} value={createCodenameVLC('en', 'Test Value')} onChange={onChange} />)
 
         const input = screen.getByLabelText('Codename')
         fireEvent.blur(input)
 
-        // sanitizeCodename mock will transform "Test Value" to "test-value"
-        expect(onChange).toHaveBeenCalledWith('test-value')
+        expect(onChange).toHaveBeenCalledWith(
+            expect.objectContaining({
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'test-value' })
+                })
+            })
+        )
     })
 
     it('should not call onChange on blur if value unchanged', () => {
         const onChange = jest.fn()
-        render(<CodenameField {...defaultProps} value='test-value' onChange={onChange} />)
+        renderWithProviders(<CodenameField {...defaultProps} value={createCodenameVLC('en', 'test-value')} onChange={onChange} />)
 
         const input = screen.getByLabelText('Codename')
         fireEvent.blur(input)
 
-        // Already normalized, no change needed
         expect(onChange).not.toHaveBeenCalled()
     })
 
@@ -91,46 +149,52 @@ describe('CodenameField', () => {
         const onChange = jest.fn()
         const normalizeOnBlur = jest.fn((input: string) => input.replace(/\s+/g, ''))
 
-        render(<CodenameField {...defaultProps} value='A B' onChange={onChange} normalizeOnBlur={normalizeOnBlur} />)
+        renderWithProviders(
+            <CodenameField {...defaultProps} value={createCodenameVLC('en', 'A B')} onChange={onChange} normalizeOnBlur={normalizeOnBlur} />
+        )
 
         const input = screen.getByLabelText('Codename')
         fireEvent.blur(input)
 
         expect(normalizeOnBlur).toHaveBeenCalledWith('A B')
-        expect(onChange).toHaveBeenCalledWith('AB')
+        expect(onChange).toHaveBeenCalledWith(
+            expect.objectContaining({
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'AB' })
+                })
+            })
+        )
     })
 
     it('should display helper text', () => {
-        render(<CodenameField {...defaultProps} helperText='Enter a unique codename' />)
+        renderWithProviders(<CodenameField {...defaultProps} helperText='Enter a unique codename' />)
         expect(screen.getByText('Enter a unique codename')).toBeInTheDocument()
     })
 
     it('should display error message and hide helper text', () => {
-        render(<CodenameField {...defaultProps} helperText='Helper' error='This codename is taken' />)
+        renderWithProviders(<CodenameField {...defaultProps} helperText='Helper' error='This codename is taken' />)
         expect(screen.getByText('This codename is taken')).toBeInTheDocument()
         expect(screen.queryByText('Helper')).not.toBeInTheDocument()
     })
 
     it('should be disabled when disabled prop is true', () => {
-        render(<CodenameField {...defaultProps} disabled={true} />)
+        renderWithProviders(<CodenameField {...defaultProps} disabled={true} />)
         expect(screen.getByLabelText('Codename')).toBeDisabled()
     })
 
     it('should show required indicator when required prop is true', () => {
-        render(<CodenameField {...defaultProps} required={true} />)
-        // MUI adds * to required fields
+        renderWithProviders(<CodenameField {...defaultProps} required={true} />)
         expect(screen.getByLabelText('Codename *')).toBeInTheDocument()
     })
 
-    it('should apply additional TextField props', () => {
-        render(<CodenameField {...defaultProps} textFieldProps={{ placeholder: 'Enter codename' }} />)
-        expect(screen.getByPlaceholderText('Enter codename')).toBeInTheDocument()
+    it('should render locale controls for localized codename editing', () => {
+        renderWithProviders(<CodenameField {...defaultProps} />)
+        expect(screen.getByRole('button', { name: 'EN' })).toBeInTheDocument()
     })
 
     it('should have fullWidth by default', () => {
-        render(<CodenameField {...defaultProps} />)
+        renderWithProviders(<CodenameField {...defaultProps} />)
         const input = screen.getByLabelText('Codename')
-        // Check that MuiFormControl has fullWidth class
         expect(input.closest('.MuiFormControl-root')).toHaveClass('MuiFormControl-fullWidth')
     })
 })

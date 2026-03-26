@@ -171,6 +171,7 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
                                 anchorEl={primaryActionMenuAnchor}
                                 open={isPrimaryActionMenuOpen}
                                 onClose={handleClosePrimaryActionMenu}
+                                disableAutoFocusItem
                             >
                                 {primaryActionMenuItems.map((item) => (
                                     <MenuItem

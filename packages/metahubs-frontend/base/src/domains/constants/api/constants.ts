@@ -106,10 +106,7 @@ export const reorderConstantDirect = (metahubId: string, setId: string, constant
         newSortOrder
     })
 
-export type ConstantCopyInput = Partial<ConstantLocalizedPayload> &
-    Partial<ConstantCopyOptions> & {
-        codename?: string
-    }
+export type ConstantCopyInput = Partial<ConstantLocalizedPayload> & Partial<ConstantCopyOptions>
 
 export const copyConstant = (metahubId: string, hubId: string, setId: string, constantId: string, data: ConstantCopyInput) =>
     apiClient.post<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constant/${constantId}/copy`, data)
@@ -119,8 +116,7 @@ export const copyConstantDirect = (metahubId: string, setId: string, constantId:
 
 export interface ConstantCodenameEntry {
     id: string
-    codename: string
-    codenameLocalized?: Record<string, unknown> | null
+    codename: Record<string, unknown> | string | null
 }
 
 export const listAllConstantCodenames = async (metahubId: string, setId: string): Promise<{ items: ConstantCodenameEntry[] }> => {

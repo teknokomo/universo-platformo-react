@@ -2,7 +2,17 @@ const mockEnsureMetahubAccess = jest.fn(async () => undefined)
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
-    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess: () => async (req: any, res: any, metahubId: string, permission?: string) => {
+        const user = (req as any).user
+        const userId = user?.id ?? user?.sub ?? user?.user_id ?? user?.userId
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await mockEnsureMetahubAccess({}, userId, metahubId, permission)
+        return userId
+    }
 }))
 
 import type { NextFunction, Request, Response } from 'express'

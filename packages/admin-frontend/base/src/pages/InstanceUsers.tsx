@@ -10,6 +10,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frontend'
+import { getCodenamePrimary } from '@universo/utils'
 
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
@@ -105,7 +106,7 @@ const InstanceUsers = () => {
                 placeholder: t('users.filters.allRoles', 'All roles'),
                 options: allRoles.map((role) => ({
                     value: role.id,
-                    label: roleLabelsById[role.id] || role.codename
+                    label: roleLabelsById[role.id] || getCodenamePrimary(role.codename)
                 }))
             }
         ],

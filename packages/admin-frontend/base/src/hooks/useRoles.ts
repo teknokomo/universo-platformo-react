@@ -6,7 +6,7 @@ import { rolesQueryKeys } from '../api/queryKeys'
 import type { RoleListItem } from '../api/rolesApi'
 import type { LocaleCode } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
-import { resolveLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, getCodenamePrimary, createCodenameVLC } from '@universo/utils'
 
 /**
  * Options for useRoles hook
@@ -74,7 +74,26 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     // Use different query based on filter mode
     const queryKey = filter === 'assignable' ? rolesQueryKeys.assignable() : rolesQueryKeys.list({ limit: 100, includeSystem })
 
-    const queryFn = filter === 'assignable' ? getAssignableRoles : () => listRoles({ limit: 100, includeSystem }).then((res) => res.items)
+    const queryFn =
+        filter === 'assignable'
+            ? async (): Promise<RoleListItem[]> => {
+                  const assignable = await getAssignableRoles()
+                  return assignable.map(
+                      (r): RoleListItem => ({
+                          id: r.id,
+                          codename: createCodenameVLC('en', r.codename),
+                          name: r.name,
+                          color: r.color ?? '#9e9e9e',
+                          isSuperuser: false,
+                          canAccessAdmin: false,
+                          isSystem: false,
+                          createdAt: '',
+                          updatedAt: '',
+                          permissions: []
+                      })
+                  )
+              }
+            : () => listRoles({ limit: 100, includeSystem }).then((res) => res.items)
 
     const { data, isLoading, error } = useQuery({
         queryKey,
@@ -85,19 +104,19 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     })
 
     // Memoize roles to ensure stable reference
-    const roles = useMemo(() => (data as RoleListItem[] | undefined) ?? [], [data])
+    const roles = useMemo(() => data ?? [], [data])
 
     // Extract role IDs for filter values
     const roleIds = useMemo(() => roles.map((r) => r.id), [roles])
 
     // Extract role names for form values
-    const roleOptions = useMemo(() => roles.map((r) => r.codename), [roles])
+    const roleOptions = useMemo(() => roles.map((r) => getCodenamePrimary(r.codename)), [roles])
 
     // Build localized labels map by ID
     const roleLabelsById = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.id] = resolveLocalizedContent(role.name, currentLang, role.codename)
+            labels[role.id] = resolveLocalizedContent(role.name, currentLang, getCodenamePrimary(role.codename))
         }
         return labels
     }, [roles, currentLang])
@@ -106,7 +125,7 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     const roleLabels = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.codename] = resolveLocalizedContent(role.name, currentLang, role.codename)
+            labels[getCodenamePrimary(role.codename)] = resolveLocalizedContent(role.name, currentLang, getCodenamePrimary(role.codename))
         }
         return labels
     }, [roles, currentLang])

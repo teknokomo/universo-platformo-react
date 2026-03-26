@@ -282,7 +282,7 @@ export class MetahubSchemaService {
                     await this.initSystemTables(resolved.schemaName, manifest)
                     tablesInitCache.add(resolved.schemaName)
                     initializedNow = true
-                    effectiveStructureVersion = semverToStructureVersion(manifest.minStructureVersion)
+                    effectiveStructureVersion = CURRENT_STRUCTURE_VERSION
                 }
 
                 if (mode === 'apply_migrations' && !initializedNow && resolved.structureVersion < CURRENT_STRUCTURE_VERSION) {
@@ -375,8 +375,7 @@ export class MetahubSchemaService {
      * Optionally accepts a template manifest; falls back to default built-in template.
      */
     async initializeSchema(schemaName: string, manifest?: MetahubTemplateManifest, createOptions?: MetahubCreateOptions): Promise<void> {
-        const targetStructureVersion = manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
-        const schemaState = await this.inspectSchemaState(schemaName, targetStructureVersion)
+        const schemaState = await this.inspectSchemaState(schemaName, CURRENT_STRUCTURE_VERSION)
         const schemaInitializedInDb = schemaState.initialized
         if (schemaInitializedInDb) {
             tablesInitCache.add(schemaName)
@@ -498,9 +497,8 @@ export class MetahubSchemaService {
         manifest: MetahubTemplateManifest,
         createOptions?: MetahubCreateOptions
     ): Promise<void> {
-        // 1. Create DDL structure (tables + indexes) based on structure version
-        const structureVersion = semverToStructureVersion(manifest.minStructureVersion)
-        const versionHandler = getStructureVersion(structureVersion)
+        // 1. Create DDL structure (tables + indexes) using current structure version
+        const versionHandler = getStructureVersion(CURRENT_STRUCTURE_VERSION)
         await versionHandler.init(this.knex, schemaName)
 
         // 2. Filter seed entities based on createOptions, then apply seed data
@@ -509,7 +507,7 @@ export class MetahubSchemaService {
         await executor.apply(filteredSeed)
 
         // 3. Record baseline migration for fresh schemas
-        await this.recordBaselineMigration(schemaName, structureVersion, manifest.version)
+        await this.recordBaselineMigration(schemaName, CURRENT_STRUCTURE_VERSION, manifest.version)
     }
 
     /**

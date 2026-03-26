@@ -30,7 +30,7 @@ describe('shared ability and admin contracts', () => {
         expect(PERMISSION_SUBJECTS).toEqual(
             expect.arrayContaining(['applications', 'metahubs', 'profile', 'onboarding'])
         )
-        expect(ROLE_MENU_VISIBILITY.registered.rootMenuIds).toEqual([])
-        expect(ROLE_MENU_VISIBILITY.user.rootMenuIds).toContain('metapanel')
+        expect(ROLE_MENU_VISIBILITY.Registered.rootMenuIds).toEqual([])
+        expect(ROLE_MENU_VISIBILITY.User.rootMenuIds).toContain('metapanel')
     })
 })

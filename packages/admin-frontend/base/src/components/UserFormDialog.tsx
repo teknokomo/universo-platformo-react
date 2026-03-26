@@ -14,7 +14,7 @@ import {
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
-import { resolveLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, getCodenamePrimary } from '@universo/utils'
 import { isValidLocaleCode } from '@universo/types'
 import { EntitySelectionPanel } from '@universo/template-mui'
 
@@ -164,7 +164,10 @@ export default function UserFormDialog({
         return isValidLocaleCode(value) ? value : 'en'
     }, [i18n.language])
 
-    const roleLabel = useCallback((role: RoleListItem) => resolveLocalizedContent(role.name, currentLocale, role.codename), [currentLocale])
+    const roleLabel = useCallback(
+        (role: RoleListItem) => resolveLocalizedContent(role.name, currentLocale, getCodenamePrimary(role.codename)),
+        [currentLocale]
+    )
 
     const roleSelectionLabels = useMemo<RoleSelectionLabels>(
         () => ({
@@ -279,7 +282,7 @@ export default function UserFormDialog({
                             selectedIds={selectedRoleIds}
                             onSelectionChange={setSelectedRoleIds}
                             getDisplayName={roleLabel}
-                            getCodename={(role: RoleListItem) => role.codename}
+                            getCodename={(role: RoleListItem) => getCodenamePrimary(role.codename)}
                             labels={roleSelectionLabels}
                             disabled={loading}
                             error={undefined}

@@ -4,8 +4,8 @@ import { z } from 'zod'
 import { isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { localizedContent, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-import { getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
-import { ensureMetahubAccess } from '../../shared/guards'
+import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
+import { createEnsureMetahubRouteAccess } from '../../shared/guards'
 import {
     findMetahubById,
     findBranchByIdAndMetahub,
@@ -43,13 +43,7 @@ import { MetahubEnumerationValuesService } from '../../metahubs/services/Metahub
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
-
-// Helper: Resolve user ID from request
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as unknown as { user?: { id?: string; sub?: string; user_id?: string; userId?: string } }).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
+import { resolveUserId } from '../../shared/routeAuth'
 
 const resolveTemplateVersionLabel = async (exec: SqlQueryable, templateVersionId?: string | null): Promise<string | null> => {
     if (!templateVersionId) return null
@@ -177,54 +171,64 @@ const assertSchemaGenerationSucceeded = (result: { success: boolean; errors: str
 // Validation Schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 
-const createPublicationSchema = z.object({
-    name: localizedInputSchema.optional(),
-    description: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    autoCreateApplication: z.boolean().optional().default(false),
-    createApplicationSchema: z.boolean().optional().default(false),
-    // First version data
-    versionName: localizedInputSchema.optional(),
-    versionDescription: localizedInputSchema.optional(),
-    versionNamePrimaryLocale: z.string().optional(),
-    versionDescriptionPrimaryLocale: z.string().optional(),
-    versionBranchId: z.string().uuid().optional(),
-    // Optional custom application name/description
-    applicationName: localizedInputSchema.optional(),
-    applicationDescription: localizedInputSchema.optional(),
-    applicationNamePrimaryLocale: z.string().optional(),
-    applicationDescriptionPrimaryLocale: z.string().optional(),
-    applicationIsPublic: z.boolean().optional(),
-    applicationWorkspacesEnabled: z.boolean().optional()
-})
+const createPublicationSchema = z
+    .object({
+        name: localizedInputSchema.optional(),
+        description: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        autoCreateApplication: z.boolean().optional().default(false),
+        createApplicationSchema: z.boolean().optional().default(false),
+        // First version data
+        versionName: localizedInputSchema.optional(),
+        versionDescription: localizedInputSchema.optional(),
+        versionNamePrimaryLocale: z.string().optional(),
+        versionDescriptionPrimaryLocale: z.string().optional(),
+        versionBranchId: z.string().uuid().optional(),
+        // Optional custom application name/description
+        applicationName: localizedInputSchema.optional(),
+        applicationDescription: localizedInputSchema.optional(),
+        applicationNamePrimaryLocale: z.string().optional(),
+        applicationDescriptionPrimaryLocale: z.string().optional(),
+        applicationIsPublic: z.boolean().optional(),
+        applicationWorkspacesEnabled: z.boolean().optional()
+    })
+    .strict()
 
-const updatePublicationSchema = z.object({
-    name: localizedInputSchema.optional(),
-    description: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    expectedVersion: z.number().int().positive().optional()
-})
+const updatePublicationSchema = z
+    .object({
+        name: localizedInputSchema.optional(),
+        description: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        expectedVersion: z.number().int().positive().optional()
+    })
+    .strict()
 
-const createVersionSchema = z.object({
-    name: localizedInputSchema,
-    description: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    branchId: z.string().uuid().optional()
-})
+const createVersionSchema = z
+    .object({
+        name: localizedInputSchema,
+        description: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        branchId: z.string().uuid().optional()
+    })
+    .strict()
 
-const updateVersionSchema = z.object({
-    name: localizedInputSchema.optional(),
-    description: localizedInputSchema.optional().nullable(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional()
-})
+const updateVersionSchema = z
+    .object({
+        name: localizedInputSchema.optional(),
+        description: localizedInputSchema.optional().nullable(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional()
+    })
+    .strict()
 
-const syncSchema = z.object({
-    confirmDestructive: z.boolean().optional().default(false)
-})
+const syncSchema = z
+    .object({
+        confirmDestructive: z.boolean().optional().default(false)
+    })
+    .strict()
 
 /**
  * Injects layout + zone-widget data into an existing MetahubSnapshot **in place**.
@@ -373,22 +377,7 @@ export function createPublicationsRoutes(
             fn(req, res).catch(next)
         }
 
-    const ensureMetahubRouteAccess = async (
-        req: Request,
-        res: Response,
-        metahubId: string,
-        permission?: 'manageMembers' | 'manageMetahub' | 'createContent' | 'editContent' | 'deleteContent'
-    ): Promise<string | null> => {
-        const userId = resolveUserId(req)
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' })
-            return null
-        }
-
-        const exec = getRequestDbExecutor(req, getDbExecutor())
-        await ensureMetahubAccess(exec, userId, metahubId, permission, getRequestDbSession(req))
-        return userId
-    }
+    const ensureMetahubRouteAccess = createEnsureMetahubRouteAccess(getDbExecutor)
 
     // Helper to get services
     const services = (req: Request) => {
@@ -1078,15 +1067,17 @@ export function createPublicationsRoutes(
     )
 
     // CREATE LINKED APPLICATION for a publication
-    const createApplicationForPublicationSchema = z.object({
-        name: localizedInputSchema.optional(),
-        description: localizedInputSchema.optional(),
-        namePrimaryLocale: z.string().optional(),
-        descriptionPrimaryLocale: z.string().optional(),
-        createApplicationSchema: z.boolean().optional().default(false),
-        isPublic: z.boolean().optional(),
-        workspacesEnabled: z.boolean().optional()
-    })
+    const createApplicationForPublicationSchema = z
+        .object({
+            name: localizedInputSchema.optional(),
+            description: localizedInputSchema.optional(),
+            namePrimaryLocale: z.string().optional(),
+            descriptionPrimaryLocale: z.string().optional(),
+            createApplicationSchema: z.boolean().optional().default(false),
+            isPublic: z.boolean().optional(),
+            workspacesEnabled: z.boolean().optional()
+        })
+        .strict()
 
     router.post(
         '/metahub/:metahubId/publication/:publicationId/applications',

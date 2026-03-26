@@ -20,7 +20,7 @@ const createMockExecutor = (responses: unknown[][]) => {
 describe('createGlobalAccessService', () => {
     it('marks the superuser role in aggregated access info', async () => {
         const exec = createMockExecutor([
-            [{ role_codename: 'superuser', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#111111' }],
+            [{ role_codename: 'Superuser', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#111111' }],
             [{ is_super: true }],
             [{ can_access: true }]
         ])
@@ -32,7 +32,7 @@ describe('createGlobalAccessService', () => {
         expect(result.canAccessAdmin).toBe(true)
         expect(result.globalRoles).toEqual([
             expect.objectContaining({
-                codename: 'superuser',
+                codename: 'Superuser',
                 metadata: expect.objectContaining({
                     color: '#111111',
                     isSuperuser: true
@@ -45,7 +45,7 @@ describe('createGlobalAccessService', () => {
         const exec = createMockExecutor([
             [
                 { role_codename: 'editor', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#222222' },
-                { role_codename: 'superuser', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#111111' }
+                { role_codename: 'Superuser', name: { _schema: '1', _primary: 'en', locales: {} }, color: '#111111' }
             ],
             [{ is_super: true }],
             [{ can_access: true }]
@@ -56,7 +56,7 @@ describe('createGlobalAccessService', () => {
 
         expect(result.globalRoles[0]).toEqual(
             expect.objectContaining({
-                codename: 'superuser',
+                codename: 'Superuser',
                 metadata: expect.objectContaining({ isSuperuser: true })
             })
         )
@@ -185,7 +185,7 @@ describe('createGlobalAccessService', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'role-super',
-                    codename: 'superuser',
+                    codename: 'Superuser',
                     name: { _schema: '1', _primary: 'en', locales: {} },
                     color: '#d32f2f',
                     is_superuser: true,
@@ -206,7 +206,7 @@ describe('createGlobalAccessService', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'role-super',
-                    codename: 'superuser',
+                    codename: 'Superuser',
                     name: { _schema: '1', _primary: 'en', locales: {} },
                     color: '#d32f2f',
                     is_superuser: true,
@@ -225,7 +225,7 @@ describe('createGlobalAccessService', () => {
         const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
         const result = await service.setUserRoles('user-1', ['role-super', 'role-editor'], 'admin-1', 'exclusive assignment')
 
-        expect(result).toEqual([expect.objectContaining({ codename: 'superuser', isSuperuser: true })])
+        expect(result).toEqual([expect.objectContaining({ codename: 'Superuser', isSuperuser: true })])
         expect(txQuery).toHaveBeenNthCalledWith(4, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
             'user-1',
             ['role-super'],
@@ -240,7 +240,7 @@ describe('createGlobalAccessService', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'role-super',
-                    codename: 'superuser',
+                    codename: 'Superuser',
                     name: { _schema: '1', _primary: 'en', locales: {} },
                     color: '#d32f2f',
                     is_superuser: true,
@@ -275,7 +275,7 @@ describe('createGlobalAccessService', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'role-super',
-                    codename: 'superuser',
+                    codename: 'Superuser',
                     is_superuser: true,
                     is_system: true
                 }
@@ -372,9 +372,9 @@ describe('createGlobalAccessService', () => {
         }
 
         const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
-        const result = await service.grantRole('user-1', 'superuser', 'admin-1', 'promoted')
+        const result = await service.grantRole('user-1', 'Superuser', 'admin-1', 'promoted')
 
-        expect(result.roleCodename).toBe('superuser')
+        expect(result.roleCodename).toBe('Superuser')
         expect(result.roles[0]).toEqual(expect.objectContaining({ isSuperuser: true, isSystem: true }))
         expect(txQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('UPDATE admin.rel_user_roles'), ['user-1', 'admin-1'])
         expect(txQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
@@ -409,7 +409,7 @@ describe('createGlobalAccessService', () => {
 
         const service = createGlobalAccessService({ getDbExecutor: () => exec as never })
 
-        await expect(service.grantRole('user-1', 'superuser', 'admin-editor', 'unauthorized')).rejects.toThrow(
+        await expect(service.grantRole('user-1', 'Superuser', 'admin-editor', 'unauthorized')).rejects.toThrow(
             'Only superusers can modify superuser or system-role assignments'
         )
     })

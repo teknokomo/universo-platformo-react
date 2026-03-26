@@ -273,8 +273,6 @@ export type EnumerationValueCopyInput = Partial<
     Pick<
         EnumerationValueLocalizedPayload,
         | 'codename'
-        | 'codenameInput'
-        | 'codenamePrimaryLocale'
         | 'name'
         | 'description'
         | 'namePrimaryLocale'

@@ -11,6 +11,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createEnumerationsRoutes } from '../../domains/enumerations/routes/enumerationsRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'metahub-1' }))
 
@@ -24,7 +25,17 @@ const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef12345678
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
-    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess: () => async (req: any, res: any, metahubId: string, permission?: string) => {
+        const user = (req as any).user
+        const userId = user?.id ?? user?.sub ?? user?.user_id ?? user?.userId
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await mockEnsureMetahubAccess({}, userId, metahubId, permission)
+        return userId
+    }
 }))
 
 jest.mock('../../domains/ddl', () => ({
@@ -375,7 +386,7 @@ describe('Enumerations Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/missing/enumeration/enum-1/copy')
-                .send({ codename: 'status-copy' })
+                .send({ codename: testCodenameVlc('status-copy') })
                 .expect(404)
 
             expect(response.body.error).toBe('Metahub not found')
@@ -389,7 +400,7 @@ describe('Enumerations Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/metahub-1/enumeration/enum-1/copy')
-                .send({ codename: 'status-copy' })
+                .send({ codename: testCodenameVlc('status-copy') })
                 .expect(403)
 
             expect(response.body.error).toBe('Access denied to this metahub')
@@ -402,7 +413,7 @@ describe('Enumerations Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/metahub-1/enumeration/enum-1/copy')
-                .send({ codename: 'status-copy' })
+                .send({ codename: testCodenameVlc('status-copy') })
                 .expect(404)
 
             expect(response.body.error).toBe('Enumeration not found')
@@ -410,7 +421,10 @@ describe('Enumerations Routes', () => {
 
         it('returns 400 when codename is invalid', async () => {
             const app = buildApp()
-            const response = await request(app).post('/metahub/metahub-1/enumeration/enum-1/copy').send({ codename: '!!!' }).expect(400)
+            const response = await request(app)
+                .post('/metahub/metahub-1/enumeration/enum-1/copy')
+                .send({ codename: testCodenameVlc('!!!') })
+                .expect(400)
 
             expect(response.body.error).toBe('Validation failed')
             expect(response.body.details?.codename).toBeDefined()
@@ -426,7 +440,7 @@ describe('Enumerations Routes', () => {
             const response = await request(app)
                 .post('/metahub/metahub-1/enumeration/enum-1/copy')
                 .send({
-                    codename: 'status-copy',
+                    codename: testCodenameVlc('status-copy'),
                     copyValues: true
                 })
                 .expect(201)
@@ -451,7 +465,7 @@ describe('Enumerations Routes', () => {
             const response = await request(app)
                 .post('/metahub/metahub-1/enumeration/enum-1/copy')
                 .send({
-                    codename: 'status-copy',
+                    codename: testCodenameVlc('status-copy'),
                     copyValues: false
                 })
                 .expect(201)
@@ -483,7 +497,7 @@ describe('Enumerations Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/metahub-1/enumeration/enum-1/copy')
-                .send({ codename: 'status-copy' })
+                .send({ codename: testCodenameVlc('status-copy') })
                 .expect(201)
 
             expect(response.body.id).toBe('enum-copy-id-2')

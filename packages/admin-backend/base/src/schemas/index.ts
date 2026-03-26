@@ -1,5 +1,35 @@
 import { z } from 'zod'
-import { LocalizedStringSchema, LocalizedStringOptionalSchema } from '@universo/types'
+import { CodenameVLCSchema, LocalizedStringSchema, LocalizedStringOptionalSchema } from '@universo/types'
+
+const ROLE_CODENAME_PATTERN = /^[a-z][a-z0-9_-]*$/
+
+export const RoleCodenameSchema = CodenameVLCSchema.superRefine((value, ctx) => {
+    const primaryContent = value.locales[value._primary]?.content?.trim() ?? ''
+
+    if (primaryContent.length < 2) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['locales', value._primary, 'content'],
+            message: 'Codename must be at least 2 characters'
+        })
+    }
+
+    if (primaryContent.length > 50) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['locales', value._primary, 'content'],
+            message: 'Codename must be at most 50 characters'
+        })
+    }
+
+    if (primaryContent.length > 0 && !ROLE_CODENAME_PATTERN.test(primaryContent)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['locales', value._primary, 'content'],
+            message: 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes'
+        })
+    }
+})
 
 // Re-export Localized Content schemas for use in routes
 export { LocalizedStringSchema, LocalizedStringOptionalSchema }
@@ -97,11 +127,7 @@ const PermissionRuleSchema = z.object({
  * Schema for creating a new role
  */
 export const CreateRoleSchema = z.object({
-    codename: z
-        .string()
-        .min(2, 'Codename must be at least 2 characters')
-        .max(50, 'Codename must be at most 50 characters')
-        .regex(/^[a-z][a-z0-9_-]*$/, 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes'),
+    codename: RoleCodenameSchema,
     description: LocalizedStringOptionalSchema,
     name: LocalizedStringSchema,
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format'),
@@ -115,12 +141,7 @@ export type CreateRoleInput = z.infer<typeof CreateRoleSchema>
  * Schema for updating an existing role
  */
 export const UpdateRoleSchema = z.object({
-    codename: z
-        .string()
-        .min(2, 'Codename must be at least 2 characters')
-        .max(50, 'Codename must be at most 50 characters')
-        .regex(/^[a-z][a-z0-9_-]*$/, 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes')
-        .optional(),
+    codename: RoleCodenameSchema.optional(),
     description: LocalizedStringOptionalSchema,
     name: LocalizedStringSchema.optional(),
     color: z

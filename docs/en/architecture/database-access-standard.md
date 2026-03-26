@@ -20,6 +20,7 @@ Knex remains the shared transport and DDL engine, but day-to-day domain logic ta
 - Dynamic identifiers go through `qSchema`, `qTable`, `qSchemaTable`, and `qColumn`.
 - Mutating DML uses `RETURNING` so callers observe the committed row shape.
 - Active-row reads must respect the owning domain soft-delete contract.
+- Admin `SECURITY DEFINER` helper functions that accept `user_id` arguments may use explicit foreign user ids only from Tier 2 backend/bootstrap contexts; request-scoped authenticated sessions must stay self-scoped to `auth.uid()`.
 - Zero-row writes fail closed instead of silently succeeding after stale lookups or races.
 - Advisory locks go through shared helpers instead of route-local or service-local raw helper forks.
 - Long-running work sets explicit `SET LOCAL lock_timeout` and `statement_timeout` budgets.

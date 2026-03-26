@@ -218,8 +218,8 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body.items[0]).toMatchObject({
             id: 'mig-1',
             name: 'baseline_structure_v1',
-            fromVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
-            toVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
+            fromVersion: '0.1.0',
+            toVersion: '0.1.0',
             meta: null
         })
         expect(mockEnsureMetahubAccess).toHaveBeenCalled()
@@ -283,7 +283,7 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body).toMatchObject({
             branchId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
-            currentStructureVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
+            currentStructureVersion: '0.1.0',
             targetStructureVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
             structureUpgradeRequired: false,
             templateId: null,

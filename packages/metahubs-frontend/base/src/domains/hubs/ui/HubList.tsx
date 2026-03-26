@@ -22,8 +22,7 @@ import {
     gridSpacing,
     useConfirm,
     LocalizedInlineField,
-    useCodenameAutoFill,
-    useCodenameVlcSync,
+    useCodenameAutoFillVlc,
     EntitySelectionPanel,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
@@ -43,7 +42,7 @@ import { Hub, HubDisplay, HubLocalizedPayload, PaginatedResponse, getVLCString, 
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubDeleteDialog, ExistingCodenamesProvider, HubParentSelectionPanel } from '../../../components'
 import hubActions, {
     buildInitialValues as buildHubInitialValues,
@@ -58,8 +57,7 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 type HubFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename: string
+    codename: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     parentHubId?: string | null
 }
@@ -128,32 +126,11 @@ const HubFormFields = ({
     const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -163,7 +140,7 @@ const HubFormFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -196,9 +173,6 @@ const HubFormFields = ({
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
@@ -428,8 +402,7 @@ const HubListContent = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
-            codenameVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             parentHubId: allowHubNesting && isHubScoped ? hubId ?? null : null
         }),
@@ -443,7 +416,9 @@ const HubListContent = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('hubs.validation.codenameRequired', 'Codename is required')
@@ -460,7 +435,9 @@ const HubListContent = () => {
     const canSaveCreateHubForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             return (
                 !values._hasCodenameDuplicate &&
@@ -720,17 +697,19 @@ const HubListContent = () => {
             api: {
                 updateEntity: (id: string, patch: HubLocalizedPayload) => {
                     if (!metahubId) return Promise.resolve()
-                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
+                    const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
+                    const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('hubs.validation.codenameRequired', 'Codename is required'))
                     }
+                    const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     const hub = hubMap.get(id)
                     const expectedVersion = hub?.version
                     updateHubMutation.mutate(
                         {
                             metahubId,
                             hubId: id,
-                            data: { ...patch, codename: normalizedCodename, expectedVersion }
+                            data: { ...patch, codename: codenamePayload, expectedVersion }
                         },
                         {
                             onError: (error: unknown) => {
@@ -740,7 +719,7 @@ const HubListContent = () => {
                                         setConflictState({
                                             open: true,
                                             conflict,
-                                            pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
+                                            pendingUpdate: { id, patch: { ...patch, codename: codenamePayload } }
                                         })
                                     }
                                 }
@@ -922,11 +901,13 @@ const HubListContent = () => {
         // Validation is handled by EntityFormDialog's validate/canSave props.
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, normalizedCodename || '')
         const parentHubId = typeof data.parentHubId === 'string' ? data.parentHubId : null
 
         // Confirm dialog for detached hub (async — throws DIALOG_SAVE_CANCEL if cancelled)
@@ -950,9 +931,7 @@ const HubListContent = () => {
         createHubMutation.mutate({
             metahubId,
             data: {
-                codename: normalizedCodename || '',
-                codenameInput,
-                codenamePrimaryLocale,
+                codename: codenamePayload,
                 name: nameInput ?? {},
                 description: descriptionInput,
                 namePrimaryLocale: namePrimaryLocale ?? '',

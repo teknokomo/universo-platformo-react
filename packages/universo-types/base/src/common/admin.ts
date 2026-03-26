@@ -94,6 +94,9 @@ export interface VersionedLocalizedContent<T = string> {
     locales: Record<LocaleCode, LocalizedContentEntry<T>>
 }
 
+/** Canonical localized codename storage format used across persisted entities. */
+export type CodenameVLC = VersionedLocalizedContent<string>
+
 /**
  * Role metadata returned from database
  * Contains display information for UI rendering
@@ -109,8 +112,8 @@ export interface RoleMetadata {
     isSuperuser: boolean
 }
 
-/** Immutable system-role codenames used by platform onboarding and routing flows */
-export type SystemRoleCodename = 'superuser' | 'registered' | 'user'
+/** Immutable system-role codenames used by platform onboarding and routing flows (PascalCase) */
+export type SystemRoleCodename = 'Superuser' | 'Registered' | 'User'
 
 /**
  * Global role information for a user
@@ -238,7 +241,7 @@ export interface SetUserRolesPayload {
 /** Payload for copying a role into a new editable custom role */
 export interface CopyRolePayload {
     sourceRoleId: string
-    codename: string
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     color?: string
@@ -256,7 +259,7 @@ export interface AdminCreateUserPayload {
 /** Input payload for privileged bootstrap-owned system-role assignment */
 export interface AssignSystemRoleInput {
     userId: string
-    roleCodename: Extract<SystemRoleCodename, 'registered' | 'user'>
+    roleCodename: Extract<SystemRoleCodename, 'Registered' | 'User'>
     reason: string
 }
 
@@ -355,7 +358,7 @@ export function hasAdminPermissions(permissions: PermissionInput[]): boolean {
  */
 export interface RoleWithPermissions {
     id: string
-    codename: string
+    codename: CodenameVLC
     description?: VersionedLocalizedContent<string>
     name: VersionedLocalizedContent<string>
     color: string
@@ -369,7 +372,7 @@ export interface RoleWithPermissions {
 /** Role list row used by admin role list tables and dialogs */
 export interface RoleListItem {
     id: string
-    codename: string
+    codename: CodenameVLC
     description?: VersionedLocalizedContent<string>
     name: VersionedLocalizedContent<string>
     color: string
@@ -398,14 +401,14 @@ export interface RoleMenuVisibility {
 
 /** System-role driven menu visibility presets for the shared shell */
 export const ROLE_MENU_VISIBILITY: Record<SystemRoleCodename, RoleMenuVisibility> = {
-    superuser: {
-        rootMenuIds: ['metapanel', 'applications', 'profile', 'docs'] ,
+    Superuser: {
+        rootMenuIds: ['metapanel', 'applications', 'profile', 'docs'],
         showMetahubsSection: true
     },
-    registered: {
+    Registered: {
         rootMenuIds: []
     },
-    user: {
+    User: {
         rootMenuIds: ['metapanel', 'applications', 'profile', 'docs'],
         showMetahubsSection: false
     }
@@ -415,8 +418,8 @@ export const ROLE_MENU_VISIBILITY: Record<SystemRoleCodename, RoleMenuVisibility
  * Payload for creating a new role
  */
 export interface CreateRolePayload {
-    /** Unique role identifier (lowercase, alphanumeric, underscores, dashes) */
-    codename: string
+    /** Unique role identifier in VLC format */
+    codename: CodenameVLC
     /** Optional description in VLC format for multi-language support */
     description?: VersionedLocalizedContent<string>
     /** Localized name in VLC format */

@@ -59,7 +59,7 @@ const DEFAULT_METAHUB_SETTINGS: MetahubDefaults = {
     codenameAlphabet: 'en-ru',
     codenameAllowMixedAlphabets: false,
     codenameAutoConvertMixedAlphabets: true,
-    codenameLocalizedEnabled: false,
+    codenameLocalizedEnabled: true,
     platformSystemAttributesConfigurable: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.allowConfiguration,
     platformSystemAttributesRequired: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.forceCreate,
     platformSystemAttributesIgnoreMetahubSettings: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.ignoreMetahubSettings
@@ -327,10 +327,12 @@ const AdminSettings = () => {
                                     </Box>
                                 )}
 
-                                {/* Localized Codename Mode */}
+                                {/* Enable Localized Codenames (VLC) */}
                                 <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant='subtitle2'>{t('settings.metahubs.codenameLocalizedEnabled')}</Typography>
+                                        <Typography variant='subtitle2'>
+                                            {t('settings.metahubs.codenameLocalizedEnabled')}
+                                        </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t('settings.metahubs.codenameLocalizedEnabledDescription')}
                                         </Typography>

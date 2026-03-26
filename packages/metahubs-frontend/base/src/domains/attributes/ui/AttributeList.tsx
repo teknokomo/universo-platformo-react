@@ -69,7 +69,7 @@ import {
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { getCatalogSystemFieldDefinition } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
-import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
+import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
 import attributeActions from './AttributeActions'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 import ChildAttributeList from './ChildAttributeList'
@@ -1039,7 +1039,8 @@ const AttributeListContent = () => {
             api: {
                 updateEntity: (id: string, patch: AttributeLocalizedPayload) => {
                     if (!metahubId || !catalogId) return Promise.resolve()
-                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
+                    const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
+                    const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('attributes.validation.codenameRequired', 'Codename is required'))
                     }
@@ -1054,6 +1055,7 @@ const AttributeListContent = () => {
                         throw new Error(t('attributes.validation.codenameInvalid', 'Codename contains invalid characters'))
                     }
                     const dataType = patch.dataType ?? 'STRING'
+                    const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     const attribute = attributeMap.get(id)
                     const expectedVersion = attribute?.version
                     updateAttributeMutation.mutate(
@@ -1062,7 +1064,7 @@ const AttributeListContent = () => {
                             hubId: effectiveHubId,
                             catalogId,
                             attributeId: id,
-                            data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired, expectedVersion }
+                            data: { ...patch, codename: codenamePayload, dataType, isRequired: patch.isRequired, expectedVersion }
                         },
                         {
                             onError: (error: unknown) => {
@@ -1074,7 +1076,7 @@ const AttributeListContent = () => {
                                             conflict,
                                             pendingUpdate: {
                                                 id,
-                                                patch: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
+                                                patch: { ...patch, codename: codenamePayload, dataType, isRequired: patch.isRequired }
                                             }
                                         })
                                     }
@@ -1312,7 +1314,10 @@ const AttributeListContent = () => {
         // Validation is handled by EntityFormDialog's validate/canSave props.
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
+        const rawCodename = getVLCString(codenameValue || undefined, codenameValue?._primary ?? namePrimaryLocale ?? 'en')
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? 'en', normalizedCodename || '')
 
         const dataType = (data.dataType as AttributeDataType | undefined) ?? 'STRING'
         const isRequired = Boolean(data.isRequired)
@@ -1334,7 +1339,7 @@ const AttributeListContent = () => {
             hubId: effectiveHubId,
             catalogId,
             data: {
-                codename: normalizedCodename || '',
+                codename: codenamePayload,
                 dataType,
                 isRequired,
                 name: nameInput ?? {},

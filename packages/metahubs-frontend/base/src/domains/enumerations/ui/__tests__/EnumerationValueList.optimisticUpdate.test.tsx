@@ -47,8 +47,7 @@ vi.mock('@tanstack/react-query', () => ({
                             description: null,
                             sortOrder: 1,
                             isDefault: false,
-                            version: 3,
-                            codenameLocalized: null
+                            version: 3
                         }
                     ]
                 },
@@ -93,8 +92,7 @@ vi.mock('../../../settings/hooks/useCodenameConfig', () => ({
         allowMixed: false,
         autoConvertMixedAlphabets: true,
         autoReformat: true,
-        requireReformat: false,
-        localizedEnabled: false
+        requireReformat: false
     })
 }))
 
@@ -163,8 +161,7 @@ const templateMuiMock = vi.hoisted(() => ({
     APIEmptySVG: 'empty.svg',
     ViewHeaderMUI: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     LocalizedInlineField: () => null,
-    useCodenameAutoFill: () => undefined,
-    useCodenameVlcSync: () => undefined,
+    useCodenameAutoFillVlc: () => undefined,
     revealPendingEntityFeedback: vi.fn()
 }))
 

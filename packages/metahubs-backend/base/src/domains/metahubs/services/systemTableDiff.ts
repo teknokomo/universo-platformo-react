@@ -11,6 +11,7 @@ export enum SystemChangeType {
     DROP_COLUMN = 'DROP_COLUMN',
     ALTER_COLUMN = 'ALTER_COLUMN',
     ADD_INDEX = 'ADD_INDEX',
+    ALTER_INDEX = 'ALTER_INDEX',
     RENAME_INDEX = 'RENAME_INDEX',
     DROP_INDEX = 'DROP_INDEX',
     ADD_FK = 'ADD_FK',
@@ -211,8 +212,25 @@ function diffIndexes(diff: SystemTableDiff, tableName: string, oldTable: SystemT
     const matchedOldIndexNames = new Set<string>()
 
     for (const idx of newTable.indexes ?? []) {
-        if (oldByName.has(idx.name)) {
+        const oldIdx = oldByName.get(idx.name)
+        if (oldIdx) {
             matchedOldIndexNames.add(idx.name)
+            const sameColumns =
+                oldIdx.columns.length === idx.columns.length && oldIdx.columns.every((column, index) => column === idx.columns[index])
+            const sameUnique = Boolean(oldIdx.unique) === Boolean(idx.unique)
+            const sameWhere = (oldIdx.where ?? null) === (idx.where ?? null)
+            const sameMethod = (oldIdx.method ?? 'btree') === (idx.method ?? 'btree')
+
+            if (!sameColumns || !sameUnique || !sameWhere || !sameMethod) {
+                diff.additive.push({
+                    type: SystemChangeType.ALTER_INDEX,
+                    tableName,
+                    indexName: idx.name,
+                    isDestructive: false,
+                    description: `Alter index "${idx.name}" on "${tableName}"`,
+                    definition: idx
+                })
+            }
             continue
         }
 

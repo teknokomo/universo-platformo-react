@@ -40,7 +40,7 @@ export function useIsSuperadmin(): boolean {
     const { isSuperuser } = useStoreGlobalAccess()
     const { data } = useGlobalRole()
 
-    return isSuperuser || data?.isSuperuser === true || data?.roleMetadata?.isSuperuser === true || data?.role === 'superuser'
+    return isSuperuser || data?.isSuperuser === true || data?.roleMetadata?.isSuperuser === true || data?.role === 'Superuser'
 }
 
 /**

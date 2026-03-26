@@ -74,6 +74,8 @@ type VersionedFieldProps = BaseProps & {
     onChange: (value: VersionedLocalizedContent<string>) => void
     uiLocale?: string
     autoInitialize?: boolean
+    /** Optional normalization applied on field blur (versioned mode). */
+    normalizeOnBlur?: (value: string) => string
 }
 
 type LocalizedFieldProps = BaseProps & {
@@ -183,7 +185,8 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
     uiLocale,
     autoInitialize = true,
     maxLength,
-    minLength
+    minLength,
+    normalizeOnBlur
 }) => {
     const normalizedUiLocale = normalizeLocale(uiLocale)
 
@@ -226,6 +229,15 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
 
     const finalHelperText = error || helperText || constraintText
 
+    const handleBlur = useCallback(() => {
+        if (!value || !normalizeOnBlur) return
+        const currentValue = value.locales?.[primaryLocale]?.content ?? ''
+        const normalized = normalizeOnBlur(currentValue)
+        if (normalized !== currentValue) {
+            onChange(updateLocalizedContentLocale(value, primaryLocale, normalized))
+        }
+    }, [normalizeOnBlur, onChange, value, primaryLocale])
+
     return (
         <TextField
             fullWidth
@@ -236,6 +248,7 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
             helperText={finalHelperText}
             value={content}
             onChange={handleChange}
+            onBlur={normalizeOnBlur ? handleBlur : undefined}
             multiline={multiline}
             rows={rows}
             size={size}
@@ -562,7 +575,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             <MenuItem onClick={() => setMenuMode('change')}>{t('changeLanguage', 'Change language')}</MenuItem>
                         )}
                         {isPrimaryLocale ? (
-                            <MenuItem disabled>{t('primaryVariant', 'Primary variant')}</MenuItem>
+                            <MenuItem disabled tabIndex={-1}>{t('primaryVariant', 'Primary variant')}</MenuItem>
                         ) : (
                             <MenuItem onClick={handleMakePrimary}>{t('makePrimary', 'Make primary')}</MenuItem>
                         )}
@@ -593,7 +606,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             </MenuItem>
                         ))}
                         {menuLocalesAvailable.length === 0 && (
-                            <MenuItem disabled>{t('noLanguagesAvailable', 'No languages available')}</MenuItem>
+                            <MenuItem disabled tabIndex={-1}>{t('noLanguagesAvailable', 'No languages available')}</MenuItem>
                         )}
                     </>
                 )}

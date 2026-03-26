@@ -43,6 +43,13 @@ export interface AuthUserProvisioningServiceDeps {
 
 const normalizeEmail = (value: string): string => value.trim().toLowerCase()
 
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const roleCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
 export function createAuthUserProvisioningService({ getDbExecutor, globalAccessService, supabaseAdmin }: AuthUserProvisioningServiceDeps) {
     const profileService = new ProfileService(getDbExecutor())
 
@@ -53,9 +60,9 @@ export function createAuthUserProvisioningService({ getDbExecutor, globalAccessS
         }
 
         const rows = await getDbExecutor().query<{ id: string; codename: string }>(
-            `SELECT id, codename
+            `SELECT id, ${roleCodenameTextSql('codename')} AS codename
              FROM admin.cat_roles
-             WHERE codename = ANY($1::text[])
+             WHERE ${roleCodenameTextSql('codename')} = ANY($1::text[])
                AND ${activeAppRowCondition()}`,
             [requested]
         )
@@ -206,7 +213,7 @@ export function createAuthUserProvisioningService({ getDbExecutor, globalAccessS
         }
 
         const createdUser = await createAuthUser(normalizedEmail, password)
-        const superuserRoleIds = await resolveRoleIdsByCodenames(['superuser'])
+        const superuserRoleIds = await resolveRoleIdsByCodenames(['Superuser'])
 
         try {
             await finalizeProvisionedUser(createdUser.id, normalizedEmail, superuserRoleIds, null, 'startup bootstrap superuser')

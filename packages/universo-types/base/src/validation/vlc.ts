@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { LocalizedContentSchemaVersion } from '../common/admin'
+import type { CodenameVLC, LocalizedContentSchemaVersion } from '../common/admin'
 
 // ============================================================
 // Localized Content Validation Schemas
@@ -51,6 +51,17 @@ export const LocalizedStringSchema = VersionedLocalizedContentSchema.extend({
     )
 })
 
+export const CodenameVLCSchema = LocalizedStringSchema.superRefine((value, ctx) => {
+    const primaryEntry = value.locales[value._primary]
+    if (!primaryEntry || typeof primaryEntry.content !== 'string' || primaryEntry.content.trim().length === 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['locales', value._primary, 'content'],
+            message: 'Primary locale codename must be a non-empty string'
+        })
+    }
+})
+
 /**
  * Localized content schema for optional string content (e.g., descriptions)
  * Allows empty strings in content - useful for optional fields where user may start editing
@@ -74,3 +85,4 @@ export const LocalizedStringOptionalSchema = LocalizedStringAllowEmptySchema.nul
 export type ValidatedLocalizedContentEntry = z.infer<typeof LocalizedContentEntrySchema>
 export type ValidatedLocalizedContent = z.infer<typeof VersionedLocalizedContentSchema>
 export type ValidatedLocalizedString = z.infer<typeof LocalizedStringSchema>
+export type ValidatedCodenameVLC = z.infer<typeof CodenameVLCSchema> & CodenameVLC

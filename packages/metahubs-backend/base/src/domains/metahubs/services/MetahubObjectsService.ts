@@ -4,6 +4,7 @@ import { qSchemaTable } from '@universo/database'
 import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 
 /**
  * Options for querying objects
@@ -20,7 +21,7 @@ type MetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub' | 'document'
 export type MetahubObjectRow = {
     id: string
     kind: MetahubObjectKind | string
-    codename: string
+    codename: Record<string, unknown>
     table_name?: any
     presentation?: any
     config?: any
@@ -39,6 +40,17 @@ const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
  */
 export class MetahubObjectsService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
+
+    private normalizeObjectRow(row: Record<string, unknown>): MetahubObjectRow {
+        const presentation =
+            row.presentation && typeof row.presentation === 'object' ? { ...(row.presentation as Record<string, unknown>) } : {}
+
+        return {
+            ...(row as MetahubObjectRow),
+            codename: ensureCodenameValue(row.codename),
+            presentation
+        }
+    }
 
     private buildSoftDeleteSql(options: QueryOptions = {}, alias = ''): string {
         const prefix = alias ? `${alias}.` : ''
@@ -99,7 +111,7 @@ export class MetahubObjectsService {
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
 
-        return queryMany<MetahubObjectRow>(
+        const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt}
              WHERE kind = $1${softDelete}
@@ -108,6 +120,7 @@ export class MetahubObjectsService {
                       id ASC`,
             [kind]
         )
+        return rows.map((row) => this.normalizeObjectRow(row))
     }
 
     async countByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<number> {
@@ -126,7 +139,8 @@ export class MetahubObjectsService {
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
 
-        return queryOne<MetahubObjectRow>(this.exec, `SELECT * FROM ${qt} WHERE id = $1${softDelete} LIMIT 1`, [id])
+        const row = await queryOne<Record<string, unknown>>(this.exec, `SELECT * FROM ${qt} WHERE id = $1${softDelete} LIMIT 1`, [id])
+        return row ? this.normalizeObjectRow(row) : null
     }
 
     async findByCodename(
@@ -149,18 +163,19 @@ export class MetahubObjectsService {
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
 
-        return queryOne<MetahubObjectRow>(this.exec, `SELECT * FROM ${qt} WHERE codename = $1 AND kind = $2${softDelete} LIMIT 1`, [
-            codename,
-            kind
-        ])
+        const row = await queryOne<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = $2${softDelete} LIMIT 1`,
+            [codename, kind]
+        )
+        return row ? this.normalizeObjectRow(row) : null
     }
 
     async createObject(
         metahubId: string,
         kind: MetahubObjectKind,
         input: {
-            codename: string
-            codenameLocalized?: any
+            codename: unknown
             name: any // VLC
             description?: any // VLC
             config?: any
@@ -186,8 +201,8 @@ export class MetahubObjectsService {
             }
 
             const now = new Date()
+            const codename = ensureCodenameValue(input.codename)
             const presentation = JSON.stringify({
-                codename: input.codenameLocalized ?? null,
                 name: input.name,
                 description: input.description
             })
@@ -198,9 +213,9 @@ export class MetahubObjectsService {
                 `INSERT INTO ${qt}
                     (kind, codename, table_name, presentation, config,
                      _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                 VALUES ($1, $2, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
+                 VALUES ($1, $2::jsonb, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
                  RETURNING *`,
-                [kind, input.codename, presentation, configJson, now, input.createdBy ?? null]
+                [kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
             )
 
             const createdId = created.id
@@ -213,11 +228,11 @@ export class MetahubObjectsService {
 
             await this.ensureSequentialSortOrderByKind(schemaName, kind, tx, input.createdBy ?? userId)
 
-            const normalized = await queryOne<MetahubObjectRow>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [createdId])
+            const normalized = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [createdId])
             if (!normalized) {
                 throw new Error(`${kind} not found`)
             }
-            return normalized
+            return this.normalizeObjectRow(normalized)
         }
 
         if (db) return createWithRunner(db)
@@ -231,8 +246,7 @@ export class MetahubObjectsService {
     async createCatalog(
         metahubId: string,
         input: {
-            codename: string
-            codenameLocalized?: any
+            codename: unknown
             name: any // VLC
             description?: any // VLC
             config?: any
@@ -247,8 +261,7 @@ export class MetahubObjectsService {
     async createEnumeration(
         metahubId: string,
         input: {
-            codename: string
-            codenameLocalized?: any
+            codename: unknown
             name: any // VLC
             description?: any // VLC
             config?: any
@@ -263,8 +276,7 @@ export class MetahubObjectsService {
     async createSet(
         metahubId: string,
         input: {
-            codename: string
-            codenameLocalized?: any
+            codename: unknown
             name: any
             description?: any
             config?: any
@@ -281,8 +293,7 @@ export class MetahubObjectsService {
         id: string,
         kind: MetahubObjectKind,
         input: {
-            codename?: string
-            codenameLocalized?: any
+            codename?: unknown
             name?: any
             description?: any
             config?: any
@@ -302,11 +313,12 @@ export class MetahubObjectsService {
             _upl_updated_by: input.updatedBy ?? null
         }
 
-        if (input.codename !== undefined) updateData.codename = input.codename
-        if (input.name !== undefined || input.description !== undefined || input.codenameLocalized !== undefined) {
+        if (input.codename !== undefined) {
+            updateData.codename = ensureCodenameValue(input.codename)
+        }
+        if (input.name !== undefined || input.description !== undefined) {
             updateData.presentation = {
                 ...existing.presentation,
-                ...(input.codenameLocalized !== undefined ? { codename: input.codenameLocalized } : {}),
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined ? { description: input.description } : {})
             }
@@ -337,8 +349,7 @@ export class MetahubObjectsService {
         metahubId: string,
         id: string,
         input: {
-            codename?: string
-            codenameLocalized?: any
+            codename?: unknown
             name?: any
             description?: any
             config?: any
@@ -354,8 +365,7 @@ export class MetahubObjectsService {
         metahubId: string,
         id: string,
         input: {
-            codename?: string
-            codenameLocalized?: any
+            codename?: unknown
             name?: any
             description?: any
             config?: any
@@ -371,8 +381,7 @@ export class MetahubObjectsService {
         metahubId: string,
         id: string,
         input: {
-            codename?: string
-            codenameLocalized?: any
+            codename?: unknown
             name?: any
             description?: any
             config?: any
@@ -569,7 +578,7 @@ export class MetahubObjectsService {
                 throw new Error(`${kind} not found`)
             }
 
-            return updated
+            return updated ? this.normalizeObjectRow(updated) : null
         })
     }
 }

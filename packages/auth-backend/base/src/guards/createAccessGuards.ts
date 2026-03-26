@@ -81,7 +81,7 @@ export function createAccessGuards<TRole extends string, TMembership, TConn = un
             const isSuper = await isSuperuserFn(conn, userId, dbSession)
             if (isSuper) {
                 // Get role name for logging (optional)
-                const roleName = getGlobalRoleName ? await getGlobalRoleName(conn, userId, dbSession) : 'superuser'
+                const roleName = getGlobalRoleName ? await getGlobalRoleName(conn, userId, dbSession) : 'Superuser'
                 console.info('[ACCESS] Superuser access granted - bypassing permissions', {
                     timestamp: new Date().toISOString(),
                     userId,

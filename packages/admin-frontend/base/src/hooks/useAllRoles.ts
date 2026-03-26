@@ -6,7 +6,7 @@ import { rolesQueryKeys } from '../api/queryKeys'
 import type { RoleListItem } from '../api/rolesApi'
 import type { LocaleCode } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
-import { resolveLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, getCodenamePrimary } from '@universo/utils'
 
 /**
  * Result type for useAllRoles hook
@@ -55,13 +55,13 @@ export function useAllRoles(): UseAllRolesResult {
     const roleIds = useMemo(() => roles.map((r) => r.id), [roles])
 
     // Extract role codenames for display
-    const roleOptions = useMemo(() => roles.map((r) => r.codename), [roles])
+    const roleOptions = useMemo(() => roles.map((r) => getCodenamePrimary(r.codename)), [roles])
 
     // Build localized labels map by ID
     const roleLabelsById = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.id] = resolveLocalizedContent(role.name, currentLang, role.codename)
+            labels[role.id] = resolveLocalizedContent(role.name, currentLang, getCodenamePrimary(role.codename))
         }
         return labels
     }, [roles, currentLang])
@@ -70,7 +70,7 @@ export function useAllRoles(): UseAllRolesResult {
     const roleLabels = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.codename] = resolveLocalizedContent(role.name, currentLang, role.codename)
+            labels[getCodenamePrimary(role.codename)] = resolveLocalizedContent(role.name, currentLang, getCodenamePrimary(role.codename))
         }
         return labels
     }, [roles, currentLang])

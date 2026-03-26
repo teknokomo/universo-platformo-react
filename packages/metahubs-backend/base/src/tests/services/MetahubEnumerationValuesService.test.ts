@@ -94,6 +94,93 @@ describe('MetahubEnumerationValuesService active-row filtering', () => {
         )
     })
 
+    it('returns the canonical codename JSONB on reads', async () => {
+        mockExecQuery.mockResolvedValueOnce([
+            {
+                id: 'value-1',
+                object_id: 'enum-1',
+                codename: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'open' },
+                        ru: { content: 'otkryto' }
+                    }
+                },
+                presentation: { name: { en: 'Open' }, description: null },
+                sort_order: 2,
+                is_default: true,
+                _upl_version: 1,
+                _upl_created_at: '2026-03-14T00:00:00.000Z',
+                _upl_updated_at: '2026-03-14T00:00:00.000Z'
+            }
+        ])
+
+        const result = await service.findById('metahub-1', 'value-1', 'user-1')
+
+        expect(result).toMatchObject({
+            codename: {
+                _primary: 'en',
+                locales: {
+                    en: { content: 'open' },
+                    ru: { content: 'otkryto' }
+                }
+            }
+        })
+    })
+
+    it('stores codename only in the canonical column on create', async () => {
+        mockTxQuery.mockImplementationOnce(async () => [])
+        mockTxQuery.mockImplementationOnce(async () => [])
+        mockTxQuery.mockImplementationOnce(async () => [])
+        mockTxQuery.mockImplementationOnce(async (sql: string, params?: unknown[]) => {
+            expect(sql).toContain('INSERT INTO')
+            expect(sql).toContain('(object_id, codename, presentation, sort_order, is_default,')
+            expect(sql).toContain('VALUES ($1, $2, $3, $4, $5, $6, $7, $6, $7)')
+            expect(params?.[1]).toContain('"locales"')
+            expect(params?.[2]).toBe(JSON.stringify({ name: { en: 'Open' }, description: undefined }))
+
+            return [
+                {
+                    id: 'value-1',
+                    object_id: 'enum-1',
+                    codename: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'open' }
+                        }
+                    },
+                    presentation: { name: { en: 'Open' } },
+                    sort_order: 1,
+                    is_default: false,
+                    _upl_version: 1,
+                    _upl_created_at: '2026-03-14T00:00:00.000Z',
+                    _upl_updated_at: '2026-03-14T00:00:00.000Z'
+                }
+            ]
+        })
+
+        await service.create(
+            'metahub-1',
+            {
+                enumerationId: 'enum-1',
+                codename: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'open' },
+                        ru: { content: 'otkryto' }
+                    }
+                },
+                name: { en: 'Open' },
+                sortOrder: 1,
+                createdBy: 'user-1'
+            },
+            'user-1'
+        )
+    })
+
     it('fails closed on soft-deleted rows before update', async () => {
         await service.update('metahub-1', 'value-1', { codename: 'open-v2', updatedBy: 'user-1' }, 'user-1')
 

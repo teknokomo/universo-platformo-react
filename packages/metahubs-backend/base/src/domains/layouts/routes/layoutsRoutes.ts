@@ -3,6 +3,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { DASHBOARD_LAYOUT_WIDGETS, type LayoutCopyOptions } from '@universo/types'
 import { ensureMetahubAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
 import { findMetahubById } from '../../../persistence'
 import { queryMany, queryOne } from '@universo/utils/database'
@@ -25,15 +26,6 @@ import { buildDashboardLayoutConfig } from '../../shared'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeLayoutCopyOptions } = validation
 
-type RequestUser = {
-    id?: string
-    sub?: string
-    user_id?: string
-    userId?: string
-}
-
-type RequestWithUser = Request & { user?: RequestUser }
-
 type StoredLocaleEntry = { content?: unknown } | unknown
 type StoredLocaleMap = Record<string, StoredLocaleEntry>
 type StoredPrimary = { _primary?: unknown }
@@ -44,12 +36,6 @@ type SourceWidgetRow = {
     sort_order?: number
     config?: unknown
     is_active?: boolean
-}
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as RequestWithUser).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
@@ -74,14 +60,16 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     return result
 }
 
-const copyLayoutSchema = z.object({
-    name: z.union([z.string(), z.record(z.string())]).optional(),
-    description: z.union([z.string(), z.record(z.string())]).optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    copyWidgets: z.boolean().optional(),
-    deactivateAllWidgets: z.boolean().optional()
-})
+const copyLayoutSchema = z
+    .object({
+        name: z.union([z.string(), z.record(z.string())]).optional(),
+        description: z.union([z.string(), z.record(z.string())]).optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        copyWidgets: z.boolean().optional(),
+        deactivateAllWidgets: z.boolean().optional()
+    })
+    .strict()
 
 const toLocalizedInputRecord = (value: unknown): Record<string, string | undefined> => {
     if (typeof value === 'string') {

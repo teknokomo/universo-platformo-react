@@ -6,7 +6,9 @@
  * with optional mixed-alphabet restriction.
  */
 
+import type { CodenameVLC, LocaleCode } from '@universo/types'
 import { slugifyCodename } from '../ui-utils/slugify'
+import { createCodenameVLC, getCodenamePrimary } from '../vlc'
 
 // ═══════════════════════════════════════
 // Kebab-case patterns
@@ -231,6 +233,88 @@ export const isValidCodenameForStyle = (
             return isValidKebabEnRuCodename(value)
     }
 }
+
+/** Normalize the primary codename content while preserving the surrounding VLC container. */
+export const normalizeCodenameVLC = (
+    value: CodenameVLC | null | undefined,
+    style: 'kebab-case' | 'pascal-case' = 'pascal-case',
+    alphabet: 'en' | 'ru' | 'en-ru' = 'en-ru'
+): CodenameVLC | null => {
+    if (!value) return null
+
+    const primary = value._primary
+    const primaryEntry = value.locales?.[primary]
+    if (!primaryEntry || typeof primaryEntry.content !== 'string') {
+        return value
+    }
+
+    return {
+        ...value,
+        locales: {
+            ...value.locales,
+            [primary]: {
+                ...primaryEntry,
+                content: normalizeCodenameForStyle(primaryEntry.content, style, alphabet)
+            }
+        }
+    }
+}
+
+/** Normalize every locale entry in a codename VLC value under the configured codename policy. */
+export const normalizeCodenameVLCAllLocales = (
+    value: CodenameVLC | null | undefined,
+    style: 'kebab-case' | 'pascal-case' = 'pascal-case',
+    alphabet: 'en' | 'ru' | 'en-ru' = 'en-ru'
+): CodenameVLC | null => {
+    if (!value) return null
+
+    let hasChanges = false
+    const nextLocales = Object.fromEntries(
+        Object.entries(value.locales ?? {}).map(([locale, entry]) => {
+            if (!entry || typeof entry.content !== 'string') {
+                return [locale, entry]
+            }
+
+            const normalizedContent = normalizeCodenameForStyle(entry.content, style, alphabet)
+            if (normalizedContent !== entry.content) {
+                hasChanges = true
+            }
+
+            return [
+                locale,
+                {
+                    ...entry,
+                    content: normalizedContent
+                }
+            ]
+        })
+    ) as CodenameVLC['locales']
+
+    if (!hasChanges) {
+        return value
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+/** Convert a raw codename string into canonical codename VLC after style-aware sanitization. */
+export const sanitizeCodenameToVLC = (
+    value: string,
+    locale: LocaleCode,
+    style: 'kebab-case' | 'pascal-case' = 'pascal-case',
+    alphabet: 'en' | 'ru' | 'en-ru' = 'en-ru',
+    allowMixed = true,
+    autoConvertMixedAlphabets = true
+): CodenameVLC => {
+    const sanitized = sanitizeCodenameForStyle(value, style, alphabet, allowMixed, autoConvertMixedAlphabets)
+    return createCodenameVLC(locale, sanitized)
+}
+
+/** Return the canonical primary-text view used for uniqueness, lookup and sorting. */
+export const getCanonicalCodenameText = (value: CodenameVLC | string | null | undefined): string => getCodenamePrimary(value)
 
 // ═══════════════════════════════════════
 // Normalizers (strip invalid chars from user-typed codename)

@@ -12,11 +12,22 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createBranchesRoutes } from '../../domains/branches/routes/branchesRoutes'
 import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockEnsureMetahubAccess = jest.fn(async () => ({ membership: { role: 'owner' } }))
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
-    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess: () => async (req: any, res: any, metahubId: string, permission?: string) => {
+        const user = (req as any).user
+        const userId = user?.id ?? user?.sub ?? user?.user_id ?? user?.userId
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await mockEnsureMetahubAccess({}, userId, metahubId, permission)
+        return userId
+    }
 }))
 
 const mockFindMetahubById = jest.fn()
@@ -158,7 +169,7 @@ describe('Branches Options Routes', () => {
         const response = await request(app)
             .post(`/metahub/${metahubId}/branches`)
             .send({
-                codename: 'copy-test',
+                codename: testCodenameVlc('copy-test'),
                 name: { en: 'Copy Test' },
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,
@@ -183,7 +194,7 @@ describe('Branches Options Routes', () => {
         const response = await request(app)
             .post(`/metahub/${metahubId}/branches`)
             .send({
-                codename: 'copy-test-2',
+                codename: testCodenameVlc('copy-test-2'),
                 name: { en: 'Copy Test 2' },
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,
@@ -211,7 +222,7 @@ describe('Branches Options Routes', () => {
         const response = await request(app)
             .post(`/metahub/${metahubId}/branches`)
             .send({
-                codename: 'copy-test-structured',
+                codename: testCodenameVlc('copy-test-structured'),
                 name: { en: 'Copy Test Structured' },
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,

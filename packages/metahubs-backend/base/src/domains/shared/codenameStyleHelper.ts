@@ -89,27 +89,31 @@ export async function getCodenameSettings(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
-): Promise<{ style: CodenameStyle; alphabet: CodenameAlphabet; allowMixed: boolean }> {
+): Promise<{ style: CodenameStyle; alphabet: CodenameAlphabet; allowMixed: boolean; localizedEnabled: boolean }> {
     try {
-        const [styleRow, alphabetRow, mixedRow] = await Promise.all([
+        const [styleRow, alphabetRow, mixedRow, localizedRow] = await Promise.all([
             settingsService.findByKey(metahubId, 'general.codenameStyle', userId),
             settingsService.findByKey(metahubId, 'general.codenameAlphabet', userId),
-            settingsService.findByKey(metahubId, 'general.codenameAllowMixedAlphabets', userId)
+            settingsService.findByKey(metahubId, 'general.codenameAllowMixedAlphabets', userId),
+            settingsService.findByKey(metahubId, 'general.codenameLocalizedEnabled', userId)
         ])
         const style = styleRow?.value?._value
         const alphabet = alphabetRow?.value?._value
         const mixed = mixedRow?.value?._value
+        const localized = localizedRow?.value?._value
 
         return {
             style: style === 'kebab-case' || style === 'pascal-case' ? style : DEFAULT_STYLE,
             alphabet: alphabet === 'en' || alphabet === 'ru' || alphabet === 'en-ru' ? alphabet : DEFAULT_ALPHABET,
-            allowMixed: mixed === true
+            allowMixed: mixed === true,
+            localizedEnabled: localized !== false
         }
     } catch {
         return {
             style: DEFAULT_STYLE,
             alphabet: DEFAULT_ALPHABET,
-            allowMixed: DEFAULT_ALLOW_MIXED
+            allowMixed: DEFAULT_ALLOW_MIXED,
+            localizedEnabled: true
         }
     }
 }

@@ -165,7 +165,7 @@ export function createOnboardingRoutes(
                 try {
                     await assignSystemRole({
                         userId,
-                        roleCodename: 'user',
+                        roleCodename: 'User',
                         reason: 'auto-assigned on onboarding completion'
                     })
                 } catch (roleAssignmentError) {
@@ -178,7 +178,10 @@ export function createOnboardingRoutes(
                                 [false, userId]
                             )
                         } catch (rollbackError) {
-                            console.error('[onboarding] Failed to roll back onboarding completion after role assignment error:', rollbackError)
+                            console.error(
+                                '[onboarding] Failed to roll back onboarding completion after role assignment error:',
+                                rollbackError
+                            )
                         }
                     }
 

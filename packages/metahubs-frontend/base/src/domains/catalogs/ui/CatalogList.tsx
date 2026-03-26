@@ -22,8 +22,7 @@ import {
     gridSpacing,
     useConfirm,
     LocalizedInlineField,
-    useCodenameAutoFill,
-    useCodenameVlcSync,
+    useCodenameAutoFillVlc,
     EntitySelectionPanel,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
@@ -52,7 +51,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { CatalogDisplay, CatalogLocalizedPayload, Hub, PaginatedResponse, getVLCString, toCatalogDisplay } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
@@ -88,8 +87,7 @@ interface CatalogWithHubsDisplay extends CatalogDisplay {
 type CatalogFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename: string
+    codename: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     /** For N:M relationship - array of hub IDs */
     hubIds: string[]
@@ -168,32 +166,11 @@ const GeneralTabFields = ({
     const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -203,7 +180,7 @@ const GeneralTabFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -235,13 +212,10 @@ const GeneralTabFields = ({
 
             <CodenameField
                 value={codename}
-                onChange={(value: string) => setValue('codename', value)}
+                onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc ?? null}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
@@ -537,8 +511,7 @@ const CatalogListContent = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
-            codenameVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             hubIds: hubId ? [hubId] : [], // Auto-select current hub
             isSingleHub: false,
@@ -560,7 +533,9 @@ const CatalogListContent = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('catalogs.validation.codenameRequired', 'Codename is required')
@@ -577,7 +552,9 @@ const CatalogListContent = () => {
     const canSaveCatalogForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
             const isRequiredHub = Boolean(values.isRequiredHub)
@@ -893,13 +870,15 @@ const CatalogListContent = () => {
                 updateEntity: (id: string, patch: CatalogLocalizedPayload & { expectedVersion?: number }) => {
                     if (!metahubId) return Promise.resolve()
                     const catalog = catalogMap.get(id)
-                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
+                    const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
+                    const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('catalogs.validation.codenameRequired', 'Codename is required'))
                     }
+                    const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     // Include expectedVersion for optimistic locking if catalog has version
                     const expectedVersion = catalog?.version
-                    const dataWithVersion = { ...patch, codename: normalizedCodename, expectedVersion }
+                    const dataWithVersion = { ...patch, codename: codenamePayload, expectedVersion }
 
                     // In hub-scoped mode, use hubId from URL; in global mode, check if catalog has hubs
                     const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
@@ -911,7 +890,7 @@ const CatalogListContent = () => {
                             setConflictState({
                                 open: true,
                                 conflict,
-                                pendingData: { ...patch, codename: normalizedCodename },
+                                pendingData: { ...patch, codename: codenamePayload },
                                 catalogId: id
                             })
                         }
@@ -1151,12 +1130,14 @@ const CatalogListContent = () => {
 
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+    const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         const isSingleHub = Boolean(data.isSingleHub)
+    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, normalizedCodename || '')
 
         // Confirm dialog for detached catalog (async — throws DIALOG_SAVE_CANCEL if cancelled)
         if (isHubScoped && hubId && !hubIds.includes(hubId)) {
@@ -1177,9 +1158,7 @@ const CatalogListContent = () => {
         // Fire-and-forget: optimistic card via onMutate, errors via onError snackbar,
         // cache invalidation via onSettled. Dialog closes immediately.
         const catalogPayload = {
-            codename: normalizedCodename || '',
-            codenameInput,
-            codenamePrimaryLocale,
+            codename: codenamePayload,
             name: nameInput ?? {},
             description: descriptionInput,
             namePrimaryLocale: namePrimaryLocale ?? '',

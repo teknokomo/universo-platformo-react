@@ -93,7 +93,7 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
         }
     })
 
-    it('creates a real bootstrap superuser with auth row, profile row, and exclusive role state', async () => {
+    it('creates a real bootstrap superuser and treats the second startup as a noop for the same account', async () => {
         const executor = createKnexExecutor(knex)
         const globalAccessService = createGlobalAccessService({ getDbExecutor: () => executor })
         const provisioningService = createAuthUserProvisioningService({
@@ -110,6 +110,11 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
         })
         createdUserIds.push(result.userId)
 
+        const secondResult = await provisioningService.ensureBootstrapSuperuser({
+            email,
+            password: 'ChangeMe_123456!'
+        })
+
         expect(result).toEqual(
             expect.objectContaining({
                 email,
@@ -118,6 +123,13 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
                 status: 'created'
             })
         )
+        expect(secondResult).toEqual({
+            userId: result.userId,
+            email,
+            createdAuthUser: false,
+            profileEnsured: true,
+            status: 'noop_existing_superuser'
+        })
 
         const authUserResult = await supabaseAdmin.auth.admin.getUserById(result.userId)
         expect(authUserResult.error).toBeNull()
@@ -137,7 +149,7 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
         expect(accessInfo.globalRoles).toHaveLength(1)
         expect(accessInfo.globalRoles[0]).toEqual(
             expect.objectContaining({
-                codename: 'superuser',
+                codename: 'Superuser',
                 metadata: expect.objectContaining({
                     isSuperuser: true
                 })

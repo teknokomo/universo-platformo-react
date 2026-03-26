@@ -5,7 +5,8 @@ import {
     MetaEntityKind,
     getPhysicalDataType,
     formatPhysicalType,
-    type ApplicationLifecycleContract
+    type ApplicationLifecycleContract,
+    type VersionedLocalizedContent
 } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { resolveApplicationLifecycleContractFromConfig, resolvePlatformSystemFieldsContractFromConfig } from '@universo/utils'
@@ -20,6 +21,24 @@ const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMER
     'enumeration') as MetaEntityKind
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
+
+const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
+    const timestamp = new Date(0).toISOString()
+
+    return {
+        _schema: '1',
+        _primary: primaryLocale,
+        locales: {
+            [primaryLocale]: {
+                content: codename,
+                version: 1,
+                isActive: true,
+                createdAt: timestamp,
+                updatedAt: timestamp
+            }
+        }
+    }
+}
 
 /**
  * Options for generateFullSchema method
@@ -83,6 +102,10 @@ const normalizeSystemTableCapabilities = (options?: SystemTableCapabilityOptions
  */
 export class SchemaGenerator {
     private knex: Knex
+
+    private static runtimeCodenameTextSql(columnRef: string): string {
+        return `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    }
 
     constructor(knex: Knex) {
         this.knex = knex
@@ -600,7 +623,7 @@ export class SchemaGenerator {
             await knex.schema.withSchema(schemaName).createTable('_app_objects', (table) => {
                 table.uuid('id').primary()
                 table.string('kind', 20).notNullable()
-                table.string('codename', 100).notNullable()
+                table.jsonb('codename').notNullable()
                 table.string('table_name', 255).notNullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('config').notNullable().defaultTo('{}')
@@ -644,9 +667,13 @@ export class SchemaGenerator {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
                 table.uuid('_app_deleted_by').nullable()
 
-                table.unique(['kind', 'codename'])
                 table.unique(['table_name'])
             })
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_objects_kind_codename_active
+                ON "${schemaName}"._app_objects (kind, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
+                WHERE _upl_deleted = false AND _app_deleted = false
+            `)
             console.log(`[SchemaGenerator] _app_objects created`)
         }
 
@@ -658,7 +685,7 @@ export class SchemaGenerator {
             await knex.schema.withSchema(schemaName).createTable('_app_attributes', (table) => {
                 table.uuid('id').primary()
                 table.uuid('object_id').notNullable()
-                table.string('codename', 100).notNullable()
+                table.jsonb('codename').notNullable()
                 // Stable field order from metahub snapshot (1..N). Used by runtime UI rendering.
                 table.integer('sort_order').notNullable().defaultTo(0)
                 table.string('column_name', 255).notNullable()
@@ -723,13 +750,13 @@ export class SchemaGenerator {
             // Partial unique indexes for codename uniqueness (scoped by parent/root and soft-delete status)
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_codename_root_active
-                ON "${schemaName}"._app_attributes (object_id, codename)
+                ON "${schemaName}"._app_attributes (object_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
                 WHERE parent_attribute_id IS NULL AND _upl_deleted = false AND _app_deleted = false
             `)
 
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_parent_codename_child_active
-                ON "${schemaName}"._app_attributes (object_id, parent_attribute_id, codename)
+                ON "${schemaName}"._app_attributes (object_id, parent_attribute_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
                 WHERE parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false
             `)
 
@@ -916,7 +943,7 @@ export class SchemaGenerator {
             await knex.schema.withSchema(schemaName).createTable('_app_values', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
                 table.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
-                table.string('codename', 100).notNullable()
+                table.jsonb('codename').notNullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.integer('sort_order').notNullable().defaultTo(0)
                 table.boolean('is_default').notNullable().defaultTo(false)
@@ -958,7 +985,7 @@ export class SchemaGenerator {
             await this.normalizeAppEnumValueDefaults(schemaName, knex)
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_values_object_codename_active
-                ON "${schemaName}"._app_values (object_id, codename)
+                ON "${schemaName}"._app_values (object_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `)
             await knex.raw(`
@@ -1088,7 +1115,7 @@ export class SchemaGenerator {
         const objectRows = entities.map((entity) => ({
             id: entity.id,
             kind: entity.kind,
-            codename: entity.codename,
+            codename: createCodenameVLC('en', entity.codename),
             table_name: resolveEntityTableName(entity),
             presentation: entity.presentation,
             config: (entity as { config?: Record<string, unknown> }).config ?? {},
@@ -1133,7 +1160,7 @@ export class SchemaGenerator {
                 return {
                     id: field.id,
                     object_id: entity.id,
-                    codename: field.codename,
+                    codename: createCodenameVLC('en', field.codename),
                     sort_order: typeof (field as any)?.sortOrder === 'number' ? (field as any).sortOrder : 0,
                     column_name: columnName,
                     data_type: field.dataType,

@@ -22,8 +22,12 @@ export {
     isValidCodenameForStyle,
     hasMixedAlphabets,
     autoConvertMixedAlphabetsByFirstSymbol,
+    getCanonicalCodenameText,
     sanitizeCodename,
-    sanitizeCodenameForStyle
+    sanitizeCodenameForStyle,
+    sanitizeCodenameToVLC,
+    normalizeCodenameVLC,
+    normalizeCodenameVLCAllLocales
 } from './codename'
 export {
     normalizeApplicationCopyOptions,
