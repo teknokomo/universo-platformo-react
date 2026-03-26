@@ -2,7 +2,7 @@
 
 > 🏗️ **Modern Package** - TypeScript-first architecture with Express.js, SQL-first persistence, and Zod
 
-Backend service for global admin management (superadmins and supermoderators) with RBAC system.
+Backend service for global admin management with system roles, editable custom roles, and SQL-first RBAC.
 
 ## Package Information
 
@@ -14,8 +14,8 @@ Backend service for global admin management (superadmins and supermoderators) wi
 ## Key Features
 
 ### 🔐 RBAC System
-- **Global Roles**: superadmin, supermoderator with configurable permissions
-- **Permission Levels**: 'view' (read-only) and 'manage' (full access)
+- **System Roles**: `Superuser`, `Registered`, and `User`, plus editable custom global roles
+- **Permission Model**: subject/action rules with wildcard support and localized role metadata
 - **Role Metadata**: Localized display names, colors, and descriptions
 
 ### 🛡️ Security
@@ -23,6 +23,7 @@ Backend service for global admin management (superadmins and supermoderators) wi
 - Request-level role validation middleware
 - SQL injection protection with parameterized queries
 - RLS integration via PostgreSQL functions
+- Authenticated DB sessions may introspect only their own admin permissions and roles through helper SQL functions; privileged cross-user reads stay in backend/bootstrap flows
 
 ### 📊 Database
 - SQL-first stores in the `admin` schema
@@ -116,9 +117,11 @@ if (hasAccess) {
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUID | Primary key |
-| name | VARCHAR(50) | Unique role identifier |
-| display_name | JSONB | Localized names `{"en": "...", "ru": "..."}` |
-| has_global_access | BOOLEAN | Grants platform-wide access |
+| codename | JSONB | Canonical VLC codename payload persisted as `codename JSONB` |
+| name | JSONB | Localized role display name |
+| description | JSONB | Localized role description |
+| color | VARCHAR(7) | UI color |
+| is_superuser | BOOLEAN | Exclusive full-access system role |
 | is_system | BOOLEAN | Protected from deletion |
 
 ### admin.rel_user_roles

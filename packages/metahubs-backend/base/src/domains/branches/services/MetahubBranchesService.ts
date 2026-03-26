@@ -24,10 +24,11 @@ import { validateTemplateManifest } from '../../templates/services/TemplateManif
 import { getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { getKnex } from '@universo/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
-import { CURRENT_STRUCTURE_VERSION, semverToStructureVersion, structureVersionToSemver } from '../../metahubs/services/structureVersions'
+import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
 import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
+import { getCodenamePayloadText, resolveCodenamePayload } from '../../shared/codenamePayload'
 
 export interface BranchListOptions {
     limit?: number
@@ -59,6 +60,13 @@ class BranchCopyCompatibilityError extends Error {
         this.name = 'BranchCopyCompatibilityError'
     }
 }
+
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const branchCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
 
 export class MetahubBranchesService {
     constructor(private exec: DbExecutor) {}
@@ -278,16 +286,16 @@ export class MetahubBranchesService {
                 `(
                     COALESCE(b.name::text, '') ILIKE $${params.length}
                     OR COALESCE(b.description::text, '') ILIKE $${params.length}
-                    OR COALESCE(b.codename, '') ILIKE $${params.length}
+                    OR ${branchCodenameTextSql('b.codename')} ILIKE $${params.length}
                 )`
             )
         }
 
         const orderColumn =
             sortBy === 'name'
-                ? "COALESCE(b.name->'locales'->>(b.name->>'_primary'), b.name->'locales'->>'en', '')"
+                ? "COALESCE(b.name->'locales'->(b.name->>'_primary')->>'content', b.name->'locales'->'en'->>'content', '')"
                 : sortBy === 'codename'
-                ? 'b.codename'
+                ? branchCodenameTextSql('b.codename')
                 : sortBy === 'created'
                 ? 'b._upl_created_at'
                 : 'b._upl_updated_at'
@@ -300,7 +308,7 @@ export class MetahubBranchesService {
         const rows = await this.exec.query<MetahubBranchRow & { windowTotal: string }>(
             `SELECT
                 b.id, b.metahub_id AS "metahubId", b.source_branch_id AS "sourceBranchId",
-                b.name, b.description, b.codename, b.codename_localized AS "codenameLocalized",
+                b.name, b.description, b.codename AS codename,
                 b.branch_number AS "branchNumber", b.schema_name AS "schemaName",
                 b.structure_version AS "structureVersion",
                 b.last_template_version_id AS "lastTemplateVersionId",
@@ -349,16 +357,16 @@ export class MetahubBranchesService {
                 `(
                     COALESCE(b.name::text, '') ILIKE $${params.length}
                     OR COALESCE(b.description::text, '') ILIKE $${params.length}
-                    OR COALESCE(b.codename, '') ILIKE $${params.length}
+                    OR ${branchCodenameTextSql('b.codename')} ILIKE $${params.length}
                 )`
             )
         }
 
         const orderColumn =
             sortBy === 'name'
-                ? "COALESCE(b.name->'locales'->>(b.name->>'_primary'), b.name->'locales'->>'en', '')"
+                ? "COALESCE(b.name->'locales'->(b.name->>'_primary')->>'content', b.name->'locales'->'en'->>'content', '')"
                 : sortBy === 'codename'
-                ? 'b.codename'
+                ? branchCodenameTextSql('b.codename')
                 : sortBy === 'created'
                 ? 'b._upl_created_at'
                 : 'b._upl_updated_at'
@@ -367,7 +375,7 @@ export class MetahubBranchesService {
         const branches = await this.exec.query<MetahubBranchRow>(
             `SELECT
                 b.id, b.metahub_id AS "metahubId", b.source_branch_id AS "sourceBranchId",
-                b.name, b.description, b.codename, b.codename_localized AS "codenameLocalized",
+                b.name, b.description, b.codename AS codename,
                 b.branch_number AS "branchNumber", b.schema_name AS "schemaName",
                 b.structure_version AS "structureVersion",
                 b.last_template_version_id AS "lastTemplateVersionId",
@@ -421,11 +429,11 @@ export class MetahubBranchesService {
         metahubId: string
         name: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
-        codename?: string
+        codename?: VersionedLocalizedContent<string>
         createdBy?: string | null
         createOptions?: MetahubCreateOptions
     }): Promise<MetahubBranchRow> {
-        const { metahubId, name, description, codename = 'main', createdBy, createOptions } = params
+        const { metahubId, name, description, codename, createdBy, createOptions } = params
         const schemaService = new MetahubSchemaService(this.exec)
         const lockKey = uuidToLockKey(`${metahubId}:initial-branch`)
         const acquired = await acquireAdvisoryLock(this.knex, lockKey)
@@ -435,6 +443,10 @@ export class MetahubBranchesService {
 
         const branchNumber = 1
         const schemaName = this.buildSchemaName(metahubId, branchNumber)
+        const resolvedCodename = resolveCodenamePayload(codename ?? 'main', 'en')
+        if (!resolvedCodename) {
+            throw new Error('Failed to resolve initial branch codename')
+        }
         try {
             const metahub = await findMetahubById(this.exec, metahubId)
             if (!metahub) {
@@ -449,9 +461,7 @@ export class MetahubBranchesService {
             const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null)
             await schemaService.initializeSchema(schemaName, manifest, createOptions)
 
-            const structureVersion = structureVersionToSemver(
-                manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
-            )
+            const structureVersion = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
 
             const savedBranch = await this.exec.transaction(async (tx) => {
                 const lockedMetahub = await findMetahubForUpdate(tx, metahubId)
@@ -466,7 +476,7 @@ export class MetahubBranchesService {
                     metahubId,
                     name,
                     description: description ?? null,
-                    codename,
+                    codename: resolvedCodename,
                     branchNumber,
                     schemaName,
                     structureVersion,
@@ -500,14 +510,13 @@ export class MetahubBranchesService {
     async createBranch(params: {
         metahubId: string
         sourceBranchId?: string | null
-        codename: string
-        codenameLocalized?: VersionedLocalizedContent<string> | null
+        codename: VersionedLocalizedContent<string>
         name: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
         copyOptions?: Partial<BranchCopyOptions>
         createdBy?: string | null
     }): Promise<MetahubBranchRow> {
-        const { metahubId, sourceBranchId, codename, codenameLocalized, name, description, createdBy, copyOptions } = params
+        const { metahubId, sourceBranchId, codename, name, description, createdBy, copyOptions } = params
         const normalizedCopyOptions = normalizeBranchCopyOptions(copyOptions)
         const schemaService = new MetahubSchemaService(this.exec)
 
@@ -564,9 +573,7 @@ export class MetahubBranchesService {
                     // Load template manifest for new branch from scratch
                     const manifest = await this.loadManifestForMetahub(metahub, tx)
                     await schemaService.initializeSchema(schemaName, manifest)
-                    branchStructureVersion = structureVersionToSemver(
-                        manifest ? semverToStructureVersion(manifest.minStructureVersion) : CURRENT_STRUCTURE_VERSION
-                    )
+                    branchStructureVersion = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
                     const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null, tx)
                     templateVersionSyncId = templateVersionInfo.templateVersionId
                     templateVersionSyncLabel = templateVersionInfo.templateVersionLabel
@@ -579,7 +586,6 @@ export class MetahubBranchesService {
                     name,
                     description: description ?? null,
                     codename,
-                    codenameLocalized: codenameLocalized ?? null,
                     branchNumber: nextNumber,
                     schemaName,
                     structureVersion: branchStructureVersion,
@@ -614,8 +620,7 @@ export class MetahubBranchesService {
         metahubId: string,
         branchId: string,
         data: {
-            codename?: string
-            codenameLocalized?: VersionedLocalizedContent<string> | null
+            codename?: VersionedLocalizedContent<string>
             name?: VersionedLocalizedContent<string>
             description?: VersionedLocalizedContent<string> | null
             expectedVersion?: number
@@ -644,7 +649,6 @@ export class MetahubBranchesService {
 
         const updated = await updateBranchRow(this.exec, branchId, {
             codename: data.codename,
-            codenameLocalized: data.codenameLocalized,
             name: data.name,
             description: data.description,
             userId: data.updatedBy ?? undefined,
@@ -721,7 +725,7 @@ export class MetahubBranchesService {
 
             chain.push({
                 id: source.id,
-                codename: source.codename,
+                codename: getCodenamePayloadText(source.codename),
                 name: source.name
             })
 

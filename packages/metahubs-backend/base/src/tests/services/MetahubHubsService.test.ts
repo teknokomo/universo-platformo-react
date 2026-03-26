@@ -67,7 +67,12 @@ describe('MetahubHubsService active-row filtering', () => {
         expect(result.items).toEqual([
             expect.objectContaining({
                 id: 'hub-1',
-                codename: 'main-hub'
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'main-hub' })
+                    })
+                })
             })
         ])
     })
@@ -80,7 +85,7 @@ describe('MetahubHubsService active-row filtering', () => {
 
         expect(mockExecQuery.mock.calls[0][0]).toContain("WHERE id = $1 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
         expect(mockExecQuery.mock.calls[1][0]).toContain(
-            "WHERE codename = $1 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false"
+            "WHERE COALESCE(codename->'locales'->(codename->>'_primary')->>'content', codename->'locales'->'en'->>'content', '') = $1 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false"
         )
         expect(mockExecQuery.mock.calls[2][0]).toContain(
             "WHERE kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false AND id = ANY($1::uuid[])"

@@ -9,7 +9,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFillVlc, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import { normalizeBranchCopyOptions } from '@universo/utils'
@@ -25,8 +25,7 @@ const DEFAULT_CC: CodenameConfig = {
     allowMixed: false,
     autoConvertMixedAlphabets: true,
     autoReformat: true,
-    requireReformat: true,
-    localizedEnabled: false
+    requireReformat: true
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 
@@ -39,7 +38,7 @@ type EditTabArgs = {
     errors?: Record<string, string>
 }
 
-import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
 import { useQuery } from '@tanstack/react-query'
 import * as branchesApi from '../api'
@@ -56,8 +55,7 @@ const buildInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchLocal
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
-        codename: raw?.codename ?? ctx.entity?.codename ?? '',
+        codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true
     }
 }
@@ -117,6 +115,7 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchL
             uiLocale,
             ctx.entity?.name || ctx.entity?.codename || ''
         ),
+        codename: null,
         codenameTouched: false,
         ...normalizeBranchCopyOptions()
     }
@@ -211,7 +210,9 @@ const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, BranchLocal
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('metahubs:branches.validation.codenameRequired', 'Codename is required')
@@ -224,7 +225,9 @@ const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, BranchLocal
 const canSaveBranchForm = (values: GenericFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     return (
         !values._hasCodenameDuplicate &&
@@ -238,16 +241,16 @@ const toPayload = (values: GenericFormValues): BranchLocalizedPayload => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
+    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+    const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
     return {
-        codename,
-        codenameInput,
-        codenamePrimaryLocale,
+        codename: codenamePayload,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
@@ -285,32 +288,11 @@ const BranchEditFields = ({
     }, [codenameConfig, setValue])
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -320,7 +302,7 @@ const BranchEditFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -353,9 +335,6 @@ const BranchEditFields = ({
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc ?? null}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale as string}
                 label={t('metahubs:branches.codename', 'Codename')}
                 helperText={t(

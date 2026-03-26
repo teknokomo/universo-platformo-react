@@ -1,7 +1,16 @@
-import { updateInstance } from '../../persistence/instancesStore'
+import { listInstances, updateInstance } from '../../persistence/instancesStore'
 import { createLocale, updateLocale } from '../../persistence/localesStore'
-import { countUsersByRoleId, createRole, listRoleUsers, replacePermissions, updateRole } from '../../persistence/rolesStore'
+import {
+    countUsersByRoleId,
+    createRole,
+    findRoleByCodename,
+    listRoleUsers,
+    listRoles,
+    replacePermissions,
+    updateRole
+} from '../../persistence/rolesStore'
 import { upsertSetting } from '../../persistence/settingsStore'
+import { createCodenameVLC } from '@universo/utils'
 
 const createExec = () => ({
     query: jest.fn(async () => [{}]),
@@ -25,17 +34,23 @@ describe('admin persistence explicit RETURNING regression', () => {
     it('uses explicit columns for role create and update', async () => {
         const exec = createExec()
 
-        await createRole(exec as never, { codename: 'editor', name: { en: 'Editor' } })
+        await createRole(exec as never, { codename: createCodenameVLC('en', 'editor'), name: { en: 'Editor' } })
         await updateRole(exec as never, 'role-1', { color: '#111111' })
 
-        expect(String(exec.query.mock.calls[0][0])).toContain(
-            'RETURNING id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at'
-        )
+        expect(String(exec.query.mock.calls[0][0])).toContain('codename, id, description, name, color, is_superuser, is_system')
         expect(String(exec.query.mock.calls[0][0])).not.toContain('RETURNING *')
-        expect(String(exec.query.mock.calls[1][0])).toContain(
-            'RETURNING id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at'
-        )
+        expect(String(exec.query.mock.calls[1][0])).toContain('codename, id, description, name, color, is_superuser, is_system')
         expect(String(exec.query.mock.calls[1][0])).not.toContain('RETURNING *')
+    })
+
+    it('stores role codenames as JSONB VLC payloads on create', async () => {
+        const exec = createExec()
+
+        await createRole(exec as never, { codename: createCodenameVLC('en', 'editor'), name: { en: 'Editor' } })
+
+        expect(exec.query.mock.calls[0]?.[1]?.[0]).toContain('"_schema":"1"')
+        expect(exec.query.mock.calls[0]?.[1]?.[0]).toContain('"_primary":"en"')
+        expect(exec.query.mock.calls[0]?.[1]?.[0]).toContain('"content":"editor"')
     })
 
     it('uses explicit columns for role permission replacement', async () => {
@@ -85,10 +100,17 @@ describe('admin persistence explicit RETURNING regression', () => {
 
         await updateInstance(exec as never, 'instance-1', { status: 'maintenance' })
 
-        expect(String(exec.query.mock.calls[0][0])).toContain(
-            'RETURNING id, codename, name, description, url, status, is_local, _upl_created_at, _upl_updated_at'
-        )
+        expect(String(exec.query.mock.calls[0][0])).toContain('AS codename, id, name, description, url, status, is_local')
         expect(String(exec.query.mock.calls[0][0])).not.toContain('RETURNING *')
+    })
+
+    it('stores instance codenames as JSONB VLC payloads on update', async () => {
+        const exec = createExec()
+
+        await updateInstance(exec as never, 'instance-1', { codename: 'Local' })
+
+        expect(exec.query.mock.calls[0]?.[1]?.[0]).toContain('"_schema":"1"')
+        expect(exec.query.mock.calls[0]?.[1]?.[0]).toContain('"content":"Local"')
     })
 })
 
@@ -125,5 +147,40 @@ describe('admin persistence dual-flag active-row predicates', () => {
         const itemsSql = String(exec.query.mock.calls[1][0])
         expect(itemsSql).toContain('_upl_deleted = false')
         expect(itemsSql).toContain('_app_deleted = false')
+    })
+
+    it('uses extracted-primary codename SQL for role search, lookup, and sorting', async () => {
+        const exec = createExec()
+        exec.query
+            .mockResolvedValueOnce([{ count: '1' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+
+        await listRoles(exec as never, { limit: 20, offset: 0, search: 'editor', sortBy: 'codename', sortOrder: 'asc' })
+        await findRoleByCodename(exec as never, 'editor')
+
+        const listSql = String(exec.query.mock.calls[1][0])
+        const findSql = String(exec.query.mock.calls[2][0])
+
+        expect(listSql).toContain(
+            "COALESCE(r.codename->'locales'->(r.codename->>'_primary')->>'content', r.codename->'locales'->'en'->>'content', '')"
+        )
+        expect(listSql).toContain('ORDER BY COALESCE(r.codename->')
+        expect(findSql).toContain(
+            "COALESCE(r.codename->'locales'->(r.codename->>'_primary')->>'content', r.codename->'locales'->'en'->>'content', '') = $1"
+        )
+    })
+
+    it('uses extracted-primary codename SQL for instance search and sorting', async () => {
+        const exec = createExec()
+        exec.query.mockResolvedValueOnce([{ count: '1' }]).mockResolvedValueOnce([])
+
+        await listInstances(exec as never, { limit: 20, offset: 0, search: 'local', sortBy: 'codename', sortOrder: 'asc' })
+
+        const listSql = String(exec.query.mock.calls[1][0])
+        expect(listSql).toContain(
+            "COALESCE(codename->'locales'->(codename->>'_primary')->>'content', codename->'locales'->'en'->>'content', '')"
+        )
+        expect(listSql).toContain('ORDER BY COALESCE(codename->')
     })
 })

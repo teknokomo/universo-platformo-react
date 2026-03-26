@@ -272,7 +272,20 @@
         },
         "field": {
             "codename": "Code Name",
-            "codenameHint": "Lowercase alphanumeric with underscores/dashes (for example new_role)",
+            "codenameHint": "Format: {{style}}; alphabet: {{alphabet}}. {{mixedRule}}",
+            "codenameStyle": {
+                "pascal-case": "PascalCase (MyRoleName)",
+                "kebab-case": "kebab-case (my-role-name)"
+            },
+            "codenameAlphabet": {
+                "en": "English only (a-z)",
+                "ru": "Russian only (а-я)",
+                "en-ru": "English + Russian (a-z, а-я)"
+            },
+            "codenameMixedAllowed": "Mixing Latin and Cyrillic in one codename is allowed.",
+            "codenameMixedForbidden": "Mixing Latin and Cyrillic in one codename is forbidden.",
+            "codenameMixedForbiddenAutoConvert": "Mixing Latin and Cyrillic is forbidden; mixed values are auto-converted to a single alphabet by the first letter.",
+            "codenameMixedNotApplicable": "Alphabet mixing rule does not apply for the selected alphabet.",
             "name": "Name",
             "color": "Color",
             "displayNameEn": "Name (English)",
@@ -291,7 +304,8 @@
         },
         "validation": {
             "codenameRequired": "Code name is required",
-            "codenameFormat": "Code name must be lowercase alphanumeric with underscores or dashes",
+            "codenameFormat": "Invalid codename format",
+            "codenameLength": "Code name must be between 2 and 50 characters",
             "nameRequired": "Name is required",
             "primaryNameRequired": "Primary language name is required",
             "nameFormat": "Name must be lowercase alphanumeric with underscores or dashes",
@@ -452,8 +466,8 @@
             "codenameAllowMixedAlphabetsDescription": "Allow mixing Latin and Cyrillic characters in codenames",
             "codenameAutoConvertMixedAlphabets": "Auto-convert Mixed Alphabet",
             "codenameAutoConvertMixedAlphabetsDescription": "When mixed alphabets are disallowed, auto-convert mixed values to one alphabet by the first letter during auto-generation from name and during manual codename input on field blur",
-            "codenameLocalizedEnabled": "Enable Localized Codename (VLC)",
-            "codenameLocalizedEnabledDescription": "Allow codename alternatives per language and choose a primary codename locale",
+            "codenameLocalizedEnabled": "Enable Localized Codenames (VLC)",
+            "codenameLocalizedEnabledDescription": "Allow entering codename alternatives per language and selecting the primary codename locale",
             "platformSystemAttributesConfigurable": "Allow configuring platform system attributes",
             "platformSystemAttributesConfigurableDescription": "Show platform-level system attributes in catalog System Attributes and allow users to change their enabled state.",
             "platformSystemAttributesRequired": "Always create platform system attributes",

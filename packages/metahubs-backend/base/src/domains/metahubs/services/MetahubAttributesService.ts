@@ -27,6 +27,7 @@ import {
     readPlatformSystemAttributesPolicy,
     resolveCatalogSystemAttributeSeedPlan
 } from '../../shared/platformSystemAttributesPolicy'
+import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 type AttributeScope = 'business' | 'system' | 'all'
@@ -329,7 +330,7 @@ export class MetahubAttributesService {
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const conditions = [`object_id = $1`, `codename = $2`, ACTIVE]
+        const conditions = [`object_id = $1`, `${codenamePrimaryTextSql('codename')} = $2`, ACTIVE]
         const params: unknown[] = [objectId, codename]
         let idx = 3
 
@@ -468,7 +469,7 @@ export class MetahubAttributesService {
                 const forceEnabledState = forceStateKeySet.has(seed.key)
                 await runner.query(
                     `UPDATE ${qt}
-                     SET codename = $1,
+                            SET codename = $1::jsonb,
                          data_type = $2,
                          presentation = $3::jsonb,
                          sort_order = $4,
@@ -480,7 +481,7 @@ export class MetahubAttributesService {
                          _upl_updated_by = $10
                      WHERE id = $11`,
                     [
-                        seed.codename,
+                        JSON.stringify(ensureCodenameValue(seed.codename)),
                         seed.dataType,
                         presentation,
                         seed.sortOrder,
@@ -502,9 +503,19 @@ export class MetahubAttributesService {
                   is_required, is_display_attribute, target_object_id, target_object_kind, target_constant_id,
                   parent_attribute_id, is_system, system_key, is_system_managed, is_system_enabled,
                   _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                 VALUES ($1, $2, $3, $4::jsonb, '{}'::jsonb, '{}'::jsonb, $5, false, false, null, null, null,
+                 VALUES ($1, $2::jsonb, $3, $4::jsonb, '{}'::jsonb, '{}'::jsonb, $5, false, false, null, null, null,
                          null, true, $6, true, $7, $8, $9, $8, $9)`,
-                [catalogId, seed.codename, seed.dataType, presentation, seed.sortOrder, seed.key, seed.isSystemEnabled, now, userId ?? null]
+                [
+                    catalogId,
+                    JSON.stringify(ensureCodenameValue(seed.codename)),
+                    seed.dataType,
+                    presentation,
+                    seed.sortOrder,
+                    seed.key,
+                    seed.isSystemEnabled,
+                    now,
+                    userId ?? null
+                ]
             )
         }
 
@@ -543,16 +554,16 @@ export class MetahubAttributesService {
                AND (attr.target_object_kind = 'catalog' OR attr.target_object_kind IS NULL)
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
-             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
             [targetCatalogId]
         )
 
         return rows.map((row) => ({
             attributeId: row.attribute_id,
-            attributeCodename: row.attribute_codename,
+            attributeCodename: getCodenameText(row.attribute_codename),
             attributeName: row.attribute_presentation?.name ?? null,
             sourceCatalogId: row.source_catalog_id,
-            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
             sourceCatalogName: row.source_catalog_presentation?.name ?? null
         }))
     }
@@ -588,16 +599,16 @@ export class MetahubAttributesService {
                AND attr.target_object_kind = $2
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
-             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
             [targetObjectId, targetObjectKind]
         )
 
         return rows.map((row) => ({
             attributeId: row.attribute_id,
-            attributeCodename: row.attribute_codename,
+            attributeCodename: getCodenameText(row.attribute_codename),
             attributeName: row.attribute_presentation?.name ?? null,
             sourceCatalogId: row.source_catalog_id,
-            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
             sourceCatalogName: row.source_catalog_presentation?.name ?? null
         }))
     }
@@ -633,16 +644,16 @@ export class MetahubAttributesService {
                AND attr.ui_config ->> 'defaultEnumValueId' = $1
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
-             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
             [enumValueId]
         )
 
         return rows.map((row) => ({
             attributeId: row.attribute_id,
-            attributeCodename: row.attribute_codename,
+            attributeCodename: getCodenameText(row.attribute_codename),
             attributeName: row.attribute_presentation?.name ?? null,
             sourceCatalogId: row.source_catalog_id,
-            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
             sourceCatalogName: row.source_catalog_presentation?.name ?? null
         }))
     }
@@ -685,16 +696,16 @@ export class MetahubAttributesService {
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
                AND el._upl_deleted = false AND el._mhb_deleted = false
              GROUP BY attr.id, attr.codename, attr.presentation, attr.object_id, obj.codename, obj.presentation
-             ORDER BY obj.codename ASC, attr.sort_order ASC`,
+             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
             [enumerationId, enumValueId]
         )
 
         return rows.map((row) => ({
             attributeId: row.attribute_id,
-            attributeCodename: row.attribute_codename,
+            attributeCodename: getCodenameText(row.attribute_codename),
             attributeName: row.attribute_presentation?.name ?? null,
             sourceCatalogId: row.source_catalog_id,
-            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
             sourceCatalogName: row.source_catalog_presentation?.name ?? null,
             usageCount: parseInt(row.usage_count ?? '0', 10)
         }))
@@ -739,9 +750,10 @@ export class MetahubAttributesService {
 
         const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId, data.parentAttributeId, db))
         const now = new Date()
-        const presentation = JSON.stringify({ codename: data.codenameLocalized, name: data.name })
+        const presentation = JSON.stringify({ name: data.name })
         const validationRules = JSON.stringify(data.validationRules || {})
         const uiConfig = JSON.stringify(data.uiConfig || {})
+        const codename = ensureCodenameValue(data.codename)
 
         const columns = [
             ...(explicitAttributeId ? ['id'] : []),
@@ -770,7 +782,7 @@ export class MetahubAttributesService {
         const values: unknown[] = [
             ...(explicitAttributeId ? [explicitAttributeId] : []),
             data.catalogId,
-            data.codename,
+            JSON.stringify(codename),
             data.dataType,
             data.system?.isSystem === true,
             data.system?.systemKey ?? null,
@@ -919,7 +931,10 @@ export class MetahubAttributesService {
             return updatedSystem ? this.mapRowToAttribute(updatedSystem) : null
         }
 
-        if (data.codename !== undefined) updateData.codename = data.codename
+        if (data.codename !== undefined) {
+            const currentCodename = await queryOne<Record<string, unknown>>(runner, `SELECT codename FROM ${qt} WHERE id = $1`, [id])
+            updateData.codename = ensureCodenameValue(data.codename ?? currentCodename?.codename)
+        }
         if (data.dataType !== undefined) updateData.data_type = data.dataType
         if (data.isRequired !== undefined) updateData.is_required = data.isRequired
         if (data.isDisplayAttribute !== undefined) updateData.is_display_attribute = data.isDisplayAttribute
@@ -929,13 +944,12 @@ export class MetahubAttributesService {
         if (data.targetConstantId !== undefined) updateData.target_constant_id = data.targetConstantId
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-        if (data.name !== undefined || data.codenameLocalized !== undefined) {
+        if (data.name !== undefined) {
             const currentPresentation = await queryOne<Record<string, unknown>>(runner, `SELECT presentation FROM ${qt} WHERE id = $1`, [
                 id
             ])
             updateData.presentation = JSON.stringify({
                 ...(currentPresentation?.presentation ?? {}),
-                ...(data.codenameLocalized !== undefined ? { codename: data.codenameLocalized } : {}),
                 ...(data.name !== undefined ? { name: data.name } : {})
             })
         }
@@ -1467,8 +1481,7 @@ export class MetahubAttributesService {
         return {
             id: row.id,
             catalogId: row.object_id,
-            codename: row.codename,
-            codenameLocalized: row.presentation?.codename ?? null,
+            codename: getCodenameText(row.codename),
             dataType: row.data_type,
             isRequired: row.is_required,
             isDisplayAttribute: row.is_display_attribute ?? false,

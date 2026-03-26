@@ -325,7 +325,7 @@ function ItemFormDialog({
                                 }}
                             >
                                 {catalogs.length === 0 ? (
-                                    <MenuItem disabled>{t('layouts.menuEditor.noCatalogs')}</MenuItem>
+                                    <MenuItem disabled tabIndex={-1}>{t('layouts.menuEditor.noCatalogs')}</MenuItem>
                                 ) : (
                                     catalogs.map((cat) => {
                                         const name = getVLCString(cat.name, uiLocale) || getVLCString(cat.name, 'en') || cat.codename
@@ -351,7 +351,7 @@ function ItemFormDialog({
                                 }}
                             >
                                 {hubs.length === 0 ? (
-                                    <MenuItem disabled>{t('layouts.menuEditor.noHubs')}</MenuItem>
+                                    <MenuItem disabled tabIndex={-1}>{t('layouts.menuEditor.noHubs')}</MenuItem>
                                 ) : (
                                     hubs.map((hub) => {
                                         const name = getVLCString(hub.name, uiLocale) || getVLCString(hub.name, 'en') || hub.codename

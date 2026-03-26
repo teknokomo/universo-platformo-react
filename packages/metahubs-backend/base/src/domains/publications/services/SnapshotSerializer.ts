@@ -17,6 +17,7 @@ import { MetahubEnumerationValuesService } from '../../metahubs/services/Metahub
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
+import { getCodenameText } from '../../shared/codename'
 
 export interface MetahubSnapshot {
     version: 1
@@ -104,8 +105,7 @@ type SnapshotAttributeRecord = {
 type SnapshotConstantRecord = {
     id: string
     setId?: string | null
-    codename: string
-    codenameLocalized?: string | null
+    codename: VersionedLocalizedContent<string>
     dataType: string
     name?: VersionedLocalizedContent<string> | null
     validationRules?: Record<string, unknown> | null
@@ -200,7 +200,7 @@ export class SnapshotSerializer {
             entities[hubId] = {
                 id: hubId,
                 kind: 'hub',
-                codename: hub.codename as string,
+                codename: getCodenameText(hub.codename),
                 presentation: {
                     name: hubName,
                     description: hubDescription
@@ -247,7 +247,7 @@ export class SnapshotSerializer {
             entities[catalog.id] = {
                 id: catalog.id,
                 kind: 'catalog',
-                codename: catalog.codename,
+                codename: getCodenameText(catalog.codename),
                 tableName: catalog.table_name,
                 presentation: {
                     name: catalog.presentation?.name || {},
@@ -316,10 +316,9 @@ export class SnapshotSerializer {
                 constantsByObject[set.id] = constants.map((constant) => ({
                     id: constant.id,
                     objectId: constant.setId ?? set.id,
-                    codename: constant.codename,
+                    codename: getCodenameText(constant.codename),
                     dataType: constant.dataType,
                     presentation: {
-                        codename: constant.codenameLocalized ?? null,
                         name: constant.name ?? {}
                     },
                     validationRules: (constant.validationRules ?? {}) as Record<string, unknown>,
@@ -366,7 +365,7 @@ export class SnapshotSerializer {
             entities[enumeration.id] = {
                 id: enumeration.id,
                 kind: MetaEntityKind.ENUMERATION,
-                codename: enumeration.codename,
+                codename: getCodenameText(enumeration.codename),
                 tableName: generateTableName(enumeration.id, MetaEntityKind.ENUMERATION),
                 presentation: {
                     name: enumeration.presentation?.name || {},
@@ -387,7 +386,7 @@ export class SnapshotSerializer {
             entities[set.id] = {
                 id: set.id,
                 kind: MetaEntityKind.SET,
-                codename: set.codename,
+                codename: getCodenameText(set.codename),
                 tableName: generateTableName(set.id, MetaEntityKind.SET),
                 presentation: {
                     name: set.presentation?.name || {},

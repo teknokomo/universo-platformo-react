@@ -13,6 +13,11 @@ export interface SqlMigrationDefinition {
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
+const codenamePrimaryTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
 const createDropPolicyIfTableExistsStatement = (policyName: string, schemaName: string, tableName: string): SqlMigrationStatement => ({
     sql: `
 DO $$
@@ -87,8 +92,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
-                    codename VARCHAR(100) NOT NULL,
-                    codename_localized JSONB,
+                    codename JSONB NOT NULL,
                     slug VARCHAR(100),
                     default_branch_id UUID,
                     last_branch_number INT NOT NULL DEFAULT 0,
@@ -128,7 +132,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_metahubs_codename_active
-                ON metahubs.cat_metahubs (codename)
+                ON metahubs.cat_metahubs (${codenamePrimaryTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
@@ -162,8 +166,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     source_branch_id UUID,
                     name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
-                    codename VARCHAR(100) NOT NULL,
-                    codename_localized JSONB,
+                    codename JSONB NOT NULL,
                     branch_number INT NOT NULL,
                     schema_name VARCHAR(100) NOT NULL,
                     structure_version VARCHAR(20) NOT NULL DEFAULT '0.1.0',
@@ -212,7 +215,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_branches_metahub_codename_active
-                ON metahubs.cat_metahub_branches (metahub_id, codename)
+                ON metahubs.cat_metahub_branches (metahub_id, ${codenamePrimaryTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
@@ -242,7 +245,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
             sql: `
                 CREATE TABLE metahubs.cat_templates (
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
-                    codename VARCHAR(100) NOT NULL,
+                    codename JSONB NOT NULL,
                     name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
                     icon VARCHAR(50),
@@ -290,7 +293,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_templates_codename_active
-                ON metahubs.cat_templates (codename)
+                ON metahubs.cat_templates (${codenamePrimaryTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
@@ -460,8 +463,15 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         },
         {
             sql: `
-                ALTER TABLE metahubs.rel_metahub_users
-                ADD CONSTRAINT fk_mu_auth_user FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'fk_mu_auth_user'
+                        ) THEN
+                            ALTER TABLE metahubs.rel_metahub_users
+                            ADD CONSTRAINT fk_mu_auth_user FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+                        END IF;
+                    END $$;
             `,
             warningMessage: 'Warning: Unable to add FK constraint on metahubs_users.user_id referencing auth.users. Continuing without it.'
         },
@@ -586,10 +596,10 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `CREATE INDEX IF NOT EXISTS idx_mu_user ON metahubs.rel_metahub_users(user_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_mu_active_branch ON metahubs.rel_metahub_users(active_branch_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_slug ON metahubs.cat_metahubs(slug)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_codename ON metahubs.cat_metahubs(codename)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_codename ON metahubs.cat_metahubs((${codenamePrimaryTextSql('codename')}))` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_default_branch ON metahubs.cat_metahubs(default_branch_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_branch_metahub ON metahubs.cat_metahub_branches(metahub_id)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_codename ON metahubs.cat_metahub_branches(codename)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_codename ON metahubs.cat_metahub_branches((${codenamePrimaryTextSql('codename')}))` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_branch_number ON metahubs.cat_metahub_branches(branch_number)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_branch_source ON metahubs.cat_metahub_branches(source_branch_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_templates_active ON metahubs.cat_templates (is_active) WHERE is_active = true` },

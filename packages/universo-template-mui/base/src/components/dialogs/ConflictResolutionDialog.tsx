@@ -65,7 +65,7 @@ export function ConflictResolutionDialog({
                 </Button>
                 {onReload && (
                     <Button onClick={onReload} variant='outlined' disabled={isLoading}>
-                        {t('conflict.useServerVersion', 'Use Server Version')}
+                        {t('conflict.reloadLatest', 'Reload Latest')}
                     </Button>
                 )}
                 <Button onClick={onOverwrite} variant='contained' color='warning' disabled={isLoading}>

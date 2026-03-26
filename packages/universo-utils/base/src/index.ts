@@ -69,6 +69,7 @@ export {
 // Localized Content utilities
 export {
     createLocalizedContent,
+    createCodenameVLC,
     updateLocalizedContentLocale,
     resolveLocalizedContent,
     getLocalizedContentLocales,
@@ -76,8 +77,11 @@ export {
     isLocalizedContent,
     buildVLC,
     ensureVLC,
+    ensureCodenameVLC,
     // Getter utilities for frontend/backend
     getVLCString,
+    getVLCPrimaryString,
+    getCodenamePrimary,
     getVLCStringWithFallback,
     getSimpleLocalizedValue,
     normalizeLocale

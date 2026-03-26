@@ -16,12 +16,63 @@ export interface InstanceRow {
     _upl_updated_at: string
 }
 
-const INSTANCE_RETURNING_COLUMNS = 'id, codename, name, description, url, status, is_local, _upl_created_at, _upl_updated_at'
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const instanceCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
+const buildCodenameVlc = (codename: string, ruCodename?: string) => {
+    const now = new Date().toISOString()
+
+    const locales: Record<string, { content: string; version: number; isActive: boolean; createdAt: string; updatedAt: string }> = {
+        en: {
+            content: codename,
+            version: 1,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now
+        }
+    }
+
+    if (ruCodename) {
+        locales.ru = {
+            content: ruCodename,
+            version: 1,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now
+        }
+    }
+
+    return {
+        _schema: '1',
+        _primary: 'en',
+        locales
+    }
+}
+
+const INSTANCE_RETURNING_COLUMNS = `${instanceCodenameTextSql(
+    'codename'
+)} AS codename, id, name, description, url, status, is_local, _upl_created_at, _upl_updated_at`
+
+const INSTANCE_SELECT_COLUMNS = `
+    id,
+    ${instanceCodenameTextSql('codename')} AS codename,
+    name,
+    description,
+    url,
+    status,
+    is_local,
+    _upl_created_at,
+    _upl_updated_at
+`
 
 // ─── Queries ─────────────────────────────────────────────────────────────
 
 const SORT_WHITELIST: Record<string, string> = {
-    codename: 'codename',
+    codename: instanceCodenameTextSql('codename'),
     created: '_upl_created_at',
     status: 'status'
 }
@@ -38,7 +89,7 @@ export async function listInstances(
 
     if (search) {
         params.push(`%${escapeLikeWildcards(search.toLowerCase())}%`)
-        conditions.push(`(LOWER(codename) LIKE $${params.length} OR name::text ILIKE $${params.length})`)
+        conditions.push(`(LOWER(${instanceCodenameTextSql('codename')}) LIKE $${params.length} OR name::text ILIKE $${params.length})`)
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`
@@ -51,7 +102,9 @@ export async function listInstances(
     if (total === 0) return { items: [], total: 0 }
 
     const items = await exec.query<InstanceRow>(
-        `SELECT * FROM admin.cfg_instances ${where} ORDER BY ${sortCol} ${dir} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        `SELECT ${INSTANCE_SELECT_COLUMNS} FROM admin.cfg_instances ${where} ORDER BY ${sortCol} ${dir}, id ASC LIMIT $${
+            params.length + 1
+        } OFFSET $${params.length + 2}`,
         [...params, limit, offset]
     )
 
@@ -59,9 +112,10 @@ export async function listInstances(
 }
 
 export async function findInstanceById(exec: DbExecutor, id: string): Promise<InstanceRow | null> {
-    const rows = await exec.query<InstanceRow>(`SELECT * FROM admin.cfg_instances WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`, [
-        id
-    ])
+    const rows = await exec.query<InstanceRow>(
+        `SELECT ${INSTANCE_SELECT_COLUMNS} FROM admin.cfg_instances WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
+        [id]
+    )
     return rows[0] ?? null
 }
 
@@ -76,7 +130,7 @@ export async function updateInstance(
 
     if (data.codename !== undefined) {
         sets.push(`codename = $${idx++}`)
-        params.push(data.codename)
+        params.push(JSON.stringify(buildCodenameVlc(data.codename)))
     }
     if (data.name !== undefined) {
         sets.push(`name = $${idx++}`)

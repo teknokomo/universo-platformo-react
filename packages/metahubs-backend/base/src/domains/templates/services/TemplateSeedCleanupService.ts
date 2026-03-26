@@ -9,6 +9,7 @@ import type {
     StructuredBlocker
 } from '@universo/types'
 import { resolveWidgetTableName } from './widgetTableResolver'
+import { codenamePrimaryTextSql } from '../../shared/codename'
 
 export const TEMPLATE_CLEANUP_MODES = ['keep', 'dry_run', 'confirm'] as const
 export type TemplateCleanupMode = (typeof TEMPLATE_CLEANUP_MODES)[number]
@@ -308,7 +309,8 @@ export class TemplateSeedCleanupService {
             const objectRow = await this.knex
                 .withSchema(this.schemaName)
                 .from('_mhb_objects')
-                .where({ kind, codename, _upl_deleted: false, _mhb_deleted: false })
+                .where({ kind, _upl_deleted: false, _mhb_deleted: false })
+                .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [codename])
                 .select(['id', '_upl_created_by', '_upl_updated_by'])
                 .first()
 

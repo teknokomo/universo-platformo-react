@@ -1009,6 +1009,7 @@ export function InlineTableEditor({
                 onClose={handleCloseRowMenu}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                disableAutoFocusItem
             >
                 <MenuItem onClick={handleEditRowFromMenu} disabled={!firstEditableFieldId}>
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />

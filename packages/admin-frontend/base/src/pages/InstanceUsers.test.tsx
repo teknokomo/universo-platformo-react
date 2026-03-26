@@ -74,7 +74,19 @@ vi.mock('../hooks', () => ({
         roles: [
             {
                 id: 'role-1',
-                codename: 'editor',
+                codename: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: {
+                            content: 'editor',
+                            version: 1,
+                            isActive: true,
+                            createdAt: '2026-03-18T00:00:00.000Z',
+                            updatedAt: '2026-03-18T00:00:00.000Z'
+                        }
+                    }
+                },
                 name: {
                     _schema: '1',
                     _primary: 'en',

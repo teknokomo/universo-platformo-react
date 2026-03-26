@@ -3,7 +3,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { createEntityActions } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
-import { resolveLocalizedContent } from '@universo/utils'
+import { resolveLocalizedContent, getCodenamePrimary, createCodenameVLC } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 
 import type { RoleListItem } from '../api/rolesApi'
@@ -63,9 +63,9 @@ const baseActions = createEntityActions<RoleListItem, RoleData>({
         confirmDelete: 'roles.confirmDelete',
         confirmDeleteDescription: 'roles.confirmDeleteDescription'
     },
-    getEntityName: (role) => resolveLocalizedContent(role.name, 'en', role.codename),
+    getEntityName: (role) => resolveLocalizedContent(role.name, 'en', getCodenamePrimary(role.codename)),
     getInitialFormData: (entity) => ({
-        initialName: resolveLocalizedContent(entity.name, 'en', entity.codename),
+        initialName: resolveLocalizedContent(entity.name, 'en', getCodenamePrimary(entity.codename)),
         initialDescription: resolveLocalizedContent(entity.description, 'en', '')
     })
 })
@@ -89,7 +89,7 @@ const editRoleAction: ActionDescriptor<RoleListItem, RoleData> = {
             return {
                 open: true,
                 title: ctx.t('roles.editTitle', {
-                    name: resolveLocalizedContent(ctx.entity.name, locale, ctx.entity.codename)
+                    name: resolveLocalizedContent(ctx.entity.name, locale, getCodenamePrimary(ctx.entity.codename))
                 }),
                 submitLabel: ctx.t('common:actions.save', 'Save'),
                 initialCodename: ctx.entity.codename,
@@ -140,12 +140,19 @@ const copyRoleAction: ActionDescriptor<RoleListItem, RoleData> = {
         },
         buildProps: (ctx: RoleActionContext) => {
             const locale = ctx.meta?.locale || 'en'
-            const baseCodename = ctx.entity.codename ? `${ctx.entity.codename}_copy` : ''
-            const initialCodename = baseCodename.length > 50 ? baseCodename.slice(0, 50) : baseCodename
+            const baseCodename = getCodenamePrimary(ctx.entity.codename)
+            const COPY_SUFFIX = '_copy'
+            const MAX_CODENAME_LENGTH = 50
+            const truncatedBase =
+                baseCodename.length + COPY_SUFFIX.length > MAX_CODENAME_LENGTH
+                    ? baseCodename.slice(0, MAX_CODENAME_LENGTH - COPY_SUFFIX.length)
+                    : baseCodename
+            const copyCodenameText = truncatedBase ? `${truncatedBase}${COPY_SUFFIX}` : ''
+            const initialCodename = copyCodenameText ? createCodenameVLC(ctx.entity.codename?._primary || 'en', copyCodenameText) : null
             return {
                 open: true,
                 title: ctx.t('roles.copyTitle', {
-                    name: resolveLocalizedContent(ctx.entity.name, locale, ctx.entity.codename)
+                    name: resolveLocalizedContent(ctx.entity.name, locale, getCodenamePrimary(ctx.entity.codename))
                 }),
                 submitLabel: ctx.t('roles.copySubmit', 'Copy role'),
                 initialCodename,

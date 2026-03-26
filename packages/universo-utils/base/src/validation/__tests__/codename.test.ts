@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
     autoConvertMixedAlphabetsByFirstSymbol,
+    getCanonicalCodenameText,
     hasMixedAlphabets,
     isValidCodenameForStyle,
+    normalizeCodenameVLC,
+    normalizeCodenameVLCAllLocales,
     normalizeCodenameForStyle,
+    sanitizeCodenameToVLC,
     sanitizeCodenameForStyle
 } from '../codename'
 
@@ -54,5 +58,61 @@ describe('codename validation and normalization', () => {
         const sanitized = sanitizeCodenameForStyle('TestТест Value', 'pascal-case', 'en-ru', false, true)
         expect(sanitized.length).toBeGreaterThan(0)
         expect(hasMixedAlphabets(sanitized)).toBe(false)
+    })
+
+    it('can create canonical codename VLC from raw input', () => {
+        const codename = sanitizeCodenameToVLC('hello world', 'en', 'kebab-case', 'en')
+
+        expect(codename._primary).toBe('en')
+        expect(codename.locales.en?.content).toBe('hello-world')
+        expect(getCanonicalCodenameText(codename)).toBe('hello-world')
+    })
+
+    it('normalizes primary codename content inside an existing VLC value', () => {
+        const codename = sanitizeCodenameToVLC('hello world', 'ru', 'kebab-case', 'en')
+        const normalized = normalizeCodenameVLC(
+            {
+                ...codename,
+                locales: {
+                    ...codename.locales,
+                    ru: {
+                        ...codename.locales.ru,
+                        content: 'Привет Мир'
+                    }
+                }
+            },
+            'kebab-case',
+            'ru'
+        )
+
+        expect(normalized?.locales.ru?.content).toBe('привет-мир')
+    })
+
+    it('normalizes every locale entry inside an existing VLC value', () => {
+        const codename = sanitizeCodenameToVLC('hello world', 'en', 'kebab-case', 'en')
+        const normalized = normalizeCodenameVLCAllLocales(
+            {
+                ...codename,
+                locales: {
+                    ...codename.locales,
+                    en: {
+                        ...codename.locales.en,
+                        content: 'Hello World'
+                    },
+                    ru: {
+                        content: 'Привет Мир',
+                        version: 1,
+                        isActive: true,
+                        createdAt: '2026-03-24T00:00:00.000Z',
+                        updatedAt: '2026-03-24T00:00:00.000Z'
+                    }
+                }
+            },
+            'kebab-case',
+            'en-ru'
+        )
+
+        expect(normalized?.locales.en?.content).toBe('hello-world')
+        expect(normalized?.locales.ru?.content).toBe('привет-мир')
     })
 })

@@ -12,6 +12,8 @@ export { useInstanceDetails, useInstancesList, useInstanceStats, useInstanceName
 export { useUpdateInstance } from './instanceMutations'
 export { instancesQueryKeys, rolesQueryKeys } from '../api/queryKeys'
 export { useRoleDetails, useRoleName, truncateRoleName } from './useRoleDetails'
+export { usePlatformCodenameConfig } from './usePlatformCodenameConfig'
+export type { PlatformCodenameConfig } from './usePlatformCodenameConfig'
 
 // Unified roles hook (replaces useAssignableGlobalRoles and useAllRoles)
 export { useRoles } from './useRoles'

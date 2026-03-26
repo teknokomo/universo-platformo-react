@@ -20,14 +20,20 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { createLocalizedContent, filterLocalizedContent } from '@universo/utils'
-import { CodenameField, LocalizedInlineField, useCodenameAutoFill } from '@universo/template-mui'
-import { sanitizeCodename } from '@universo/utils/validation/codename'
+import { createLocalizedContent, filterLocalizedContent, getCodenamePrimary } from '@universo/utils'
+import { CodenameField, LocalizedInlineField, useCodenameAutoFillVlc } from '@universo/template-mui'
+import {
+    sanitizeCodenameForStyle,
+    normalizeCodenameForStyle,
+    isValidCodenameForStyle,
+    autoConvertMixedAlphabetsByFirstSymbol
+} from '@universo/utils/validation/codename'
 
 import { ColorPicker } from './ColorPicker'
+import { usePlatformCodenameConfig } from '../hooks/usePlatformCodenameConfig'
 
 export interface RoleFormDialogSubmitData {
-    codename: string
+    codename: VersionedLocalizedContent<string>
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     color: string
@@ -41,7 +47,7 @@ interface RoleFormDialogProps {
     submitLabel: string
     loading?: boolean
     error?: string | null
-    initialCodename?: string
+    initialCodename?: VersionedLocalizedContent<string> | null
     initialName?: VersionedLocalizedContent<string> | null
     initialDescription?: VersionedLocalizedContent<string> | null
     initialColor?: string
@@ -59,14 +65,6 @@ const DEFAULT_COLOR = '#9e9e9e'
 
 const createEmptyLocalizedValue = (locale: string) => createLocalizedContent(locale === 'ru' ? 'ru' : 'en', '')
 
-const getPrimaryLocalizedValue = (value: VersionedLocalizedContent<string> | null | undefined): string => {
-    const filteredValue = filterLocalizedContent(value)
-    const primaryLocale = filteredValue?._primary
-    const primaryEntry = primaryLocale ? filteredValue?.locales?.[primaryLocale] : null
-
-    return typeof primaryEntry?.content === 'string' ? primaryEntry.content.trim() : ''
-}
-
 type CopyTab = 'main' | 'options'
 
 export default function RoleFormDialog({
@@ -75,7 +73,7 @@ export default function RoleFormDialog({
     submitLabel,
     loading = false,
     error = null,
-    initialCodename = '',
+    initialCodename = null,
     initialName = null,
     initialDescription = null,
     initialColor = DEFAULT_COLOR,
@@ -91,8 +89,9 @@ export default function RoleFormDialog({
     const { t, i18n } = useTranslation('admin')
     const { t: tc } = useCommonTranslations()
     const locale = useMemo(() => i18n.language.split('-')[0] || 'en', [i18n.language])
+    const codenameConfig = usePlatformCodenameConfig()
 
-    const [codename, setCodename] = useState(initialCodename)
+    const [codename, setCodename] = useState<VersionedLocalizedContent<string> | null>(initialCodename)
     const [codenameTouched, setCodenameTouched] = useState(Boolean(initialCodename))
     const [name, setName] = useState<VersionedLocalizedContent<string> | null>(initialName ?? createEmptyLocalizedValue(locale))
     const [description, setDescription] = useState<VersionedLocalizedContent<string> | null>(initialDescription)
@@ -100,6 +99,7 @@ export default function RoleFormDialog({
     const [copyPermissions, setCopyPermissions] = useState(initialCopyPermissions)
     const [isSuperuser, setIsSuperuser] = useState(initialIsSuperuser)
     const [validationError, setValidationError] = useState<string | null>(null)
+    const [validationField, setValidationField] = useState<'codename' | 'name' | 'color' | null>(null)
     const [copyTab, setCopyTab] = useState<CopyTab>('main')
 
     useEffect(() => {
@@ -115,49 +115,71 @@ export default function RoleFormDialog({
         setCopyPermissions(initialCopyPermissions)
         setIsSuperuser(initialIsSuperuser)
         setValidationError(null)
+        setValidationField(null)
         setCopyTab('main')
     }, [open, initialCodename, initialName, initialDescription, initialColor, initialCopyPermissions, initialIsSuperuser, locale])
 
-    const primaryNameValue = useMemo(() => getPrimaryLocalizedValue(name), [name])
-    const nextCodename = useMemo(() => sanitizeCodename(primaryNameValue), [primaryNameValue])
+    const deriveCodename = useCallback(
+        (nameContent: string) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        [codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed, codenameConfig.autoConvertMixedAlphabets]
+    )
 
-    const setCodenameFieldValue = useCallback((field: 'codename' | 'codenameTouched', value: string | boolean) => {
-        if (field === 'codename') {
-            setCodename(String(value))
-            return
-        }
+    const codenameNormalizeOnBlur = useCallback(
+        (value: string) => {
+            const sourceValue =
+                codenameConfig.alphabet === 'en-ru' && !codenameConfig.allowMixed && codenameConfig.autoConvertMixedAlphabets
+                    ? autoConvertMixedAlphabetsByFirstSymbol(value)
+                    : value
+            return normalizeCodenameForStyle(sourceValue, codenameConfig.style, codenameConfig.alphabet)
+        },
+        [codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed, codenameConfig.autoConvertMixedAlphabets]
+    )
 
-        setCodenameTouched(Boolean(value))
-    }, [])
+    const setCodenameFieldValue = useCallback(
+        (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => {
+            if (field === 'codename') {
+                setCodename(value as VersionedLocalizedContent<string> | null)
+                return
+            }
 
-    useCodenameAutoFill({
+            setCodenameTouched(Boolean(value))
+        },
+        []
+    )
+
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue: primaryNameValue,
+        nameVlc: name,
+        deriveCodename,
         setValue: setCodenameFieldValue
     })
 
     const validate = useCallback(() => {
-        const trimmedCodename = codename.trim()
+        const primaryCodename = getCodenamePrimary(codename)
 
-        if (!trimmedCodename) {
+        if (!primaryCodename) {
             setValidationError(t('roles.validation.codenameRequired', 'Code name is required'))
+            setValidationField('codename')
             return null
         }
 
-        if (trimmedCodename.length < 2 || trimmedCodename.length > 50) {
+        if (primaryCodename.length < 2 || primaryCodename.length > 50) {
             setValidationError(t('roles.validation.codenameLength', 'Code name must be between 2 and 50 characters'))
+            setValidationField('codename')
             return null
         }
 
-        if (!/^[a-z][a-z0-9_-]*$/.test(trimmedCodename)) {
-            setValidationError(
-                t(
-                    'roles.validation.codenameFormat',
-                    'Code name must start with a letter, only lowercase letters, digits, underscores, or dashes'
-                )
-            )
+        if (!isValidCodenameForStyle(primaryCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
+            setValidationError(t('roles.validation.codenameFormat', 'Invalid codename format'))
+            setValidationField('codename')
             return null
         }
 
@@ -166,24 +188,27 @@ export default function RoleFormDialog({
         const primaryValue = primaryLocale ? filteredName?.locales?.[primaryLocale]?.content : ''
         if (!filteredName || !String(primaryValue || '').trim()) {
             setValidationError(t('roles.validation.primaryNameRequired', 'Primary language name is required'))
+            setValidationField('name')
             return null
         }
 
         if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
             setValidationError(t('roles.validation.colorFormat', 'Invalid color format'))
+            setValidationField('color')
             return null
         }
 
         setValidationError(null)
+        setValidationField(null)
         return {
-            codename: trimmedCodename,
+            codename: codename!,
             name: filteredName,
             description: filterLocalizedContent(description) || undefined,
             color,
             copyPermissions: showCopyPermissions ? copyPermissions : undefined,
             isSuperuser: showIsSuperuser ? isSuperuser : undefined
         }
-    }, [codename, color, copyPermissions, description, isSuperuser, name, showCopyPermissions, showIsSuperuser, t])
+    }, [codename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed, color, copyPermissions, description, isSuperuser, name, showCopyPermissions, showIsSuperuser, t])
 
     const handleSubmit = useCallback(async () => {
         const payload = validate()
@@ -197,7 +222,13 @@ export default function RoleFormDialog({
     const mainFields = (
         <Stack spacing={3}>
             {(error || validationError) && (
-                <Alert severity='error' onClose={() => setValidationError(null)}>
+                <Alert
+                    severity='error'
+                    onClose={() => {
+                        setValidationError(null)
+                        setValidationField(null)
+                    }}
+                >
                     {validationError || error}
                 </Alert>
             )}
@@ -233,21 +264,30 @@ export default function RoleFormDialog({
             <Divider />
 
             <CodenameField
-                label={t('roles.field.codename', 'Code Name')}
                 value={codename}
-                onChange={(value: string) => setCodename(value.trimStart())}
+                onChange={setCodename}
                 touched={codenameTouched}
                 onTouchedChange={setCodenameTouched}
+                label={t('roles.field.codename', 'Code Name')}
+                helperText={t('roles.field.codenameHint', {
+                    defaultValue: 'Format: {{style}}; alphabet: {{alphabet}}. {{mixedRule}}',
+                    style: t(`roles.field.codenameStyle.${codenameConfig.style}`, codenameConfig.style),
+                    alphabet: t(`roles.field.codenameAlphabet.${codenameConfig.alphabet}`, codenameConfig.alphabet),
+                    mixedRule:
+                        codenameConfig.alphabet !== 'en-ru'
+                            ? t('roles.field.codenameMixedNotApplicable')
+                            : codenameConfig.allowMixed
+                            ? t('roles.field.codenameMixedAllowed')
+                            : codenameConfig.autoConvertMixedAlphabets
+                            ? t('roles.field.codenameMixedForbiddenAutoConvert')
+                            : t('roles.field.codenameMixedForbidden')
+                })}
+                error={validationField === 'codename' ? validationError ?? undefined : undefined}
                 disabled={loading || codenameDisabled}
-                helperText={t('roles.field.codenameHint', 'Lowercase alphanumeric with underscores/dashes (for example new_role)')}
-                error={undefined}
                 required
-                localizedEnabled={false}
-                localizedValue={undefined}
-                onLocalizedChange={undefined}
-                uiLocale={undefined}
-                normalizeOnBlur={undefined}
-                textFieldProps={undefined}
+                uiLocale={i18n.language}
+                normalizeOnBlur={codenameNormalizeOnBlur}
+                localizedEnabled={codenameConfig.localizedEnabled}
             />
 
             {showIsSuperuser && (

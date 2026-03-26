@@ -41,8 +41,7 @@ vi.mock('../../../settings/hooks/useCodenameConfig', () => ({
         allowMixed: false,
         autoConvertMixedAlphabets: true,
         autoReformat: true,
-        requireReformat: false,
-        localizedEnabled: false
+        requireReformat: false
     })
 }))
 
@@ -123,8 +122,7 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
 
         const values = {
             nameVlc: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Child attribute' } } },
-            codenameVlc: null,
-            codename: 'child_attribute',
+            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'child_attribute' } } },
             codenameTouched: true,
             dataType: 'STRING',
             isRequired: false,
@@ -170,7 +168,12 @@ describe('ChildAttributeList optimistic create flow', () => {
                     catalogId: 'catalog-1',
                     parentAttributeId: 'attribute-parent-1',
                     data: expect.objectContaining({
-                        codename: 'child-attribute',
+                        codename: expect.objectContaining({
+                            _primary: 'en',
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'child_attribute' })
+                            })
+                        }),
                         dataType: 'STRING'
                     })
                 }),

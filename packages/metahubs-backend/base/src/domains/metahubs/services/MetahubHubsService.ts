@@ -4,6 +4,7 @@ import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
@@ -45,8 +46,7 @@ export class MetahubHubsService {
         const config = (row.config as Record<string, unknown>) ?? {}
         return {
             id: row.id,
-            codename: row.codename,
-            codenameLocalized: (row.presentation as Record<string, unknown>)?.codename ?? null,
+            codename: ensureCodenameValue(row.codename),
             name: (row.presentation as Record<string, unknown>)?.name ?? {},
             description: (row.presentation as Record<string, unknown>)?.description ?? null,
             sort_order: config.sortOrder ?? 0,
@@ -81,7 +81,9 @@ export class MetahubHubsService {
         if (options.search) {
             const escapedSearch = `%${escapeLikeWildcards(options.search)}%`
             conditions.push(
-                `(presentation->>'name' ILIKE $${paramIdx} OR presentation->>'description' ILIKE $${paramIdx} OR codename ILIKE $${paramIdx})`
+                `(presentation->>'name' ILIKE $${paramIdx} OR presentation->>'description' ILIKE $${paramIdx} OR ${codenamePrimaryTextSql(
+                    'codename'
+                )} ILIKE $${paramIdx})`
             )
             params.push(escapedSearch)
             paramIdx++
@@ -97,7 +99,7 @@ export class MetahubHubsService {
                 orderBy = `presentation->'name'->>'en' ${dir}`
                 break
             case 'codename':
-                orderBy = `codename ${dir}`
+                orderBy = `${codenamePrimaryTextSql('codename')} ${dir}`
                 break
             case 'sortOrder':
                 orderBy = `COALESCE((config->>'sortOrder')::int, 0) ${dir}`
@@ -168,7 +170,7 @@ export class MetahubHubsService {
 
         const row = await queryOne<Record<string, unknown>>(
             this.exec,
-            `SELECT * FROM ${qt} WHERE codename = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
+            `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
             [codename]
         )
 
@@ -199,8 +201,7 @@ export class MetahubHubsService {
     async create(
         metahubId: string,
         input: {
-            codename: string
-            codenameLocalized?: Record<string, unknown> | null
+            codename: unknown
             name: Record<string, unknown>
             description?: Record<string, unknown>
             sortOrder?: number
@@ -220,8 +221,8 @@ export class MetahubHubsService {
                     : await this.getNextSortOrder(schemaName, tx)
 
             const now = new Date()
+            const codename = ensureCodenameValue(input.codename)
             const presentation = JSON.stringify({
-                codename: input.codenameLocalized ?? null,
                 name: input.name,
                 description: input.description ?? null
             })
@@ -235,9 +236,9 @@ export class MetahubHubsService {
                 `INSERT INTO ${qt}
                     (kind, codename, table_name, presentation, config,
                      _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                 VALUES ('hub', $1, NULL, $2::jsonb, $3::jsonb, $4, $5, $4, $5)
+                 VALUES ('hub', $1::jsonb, NULL, $2::jsonb, $3::jsonb, $4, $5, $4, $5)
                  RETURNING *`,
-                [input.codename, presentation, config, now, input.createdBy ?? null]
+                [JSON.stringify(codename), presentation, config, now, input.createdBy ?? null]
             )
             return this.mapHubFromObject(created)
         }
@@ -253,8 +254,7 @@ export class MetahubHubsService {
         metahubId: string,
         hubId: string,
         input: {
-            codename?: string
-            codenameLocalized?: Record<string, unknown> | null
+            codename?: unknown
             name?: Record<string, unknown>
             description?: Record<string, unknown>
             sortOrder?: number
@@ -286,14 +286,13 @@ export class MetahubHubsService {
         }
 
         if (input.codename !== undefined) {
-            updateData.codename = input.codename
+            updateData.codename = ensureCodenameValue(input.codename)
         }
 
         // Update presentation (merge with existing)
-        if (input.name !== undefined || input.description !== undefined || input.codenameLocalized !== undefined) {
+        if (input.name !== undefined || input.description !== undefined) {
             updateData.presentation = {
                 ...currentPresentation,
-                ...(input.codenameLocalized !== undefined ? { codename: input.codenameLocalized } : {}),
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined ? { description: input.description } : {})
             }

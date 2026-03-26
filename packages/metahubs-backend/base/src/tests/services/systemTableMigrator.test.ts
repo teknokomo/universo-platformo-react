@@ -440,4 +440,392 @@ describe('SystemTableMigrator', () => {
             ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
         }
     })
+
+    it('applies ADD_TABLE migration for a new table', async () => {
+        const fromVersion = 601
+        const toVersion = 602
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            ...fromDefinitions,
+            {
+                name: '_mhb_beta',
+                description: 'Beta table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'label', type: 'string', length: 100, nullable: true }
+                ]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const createTable = jest.fn(async () => undefined)
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async () => false),
+                        createTable
+                    }))
+                },
+                raw: jest.fn().mockResolvedValue({ rows: [] })
+            } as unknown as Knex
+
+            const mockKnex = {
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(result.applied).toEqual(expect.arrayContaining([expect.stringContaining('Add table "_mhb_beta"')]))
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('applies ADD_COLUMN migration for a nullable column', async () => {
+        const fromVersion = 701
+        const toVersion = 702
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'description', type: 'text', nullable: true }
+                ]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const createColumnBuilder = () => ({
+                primary: jest.fn().mockReturnThis(),
+                nullable: jest.fn().mockReturnThis(),
+                notNullable: jest.fn().mockReturnThis(),
+                defaultTo: jest.fn().mockReturnThis()
+            })
+            const alterTable = jest.fn(async (_tableName: string, callback: (table: Record<string, jest.Mock>) => void) => {
+                callback({
+                    uuid: jest.fn(() => createColumnBuilder()),
+                    string: jest.fn(() => createColumnBuilder()),
+                    text: jest.fn(() => createColumnBuilder()),
+                    integer: jest.fn(() => createColumnBuilder()),
+                    boolean: jest.fn(() => createColumnBuilder()),
+                    jsonb: jest.fn(() => createColumnBuilder()),
+                    timestamp: jest.fn(() => createColumnBuilder())
+                } as never)
+            })
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async () => false),
+                        hasColumn: jest.fn(async () => false),
+                        alterTable
+                    }))
+                },
+                raw: jest.fn().mockResolvedValue({ rows: [] })
+            } as unknown as Knex
+
+            const mockKnex = {
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(result.applied).toEqual(expect.arrayContaining([expect.stringContaining('Add column "description"')]))
+            expect(alterTable).toHaveBeenCalled()
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('skips ADD_COLUMN when column already exists (idempotent)', async () => {
+        const fromVersion = 801
+        const toVersion = 802
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'description', type: 'text', nullable: true }
+                ]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const alterTable = jest.fn()
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async () => false),
+                        hasColumn: jest.fn(async () => true),
+                        alterTable
+                    }))
+                },
+                raw: jest.fn().mockResolvedValue({ rows: [] })
+            } as unknown as Knex
+
+            const mockKnex = {
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(alterTable).not.toHaveBeenCalled()
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('applies ADD_INDEX migration', async () => {
+        const fromVersion = 901
+        const toVersion = 902
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'kind', type: 'string', nullable: false }
+                ]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'kind', type: 'string', nullable: false }
+                ],
+                indexes: [{ name: 'idx_mhb_alpha_kind', columns: ['kind'] }]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const raw = jest.fn().mockResolvedValue({ rows: [] })
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async () => false)
+                    }))
+                },
+                raw
+            } as unknown as Knex
+
+            const mockKnex = {
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(result.applied).toEqual(expect.arrayContaining([expect.stringContaining('Add index "idx_mhb_alpha_kind"')]))
+            expect(raw.mock.calls.some(([sql]: [string]) => sql.includes('CREATE INDEX IF NOT EXISTS "idx_mhb_alpha_kind"'))).toBe(true)
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('applies ADD_FK migration', async () => {
+        const fromVersion = 1001
+        const toVersion = 1002
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_parent',
+                description: 'Parent table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            },
+            {
+                name: '_mhb_child',
+                description: 'Child table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'parent_id', type: 'uuid', nullable: true }
+                ]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_parent',
+                description: 'Parent table',
+                columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
+            },
+            {
+                name: '_mhb_child',
+                description: 'Child table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'parent_id', type: 'uuid', nullable: true }
+                ],
+                foreignKeys: [{ column: 'parent_id', referencesTable: '_mhb_parent', referencesColumn: 'id', onDelete: 'CASCADE' }]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const foreignMock = jest.fn(() => ({
+                references: jest.fn(() => ({
+                    inTable: jest.fn(() => ({
+                        onDelete: jest.fn()
+                    }))
+                }))
+            }))
+            const alterTable = jest.fn(async (_tableName: string, callback: (table: Record<string, jest.Mock>) => void) => {
+                callback({ foreign: foreignMock } as never)
+            })
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async () => false),
+                        alterTable
+                    }))
+                },
+                raw: jest.fn().mockResolvedValue({ rows: [] })
+            } as unknown as Knex
+
+            const mockKnex = {
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(result.applied).toEqual(expect.arrayContaining([expect.stringContaining('Add FK "parent_id"')]))
+            expect(foreignMock).toHaveBeenCalledWith('parent_id', expect.stringContaining('fk_'))
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('applies ALTER_COLUMN nullable relaxation (DROP NOT NULL)', async () => {
+        const fromVersion = 1101
+        const toVersion = 1102
+
+        const fromDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'name', type: 'string', nullable: false }
+                ]
+            }
+        ]
+        const toDefinitions: SystemTableDef[] = [
+            {
+                name: '_mhb_alpha',
+                description: 'Alpha table',
+                columns: [
+                    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+                    { name: 'name', type: 'string', nullable: true }
+                ]
+            }
+        ]
+
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
+
+        try {
+            const raw = jest.fn(async (sql: string) => {
+                if (sql.includes('information_schema.columns')) {
+                    return { rows: [{ is_nullable: 'NO' }] }
+                }
+                return { rows: [] }
+            })
+            const trx = {
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        hasTable: jest.fn(async () => false),
+                        hasColumn: jest.fn(async () => true)
+                    }))
+                },
+                raw
+            } as unknown as Knex
+
+            const mockKnex = {
+                transaction: jest.fn(async (callback: (trxArg: Knex) => Promise<unknown>) => callback(trx))
+            } as unknown as Knex
+
+            const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+            const result = await migrator.migrate(fromVersion, toVersion)
+
+            expect(result.success).toBe(true)
+            expect(result.applied).toEqual(expect.arrayContaining([expect.stringContaining('Alter column "name"')]))
+            expect(raw.mock.calls.some(([sql]: [string]) => sql.includes('DROP NOT NULL'))).toBe(true)
+        } finally {
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
+        }
+    })
+
+    it('returns success with empty applied when fromVersion >= toVersion', async () => {
+        const mockKnex = {} as unknown as Knex
+        const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+        const result = await migrator.migrate(5, 5)
+
+        expect(result.success).toBe(true)
+        expect(result.applied).toEqual([])
+        expect(result.skippedDestructive).toEqual([])
+    })
+
+    it('returns error when table definitions for fromVersion are missing', async () => {
+        const mockKnex = {} as unknown as Knex
+        const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
+        const result = await migrator.migrate(9998, 9999)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('Missing table definitions for structure version 9998')
+    })
 })

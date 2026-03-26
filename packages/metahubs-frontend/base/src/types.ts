@@ -10,6 +10,7 @@
 import type {
     MetahubRole,
     GlobalRole,
+    CodenameVLC,
     VersionedLocalizedContent,
     AttributeDataType,
     ConstantDataType,
@@ -27,6 +28,7 @@ export type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/
 // Import for local use in helper functions
 import { getVLCString } from '@universo/utils/vlc'
 import type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/utils/vlc'
+import { ensureEntityCodenameContent, getLocalizedContentText } from './utils/localizedInput'
 
 // Re-export role type
 export type { MetahubRole }
@@ -93,8 +95,7 @@ export interface MetahubMembersResponse {
 /** Metahub - the root entity containing Hubs and Catalogs */
 export interface Metahub {
     id: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
     slug?: string
@@ -140,8 +141,7 @@ export interface MetahubDisplay {
 export interface MetahubBranch {
     id: string
     metahubId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     sourceBranchId?: string | null
@@ -275,8 +275,7 @@ export interface PublicationDisplay {
 export interface Hub {
     id: string
     metahubId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
@@ -327,8 +326,7 @@ export interface HubRef {
 export interface Catalog {
     id: string
     metahubId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isSingleHub: boolean
@@ -372,8 +370,7 @@ export interface CatalogDisplay {
 export interface MetahubSet {
     id: string
     metahubId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isSingleHub: boolean
@@ -415,8 +412,7 @@ export interface MetahubSetDisplay {
 export interface Enumeration {
     id: string
     metahubId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isSingleHub: boolean
@@ -453,8 +449,7 @@ export interface EnumerationDisplay {
 export interface EnumerationValue {
     id: string
     objectId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
@@ -485,8 +480,7 @@ export interface EnumerationValueDisplay {
 export interface Attribute {
     id: string
     catalogId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     dataType: AttributeDataType
     name: VersionedLocalizedContent<string>
     targetEntityId?: string | null
@@ -535,8 +529,7 @@ export interface AttributeDisplay {
 export interface Constant {
     id: string
     setId: string
-    codename: string
-    codenameLocalized?: VersionedLocalizedContent<string> | null
+    codename: CodenameVLC
     dataType: ConstantDataType
     name: VersionedLocalizedContent<string>
     validationRules: Record<string, unknown>
@@ -594,9 +587,7 @@ export interface HubElementDisplay {
 
 /** Payload for creating/updating Metahub */
 export interface MetahubLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -605,9 +596,7 @@ export interface MetahubLocalizedPayload {
 
 /** Payload for creating/updating Hub */
 export interface HubLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -617,9 +606,7 @@ export interface HubLocalizedPayload {
 
 /** Payload for creating/updating Branch */
 export interface BranchLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -635,9 +622,7 @@ export interface BranchLocalizedPayload {
 
 /** Payload for creating/updating Catalog */
 export interface CatalogLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -649,9 +634,7 @@ export interface CatalogLocalizedPayload {
 
 /** Payload for creating/updating Set. */
 export interface SetLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -663,9 +646,7 @@ export interface SetLocalizedPayload {
 
 /** Payload for creating/updating Enumeration */
 export interface EnumerationLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -677,9 +658,7 @@ export interface EnumerationLocalizedPayload {
 
 /** Payload for creating/updating Enumeration value */
 export interface EnumerationValueLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -690,9 +669,7 @@ export interface EnumerationValueLocalizedPayload {
 
 /** Payload for creating/updating Attribute */
 export interface AttributeLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     dataType: AttributeDataType
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -708,9 +685,7 @@ export interface AttributeLocalizedPayload {
 
 /** Payload for creating/updating Constant. */
 export interface ConstantLocalizedPayload {
-    codename: string
-    codenameInput?: SimpleLocalizedInput
-    codenamePrimaryLocale?: string
+    codename: CodenameVLC
     dataType: ConstantDataType
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
@@ -727,6 +702,7 @@ export interface ConstantLocalizedPayload {
 export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDisplay {
     return {
         ...metahub,
+        codename: getLocalizedContentText(metahub.codename, locale, ''),
         name: getVLCString(metahub.name, locale),
         description: getVLCString(metahub.description, locale)
     }
@@ -736,6 +712,7 @@ export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDispla
 export function toBranchDisplay(branch: MetahubBranch, locale = 'en'): MetahubBranchDisplay {
     return {
         ...branch,
+        codename: getLocalizedContentText(branch.codename, locale, ''),
         name: getVLCString(branch.name, locale),
         description: getVLCString(branch.description, locale)
     }
@@ -755,9 +732,11 @@ export function toMetahubLayoutDisplay(layout: MetahubLayout, locale = 'en'): Me
 /** Convert Hub to HubDisplay for table rendering */
 export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
     const name = getVLCString(hub.name, locale)
+    const codename = getLocalizedContentText(hub.codename, locale, '')
     return {
         ...hub,
-        name: name || hub.codename || '',
+        codename,
+        name: name || codename,
         description: getVLCString(hub.description, locale)
     }
 }
@@ -765,9 +744,11 @@ export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
 /** Convert Catalog to CatalogDisplay for table rendering */
 export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDisplay {
     const name = getVLCString(catalog.name, locale)
+    const codename = getLocalizedContentText(catalog.codename, locale, '')
     return {
         ...catalog,
-        name: name || catalog.codename || '',
+        codename,
+        name: name || codename,
         description: getVLCString(catalog.description, locale),
         hubs: catalog.hubs?.map((hub) => ({
             id: hub.id,
@@ -780,9 +761,11 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 /** Convert Set to MetahubSetDisplay for table rendering. */
 export function toSetDisplay(set: MetahubSet, locale = 'en'): MetahubSetDisplay {
     const name = getVLCString(set.name, locale)
+    const codename = getLocalizedContentText(set.codename, locale, '')
     return {
         ...set,
-        name: name || set.codename || '',
+        codename,
+        name: name || codename,
         description: getVLCString(set.description, locale),
         hubs: set.hubs?.map((hub) => ({
             id: hub.id,
@@ -795,9 +778,11 @@ export function toSetDisplay(set: MetahubSet, locale = 'en'): MetahubSetDisplay 
 /** Convert Enumeration to EnumerationDisplay for table rendering */
 export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): EnumerationDisplay {
     const name = getVLCString(enumeration.name, locale)
+    const codename = getLocalizedContentText(enumeration.codename, locale, '')
     return {
         ...enumeration,
-        name: name || enumeration.codename || '',
+        codename,
+        name: name || codename,
         description: getVLCString(enumeration.description, locale),
         hubs: enumeration.hubs?.map((hub) => ({
             id: hub.id,
@@ -811,6 +796,7 @@ export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): E
 export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'): EnumerationValueDisplay {
     return {
         ...value,
+        codename: getLocalizedContentText(value.codename, locale, ''),
         name: getVLCString(value.name, locale),
         description: getVLCString(value.description, locale)
     }
@@ -820,7 +806,7 @@ export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'
 export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
     return {
         ...attr,
-        codename: getVLCString(attr.codenameLocalized, locale) || attr.codename,
+        codename: getLocalizedContentText(ensureEntityCodenameContent(attr, locale, attr.codename), locale, attr.codename),
         name: getVLCString(attr.name, locale)
     }
 }
@@ -829,7 +815,7 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
 export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDisplay {
     return {
         ...constant,
-        codename: getVLCString(constant.codenameLocalized, locale) || constant.codename,
+        codename: getLocalizedContentText(ensureEntityCodenameContent(constant, locale, constant.codename), locale, constant.codename),
         name: getVLCString(constant.name, locale)
     }
 }

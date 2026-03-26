@@ -14,7 +14,7 @@ import type {
  */
 export interface RoleListItem {
     id: string
-    codename: string
+    codename: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     name: VersionedLocalizedContent<string>
     color: string
@@ -97,7 +97,7 @@ function extractPaginationMeta(response: AxiosResponse): PaginatedResponse<unkno
 function transformRole(apiRole: Record<string, unknown>): RoleListItem {
     return {
         id: apiRole.id as string,
-        codename: apiRole.codename as string,
+        codename: apiRole.codename as VersionedLocalizedContent<string>,
         description: apiRole.description as VersionedLocalizedContent<string> | undefined,
         name: apiRole.name as VersionedLocalizedContent<string>,
         color: apiRole.color as string,

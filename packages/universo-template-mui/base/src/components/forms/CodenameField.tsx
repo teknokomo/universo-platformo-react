@@ -1,14 +1,24 @@
-import React from 'react'
-import { TextField, TextFieldProps } from '@mui/material'
-import { sanitizeCodename } from '@universo/utils/validation/codename'
+import React, { useCallback, useMemo } from 'react'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { createLocalizedContent } from '@universo/utils'
+import { sanitizeCodename } from '@universo/utils/validation/codename'
 import { LocalizedInlineField } from './LocalizedInlineField'
+
+const normalizeLocale = (locale?: string): string => (locale || 'en').split('-')[0] || 'en'
+
+/** Check if a VLC value has non-empty content in its primary locale. */
+const hasNonEmptyPrimary = (value: VersionedLocalizedContent<string> | null | undefined): boolean => {
+    if (!value) return false
+    const primary = value._primary
+    const content = primary ? value.locales?.[primary]?.content : ''
+    return typeof content === 'string' && content.length > 0
+}
 
 export interface CodenameFieldProps {
     /** Current codename value */
-    value: string
+    value: VersionedLocalizedContent<string> | null
     /** Called when codename changes */
-    onChange: (value: string) => void
+    onChange: (value: VersionedLocalizedContent<string> | null) => void
     /** Whether the user has manually touched/edited the codename */
     touched: boolean
     /** Called when touched state should change */
@@ -23,46 +33,20 @@ export interface CodenameFieldProps {
     disabled?: boolean
     /** Whether the field is required */
     required?: boolean
-    /** Enables localized VLC mode for codename input */
-    localizedEnabled?: boolean
-    /** Current localized codename value (used when localizedEnabled=true) */
-    localizedValue?: VersionedLocalizedContent<string> | null
-    /** Called when localized codename changes (used when localizedEnabled=true) */
-    onLocalizedChange?: (value: VersionedLocalizedContent<string> | null) => void
     /** UI locale used by localized editor */
     uiLocale?: string
     /** Optional blur normalizer override. Defaults to sanitizeCodename for backward compatibility. */
     normalizeOnBlur?: (value: string) => string
-    /** Additional TextField props */
-    textFieldProps?: Partial<Omit<TextFieldProps, 'value' | 'onChange' | 'label' | 'helperText' | 'error' | 'disabled' | 'required'>>
+    /** Whether localized (multi-locale) codenames are enabled. When false, shows single-locale field without language switching. Defaults to true. */
+    localizedEnabled?: boolean
 }
 
 /**
- * Reusable Codename field with auto-normalization on blur.
- * Use together with useCodenameAutoFill hook for auto-fill from name.
+ * Reusable VLC-only Codename field with auto-normalization on blur.
  *
- * Features:
- * - Auto-normalizes value on blur using sanitizeCodename (handles transliteration)
- * - Tracks "touched" state to prevent overwriting user edits
- * - Integrates with form validation via error prop
- *
- * @example
- * ```tsx
- * import { CodenameField, useCodenameAutoFill } from '@universo/template-mui'
- *
- * const [codename, setCodename] = useState('')
- * const [touched, setTouched] = useState(false)
- *
- * useCodenameAutoFill({ codename, codenameTouched: touched, ... })
- *
- * <CodenameField
- *   value={codename}
- *   onChange={setCodename}
- *   touched={touched}
- *   onTouchedChange={setTouched}
- *   label={t('codename')}
- * />
- * ```
+ * Uses autoInitialize={false} on the underlying LocalizedInlineField and provides
+ * a guaranteed non-null effectiveValue to avoid infinite re-init loops when paired
+ * with useCodenameAutoFillVlc (which may set codename back to null).
  */
 export const CodenameField: React.FC<CodenameFieldProps> = ({
     value,
@@ -74,70 +58,47 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({
     error,
     disabled = false,
     required = false,
-    localizedEnabled = false,
-    localizedValue,
-    onLocalizedChange,
     uiLocale,
     normalizeOnBlur,
-    textFieldProps
+    localizedEnabled = true
 }) => {
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        onChange(event.target.value)
-        if (!touched) {
-            onTouchedChange(true)
-        }
-    }
+    // Always provide a valid VLC so LocalizedInlineField never fires its auto-init effect.
+    const effectiveValue = useMemo(
+        () => value ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
+        [value, uiLocale]
+    )
 
-    const handleBlur = () => {
-        const normalized = normalizeOnBlur ? normalizeOnBlur(value) : sanitizeCodename(value)
-        if (normalized && normalized !== value) {
-            onChange(normalized)
-        }
-    }
+    // Only mark as "touched" when user types actual content (non-empty primary).
+    // This prevents auto-init from marking the field as touched.
+    const handleLocalizedChange = useCallback(
+        (nextValue: VersionedLocalizedContent<string>) => {
+            onChange(nextValue)
+            if (!touched && hasNonEmptyPrimary(nextValue)) {
+                onTouchedChange(true)
+            }
+        },
+        [onChange, touched, onTouchedChange]
+    )
 
-    const handleLocalizedChange = (nextValue: VersionedLocalizedContent<string>) => {
-        onLocalizedChange?.(nextValue)
-        const primaryLocale = nextValue?._primary
-        const primaryContent =
-            primaryLocale && nextValue?.locales?.[primaryLocale] && typeof nextValue.locales[primaryLocale]?.content === 'string'
-                ? nextValue.locales[primaryLocale]?.content
-                : ''
-        onChange(primaryContent ?? '')
-        if (!touched) {
-            onTouchedChange(true)
-        }
-    }
-
-    if (localizedEnabled && onLocalizedChange) {
-        return (
-            <LocalizedInlineField
-                mode='localized'
-                label={label}
-                required={required}
-                disabled={disabled}
-                value={localizedValue ?? null}
-                onChange={handleLocalizedChange}
-                error={error || null}
-                helperText={error || helperText}
-                uiLocale={uiLocale}
-                normalizeOnBlur={(rawValue) => (normalizeOnBlur ? normalizeOnBlur(rawValue) : sanitizeCodename(rawValue))}
-                maxLength={100}
-            />
-        )
-    }
+    const effectiveNormalizeOnBlur = useCallback(
+        (rawValue: string) => (normalizeOnBlur ? normalizeOnBlur(rawValue) : sanitizeCodename(rawValue)),
+        [normalizeOnBlur]
+    )
 
     return (
-        <TextField
+        <LocalizedInlineField
+            mode={localizedEnabled ? 'localized' : 'versioned'}
             label={label}
-            value={value}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            fullWidth
+            value={effectiveValue}
+            onChange={handleLocalizedChange}
             required={required}
             disabled={disabled}
-            error={Boolean(error)}
+            error={error || null}
             helperText={error || helperText}
-            {...textFieldProps}
+            uiLocale={uiLocale}
+            normalizeOnBlur={effectiveNormalizeOnBlur}
+            maxLength={100}
+            autoInitialize={false}
         />
     )
 }

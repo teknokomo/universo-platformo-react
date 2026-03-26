@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+    createCodenameVLC,
     createLocalizedContent,
+    ensureCodenameVLC,
     updateLocalizedContentLocale,
     resolveLocalizedContent,
     getLocalizedContentLocales,
@@ -35,6 +37,15 @@ describe('Localized Content Utilities', () => {
             expect(() => new Date(entry.updatedAt)).not.toThrow()
             expect(entry.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
             expect(entry.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+        })
+    })
+
+    describe('createCodenameVLC', () => {
+        it('creates canonical codename VLC with the provided primary locale', () => {
+            const content = createCodenameVLC('ru', 'КодИмя')
+
+            expect(content._primary).toBe('ru')
+            expect(content.locales.ru?.content).toBe('КодИмя')
         })
     })
 
@@ -220,6 +231,20 @@ describe('Localized Content Utilities', () => {
 
         it('returns false for objects missing required _schema field', () => {
             expect(isLocalizedContent({ _primary: 'en', locales: {} })).toBe(false)
+        })
+    })
+
+    describe('ensureCodenameVLC', () => {
+        it('wraps a plain string into codename VLC', () => {
+            const value = ensureCodenameVLC('test-code', 'en')
+
+            expect(value?._primary).toBe('en')
+            expect(value?.locales.en?.content).toBe('test-code')
+        })
+
+        it('returns existing VLC values unchanged', () => {
+            const value = createCodenameVLC('ru', 'Тест')
+            expect(ensureCodenameVLC(value, 'en')).toEqual(value)
         })
     })
 })

@@ -1,4 +1,4 @@
-import { createMetahubsSchemaMigrationDefinition } from '../../platform/migrations'
+import { createMetahubsSchemaMigrationDefinition, finalizeMetahubsSchemaSupportMigrationDefinition } from '../../platform/migrations'
 import { metahubsSystemAppDefinition } from '../../platform/systemAppDefinition'
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
@@ -58,7 +58,7 @@ describe('metahubs fixed-schema parity contract', () => {
                         expect.objectContaining({
                             codename: 'codename',
                             physicalColumnName: 'codename',
-                            dataType: 'STRING',
+                            dataType: 'JSON',
                             isRequired: true
                         }),
                         expect.objectContaining({
@@ -194,6 +194,24 @@ describe('metahubs fixed-schema parity contract', () => {
 
         expect(upSql).not.toMatch(/CREATE UNIQUE INDEX(?! IF NOT EXISTS)/)
         expect(upSql).not.toMatch(/CREATE INDEX(?! IF NOT EXISTS)/)
+    })
+
+    it('keeps post-generation auth-user FK creation idempotent', () => {
+        const finalizeSql = normalizeSql(finalizeMetahubsSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+
+        expect(finalizeSql).toContain(
+            normalizeSql(`
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_mu_auth_user'
+    ) THEN
+        ALTER TABLE metahubs.rel_metahub_users
+        ADD CONSTRAINT fk_mu_auth_user FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+            `)
+        )
     })
 
     it('keeps destructive down contract explicit for metahubs schema reset on fresh test databases', () => {

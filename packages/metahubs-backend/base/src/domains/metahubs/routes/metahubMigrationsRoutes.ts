@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type RequestHandler } from 'expres
 import { z } from 'zod'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { ensureMetahubAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import {
     findMetahubById,
     findMetahubForUpdate,
@@ -56,24 +57,22 @@ const statusQuerySchema = z.object({
     cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
 })
 
-const planBodySchema = z.object({
-    branchId: z.string().uuid().optional(),
-    targetTemplateVersionId: z.string().uuid().optional(),
-    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
-})
+const planBodySchema = z
+    .object({
+        branchId: z.string().uuid().optional(),
+        targetTemplateVersionId: z.string().uuid().optional(),
+        cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
+    })
+    .strict()
 
-const applyBodySchema = z.object({
-    branchId: z.string().uuid().optional(),
-    dryRun: z.boolean().optional().default(false),
-    targetTemplateVersionId: z.string().uuid().optional(),
-    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
-})
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as Request & { user?: Record<string, unknown> }).user
-    if (!user) return undefined
-    return (user.id as string | undefined) ?? (user.sub as string | undefined) ?? (user.user_id as string | undefined)
-}
+const applyBodySchema = z
+    .object({
+        branchId: z.string().uuid().optional(),
+        dryRun: z.boolean().optional().default(false),
+        targetTemplateVersionId: z.string().uuid().optional(),
+        cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
+    })
+    .strict()
 
 interface BranchContext {
     metahub: MetahubRow

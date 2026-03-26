@@ -51,7 +51,13 @@ describe('ensureCatalogSystemAttributesSeed', () => {
         expect(mocks.insert).toHaveBeenCalledWith(
             expect.objectContaining({
                 object_id: 'catalog-1',
-                codename: '_app_published',
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    _schema: '1',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: '_app_published' })
+                    })
+                }),
                 is_system: true,
                 is_system_managed: true,
                 is_system_enabled: true

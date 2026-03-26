@@ -18,6 +18,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
+import { resolveUserId } from '../../shared/routeAuth'
 import { ApplicationSchemaStatus, type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import {
@@ -52,9 +53,11 @@ const listMigrationsQuerySchema = z.object({
     offset: z.coerce.number().int().min(0).optional().default(0)
 })
 
-const rollbackSchema = z.object({
-    confirmDestructive: z.boolean().optional().default(false)
-})
+const rollbackSchema = z
+    .object({
+        confirmDestructive: z.boolean().optional().default(false)
+    })
+    .strict()
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Route Factory
@@ -135,8 +138,7 @@ export function createApplicationMigrationsRoutes(
     }
 
     const ensureAdminAccess = async (req: Request, res: Response, applicationId: string): Promise<boolean> => {
-        const user = req.user as { id?: string; sub?: string } | undefined
-        const userId = user?.id ?? user?.sub
+        const userId = resolveUserId(req)
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' })
             return false
@@ -157,8 +159,7 @@ export function createApplicationMigrationsRoutes(
 
     /** Ensures the requesting user is any member of the application (any role). */
     const ensureMemberAccess = async (req: Request, res: Response, applicationId: string): Promise<boolean> => {
-        const user = req.user as { id?: string; sub?: string } | undefined
-        const userId = user?.id ?? user?.sub
+        const userId = resolveUserId(req)
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' })
             return false
@@ -197,8 +198,7 @@ export function createApplicationMigrationsRoutes(
             }
 
             // Determine requesting user's role in this application
-            const user = req.user as { id?: string; sub?: string } | undefined
-            const userId = user?.id ?? user?.sub
+            const userId = resolveUserId(req)
             let currentUserRole: ApplicationRole | undefined
             if (userId) {
                 const membership = await findApplicationUser(exec, applicationId, userId)

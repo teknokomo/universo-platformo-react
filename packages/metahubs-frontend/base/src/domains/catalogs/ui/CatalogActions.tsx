@@ -4,7 +4,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFillVlc, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeCatalogCopyOptions } from '@universo/utils'
@@ -21,13 +21,12 @@ const DEFAULT_CC: CodenameConfig = {
     allowMixed: false,
     autoConvertMixedAlphabets: true,
     autoReformat: true,
-    requireReformat: true,
-    localizedEnabled: false
+    requireReformat: true
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
-import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
 
 /**
@@ -74,8 +73,7 @@ export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, Cat
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
-        codename: raw?.codename ?? ctx.entity?.codename ?? '',
+        codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
         hubIds,
         isSingleHub,
@@ -138,6 +136,7 @@ const buildCopyInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, Catalo
             uiLocale,
             ctx.entity?.name || ctx.entity?.codename || ''
         ),
+        codename: null,
         codenameTouched: false,
         ...normalizeCatalogCopyOptions()
     }
@@ -167,7 +166,9 @@ export const validateCatalogForm = (ctx: ActionContext<CatalogDisplayWithHub, Ca
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('catalogs.validation.codenameRequired', 'Codename is required')
@@ -180,7 +181,9 @@ export const validateCatalogForm = (ctx: ActionContext<CatalogDisplayWithHub, Ca
 export const canSaveCatalogForm = (values: CatalogFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     const baseValid =
         !values._hasCodenameDuplicate &&
@@ -202,19 +205,19 @@ export const toPayload = (
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
     const hubIds = Array.isArray(values.hubIds) ? values.hubIds : undefined
     const isSingleHub = Boolean(values.isSingleHub)
     const isRequiredHub = Boolean(values.isRequiredHub)
+    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+    const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
     return {
-        codename,
-        codenameInput,
-        codenamePrimaryLocale,
+        codename: codenamePayload,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
@@ -252,32 +255,11 @@ const GeneralTabFields = ({
     }, [codenameConfig, setValue])
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -287,7 +269,7 @@ const GeneralTabFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -316,13 +298,10 @@ const GeneralTabFields = ({
             <Divider />
             <CodenameField
                 value={codename}
-                onChange={(value: string) => setValue('codename', value)}
+                onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc ?? null}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale as string}
                 label={t('catalogs.codename', 'Codename')}
                 helperText={t('catalogs.codenameHelper', 'Unique identifier')}

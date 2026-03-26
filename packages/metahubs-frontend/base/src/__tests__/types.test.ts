@@ -7,8 +7,12 @@ describe('metahubs frontend attribute types', () => {
         const attribute: Attribute = {
             id: 'attribute-1',
             catalogId: 'catalog-1',
-            codename: '_app_deleted',
-            codenameLocalized: null,
+            codename: {
+                _primary: 'en',
+                locales: {
+                    en: { content: '_app_deleted' }
+                }
+            },
             dataType: 'BOOLEAN',
             name: {
                 version: 1,

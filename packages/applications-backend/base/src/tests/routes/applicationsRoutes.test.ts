@@ -228,7 +228,7 @@ describe('Applications Routes', () => {
             ;(hasSubjectPermission as jest.Mock).mockImplementation(async (_executor, _userId, subject: string, action = 'read') => {
                 return subject === 'applications' && action === 'read'
             })
-            ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue('user')
+            ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue('User')
             ;(dataSource.query as jest.Mock).mockResolvedValue([
                 {
                     id: 'application-public',
@@ -841,7 +841,7 @@ describe('Applications Routes', () => {
             ;(hasSubjectPermission as jest.Mock).mockImplementation(async (_executor, _userId, subject: string, action = 'read') => {
                 return subject === 'applications' && action === 'read'
             })
-            ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue('user')
+            ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue('User')
 
             const app = buildApp(dataSource)
 

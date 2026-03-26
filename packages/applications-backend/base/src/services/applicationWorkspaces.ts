@@ -20,6 +20,8 @@ const WORKSPACE_SEED_TEMPLATE_KEY = 'workspace_seed_template'
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
 const CURRENT_WORKSPACE_SETTING = `NULLIF(current_setting('app.current_workspace_id', true), '')`
+const runtimeCodenameTextSql = (columnRef: string): string =>
+    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
 
 const createStaticVlc = (values: { en: string; ru: string }): VersionedLocalizedContent<string> => {
     const timestamp = new Date(0).toISOString()
@@ -720,7 +722,7 @@ async function loadRuntimeCatalogSeedMetadata(
             FROM ${objectsQt}
             WHERE kind = 'catalog'
               AND ${ACTIVE_ROW_SQL}
-            ORDER BY codename ASC, id ASC
+            ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
             `
         ),
         executor.query<RuntimeCatalogSeedAttributeRow>(
@@ -729,7 +731,7 @@ async function loadRuntimeCatalogSeedMetadata(
                 object_id AS "objectId",
                 id AS "attributeId",
                 parent_attribute_id AS "parentAttributeId",
-                codename,
+                ${runtimeCodenameTextSql('codename')} AS codename,
                 column_name AS "columnName",
                 data_type AS "dataType",
                 ui_config AS "uiConfig",

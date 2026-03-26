@@ -97,6 +97,11 @@ vi.mock('@universo/template-mui', async () => {
                                         _primary: 'en',
                                         locales: { en: { content: 'Copied Metahub Description' } }
                                     },
+                                    codename: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'CopiedMetahub' } }
+                                    },
                                     copyDefaultBranchOnly: false,
                                     copyAccess: true
                                 })
@@ -646,7 +651,12 @@ describe('MetahubList', () => {
             await waitFor(() => {
                 expect(metahubsApi.createMetahub).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        codename: 'SampleHub',
+                        codename: expect.objectContaining({
+                            _primary: 'en',
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'SampleHub' })
+                            })
+                        }),
                         name: { en: 'Sample Hub' },
                         createOptions: {
                             createHub: false,
@@ -678,7 +688,12 @@ describe('MetahubList', () => {
             await waitFor(() => {
                 expect(metahubsApi.createMetahub).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        codename: 'MetahubAcceptance',
+                        codename: expect.objectContaining({
+                            _primary: 'en',
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'MetahubAcceptance' })
+                            })
+                        }),
                         name: { en: 'Metahub Acceptance' },
                         description: { en: 'Created from page acceptance' },
                         namePrimaryLocale: 'en',
@@ -761,9 +776,12 @@ describe('MetahubList', () => {
 
             await waitFor(() => {
                 expect(metahubsApi.updateMetahub).toHaveBeenCalledWith('editable-metahub', {
-                    codename: 'EditableMetahub',
-                    codenameInput: { en: 'EditableMetahub' },
-                    codenamePrimaryLocale: 'en',
+                    codename: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'EditableMetahub' })
+                        })
+                    }),
                     name: { en: 'Edited Metahub' },
                     description: { en: 'Edited Description' },
                     namePrimaryLocale: 'en',
@@ -832,9 +850,12 @@ describe('MetahubList', () => {
 
             await waitFor(() => {
                 expect(metahubsApi.copyMetahub).toHaveBeenCalledWith('copyable-metahub', {
-                    codename: 'CopyableMetahub',
-                    codenameInput: undefined,
-                    codenamePrimaryLocale: undefined,
+                    codename: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'CopiedMetahub' })
+                        })
+                    }),
                     name: { en: 'Copied Metahub' },
                     description: { en: 'Copied Metahub Description' },
                     namePrimaryLocale: 'en',

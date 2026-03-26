@@ -78,3 +78,58 @@ export const ensureLocalizedContent = (
 
     return createLocalizedContent(normalizedFallbackLocale, fallbackText)
 }
+
+export const ensureEntityCodenameContent = (
+    value:
+        | {
+              codename?: VersionedLocalizedContent<string> | string | null
+          }
+        | null
+        | undefined,
+    fallbackLocale: string,
+    fallbackText: string
+): VersionedLocalizedContent<string> => {
+    const canonicalCodename = value?.codename
+    const hasCanonicalLocales =
+        canonicalCodename && typeof canonicalCodename === 'object' && 'locales' in canonicalCodename && canonicalCodename.locales
+
+    if (hasCanonicalLocales) {
+        return ensureLocalizedContent(canonicalCodename, fallbackLocale, fallbackText)
+    }
+
+    return ensureLocalizedContent(canonicalCodename ?? null, fallbackLocale, fallbackText)
+}
+
+export const getLocalizedContentText = (
+    value: VersionedLocalizedContent<string> | string | null | undefined,
+    locale: string,
+    fallback = ''
+): string => {
+    if (typeof value === 'string') {
+        return value
+    }
+
+    const filtered = filterLocalizedContent(value)
+    if (!filtered) {
+        return fallback
+    }
+
+    const normalizedLocale = normalizeLocaleCode(locale)
+    const preferred = filtered.locales[normalizedLocale]?.content
+    if (typeof preferred === 'string' && preferred.trim() !== '') {
+        return preferred
+    }
+
+    const primary = filtered.locales[filtered._primary]?.content
+    if (typeof primary === 'string' && primary.trim() !== '') {
+        return primary
+    }
+
+    for (const entry of Object.values(filtered.locales)) {
+        if (typeof entry?.content === 'string' && entry.content.trim() !== '') {
+            return entry.content
+        }
+    }
+
+    return fallback
+}

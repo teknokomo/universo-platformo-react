@@ -22,17 +22,13 @@ export const CURRENT_STRUCTURE_VERSION = 1
 /** Public SemVer label for metahub structure version. */
 export const CURRENT_STRUCTURE_VERSION_SEMVER = '0.1.0'
 
-const LEGACY_STRUCTURE_SEMVER_MAP: Record<number, string> = {
+const STRUCTURE_SEMVER_MAP: Record<number, string> = {
     1: CURRENT_STRUCTURE_VERSION_SEMVER
 }
 
-const LEGACY_SEMVER_TO_STRUCTURE_MAP: Record<string, number> = Object.entries(LEGACY_STRUCTURE_SEMVER_MAP).reduce<Record<string, number>>(
-    (acc, [version, semver]) => {
-        acc[semver] = Number(version)
-        return acc
-    },
-    {}
-)
+const SEMVER_TO_STRUCTURE_MAP: Record<string, number> = {
+    [CURRENT_STRUCTURE_VERSION_SEMVER]: CURRENT_STRUCTURE_VERSION
+}
 
 const parseSemver = (value: string): [number, number, number] | null => {
     const match = value.match(/^(\d+)\.(\d+)\.(\d+)$/)
@@ -66,7 +62,7 @@ export const structureVersionToSemver = (version: string | number | null | undef
 
         const numericFromString = Number(trimmed)
         if (Number.isFinite(numericFromString) && Number.isInteger(numericFromString) && numericFromString > 0) {
-            return LEGACY_STRUCTURE_SEMVER_MAP[numericFromString] ?? CURRENT_STRUCTURE_VERSION_SEMVER
+            return STRUCTURE_SEMVER_MAP[numericFromString] ?? CURRENT_STRUCTURE_VERSION_SEMVER
         }
         return CURRENT_STRUCTURE_VERSION_SEMVER
     }
@@ -75,7 +71,7 @@ export const structureVersionToSemver = (version: string | number | null | undef
     if (normalized <= 0) {
         return CURRENT_STRUCTURE_VERSION_SEMVER
     }
-    return LEGACY_STRUCTURE_SEMVER_MAP[normalized] ?? CURRENT_STRUCTURE_VERSION_SEMVER
+    return STRUCTURE_SEMVER_MAP[normalized] ?? CURRENT_STRUCTURE_VERSION_SEMVER
 }
 
 export const semverToStructureVersion = (value: string | number | null | undefined): number => {
@@ -97,7 +93,7 @@ export const semverToStructureVersion = (value: string | number | null | undefin
         return CURRENT_STRUCTURE_VERSION
     }
 
-    const mappedVersion = LEGACY_SEMVER_TO_STRUCTURE_MAP[trimmed]
+    const mappedVersion = SEMVER_TO_STRUCTURE_MAP[trimmed]
     if (mappedVersion) {
         return mappedVersion
     }

@@ -37,7 +37,7 @@ describe('resolveShellAccess', () => {
         ])
 
         const result = resolveShellAccess({
-            globalRoles: [{ codename: 'registered' }],
+            globalRoles: [{ codename: 'Registered' }],
             isSuperuser: false,
             ability
         })

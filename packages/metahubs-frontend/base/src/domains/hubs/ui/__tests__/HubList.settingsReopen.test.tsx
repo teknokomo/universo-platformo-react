@@ -86,8 +86,7 @@ vi.mock('@universo/template-mui', () => ({
         confirm: vi.fn()
     }),
     LocalizedInlineField: () => null,
-    useCodenameAutoFill: () => undefined,
-    useCodenameVlcSync: () => undefined,
+    useCodenameAutoFillVlc: () => undefined,
     EntitySelectionPanel: () => null,
     revealPendingEntityFeedback: vi.fn(),
     ViewHeaderMUI: () => null,

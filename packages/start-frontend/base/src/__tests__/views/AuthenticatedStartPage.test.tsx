@@ -157,7 +157,7 @@ describe('AuthenticatedStartPage', () => {
     it('completes onboarding, refreshes auth state, and navigates when workspace access appears', async () => {
         vi.mocked(getOnboardingItems).mockResolvedValue(mockItems)
         refreshAbilityMock.mockImplementation(async () => {
-            mockGlobalRoles = [{ codename: 'user', metadata: {} }]
+            mockGlobalRoles = [{ codename: 'User', metadata: {} }]
         })
 
         render(<AuthenticatedStartPage />)
@@ -176,7 +176,7 @@ describe('AuthenticatedStartPage', () => {
     it('navigates to HomeRouteResolver after completion even when only registered role remains', async () => {
         vi.mocked(getOnboardingItems).mockResolvedValue(mockItems)
         refreshAbilityMock.mockImplementation(async () => {
-            mockGlobalRoles = [{ codename: 'registered', metadata: {} }]
+            mockGlobalRoles = [{ codename: 'Registered', metadata: {} }]
         })
 
         render(<AuthenticatedStartPage />)

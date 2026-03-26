@@ -194,6 +194,10 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
         event.preventDefault()
         event.stopPropagation()
         if (busyActionId) return
+            event.currentTarget.blur()
+            if (document.activeElement instanceof HTMLElement && document.activeElement !== event.currentTarget) {
+                document.activeElement.blur()
+            }
         handleClose()
         try {
             setBusyActionId(d.id)

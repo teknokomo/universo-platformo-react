@@ -140,6 +140,55 @@ const resolvePresentationName = (presentation: unknown, locale: string, fallback
 const resolvePresentationCodename = (presentation: unknown, locale: string, fallback: string): string =>
     resolvePresentationLocalizedField(presentation, 'codename', locale, fallback)
 
+const runtimeCodenameTextSql = (columnRef: string): string =>
+    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+
+const resolveRuntimeCodenameText = (codename: unknown): string => {
+    if (typeof codename === 'string') {
+        return codename
+    }
+
+    if (codename && typeof codename === 'object') {
+        const localized = codename as {
+            _primary?: string
+            locales?: Record<string, { content?: string }>
+        }
+        const primaryLocale = typeof localized._primary === 'string' ? localized._primary : 'en'
+        const primaryValue = localized.locales?.[primaryLocale]?.content
+        if (typeof primaryValue === 'string' && primaryValue.trim().length > 0) {
+            return primaryValue
+        }
+
+        const englishValue = localized.locales?.en?.content
+        if (typeof englishValue === 'string' && englishValue.trim().length > 0) {
+            return englishValue
+        }
+
+        for (const entry of Object.values(localized.locales ?? {})) {
+            if (typeof entry?.content === 'string' && entry.content.trim().length > 0) {
+                return entry.content
+            }
+        }
+    }
+
+    return ''
+}
+
+const formatRuntimeFieldLabel = (codename: unknown): string => resolveRuntimeCodenameText(codename) || 'field'
+
+const formatRuntimeFieldPath = (...codenames: unknown[]): string => codenames.map((codename) => formatRuntimeFieldLabel(codename)).join('.')
+
+const getRuntimeInputValue = (data: Record<string, unknown>, columnName: string, codename: unknown) => {
+    const codenameKey = resolveRuntimeCodenameText(codename)
+    const hasCodenameValue = codenameKey.length > 0 && Object.prototype.hasOwnProperty.call(data, codenameKey)
+
+    return {
+        codenameKey,
+        hasUserValue: Object.prototype.hasOwnProperty.call(data, columnName) || hasCodenameValue,
+        value: data[columnName] ?? (codenameKey.length > 0 ? data[codenameKey] : undefined)
+    }
+}
+
 const resolveLocalizedContent = (value: unknown, locale: string, fallback: string): string => {
     if (typeof value === 'string') {
         const trimmed = value.trim()
@@ -171,7 +220,7 @@ type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON'
 type RuntimeRefOption = {
     id: string
     label: string
-    codename?: string
+    codename?: unknown
     isDefault?: boolean
     sortOrder?: number
 }
@@ -568,7 +617,7 @@ export function createApplicationsRoutes(
                     WHERE kind = 'catalog'
                       AND _upl_deleted = false
                       AND _app_deleted = false
-                    ORDER BY codename ASC
+                    ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
                 `
             )
 
@@ -578,7 +627,7 @@ export function createApplicationsRoutes(
 
             const typedCatalogs = catalogs as Array<{
                 id: string
-                codename: string
+                codename: unknown
                 table_name: string
                 presentation?: unknown
                 config?: Record<string, unknown> | null
@@ -786,7 +835,7 @@ export function createApplicationsRoutes(
                     list.push({
                         id: row.id,
                         codename: row.codename,
-                        label: resolvePresentationName(row.presentation, requestedLocale, row.codename),
+                        label: resolvePresentationName(row.presentation, requestedLocale, resolveRuntimeCodenameText(row.codename)),
                         isDefault: row.is_default === true,
                         sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
                     })
@@ -819,7 +868,7 @@ export function createApplicationsRoutes(
                     [catalogTargetObjectIds]
                 )) as Array<{
                     id: string
-                    codename: string
+                    codename: unknown
                     table_name: string
                     config?: Record<string, unknown> | null
                 }>
@@ -838,7 +887,7 @@ export function createApplicationsRoutes(
                 )) as Array<{
                     object_id: string
                     column_name: string
-                    codename: string
+                    codename: unknown
                     data_type: RuntimeDataType
                     is_display_attribute: boolean
                     sort_order?: number
@@ -1058,7 +1107,7 @@ export function createApplicationsRoutes(
                 id: catalogRow.id,
                 codename: catalogRow.codename,
                 tableName: catalogRow.table_name,
-                name: resolvePresentationName(catalogRow.presentation, requestedLocale, catalogRow.codename)
+                name: resolvePresentationName(catalogRow.presentation, requestedLocale, resolveRuntimeCodenameText(catalogRow.codename))
             }))
 
             // Zone widgets for runtime UI (sidebar + center composition).
@@ -1168,7 +1217,7 @@ export function createApplicationsRoutes(
 
             type RuntimeHubMeta = {
                 id: string
-                codename: string
+                codename: unknown
                 title: string
                 parentHubId: string | null
                 sortOrder: number
@@ -1176,7 +1225,7 @@ export function createApplicationsRoutes(
 
             type RuntimeCatalogMeta = {
                 id: string
-                codename: string
+                codename: unknown
                 title: string
                 sortOrder: number
                 hubIds: string[]
@@ -1198,7 +1247,7 @@ export function createApplicationsRoutes(
                 )) as Array<{
                     id: string
                     kind: 'hub' | 'catalog'
-                    codename: string
+                    codename: unknown
                     presentation?: unknown
                     config?: unknown
                 }>
@@ -1207,7 +1256,7 @@ export function createApplicationsRoutes(
                     const config = row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : {}
                     const rawSortOrder = config.sortOrder
                     const sortOrder = typeof rawSortOrder === 'number' ? rawSortOrder : 0
-                    const title = resolvePresentationName(row.presentation, requestedLocale, row.codename)
+                    const title = resolvePresentationName(row.presentation, requestedLocale, resolveRuntimeCodenameText(row.codename))
 
                     if (row.kind === 'hub') {
                         const parentHubId = typeof config.parentHubId === 'string' ? config.parentHubId : null
@@ -1240,11 +1289,11 @@ export function createApplicationsRoutes(
 
                 const hubSortComparator = (a: RuntimeHubMeta, b: RuntimeHubMeta) => {
                     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                    return a.codename.localeCompare(b.codename)
+                    return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
                 }
                 const catalogSortComparator = (a: RuntimeCatalogMeta, b: RuntimeCatalogMeta) => {
                     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                    return a.codename.localeCompare(b.codename)
+                    return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
                 }
 
                 const hubs = Array.from(hubMetaById.values()).sort(hubSortComparator)
@@ -1297,7 +1346,7 @@ export function createApplicationsRoutes(
                     const b = hubMetaById.get(bId)
                     if (!a || !b) return aId.localeCompare(bId)
                     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                    return a.codename.localeCompare(b.codename)
+                    return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
                 }
 
                 const walkHub = (hubId: string, depth: number) => {
@@ -1429,7 +1478,7 @@ export function createApplicationsRoutes(
 
             type RuntimeColumnDefinition = {
                 id: string
-                codename: string
+                codename: unknown
                 field: string
                 dataType: RuntimeDataType
                 isRequired: boolean
@@ -1506,7 +1555,11 @@ export function createApplicationsRoutes(
                     dataType: attribute.data_type,
                     isRequired: attribute.is_required ?? false,
                     isDisplayAttribute: attribute.is_display_attribute === true,
-                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
+                    headerName: resolvePresentationName(
+                        attribute.presentation,
+                        requestedLocale,
+                        resolveRuntimeCodenameText(attribute.codename)
+                    ),
                     validationRules: attribute.validation_rules ?? {},
                     uiConfig: {
                         ...(attribute.ui_config ?? {}),
@@ -1533,7 +1586,11 @@ export function createApplicationsRoutes(
                     id: activeCatalog.id,
                     codename: activeCatalog.codename,
                     tableName: activeCatalog.table_name,
-                    name: resolvePresentationName(activeCatalog.presentation, requestedLocale, activeCatalog.codename)
+                    name: resolvePresentationName(
+                        activeCatalog.presentation,
+                        requestedLocale,
+                        resolveRuntimeCodenameText(activeCatalog.codename)
+                    )
                 },
                 catalogs: catalogsForRuntime,
                 activeCatalogId: activeCatalog.id,
@@ -1676,9 +1733,9 @@ export function createApplicationsRoutes(
                 WHERE kind = 'catalog'
                   AND _upl_deleted = false
                   AND _app_deleted = false
-                ORDER BY codename ASC
+                ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
             `
-        )) as Array<{ id: string; codename: string; table_name: string; config?: Record<string, unknown> | null }>
+        )) as Array<{ id: string; codename: unknown; table_name: string; config?: Record<string, unknown> | null }>
 
         if (catalogs.length === 0) return { catalog: null, attrs: [], error: 'No catalogs available' }
 
@@ -1702,7 +1759,7 @@ export function createApplicationsRoutes(
             [catalog.id]
         )) as Array<{
             id: string
-            codename: string
+            codename: unknown
             column_name: string
             data_type: string
             is_required: boolean
@@ -2098,7 +2155,8 @@ export function createApplicationsRoutes(
             const tableAttrs = safeAttrs.filter((a) => a.data_type === 'TABLE')
 
             for (const attr of nonTableAttrs) {
-                const raw = data[attr.column_name] ?? data[attr.codename]
+                const attrLabel = formatRuntimeFieldLabel(attr.codename)
+                const { value: raw } = getRuntimeInputValue(data, attr.column_name, attr.codename)
                 if (raw === undefined) continue
                 let normalizedRaw = raw
 
@@ -2107,7 +2165,7 @@ export function createApplicationsRoutes(
                     attr.target_object_kind === 'enumeration' &&
                     getEnumPresentationMode(attr.ui_config) === 'label'
                 ) {
-                    return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                    return res.status(400).json({ error: `Field is read-only: ${attrLabel}` })
                 }
 
                 const setConstantConfig =
@@ -2117,7 +2175,7 @@ export function createApplicationsRoutes(
                     if (!providedRefId) {
                         normalizedRaw = setConstantConfig.id
                     } else if (providedRefId !== setConstantConfig.id) {
-                        return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                        return res.status(400).json({ error: `Field is read-only: ${attrLabel}` })
                     } else {
                         normalizedRaw = setConstantConfig.id
                     }
@@ -2127,7 +2185,7 @@ export function createApplicationsRoutes(
                     const coerced = coerceRuntimeValue(normalizedRaw, attr.data_type, attr.validation_rules)
                     // M1: Prevent required fields from being set to null
                     if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
-                        return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
+                        return res.status(400).json({ error: `Required field cannot be set to null: ${attrLabel}` })
                     }
 
                     if (
@@ -2143,25 +2201,22 @@ export function createApplicationsRoutes(
                     values.push(coerced)
                     paramIndex++
                 } catch (e) {
-                    return res.status(400).json({ error: `Invalid value for ${attr.codename}: ${(e as Error).message}` })
+                    return res.status(400).json({ error: `Invalid value for ${attrLabel}: ${(e as Error).message}` })
                 }
             }
 
             const tableDataEntries: Array<{ tabTableName: string; rows: Array<Record<string, unknown>> }> = []
 
             for (const tAttr of tableAttrs) {
-                const hasUserValue =
-                    Object.prototype.hasOwnProperty.call(data, tAttr.column_name) ||
-                    Object.prototype.hasOwnProperty.call(data, tAttr.codename)
+                const tableFieldPath = formatRuntimeFieldPath(tAttr.codename)
+                const { hasUserValue, value: raw } = getRuntimeInputValue(data, tAttr.column_name, tAttr.codename)
                 if (!hasUserValue) continue
-
-                const raw = data[tAttr.column_name] ?? data[tAttr.codename]
                 if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
-                    return res.status(400).json({ error: `Invalid value for ${tAttr.codename}: TABLE value must be an array` })
+                    return res.status(400).json({ error: `Invalid value for ${tableFieldPath}: TABLE value must be an array` })
                 }
 
                 const childRows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []
-                const rowCountError = getTableRowCountError(childRows.length, tAttr.codename, getTableRowLimits(tAttr.validation_rules))
+                const rowCountError = getTableRowCountError(childRows.length, tableFieldPath, getTableRowLimits(tAttr.validation_rules))
                 if (rowCountError) {
                     return res.status(400).json({ error: rowCountError })
                 }
@@ -2172,7 +2227,7 @@ export function createApplicationsRoutes(
                         ? tAttr.column_name
                         : fallbackTabTableName
                 if (!IDENTIFIER_REGEX.test(tabTableName)) {
-                    return res.status(400).json({ error: `Invalid tabular table name for ${tAttr.codename}` })
+                    return res.status(400).json({ error: `Invalid tabular table name for ${tableFieldPath}` })
                 }
 
                 const childAttrsResult = (await ctx.manager.query(
@@ -2188,7 +2243,7 @@ export function createApplicationsRoutes(
                     [tAttr.id]
                 )) as Array<{
                     id: string
-                    codename: string
+                    codename: unknown
                     column_name: string
                     data_type: string
                     is_required: boolean
@@ -2203,7 +2258,7 @@ export function createApplicationsRoutes(
                 for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
                     const rowData = childRows[rowIdx]
                     if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
-                        return res.status(400).json({ error: `Invalid row ${rowIdx + 1} for ${tAttr.codename}: row must be an object` })
+                        return res.status(400).json({ error: `Invalid row ${rowIdx + 1} for ${tableFieldPath}: row must be an object` })
                     }
 
                     const preparedRow: Record<string, unknown> = {}
@@ -2211,14 +2266,17 @@ export function createApplicationsRoutes(
                     for (const cAttr of childAttrsResult) {
                         if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
 
+                        const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
                         const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
-                        const hasChildUserValue =
-                            Object.prototype.hasOwnProperty.call(rowData, cAttr.column_name) ||
-                            Object.prototype.hasOwnProperty.call(rowData, cAttr.codename)
-                        let cRaw = rowData[cAttr.column_name] ?? rowData[cAttr.codename]
+                        const { hasUserValue: hasChildUserValue, value: childInputValue } = getRuntimeInputValue(
+                            rowData,
+                            cAttr.column_name,
+                            cAttr.codename
+                        )
+                        let cRaw = childInputValue
 
                         if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasChildUserValue) {
-                            return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                            return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                         }
 
                         if (cRaw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
@@ -2252,7 +2310,7 @@ export function createApplicationsRoutes(
                             if (!providedRefId) {
                                 cRaw = childSetConstantConfig.id
                             } else if (providedRefId !== childSetConstantConfig.id) {
-                                return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                                return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                             } else {
                                 cRaw = childSetConstantConfig.id
                             }
@@ -2291,7 +2349,7 @@ export function createApplicationsRoutes(
                             preparedRow[cAttr.column_name] = cCoerced
                         } catch (err) {
                             return res.status(400).json({
-                                error: `Invalid value for ${tAttr.codename}.${cAttr.codename}: ${
+                                error: `Invalid value for ${childFieldPath}: ${
                                     err instanceof Error ? err.message : String(err)
                                 }`
                             })
@@ -2505,16 +2563,15 @@ export function createApplicationsRoutes(
             )
 
             for (const attr of safeAttrs) {
-                const hasUserValue =
-                    Object.prototype.hasOwnProperty.call(data, attr.column_name) ||
-                    Object.prototype.hasOwnProperty.call(data, attr.codename)
-                let raw = data[attr.column_name] ?? data[attr.codename]
+                const attrLabel = formatRuntimeFieldLabel(attr.codename)
+                const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, attr.column_name, attr.codename)
+                let raw = inputValue
 
                 const isEnumRef = attr.data_type === 'REF' && attr.target_object_kind === 'enumeration'
                 const enumMode = getEnumPresentationMode(attr.ui_config)
 
                 if (isEnumRef && enumMode === 'label' && hasUserValue) {
-                    return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                    return res.status(400).json({ error: `Field is read-only: ${attrLabel}` })
                 }
 
                 if (raw === undefined && isEnumRef && typeof attr.target_object_id === 'string') {
@@ -2545,7 +2602,7 @@ export function createApplicationsRoutes(
                     if (!providedRefId) {
                         raw = setConstantConfig.id
                     } else if (providedRefId !== setConstantConfig.id) {
-                        return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                        return res.status(400).json({ error: `Field is read-only: ${attrLabel}` })
                     } else {
                         raw = setConstantConfig.id
                     }
@@ -2553,14 +2610,14 @@ export function createApplicationsRoutes(
 
                 if (raw === undefined) {
                     if (attr.is_required && attr.data_type !== 'BOOLEAN') {
-                        return res.status(400).json({ error: `Required field missing: ${attr.codename}` })
+                        return res.status(400).json({ error: `Required field missing: ${attrLabel}` })
                     }
                     continue
                 }
                 try {
                     const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
                     if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
-                        return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
+                        return res.status(400).json({ error: `Required field cannot be set to null: ${attrLabel}` })
                     }
 
                     if (isEnumRef && typeof attr.target_object_id === 'string' && coerced) {
@@ -2569,7 +2626,7 @@ export function createApplicationsRoutes(
 
                     columnValues.push({ column: attr.column_name, value: coerced })
                 } catch (e) {
-                    return res.status(400).json({ error: `Invalid value for ${attr.codename}: ${(e as Error).message}` })
+                    return res.status(400).json({ error: `Invalid value for ${attrLabel}: ${(e as Error).message}` })
                 }
             }
 
@@ -2600,13 +2657,14 @@ export function createApplicationsRoutes(
             const tableAttrsForCreate = attrs.filter((a) => a.data_type === 'TABLE')
             const tableDataEntries: Array<{ attr: (typeof attrs)[number]; rows: Array<Record<string, unknown>>; tabTableName: string }> = []
             for (const tAttr of tableAttrsForCreate) {
-                const raw = data[tAttr.column_name] ?? data[tAttr.codename]
+                const tableFieldPath = formatRuntimeFieldPath(tAttr.codename)
+                const { value: raw } = getRuntimeInputValue(data, tAttr.column_name, tAttr.codename)
                 if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
-                    return res.status(400).json({ error: `Invalid value for ${tAttr.codename}: TABLE value must be an array` })
+                    return res.status(400).json({ error: `Invalid value for ${tableFieldPath}: TABLE value must be an array` })
                 }
 
                 const childRows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []
-                const rowCountError = getTableRowCountError(childRows.length, tAttr.codename, getTableRowLimits(tAttr.validation_rules))
+                const rowCountError = getTableRowCountError(childRows.length, tableFieldPath, getTableRowLimits(tAttr.validation_rules))
                 if (rowCountError) {
                     return res.status(400).json({ error: rowCountError })
                 }
@@ -2618,7 +2676,7 @@ export function createApplicationsRoutes(
                             ? tAttr.column_name
                             : fallbackTabTableName
                     if (!IDENTIFIER_REGEX.test(tabTableName)) {
-                        return res.status(400).json({ error: `Invalid tabular table name for ${tAttr.codename}` })
+                        return res.status(400).json({ error: `Invalid tabular table name for ${tableFieldPath}` })
                     }
 
                     const childAttrsResult = (await ctx.manager.query(
@@ -2634,7 +2692,7 @@ export function createApplicationsRoutes(
                         [tAttr.id]
                     )) as Array<{
                         id: string
-                        codename: string
+                        codename: unknown
                         column_name: string
                         data_type: string
                         is_required: boolean
@@ -2649,20 +2707,19 @@ export function createApplicationsRoutes(
                     for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
                         const rowData = childRows[rowIdx]
                         if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
-                            return res.status(400).json({ error: `Invalid row ${rowIdx + 1} for ${tAttr.codename}: row must be an object` })
+                            return res.status(400).json({ error: `Invalid row ${rowIdx + 1} for ${tableFieldPath}: row must be an object` })
                         }
 
                         const preparedRow: Record<string, unknown> = {}
                         for (const cAttr of childAttrsResult) {
                             if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+                            const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
                             const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
-                            const hasUserValue =
-                                Object.prototype.hasOwnProperty.call(rowData, cAttr.column_name) ||
-                                Object.prototype.hasOwnProperty.call(rowData, cAttr.codename)
-                            let cRaw = rowData[cAttr.column_name] ?? rowData[cAttr.codename]
+                            const { hasUserValue, value: childInputValue } = getRuntimeInputValue(rowData, cAttr.column_name, cAttr.codename)
+                            let cRaw = childInputValue
 
                             if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasUserValue) {
-                                return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                                return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                             }
 
                             if (cRaw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
@@ -2698,7 +2755,7 @@ export function createApplicationsRoutes(
                                 if (!providedRefId) {
                                     cRaw = childSetConstantConfig.id
                                 } else if (providedRefId !== childSetConstantConfig.id) {
-                                    return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                                    return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                                 } else {
                                     cRaw = childSetConstantConfig.id
                                 }
@@ -2706,7 +2763,7 @@ export function createApplicationsRoutes(
 
                             if (cRaw === undefined || cRaw === null) {
                                 if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
-                                    return res.status(400).json({ error: `Required field missing: ${tAttr.codename}.${cAttr.codename}` })
+                                    return res.status(400).json({ error: `Required field missing: ${childFieldPath}` })
                                 }
                                 continue
                             }
@@ -2724,7 +2781,7 @@ export function createApplicationsRoutes(
                                 preparedRow[cAttr.column_name] = cCoerced
                             } catch (err) {
                                 return res.status(400).json({
-                                    error: `Invalid value for ${tAttr.codename}.${cAttr.codename}: ${
+                                    error: `Invalid value for ${childFieldPath}: ${
                                         err instanceof Error ? err.message : String(err)
                                     }`
                                 })
@@ -3406,14 +3463,13 @@ export function createApplicationsRoutes(
 
             for (const cAttr of tc.childAttrs) {
                 if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+                const childFieldPath = formatRuntimeFieldPath(tc.tableAttr.codename, cAttr.codename)
                 const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
-                const hasUserValue =
-                    Object.prototype.hasOwnProperty.call(data, cAttr.column_name) ||
-                    Object.prototype.hasOwnProperty.call(data, cAttr.codename)
-                let raw = data[cAttr.column_name] ?? data[cAttr.codename]
+                const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, cAttr.column_name, cAttr.codename)
+                let raw = inputValue
 
                 if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasUserValue) {
-                    return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                    return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                 }
 
                 if (raw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
@@ -3444,7 +3500,7 @@ export function createApplicationsRoutes(
                     if (!providedRefId) {
                         raw = setConstantConfig.id
                     } else if (providedRefId !== setConstantConfig.id) {
-                        return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                        return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                     } else {
                         raw = setConstantConfig.id
                     }
@@ -3484,7 +3540,7 @@ export function createApplicationsRoutes(
                     pIdx++
                 } catch (err) {
                     return res.status(400).json({
-                        error: `Invalid value for ${tc.tableAttr.codename}.${cAttr.codename}: ${
+                        error: `Invalid value for ${childFieldPath}: ${
                             err instanceof Error ? err.message : String(err)
                         }`
                     })
@@ -3610,7 +3666,8 @@ export function createApplicationsRoutes(
 
             for (const cAttr of tc.childAttrs) {
                 if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
-                const raw = data[cAttr.column_name] ?? data[cAttr.codename]
+                const childFieldPath = formatRuntimeFieldPath(tc.tableAttr.codename, cAttr.codename)
+                const { value: raw } = getRuntimeInputValue(data, cAttr.column_name, cAttr.codename)
                 if (raw === undefined) continue
                 let normalizedRaw = raw
                 if (
@@ -3618,7 +3675,7 @@ export function createApplicationsRoutes(
                     cAttr.target_object_kind === 'enumeration' &&
                     getEnumPresentationMode(cAttr.ui_config) === 'label'
                 ) {
-                    return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                    return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                 }
                 const setConstantConfig =
                     cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
@@ -3627,7 +3684,7 @@ export function createApplicationsRoutes(
                     if (!providedRefId) {
                         normalizedRaw = setConstantConfig.id
                     } else if (providedRefId !== setConstantConfig.id) {
-                        return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                        return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
                     } else {
                         normalizedRaw = setConstantConfig.id
                     }
@@ -3635,7 +3692,7 @@ export function createApplicationsRoutes(
                 if (normalizedRaw === null && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
                     return res
                         .status(400)
-                        .json({ error: `Required field cannot be set to null: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                        .json({ error: `Required field cannot be set to null: ${childFieldPath}` })
                 }
                 try {
                     const coerced = coerceRuntimeValue(normalizedRaw, cAttr.data_type, cAttr.validation_rules)
@@ -3652,7 +3709,7 @@ export function createApplicationsRoutes(
                     pIdx++
                 } catch (err) {
                     return res.status(400).json({
-                        error: `Invalid value for ${tc.tableAttr.codename}.${cAttr.codename}: ${
+                        error: `Invalid value for ${childFieldPath}: ${
                             err instanceof Error ? err.message : String(err)
                         }`
                     })
@@ -4706,9 +4763,9 @@ export function createApplicationsRoutes(
                 WHERE kind = 'catalog'
                   AND _upl_deleted = false
                   AND _app_deleted = false
-                ORDER BY codename ASC
+                ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
                 `
-            )) as Array<{ id: string; codename: string; table_name: string; presentation?: unknown }>
+            )) as Array<{ id: string; codename: unknown; table_name: string; presentation?: unknown }>
 
             const limits = await listCatalogWorkspaceLimits(ds, { schemaName: application.schemaName })
             const limitMap = new Map(limits.map((limit) => [limit.objectId, limit.maxRows]))
@@ -4720,13 +4777,13 @@ export function createApplicationsRoutes(
                     codenameDisplay: resolvePresentationCodename(
                         catalog.presentation,
                         normalizeLocale(req.query.locale as string | undefined),
-                        catalog.codename
+                        resolveRuntimeCodenameText(catalog.codename)
                     ),
                     tableName: catalog.table_name,
                     name: resolvePresentationName(
                         catalog.presentation,
                         normalizeLocale(req.query.locale as string | undefined),
-                        catalog.codename
+                        resolveRuntimeCodenameText(catalog.codename)
                     ),
                     maxRows: limitMap.get(catalog.id) ?? null
                 }))

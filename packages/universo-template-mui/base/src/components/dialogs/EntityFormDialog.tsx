@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     Dialog,
     DialogTitle,
@@ -189,9 +189,9 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         }
     }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handleExtraValueChange = (fieldName: string, value: any) => {
+    const handleExtraValueChange = useCallback((fieldName: string, value: any) => {
         setExtraValues((prev) => ({ ...prev, [fieldName]: value }))
-    }
+    }, [])
 
     const handleSave = async () => {
         const trimmedName = name.trim()

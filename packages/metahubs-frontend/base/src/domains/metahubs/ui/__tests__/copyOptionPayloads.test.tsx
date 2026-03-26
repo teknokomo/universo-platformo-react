@@ -5,8 +5,7 @@ vi.mock('@universo/template-mui', () => ({
     createEntityActions: vi.fn((config: unknown) => config),
     createMemberActions: vi.fn((config: unknown) => config),
     LocalizedInlineField: () => null,
-    useCodenameAutoFill: () => undefined,
-    useCodenameVlcSync: () => undefined,
+    useCodenameAutoFillVlc: () => undefined,
     notifyError: vi.fn()
 }))
 
@@ -69,7 +68,7 @@ describe('Entity copy option payloads', () => {
         const result = props?.onSave({
             nameVlc: makeVlc('Main hub (copy)'),
             descriptionVlc: null,
-            codename: 'main-hub-copy',
+            codename: makeVlc('main-hub-copy'),
             copyAllRelations: false
         })
 
@@ -104,7 +103,7 @@ describe('Entity copy option payloads', () => {
         const result = props?.onSave({
             nameVlc: makeVlc('Products (copy)'),
             descriptionVlc: null,
-            codename: 'products-copy',
+            codename: makeVlc('products-copy'),
             copyAttributes: false,
             copyElements: true
         })
@@ -201,13 +200,18 @@ describe('Entity copy option payloads', () => {
         const result = props?.onSave({
             nameVlc: makeVlc('Main hub updated'),
             descriptionVlc: null,
-            codename: 'main-hub-updated'
+            codename: makeVlc('main-hub-updated')
         })
 
         expect(updateEntity).toHaveBeenCalledWith(
             'metahub-1',
             expect.objectContaining({
-                codename: 'MainHubUpdated',
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'main-hub-updated' })
+                    })
+                }),
                 name: { en: 'Main hub updated' }
             })
         )
@@ -233,7 +237,7 @@ describe('Entity copy option payloads', () => {
         const result = props?.onSave({
             nameVlc: makeVlc('Main hub (copy)'),
             descriptionVlc: null,
-            codename: 'main-hub-copy',
+            codename: makeVlc('main-hub-copy'),
             copyDefaultBranchOnly: false,
             copyAccess: true
         })
@@ -241,7 +245,12 @@ describe('Entity copy option payloads', () => {
         expect(copyEntity).toHaveBeenCalledWith(
             'metahub-1',
             expect.objectContaining({
-                codename: 'MainHubCopy',
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'main-hub-copy' })
+                    })
+                }),
                 name: { en: 'Main hub (copy)' },
                 copyDefaultBranchOnly: false,
                 copyAccess: true

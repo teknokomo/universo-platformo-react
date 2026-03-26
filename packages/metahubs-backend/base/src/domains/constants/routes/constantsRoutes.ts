@@ -12,6 +12,7 @@ import { MetahubConstantsService } from '../../metahubs/services/MetahubConstant
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { ensureMetahubAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
 import {
     getCodenameSettings,
     getAllowedConstantTypes,
@@ -21,14 +22,15 @@ import {
     buildCodenameAttempt,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
+import {
+    requiredCodenamePayloadSchema,
+    optionalCodenamePayloadSchema,
+    getCodenamePayloadText,
+    syncCodenamePayloadText,
+    syncOptionalCodenamePayloadText
+} from '../../shared/codenamePayload'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as any).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
 
 const ConstantsListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
@@ -84,36 +86,38 @@ const uiConfigSchema = z
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 
-const createConstantSchema = z.object({
-    codename: z.string().min(1).max(100),
-    codenameInput: localizedInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    dataType: z.enum(CONSTANT_DATA_TYPES),
-    name: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    validationRules: validationRulesSchema,
-    uiConfig: uiConfigSchema,
-    value: z.unknown().optional(),
-    sortOrder: z.number().int().optional()
-})
+const createConstantSchema = z
+    .object({
+        codename: requiredCodenamePayloadSchema,
+        dataType: z.enum(CONSTANT_DATA_TYPES),
+        name: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        validationRules: validationRulesSchema,
+        uiConfig: uiConfigSchema,
+        value: z.unknown().optional(),
+        sortOrder: z.number().int().optional()
+    })
+    .strict()
 
-const updateConstantSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    dataType: z.enum(CONSTANT_DATA_TYPES).optional(),
-    name: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    validationRules: validationRulesSchema,
-    uiConfig: uiConfigSchema,
-    value: z.unknown().optional(),
-    sortOrder: z.number().int().optional(),
-    expectedVersion: z.number().int().positive().optional()
-})
+const updateConstantSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        dataType: z.enum(CONSTANT_DATA_TYPES).optional(),
+        name: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        validationRules: validationRulesSchema,
+        uiConfig: uiConfigSchema,
+        value: z.unknown().optional(),
+        sortOrder: z.number().int().optional(),
+        expectedVersion: z.number().int().positive().optional()
+    })
+    .strict()
 
-const moveConstantSchema = z.object({
-    direction: z.enum(['up', 'down'])
-})
+const moveConstantSchema = z
+    .object({
+        direction: z.enum(['up', 'down'])
+    })
+    .strict()
 
 const reorderConstantSchema = z
     .object({
@@ -122,28 +126,18 @@ const reorderConstantSchema = z
     })
     .strict()
 
-const copyConstantSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    copyValue: z.boolean().optional(),
-    validationRules: validationRulesSchema,
-    uiConfig: uiConfigSchema
-})
+const copyConstantSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        copyValue: z.boolean().optional(),
+        validationRules: validationRulesSchema,
+        uiConfig: uiConfigSchema
+    })
+    .strict()
 
 const CONSTANT_LIMIT = 100
-
-const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: string, fallbackPrimary = 'en'): unknown => {
-    if (codenameInput === undefined) return undefined
-    const codenameRecord: Record<string, string | undefined> =
-        typeof codenameInput === 'string' ? { en: codenameInput } : (codenameInput as Record<string, string | undefined>)
-    const sanitizedCodename = sanitizeLocalizedInput(codenameRecord)
-    if (Object.keys(sanitizedCodename).length === 0) return null
-    return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
-}
-
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
 
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
@@ -578,7 +572,11 @@ export function createConstantsRoutes(
                 })
             }
 
-            const normalizedCodename = normalizeCodenameForStyle(parsed.data.codename, codenameStyle, codenameAlphabet)
+            const normalizedCodename = normalizeCodenameForStyle(
+                getCodenamePayloadText(parsed.data.codename),
+                codenameStyle,
+                codenameAlphabet
+            )
             if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
@@ -605,7 +603,13 @@ export function createConstantsRoutes(
                 return res.status(400).json({ error: parsedValue.error })
             }
 
-            const codenameLocalized = buildCodenameLocalizedVlc(parsed.data.codenameInput, parsed.data.codenamePrimaryLocale)
+            const codenamePayload = syncCodenamePayloadText(
+                parsed.data.codename,
+                parsed.data.namePrimaryLocale ?? 'en',
+                codename,
+                codenameStyle,
+                codenameAlphabet
+            )
             const sanitizedName = parsed.data.name
                 ? sanitizeLocalizedInput(parsed.data.name as Record<string, string | undefined>)
                 : { en: codename }
@@ -616,10 +620,9 @@ export function createConstantsRoutes(
                     metahubId,
                     {
                         setId,
-                        codename,
+                        codename: codenamePayload ?? codename,
                         dataType: parsed.data.dataType,
                         name: buildLocalizedContent(sanitizedName, parsed.data.namePrimaryLocale, 'en'),
-                        codenameLocalized,
                         validationRules: parsed.data.validationRules,
                         uiConfig: parsed.data.uiConfig,
                         value: parsedValue.value,
@@ -681,7 +684,11 @@ export function createConstantsRoutes(
 
             let nextCodename: string | undefined = existing.codename as string
             if (parsed.data.codename !== undefined) {
-                const normalizedCodename = normalizeCodenameForStyle(parsed.data.codename, codenameStyle, codenameAlphabet)
+                const normalizedCodename = normalizeCodenameForStyle(
+                    getCodenamePayloadText(parsed.data.codename),
+                    codenameStyle,
+                    codenameAlphabet
+                )
                 if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
@@ -715,10 +722,11 @@ export function createConstantsRoutes(
                 return res.status(400).json({ error: parsedValue.error })
             }
 
-            const codenameLocalized =
-                parsed.data.codenameInput !== undefined || parsed.data.codenamePrimaryLocale !== undefined
-                    ? buildCodenameLocalizedVlc(parsed.data.codenameInput, parsed.data.codenamePrimaryLocale)
-                    : undefined
+            const codenamePayload = syncOptionalCodenamePayloadText(
+                parsed.data.codename,
+                parsed.data.namePrimaryLocale ?? (existing.name as { _primary?: string } | undefined)?._primary ?? 'en',
+                nextCodename ?? String(existing.codename)
+            )
 
             const sanitizedName =
                 parsed.data.name !== undefined ? sanitizeLocalizedInput(parsed.data.name as Record<string, string | undefined>) : undefined
@@ -729,13 +737,12 @@ export function createConstantsRoutes(
                     metahubId,
                     constantId,
                     {
-                        codename: parsed.data.codename !== undefined ? nextCodename : undefined,
+                        codename: parsed.data.codename !== undefined ? codenamePayload ?? nextCodename : undefined,
                         dataType: parsed.data.dataType,
                         name:
                             sanitizedName !== undefined
                                 ? buildLocalizedContent(sanitizedName, parsed.data.namePrimaryLocale, 'en')
                                 : undefined,
-                        codenameLocalized,
                         validationRules: parsed.data.validationRules,
                         uiConfig: parsed.data.uiConfig,
                         value: parsedValue.value,
@@ -912,7 +919,7 @@ export function createConstantsRoutes(
 
             const copySuffix = codenameStyle === 'kebab-case' ? '-copy' : 'Copy'
             const normalizedBaseCodename = normalizeCodenameForStyle(
-                parsed.data.codename ?? `${source.codename}${copySuffix}`,
+                parsed.data.codename ? getCodenamePayloadText(parsed.data.codename) : `${source.codename}${copySuffix}`,
                 codenameStyle,
                 codenameAlphabet
             )
@@ -941,11 +948,13 @@ export function createConstantsRoutes(
                 copyValue: parsed.data.copyValue !== false
             }
 
-            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? 'en')
-            const codenameLocalized =
-                parsed.data.codenameInput === undefined
-                    ? buildCodenameLocalizedVlc({ [codenamePrimaryLocale]: codename }, codenamePrimaryLocale, codenamePrimaryLocale)
-                    : buildCodenameLocalizedVlc(parsed.data.codenameInput, parsed.data.codenamePrimaryLocale)
+            const codenamePayload = syncCodenamePayloadText(
+                parsed.data.codename ?? source.codename,
+                normalizeLocaleCode(parsed.data.namePrimaryLocale ?? 'en'),
+                codename,
+                codenameStyle,
+                codenameAlphabet
+            )
             const nameInput = parsed.data.name ?? buildDefaultCopyNameInput(source.name)
             const sanitizedName = sanitizeLocalizedInput(nameInput as Record<string, string | undefined>)
             const nameVlc =
@@ -966,10 +975,9 @@ export function createConstantsRoutes(
                     metahubId,
                     {
                         setId,
-                        codename,
+                        codename: codenamePayload ?? codename,
                         dataType: source.dataType as ConstantDataType,
                         name: nameVlc,
-                        codenameLocalized,
                         validationRules,
                         uiConfig: (parsed.data.uiConfig ?? source.uiConfig ?? {}) as Record<string, unknown>,
                         value: parsedValue.value,

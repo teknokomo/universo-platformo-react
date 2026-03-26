@@ -58,6 +58,13 @@ interface RoleMutationGuardRow {
 
 const PROTECTED_ROLE_ASSIGNMENT_ERROR = 'Only superusers can modify superuser or system-role assignments'
 
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const roleCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
 const isProtectedRoleAssignment = (role: Pick<RoleMutationGuardRow, 'is_superuser' | 'is_system'>): boolean =>
     role.is_superuser || role.is_system
 
@@ -210,7 +217,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
     const listActiveRolesForUser = async (queryable: SqlQueryable, userId: string): Promise<RoleMutationGuardRow[]> => {
         return queryable.query<RoleMutationGuardRow>(
-            `SELECT r.id, r.codename, r.is_superuser, r.is_system
+            `SELECT r.id, ${roleCodenameTextSql('r.codename')} AS codename, r.is_superuser, r.is_system
              FROM admin.rel_user_roles ur
              JOIN admin.cat_roles r ON r.id = ur.role_id
              WHERE ur.user_id = $1
@@ -255,10 +262,12 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function getAllRoles(): Promise<RoleMetadata[]> {
         const rows = await getDbExecutor().query<RoleRow>(
-            `SELECT id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at
+            `SELECT id, ${roleCodenameTextSql(
+                'codename'
+            )} AS codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at
              FROM admin.cat_roles
              WHERE ${activeAppRowCondition()}
-             ORDER BY is_system DESC, codename ASC`
+             ORDER BY is_system DESC, ${roleCodenameTextSql('codename')} ASC, id ASC`
         )
 
         return rows.map(toRoleMetadata)
@@ -269,8 +278,10 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
      */
     async function getRoleByCodename(codename: string): Promise<RoleMetadata | null> {
         const rows = await getDbExecutor().query<RoleRow>(
-            `SELECT id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at
-             FROM admin.cat_roles WHERE codename = $1 AND ${activeAppRowCondition()}`,
+            `SELECT id, ${roleCodenameTextSql(
+                'codename'
+            )} AS codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at
+             FROM admin.cat_roles WHERE ${roleCodenameTextSql('codename')} = $1 AND ${activeAppRowCondition()}`,
             [codename]
         )
 
@@ -327,7 +338,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                     WHERE ur.user_id = $1::uuid
                       AND ur._upl_deleted = false AND ur._app_deleted = false
                       AND r._upl_deleted = false AND r._app_deleted = false
-                      AND r.codename = 'registered'
+                                            AND ${roleCodenameTextSql('r.codename')} = 'Registered'
                 ) AS has_registered_role,
                 EXISTS (
                     SELECT 1
@@ -336,7 +347,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                     WHERE ur.user_id = $1::uuid
                       AND ur._upl_deleted = false AND ur._app_deleted = false
                       AND r._upl_deleted = false AND r._app_deleted = false
-                      AND r.codename <> 'registered'
+                                            AND ${roleCodenameTextSql('r.codename')} <> 'Registered'
                 ) AS has_non_registered_role
             `,
             [userId]
@@ -397,7 +408,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
         // Mark superuser role
         if (isSuperuserFlag) {
-            const superuserRole = globalRoles.find((r) => r.codename === 'superuser')
+            const superuserRole = globalRoles.find((r) => r.codename === 'Superuser')
             if (superuserRole) {
                 superuserRole.metadata.isSuperuser = true
             }
@@ -460,7 +471,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 FROM admin.rel_user_roles fur
                 JOIN admin.cat_roles fr ON fr.id = fur.role_id AND ${activeAppRowCondition('fr')}
                 WHERE fur.user_id = u.id
-                  AND fr.codename = $${paramIndex}
+                                    AND ${roleCodenameTextSql('fr.codename')} = $${paramIndex}
                   AND ${activeAppRowCondition('fur')}
             )`)
             queryParams.push(roleCodename)
@@ -494,7 +505,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
         const sortExpressions: Record<string, string> = {
             created: 'registered_at',
-            role: `COALESCE(MIN(r.codename), '')`,
+            role: `COALESCE(MIN(${roleCodenameTextSql('r.codename')}), '')`,
             email: `LOWER(COALESCE(u.email, ''))`
         }
         const orderBy = sortExpressions[sortBy] || 'ur._upl_created_at'
@@ -530,13 +541,13 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                     json_agg(
                         jsonb_build_object(
                             'id', r.id,
-                            'codename', r.codename,
+                            'codename', ${roleCodenameTextSql('r.codename')},
                             'name', r.name,
                             'color', r.color,
                             'isSuperuser', r.is_superuser,
                             'isSystem', r.is_system
                         )
-                        ORDER BY r.is_superuser DESC, r.codename ASC
+                        ORDER BY r.is_superuser DESC, ${roleCodenameTextSql('r.codename')} ASC, r.id ASC
                     ) FILTER (WHERE r.id IS NOT NULL),
                     '[]'::json
                 ) AS roles
@@ -609,7 +620,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     async function assignSystemRole({ userId, roleCodename, reason }: AssignSystemRoleInput): Promise<void> {
         const exec = getDbExecutor()
         const roleRows = await exec.query<{ id: string }>(
-            `SELECT id FROM admin.cat_roles WHERE codename = $1 AND ${activeAppRowCondition()} LIMIT 1`,
+            `SELECT id FROM admin.cat_roles WHERE ${roleCodenameTextSql('codename')} = $1 AND ${activeAppRowCondition()} LIMIT 1`,
             [roleCodename]
         )
 
@@ -662,7 +673,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                     is_superuser: boolean
                     is_system: boolean
                 }>(
-                    `SELECT id, codename, name, color, is_superuser, is_system
+                    `SELECT id, ${roleCodenameTextSql('codename')} AS codename, name, color, is_superuser, is_system
                      FROM admin.cat_roles
                      WHERE id = ANY($1::uuid[])
                        AND ${activeAppRowCondition()}`,
@@ -714,13 +725,13 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 is_superuser: boolean
                 is_system: boolean
             }>(
-                `SELECT r.id, r.codename, r.name, r.color, r.is_superuser, r.is_system
+                `SELECT r.id, ${roleCodenameTextSql('r.codename')} AS codename, r.name, r.color, r.is_superuser, r.is_system
                  FROM admin.rel_user_roles ur
                  JOIN admin.cat_roles r ON r.id = ur.role_id
                  WHERE ur.user_id = $1
                    AND ${activeAppRowCondition('ur')}
                    AND ${activeAppRowCondition('r')}
-                 ORDER BY r.is_superuser DESC, r.codename ASC`,
+                                 ORDER BY r.is_superuser DESC, ${roleCodenameTextSql('r.codename')} ASC, r.id ASC`,
                 [userId]
             )
 
@@ -746,7 +757,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             SELECT id, name, color, is_superuser
                    , is_system
             FROM admin.cat_roles
-            WHERE codename = $1 AND ${activeAppRowCondition()}
+            WHERE ${roleCodenameTextSql('codename')} = $1 AND ${activeAppRowCondition()}
         `,
             [roleCodename]
         )
@@ -877,7 +888,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         // Get current assignment
         const current = await exec.query<UserRoleRow & { role_codename: string }>(
             `
-            SELECT ur.*, r.codename as role_codename
+            SELECT ur.*, ${roleCodenameTextSql('r.codename')} as role_codename
             FROM admin.rel_user_roles ur
             JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
             WHERE ur.id = $1 AND ${activeAppRowCondition('ur')}
@@ -891,7 +902,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
 
         const assignment = current[0]
         const currentRoleRows = await exec.query<RoleMutationGuardRow>(
-            `SELECT r.id, r.codename, r.is_superuser, r.is_system
+            `SELECT r.id, ${roleCodenameTextSql('r.codename')} AS codename, r.is_superuser, r.is_system
              FROM admin.cat_roles r
              WHERE r.id = $1
                AND ${activeAppRowCondition('r')}`,
@@ -900,9 +911,9 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const nextRoleRows =
             updates.roleCodename && updates.roleCodename !== assignment.role_codename
                 ? await exec.query<RoleMutationGuardRow>(
-                      `SELECT id, codename, is_superuser, is_system
+                      `SELECT id, ${roleCodenameTextSql('codename')} AS codename, is_superuser, is_system
                        FROM admin.cat_roles
-                       WHERE codename = $1 AND ${activeAppRowCondition()}`,
+                       WHERE ${roleCodenameTextSql('codename')} = $1 AND ${activeAppRowCondition()}`,
                       [updates.roleCodename]
                   )
                 : currentRoleRows
@@ -942,7 +953,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             `
             SELECT 
                 ur.*,
-                r.codename as role_codename,
+                ${roleCodenameTextSql('r.codename')} as role_codename,
                 r.name,
                 r.color,
                 r.is_superuser,
@@ -1022,12 +1033,12 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 ur.comment,
                 ur.granted_by,
                 ur._upl_created_at,
-                r.codename AS role_codename
+                                ${roleCodenameTextSql('r.codename')} AS role_codename
              FROM admin.rel_user_roles ur
              JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
              WHERE ur.user_id = $1
                AND ${activeAppRowCondition('ur')}
-             ORDER BY r.is_superuser DESC, r.codename ASC`,
+                         ORDER BY r.is_superuser DESC, ${roleCodenameTextSql('r.codename')} ASC, r.id ASC`,
             [userId]
         )
 
@@ -1046,7 +1057,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             const nextRole = await exec.query<{ id: string }>(
                 `SELECT id
                  FROM admin.cat_roles
-                 WHERE codename = $1 AND ${activeAppRowCondition()}`,
+                 WHERE ${roleCodenameTextSql('codename')} = $1 AND ${activeAppRowCondition()}`,
                 [updates.roleCodename]
             )
 
@@ -1145,7 +1156,7 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
             }
 
             const targetRoleRows = await trx.query<RoleMutationGuardRow>(
-                `SELECT id, codename, is_superuser, is_system
+                `SELECT id, ${roleCodenameTextSql('codename')} AS codename, is_superuser, is_system
                  FROM admin.cat_roles
                  WHERE id = $1
                    AND ${activeAppRowCondition()}`,
@@ -1184,11 +1195,11 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
         const exec = getDbExecutor()
         const [roleCounts, totalUsersRows, totalRolesRows, totalApplicationsRows, totalMetahubsRows] = await Promise.all([
             exec.query<DashboardRoleCountRow>(
-                `SELECT r.codename AS role_codename, COUNT(DISTINCT ur.user_id)::text AS count
+                `SELECT ${roleCodenameTextSql('r.codename')} AS role_codename, COUNT(DISTINCT ur.user_id)::text AS count
                  FROM admin.rel_user_roles ur
                  JOIN admin.cat_roles r ON ur.role_id = r.id AND ${activeAppRowCondition('r')}
                  WHERE ${activeAppRowCondition('ur')}
-                 GROUP BY r.codename`
+                  GROUP BY ${roleCodenameTextSql('r.codename')}`
             ),
             exec.query<{ count: string }>(
                 `SELECT COUNT(*)::text AS count
@@ -1273,10 +1284,11 @@ export async function isSuperuser(queryable: SqlQueryable, userId: string): Prom
  */
 export async function getGlobalRoleCodename(queryable: SqlQueryable, userId: string): Promise<string | null> {
     const result = await queryable.query<{ role_codename: string }>(
-        `SELECT r.codename as role_codename
+        `SELECT ${roleCodenameTextSql('r.codename')} as role_codename
          FROM admin.rel_user_roles ur
          JOIN admin.cat_roles r ON ur.role_id = r.id AND r._upl_deleted = false AND r._app_deleted = false
          WHERE ur.user_id = $1 AND ur._upl_deleted = false AND ur._app_deleted = false
+         ORDER BY CASE WHEN r.is_superuser THEN 0 ELSE 1 END, LOWER(${roleCodenameTextSql('r.codename')}), r.id
          LIMIT 1`,
         [userId]
     )

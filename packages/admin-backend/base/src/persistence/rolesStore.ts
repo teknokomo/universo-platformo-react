@@ -1,3 +1,4 @@
+import type { CodenameVLC } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { activeAppRowCondition, softDeleteSetClause } from '@universo/utils'
 
@@ -5,7 +6,7 @@ import { activeAppRowCondition, softDeleteSetClause } from '@universo/utils'
 
 export interface RoleRow {
     id: string
-    codename: string
+    codename: CodenameVLC
     description: unknown
     name: unknown
     color: string
@@ -38,14 +39,33 @@ export interface RoleWithPermissions extends RoleRow {
     permissions: RolePermissionRow[]
 }
 
-const ROLE_RETURNING_COLUMNS = 'id, codename, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at'
+const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
+
+const roleCodenameTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
+const ROLE_RETURNING_COLUMNS = `codename, id, description, name, color, is_superuser, is_system, _upl_created_at, _upl_updated_at`
+
+const ROLE_SELECT_COLUMNS = `
+    r.id,
+    r.codename,
+    r.description,
+    r.name,
+    r.color,
+    r.is_superuser,
+    r.is_system,
+    r._upl_created_at,
+    r._upl_updated_at
+`
 
 const ROLE_PERMISSION_RETURNING_COLUMNS = 'id, role_id, subject, action, conditions, fields, _upl_created_at'
 
 // ─── Roles ───────────────────────────────────────────────────────────────
 
 const ROLE_SORT_WHITELIST: Record<string, string> = {
-    codename: 'r.codename',
+    codename: roleCodenameTextSql('r.codename'),
     created: 'r._upl_created_at',
     has_global_access: 'r.has_global_access'
 }
@@ -74,12 +94,14 @@ export async function listRoles(
     if (search) {
         params.push(`%${search}%`)
         conditions.push(
-            `(LOWER(r.codename) LIKE $${params.length} OR r.name::text ILIKE $${params.length} OR r.description::text ILIKE $${params.length})`
+            `(LOWER(${roleCodenameTextSql('r.codename')}) LIKE $${params.length} OR r.name::text ILIKE $${
+                params.length
+            } OR r.description::text ILIKE $${params.length})`
         )
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-    const sortCol = ROLE_SORT_WHITELIST[sortBy] ?? 'r.codename'
+    const sortCol = ROLE_SORT_WHITELIST[sortBy] ?? roleCodenameTextSql('r.codename')
     const dir = sortOrder === 'desc' ? 'DESC' : 'ASC'
 
     // Count
@@ -91,7 +113,9 @@ export async function listRoles(
     // Paginated roles
     const rolesParams = [...params, limit, offset]
     const roles = await exec.query<RoleRow>(
-        `SELECT r.* FROM admin.cat_roles r ${where} ORDER BY ${sortCol} ${dir} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        `SELECT ${ROLE_SELECT_COLUMNS} FROM admin.cat_roles r ${where} ORDER BY ${sortCol} ${dir}, r.id ASC LIMIT $${
+            params.length + 1
+        } OFFSET $${params.length + 2}`,
         rolesParams
     )
 
@@ -99,7 +123,7 @@ export async function listRoles(
 
     const roleIds = roles.map((r) => r.id)
     const permissions = await exec.query<RolePermissionRow>(
-        `SELECT * FROM admin.rel_role_permissions WHERE role_id = ANY($1::uuid[]) AND ${activeAppRowCondition()} ORDER BY _upl_created_at`,
+        `SELECT ${ROLE_PERMISSION_RETURNING_COLUMNS} FROM admin.rel_role_permissions WHERE role_id = ANY($1::uuid[]) AND ${activeAppRowCondition()} ORDER BY _upl_created_at`,
         [roleIds]
     )
 
@@ -116,37 +140,62 @@ export async function listRoles(
 
 export async function listAssignableRoles(exec: DbExecutor): Promise<RoleRow[]> {
     return exec.query<RoleRow>(
-        `SELECT id, codename, name, color FROM admin.cat_roles WHERE ${activeAppRowCondition()} ORDER BY codename ASC`
+        `SELECT id, ${roleCodenameTextSql(
+            'codename'
+        )} AS codename, name, color FROM admin.cat_roles WHERE ${activeAppRowCondition()} ORDER BY ${roleCodenameTextSql(
+            'codename'
+        )} ASC, id ASC`
     )
 }
 
 export async function findRoleById(exec: DbExecutor, id: string): Promise<RoleWithPermissions | null> {
-    const roles = await exec.query<RoleRow>(`SELECT * FROM admin.cat_roles WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`, [id])
+    const roles = await exec.query<RoleRow>(
+        `SELECT ${ROLE_SELECT_COLUMNS} FROM admin.cat_roles r WHERE r.id = $1 AND ${activeAppRowCondition('r')} LIMIT 1`,
+        [id]
+    )
     if (roles.length === 0) return null
 
     const permissions = await exec.query<RolePermissionRow>(
-        `SELECT * FROM admin.rel_role_permissions WHERE role_id = $1 AND ${activeAppRowCondition()} ORDER BY _upl_created_at`,
+        `SELECT ${ROLE_PERMISSION_RETURNING_COLUMNS} FROM admin.rel_role_permissions WHERE role_id = $1 AND ${activeAppRowCondition()} ORDER BY _upl_created_at`,
         [id]
     )
     return { ...roles[0], permissions }
 }
 
 export async function findRoleByCodename(exec: DbExecutor, codename: string): Promise<RoleRow | null> {
-    const rows = await exec.query<RoleRow>(`SELECT * FROM admin.cat_roles WHERE codename = $1 AND ${activeAppRowCondition()} LIMIT 1`, [
-        codename
-    ])
+    const rows = await exec.query<RoleRow>(
+        `SELECT ${ROLE_SELECT_COLUMNS}
+         FROM admin.cat_roles r
+         WHERE ${roleCodenameTextSql('r.codename')} = $1 AND ${activeAppRowCondition('r')}
+         LIMIT 1`,
+        [codename]
+    )
     return rows[0] ?? null
 }
 
 export async function createRole(
     exec: DbExecutor,
-    data: { codename: string; name: unknown; description?: unknown; color?: string; is_superuser?: boolean }
+    data: {
+        codename: CodenameVLC
+        name: unknown
+        description?: unknown
+        color?: string
+        is_superuser?: boolean
+        created_by?: string | null
+    }
 ): Promise<RoleRow> {
     const rows = await exec.query<RoleRow>(
-        `INSERT INTO admin.cat_roles (codename, name, description, color, is_superuser, is_system)
-         VALUES ($1, $2, $3, $4, $5, false)
+        `INSERT INTO admin.cat_roles (codename, name, description, color, is_superuser, is_system, _upl_created_by)
+         VALUES ($1, $2, $3, $4, $5, false, $6)
          RETURNING ${ROLE_RETURNING_COLUMNS}`,
-        [data.codename, JSON.stringify(data.name), JSON.stringify(data.description ?? null), data.color ?? null, data.is_superuser ?? false]
+        [
+            JSON.stringify(data.codename),
+            JSON.stringify(data.name),
+            JSON.stringify(data.description ?? null),
+            data.color ?? null,
+            data.is_superuser ?? false,
+            data.created_by ?? null
+        ]
     )
     return rows[0]
 }
@@ -154,7 +203,7 @@ export async function createRole(
 export async function updateRole(
     exec: DbExecutor,
     id: string,
-    data: { codename?: string; name?: unknown; description?: unknown; color?: string; is_superuser?: boolean }
+    data: { codename?: CodenameVLC; name?: unknown; description?: unknown; color?: string; is_superuser?: boolean }
 ): Promise<RoleRow | null> {
     const sets: string[] = []
     const params: unknown[] = []
@@ -162,7 +211,7 @@ export async function updateRole(
 
     if (data.codename !== undefined) {
         sets.push(`codename = $${idx++}`)
-        params.push(data.codename)
+        params.push(JSON.stringify(data.codename))
     }
     if (data.name !== undefined) {
         sets.push(`name = $${idx++}`)

@@ -52,8 +52,7 @@ export interface MetahubRow extends UplSystemFields, AppSystemFields {
     id: string
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
-    codename: string
-    codenameLocalized: VersionedLocalizedContent<string> | null
+    codename: VersionedLocalizedContent<string>
     slug: string | null
     defaultBranchId: string | null
     lastBranchNumber: number
@@ -72,8 +71,7 @@ export interface MetahubBranchRow extends UplSystemFields, AppSystemFields {
     sourceBranchId: string | null
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
-    codename: string
-    codenameLocalized: VersionedLocalizedContent<string> | null
+    codename: VersionedLocalizedContent<string>
     branchNumber: number
     schemaName: string
     structureVersion: string

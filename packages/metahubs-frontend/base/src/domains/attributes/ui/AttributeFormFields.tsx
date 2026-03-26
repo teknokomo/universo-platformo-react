@@ -15,13 +15,12 @@ import {
     FormHelperText
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, CollapsibleSection } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFillVlc, CollapsibleSection } from '@universo/template-mui'
 import type { VersionedLocalizedContent, AttributeDataType, MetaEntityKind, EnumPresentationMode } from '@universo/types'
 import type { AttributeValidationRules } from '../../../types'
 import { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType, getVLCString } from '../../../types'
 import { sanitizeCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import { normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, TargetEntitySelector } from '../../../components'
 import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys } from '../../shared'
@@ -127,23 +126,13 @@ const AttributeFormFields = ({
         setValue('_codenameConfig', codenameConfig)
     }, [codenameConfig, setValue])
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
     const dataType = (values.dataType as AttributeDataType | undefined) ?? 'STRING'
     const isRequired = Boolean(values.isRequired)
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
     const validationRules =
         (values.validationRules as AttributeValidationRules | undefined) ?? getCatalogAttributeDefaultValidationRules(dataType)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
     const fieldErrors = errors ?? {}
 
     // Compute physical PostgreSQL type info
@@ -153,19 +142,9 @@ const AttributeFormFields = ({
         return { physicalInfo, physicalTypeStr }
     }, [dataType, validationRules])
 
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -175,7 +154,7 @@ const AttributeFormFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     // Helper to update nested validationRules
@@ -480,9 +459,6 @@ const AttributeFormFields = ({
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}

@@ -342,7 +342,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
             if (assignSystemRole) {
                 await assignSystemRole({
                     userId: data.user.id,
-                    roleCodename: 'registered',
+                    roleCodename: 'Registered',
                     reason: 'auto-assigned on registration'
                 })
             }

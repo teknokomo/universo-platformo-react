@@ -247,7 +247,7 @@ describe('createAuthUserProvisioningService', () => {
 
     it('creates a new bootstrap superuser with exclusive role synchronization', async () => {
         const executor = createMockExecutor()
-        executor.query.mockResolvedValue([{ id: 'role-super', codename: 'superuser' }])
+        executor.query.mockResolvedValue([{ id: 'role-super', codename: 'Superuser' }])
 
         const globalAccessService = {
             findUserIdByEmail: jest.fn().mockResolvedValue(null),
@@ -255,7 +255,7 @@ describe('createAuthUserProvisioningService', () => {
             setUserRoles: jest.fn().mockResolvedValue([
                 {
                     id: 'role-super',
-                    codename: 'superuser',
+                    codename: 'Superuser',
                     isSuperuser: true,
                     isSystem: true,
                     name: null,
@@ -286,7 +286,12 @@ describe('createAuthUserProvisioningService', () => {
             password: 'ChangeMe_123456!'
         })
 
-        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('FROM admin.cat_roles'), [['superuser']])
+        expect(executor.query).toHaveBeenCalledWith(
+            expect.stringContaining(
+                "COALESCE(codename->'locales'->(codename->>'_primary')->>'content', codename->'locales'->'en'->>'content', '') = ANY($1::text[])"
+            ),
+            [['Superuser']]
+        )
         expect(globalAccessService.setUserRoles).toHaveBeenCalledWith('user-created', ['role-super'], null, 'startup bootstrap superuser')
         expect(result).toEqual({
             userId: 'user-created',

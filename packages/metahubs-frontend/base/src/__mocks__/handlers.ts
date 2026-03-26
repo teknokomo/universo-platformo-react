@@ -147,8 +147,7 @@ export const handlers = [
                 style: 'pascal-case',
                 alphabet: 'en-ru',
                 allowMixed: false,
-                autoConvertMixedAlphabets: true,
-                localizedEnabled: false
+                autoConvertMixedAlphabets: true
             }
         })
     }),

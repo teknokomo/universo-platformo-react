@@ -229,6 +229,38 @@ const normalizeJsonColumnValue = (value: unknown): unknown => {
     }
 }
 
+const normalizeMetadataCodename = (value: unknown): string | null => {
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value) as unknown
+            if (parsed !== value) {
+                return normalizeMetadataCodename(parsed)
+            }
+        } catch {
+            return value
+        }
+
+        return value
+    }
+
+    if (!isRecord(value)) {
+        return null
+    }
+
+    const locales = isRecord(value.locales) ? value.locales : null
+    if (!locales) {
+        return null
+    }
+
+    const primaryLocale = typeof value._primary === 'string' && value._primary.trim().length > 0 ? value._primary : 'en'
+    const primaryEntry = isRecord(locales[primaryLocale]) ? locales[primaryLocale] : null
+    const englishEntry = isRecord(locales.en) ? locales.en : null
+    const primaryContent = typeof primaryEntry?.content === 'string' ? primaryEntry.content : null
+    const englishContent = typeof englishEntry?.content === 'string' ? englishEntry.content : null
+
+    return primaryContent ?? englishContent
+}
+
 interface SystemAppStructureMetadataObjectSnapshot {
     id: string
     kind: RuntimeEntityKind
@@ -333,7 +365,7 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
             .map((row) => {
                 const id = typeof row.id === 'string' ? row.id : null
                 const kind = typeof row.kind === 'string' ? (row.kind as RuntimeEntityKind) : null
-                const codename = typeof row.codename === 'string' ? row.codename : null
+                const codename = normalizeMetadataCodename(row.codename)
                 const tableName = typeof row.table_name === 'string' ? row.table_name : null
                 if (!id || !kind || !codename || !tableName) {
                     return null
@@ -379,7 +411,7 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
             .map((row) => {
                 const id = typeof row.id === 'string' ? row.id : null
                 const objectId = typeof row.object_id === 'string' ? row.object_id : null
-                const codename = typeof row.codename === 'string' ? row.codename : null
+                const codename = normalizeMetadataCodename(row.codename)
                 const columnName = typeof row.column_name === 'string' ? row.column_name : null
                 const dataType = typeof row.data_type === 'string' ? row.data_type : null
                 if (!id || !objectId || !codename || !columnName || !dataType) {
@@ -1086,7 +1118,7 @@ export const inspectSystemAppStructureMetadata = async (
     const actualObjectKeys = new Set(
         objectRows
             .map((row) => {
-                const codename = typeof row.codename === 'string' ? row.codename : null
+                const codename = normalizeMetadataCodename(row.codename)
                 const tableName = typeof row.table_name === 'string' ? row.table_name : null
                 return codename && tableName ? `${codename}:${tableName}` : null
             })
@@ -1100,8 +1132,8 @@ export const inspectSystemAppStructureMetadata = async (
     const actualAttributeKeys = new Set(
         attributeRows
             .map((row) => {
-                const objectCodename = typeof row.object_codename === 'string' ? row.object_codename : null
-                const attributeCodename = typeof row.codename === 'string' ? row.codename : null
+                const objectCodename = normalizeMetadataCodename(row.object_codename)
+                const attributeCodename = normalizeMetadataCodename(row.codename)
                 const columnName = typeof row.column_name === 'string' ? row.column_name : null
                 return objectCodename && attributeCodename && columnName ? `${objectCodename}:${attributeCodename}:${columnName}` : null
             })

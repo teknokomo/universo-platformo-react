@@ -5,8 +5,7 @@ vi.mock('@universo/template-mui', () => ({
     createEntityActions: vi.fn((config: unknown) => config),
     createMemberActions: vi.fn((config: unknown) => config),
     LocalizedInlineField: () => null,
-    useCodenameAutoFill: () => undefined,
-    useCodenameVlcSync: () => undefined,
+    useCodenameAutoFillVlc: () => undefined,
     notifyError: vi.fn()
 }))
 
@@ -94,7 +93,7 @@ describe('BranchActions copy options', () => {
         const result = props.onSave({
             nameVlc: makeVlc('Main (copy)'),
             descriptionVlc: null,
-            codename: 'main-copy',
+            codename: makeVlc('main-copy'),
             fullCopy: false,
             copyLayouts: true,
             copyHubs: true,

@@ -12,6 +12,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createConstantsRoutes } from '../../domains/constants/routes/constantsRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockEnsureMetahubAccess = jest.fn()
 
@@ -155,7 +156,7 @@ describe('Constants Routes', () => {
         const response = await request(app)
             .post('/metahub/metahub-1/set/set-1/constants')
             .send({
-                codename: 'tax-rate',
+                codename: testCodenameVlc('tax-rate'),
                 dataType: 'NUMBER',
                 name: 'Tax Rate',
                 value: '20'
@@ -164,7 +165,16 @@ describe('Constants Routes', () => {
 
         expect(mockConstantsService.create).toHaveBeenCalledWith(
             'metahub-1',
-            expect.objectContaining({ codename: 'TaxRate', dataType: 'NUMBER', value: 20 }),
+            expect.objectContaining({
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'TaxRate' })
+                    })
+                }),
+                dataType: 'NUMBER',
+                value: 20
+            }),
             'test-user-id'
         )
         expect(response.body).toMatchObject({ id: 'constant-1', codename: 'TaxRate' })
@@ -190,7 +200,7 @@ describe('Constants Routes', () => {
         const response = await request(app)
             .post('/metahub/metahub-1/set/set-1/constants')
             .send({
-                codename: 'welcome-text',
+                codename: testCodenameVlc('welcome-text'),
                 dataType: 'STRING',
                 name: 'Welcome Text',
                 validationRules: {

@@ -28,8 +28,7 @@ import {
     RoleChip,
     useUserSettings,
     LocalizedInlineField,
-    useCodenameAutoFill,
-    useCodenameVlcSync,
+    useCodenameAutoFillVlc,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
@@ -42,7 +41,7 @@ import * as metahubsApi from '../api'
 import { metahubsQueryKeys } from '../../shared'
 import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay, getVLCString } from '../../../types'
 import metahubActions from './MetahubActions'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig, getCodenameHelperKey } from '../../settings/hooks/useCodenameConfig'
 import { CodenameField, ExistingCodenamesProvider } from '../../../components'
@@ -52,8 +51,7 @@ import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 type MetahubFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename?: string
+    codename?: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     storageMode?: 'main_db' | 'external_db'
     createHub?: boolean
@@ -152,34 +150,11 @@ const GeneralTabFields = ({
     const fieldErrors = errors ?? {}
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
-        codename,
-        codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
-        nameVlc,
-        deriveCodename: (nameContent) =>
+    const deriveCodename = useCallback(
+        (nameContent: string) =>
             sanitizeCodenameForStyle(
                 nameContent,
                 codenameConfig.style,
@@ -187,7 +162,14 @@ const GeneralTabFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        [codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed, codenameConfig.autoConvertMixedAlphabets]
+    )
+    useCodenameAutoFillVlc({
+        codename,
+        codenameTouched,
+        nameVlc,
+        deriveCodename,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -224,13 +206,10 @@ const GeneralTabFields = ({
             <Divider />
             <CodenameField
                 value={codename}
-                onChange={(value: string) => setValue('codename', value)}
+                onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
@@ -415,8 +394,7 @@ const MetahubList = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
-            codenameVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             storageMode: 'main_db',
             createHub: true,
@@ -499,10 +477,11 @@ const MetahubList = () => {
         (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const rawCodename = getVLCString(codenameValue || undefined, codenameValue?._primary ?? 'en')
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('validation.codenameRequired', 'Codename is required')
@@ -519,7 +498,8 @@ const MetahubList = () => {
     const canSaveMetahubForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const rawCodename = getVLCString(codenameValue || undefined, codenameValue?._primary ?? 'en')
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             return (
                 !values._hasCodenameDuplicate &&
@@ -544,11 +524,12 @@ const MetahubList = () => {
         // This handler only prepares the payload and calls mutate() fire-and-forget.
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const rawCodename = getVLCString(codenameValue || undefined, codenameValue?._primary ?? namePrimaryLocale ?? 'en')
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? 'en', normalizedCodename || '')
 
         const createOptions = {
             createHub: data.createHub !== false,
@@ -560,9 +541,7 @@ const MetahubList = () => {
         // Fire-and-forget: optimistic card appears via onMutate, errors via onError snackbar,
         // cache invalidation via onSettled. Dialog closes immediately after mutate() returns.
         createMetahubMutation.mutate({
-            codename: normalizedCodename || '',
-            codenameInput,
-            codenamePrimaryLocale,
+            codename: codenamePayload,
             name: nameInput ?? {},
             description: descriptionInput,
             namePrimaryLocale: namePrimaryLocale ?? '',

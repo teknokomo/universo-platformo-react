@@ -1,6 +1,7 @@
-import type { VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
+import type { CodenameVLC, VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
 import type { SqlQueryable, TemplateRow, TemplateVersionRow } from './types'
 import { uplFieldAliases } from './types'
+import { codenamePrimaryTextSql, ensureCodenameValue } from '../domains/shared/codename'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SELECT fragments (templates are platform-level — no _mhb_* fields)
@@ -9,7 +10,7 @@ import { uplFieldAliases } from './types'
 const TEMPLATE_SELECT = (alias: string) =>
     `
     ${alias}.id,
-    ${alias}.codename,
+    ${codenamePrimaryTextSql(`${alias}.codename`)} AS codename,
     ${alias}.name,
     ${alias}.description,
     ${alias}.icon,
@@ -55,7 +56,7 @@ export async function findTemplateByCodename(exec: SqlQueryable, codename: strin
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
          FROM metahubs.cat_templates t
-         WHERE t.codename = $1
+                 WHERE ${codenamePrimaryTextSql('t.codename')} = $1
            AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
         [codename]
@@ -190,7 +191,7 @@ export async function listTemplates(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export interface CreateTemplateInput {
-    codename: string
+    codename: CodenameVLC | string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     icon?: string | null
@@ -207,16 +208,17 @@ const normalizeAuditUserId = (userId: string): string | null => {
 
 export async function createTemplate(exec: SqlQueryable, input: CreateTemplateInput): Promise<TemplateRow> {
     const auditUserId = normalizeAuditUserId(input.userId)
+    const codename = ensureCodenameValue(input.codename)
     const rows = await exec.query<TemplateRow>(
         `INSERT INTO metahubs.cat_templates (
             codename, name, description, icon,
             is_system, is_active, sort_order,
             _upl_created_by, _upl_updated_by
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+         VALUES ($1::jsonb, $2, $3, $4, $5, $6, $7, $8, $8)
          RETURNING ${TEMPLATE_SELECT('metahubs.cat_templates')}`,
         [
-            input.codename,
+            JSON.stringify(codename),
             JSON.stringify(input.name),
             input.description ? JSON.stringify(input.description) : null,
             input.icon ?? null,

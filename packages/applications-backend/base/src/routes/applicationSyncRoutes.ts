@@ -93,6 +93,8 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<Response | vo
 }
 
 const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
+const runtimeCodenameTextSql = (columnRef: string): string =>
+    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
 
 // Dashboard layout config (MVP) - show/hide template sections.
 const dashboardLayoutConfigSchema = z.object({
@@ -623,11 +625,11 @@ async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaName: stri
     const schemaIdent = quoteSchemaName(schemaName)
     const objectRows = await exec.query<RuntimeApplicationObjectRow>(
         `
-            SELECT id, kind, codename, table_name, presentation, config
+            SELECT id, kind, ${runtimeCodenameTextSql('codename')} AS codename, table_name, presentation, config
             FROM ${schemaIdent}._app_objects
             WHERE _upl_deleted = false
               AND _app_deleted = false
-            ORDER BY codename ASC, id ASC
+            ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
         `
     )
     const attributeRows = await exec.query<RuntimeApplicationAttributeRow>(
@@ -635,7 +637,7 @@ async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaName: stri
             SELECT
                 id,
                 object_id,
-                codename,
+                ${runtimeCodenameTextSql('codename')} AS codename,
                 sort_order,
                 column_name,
                 data_type,
@@ -874,7 +876,7 @@ async function loadApplicationRuntimeEnumerationValues(
     try {
         rows = await exec.query<RuntimeApplicationEnumerationValueRow>(
             `
-                SELECT id, object_id, codename, presentation, sort_order, is_default
+                                SELECT id, object_id, ${runtimeCodenameTextSql('codename')} AS codename, presentation, sort_order, is_default
                 FROM ${schemaIdent}._app_values
                 WHERE _upl_deleted = false
                   AND _app_deleted = false

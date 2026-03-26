@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography, Checkbox } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFillVlc } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Metahub, MetahubDisplay, MetahubLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
@@ -18,8 +18,7 @@ const DEFAULT_CC: CodenameConfig = {
     allowMixed: false,
     autoConvertMixedAlphabets: true,
     autoReformat: true,
-    requireReformat: true,
-    localizedEnabled: false
+    requireReformat: true
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 
@@ -34,7 +33,7 @@ type EditTabArgs = {
 
 const ignoreTemplateChange = (_id: string | null) => undefined
 
-import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 
@@ -48,8 +47,7 @@ const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedP
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
-        codename: raw?.codename ?? ctx.entity?.codename ?? '',
+        codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
         storageMode: 'main_db',
         templateId: raw?.templateId ?? undefined
@@ -111,10 +109,7 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocali
             uiLocale,
             ctx.entity?.name || ''
         ),
-        // Reset codenameVlc so the backend builds codename_localized from the
-        // computed normalizedCodename (which includes the copy suffix) instead
-        // of receiving the source's codenameInput without the suffix.
-        codenameVlc: null,
+        codename: null,
         codenameTouched: false,
         copyDefaultBranchOnly: true,
         copyAccess: false
@@ -128,7 +123,9 @@ const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalized
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('validation.codenameRequired', 'Codename is required')
@@ -141,7 +138,9 @@ const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalized
 const canSaveMetahubForm = (values: GenericFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     return (
         !values._hasCodenameDuplicate &&
@@ -155,17 +154,17 @@ const toPayload = (values: GenericFormValues): MetahubLocalizedPayload => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
 
-    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+    const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
     return {
-        codename,
-        codenameInput,
-        codenamePrimaryLocale,
+        codename: codenamePayload,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
@@ -197,34 +196,10 @@ const MetahubEditFields = ({
     }, [codenameConfig, setValue])
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
-
-    useCodenameAutoFill({
-        codename,
-        codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
-        nameVlc,
-        deriveCodename: (nameContent) =>
+    const deriveCodename = useCallback(
+        (nameContent: string) =>
             sanitizeCodenameForStyle(
                 nameContent,
                 codenameConfig.style,
@@ -232,7 +207,14 @@ const MetahubEditFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        [codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed, codenameConfig.autoConvertMixedAlphabets]
+    )
+    useCodenameAutoFillVlc({
+        codename,
+        codenameTouched,
+        nameVlc,
+        deriveCodename,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     return (
@@ -270,9 +252,6 @@ const MetahubEditFields = ({
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc ?? null}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale as string}
                 label={t('codename', 'Codename')}
                 helperText={t(getCodenameHelperKey(codenameConfig), 'Unique identifier')}

@@ -129,8 +129,8 @@ export type { UseDebouncedSearchOptions, UseDebouncedSearchReturn } from './hook
 
 export { useCodenameAutoFill } from './hooks/useCodenameAutoFill'
 export type { UseCodenameAutoFillOptions } from './hooks/useCodenameAutoFill'
-export { useCodenameVlcSync } from './hooks/useCodenameVlcSync'
-export type { UseCodenameVlcSyncOptions } from './hooks/useCodenameVlcSync'
+export { useCodenameAutoFillVlc } from './hooks/useCodenameAutoFillVlc'
+export type { UseCodenameAutoFillVlcOptions } from './hooks/useCodenameAutoFillVlc'
 
 // View preference system (localStorage-backed view modes)
 export { useViewPreference, DEFAULT_VIEW_STYLE } from './hooks/useViewPreference'

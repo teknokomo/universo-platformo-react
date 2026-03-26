@@ -1,4 +1,4 @@
-import type { VersionedLocalizedContent, LocalizedContentEntry, LocaleCode } from '@universo/types'
+import type { CodenameVLC, VersionedLocalizedContent, LocalizedContentEntry, LocaleCode } from '@universo/types'
 import { DEFAULT_LOCALE } from '@universo/types'
 
 /**
@@ -196,12 +196,40 @@ export function ensureVLC(value: unknown, locale: LocaleCode): VersionedLocalize
     return null
 }
 
+/** Wrap a primary codename string into the canonical codename VLC format. */
+export function createCodenameVLC(primaryLocale: LocaleCode = DEFAULT_LOCALE, codename: string): CodenameVLC {
+    return createLocalizedContent(primaryLocale, codename)
+}
+
+/** Ensure a value is represented as canonical codename VLC. */
+export function ensureCodenameVLC(value: unknown, locale: LocaleCode = DEFAULT_LOCALE): CodenameVLC | null {
+    const ensured = ensureVLC(value, locale)
+    return ensured ? (ensured as CodenameVLC) : null
+}
+
+/**
+ * When localizedEnabled is false, strip all locale variants except the primary.
+ * Returns the original VLC unchanged when localizedEnabled is true or undefined.
+ */
+export function enforceSingleLocaleCodename(
+    vlc: VersionedLocalizedContent<string>,
+    localizedEnabled: boolean | undefined
+): VersionedLocalizedContent<string> {
+    if (localizedEnabled !== false) return vlc
+    const primary = vlc._primary
+    const localeKeys = Object.keys(vlc).filter((k) => k !== '_primary')
+    if (localeKeys.length <= 1) return vlc
+    return { _primary: primary, [primary]: vlc[primary] ?? '' } as VersionedLocalizedContent<string>
+}
+
 // Re-export sanitize utilities for backend use
 export { sanitizeLocalizedInput, buildLocalizedContent } from './sanitize'
 
 // Re-export getter utilities for frontend/backend use
 export {
     getVLCString,
+    getVLCPrimaryString,
+    getCodenamePrimary,
     getVLCStringWithFallback,
     getSimpleLocalizedValue,
     normalizeLocale,

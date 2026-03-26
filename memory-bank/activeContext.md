@@ -4,232 +4,241 @@
 
 ---
 
-## Current Focus: Predefined Element Create Validation Fix — Complete
+## Current Focus: QA Phase 3 — Complete Schema Hardening & Lint Cleanup — COMPLETE
 
-- Date: 2026-03-21.
-- Closed a live metahub-elements regression where creating a predefined catalog element with TABLE child rows returned HTTP 400 and then disappeared from the UI after submit.
-- Root causes:
-  1. `InlineTableEditor` serialized localized child STRING values into an obsolete hand-built VLC shape that backend `isLocalizedContent(...)` no longer recognizes.
-  2. `ElementList` create/copy submit handlers used `mutation.mutate(...)` inside `try/catch`, so async mutation failures closed the dialog before the user could see the server validation message.
-- Resolution:
-  1. Replaced the custom TABLE child VLC serializer with `createLocalizedContent(...)` from `@universo/utils`, keeping the payload contract aligned with current backend/frontend localized-content helpers.
-  2. Switched element create/copy submit handlers to `await mutateAsync(...)`, so failed requests keep the dialog open and populate the dialog-level error state.
-  3. Added focused frontend regressions for canonical VLC row payloads and failed create-dialog behavior.
-- Validation: focused touched-file ESLint passed, focused Vitest regressions passed (`2/2`), and `@universo/metahubs-frontend` build passed.
+### Summary
+All remaining QA findings resolved: guards.ts Prettier fix, applicationMigrationsRoutes.ts migrated to shared resolveUserId, `.strict()` added to ALL remaining create/copy/move/reorder/layout schemas (~35 schemas total), all 135 pre-existing Prettier errors auto-fixed. Build 28/28, tests 346/346, lint 0 errors.
 
-## Previous Focus: Table Child Attributes Reload Fix — Complete
+### guards.ts Prettier Fix
+Collapsed multi-line function params in `createEnsureMetahubRouteAccess` return arrow function to single line, resolving Prettier formatting error.
 
-- Date: 2026-03-21.
-- Closed a live runtime regression found during manual testing of metahub catalogs with TABLE attributes and child attributes after a hard page reload.
-- Root cause: `MetahubAttributesService.findChildAttributes(...)` passed `this.mapRowToAttribute` directly into `Array.map(...)`, which stripped the class `this` context and made `this.getSystemMetadata(...)` undefined on the reload/read path.
-- Resolution:
-  1. `mapRowToAttribute` is now an instance-bound arrow function, so callback usage keeps the service context.
-  2. Added a direct regression proving `findChildAttributes(...)` maps child rows and preserves `system` metadata.
-  3. Revalidated the full `@universo/metahubs-backend` package after the fix.
-- Validation: `@universo/metahubs-backend` tests passed (`38 suites`, `255 passed`, `3 skipped`, `258 total`), lint stayed green on errors with the same pre-existing warning-only debt outside this closure, and `build` passed.
+### applicationMigrationsRoutes.ts Migration
+Replaced 3 unsafe `req.user as { id?: string; sub?: string }` extractions with shared `resolveUserId(req)` from `domains/shared/routeAuth`. Covers `ensureAdminAccess`, `ensureMemberAccess` helpers and inline status route extraction. Now handles all 4 token property fallbacks (id, sub, user_id, userId).
 
-## Previous Focus: Bootstrap Superuser Final QA Remediation — Complete
+### Comprehensive .strict() Hardening
+Added `.strict()` to ~35 schemas across 12 files:
+- **Route schemas**: constantsRoutes (3), elementsRoutes (4), hubsRoutes (3), branchesRoutes (1+superRefine), setsRoutes (3), catalogsRoutes (3+superRefine), enumerationsRoutes (7), publicationsRoutes (4), attributesRoutes (3), metahubMigrationsRoutes (2), applicationMigrationsRoutes (1)
+- **Service schemas**: MetahubLayoutsService (6), layoutsRoutes (1)
+- Schemas with `.superRefine()` (createBranchSchema, copyCatalogSchema): `.strict()` inserted before `.superRefine()`
 
-- Date: 2026-03-20.
-- Closed the final QA remediation wave for bootstrap superuser by fixing the remaining operational template defect and proving the live Supabase integration suite with the real client instead of the global Jest mock.
-- The bootstrap env contract is now internally consistent end to end:
-  1. `.env.example` uses `demo-admin@example.com` / `ChangeMe_123456!`.
-  2. The runtime warning in `bootstrapSuperuser.ts` watches the same demo credentials.
-  3. Root/package README files and GitBook docs already point to the same values.
-- The live integration boundary is now genuinely executable in Jest:
-  1. The integration suite imports the real `createClient(...)` via `jest.requireActual('@supabase/supabase-js')`.
-  2. The test no longer reuses the global mocked Supabase client from the shared backend test harness.
-  3. A real `UP-test` run now passes both the bootstrap happy-path and rollback failure-path scenarios.
-- Validation: live `@universo/admin-backend` integration suite passed (2/2) against `UP-test`, focused admin regression suites passed (23/23), focused core bootstrap tests passed (6/6), and touched admin lint stayed green on errors with the same pre-existing warning-only debt outside this closure.
+### Prettier Cleanup
+Auto-fixed all 135 pre-existing Prettier formatting errors via `eslint --fix`. Result: 0 errors, 211 warnings (all pre-existing @typescript-eslint warnings).
 
-## Previous Focus: Bootstrap Superuser QA Reopen Closure — Complete
+### Validation
+- Build: 28/28 green
+- Tests: 41 suites, 346 passed, 3 skipped
+- Lint: 0 errors, 211 warnings
 
-- Date: 2026-03-19.
-- Closed the second QA reopen for startup bootstrap and admin-side provisioning by removing the last rollback consistency seam and adding the missing real failure-path coverage.
-- Auth-user provisioning rollback is now privilege-safe end to end:
-  1. Compensation no longer depends on request-scoped RLS sessions.
-  2. Profile cleanup now always runs through the privileged executor before auth-user deletion, so admin create-user failures do not leave orphan active profile rows behind.
-  3. The admin route no longer passes request-scoped cleanup state into the provisioning service.
-- The live Supabase integration suite now covers both edges of the critical external boundary:
-  1. Real bootstrap/provision happy-path against Supabase Auth + profile/role persistence.
-  2. Real rollback behavior when role synchronization fails after auth-user creation, including verification that both auth and profile rows are cleaned up.
-- Startup bootstrap now emits an explicit warning when the public demo bootstrap credentials are still configured, reducing the risk of an unsafe deployment with unchanged defaults.
-- Validation: `@universo/admin-backend` tests `43 passed / 2 skipped / 45 total`, `@universo/core-backend` tests 23/23, touched admin/core lint green with warning-only pre-existing debt outside this change-set, standalone admin/core builds green, final root `pnpm build` green (28/28 tasks in 2m52.491s).
+## Previous Focus: QA Phase 2 DRY Extraction & Schema Hardening — COMPLETE
 
-## Previous Focus: Bootstrap Superuser QA Closure — Complete
+(See progress.md for details)
+- ConstantList.tsx: removed dead `copiedCodename` variable, fixed `source.codename || ''` and copy suffix
+- ChildAttributeList.tsx, EnumerationValueList.tsx: fixed `source.codename || 'fallback'` to `getVLCString(source.codename) || 'fallback'`
 
-- Date: 2026-03-19.
-- Closed the post-implementation QA reopen for startup bootstrap and admin-side user provisioning with no remaining open remediation work in that wave.
-- Role-assignment mutation paths are now fail-closed for protected roles:
-  1. Non-superusers cannot assign `superuser` or any `is_system=true` role through `setUserRoles(...)`.
-  2. Non-superusers cannot use legacy `grantRole(...)` to promote another account into `superuser` / system-role state.
-  3. Non-superusers cannot revoke or downgrade an account that currently holds a protected role through `revokeGlobalAccess(...)`, `revokeAssignment(...)`, or the legacy single-role update path.
-- The shared provisioning service now has deeper regression coverage for invite-based provisioning (`inviteUserByEmail(...)`) in addition to password-based admin creation, rollback, bootstrap no-op, and bootstrap fail-fast behavior.
-- `@universo/admin-backend` now also carries an env-gated live integration suite for real Supabase provisioning. It stays skipped in default local/CI runs unless `DATABASE_TEST_URL`, `SUPABASE_URL`, and `SERVICE_ROLE_KEY` are present, but it closes the earlier “mocks only” coverage gap for a real auth/profile/role bootstrap path.
-- Bootstrap config coverage now includes invalid-email rejection, and `.env.example` has been restored to neutral demo credentials: `demo-admin@example.com` / `ChangeMe_123456!`.
-- Validation: `@universo/admin-backend` tests `43 passed / 1 skipped / 44 total`, `@universo/core-backend` tests 22/22, touched admin/core lint green with warning-only pre-existing debt outside this change-set, standalone admin/core builds green, final root `pnpm build` green (28/28 tasks in 2m40.814s).
+### Validation
+- metahubs-frontend build: green
+- Full root build: 28/28 green
 
-## Previous Focus: Bootstrap Superuser Startup Closure — Complete
+## Previous Focus: Restore codenameLocalizedEnabled Setting — COMPLETE
 
-- Date: 2026-03-19.
-- Implemented a shared auth-user provisioning pipeline in `@universo/admin-backend` and moved both startup bootstrap and admin-side create-user onto that same rollback-safe flow.
-- `@universo/core-backend` now runs bootstrap-superuser provisioning during `App.initDatabase()` after migrations/role seed, protected by a transaction-scoped advisory lock and strict env validation.
-- Bootstrap behavior is now fail-closed:
-  1. If `BOOTSTRAP_SUPERUSER_ENABLED=false`, startup skips the feature.
-  2. If bootstrap is enabled but `SUPABASE_URL`, `SERVICE_ROLE_KEY`, email, or password are invalid, startup fails fast before the HTTP server comes up.
-  3. If the configured bootstrap email already belongs to an existing non-superuser account, startup fails instead of silently elevating that account.
-  4. If the account already exists and is already a superuser, startup is a safe no-op that only repairs the missing profile row.
-- The bootstrap flow creates a real Supabase auth user, repairs the profile row through `ProfileService.getOrCreateProfile(...)`, and assigns the exclusive global `superuser` role without synthesizing public-registration legal-consent acceptance.
-- CLI/env parity is now in place for `SERVICE_ROLE_KEY`, `BOOTSTRAP_SUPERUSER_ENABLED`, `BOOTSTRAP_SUPERUSER_EMAIL`, and `BOOTSTRAP_SUPERUSER_PASSWORD`.
-- Docs updated: root README/README-RU, `@universo/core-backend` README/README-RU, `@universo/admin-backend` README/README-RU, and GitBook pages under `docs/en` + `docs/ru`.
-- Validation: `@universo/admin-backend` tests 39/39, `@universo/core-backend` tests 21/21, touched lint green with warning-only pre-existing debt, standalone admin/core builds green, final root `pnpm build` green (28/28 tasks in 3m25.588s).
+### Goal
+Restore the "Enable Localized Codenames (VLC)" setting to both metahubs and admin settings pages. When disabled: UI shows simple single-locale field (versioned mode), data stored as VLC JSONB with single locale matching name's primary language. Backend enforces single-locale constraint.
 
-## Previous Focus: QA Comprehensive Fix — Complete
+### Implementation Summary
+- **Settings infrastructure**: Added `general.codenameLocalizedEnabled` boolean (default true) to METAHUB_SETTINGS_REGISTRY, admin backend Zod schema, getCodenameSettings(), codename-defaults endpoint
+- **Frontend hooks**: Extended `useCodenameConfig` (metahubs) and `usePlatformCodenameConfig` (admin) with `localizedEnabled` field
+- **UI**: CodenameField switches between `mode='localized'` (VLC multi-locale) and `mode='versioned'` (VLC single-locale, no language switching) based on `localizedEnabled` prop. Added `normalizeOnBlur` support to VersionedFieldProps in LocalizedInlineField for codename normalization
+- **Admin settings**: Added Switch toggle for codenameLocalizedEnabled in AdminSettings.tsx
+- **Backend enforcement**: `enforceSingleLocaleCodename()` in `@universo/utils/vlc` strips extra locale variants keeping only primary when setting is disabled. Applied in admin-backend role routes (create, copy, update). Re-exported from `codenamePayload.ts` for metahubs-backend routes.
+- **i18n**: EN/RU strings added to all 4 locale files (admin, metahubs)
 
-- Date: 2026-03-19.
-- Applied all 13 code fixes from the comprehensive QA audit (4 CRITICAL, 10 HIGH severity):
-  1. **C1: LIKE wildcard injection** — Added `escapeLikeWildcards()` to `globalAccessService.ts` and `instancesStore.ts` search queries.
-  2. **C2: UUID validation** — Added `uuid.isValidUuid()` checks on 3 globalUsersRoutes params and 1 rolesRoutes copy param.
-  3. **C3: MetapanelDashboard test mock** — Used `importOriginal` pattern to preserve `buildRealisticTrendData` while mocking UI components.
-  4. **C4: Dashboard API access** — Reviewed and confirmed by-design (uses `ensureGlobalAccess('users', 'read')` middleware).
-  5. **H1: Transaction wrapping** — Create and update role routes now use `exec.transaction()`.
-  6. **H2: Debug console.logs** — Removed all 10 `console.log` statements from `ensureGlobalAccess.ts`.
-  7. **H3: StatCard gradient ID** — Uses `React.useId()` instead of value-based ID.
-  8. **H5: createAuthClient** — Replaced `axios.create()` with shared `createAuthClient()` in metapanel-frontend.
-  9. **H6: RoleEdit setState** — Moved render-time setState to `useEffect`.
-  10. **H7: UserFormDialog** — Extracted stable `EMPTY_ROLE_IDS` constant to prevent re-renders.
-  11. **H8: RoleActions** — Replaced fragile `baseActions[1]` index with `.find()`.
-  12. **H9: Copy codename** — Added 50-char truncation for auto-generated copy codenames.
-  13. **H10: Locale** — Copy/edit actions now use `i18n.language` instead of hardcoded `'en'`.
-- Test updates: Fixed 4 test failures caused by UUID validation and transaction wrapping changes (replaced non-UUID test IDs with valid UUIDs, added transaction mock implementations).
-- Validation: all lint 0 errors, admin-backend 34/34 tests, admin-frontend 13/13 tests, metapanel-frontend 1/1 test, full build 28/28 tasks.
-- Pending: commit and push to PR #729 branch.
+### Validation
+- admin-frontend tests: 13/13 pass
+- apps-template-mui tests: 14/14 pass
+- Full root build: 28/28 green
 
-## Previous Focus: PR #729 Bot Review Fixes — Applied
+## Previous Focus: Role Codename PascalCase + Metahub Flickering + Migration Fix — COMPLETE
 
-- Date: 2026-03-19.
-- Addressed all valid bot review comments from PR #729 (Copilot + Gemini Code Assist):
-  1. **StatCard NaN/Infinity** — `buildRealisticTrendData()` now guards `points <= 0` (return `[]`) and `points === 1` (return single-element array), preventing division by zero in `i / (points - 1)`.
-  2. **OnboardingWizard CTA** — "Start Acting" button now `disabled={completionLoading || !onComplete}` so optional `onComplete` prop doesn't create a no-op CTA.
-  3. **Codename regex unification** — All codename validation (CreateRoleSchema, UpdateRoleSchema, CopyRoleSchema, RoleFormDialog frontend) unified to `/^[a-z][a-z0-9_-]*$/` — must start with letter (stricter than before) while preserving dashes (required by `slugifyCodename()` → `@justrelate/slugify`).
-- Gemini's suggestion to use `/^[a-z][a-z0-9_]*$/` (no dashes) was rejected as incompatible with auto-generated codenames like `content-editor`.
-- Validation: lint 0 errors across all touched packages, RoleFormDialog 6/6 tests pass, full root build 28/28 tasks.
-- Pending: push updated commit to PR #729 branch.
+### Issue 1: Role Codename PascalCase
+- Created `usePlatformCodenameConfig` hook in admin-frontend that reads `admin.cfg_settings` category `metahubs` for codename style/alphabet/allowMixed/autoConvert settings.
+- Rewired `RoleFormDialog.tsx` to use `sanitizeCodenameForStyle`, `normalizeCodenameForStyle`, `isValidCodenameForStyle` from `@universo/utils/validation/codename` with platform config instead of hardcoded `sanitizeCodename` (kebab-only).
+- Updated EN/RU i18n strings: `codenameHint` now uses `{{style}}`/`{{alphabet}}` interpolation, added sub-keys `codenameStyle.*`, `codenameAlphabet.*`.
+- Updated tests: mock `usePlatformCodenameConfig`, codenames changed from `editor-copy`→`EditorCopy`, auto-fill expectation `content-editor`→`ContentEditor`.
 
-## Previous Focus: QA Closure — Post-Implementation Fixes Complete
+### Issue 2: Metahub Codename Flickering
+- Root cause: unstable function references in `useCodenameAutoFillVlc` deps — `handleExtraValueChange` in `EntityFormDialog` and `deriveCodename` inline arrow in `GeneralTabFields`/`MetahubEditFields` were recreated every render, causing the effect to re-fire repeatedly.
+- Fix: memoized `handleExtraValueChange` with `useCallback([])` in `EntityFormDialog.tsx`, extracted `deriveCodename` into `useCallback` with stable `[style, alphabet, allowMixed, autoConvert]` deps in both `MetahubList.tsx` and `MetahubActions.tsx`.
 
-- Date: 2026-03-19.
-- Two residual QA defects from the comprehensive code audit have been closed:
-  1. Removed dead-code `.default(true)` from `includeSystem` schema in `admin-backend/rolesRoutes.ts` — the `z.preprocess()` already converts `undefined` to `true`, making the Zod default unreachable.
-  2. Added `notifySubscribers({})` call to `resetUserSettingsCache()` in `useUserSettings.ts` — without this, active `useUserSettings()` hook instances would retain stale settings state after auth-transition cache reset until component remount.
-- Validation: admin-backend lint 0 errors, 6/6 suites (34 tests); template-mui build OK; full root build 28/28 tasks in 2m56s.
-- No remaining technical debt from the QA audit.
+### Issue 3: VLC Codename Admin Setting
+- The `codenameLocalizedEnabled` toggle was **intentionally removed** during CJI4.b (codename JSONB unification). VLC codename is now architecturally always on. No change needed.
 
-## Previous Focus: Superuser Metahub Visibility Fix Complete
+### Issue 4: False Migration Required on New Metahub
+- Root cause: `MetahubBranchesService.createDefaultBranch` stored `structureVersion = template.minStructureVersion` (0.1.0 → version 1) but `CURRENT_STRUCTURE_VERSION = 2`. Since `initializeSchema` creates schema with current definitions, stored version should match.
+- Fix: both `createDefaultBranch` and `createBranch` (non-clone path) now always use `structureVersionToSemver(CURRENT_STRUCTURE_VERSION)`.
 
-- Date: 2026-03-18.
-- Root cause identified and fixed: `z.coerce.boolean()` in Zod query parameter schemas was converting the string `"false"` (from Express `req.query`) via `Boolean("false")` which returns `true`. This meant the `showAll` parameter was always `true` for any value sent by the frontend, causing superusers to always see all metahubs regardless of the "Show other users' items" setting.
-- Fix applied to three packages: `metahubs-backend`, `applications-backend`, and `admin-backend` — replaced `z.coerce.boolean()` with `z.preprocess((val) => val === 'true' || val === true, z.boolean())` which correctly handles string query parameters.
-- Added regression test confirming `showAll=false` is correctly parsed as `false` for superusers.
-- Validation: metahubs-backend 38/38 suites (254 tests), full build 28/28 tasks.
+### Validation
+- admin-frontend tests: 13/13 pass (including 6 RoleFormDialog)
+- Full root build: 28/28 green
 
-## Previous Focus: Admin Padding + Metahub Cache/Creation Fixes Complete
+## Previous Focus: Admin Security + Bootstrap Regression + Docs Closure — COMPLETE
 
-- Date: 2026-03-18.
-- Fixed three categories of issues: admin layout consistency, auth-state cache isolation, and metahub creation resilience.
-- Completed outcomes:
-  - RoleEdit page header section no longer has extra `px` padding — all elements now align consistently with MainLayout padding.
-  - App.tsx now tracks the authenticated user identity via `useRef` and clears React Query cache + user-settings singleton when the user changes (login/logout/user-switch), preventing stale data from a previous session.
-  - Metahub creation cleanup now uses hard `DELETE FROM metahubs.cat_metahubs` instead of soft-delete when initial branch creation fails, preventing zombie rows without branches or schemas.
-  - Validation: admin-frontend (0 errors, 13/13 tests), metahubs-backend (0 errors, 35/35 tests), start-frontend (20/20 tests), root `pnpm build` 28/28 tasks.
+- PostgreSQL 14+ PL/pgSQL `RETURN QUERY` enforces strict type matching: `varchar(N)` → `text` implicit cast is NOT allowed. The `RETURNS TABLE` declarations correctly use `TEXT`, but the SELECT body referenced columns that are `VARCHAR(7)`, `VARCHAR(100)`, `VARCHAR(20)` from the underlying tables (created by SchemaGenerator with `physicalDataType: 'VARCHAR(N)'`).
+- Fix: added explicit `::TEXT` casts for all varchar columns in both functions' RETURN QUERY SELECT:
+  - `get_user_global_roles`: `r.color::TEXT`
+  - `get_user_permissions`: `r.color::TEXT`, `rp.subject::TEXT`, `rp.action::TEXT`
+- Error manifested only on second startup because `ensureBootstrapSuperuser` calls `getGlobalAccessInfo` → `get_user_global_roles` only when the user already exists (first boot creates, doesn't query).
+- PL/pgSQL delayed validation: function body is NOT validated at `CREATE OR REPLACE` time — only at first execution. First execution happens during second boot.
+- Validation: admin-backend 47 tests, root build 28/28.
+
+## Previous Closure: VLC Text Extraction SQL Fix — COMPLETE
+
+- Fixed project-wide bug in VLC JSONB text extraction SQL. The expression `col->'locales'->>'en'` returns the entire locale entry object (`{"content":"...","version":1,...}`) as text instead of just the `content` string. Correct form: `col->'locales'->'en'->>'content'`.
+- Affected 14 source files across admin-backend, metahubs-backend, applications-backend, and schema-ddl. Also affected inline `name` VLC extractions in MetahubBranchesService and MetahubLayoutsService.
+- Updated 4 test files with corrected SQL assertion strings.
+- Bootstrap error was: `One or more role codenames are invalid: Superuser` because `resolveRoleIdsByCodenames` used the buggy extraction and could never match the codename text.
+- Validation: admin-backend 47 tests, metahubs-backend 260 tests, root build 28/28.
+
+## Previous Closure: Fixed System App Metadata JSONB Inspection Fix — COMPLETE
+
+- Fixed `packages/universo-migrations-platform/base/src/systemAppSchemaCompiler.ts` so metadata inspection and fingerprint loading normalize `_app_objects.codename` / `_app_attributes.codename` from JSONB VLC to canonical primary text instead of assuming raw strings.
+- Root cause: `SchemaGenerator.syncSystemMetadata()` already persists metadata codenames as VLC JSONB, but `inspectSystemAppStructureMetadata()` and `loadActualSystemAppStructureMetadataSnapshot()` still filtered out any non-string codename values. That made bootstrap appear successful while inspection reported every object/attribute as missing.
+- Added a regression test for JSONB codename rows and re-ran the original string-row inspection test to preserve backwards compatibility.
+- Validation: targeted old/new inspection tests pass, changed-file ESLint clean, root build 28/28.
+
+## Previous Closure: Admin Bilingual Codename Parameter Typing Fix — OBSOLETE (code deleted)
+
+- The `UpgradeCodenamePascalCaseBilingual1800000000400` migration was fully removed as part of legacy V1/V2 code cleanup.
+
+## Previous Closure: Metahubs Auth FK Idempotence Fix — COMPLETE
+
+- Fixed `1766351182000-CreateMetahubsSchema.sql.ts`: `fk_mu_auth_user` creation now runs inside `DO $$ ... IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_mu_auth_user') ... END $$`.
+- Root cause: post-schema-generation support SQL re-applies non-`CREATE TABLE` statements after fixed-schema generation; the auth FK add was the only unguarded `ADD CONSTRAINT` in the metahubs support chain.
+- Added parity regression coverage to keep the post-generation auth-user FK creation idempotent.
+- Validation: focused parity test pass, metahubs-backend 260 tests pass, root build 28/28.
+
+## Previous Closure: Metahubs Upgrade Migration SQL Quoting Fix — OBSOLETE (code deleted)
+
+- The `1800000000301-UpgradeMetahubsLegacyCodenames.ts` migration was fully removed as part of legacy V1/V2 code cleanup.
+
+## Previous Closure: QA Phase 2 Remediation — COMPLETE
+
+- The 2026-03-25 QA Phase 2 remediation is fully complete.
+- QA-1: `CopyRoleSchema` now uses `RoleCodenameSchema` (consistent `^[a-z][a-z0-9_-]*$` validation).
+- QA-2: `createAccessGuards.ts` logging fallback corrected to PascalCase `'Superuser'`.
+- QA-3: Migration SQL parameterized — `upgradePascalCaseBilingualCodenameSql` returns `?`-placeholder SQL, values bound via `ctx.raw(sql, [...])`.
+- QA-4: Prettier formatting auto-fixed across admin-backend, auth-backend, start-backend.
+- Validation: build 28/28, tests (admin 47, auth 9, start 28) pass, lint 0 errors.
+
+## Previous Closure: System Role & Instance Codename PascalCase + Bilingual Enablement — COMPLETE
+
+- ~150 references updated across 25+ files (types, seed constants, SQL comparisons, backend services, frontend, tests).
+- New upgrade migration `UpgradeCodenamePascalCaseBilingual1800000000400` handles existing DB data.
+
+## Previous Closure: Admin Role Codename VLC Enablement — COMPLETE
+
+- 17 files modified across backend, shared types, and frontend (including QA remediation).
+- admin-backend tests (47), admin-frontend tests (13), ESLint clean, full root build (28/28).
 
 ## Current State
 
-- Startup bootstrap superuser support is now live and documented end-to-end.
-- Shared auth-user provisioning now has one canonical backend path for create-user, profile repair, role sync, and rollback, instead of separate startup/admin implementations.
-- Core backend startup now depends on explicit server-only Supabase provisioning configuration when bootstrap is enabled, and the demo bootstrap credentials are documented as local/dev-only values that must be changed for real deployments.
-- The residual QA follow-through items are closed with no remaining open implementation work in this wave.
-- Protected-role mutation now requires a superuser actor end-to-end across shared role-sync, legacy grant/update paths, and global-access revocation paths.
-- Bootstrap regression coverage now includes invite provisioning and stricter config validation, and the public env template once again ships only neutral demo bootstrap credentials.
-- Shared contracts, backend role lifecycle work, admin frontend refactoring, multi-role user management, onboarding completion flow, explicit `/start` routing, role-aware shell guards, and the new `@universo/metapanel-frontend` package are all in place.
-- Root routing now follows the final UX contract: guests see the landing/start surface on `/`, authenticated `registered`-only users stay on `/start`, authenticated workspace users render the metapanel directly on `/`, and admin-only users are redirected to `/admin` instead of leaking into the workspace shell.
-- The registered-only shell leak is now fail-closed in both shared frontend/backend access contracts: `resolveShellAccess(...)` rejects `registered`-only role sets even when `profile:read` exists, and `hasWorkspaceAccess(...)` mirrors that policy on the backend before capability checks.
-- `start-frontend` now consumes the narrower `@universo/template-mui/navigation` surface for `resolveShellAccess`, and its onboarding-routing tests mock the full runtime `useAbility()` contract.
-- `applications-frontend` permission-gating tests now mock the real `useHasGlobalAccess()` shape expected by the shared settings UI, including `hasAnyGlobalRole` and `adminConfig`.
-- Targeted validation is green: the focused touched suites passed, `pnpm --filter @universo/metapanel-frontend build` passed after the package-contract fix, `pnpm install --lockfile-only` resynced the workspace lockfile, and the final root `pnpm build` passed with 28/28 successful tasks in 2m36.104s.
-- The metapanel dashboard now uses a metahub-board-style one-row layout with three stat/chart cards plus a documentation card, and breadcrumb resolution for `/` now resolves to `Метапанель` instead of falling back to a raw key or unrelated application label.
-- Admin roles now use dialog-first editing from the list, the role dialog field order matches the requested name/description-first flow with codename at the bottom, and the role detail page is now permissions-first with a settings tab that behaves like an inline edit surface.
-- Applications list gating now derives create/control-panel affordances from real application/global permissions instead of inheriting them from admin-panel access.
-- The final QA completion pass closed the remaining legacy compatibility seam: legacy single-role grant/update/delete entry points now preserve the multi-role model instead of bypassing it, and legacy superuser grants can no longer create invalid mixed-role state.
-- The role-copy contract is fully aligned end-to-end: the copy dialog now starts with a blank codename, exposes an explicit `copyPermissions` toggle, frontend/backend codename validation matches, and backend create/copy routes now fail cleanly on database uniqueness races instead of depending only on pre-checks.
-- The last corrective debt from QA is now closed: shared shell/dashboard/start access is capability-based, admin create-user rollback compensates profile plus auth state, lifecycle role seeding is canonical again with legacy `manage` normalization, application admin affordances follow real permissions, and shared feature-route composition lives in `@universo/core-frontend`.
+- The approved codename architecture is now source-clean on the live repository surface: one field only, `codename JSONB`, using the canonical VLC/`VersionedLocalizedContent<string>` shape.
+- Admin roles now use the same VLC codename editing flow as metahubs — `CodenameField` with localized inline editing, auto-fill from role name via `useCodenameAutoFillVlc`.
+- `GlobalAssignableRole.codename` remains `string` (extracted text) for lightweight role assignment dropdowns; normalization to VLC happens in `useRoles` queryFn via `createCodenameVLC`.
+- Copy flows now follow the same rule as create/update flows across both admin and metahubs.
+- `rolesStore` accepts only `CodenameVLC` (no string union), uses explicit permission columns (not SELECT *), and no longer contains `normalizeRoleCodename`.
+- `RoleFormDialog` forwards validation errors to `CodenameField` via `validationField` state.
+- `RoleActions` copy-codename truncation preserves `_copy` suffix within 50-char limit.
+- Validation failure log in `rolesRoutes` no longer includes full request body.
 
-## Key Architecture Decisions (Implemented)
+## Recent Closures Still Relevant
 
-- AD-1: Role binding uses UUID, not codename → codename safely editable for non-system roles.
-- AD-2: VLC fields for role name/description (existing JSONB schema).
-- AD-3: Three system roles: `superuser` (existing), `registered` (new), `user` (new).
-- AD-4: Completion CTA owns the final onboarding mutation; `AUTO_ROLE_AFTER_ONBOARDING` controls whether that mutation also adds `user`.
-- AD-5: New `metapanel-frontend` package — StatCard + Grid directly (MainGrid has no `cards` prop).
-- AD-6: Menu visibility is role-based but section-aware; Admin uses `canAccessAdminPanel`, logout remains a footer action.
-- AD-7: Explicit `/start` route + authenticated home resolver are required in addition to `RegisteredUserGuard`.
-- AD-8: Role copy via EntityFormDialog `mode='copy'` (basic fields only).
-- AD-9: Role Detail Page with tabs (Permissions + Settings) — kept as standalone page, not dialog.
-- AD-10: Superuser role is exclusive — assigning superuser clears other roles in transaction.
-- AD-11: Admin-side user creation via Supabase Admin API (`supabase.auth.admin.createUser()`) with `SERVICE_ROLE_KEY` bootstrap injection.
-- AD-12: Authorization refresh after role changes must use `AbilityContext.refreshAbility()`, not TanStack Query invalidation.
-- AD-13: AdminBoard and Метапанель should share a dedicated `admin/dashboard/stats` contract.
-- AD-14: Feature frontend packages hosted by `@universo/template-mui` must remain leaf packages and must not depend back on the shell package; use MUI or lower-level shared packages instead of re-importing shell UI exports.
-- AD-15: Workspace shell access is narrower than admin access, but it should now be determined from actual workspace capabilities (`Application`, `Metahub`, `Profile`) rather than from hardcoded `user`/`superuser` codenames; admin-only roles still route to `/admin`, and `registered`-only users remain on `/start`.
-- AD-17: The final root route contract is content-based, not redirect-based: `/` renders the guest landing page for unauthenticated users and renders the metapanel shell directly for authenticated workspace users; legacy `/dashboard` and `/metapanel` paths now only redirect back to `/`.
-- AD-18: Metapanel must stay a leaf package, but it may consume shared shell UI primitives only when that dependency is declared explicitly and externalized in its own build config; otherwise tsdown can traverse `template-mui` dist assets and fail on foreign SVG parsing during root builds.
-- AD-19: Applications page create/control-panel affordances must follow real global ability plus per-application permissions, not admin-panel access alone and not broad role-name shortcuts such as `editor`.
-- AD-16: Post-auth lifecycle helpers must compensate prior writes when later role-assignment steps fail; rollback status should be explicit instead of hidden behind a generic 500.
-- AD-20: Lifecycle system-role seeding/backfill must execute from one canonical migration path, and legacy admin permission rows using `manage` must be normalized because backend SQL helper contracts are defined around exact action or `*`.
-- AD-21: Shared feature-route composition belongs in `@universo/core-frontend`, not in `@universo/template-mui`, when the route graph imports leaf feature packages such as metapanel.
-- AD-22: Startup bootstrap superuser provisioning must reuse the same shared backend provisioning service as admin-side create-user, so auth-user creation, profile repair, role sync, and rollback remain behaviorally identical.
-- AD-23: Automatic startup bootstrap may create a new superuser or confirm an existing superuser, but it must never auto-elevate an existing non-superuser account and must not auto-reset the password of an existing account in v1.
+- 2026-03-21: fixed TABLE child localized-content payload generation in `InlineTableEditor`.
+- 2026-03-21: fixed async create/copy submit flow in `ElementList` so failed mutations stay visible to the user.
+- 2026-03-21: fixed `MetahubAttributesService.findChildAttributes(...)` reload path by preserving service `this` context.
+- 2026-03-20: aligned `.env.example`, runtime warnings, and docs around neutral bootstrap demo credentials.
+- 2026-03-20: repaired the live Supabase integration harness so it uses the real `@supabase/supabase-js` client instead of the shared Jest mock.
+- 2026-03-19: closed the final bootstrap rollback seam by forcing privileged cleanup of profile rows before auth-user deletion.
+- 2026-03-19: completed automatic startup bootstrap for the first superuser with strict fail-fast and no implicit privilege escalation of existing non-superusers.
+- 2026-03-19: closed the applications workspaces/public-access/limits wave and the admin roles/metapanel corrective wave.
 
-## Key QA Corrections Applied (v1 → v3)
+## Guardrails
 
-- RoleEdit page preserved with tabbed layout (was incorrectly planned for deletion).
-- Existing `PermissionMatrix` reused (was incorrectly proposing new component).
-- Existing `ColorPicker` reused (was referencing non-existent `ColorPickerField`).
-- `getVLCString()` corrected (was incorrectly `getVlcContent()`).
-- Метапанель uses StatCard + Grid directly (MainGrid has no `cards` prop).
-- Multi-role set wrapped in `exec.transaction()` (was missing).
-- Self-modification guard added to PUT /:memberId/roles.
-- Admin user creation via Supabase Admin API added.
-- Superuser exclusivity enforcement added.
-- Users without roles visible in list (LEFT JOIN).
-- "Основное" tab added to UserFormDialog.
-- One-time data migration as explicit step.
-- Third stat card corrected: "Глобальные роли" (was "Publications").
-- Completion mutation moved out of `OnboardingWizard` and into the final CTA.
-- Ability refresh corrected from TanStack Query invalidation to `AbilityContext.refreshAbility()`.
-- Root `/` and `/start` topology corrected to match the live router.
-- Menu filtering corrected to cover real shell sections, not only `rootMenuItems`.
-- Метапанель stats corrected to use a dedicated dashboard contract instead of `global-users/stats`.
-- Registration/onboarding system-role assignment consolidated around one injected privileged helper.
+- Do not reopen fixed system-app startup work without an explicit QA, live-runtime, or product trigger.
+- Keep repeated-start acceptance coverage as the gate for future startup/bootstrap changes.
+- Keep optional global catalog and release-bundle behavior fail-closed when enabled.
+- Preserve the three-tier DB contract: request-scoped RLS, pool executor for admin/bootstrap, raw Knex only inside explicit DDL boundaries.
+- Domain routes, services, and stores must stay SQL-first and must not import `knex`, `KnexClient`, or `getKnex()` directly.
+- Dynamic identifiers must use `qSchema()`, `qTable()`, `qSchemaTable()`, or `qColumn()`.
+- Mutations that need row confirmation must keep `RETURNING` and fail closed on zero-row results.
+- Cross-schema active-row predicates must remain schema-specific: applications use `_app_deleted`, metahubs use `_mhb_deleted`.
+- For the active codename closure wave, do not preserve or reintroduce the dual-field contract; all new edits must remove legacy compatibility instead of wrapping it.
+- Frontend routed feature packages must remain leaf packages relative to `@universo/template-mui`.
+- Public routes must continue using centralized route constants and the shared 401/419 contracts.
+- Browser env resolution must keep the precedence `__UNIVERSO_PUBLIC_ENV__ -> import.meta.env -> process.env -> browser origin`.
+- Package-local docs and system-app manifests must keep the current ownership split explicit: applications own runtime sync, metahubs own publication authoring.
 
-## Plan Decision: Keep Knex as Transport, Ban from Domain
+## Verified Architecture Decisions
 
-- Knex stays as pool manager, connection handler, DDL engine.
-- Only infrastructure packages may import from 'knex'.
-- Domain packages must use DbExecutor/SqlQueryable exclusively.
-- Enforced by `tools/lint-db-access.mjs` in CI pipeline.
+- Role bindings use UUID identity; non-system role codenames remain editable.
+- Role name and description stay VLC-backed.
+- System roles are now PascalCase bilingual: `Superuser`, `Registered`, `User` (en+ru VLC).
+- Onboarding completion owns the final role-promotion mutation.
+- `@universo/metapanel-frontend` stays a leaf package.
+- Menu visibility stays section-aware and admin visibility uses `canAccessAdminPanel`.
+- `/start` remains explicit and separate from the root route resolver.
+- Role copy continues through `EntityFormDialog` copy mode.
+- Role detail stays a standalone page with tabs instead of collapsing into a dialog.
+- Superuser remains exclusive; assigning it clears other roles transactionally.
+- Admin-side create-user uses the Supabase Admin API with `SERVICE_ROLE_KEY`.
+- Role-change refresh on the frontend must use `AbilityContext.refreshAbility()`.
+- AdminBoard and metapanel share a dedicated dashboard stats contract.
+- Feature frontend packages hosted by the shell must not import the shell back.
+- Workspace shell access is capability-based; admin access stays separate.
+- Post-auth lifecycle flows must compensate earlier writes when later steps fail.
+- Root `/` is content-based for guests and workspace users; legacy dashboard aliases redirect back to `/`.
+- Metapanel may consume explicit shared shell primitives only when its own build exports remain stable.
+- Applications list create/control-panel affordances must follow real permissions, not admin-only shortcuts.
+- System-role seeding and legacy permission normalization belong to one canonical migration path.
+- Shared feature-route composition belongs in `@universo/core-frontend`, not in shell leaf packages.
+- Startup bootstrap superuser provisioning must reuse the shared provisioning service.
+- Startup bootstrap may create or confirm a superuser, but must never auto-elevate an existing non-superuser account.
+
+## QA Corrections To Preserve
+
+- Reuse `PermissionMatrix`; do not replace it with a new matrix component without a real reason.
+- Reuse `ColorPicker`; the rejected `ColorPickerField` idea was not a live component.
+- Use `getVLCString()` rather than inventing alternate VLC read helpers.
+- Metapanel cards use StatCard + Grid directly; `MainGrid` has no `cards` prop.
+- Multi-role writes must stay wrapped in transactions.
+- Self-modification guards on role mutation routes are required.
+- Users without roles must remain visible in the admin list via LEFT JOIN semantics.
+- `UserFormDialog` keeps its `Main` tab and catalog-style role selection flow.
+- Ability refresh stays outside TanStack Query invalidation.
+- Menu filtering must cover real section composition, not only `rootMenuItems`.
+- Registration/onboarding system-role assignment remains centralized in an injected privileged helper.
+- Applications/public runtime guards must keep the join-first contract for public non-members.
 
 ## Immediate Next Steps
 
-- No active implementation work remains. Four UX correction waves are complete.
-- Developer role question: can be created via admin UI with permissions on `metahubs`, `applications`, `publications` subjects.
-- If another QA pass inspects packaging, use the new dist-backed `@universo/template-mui/navigation` contract and the focused admin user-management tests as the baseline for this closure.
-- If QA wants another pass, use the green applications lint surface plus the Wave 4 root-build result from 2026-03-18 as the new baseline.
-- Existing root-build warnings outside this wave still include the known `@universo/utils` CJS `import.meta` notice and the large-chunk warning from `@universo/core-frontend`; neither was introduced by this closure.
+- Start future sessions from the now-complete codename remediation notes in `progress.md` rather than reopening the retired dual-field or raw-string copy assumptions.
+- Treat any future codename work as incremental feature work on top of the canonical JSONB/VLC contract, not as another compatibility cleanup wave.
+- Preserve browser-entry export parity when expanding shared browser-safe helpers in `@universo/utils` or similar dual-entry packages.
+
+## Session Hygiene
+
+- Start future sessions from `tasks.md` and `progress.md`, not from stale plan artifacts.
+- Prefer the compressed Memory Bank files over long archived notes when rebuilding context.
+- Move any new durable closure detail into `progress.md` instead of expanding this file again.
+- Keep `activeContext.md` limited to current state, guardrails, and next-step framing.
 
 ## References
 
-- Active planning artifact: `memory-bank/plan/admin-roles-metapanel-refactoring-plan-2026-03-17.md`.
-- Active tasks: `memory-bank/tasks.md`.
-- Architecture patterns: `memory-bank/systemPatterns.md`.
-- Package docs entrypoint: `packages/universo-rest-docs/README.md`.
+- `memory-bank/tasks.md`
+- `memory-bank/progress.md`
+- `memory-bank/systemPatterns.md`
+- `memory-bank/techContext.md`
+- `memory-bank/rls-integration-pattern.md`
+- `memory-bank/plan/codename-jsonb-unification-plan-2026-03-23.md`
+- `memory-bank/plan/bootstrap-superuser-startup-plan-2026-03-19.md`
+- `memory-bank/plan/application-workspaces-public-access-and-limits-plan-2026-03-19.md`
+- `memory-bank/plan/admin-roles-metapanel-refactoring-plan-2026-03-17.md`

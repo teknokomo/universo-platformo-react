@@ -158,7 +158,7 @@ const mockGlobalAccess = {
     canAccessAdminPanel: true,
     loading: false,
     ability: mockAbility,
-    globalRoles: [{ codename: 'superuser' }],
+    globalRoles: [{ codename: 'Superuser' }],
     adminConfig: {
         adminPanelEnabled: true,
         globalRolesEnabled: true,
@@ -342,7 +342,7 @@ describe('ApplicationList', () => {
         mockGlobalAccess.loading = false
         mockAbility.can.mockReset()
         mockAbility.can.mockImplementation(() => true)
-        mockGlobalAccess.globalRoles = [{ codename: 'superuser' }]
+        mockGlobalAccess.globalRoles = [{ codename: 'Superuser' }]
         mockGlobalAccess.adminConfig = {
             adminPanelEnabled: true,
             globalRolesEnabled: true,
@@ -884,7 +884,7 @@ describe('ApplicationList', () => {
             mockGlobalAccess.isSuperuser = false
             mockGlobalAccess.hasAnyGlobalRole = true
             mockGlobalAccess.canAccessAdminPanel = false
-            mockGlobalAccess.globalRoles = [{ codename: 'user' }]
+            mockGlobalAccess.globalRoles = [{ codename: 'User' }]
             mockAbility.can.mockImplementation((action: string, subject: string) => action === 'read' && subject === 'Application')
 
             vi.mocked(applicationsApi.listApplications).mockResolvedValue(
@@ -1143,7 +1143,7 @@ describe('ApplicationList', () => {
             mockGlobalAccess.isSuperuser = false
             mockGlobalAccess.hasAnyGlobalRole = true
             mockGlobalAccess.canAccessAdminPanel = false
-            mockGlobalAccess.globalRoles = [{ codename: 'user' }]
+            mockGlobalAccess.globalRoles = [{ codename: 'User' }]
             mockAbility.can.mockImplementation((action: string, subject: string) => action === 'read' && subject === 'Application')
 
             vi.mocked(applicationsApi.listApplications).mockResolvedValue(

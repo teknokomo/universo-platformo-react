@@ -108,6 +108,20 @@ const createSyntheticPresentation = (value: string) => ({
     }
 })
 
+const createSyntheticCodenameVlc = (value: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: {
+            content: value,
+            version: 1,
+            isActive: true,
+            createdAt: '1970-01-01T00:00:00.000Z',
+            updatedAt: '1970-01-01T00:00:00.000Z'
+        }
+    }
+})
+
 const mapBusinessTableKindToRuntimeEntityKind = (kind: string): string => {
     switch (kind) {
         case 'catalog':
@@ -177,7 +191,7 @@ const buildProfilesStructureRows = () => {
     }
 }
 
-const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean } = {}) => ({
+const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean; jsonbCodenames?: boolean } = {}) => ({
     raw: jest.fn(async (sql: string, bindings?: unknown[]) => {
         const { objectRows, attributeRows } = buildProfilesStructureRows()
 
@@ -199,28 +213,42 @@ const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean } =
 
         if (sql.includes('presentation::text as presentation_json') && sql.includes('._app_objects')) {
             return {
-                rows: objectRows.map((row) =>
-                    options.fingerprintDrift
+                rows: objectRows.map((row) => {
+                    const baseRow = options.fingerprintDrift
                         ? {
                               ...row,
                               presentation_json: JSON.stringify(createSyntheticPresentation('Profiles Drifted'))
+                          }
+                        : row
+
+                    return options.jsonbCodenames
+                        ? {
+                              ...baseRow,
+                              codename: createSyntheticCodenameVlc(String(baseRow.codename))
+                          }
+                        : baseRow
+                })
+            }
+        }
+
+        if (sql.includes('validation_rules::text as validation_rules_json') && sql.includes('._app_attributes')) {
+            return {
+                rows: attributeRows.map((row) =>
+                    options.jsonbCodenames
+                        ? {
+                              ...row,
+                              codename: createSyntheticCodenameVlc(String(row.codename))
                           }
                         : row
                 )
             }
         }
 
-        if (sql.includes('validation_rules::text as validation_rules_json') && sql.includes('._app_attributes')) {
-            return {
-                rows: attributeRows
-            }
-        }
-
         if (sql.includes('._app_attributes')) {
             return {
                 rows: attributeRows.map(({ object_codename, codename, column_name }) => ({
-                    object_codename,
-                    codename,
+                    object_codename: options.jsonbCodenames ? createSyntheticCodenameVlc(String(object_codename)) : object_codename,
+                    codename: options.jsonbCodenames ? createSyntheticCodenameVlc(String(codename)) : codename,
                     column_name
                 }))
             }
@@ -228,7 +256,10 @@ const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean } =
 
         if (sql.includes('._app_objects')) {
             return {
-                rows: objectRows.map(({ codename, table_name }) => ({ codename, table_name }))
+                rows: objectRows.map(({ codename, table_name }) => ({
+                    codename: options.jsonbCodenames ? createSyntheticCodenameVlc(String(codename)) : codename,
+                    table_name
+                }))
             }
         }
 
@@ -981,6 +1012,29 @@ describe('systemAppSchemaCompiler', () => {
                     missingAttributeKeys: [],
                     objectCount: 1,
                     attributeCount: 12
+                })
+            ]
+        })
+    })
+
+    it('inspects registered structure metadata when system metadata codenames are stored as JSONB VLC', async () => {
+        const knex = createStructureInspectionKnex({ jsonbCodenames: true })
+
+        const result = await inspectRegisteredSystemAppStructureMetadata(knex as never, 'target', ['profiles'])
+
+        expect(result).toEqual({
+            ok: true,
+            issues: [],
+            entries: [
+                expect.objectContaining({
+                    definitionKey: 'profiles',
+                    schemaName: 'profiles',
+                    missingSystemTables: [],
+                    missingObjectCodenames: [],
+                    missingAttributeKeys: [],
+                    objectCount: 1,
+                    attributeCount: 12,
+                    metadataFingerprintMatches: true
                 })
             ]
         })

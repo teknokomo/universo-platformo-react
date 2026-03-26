@@ -15,7 +15,7 @@ Frontend application for the Admin Panel with global user management capabilitie
 
 ### 👥 Global User Management
 - **List View**: Paginated table with search and filtering
-- **Role Assignment**: Grant superadmin/supermoderator roles by email
+- **Role Assignment**: Grant `Superuser`, `User`, or custom global roles by email
 - **Role Updates**: Change roles and add/edit comments
 - **Access Revocation**: Remove global access from users
 
@@ -28,6 +28,7 @@ Frontend application for the Admin Panel with global user management capabilitie
 ### 🔧 Technical Features
 - **TanStack Query**: Optimistic updates and cache management
 - **Internationalization**: English and Russian translations
+- **Codename Editing**: Role forms use one canonical localized codename field
 - **Type Safety**: Full TypeScript with strict typing
 
 ## Installation
@@ -64,7 +65,7 @@ function MyComponent() {
     const handleGrant = () => {
         grantMutation.mutate({
             email: 'user@example.com',
-            role: 'supermoderator',
+            role: 'User',
             comment: 'Access granted for project review'
         })
     }

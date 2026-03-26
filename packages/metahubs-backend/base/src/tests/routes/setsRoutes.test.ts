@@ -12,6 +12,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createSetsRoutes } from '../../domains/sets/routes/setsRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'test-metahub-id' }))
 
@@ -92,6 +93,12 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
     MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
 }))
 
+type MockTransactionExecutor = {
+    query: ReturnType<typeof jest.fn>
+    transaction: ReturnType<typeof jest.fn>
+    isReleased: () => boolean
+}
+
 describe('Sets Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as unknown as { user?: { id: string } }).user = { id: 'test-user-id' }
@@ -112,14 +119,16 @@ describe('Sets Routes', () => {
 
     const mockExec = {
         query: jest.fn(async () => []),
-        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        transaction: jest.fn(async (cb: (trx: MockTransactionExecutor) => unknown) =>
+            cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })
+        ),
         isReleased: () => false
     }
 
     const buildApp = () => {
         const app = express()
         app.use(express.json())
-        app.use(createSetsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter))
+        app.use(createSetsRoutes(ensureAuth, () => mockExec as never, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }
@@ -201,12 +210,19 @@ describe('Sets Routes', () => {
         const app = buildApp()
         const response = await request(app)
             .post('/metahub/test-metahub-id/sets')
-            .send({ codename: 'products-set', name: 'Products' })
+            .send({ codename: testCodenameVlc('products-set'), name: 'Products' })
             .expect(201)
 
         expect(mockObjectsService.createSet).toHaveBeenCalledWith(
             'test-metahub-id',
-            expect.objectContaining({ codename: 'ProductsSet' }),
+            expect.objectContaining({
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'ProductsSet' })
+                    })
+                })
+            }),
             'test-user-id'
         )
         expect(response.body).toMatchObject({ id: 'set-new', codename: 'ProductsSet' })
@@ -236,7 +252,7 @@ describe('Sets Routes', () => {
         mockConstantsService.findAll.mockResolvedValue([
             {
                 id: 'const-1',
-                codename: 'TaxRate',
+                codename: testCodenameVlc('TaxRate'),
                 dataType: 'NUMBER',
                 name: { en: 'Tax Rate' },
                 validationRules: {},
@@ -251,15 +267,35 @@ describe('Sets Routes', () => {
         const response = await request(app).post('/metahub/test-metahub-id/set/set-1/copy').send({ copyConstants: true }).expect(201)
 
         expect(mockExec.transaction).toHaveBeenCalledTimes(1)
+        expect(mockConstantsService.ensureUniqueCodenameWithRetries).toHaveBeenCalledWith(
+            expect.objectContaining({
+                desiredCodename: 'TaxRate'
+            })
+        )
         expect(mockObjectsService.createSet).toHaveBeenCalledWith(
             'test-metahub-id',
-            expect.objectContaining({ codename: 'ProductsCopy' }),
+            expect.objectContaining({
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'ProductsCopy' })
+                    })
+                })
+            }),
             'test-user-id',
             expect.anything()
         )
         expect(mockConstantsService.create).toHaveBeenCalledWith(
             'test-metahub-id',
-            expect.objectContaining({ setId: 'set-copy', codename: 'TaxRate' }),
+            expect.objectContaining({
+                setId: 'set-copy',
+                codename: expect.objectContaining({
+                    _primary: 'en',
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'TaxRate' })
+                    })
+                })
+            }),
             'test-user-id',
             expect.anything()
         )

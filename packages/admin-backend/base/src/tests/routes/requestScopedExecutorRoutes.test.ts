@@ -1,5 +1,5 @@
 jest.mock('../../guards/ensureGlobalAccess', () => ({
-    createEnsureGlobalAccess: () => () => (_req: any, _res: any, next: any) => next()
+    createEnsureGlobalAccess: () => () => (_req: unknown, _res: unknown, next: () => void) => next()
 }))
 
 const instancesStore = {
@@ -53,6 +53,18 @@ import { createInstancesRoutes } from '../../routes/instancesRoutes'
 import { createAdminSettingsRoutes } from '../../routes/adminSettingsRoutes'
 import { createRolesRoutes } from '../../routes/rolesRoutes'
 import { createLocalesRoutes } from '../../routes/localesRoutes'
+import { createCodenameVLC } from '@universo/utils'
+
+type TestExecutor = {
+    query: ReturnType<typeof jest.fn>
+    transaction: ReturnType<typeof jest.fn>
+    isReleased: ReturnType<typeof jest.fn>
+}
+
+type TestSession = {
+    query: ReturnType<typeof jest.fn>
+    isReleased: ReturnType<typeof jest.fn>
+}
 
 const buildExecutors = () => {
     const poolExec = { query: jest.fn(), transaction: jest.fn(), isReleased: jest.fn(() => false) }
@@ -62,10 +74,19 @@ const buildExecutors = () => {
     return { poolExec, requestExec, session }
 }
 
-const attachRequestContext = (app: import('express').Express, requestExec: any, session: any) => {
+const attachRequestContext = (app: import('express').Express, requestExec: TestExecutor, session: TestSession) => {
     app.use((req, _res, next) => {
-        ;(req as any).user = { id: 'user-1' }
-        ;(req as any).dbContext = {
+        ;(req as typeof req & { user?: { id: string } }).user = { id: 'user-1' }
+        ;(
+            req as typeof req & {
+                dbContext?: {
+                    executor: TestExecutor
+                    session: TestSession
+                    isReleased: () => boolean
+                    query: TestSession['query']
+                }
+            }
+        ).dbContext = {
             executor: requestExec,
             session,
             isReleased: () => false,
@@ -89,6 +110,8 @@ describe('admin routes request-scoped executor usage', () => {
             }
         }
     }
+
+    const codenameValue = createCodenameVLC('en', 'editor-copy')
 
     beforeEach(() => {
         jest.clearAllMocks()
@@ -243,7 +266,7 @@ describe('admin routes request-scoped executor usage', () => {
         )
 
         const response = await request(app).post('/roles').send({
-            codename: 'editor-copy',
+            codename: codenameValue,
             name: localizedValue,
             description: localizedValue,
             color: '#111111',
@@ -284,7 +307,7 @@ describe('admin routes request-scoped executor usage', () => {
         )
 
         const response = await request(app).post(`/roles/${sourceRoleId}/copy`).send({
-            codename: 'editor-copy',
+            codename: codenameValue,
             name: localizedValue,
             description: localizedValue,
             color: '#111111',

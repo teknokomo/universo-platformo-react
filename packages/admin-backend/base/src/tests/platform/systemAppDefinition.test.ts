@@ -38,10 +38,12 @@ describe('admin system-app definition', () => {
 
         expect(codenameField).toEqual(
             expect.objectContaining({
-                physicalDataType: 'VARCHAR(50)',
-                validationRules: expect.objectContaining({
-                    maxLength: 50,
-                    pattern: '^[a-z0-9:_-]+$'
+                physicalColumnName: 'codename',
+                dataType: 'JSON',
+                isRequired: true,
+                presentation: expect.objectContaining({
+                    name: expect.any(Object),
+                    description: expect.any(Object)
                 })
             })
         )

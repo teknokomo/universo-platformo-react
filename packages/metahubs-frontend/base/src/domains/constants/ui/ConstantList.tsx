@@ -50,7 +50,7 @@ import type {
     PaginatedResponse
 } from '../../../types'
 import { getVLCString, toConstantDisplay } from '../../../types'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { extractLocalizedInput, ensureEntityCodenameContent, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../utils/codename'
 import {
     buildInitialValues as buildSetInitialValues,
@@ -67,8 +67,7 @@ type GenericFormValues = Record<string, unknown>
 
 type ConstantFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename: string
+    codename: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     dataType: ConstantDataType
     validationRules: Record<string, unknown>
@@ -78,8 +77,7 @@ type ConstantFormValues = {
 
 const DEFAULT_FORM_VALUES: ConstantFormValues = {
     nameVlc: null,
-    codenameVlc: null,
-    codename: '',
+    codename: null,
     codenameTouched: false,
     dataType: 'STRING',
     validationRules: { maxLength: 10, localized: false, versioned: false },
@@ -133,8 +131,7 @@ const buildInitialFormValues = (
     if (mode === 'edit') {
         return {
             nameVlc: source.name ?? null,
-            codenameVlc: source.codenameLocalized ?? null,
-            codename: source.codename,
+            codename: ensureEntityCodenameContent(source, uiLocale, getVLCString(source.codename) || ''),
             codenameTouched: true,
             dataType: source.dataType,
             validationRules: (source.validationRules as Record<string, unknown>) ?? {},
@@ -143,12 +140,10 @@ const buildInitialFormValues = (
         }
     }
 
-    const copiedCodename = normalizeCodenameForStyle(`${source.codename}-copy`, codenameStyle, codenameAlphabet)
     return {
-        nameVlc: appendCopySuffix(source.name ?? null, uiLocale, source.codename || 'Copy'),
-        codenameVlc: source.codenameLocalized ?? null,
-        codename: copiedCodename,
-        codenameTouched: true,
+        nameVlc: appendCopySuffix(source.name ?? null, uiLocale, getVLCString(source.codename) || 'Copy'),
+        codename: null,
+        codenameTouched: false,
         dataType: source.dataType,
         validationRules: (source.validationRules as Record<string, unknown>) ?? {},
         value: source.value ?? null,
@@ -547,7 +542,9 @@ const ConstantList = () => {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
 
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('constants.validation.codenameRequired', 'Codename is required')
@@ -570,7 +567,9 @@ const ConstantList = () => {
     const canSaveForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             return (
                 !values._hasCodenameDuplicate &&
@@ -586,16 +585,16 @@ const ConstantList = () => {
     const buildPayload = useCallback(
         (values: GenericFormValues): ConstantLocalizedPayload => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-            const codename = normalizeCodenameForStyle(String(values.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+            const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const codename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             const dataType = (values.dataType as ConstantDataType | undefined) ?? 'STRING'
+            const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
             return {
-                codename,
-                codenameInput,
-                codenamePrimaryLocale,
+                codename: codenamePayload,
                 dataType,
                 name: nameInput ?? {},
                 namePrimaryLocale,

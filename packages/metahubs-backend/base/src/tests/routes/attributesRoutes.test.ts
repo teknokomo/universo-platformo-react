@@ -5,6 +5,22 @@ jest.mock('@universo/admin-backend', () => ({
     hasSubjectPermission: jest.fn(async () => false)
 }))
 
+const mockEnsureMetahubAccess = jest.fn(async () => undefined)
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess: () => async (req: any, res: any, metahubId: string, permission?: string) => {
+        const user = (req as any).user
+        const userId = user?.id ?? user?.sub ?? user?.user_id ?? user?.userId
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+        await mockEnsureMetahubAccess({}, userId, metahubId, permission)
+        return userId
+    }
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -12,6 +28,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createAttributesRoutes } from '../../domains/attributes/routes/attributesRoutes'
+import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
@@ -143,6 +160,7 @@ describe('Attributes Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockEnsureMetahubAccess.mockResolvedValue(undefined)
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
@@ -172,7 +190,7 @@ describe('Attributes Routes', () => {
             const response = await request(app)
                 .post('/metahub/metahub-1/catalog/catalog-1/attributes')
                 .send({
-                    codename: 'TableField',
+                    codename: testCodenameVlc('TableField'),
                     dataType: 'TABLE',
                     name: { en: 'Table Field' },
                     isDisplayAttribute: true
@@ -196,7 +214,7 @@ describe('Attributes Routes', () => {
             const response = await request(app)
                 .post('/metahub/metahub-1/catalog/catalog-1/attributes')
                 .send({
-                    codename: 'ItemsTable',
+                    codename: testCodenameVlc('ItemsTable'),
                     dataType: 'TABLE',
                     name: { en: 'Items' },
                     isDisplayAttribute: false
@@ -228,7 +246,7 @@ describe('Attributes Routes', () => {
             const response = await request(app)
                 .post('/metahub/metahub-1/catalog/catalog-1/attributes')
                 .send({
-                    codename: 'title',
+                    codename: testCodenameVlc('title'),
                     dataType: 'STRING',
                     name: { en: 'Title' }
                 })
@@ -243,7 +261,12 @@ describe('Attributes Routes', () => {
                 'metahub-1',
                 expect.objectContaining({
                     catalogId: 'catalog-1',
-                    codename: 'Title'
+                    codename: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Title' })
+                        })
+                    })
                 }),
                 'test-user-id',
                 tx

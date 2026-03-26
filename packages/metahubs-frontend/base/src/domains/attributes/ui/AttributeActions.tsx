@@ -11,6 +11,7 @@ import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/templ
 import { notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import type { Attribute, AttributeDisplay, AttributeLocalizedPayload, AttributeValidationRules } from '../../../types'
+import { getVLCString } from '../../../types'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
 
@@ -20,8 +21,7 @@ const DEFAULT_CC: CodenameConfig = {
     allowMixed: false,
     autoConvertMixedAlphabets: true,
     autoReformat: true,
-    requireReformat: true,
-    localizedEnabled: false
+    requireReformat: true
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 
@@ -69,7 +69,7 @@ const canDeleteAttributeEntity = (ctx: ActionContext<AttributeDisplay, Attribute
     return displayCount > 1
 }
 
-import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 
 const ATTRIBUTE_DATA_TYPES = new Set<Attribute['dataType']>(['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'])
@@ -83,8 +83,7 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
 
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
-        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
-        codename: raw?.codename ?? ctx.entity?.codename ?? '',
+        codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
         dataType: raw?.dataType ?? ctx.entity?.dataType ?? 'STRING',
         isRequired: isSingleAttribute ? true : raw?.isRequired ?? ctx.entity?.isRequired ?? false,
@@ -104,7 +103,9 @@ const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLoc
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('attributes.validation.codenameRequired', 'Codename is required')
@@ -140,7 +141,9 @@ const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLoc
 const canSaveAttributeForm = (values: GenericFormValues) => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     const hasBasicInfo =
         !values._hasCodenameDuplicate &&
@@ -212,10 +215,11 @@ const sanitizeAttributeUiConfig = (
 const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
-    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
+    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
+    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+    const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     const dataType = (values.dataType as AttributeLocalizedPayload['dataType']) ?? 'STRING'
     const isRequired = Boolean(values.isRequired)
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
@@ -226,11 +230,10 @@ const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
         dataType === 'REF' && targetEntityKind === 'set' ? (values.targetConstantId as string | null | undefined) ?? null : undefined
     const sourceUiConfig = (values.uiConfig as Record<string, unknown> | undefined) ?? {}
     const uiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, sourceUiConfig, isRequired)
+    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
     return {
-        codename,
-        codenameInput,
-        codenamePrimaryLocale,
+        codename: codenamePayload,
         dataType,
         isRequired,
         isDisplayAttribute,
@@ -480,13 +483,8 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                 const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
                 const initial = {
                     nameVlc: appendCopySuffix(raw?.name ?? null, uiLocale, sourceName),
-                    codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
-                    codename: normalizeCodenameForStyle(
-                        `${raw?.codename ?? ctx.entity?.codename ?? 'attribute'}-copy`,
-                        DEFAULT_CC.style,
-                        DEFAULT_CC.alphabet
-                    ),
-                    codenameTouched: true,
+                    codename: null,
+                    codenameTouched: false,
                     dataType: sourceDataType,
                     isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false,
                     isDisplayAttribute: false,

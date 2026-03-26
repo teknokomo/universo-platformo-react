@@ -7,6 +7,8 @@
  * Shared field sets (_upl_* and _mhb_*) are defined once and applied to all tables.
  */
 
+import { codenamePrimaryTextSql } from '../../shared/codename'
+
 // ─── Column types ────────────────────────────────────────────────────────────
 
 export type SystemColumnType = 'uuid' | 'string' | 'text' | 'integer' | 'boolean' | 'jsonb' | 'timestamptz'
@@ -33,6 +35,7 @@ export interface SystemForeignKeyDef {
 
 export interface SystemIndexDef {
     name: string
+    /** Column names or raw SQL expressions used in CREATE INDEX. */
     columns: string[]
     unique?: boolean
     /** Previous index names (used to detect explicit index rename migrations). */
@@ -98,7 +101,7 @@ export const MHB_SYSTEM_FIELDS: SystemColumnDef[] = [
     { name: '_mhb_deleted_by', type: 'uuid', nullable: true }
 ]
 
-// ─── V1 System table definitions ─────────────────────────────────────────────
+// ─── System table definitions ────────────────────────────────────────────────
 
 const mhbObjects: SystemTableDef = {
     name: '_mhb_objects',
@@ -106,7 +109,7 @@ const mhbObjects: SystemTableDef = {
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'kind', type: 'string', nullable: false, index: true },
-        { name: 'codename', type: 'string', nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false },
         { name: 'table_name', type: 'string', nullable: true },
         { name: 'presentation', type: 'jsonb', defaultTo: '{}' },
         { name: 'config', type: 'jsonb', defaultTo: '{}' }
@@ -114,7 +117,7 @@ const mhbObjects: SystemTableDef = {
     indexes: [
         {
             name: 'idx_mhb_objects_kind_codename_active',
-            columns: ['kind', 'codename'],
+            columns: ['kind', codenamePrimaryTextSql('codename')],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
         },
@@ -137,7 +140,7 @@ const mhbAttributes: SystemTableDef = {
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
-        { name: 'codename', type: 'string', nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false },
         { name: 'data_type', type: 'string', nullable: false },
         { name: 'presentation', type: 'jsonb', defaultTo: '{}' },
         { name: 'validation_rules', type: 'jsonb', defaultTo: '{}' },
@@ -163,13 +166,13 @@ const mhbAttributes: SystemTableDef = {
         { name: 'idx_mhb_attributes_parent_attribute_id', columns: ['parent_attribute_id'] },
         {
             name: 'idx_mhb_attributes_object_codename_root_active',
-            columns: ['object_id', 'codename'],
+            columns: ['object_id', codenamePrimaryTextSql('codename')],
             unique: true,
             where: 'parent_attribute_id IS NULL AND _upl_deleted = false AND _mhb_deleted = false'
         },
         {
             name: 'idx_mhb_attributes_object_parent_codename_child_active',
-            columns: ['object_id', 'parent_attribute_id', 'codename'],
+            columns: ['object_id', 'parent_attribute_id', codenamePrimaryTextSql('codename')],
             unique: true,
             where: 'parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
         },
@@ -188,7 +191,7 @@ const mhbConstants: SystemTableDef = {
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
-        { name: 'codename', type: 'string', nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false },
         { name: 'data_type', type: 'string', nullable: false },
         { name: 'presentation', type: 'jsonb', defaultTo: '{}' },
         { name: 'validation_rules', type: 'jsonb', defaultTo: '{}' },
@@ -202,7 +205,7 @@ const mhbConstants: SystemTableDef = {
         { name: 'idx_mhb_constants_object_sort', columns: ['object_id', 'sort_order'] },
         {
             name: 'idx_mhb_constants_object_codename_active',
-            columns: ['object_id', 'codename'],
+            columns: ['object_id', codenamePrimaryTextSql('codename')],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
         },
@@ -229,7 +232,7 @@ const mhbEnumerationValues: SystemTableDef = {
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
-        { name: 'codename', type: 'string', nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false },
         { name: 'presentation', type: 'jsonb', defaultTo: '{}' },
         { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 },
         { name: 'is_default', type: 'boolean', nullable: false, defaultTo: false }
@@ -240,7 +243,7 @@ const mhbEnumerationValues: SystemTableDef = {
         { name: 'idx_mhb_values_object_sort', columns: ['object_id', 'sort_order'] },
         {
             name: 'idx_mhb_values_object_codename_active',
-            columns: ['object_id', 'codename'],
+            columns: ['object_id', codenamePrimaryTextSql('codename')],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
         },
@@ -383,9 +386,9 @@ const mhbWidgets: SystemTableDef = {
 // ─── Version registry ────────────────────────────────────────────────────────
 
 /**
- * Structure version 1 — baseline system tables with full feature set.
+ * System tables with JSONB codename columns and full feature set.
  */
-export const SYSTEM_TABLES_V1: SystemTableDef[] = [
+export const SYSTEM_TABLES: SystemTableDef[] = [
     mhbObjects,
     mhbConstants,
     mhbAttributesV2,
@@ -399,11 +402,9 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
 
 /**
  * Maps a structure version number to its table definitions.
- * Each entry is the COMPLETE set of tables for that version.
- *
- * The current codebase uses a single baseline (v1) for fresh schemas.
+ * Single-version registry — all schemas use the current table definitions.
  */
-export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([[1, SYSTEM_TABLES_V1]])
+export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([[1, SYSTEM_TABLES]])
 
 export interface SystemStructureSnapshotTable {
     name: string
@@ -455,7 +456,7 @@ export function buildSystemStructureSnapshot(version: number): SystemStructureSn
  */
 export function buildIndexSQL(schemaName: string, tableName: string, idx: SystemIndexDef): string {
     const qualifiedTable = `"${schemaName}"."${tableName}"`
-    const colExpr = idx.columns.map((c) => `"${c}"`).join(', ')
+    const colExpr = idx.columns.map((column) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(column) ? `"${column}"` : column)).join(', ')
     const uniqueStr = idx.unique ? 'UNIQUE ' : ''
     const methodStr = idx.method === 'gin' ? ' USING GIN' : ''
     const whereStr = idx.where ? ` WHERE ${idx.where}` : ''

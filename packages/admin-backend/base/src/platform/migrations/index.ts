@@ -13,6 +13,47 @@ export interface SqlMigrationDefinition {
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
+const codenamePrimaryTextSql = (columnRef: string): string =>
+    normalizeSql(
+        `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    )
+
+const ROLE_REGISTERED_CODENAME = `'{
+    "_schema": "1",
+    "_primary": "en",
+    "locales": {
+        "en": { "content": "Registered", "version": 1, "isActive": true, "createdAt": "2026-03-17T00:00:00.000Z", "updatedAt": "2026-03-17T00:00:00.000Z" },
+        "ru": { "content": "Зарегистрированный", "version": 1, "isActive": true, "createdAt": "2026-03-17T00:00:00.000Z", "updatedAt": "2026-03-17T00:00:00.000Z" }
+    }
+}'::jsonb`
+
+const ROLE_USER_CODENAME = `'{
+    "_schema": "1",
+    "_primary": "en",
+    "locales": {
+        "en": { "content": "User", "version": 1, "isActive": true, "createdAt": "2026-03-17T00:00:00.000Z", "updatedAt": "2026-03-17T00:00:00.000Z" },
+        "ru": { "content": "Пользователь", "version": 1, "isActive": true, "createdAt": "2026-03-17T00:00:00.000Z", "updatedAt": "2026-03-17T00:00:00.000Z" }
+    }
+}'::jsonb`
+
+const ROLE_SUPERUSER_CODENAME = `'{
+    "_schema": "1",
+    "_primary": "en",
+    "locales": {
+        "en": { "content": "Superuser", "version": 1, "isActive": true, "createdAt": "2024-12-06T00:00:00.000Z", "updatedAt": "2024-12-06T00:00:00.000Z" },
+        "ru": { "content": "Суперпользователь", "version": 1, "isActive": true, "createdAt": "2024-12-06T00:00:00.000Z", "updatedAt": "2024-12-06T00:00:00.000Z" }
+    }
+}'::jsonb`
+
+const INSTANCE_LOCAL_CODENAME = `'{
+    "_schema": "1",
+    "_primary": "en",
+    "locales": {
+        "en": { "content": "Local", "version": 1, "isActive": true, "createdAt": "2024-12-06T00:00:00.000Z", "updatedAt": "2024-12-06T00:00:00.000Z" },
+        "ru": { "content": "Локальный", "version": 1, "isActive": true, "createdAt": "2024-12-06T00:00:00.000Z", "updatedAt": "2024-12-06T00:00:00.000Z" }
+    }
+}'::jsonb`
+
 const createDropPolicyIfTableExistsStatement = (policyName: string, schemaName: string, tableName: string): SqlMigrationStatement => ({
     sql: `
 DO $$
@@ -37,9 +78,11 @@ const adminLifecycleRoleSeedStatements = [
     {
         sql: `
 INSERT INTO admin.cat_roles (codename, description, name, color, is_superuser, is_system)
-VALUES
+SELECT *
+FROM (
+    VALUES
     (
-        'registered',
+        ${ROLE_REGISTERED_CODENAME},
         '{
             "_schema": "1",
             "_primary": "en",
@@ -85,7 +128,7 @@ VALUES
         true
     ),
     (
-        'user',
+        ${ROLE_USER_CODENAME},
         '{
             "_schema": "1",
             "_primary": "en",
@@ -130,13 +173,13 @@ VALUES
         false,
         true
     )
-ON CONFLICT (codename) WHERE _upl_deleted = false AND _app_deleted = false
-DO UPDATE SET
-    description = EXCLUDED.description,
-    name = EXCLUDED.name,
-    color = EXCLUDED.color,
-    is_superuser = EXCLUDED.is_superuser,
-    is_system = EXCLUDED.is_system
+) AS seed(codename, description, name, color, is_superuser, is_system)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM admin.cat_roles existing
+    WHERE ${codenamePrimaryTextSql('existing.codename')} = ${codenamePrimaryTextSql('seed.codename')}
+      AND existing._upl_deleted = false AND existing._app_deleted = false
+)
         `
     },
     {
@@ -149,7 +192,7 @@ CROSS JOIN (
         ('onboarding', 'read', '{}'::jsonb, ARRAY[]::text[]),
         ('profile', 'read', '{}'::jsonb, ARRAY[]::text[])
 ) AS p(subject, action, conditions, fields)
-WHERE r.codename = 'registered'
+WHERE ${codenamePrimaryTextSql('r.codename')} = 'Registered'
   AND r._upl_deleted = false AND r._app_deleted = false
 ON CONFLICT (role_id, subject, action) WHERE _upl_deleted = false AND _app_deleted = false
 DO UPDATE SET
@@ -168,7 +211,7 @@ CROSS JOIN (
         ('profile', '*', '{}'::jsonb, ARRAY[]::text[]),
         ('onboarding', 'read', '{}'::jsonb, ARRAY[]::text[])
 ) AS p(subject, action, conditions, fields)
-WHERE r.codename = 'user'
+WHERE ${codenamePrimaryTextSql('r.codename')} = 'User'
   AND r._upl_deleted = false AND r._app_deleted = false
 ON CONFLICT (role_id, subject, action) WHERE _upl_deleted = false AND _app_deleted = false
 DO UPDATE SET
@@ -182,7 +225,7 @@ UPDATE admin.rel_role_permissions rp
 SET action = '*'
 FROM admin.cat_roles r
 WHERE rp.role_id = r.id
-    AND r.codename = 'user'
+    AND ${codenamePrimaryTextSql('r.codename')} = 'User'
     AND r._upl_deleted = false AND r._app_deleted = false
     AND rp.subject = 'profile'
     AND rp.action = 'manage'
@@ -205,7 +248,7 @@ JOIN auth.users u ON u.id = p.user_id
 CROSS JOIN admin.cat_roles r
 WHERE p.onboarding_completed = true
   AND u.deleted_at IS NULL
-  AND r.codename = 'user'
+    AND ${codenamePrimaryTextSql('r.codename')} = 'User'
   AND r._upl_deleted = false AND r._app_deleted = false
   AND NOT EXISTS (
       SELECT 1
@@ -237,7 +280,7 @@ JOIN auth.users u ON u.id = p.user_id
 CROSS JOIN admin.cat_roles r
 WHERE COALESCE(p.onboarding_completed, false) = false
   AND u.deleted_at IS NULL
-  AND r.codename = 'registered'
+    AND ${codenamePrimaryTextSql('r.codename')} = 'Registered'
   AND r._upl_deleted = false AND r._app_deleted = false
   AND NOT EXISTS (
       SELECT 1
@@ -270,7 +313,7 @@ export const createAdminSchemaMigrationDefinition: SqlMigrationDefinition = {
             sql: `
 CREATE TABLE IF NOT EXISTS admin.cfg_instances (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
-    codename VARCHAR(100) NOT NULL,
+    codename JSONB NOT NULL,
     name JSONB NOT NULL DEFAULT '{}',
     description JSONB DEFAULT '{}',
     url VARCHAR(255),
@@ -311,7 +354,7 @@ CREATE TABLE IF NOT EXISTS admin.cfg_instances (
             sql: `
 CREATE TABLE IF NOT EXISTS admin.cat_roles (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
-    codename VARCHAR(50) NOT NULL,
+    codename JSONB NOT NULL,
     name JSONB DEFAULT '{}',
     description JSONB,
     color VARCHAR(7) DEFAULT '#9e9e9e',
@@ -428,14 +471,14 @@ CREATE TABLE IF NOT EXISTS admin.rel_user_roles (
         {
             sql: `
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cfg_instances_codename_active
-    ON admin.cfg_instances (codename)
+    ON admin.cfg_instances (${codenamePrimaryTextSql('codename')})
     WHERE _upl_deleted = false AND _app_deleted = false
         `
         },
         {
             sql: `
 CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_codename_active
-    ON admin.cat_roles (codename)
+    ON admin.cat_roles (${codenamePrimaryTextSql('codename')})
     WHERE _upl_deleted = false AND _app_deleted = false
         `
         },
@@ -494,9 +537,11 @@ CREATE INDEX IF NOT EXISTS idx_cfg_instances_app_deleted
         {
             sql: `
 INSERT INTO admin.cat_roles (codename, description, name, color, is_superuser, is_system)
-VALUES
+SELECT *
+FROM (
+    VALUES
     (
-        'superuser',
+        ${ROLE_SUPERUSER_CODENAME},
         '{
             "_schema": "1",
             "_primary": "en",
@@ -541,11 +586,13 @@ VALUES
         true,
         true
     )
-ON CONFLICT (codename) WHERE _upl_deleted = false AND _app_deleted = false
-DO UPDATE SET
-    name = EXCLUDED.name,
-    color = EXCLUDED.color,
-    is_superuser = EXCLUDED.is_superuser
+) AS seed(codename, description, name, color, is_superuser, is_system)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM admin.cat_roles existing
+    WHERE ${codenamePrimaryTextSql('existing.codename')} = ${codenamePrimaryTextSql('seed.codename')}
+      AND existing._upl_deleted = false AND existing._app_deleted = false
+)
         `
         },
         // ── Seed: wildcard permission for superuser ───────────────────
@@ -553,7 +600,7 @@ DO UPDATE SET
             sql: `
 INSERT INTO admin.rel_role_permissions (role_id, subject, action)
 SELECT id, '*', '*' FROM admin.cat_roles
-WHERE codename = 'superuser' AND _upl_deleted = false AND _app_deleted = false
+WHERE ${codenamePrimaryTextSql('codename')} = 'Superuser' AND _upl_deleted = false AND _app_deleted = false
 ON CONFLICT (role_id, subject, action) WHERE _upl_deleted = false AND _app_deleted = false
 DO NOTHING
         `
@@ -568,9 +615,15 @@ CREATE OR REPLACE FUNCTION admin.has_permission(
     p_context JSONB DEFAULT '{}'
 ) RETURNS BOOLEAN AS $$
 DECLARE
+    v_auth_user_id UUID;
     v_user_id UUID;
 BEGIN
-    v_user_id := COALESCE(p_user_id, auth.uid());
+    v_auth_user_id := auth.uid();
+    IF v_auth_user_id IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM v_auth_user_id THEN
+        RAISE EXCEPTION 'Authenticated sessions may inspect only their own permissions'
+            USING ERRCODE = '42501';
+    END IF;
+    v_user_id := COALESCE(p_user_id, v_auth_user_id);
     IF v_user_id IS NULL THEN RETURN FALSE; END IF;
     RETURN EXISTS (
         SELECT 1
@@ -592,30 +645,40 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_t
             sql: `
 CREATE OR REPLACE FUNCTION admin.get_user_permissions(p_user_id UUID)
 RETURNS TABLE (
-    role_codename VARCHAR,
+    role_codename TEXT,
     name JSONB,
-    color VARCHAR,
+    color TEXT,
     is_superuser BOOLEAN,
-    subject VARCHAR,
-    action VARCHAR,
+    subject TEXT,
+    action TEXT,
     conditions JSONB,
     fields TEXT[]
 ) AS $$
+DECLARE
+    v_auth_user_id UUID;
+    v_user_id UUID;
 BEGIN
+    v_auth_user_id := auth.uid();
+    IF v_auth_user_id IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM v_auth_user_id THEN
+        RAISE EXCEPTION 'Authenticated sessions may inspect only their own permissions'
+            USING ERRCODE = '42501';
+    END IF;
+    v_user_id := COALESCE(p_user_id, v_auth_user_id);
+    IF v_user_id IS NULL THEN RETURN; END IF;
     RETURN QUERY
     SELECT
-        r.codename,
+        ${codenamePrimaryTextSql('r.codename')},
         r.name,
-        r.color,
+        r.color::TEXT,
         r.is_superuser,
-        rp.subject,
-        rp.action,
+        rp.subject::TEXT,
+        rp.action::TEXT,
         rp.conditions,
         rp.fields
     FROM admin.rel_user_roles ur
     JOIN admin.cat_roles r ON ur.role_id = r.id
     JOIN admin.rel_role_permissions rp ON r.id = rp.role_id
-    WHERE ur.user_id = p_user_id
+    WHERE ur.user_id = v_user_id
       AND ur._upl_deleted = false AND ur._app_deleted = false
       AND r._upl_deleted = false AND r._app_deleted = false
       AND rp._upl_deleted = false AND rp._app_deleted = false;
@@ -628,9 +691,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_t
 CREATE OR REPLACE FUNCTION admin.is_superuser(p_user_id UUID DEFAULT NULL)
 RETURNS BOOLEAN AS $$
 DECLARE
+    v_auth_user_id UUID;
     v_user_id UUID;
 BEGIN
-    v_user_id := COALESCE(p_user_id, auth.uid());
+    v_auth_user_id := auth.uid();
+    IF v_auth_user_id IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM v_auth_user_id THEN
+        RAISE EXCEPTION 'Authenticated sessions may inspect only their own superuser state'
+            USING ERRCODE = '42501';
+    END IF;
+    v_user_id := COALESCE(p_user_id, v_auth_user_id);
     IF v_user_id IS NULL THEN RETURN FALSE; END IF;
     RETURN EXISTS (
         SELECT 1
@@ -650,9 +719,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_t
 CREATE OR REPLACE FUNCTION admin.has_admin_permission(p_user_id UUID DEFAULT NULL)
 RETURNS BOOLEAN AS $$
 DECLARE
+    v_auth_user_id UUID;
     v_user_id UUID;
 BEGIN
-    v_user_id := COALESCE(p_user_id, auth.uid());
+    v_auth_user_id := auth.uid();
+    IF v_auth_user_id IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM v_auth_user_id THEN
+        RAISE EXCEPTION 'Authenticated sessions may inspect only their own admin access'
+            USING ERRCODE = '42501';
+    END IF;
+    v_user_id := COALESCE(p_user_id, v_auth_user_id);
     IF v_user_id IS NULL THEN RETURN FALSE; END IF;
     RETURN EXISTS (
         SELECT 1
@@ -674,24 +749,34 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_t
             sql: `
 CREATE OR REPLACE FUNCTION admin.get_user_global_roles(p_user_id UUID)
 RETURNS TABLE (
-    role_codename VARCHAR,
+    role_codename TEXT,
     name JSONB,
-    color VARCHAR
+    color TEXT
 ) AS $$
+DECLARE
+    v_auth_user_id UUID;
+    v_user_id UUID;
 BEGIN
+    v_auth_user_id := auth.uid();
+    IF v_auth_user_id IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM v_auth_user_id THEN
+        RAISE EXCEPTION 'Authenticated sessions may inspect only their own global roles'
+            USING ERRCODE = '42501';
+    END IF;
+    v_user_id := COALESCE(p_user_id, v_auth_user_id);
+    IF v_user_id IS NULL THEN RETURN; END IF;
     RETURN QUERY
     SELECT
-        r.codename,
+        ${codenamePrimaryTextSql('r.codename')},
         r.name,
-        r.color
+        r.color::TEXT
     FROM admin.rel_user_roles ur
     JOIN admin.cat_roles r ON ur.role_id = r.id
-    WHERE ur.user_id = p_user_id
+    WHERE ur.user_id = v_user_id
       AND ur._upl_deleted = false AND ur._app_deleted = false
             AND r._upl_deleted = false AND r._app_deleted = false
         ORDER BY
                 CASE WHEN r.is_superuser THEN 0 ELSE 1 END,
-                LOWER(r.codename),
+                LOWER(${codenamePrimaryTextSql('r.codename')}),
                 r.id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_temp STABLE
@@ -795,7 +880,7 @@ CREATE POLICY "instances_manage_admin_access" ON admin.cfg_instances
             sql: `
 INSERT INTO admin.cfg_instances (codename, name, description, status, is_local)
 VALUES (
-    'local',
+    ${INSTANCE_LOCAL_CODENAME},
     '{
         "_schema": "1",
         "_primary": "en",
@@ -839,8 +924,7 @@ VALUES (
     'active',
     true
 )
-ON CONFLICT (codename) WHERE _upl_deleted = false AND _app_deleted = false
-DO NOTHING
+ON CONFLICT DO NOTHING
         `
         },
         // ── cfg_locales table ─────────────────────────────────────────
@@ -1055,7 +1139,6 @@ VALUES
     ('metahubs', 'codenameStyle', '{"_value": "pascal-case"}'::jsonb),
     ('metahubs', 'codenameAlphabet', '{"_value": "en-ru"}'::jsonb),
     ('metahubs', 'codenameAllowMixedAlphabets', '{"_value": false}'::jsonb),
-    ('metahubs', 'codenameLocalizedEnabled', '{"_value": false}'::jsonb),
     ('metahubs', 'codenameAutoConvertMixedAlphabets', '{"_value": true}'::jsonb),
     ('metahubs', 'platformSystemAttributesConfigurable', '{"_value": false}'::jsonb),
     ('metahubs', 'platformSystemAttributesRequired', '{"_value": true}'::jsonb),

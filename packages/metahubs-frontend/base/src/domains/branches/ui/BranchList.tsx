@@ -34,8 +34,7 @@ import {
     FlowListTable,
     gridSpacing,
     LocalizedInlineField,
-    useCodenameAutoFill,
-    useCodenameVlcSync,
+    useCodenameAutoFillVlc,
     revealPendingEntityFeedback
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
@@ -61,7 +60,7 @@ import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPend
 import { normalizeBranchCopyOptions } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, BranchDeleteDialog, ExistingCodenamesProvider } from '../../../components'
 import { getBranchCopyOptions, setAllBranchCopyChildren, toggleBranchCopyChild } from '../utils/copyOptions'
 import branchActions from './BranchActions'
@@ -70,8 +69,7 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 type BranchFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    codenameVlc?: VersionedLocalizedContent<string> | null
-    codename: string
+    codename: VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     sourceBranchId?: string | null
     fullCopy?: boolean
@@ -149,18 +147,8 @@ const BranchFormFields = ({
     const codenameConfig = useCodenameConfig()
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodenameForStyle(
-        nameValue,
-        codenameConfig.style,
-        codenameConfig.alphabet,
-        codenameConfig.allowMixed,
-        codenameConfig.autoConvertMixedAlphabets
-    )
     const sourceBranchId = values.sourceBranchId as string | undefined
     const selectedSource = sourceOptions.find((option) => option.id === sourceBranchId)
 
@@ -170,19 +158,9 @@ const BranchFormFields = ({
         }
     }, [showSourceField, sourceBranchId, sourceOptions, setValue])
 
-    useCodenameAutoFill({
+    useCodenameAutoFillVlc({
         codename,
         codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    useCodenameVlcSync({
-        localizedEnabled: codenameConfig.localizedEnabled,
-        codename,
-        codenameTouched,
-        codenameVlc,
         nameVlc,
         deriveCodename: (nameContent) =>
             sanitizeCodenameForStyle(
@@ -192,7 +170,7 @@ const BranchFormFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
     })
 
     const renderSourceValue = (selected: unknown) => {
@@ -231,9 +209,6 @@ const BranchFormFields = ({
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                localizedEnabled={codenameConfig.localizedEnabled}
-                localizedValue={codenameVlc}
-                onLocalizedChange={(next) => setValue('codenameVlc', next)}
                 uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
@@ -501,7 +476,7 @@ const BranchList = () => {
         () => ({
             nameVlc: null,
             descriptionVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             sourceBranchId: preferredSourceBranchId,
             ...normalizeBranchCopyOptions()
@@ -577,7 +552,9 @@ const BranchList = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('metahubs:branches.validation.codenameRequired', 'Codename is required')
@@ -594,7 +571,9 @@ const BranchList = () => {
     const canSaveBranchForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             return (
                 !values._hasCodenameDuplicate &&
@@ -698,17 +677,19 @@ const BranchList = () => {
             api: {
                 updateEntity: (id: string, patch: BranchLocalizedPayload) => {
                     if (!metahubId) return Promise.resolve()
-                    const normalizedCodename = normalizeCodenameForStyle(patch.codename, codenameConfig.style, codenameConfig.alphabet)
+                    const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
+                    const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
                         throw new Error(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
                     }
+                    const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     const branch = branchMap.get(id)
                     const expectedVersion = branch?.version
                     updateBranchMutation.mutate(
                         {
                             metahubId,
                             branchId: id,
-                            data: { ...patch, codename: normalizedCodename, expectedVersion }
+                            data: { ...patch, codename: codenamePayload, expectedVersion }
                         },
                         {
                             onError: (error: unknown) => {
@@ -718,7 +699,7 @@ const BranchList = () => {
                                         setConflictState({
                                             open: true,
                                             conflict,
-                                            pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
+                                            pendingUpdate: { id, patch: { ...patch, codename: codenamePayload } }
                                         })
                                     }
                                 }
@@ -821,11 +802,13 @@ const BranchList = () => {
         // Validation is handled by EntityFormDialog's validate/canSave props.
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-        const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+        const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-        const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
-        const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
+        const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, normalizedCodename || '')
         const sourceBranchId = typeof data.sourceBranchId === 'string' && data.sourceBranchId.length > 0 ? data.sourceBranchId : undefined
         const copyOptions = getBranchCopyOptions(data)
 
@@ -834,9 +817,7 @@ const BranchList = () => {
         createBranchMutation.mutate({
             metahubId,
             data: {
-                codename: normalizedCodename || '',
-                codenameInput,
-                codenamePrimaryLocale,
+                codename: codenamePayload,
                 name: nameInput ?? {},
                 description: descriptionInput,
                 namePrimaryLocale: namePrimaryLocale ?? '',

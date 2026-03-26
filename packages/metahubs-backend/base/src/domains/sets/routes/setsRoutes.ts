@@ -5,6 +5,8 @@ import { validateListQuery } from '../../shared/queryParams'
 import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
 import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess } from '../../shared/guards'
+import { resolveUserId } from '../../shared/routeAuth'
+import { toTimestamp } from '../../shared/timestamps'
 import { localizedContent, validation, database, OptimisticLockError } from '@universo/utils'
 import { type SetCopyOptions, type ConstantDataType, MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -18,18 +20,16 @@ import {
     buildCodenameAttempt,
     CODENAME_RETRY_MAX_ATTEMPTS
 } from '../../shared/codenameStyleHelper'
+import {
+    requiredCodenamePayloadSchema,
+    optionalCodenamePayloadSchema,
+    getCodenamePayloadText,
+    syncCodenamePayloadText,
+    syncOptionalCodenamePayloadText
+} from '../../shared/codenamePayload'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeSetCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
-
-type RequestUser = {
-    id?: string
-    sub?: string
-    user_id?: string
-    userId?: string
-}
-
-type RequestWithUser = Request & { user?: RequestUser }
 
 type HubSummaryRow = {
     id: string
@@ -40,9 +40,8 @@ type HubSummaryRow = {
 type SetObjectRow = {
     id: string
     kind?: string
-    codename: string
+    codename: unknown
     presentation?: {
-        codename?: unknown
         name?: unknown
         description?: unknown
     }
@@ -60,8 +59,7 @@ type SetObjectRow = {
 type SetListItemRow = {
     id: string
     metahubId: string
-    codename: string
-    codenameLocalized: unknown
+    codename: unknown
     name: unknown
     description: unknown
     isSingleHub: boolean
@@ -72,12 +70,6 @@ type SetListItemRow = {
     updatedAt: unknown
     constantsCount: number
     hubs: HubSummaryRow[]
-}
-
-const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as RequestWithUser).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
 const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
@@ -101,7 +93,6 @@ const mapSetListItem = (row: SetObjectRow, metahubId: string, constantsCount: nu
     id: row.id,
     metahubId,
     codename: row.codename,
-    codenameLocalized: row.presentation?.codename ?? null,
     name: row.presentation?.name || {},
     description: row.presentation?.description || {},
     isSingleHub: row.config?.isSingleHub || false,
@@ -160,18 +151,11 @@ const getLocalizedSortValue = (value: unknown, fallback: string): string => {
     return firstSimple ?? fallback
 }
 
-const toTimestamp = (value: unknown): number => {
-    if (value instanceof Date) return value.getTime()
-    if (typeof value === 'string' || typeof value === 'number') {
-        const timestamp = new Date(value).getTime()
-        return Number.isNaN(timestamp) ? 0 : timestamp
-    }
-    return 0
-}
-
 const matchesSetSearch = (codename: string, name: unknown, searchLower: string): boolean =>
     codename.toLowerCase().includes(searchLower) ||
     getLocalizedCandidates(name).some((candidate) => candidate.toLowerCase().includes(searchLower))
+
+const getSetCodenameText = (codename: unknown): string => getCodenamePayloadText(codename as Parameters<typeof getCodenamePayloadText>[0])
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
 
@@ -199,69 +183,59 @@ const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transfo
 const optionalLocalizedInputSchema = z
     .union([z.string(), z.record(z.string())])
     .transform((val) => (typeof val === 'string' ? { en: val } : val))
-const localizedCodenameInputSchema = z
-    .union([z.string(), z.record(z.string())])
-    .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
-const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: string, fallbackPrimary = 'en'): unknown => {
-    if (codenameInput === undefined) return undefined
-    const codenameRecord: Record<string, string | undefined> =
-        typeof codenameInput === 'string' ? { en: codenameInput } : (codenameInput as Record<string, string | undefined>)
-    const sanitizedCodename = sanitizeLocalizedInput(codenameRecord)
-    if (Object.keys(sanitizedCodename).length === 0) return null
-    return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
-}
+const createSetSchema = z
+    .object({
+        codename: requiredCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        sortOrder: z.number().int().optional(),
+        isSingleHub: z.boolean().optional(),
+        isRequiredHub: z.boolean().optional(),
+        hubIds: z.array(z.string().uuid()).optional()
+    })
+    .strict()
 
-const createSetSchema = z.object({
-    codename: z.string().min(1).max(100),
-    codenameInput: localizedCodenameInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional(),
-    isSingleHub: z.boolean().optional(),
-    isRequiredHub: z.boolean().optional(),
-    hubIds: z.array(z.string().uuid()).optional()
-})
+const updateSetSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        sortOrder: z.number().int().optional(),
+        isSingleHub: z.boolean().optional(),
+        isRequiredHub: z.boolean().optional(),
+        hubIds: z.array(z.string().uuid()).optional(),
+        expectedVersion: z.number().int().positive().optional()
+    })
+    .strict()
 
-const updateSetSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedCodenameInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional(),
-    isSingleHub: z.boolean().optional(),
-    isRequiredHub: z.boolean().optional(),
-    hubIds: z.array(z.string().uuid()).optional(),
-    expectedVersion: z.number().int().positive().optional()
-})
+const copySetSchema = z
+    .object({
+        codename: optionalCodenamePayloadSchema,
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        copyConstants: z.boolean().optional()
+    })
+    .strict()
 
-const copySetSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
-    codenameInput: localizedCodenameInputSchema.optional(),
-    codenamePrimaryLocale: z.string().optional(),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    copyConstants: z.boolean().optional()
-})
-
-const reorderSetsSchema = z.object({
-    setId: z.string().uuid(),
-    newSortOrder: z.number().int().min(1)
-})
+const reorderSetsSchema = z
+    .object({
+        setId: z.string().uuid(),
+        newSortOrder: z.number().int().min(1)
+    })
+    .strict()
 
 const compareSetTieBreak = (a: SetListItemRow, b: SetListItemRow): number => {
     const bySortOrder = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
     if (bySortOrder !== 0) return bySortOrder
 
-    const byCodename = a.codename.localeCompare(b.codename)
+    const byCodename = getSetCodenameText(a.codename).localeCompare(getSetCodenameText(b.codename))
     if (byCodename !== 0) return byCodename
 
     return a.id.localeCompare(b.id)
@@ -269,8 +243,8 @@ const compareSetTieBreak = (a: SetListItemRow, b: SetListItemRow): number => {
 
 const compareSetItems = (a: SetListItemRow, b: SetListItemRow, sortBy: string, sortOrder: 'asc' | 'desc'): number => {
     if (sortBy === 'name') {
-        const valueA = getLocalizedSortValue(a.name, a.codename).toLowerCase()
-        const valueB = getLocalizedSortValue(b.name, b.codename).toLowerCase()
+        const valueA = getLocalizedSortValue(a.name, getSetCodenameText(a.codename)).toLowerCase()
+        const valueB = getLocalizedSortValue(b.name, getSetCodenameText(b.codename)).toLowerCase()
         if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1
         if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1
         return compareSetTieBreak(a, b)
@@ -289,7 +263,7 @@ const compareSetItems = (a: SetListItemRow, b: SetListItemRow, sortBy: string, s
     }
 
     if (sortBy === 'codename') {
-        const codenameDiff = a.codename.localeCompare(b.codename)
+        const codenameDiff = getSetCodenameText(a.codename).localeCompare(getSetCodenameText(b.codename))
         if (codenameDiff !== 0) return sortOrder === 'asc' ? codenameDiff : -codenameDiff
         return compareSetTieBreak(a, b)
     }
@@ -433,7 +407,7 @@ export function createSetsRoutes(
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter((item) => matchesSetSearch(item.codename, item.name, searchLower))
+                items = items.filter((item) => matchesSetSearch(getSetCodenameText(item.codename), item.name, searchLower))
             }
 
             items.sort((a, b) => compareSetItems(a, b, sortBy, sortOrder))
@@ -495,7 +469,7 @@ export function createSetsRoutes(
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter((item) => matchesSetSearch(item.codename, item.name, searchLower))
+                items = items.filter((item) => matchesSetSearch(getSetCodenameText(item.codename), item.name, searchLower))
             }
 
             items.sort((a, b) => compareSetItems(a, b, sortBy, sortOrder))
@@ -548,8 +522,8 @@ export function createSetsRoutes(
                     id: updated.id,
                     sortOrder: updated.config?.sortOrder ?? 0
                 })
-            } catch (error: any) {
-                if (error.message === 'set not found') {
+            } catch (error: unknown) {
+                if (error instanceof Error && error.message === 'set not found') {
                     return res.status(404).json({ error: 'Set not found' })
                 }
                 throw error
@@ -655,7 +629,8 @@ export function createSetsRoutes(
             }
         }
 
-        const baseCodename = parsed.data.codename ?? currentSet?.codename
+        const baseCodename =
+            parsed.data.codename !== undefined ? getCodenamePayloadText(parsed.data.codename) : getSetCodenameText(currentSet?.codename)
         if (!baseCodename) {
             return res.status(400).json({ error: 'Validation failed', details: { codename: ['Codename is required'] } })
         }
@@ -671,7 +646,7 @@ export function createSetsRoutes(
         }
 
         let finalCodename = normalizedCodename
-        if (mode === 'create' || finalCodename !== currentSet?.codename) {
+        if (mode === 'create' || finalCodename !== getSetCodenameText(currentSet?.codename)) {
             const resolvedCodename = await resolveUniqueSetCodename({
                 metahubId,
                 baseCodename: normalizedCodename,
@@ -686,11 +661,11 @@ export function createSetsRoutes(
             finalCodename = resolvedCodename
         }
 
-        const codenameLocalizedVlc = buildCodenameLocalizedVlc(
-            parsed.data.codenameInput,
-            parsed.data.codenamePrimaryLocale,
+        const codenameFallbackPrimaryLocale =
+            parsed.data.namePrimaryLocale ??
+            (currentSet?.presentation?.name as { _primary?: string } | undefined)?._primary ??
             DEFAULT_PRIMARY_LOCALE
-        )
+        const codenamePayload = syncOptionalCodenamePayloadText(parsed.data.codename, codenameFallbackPrimaryLocale, finalCodename)
         const sanitizedName =
             parsed.data.name !== undefined ? sanitizeLocalizedInput(parsed.data.name as Record<string, string | undefined>) : undefined
         const sanitizedDescription =
@@ -728,8 +703,7 @@ export function createSetsRoutes(
                 created = (await objectsService.createSet(
                     metahubId,
                     {
-                        codename: finalCodename,
-                        codenameLocalized: codenameLocalizedVlc,
+                        codename: codenamePayload ?? finalCodename,
                         name: resolvedName,
                         description: resolvedDescription,
                         config: {
@@ -766,8 +740,7 @@ export function createSetsRoutes(
                 metahubId,
                 setId,
                 {
-                    codename: finalCodename,
-                    codenameLocalized: codenameLocalizedVlc,
+                    codename: codenamePayload ?? finalCodename,
                     name: resolvedName,
                     description: resolvedDescription,
                     config: {
@@ -851,7 +824,9 @@ export function createSetsRoutes(
 
             const copySuffix = codenameStyle === 'kebab-case' ? '-copy' : 'Copy'
             const normalizedBaseCodename = normalizeCodenameForStyle(
-                parsed.data.codename ?? `${sourceSet.codename}${copySuffix}`,
+                parsed.data.codename
+                    ? getCodenamePayloadText(parsed.data.codename)
+                    : `${getSetCodenameText(sourceSet.codename)}${copySuffix}`,
                 codenameStyle,
                 codenameAlphabet
             )
@@ -866,12 +841,11 @@ export function createSetsRoutes(
                 copyConstants: parsed.data.copyConstants
             })
 
-            const codenameLocalizedVlc = buildCodenameLocalizedVlc(
-                parsed.data.codenameInput,
-                parsed.data.codenamePrimaryLocale,
-                DEFAULT_PRIMARY_LOCALE
+            const codenameFallbackPrimaryLocale = normalizeLocaleCode(
+                parsed.data.namePrimaryLocale ??
+                    (sourceSet.presentation?.name as { _primary?: string } | undefined)?._primary ??
+                    DEFAULT_PRIMARY_LOCALE
             )
-            const codenamePrimaryLocale = normalizeLocaleCode(parsed.data.codenamePrimaryLocale ?? DEFAULT_PRIMARY_LOCALE)
 
             const nameInput = parsed.data.name ?? buildDefaultCopyNameInput(sourceSet.presentation?.name)
             const descriptionInput = parsed.data.description
@@ -881,7 +855,7 @@ export function createSetsRoutes(
                 Object.keys(sanitizedName).length > 0
                     ? buildLocalizedContent(sanitizedName, parsed.data.namePrimaryLocale, DEFAULT_PRIMARY_LOCALE)
                     : buildLocalizedContent(
-                          { [DEFAULT_PRIMARY_LOCALE]: `${sourceSet.codename} (copy)` },
+                          { [DEFAULT_PRIMARY_LOCALE]: `${getSetCodenameText(sourceSet.codename)} (copy)` },
                           parsed.data.namePrimaryLocale,
                           DEFAULT_PRIMARY_LOCALE
                       )
@@ -906,14 +880,16 @@ export function createSetsRoutes(
 
             for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
                 const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
-                const codenameLocalizedForSetCopy =
-                    parsed.data.codenameInput === undefined
-                        ? buildCodenameLocalizedVlc(
-                              { [codenamePrimaryLocale]: codenameCandidate },
-                              codenamePrimaryLocale,
-                              codenamePrimaryLocale
-                          )
-                        : codenameLocalizedVlc
+                const codenamePayloadForSetCopy = syncCodenamePayloadText(
+                    parsed.data.codename ?? sourceSet.codename,
+                    codenameFallbackPrimaryLocale,
+                    codenameCandidate,
+                    codenameStyle,
+                    codenameAlphabet
+                )
+                if (!codenamePayloadForSetCopy) {
+                    return res.status(400).json({ error: 'Validation failed', details: { codename: ['Codename is required'] } })
+                }
 
                 try {
                     copiedConstants = 0
@@ -921,8 +897,7 @@ export function createSetsRoutes(
                         const createdSet = (await objectsService.createSet(
                             metahubId,
                             {
-                                codename: codenameCandidate,
-                                codenameLocalized: codenameLocalizedForSetCopy,
+                                codename: codenamePayloadForSetCopy,
                                 name: nameVlc,
                                 description: descriptionVlc,
                                 config: {
@@ -939,27 +914,34 @@ export function createSetsRoutes(
 
                         if (copyOptions.copyConstants) {
                             for (const sourceConstant of sourceConstants) {
+                                const sourceConstantCodename = getCodenamePayloadText(
+                                    sourceConstant.codename as Parameters<typeof getCodenamePayloadText>[0]
+                                )
+                                if (!sourceConstantCodename) {
+                                    throw new Error('Source constant codename is missing')
+                                }
                                 const constantCodename = await constantsService.ensureUniqueCodenameWithRetries({
                                     metahubId,
                                     setId: createdSet.id,
-                                    desiredCodename: String(sourceConstant.codename),
+                                    desiredCodename: sourceConstantCodename,
                                     codenameStyle,
                                     userId,
                                     db: trx
                                 })
-                                const constantCodenameLocalized = buildCodenameLocalizedVlc(
-                                    { [DEFAULT_PRIMARY_LOCALE]: constantCodename },
+                                const constantCodenamePayload = syncCodenamePayloadText(
+                                    sourceConstant.codename,
                                     DEFAULT_PRIMARY_LOCALE,
-                                    DEFAULT_PRIMARY_LOCALE
+                                    constantCodename,
+                                    codenameStyle,
+                                    codenameAlphabet
                                 )
                                 await constantsService.create(
                                     metahubId,
                                     {
                                         setId: createdSet.id,
-                                        codename: constantCodename,
+                                        codename: constantCodenamePayload ?? constantCodename,
                                         dataType: sourceConstant.dataType as ConstantDataType,
                                         name: sourceConstant.name,
-                                        codenameLocalized: constantCodenameLocalized,
                                         validationRules: sourceConstant.validationRules as Record<string, unknown> | undefined,
                                         uiConfig: sourceConstant.uiConfig as Record<string, unknown> | undefined,
                                         value: sourceConstant.value,
