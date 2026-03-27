@@ -6,6 +6,33 @@
 
 ## Active Open Tasks (Canonical)
 
+## PR #741 Bot Review Fixes — 2026-03-28
+
+> Status: COMPLETE — all 9 bot review comments addressed; csrf.ts rewritten (body→query→headers, req.get(), declaration merging), csrf.d.ts + csrf.test.ts (8 tests) added, oclif ^4→^3 reverted, progress.md clarified; build 28/28 green, 599 vitest + 31 Jest pass, lint 0 errors
+
+- [x] PR741-1: Rewrite csrf.ts — body→query→headers token read order, req.get() for headers, remove type casts
+- [x] PR741-2: Create csrf.d.ts — declaration merging for SessionData.csrfSecret and Express.Request.csrfToken
+- [x] PR741-3: Add csrf.test.ts — 8 unit tests covering all token sources and error cases
+- [x] PR741-4: Revert accidental oclif ^4 → ^3 (out of PR scope) + regenerate lockfile
+- [x] PR741-5: Fix progress.md inconsistency about pre-existing test failures
+- [x] PR741-6: Lint validation — fix trailing commas and unused import in csrf.test.ts
+- [x] PR741-7: Full validation — build 28/28, vitest 599/599, jest 31/31, lint 0 errors
+- [x] PR741-8: Commit and push to fix/replace-csurf-cleanup-deps
+
+## Comprehensive Cleanup & csurf Replacement — 2026-03-28
+
+> Status: COMPLETE — deprecated csurf replaced with custom csrf middleware, 7 dead frontend devDeps removed, 7 orphan overrides cleaned, fast-xml-parser updated; build 28/28 green, 599 vitest + 734 Jest pass, lint 0 errors
+
+- [x] CLEAN-1: Remove dead frontend devDependencies (@babel/eslint-parser, @babel/plugin-proposal-private-property-in-object, pretty-quick, vite-plugin-pwa, vite-plugin-react-js-support, workbox-build, workbox-window) + dead babel/browserslist config
+- [x] CLEAN-2: Replace deprecated csurf with custom CSRF middleware using csrf (pillarjs) — create middlewares/csrf.ts
+- [x] CLEAN-3: Update core-backend index.ts — replace csurf import with local middleware
+- [x] CLEAN-4: Update package.json deps — core-backend: csurf → csrf; auth-backend: remove csurf + @types/csurf
+- [x] CLEAN-5: Fix root overrides — fast-xml-parser 5.3.6 → ^5.3.8, remove orphan tar override
+- [x] CLEAN-6: Clean up stale overrides left from react-scripts removal (serialize-javascript, webpack-dev-middleware, nth-check, http-proxy-middleware, prismjs, set-value, unset-value)
+- [x] CLEAN-7: Regenerate lockfile (pnpm install)
+- [x] CLEAN-8: Full validation — build, tests, lint
+- [x] CLEAN-9: Update memory-bank (progress.md, activeContext.md)
+
 ## Security Vulnerability Fixes — 2026-03-27
 
 > Status: COMPLETE — 3 CVEs fixed + PR review feedback addressed; build 28/28 green, 599 tests pass
@@ -17,6 +44,19 @@
 - [x] SEC-5: Regenerate lockfile, verify resolved versions (flatted 3.4.2, happy-dom 20.8.9)
 - [x] SEC-6: Full validation — build 28/28, tests 599/599, lint 0 errors
 - [x] SEC-7: Address PR #739 review comments — secure-by-default SESSION_SECRET, flatted `^3.4.2`, restore `cpu: [x64]` in lockfile
+
+## Security Vulnerability Fixes Batch 2 — 2026-03-28
+
+> Status: COMPLETE — 5 Dependabot CVEs fixed (jsonpath, underscore, tar×2, serialize-javascript); build 28/28 green, 599 tests pass, lint 0 errors
+
+- [x] SEC2-1: Remove dead `react-scripts` from universo-core-frontend devDependencies — eliminates root cause of 4 CVEs (jsonpath CVE-2026-1615, underscore CVE-2026-27601, serialize-javascript GHSA-5c6j-r48x-rmvq ×2 chains)
+- [x] SEC2-2: Upgrade `oclif` ^3 → ^4 in universo-core-backend devDependencies — eliminates tar dependency chain (GHSA-87r5-x7gq-p6jq + GHSA-qpx9-5c3g-2hm5)
+- [x] SEC2-3: Add `workbox-build: ^7.0.0` and `workbox-window: ^7.0.0` as devDependencies in frontend — satisfy vite-plugin-pwa peer deps, eliminate stale workbox-build@6.6.0 → rollup-plugin-terser → serialize-javascript@4.0.0 chain
+- [x] SEC2-4: Update `tar` override 7.5.8 → ^7.5.11 — safety net for patched tar version
+- [x] SEC2-5: Add `serialize-javascript: ^7.0.3` pnpm override — force patched version (resolved to 7.0.5)
+- [x] SEC2-6: Regenerate lockfile, verify all 5 vulnerable packages removed/patched
+- [x] SEC2-7: Full validation — build 28/28, tests 599/599, lint 0 errors
+- [x] SEC2-8: Update memory-bank
 
 ## QA Phase 3: Complete Schema Hardening & Lint Cleanup — 2026-03-27
 

@@ -58,7 +58,7 @@
         "@universo/core-frontend": "workspace:^",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.5",
-        "csurf": "^1.11.0",
+        "csrf": "^3.1.0",
         "dotenv": "^16.0.0",
         "express": "^4.17.3",
         "express-rate-limit": "^6.9.0",
