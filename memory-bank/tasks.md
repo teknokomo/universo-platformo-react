@@ -6,6 +6,19 @@
 
 ## Active Open Tasks (Canonical)
 
+## PR #741 Bot Review Fixes — 2026-03-28
+
+> Status: COMPLETE — all 9 bot review comments addressed; csrf.ts rewritten (body→query→headers, req.get(), declaration merging), csrf.d.ts + csrf.test.ts (8 tests) added, oclif ^4→^3 reverted, progress.md clarified; build 28/28 green, 599 vitest + 31 Jest pass, lint 0 errors
+
+- [x] PR741-1: Rewrite csrf.ts — body→query→headers token read order, req.get() for headers, remove type casts
+- [x] PR741-2: Create csrf.d.ts — declaration merging for SessionData.csrfSecret and Express.Request.csrfToken
+- [x] PR741-3: Add csrf.test.ts — 8 unit tests covering all token sources and error cases
+- [x] PR741-4: Revert accidental oclif ^4 → ^3 (out of PR scope) + regenerate lockfile
+- [x] PR741-5: Fix progress.md inconsistency about pre-existing test failures
+- [x] PR741-6: Lint validation — fix trailing commas and unused import in csrf.test.ts
+- [x] PR741-7: Full validation — build 28/28, vitest 599/599, jest 31/31, lint 0 errors
+- [x] PR741-8: Commit and push to fix/replace-csurf-cleanup-deps
+
 ## Comprehensive Cleanup & csurf Replacement — 2026-03-28
 
 > Status: COMPLETE — deprecated csurf replaced with custom csrf middleware, 7 dead frontend devDeps removed, 7 orphan overrides cleaned, fast-xml-parser updated; build 28/28 green, 599 vitest + 734 Jest pass, lint 0 errors

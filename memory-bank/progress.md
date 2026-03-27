@@ -43,6 +43,29 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 | Firm Resolve 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-03-28 PR #741 Bot Review Fixes
+
+Addressed all 9 bot review comments (Gemini + Copilot) on PR #741 (`fix/replace-csurf-cleanup-deps`).
+
+### CSRF Middleware Improvements
+- **Token read order**: Changed to body→query→headers (matching original csurf behavior per RFC)
+- **Query string support**: Added `req.query._csrf` as token source
+- **Header safety**: Switched from `req.headers[]` cast to `req.get()` (handles `string[]` safely)
+- **Type safety**: Created `csrf.d.ts` with declaration merging for `SessionData.csrfSecret` and `Express.Request.csrfToken` — eliminates all type assertions in csrf.ts
+
+### Unit Tests
+Created `csrf.test.ts` with 8 tests: initialization, safe method bypass, missing token rejection, invalid token rejection, valid header token, body `_csrf` token, query `_csrf` token, session secret persistence. Core-backend tests: 23 → 31 (4 → 5 suites).
+
+### Other Fixes
+- Reverted accidental `oclif: "^4"` → `"^3"` (was out of PR scope), regenerated lockfile
+- Clarified `progress.md` wording about pre-existing migration-platform test failures
+
+### Validation
+- Build: 28/28 green
+- Tests: 599/599 vitest, 31/31 Jest (core-backend, 5 suites)
+- Lint: 0 errors (9 pre-existing warnings only)
+- Commit: `f294f2808`, pushed to `fix/replace-csurf-cleanup-deps`
+
 ## 2026-03-28 Comprehensive Cleanup & csurf Replacement
 
 Eliminated all pre-existing technical debt found during QA of Batch 2 security fixes. Zero technical debt remains.

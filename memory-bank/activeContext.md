@@ -4,7 +4,25 @@
 
 ---
 
-## Current Focus: Comprehensive Cleanup & csurf Replacement — COMPLETE
+## Current Focus: PR #741 Bot Review Fixes — COMPLETE
+
+### Summary
+Addressed all 9 bot review comments (Gemini + Copilot) on PR #741. CSRF middleware rewritten with improved token reading, type safety via declaration merging, comprehensive unit tests added.
+
+### Changes
+- **csrf.ts rewritten**: Token read order changed to body→query→headers (matching csurf), added `req.query._csrf` support, switched to `req.get()` for headers (handles `string[]` safely), removed all type assertions
+- **csrf.d.ts created**: Declaration merging for `SessionData.csrfSecret` and `Express.Request.csrfToken` (proper TypeScript approach instead of type casts)
+- **csrf.test.ts created**: 8 unit tests covering initialization, safe method bypass, valid/invalid token from header/body/query, session secret persistence
+- **oclif reverted**: Accidental `^4→^3` revert (out of PR scope), lockfile regenerated
+- **progress.md clarified**: Inconsistent wording about pre-existing test failures
+
+### Validation
+- Build: 28/28 green
+- Tests: 599 vitest + 31 Jest (core-backend) pass
+- Lint: 0 errors (9 pre-existing warnings only)
+- Commit: `f294f2808`, pushed to `fix/replace-csurf-cleanup-deps`
+
+## Previous Focus: Comprehensive Cleanup & csurf Replacement — COMPLETE
 
 ### Summary
 Eliminated all pre-existing technical debt found during QA analysis of Batch 2 security fixes. Zero technical debt remains.
