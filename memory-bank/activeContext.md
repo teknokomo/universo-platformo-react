@@ -12,12 +12,12 @@ Fixed 3 security vulnerabilities flagged by GitHub Dependabot/Copilot. All fixes
 ### CVE-1: SESSION_SECRET Hardcoded Fallback (CVSS 9.8)
 - **File**: `packages/universo-core-backend/base/src/index.ts`
 - **Before**: `secret: sessionSecret ?? 'change-me'` — hardcoded fallback enables session hijacking
-- **After**: Production fail-fast (`throw new Error`) + dev-mode auto-generate via `crypto.randomBytes(32).toString('hex')` — follows existing SUPABASE_JWT_SECRET pattern
+- **After**: Secure-by-default: auto-generate only when `NODE_ENV === 'development'`, throw error for all other environments (including unset NODE_ENV)
 - Also updated `.env.example` to show crypto generation command instead of weak `my-secret-key` placeholder
 
 ### CVE-2: flatted Prototype Pollution (CVE-2026-33228, CVSS 8.9)
 - **Before**: flatted 3.3.4 (vulnerable ≤3.4.1) locked via transitive chain ESLint → file-entry-cache → flat-cache → flatted
-- **After**: Added `"flatted": ">=3.4.2"` to `pnpm.overrides` in root package.json. Resolved to 3.4.2
+- **After**: Added `"flatted": "^3.4.2"` to `pnpm.overrides` in root package.json (capped to 3.x to prevent major-version breakage). Resolved to 3.4.2
 
 ### CVE-3: happy-dom RCE (CVE-2026-33943, CVSS 8.8)
 - **Before**: happy-dom 20.8.3 (vulnerable ≥15.10.0 ≤20.8.7) via `@happy-dom/jest-environment ^20.0.10`

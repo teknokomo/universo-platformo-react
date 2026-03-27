@@ -187,15 +187,17 @@ export class App {
         // Cookie-parser middleware (needed for refresh tokens)
         this.app.use(cookieParser() as RequestHandler)
 
-        const sessionSecret = process.env.SESSION_SECRET
-        if (!sessionSecret) {
-            if (process.env.NODE_ENV === 'production') {
-                logger.error('❌ [auth] SESSION_SECRET is not configured')
-                throw new Error('Auth configuration error: SESSION_SECRET is required in production')
+        let resolvedSessionSecret = process.env.SESSION_SECRET
+
+        if (!resolvedSessionSecret) {
+            if (process.env.NODE_ENV === 'development') {
+                logger.warn('⚠️ [auth] SESSION_SECRET is not set. Using auto-generated ephemeral secret for development.')
+                resolvedSessionSecret = crypto.randomBytes(32).toString('hex')
+            } else {
+                logger.error('❌ [auth] SESSION_SECRET is not configured. It is required for all environments except development.')
+                throw new Error('Auth configuration error: SESSION_SECRET is required.')
             }
-            logger.warn('⚠️ [auth] SESSION_SECRET is not set. Using auto-generated ephemeral secret (dev only).')
         }
-        const resolvedSessionSecret = sessionSecret || crypto.randomBytes(32).toString('hex')
 
         const sessionMaxAge = Number(process.env.SESSION_COOKIE_MAXAGE ?? 1000 * 60 * 60 * 24 * 7)
         const cookieConfig: session.CookieOptions = {
