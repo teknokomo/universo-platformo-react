@@ -43,6 +43,24 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 | Firm Resolve 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-03-27 Security Vulnerability Fixes (3 CVEs)
+
+Fixed 3 security vulnerabilities detected by GitHub Dependabot/Copilot security scanning.
+
+### SESSION_SECRET Hardcoded Fallback (CVSS 9.8)
+Replaced insecure `'change-me'` fallback with production fail-fast + dev auto-generate pattern in `packages/universo-core-backend/base/src/index.ts`. Added `import crypto from 'crypto'`. Production throws on missing SESSION_SECRET (matching existing SUPABASE_JWT_SECRET pattern). Dev mode auto-generates ephemeral 32-byte hex secret. Updated `.env.example` with crypto generation command.
+
+### flatted Prototype Pollution (CVE-2026-33228, CVSS 8.9)
+Added `"flatted": ">=3.4.2"` to `pnpm.overrides` in root `package.json`. Transitive dev dependency chain: ESLint → file-entry-cache → flat-cache → flatted. Updated from 3.3.4 → 3.4.2.
+
+### happy-dom RCE (CVE-2026-33943, CVSS 8.8)
+Bumped `@happy-dom/jest-environment` from `^20.0.10` to `^20.8.8` in root `package.json` devDependencies. Updated `pnpm-workspace.yaml` catalog `happy-dom` from `^16.14.2` to `^20.8.8`. Resolved to 20.8.9.
+
+### Validation
+- Build: 28/28 green
+- Tests: 109 suites, 599 passed
+- Lint: 0 errors
+
 ## 2026-03-27 QA Phase 3: Complete Schema Hardening & Lint Cleanup
 
 All remaining QA audit findings resolved. Zero technical debt remaining in metahubs-backend schema validation and formatting.

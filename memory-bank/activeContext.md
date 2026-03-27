@@ -4,7 +4,26 @@
 
 ---
 
-## Current Focus: QA Phase 3 — Complete Schema Hardening & Lint Cleanup — COMPLETE
+## Current Focus: Security Vulnerability Fixes — COMPLETE
+
+### Summary
+Fixed 3 security vulnerabilities flagged by GitHub Dependabot/Copilot. All fixes validated: build 28/28, tests 599/599, lint 0 errors.
+
+### CVE-1: SESSION_SECRET Hardcoded Fallback (CVSS 9.8)
+- **File**: `packages/universo-core-backend/base/src/index.ts`
+- **Before**: `secret: sessionSecret ?? 'change-me'` — hardcoded fallback enables session hijacking
+- **After**: Secure-by-default: auto-generate only when `NODE_ENV === 'development'`, throw error for all other environments (including unset NODE_ENV)
+- Also updated `.env.example` to show crypto generation command instead of weak `my-secret-key` placeholder
+
+### CVE-2: flatted Prototype Pollution (CVE-2026-33228, CVSS 8.9)
+- **Before**: flatted 3.3.4 (vulnerable ≤3.4.1) locked via transitive chain ESLint → file-entry-cache → flat-cache → flatted
+- **After**: Added `"flatted": "^3.4.2"` to `pnpm.overrides` in root package.json (capped to 3.x to prevent major-version breakage). Resolved to 3.4.2
+
+### CVE-3: happy-dom RCE (CVE-2026-33943, CVSS 8.8)
+- **Before**: happy-dom 20.8.3 (vulnerable ≥15.10.0 ≤20.8.7) via `@happy-dom/jest-environment ^20.0.10`
+- **After**: Bumped `@happy-dom/jest-environment` to `^20.8.8` in devDependencies, updated catalog `happy-dom` to `^20.8.8`. Resolved to 20.8.9
+
+## Previous Focus: QA Phase 3 — Complete Schema Hardening & Lint Cleanup — COMPLETE
 
 ### Summary
 All remaining QA findings resolved: guards.ts Prettier fix, applicationMigrationsRoutes.ts migrated to shared resolveUserId, `.strict()` added to ALL remaining create/copy/move/reorder/layout schemas (~35 schemas total), all 135 pre-existing Prettier errors auto-fixed. Build 28/28, tests 346/346, lint 0 errors.

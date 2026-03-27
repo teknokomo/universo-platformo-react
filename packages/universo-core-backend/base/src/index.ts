@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import express from 'express'
 import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
@@ -186,9 +187,16 @@ export class App {
         // Cookie-parser middleware (needed for refresh tokens)
         this.app.use(cookieParser() as RequestHandler)
 
-        const sessionSecret = process.env.SESSION_SECRET
-        if (!sessionSecret) {
-            logger.warn('⚠️ [auth] SESSION_SECRET is not set. Falling back to insecure development secret.')
+        let resolvedSessionSecret = process.env.SESSION_SECRET
+
+        if (!resolvedSessionSecret) {
+            if (process.env.NODE_ENV === 'development') {
+                logger.warn('⚠️ [auth] SESSION_SECRET is not set. Using auto-generated ephemeral secret for development.')
+                resolvedSessionSecret = crypto.randomBytes(32).toString('hex')
+            } else {
+                logger.error('❌ [auth] SESSION_SECRET is not configured. It is required for all environments except development.')
+                throw new Error('Auth configuration error: SESSION_SECRET is required.')
+            }
         }
 
         const sessionMaxAge = Number(process.env.SESSION_COOKIE_MAXAGE ?? 1000 * 60 * 60 * 24 * 7)
@@ -210,7 +218,7 @@ export class App {
         this.app.use(
             session({
                 name: process.env.SESSION_COOKIE_NAME ?? 'up.session',
-                secret: sessionSecret ?? 'change-me',
+                secret: resolvedSessionSecret,
                 resave: false,
                 saveUninitialized: false,
                 cookie: cookieConfig

@@ -6,6 +6,18 @@
 
 ## Active Open Tasks (Canonical)
 
+## Security Vulnerability Fixes — 2026-03-27
+
+> Status: COMPLETE — 3 CVEs fixed + PR review feedback addressed; build 28/28 green, 599 tests pass
+
+- [x] SEC-1: Fix SESSION_SECRET hardcoded `'change-me'` fallback — secure-by-default: only auto-generate in `development`, fail in all others
+- [x] SEC-2: Update `.env.example` — replace weak `my-secret-key` placeholder with crypto generation command
+- [x] SEC-3: Add `flatted: ^3.4.2` pnpm override — fix Prototype Pollution (CVE-2026-33228), capped to 3.x
+- [x] SEC-4: Bump `@happy-dom/jest-environment` to `^20.8.8`, catalog `happy-dom` to `^20.8.8` — fix RCE (CVE-2026-33943)
+- [x] SEC-5: Regenerate lockfile, verify resolved versions (flatted 3.4.2, happy-dom 20.8.9)
+- [x] SEC-6: Full validation — build 28/28, tests 599/599, lint 0 errors
+- [x] SEC-7: Address PR #739 review comments — secure-by-default SESSION_SECRET, flatted `^3.4.2`, restore `cpu: [x64]` in lockfile
+
 ## QA Phase 3: Complete Schema Hardening & Lint Cleanup — 2026-03-27
 
 > Status: COMPLETE — guards.ts Prettier fixed, applicationMigrationsRoutes migrated to resolveUserId, ~35 schemas hardened with .strict(), 135 Prettier errors auto-fixed; build 28/28 green, 346 tests pass, 0 lint errors
