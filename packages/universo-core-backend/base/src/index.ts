@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import express from 'express'
 import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
@@ -188,8 +189,13 @@ export class App {
 
         const sessionSecret = process.env.SESSION_SECRET
         if (!sessionSecret) {
-            logger.warn('⚠️ [auth] SESSION_SECRET is not set. Falling back to insecure development secret.')
+            if (process.env.NODE_ENV === 'production') {
+                logger.error('❌ [auth] SESSION_SECRET is not configured')
+                throw new Error('Auth configuration error: SESSION_SECRET is required in production')
+            }
+            logger.warn('⚠️ [auth] SESSION_SECRET is not set. Using auto-generated ephemeral secret (dev only).')
         }
+        const resolvedSessionSecret = sessionSecret || crypto.randomBytes(32).toString('hex')
 
         const sessionMaxAge = Number(process.env.SESSION_COOKIE_MAXAGE ?? 1000 * 60 * 60 * 24 * 7)
         const cookieConfig: session.CookieOptions = {
@@ -210,7 +216,7 @@ export class App {
         this.app.use(
             session({
                 name: process.env.SESSION_COOKIE_NAME ?? 'up.session',
-                secret: sessionSecret ?? 'change-me',
+                secret: resolvedSessionSecret,
                 resave: false,
                 saveUninitialized: false,
                 cookie: cookieConfig
