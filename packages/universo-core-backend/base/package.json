@@ -86,7 +86,7 @@
         "@types/sanitize-html": "^2.9.5",
         "jest": "^29.7.0",
         "nodemon": "^2.0.22",
-        "oclif": "^4",
+        "oclif": "^3",
         "rimraf": "^5.0.5",
         "run-script-os": "^1.1.6",
         "shx": "^0.3.3",

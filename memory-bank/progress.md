@@ -95,7 +95,7 @@ Overrides reduced from 30 → 23 entries.
 - Build: 28/28 green
 - Tests: 599/599 vitest pass, 734 Jest pass (346 metahubs + 23 core + 113 applications + 153 schema-ddl + 65 admin + 9 auth + 25 profile)
 - Lint: 0 errors
-- 6 pre-existing failures in migrations-platform (schema-compiler tests, unrelated)
+- Note: 6 pre-existing failures exist in migrations-platform (schema-compiler tests, unrelated to this change and not included in the counts above)
 
 ## 2026-03-28 Security Vulnerability Fixes Batch 2 (5 Dependabot CVEs)
 
