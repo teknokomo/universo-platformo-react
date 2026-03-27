@@ -5,7 +5,7 @@ import path from 'path'
 import cors from 'cors'
 import http from 'http'
 import session from 'express-session'
-import csurf from 'csurf'
+import { createCsrfProtection } from './middlewares/csrf'
 import rateLimit from 'express-rate-limit'
 const cookieParser = require('cookie-parser')
 import jwt, { type JwtPayload } from 'jsonwebtoken'
@@ -228,7 +228,7 @@ export class App {
         this.app.use(passport.initialize())
         this.app.use(passport.session())
 
-        const csrfProtection = csurf({ cookie: false })
+        const csrfProtection = createCsrfProtection()
         const loginLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
         const globalAccessService = createGlobalAccessService({ getDbExecutor: getPoolExecutor })
         const supabaseAdmin =

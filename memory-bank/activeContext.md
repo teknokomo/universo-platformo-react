@@ -4,7 +4,56 @@
 
 ---
 
-## Current Focus: Security Vulnerability Fixes — COMPLETE
+## Current Focus: Comprehensive Cleanup & csurf Replacement — COMPLETE
+
+### Summary
+Eliminated all pre-existing technical debt found during QA analysis of Batch 2 security fixes. Zero technical debt remains.
+
+### csurf Replacement
+Replaced deprecated `csurf@1.11.0` with custom CSRF middleware using `csrf@3.1.0` (pillarjs). Same Synchronizer Token Pattern, same API contract (session-based secret, `req.csrfToken()`, `EBADCSRFTOKEN` error code, `X-CSRF-Token` header validation). No frontend changes needed.
+
+### Dead Frontend Dependencies
+Removed 7 dead devDeps (`@babel/eslint-parser`, `@babel/plugin-proposal-private-property-in-object`, `pretty-quick`, `vite-plugin-pwa`, `vite-plugin-react-js-support`, `workbox-build`, `workbox-window`) + dead `babel`/`browserslist` config sections from frontend package.json.
+
+### Root Overrides Cleanup
+Updated `fast-xml-parser` override to `^5.3.8` (advisory fix). Removed 7 orphan overrides with no consumers: `tar`, `serialize-javascript`, `webpack-dev-middleware`, `http-proxy-middleware`, `nth-check`, `prismjs`, `set-value`/`unset-value`. Overrides: 30 → 23.
+
+### Validation
+- Build: 28/28 green
+- Tests: 599 vitest + 734 Jest pass
+- Lint: 0 errors
+
+## Previous Focus: Security Vulnerability Fixes Batch 2 — COMPLETE
+
+### Summary
+Fixed 5 additional Dependabot security alerts by removing dead dependencies and upgrading packages. All fixes validated: build 28/28, tests 599/599, lint 0 errors.
+
+### CVE-4: jsonpath Arbitrary Code Injection (CVE-2026-1615, CVSS 8.2)
+- **Root cause**: `react-scripts` → `bfj@7.1.0` → `jsonpath@1.2.1` (uses unsafe `eval()`)
+- **Fix**: Removed dead `react-scripts` from frontend devDependencies (frontend fully migrated to Vite)
+
+### CVE-5: underscore Unlimited Recursion DoS (CVE-2026-27601, CVSS 8.2)
+- **Root cause**: `react-scripts` → `bfj@7.1.0` → `jsonpath@1.2.1` → `underscore@1.13.6`
+- **Fix**: Same as CVE-4 — removing react-scripts eliminates the entire chain
+
+### CVE-6+7: tar Symlink + Hardlink Path Traversal (GHSA-87r5 + GHSA-qpx9, CVSS 8.2)
+- **Root cause**: `oclif@3.17.2` → `yeoman-environment@3.19.3` → `@npmcli/arborist` → `tar@7.5.8`
+- **Fix**: Upgraded `oclif` ^3 → ^4 (drops yeoman-environment entirely). Also updated tar override 7.5.8 → ^7.5.11 as safety net
+
+### CVE-8: serialize-javascript RCE (GHSA-5c6j-r48x-rmvq, CVSS 8.1)
+- **Root cause**: Two chains from `react-scripts` (workbox-build@6.6.0 → rollup-plugin-terser → serialize-javascript@4.0.0, and css-minimizer-webpack-plugin → serialize-javascript@6.0.2)
+- **Fix**: Removed react-scripts (eliminates original chains). Added `workbox-build@^7.0.0` + `workbox-window@^7.0.0` as devDependencies to satisfy vite-plugin-pwa peer deps (v7 uses @rollup/plugin-terser instead of rollup-plugin-terser). Added `serialize-javascript: ^7.0.3` override (resolved to 7.0.5)
+
+### Additional Changes
+- Added `workbox-build@^7.0.0` and `workbox-window@^7.0.0` as devDependencies in frontend to properly satisfy vite-plugin-pwa peer deps (previously provided stale v6 from react-scripts)
+- Deprecated subdependencies reduced from 22 → 20 (rollup-plugin-terser@7.0.2, workbox-cacheable-response@6.6.0, workbox-google-analytics@6.6.0 removed)
+
+### Validation
+- Build: 28/28 green
+- Tests: 109 suites, 599 passed
+- Lint: 0 errors (backend 9 pre-existing warnings only)
+
+## Previous Focus: Security Vulnerability Fixes — COMPLETE
 
 ### Summary
 Fixed 3 security vulnerabilities flagged by GitHub Dependabot/Copilot. All fixes validated: build 28/28, tests 599/599, lint 0 errors.

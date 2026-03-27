@@ -43,6 +43,89 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 | Firm Resolve 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-03-28 Comprehensive Cleanup & csurf Replacement
+
+Eliminated all pre-existing technical debt found during QA of Batch 2 security fixes. Zero technical debt remains.
+
+### Deprecated csurf Replacement
+Replaced deprecated `csurf@1.11.0` with a custom CSRF middleware using `csrf@3.1.0` (pillarjs — the maintained crypto library that csurf wrapped). Created `packages/universo-core-backend/base/src/middlewares/csrf.ts` implementing the same Synchronizer Token Pattern:
+- Session-based secret storage (`req.session.csrfSecret`)
+- Same `req.csrfToken()` API
+- Same header validation (`X-CSRF-Token`, `CSRF-Token`, `X-XSRF-Token`, `XSRF-Token`, body `_csrf`)
+- Same error code `EBADCSRFTOKEN` → HTTP 419 via existing error handler
+- Safe method skip (GET, HEAD, OPTIONS)
+- API contract fully preserved — no frontend changes required
+
+### Dead Frontend devDependencies Removal
+Removed 7 dead devDependencies from `packages/universo-core-frontend/base/package.json`:
+- `@babel/eslint-parser` (no eslintrc in frontend)
+- `@babel/plugin-proposal-private-property-in-object` (react-scripts peer dep remnant)
+- `pretty-quick` (duplicate of root, no frontend "quick" script)
+- `vite-plugin-pwa` (not imported in vite.config.js)
+- `vite-plugin-react-js-support` (not imported in vite.config.js)
+- `workbox-build` (only needed by vite-plugin-pwa)
+- `workbox-window` (only needed by vite-plugin-pwa)
+Removed dead `babel` config section (`@babel/preset-react` — handled by `@vitejs/plugin-react`).
+Removed dead `browserslist` section (CRA legacy — Vite uses `build.target`).
+
+### Root Overrides Cleanup
+- Updated `fast-xml-parser` override: `5.3.6` → `^5.3.8` (advisory GHSA-fj3w fix)
+- Removed 7 orphan overrides with no consumers in the dependency tree:
+  - `tar` (removed after oclif@4 upgrade eliminated yeoman-environment chain)
+  - `serialize-javascript` (removed after workbox/vite-plugin-pwa removal)
+  - `webpack-dev-middleware` (react-scripts remnant)
+  - `http-proxy-middleware` (react-scripts remnant)
+  - `nth-check` (react-scripts remnant)
+  - `prismjs` (no consumer)
+  - `set-value` / `unset-value` (no consumer)
+Overrides reduced from 30 → 23 entries.
+
+### Dependency Changes Summary
+| File | Change |
+| --- | --- |
+| packages/universo-core-frontend/base/package.json | Removed 7 dead devDeps, babel section, browserslist section |
+| packages/universo-core-backend/base/package.json | `csurf: ^1.11.0` → `csrf: ^3.1.0` |
+| packages/universo-core-backend/base/src/middlewares/csrf.ts | **New** — custom CSRF middleware using csrf (pillarjs) |
+| packages/universo-core-backend/base/src/index.ts | `import csurf` → `import { createCsrfProtection }` from local middleware |
+| packages/auth-backend/base/package.json | Removed `csurf` from deps, `@types/csurf` from devDeps |
+| package.json (root) | fast-xml-parser `5.3.6`→`^5.3.8`, removed 7 orphan overrides |
+| pnpm-lock.yaml | Regenerated (+6 csrf deps, -1 csurf, -many dead deps) |
+
+### Validation
+- Build: 28/28 green
+- Tests: 599/599 vitest pass, 734 Jest pass (346 metahubs + 23 core + 113 applications + 153 schema-ddl + 65 admin + 9 auth + 25 profile)
+- Lint: 0 errors
+- 6 pre-existing failures in migrations-platform (schema-compiler tests, unrelated)
+
+## 2026-03-28 Security Vulnerability Fixes Batch 2 (5 Dependabot CVEs)
+
+Fixed 5 additional Dependabot security alerts by removing dead dependencies and upgrading packages. Root-cause elimination approach: remove unused code rather than patching with overrides.
+
+### jsonpath CVE-2026-1615 (CVSS 8.2) — Arbitrary Code Injection
+Removed dead `react-scripts@^5.0.1` from `packages/universo-core-frontend/base/package.json` devDependencies. Frontend fully migrated to Vite; react-scripts was unused dead code. Eliminates entire chain: react-scripts → bfj@7.1.0 → jsonpath@1.2.1.
+
+### underscore CVE-2026-27601 (CVSS 8.2) — Unlimited Recursion DoS
+Same root cause as jsonpath — removing react-scripts eliminates chain: jsonpath@1.2.1 → underscore@1.13.6.
+
+### tar GHSA-87r5 + GHSA-qpx9 (CVSS 8.2) — Symlink + Hardlink Path Traversal
+Upgraded `oclif` ^3 → ^4 in `packages/universo-core-backend/base/package.json` devDependencies. oclif@4 drops `yeoman-environment` dependency entirely, eliminating chain: oclif@3 → yeoman-environment → @npmcli/arborist → tar@7.5.8. Updated tar override 7.5.8 → ^7.5.11 as safety net in root package.json.
+
+### serialize-javascript GHSA-5c6j-r48x-rmvq (CVSS 8.1) — RCE via RegExp.flags
+Removed react-scripts (eliminates two original chains with serialize-javascript@4.0.0 and @6.0.2). Added `workbox-build@^7.0.0` and `workbox-window@^7.0.0` as frontend devDependencies to properly satisfy vite-plugin-pwa@0.17.5 peer deps. workbox-build@7.x uses @rollup/plugin-terser instead of rollup-plugin-terser, which resolved to serialize-javascript@6.0.2. Added `serialize-javascript: ^7.0.3` to pnpm.overrides (resolved to 7.0.5, fully patched).
+
+### Summary of Changes
+| File | Change |
+| --- | --- |
+| packages/universo-core-frontend/base/package.json | Removed `react-scripts`, added `workbox-build@^7.0.0`, `workbox-window@^7.0.0` |
+| packages/universo-core-backend/base/package.json | `oclif: ^3` → `^4` |
+| package.json (root) | `tar: 7.5.8` → `^7.5.11`, added `serialize-javascript: ^7.0.3` |
+| pnpm-lock.yaml | Regenerated (+149 from oclif@4, -18 from react-scripts, +27 workbox@7) |
+
+### Validation
+- Build: 28/28 green
+- Tests: 109 suites, 599 passed
+- Lint: 0 errors (backend 9 pre-existing warnings)
+
 ## 2026-03-27 Security Vulnerability Fixes (3 CVEs)
 
 Fixed 3 security vulnerabilities detected by GitHub Dependabot/Copilot security scanning.
