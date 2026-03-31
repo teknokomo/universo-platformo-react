@@ -51,7 +51,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 Each domain follows a three-layer split:
 
 1. **Routes** (`domains/<domain>/routes/<domain>Routes.ts`) — thin Express route definitions (parameter extraction, response codes, delegation to controller).
-2. **Controller** (`domains/<domain>/routes/<domain>Controller.ts`) — handler functions that validate input, call services/stores, and return responses.
+2. **Controller** (`domains/<domain>/controllers/<domain>Controller.ts`) — handler functions that validate input, call services/stores, and return responses.
 3. **Store** (`persistence/<domain>Store.ts`) — raw SQL queries via `DbExecutor.query()` with parameterized bindings.
 
 ### `createMetahubHandler()`

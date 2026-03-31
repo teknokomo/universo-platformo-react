@@ -1,4 +1,3 @@
-import type { Response } from 'express'
 import { z } from 'zod'
 import type { SqlQueryable } from '../../../persistence'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'

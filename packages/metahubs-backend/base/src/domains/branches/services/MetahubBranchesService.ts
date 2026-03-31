@@ -29,8 +29,6 @@ import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
 import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { createLogger } from '../../../utils/logger'
-
-const log = createLogger('MetahubBranchesService')
 import { getCodenamePayloadText, resolveCodenamePayload } from '../../shared/codenamePayload'
 import {
     MetahubDomainError,
@@ -38,6 +36,8 @@ import {
     MetahubConflictError,
     MetahubValidationError
 } from '../../shared/domainErrors'
+
+const log = createLogger('MetahubBranchesService')
 
 export interface BranchListOptions {
     limit?: number

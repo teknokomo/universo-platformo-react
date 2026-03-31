@@ -3,9 +3,12 @@ import { MetahubRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
 import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import type { DbSession, DbExecutor } from '@universo/utils'
+import type { Request, Response } from 'express'
+import { getRequestDbExecutor, getRequestDbSession } from '@universo/utils/database'
 import type { SqlQueryable, MetahubUserRow } from '../../persistence/types'
 import { activeMetahubRowCondition } from '../../persistence/metahubsQueryHelpers'
 import { createLogger } from '../../utils/logger'
+import { resolveUserId } from './routeAuth'
 
 const log = createLogger('SECURITY')
 
@@ -268,10 +271,6 @@ export async function ensureHubAccess(
 // Or by route handlers using ensureMetahubAccess and then checking association.
 
 // ============ ROUTE-LEVEL ACCESS HELPERS ============
-
-import type { Request, Response } from 'express'
-import { getRequestDbExecutor, getRequestDbSession } from '@universo/utils/database'
-import { resolveUserId } from './routeAuth'
 
 /**
  * Create a route-level metahub access helper bound to a specific DB executor factory.

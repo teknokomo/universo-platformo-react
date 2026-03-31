@@ -1,4 +1,3 @@
-import type { Response } from 'express'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'

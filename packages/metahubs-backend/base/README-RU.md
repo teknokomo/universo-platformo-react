@@ -51,7 +51,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 Каждый домен следует трёхслойному разделению:
 
 1. **Routes** (`domains/<domain>/routes/<domain>Routes.ts`) — тонкие Express route definitions (извлечение параметров, коды ответов, делегирование controller-у).
-2. **Controller** (`domains/<domain>/routes/<domain>Controller.ts`) — функции-обработчики, валидирующие input, вызывающие services/stores и формирующие ответы.
+2. **Controller** (`domains/<domain>/controllers/<domain>Controller.ts`) — функции-обработчики, валидирующие input, вызывающие services/stores и формирующие ответы.
 3. **Store** (`persistence/<domain>Store.ts`) — raw SQL queries через `DbExecutor.query()` с параметризованными bindings.
 
 ### `createMetahubHandler()`
