@@ -72,6 +72,38 @@
 **Detection**: `rg "Authenticated sessions may inspect only their own|get_user_permissions|get_user_global_roles|has_admin_permission|is_superuser" packages/admin-backend packages/auth-backend`
 **Why**: Without a self-scope guard, helper functions granted to `authenticated` can leak cross-user role and permission state even when the surrounding backend routes remain correctly authorized.
 
+## Controller–Service–Store Backend Pattern (IMPORTANT)
+**Rule**: Backend route files must stay thin (~30–80 lines of route registrations); all handler logic lives in domain controllers, which delegate to services and stores.
+**Required**:
+- Route file: `router.get('/path', controller.handler)` — no inline logic.
+- Controller: receives `(req, res, next)`, validates input, calls services, formats response.
+- Service: orchestrates business logic, transactions.
+- Store: raw SQL via `DbExecutor.query(sql, params)`.
+- `createMetahubHandler(services)` factory injects shared services into metahub controllers.
+- `asyncHandler(fn)` wraps async Express handlers to forward rejected promises to `next()`.
+**Detection**: `rg "createMetahubHandler|asyncHandler" packages/metahubs-backend packages/applications-backend`
+**Why**: 13 metahubs route files (15,000+ → ~700 lines) and 3 applications route files (5,700+ → ~140 lines) were refactored to this pattern, preventing inline handler bloat.
+
+## Frontend List Component Decomposition Pattern (IMPORTANT)
+**Rule**: Large list page components (~1,000–2,500 lines) must be split into a data hook + utils module + presentation component.
+**Required**:
+- `use<Domain>ListData(metahubId)` hook: encapsulates all React Query calls, pagination, search, filtering, dialog state.
+- `<domain>ListUtils.ts`: pure functions (display formatting, sort helpers, VLC mappers).
+- Presentation component: consumes hook return value and renders UI.
+- `useMetahubHubs(metahubId)` shared hook: centralizes hub list queries with `staleTime: 5min` and automatic React Query deduplication.
+**Detection**: `rg "useMetahubHubs|ListData|ListUtils" packages/metahubs-frontend/base/src`
+**Why**: 11 list components decomposed; replaced 8 duplicate hub query implementations with one shared hook.
+
+## Domain Error Handler Factory Pattern (IMPORTANT)
+**Rule**: Frontend mutation error handling must use `createDomainErrorHandler(config)` factory instead of inline switch/if chains.
+**Required**:
+- Factory accepts `{ errorCodeMap, fallbackKey, t, enqueueSnackbar }`.
+- `errorCodeMap` maps backend error codes to `{ messageKey, severity }`.
+- Fallback chain: matched code → `response.data.message` → `error.message` → `t(fallbackKey)`.
+- Backend domain errors extend `MetahubDomainError` base class with typed `statusCode` and `code`.
+**Detection**: `rg "createDomainErrorHandler|MetahubDomainError" packages/metahubs-frontend packages/metahubs-backend`
+**Why**: 6+ mutation files shared nearly identical error handling; the factory eliminates ~20 lines of boilerplate per mutation file.
+
 ---
 ## Public Routes & 401 Redirect Pattern (CRITICAL)
 **Rule**: All public route constants live in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.

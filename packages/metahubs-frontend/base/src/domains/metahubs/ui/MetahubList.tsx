@@ -7,8 +7,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import type { VersionedLocalizedContent } from '@universo/types'
-import type { ConflictInfo } from '@universo/utils'
-import { isPendingEntity, getPendingAction } from '@universo/utils'
+import { isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
@@ -19,106 +18,33 @@ import {
     EmptyListState,
     SkeletonGrid,
     APIEmptySVG,
-    usePaginated,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     gridSpacing,
     useConfirm,
     RoleChip,
-    useUserSettings,
     LocalizedInlineField,
     useCodenameAutoFillVlc,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateMetahub, useUpdateMetahub, useDeleteMetahub, useCopyMetahub } from '../hooks/mutations'
+import { useMetahubListData } from '../hooks/useMetahubListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
-import * as metahubsApi from '../api'
+import { MetahubDisplay, MetahubLocalizedPayload, getVLCString } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
-import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay, getVLCString } from '../../../types'
 import metahubActions from './MetahubActions'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig, getCodenameHelperKey } from '../../settings/hooks/useCodenameConfig'
 import { CodenameField, ExistingCodenamesProvider } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
-
-// Type for metahub update/create data
-type MetahubFormValues = {
-    nameVlc?: VersionedLocalizedContent<string> | null
-    descriptionVlc?: VersionedLocalizedContent<string> | null
-    codename?: VersionedLocalizedContent<string> | null
-    codenameTouched?: boolean
-    storageMode?: 'main_db' | 'external_db'
-    createHub?: boolean
-    createCatalog?: boolean
-    createSet?: boolean
-    createEnumeration?: boolean
-}
-
-type GenericFormValues = Record<string, unknown>
-type ListMetahubsParams = Parameters<typeof metahubsApi.listMetahubs>[0]
-
-type TranslationFn = (key: string, options?: unknown) => string
-
-type BaseMenuContext = {
-    t: TranslationFn
-} & Record<string, unknown>
-
-type ConfirmSpec = {
-    titleKey?: string
-    descriptionKey?: string
-    confirmKey?: string
-    cancelKey?: string
-    interpolate?: Record<string, unknown>
-    title?: string
-    description?: string
-    confirmButtonName?: string
-    cancelButtonName?: string
-}
-
-type ConflictState = {
-    open: boolean
-    conflict: ConflictInfo | null
-    pendingUpdate: { id: string; patch: MetahubLocalizedPayload } | null
-}
-
-type PendingMetahubNavigation = {
-    pendingId: string
-    codename: string
-}
-
-const extractResponseStatus = (error: unknown): number | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const status = (response as { status?: unknown }).status
-    return typeof status === 'number' ? status : undefined
-}
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const data = (response as { data?: unknown }).data
-    if (!data || typeof data !== 'object') return undefined
-    const message = (data as { message?: unknown }).message
-    return typeof message === 'string' ? message : undefined
-}
-
-const extractConflict = (error: unknown): ConflictInfo | null => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return null
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return null
-    const data = (response as { data?: unknown }).data
-    if (!data || typeof data !== 'object' || !('conflict' in data)) return null
-    const conflict = (data as { conflict?: unknown }).conflict
-    return conflict && typeof conflict === 'object' ? (conflict as ConflictInfo) : null
-}
+import type { GenericFormValues, ConfirmSpec, PendingMetahubNavigation, MetahubFormValues, BaseMenuContext } from './metahubListUtils'
+import { extractResponseStatus, extractResponseMessage, extractConflict } from './metahubListUtils'
 
 type GeneralTabFieldsProps = {
     values: GenericFormValues
@@ -276,46 +202,29 @@ const MetahubList = () => {
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [isDialogOpen, setDialogOpen] = useState(false)
+    const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<MetahubDisplay>()
     const [view, setView] = useViewPreference(STORAGE_KEYS.METAHUB_DISPLAY_STYLE)
     const [pendingMetahubNavigation, setPendingMetahubNavigation] = useState<PendingMetahubNavigation | null>(null)
 
-    // Get user settings for showAll preference
-    const { settings } = useUserSettings()
-    const showAll = settings.admin?.showAllItems ?? false
+    const {
+        metahubs,
+        metahubsDisplay,
+        metahubMap,
+        images,
+        isLoading,
+        error,
+        paginationResult,
+        handleSearchChange,
+        findResolvedMetahub,
+        hasPendingMetahub
+    } = useMetahubListData()
+
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     // Mutation hook for create (fire-and-forget with optimistic UI)
     const createMetahubMutation = useCreateMetahub()
 
-    // Create query function that includes showAll parameter
-    const queryFnWithShowAll = useCallback((params: ListMetahubsParams) => metahubsApi.listMetahubs({ ...params, showAll }), [showAll])
 
-    // Use paginated hook for metahubs list
-    const paginationResult = usePaginated<Metahub, 'name' | 'codename' | 'created' | 'updated'>({
-        queryKeyFn: (params) => [...metahubsQueryKeys.list(params), { showAll }],
-        queryFn: queryFnWithShowAll,
-        initialLimit: 20,
-        sortBy: 'updated',
-        sortOrder: 'desc'
-    })
-
-    const { data: metahubs, isLoading, error } = paginationResult
-
-    // Instant search for better UX (backend has rate limiting protection)
-    const { handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
-
-    // State for independent ConfirmDeleteDialog (not managed by BaseEntityMenu)
-    const [deleteDialogState, setDeleteDialogState] = useState<{
-        open: boolean
-        metahub: MetahubDisplay | null
-    }>({ open: false, metahub: null })
-
-    // State for conflict resolution dialog
-    const [conflictState, setConflictState] = useState<ConflictState>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -323,34 +232,20 @@ const MetahubList = () => {
     const deleteMetahubMutation = useDeleteMetahub()
     const copyMetahubMutation = useCopyMetahub()
 
-    // Convert metahubs to display format
-    const metahubsDisplay = useMemo(() => {
-        if (!Array.isArray(metahubs)) return []
-        const currentLocale = i18n.language
-        return metahubs.map((metahub) => toMetahubDisplay(metahub, currentLocale))
-    }, [metahubs, i18n.language])
-
-    const metahubMap = useMemo(() => {
-        if (!Array.isArray(metahubs)) return new Map<string, Metahub>()
-        return new Map(metahubs.map((metahub) => [metahub.id, metahub]))
-    }, [metahubs])
-
     useEffect(() => {
         if (!pendingMetahubNavigation) return
 
-        if (metahubsDisplay.some((metahub) => metahub.id === pendingMetahubNavigation.pendingId)) {
+        if (hasPendingMetahub(pendingMetahubNavigation.pendingId)) {
             return
         }
 
-        const resolvedMetahub = metahubsDisplay.find(
-            (metahub) => !isPendingEntity(metahub) && metahub.codename === pendingMetahubNavigation.codename
-        )
+        const resolvedMetahub = findResolvedMetahub(pendingMetahubNavigation.codename)
 
         if (!resolvedMetahub) return
 
         setPendingMetahubNavigation(null)
         navigate(`/metahub/${resolvedMetahub.id}`)
-    }, [metahubsDisplay, navigate, pendingMetahubNavigation])
+    }, [findResolvedMetahub, hasPendingMetahub, navigate, pendingMetahubNavigation])
 
     const queuePendingMetahubNavigation = useCallback(
         (pendingMetahub: MetahubDisplay) => {
@@ -376,19 +271,6 @@ const MetahubList = () => {
         },
         [enqueueSnackbar, pendingInteractionMessage, queryClient, queuePendingMetahubNavigation]
     )
-
-    // Memoize images object to prevent unnecessary re-creation on every render
-    const images = useMemo(() => {
-        const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(metahubsDisplay)) {
-            metahubsDisplay.forEach((metahub) => {
-                if (metahub?.id) {
-                    imagesMap[metahub.id] = []
-                }
-            })
-        }
-        return imagesMap
-    }, [metahubsDisplay])
 
     const localizedFormDefaults = useMemo<MetahubFormValues>(
         () => ({
@@ -512,11 +394,11 @@ const MetahubList = () => {
     )
 
     const handleAddNew = () => {
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleCreateMetahub = (data: GenericFormValues) => {
@@ -677,8 +559,7 @@ const MetahubList = () => {
                         if (extractResponseStatus(error) === 409) {
                             const conflict = extractConflict(error)
                             if (conflict) {
-                                setConflictState({
-                                    open: true,
+                                openConflict({
                                     conflict,
                                     pendingUpdate: { id, patch }
                                 })
@@ -740,7 +621,7 @@ const MetahubList = () => {
                 },
                 // Helper to open ConfirmDeleteDialog independently from BaseEntityMenu
                 openDeleteDialog: (metahub: MetahubDisplay) => {
-                    setDeleteDialogState({ open: true, metahub })
+                    openDelete(metahub)
                 }
             }
         }),
@@ -926,7 +807,7 @@ const MetahubList = () => {
                 )}
 
                 <EntityFormDialog
-                    open={isDialogOpen}
+                    open={dialogs.create.open}
                     title={t('createMetahub', 'Create Metahub')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
@@ -944,17 +825,17 @@ const MetahubList = () => {
 
                 {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}
                 <ConfirmDeleteDialog
-                    open={deleteDialogState.open}
+                    open={dialogs.delete.open}
                     title={t('confirmDelete')}
-                    description={t('confirmDeleteDescription', { name: deleteDialogState.metahub?.name || '' })}
+                    description={t('confirmDeleteDescription', { name: dialogs.delete.item?.name || '' })}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setDeleteDialogState({ open: false, metahub: null })}
+                    onCancel={() => close('delete')}
                     onConfirm={() => {
-                        if (!deleteDialogState.metahub) return
+                        if (!dialogs.delete.item) return
 
-                        deleteMetahubMutation.mutate(deleteDialogState.metahub.id, {
+                        deleteMetahubMutation.mutate(dialogs.delete.item.id, {
                             onError: (err: unknown) => {
                                 const responseMessage = extractResponseMessage(err)
                                 const message =
@@ -973,20 +854,21 @@ const MetahubList = () => {
 
                 {/* Conflict Resolution Dialog for optimistic locking */}
                 <ConflictResolutionDialog
-                    open={conflictState.open}
-                    conflict={conflictState.conflict}
+                    open={dialogs.conflict.open}
+                    conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                     onCancel={() => {
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                         // Refresh list to get latest data
                         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.lists() })
                     }}
                     onOverwrite={async () => {
                         // Force update without version check
-                        if (conflictState.pendingUpdate) {
-                            const { id, patch } = conflictState.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: MetahubLocalizedPayload } })?.pendingUpdate
+                        if (pendingUpdate) {
+                            const { id, patch } = pendingUpdate
                             try {
                                 await updateMetahubMutation.mutateAsync({ id, data: patch })
-                                setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                                close('conflict')
                             } catch {
                                 enqueueSnackbar(t('updateError', 'Failed to update'), { variant: 'error' })
                             }

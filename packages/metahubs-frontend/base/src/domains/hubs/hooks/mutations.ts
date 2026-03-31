@@ -17,38 +17,15 @@ import {
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
 import { getVLCString } from '@universo/utils/vlc'
-import type { HubLocalizedPayload } from '../../../types'
 import { applyOptimisticReorder, metahubsQueryKeys, rollbackReorderSnapshots } from '../../shared'
 import * as hubsApi from '../api'
-import type { HubCopyInput } from '../api'
-
-interface CreateHubParams {
-    metahubId: string
-    data: HubLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateHubParams {
-    metahubId: string
-    hubId: string
-    data: Partial<HubLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
-}
-
-interface DeleteHubParams {
-    metahubId: string
-    hubId: string
-}
-
-interface CopyHubParams {
-    metahubId: string
-    hubId: string
-    data: HubCopyInput
-}
-
-interface ReorderHubParams {
-    metahubId: string
-    hubId: string
-    newSortOrder: number
-}
+import type {
+    CreateHubParams,
+    UpdateHubParams,
+    DeleteHubParams,
+    CopyHubParams,
+    ReorderHubParams
+} from './mutationTypes'
 
 export function useCreateHub() {
     const queryClient = useQueryClient()

@@ -90,7 +90,16 @@ vi.mock('@universo/template-mui', () => ({
     EntitySelectionPanel: () => null,
     revealPendingEntityFeedback: vi.fn(),
     ViewHeaderMUI: () => null,
-    BaseEntityMenu: () => null
+    BaseEntityMenu: () => null,
+    useListDialogs: () => ({
+        dialogs: { create: { open: false }, edit: { open: false, item: null }, copy: { open: false, item: null }, delete: { open: false, item: null }, conflict: { open: false, data: null } },
+        openCreate: vi.fn(),
+        openEdit: vi.fn(),
+        openCopy: vi.fn(),
+        openDelete: vi.fn(),
+        openConflict: vi.fn(),
+        close: vi.fn()
+    })
 }))
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({

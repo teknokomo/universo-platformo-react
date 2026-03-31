@@ -5,6 +5,9 @@ import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import type { DbSession, DbExecutor } from '@universo/utils'
 import type { SqlQueryable, MetahubUserRow } from '../../persistence/types'
 import { activeMetahubRowCondition } from '../../persistence/metahubsQueryHelpers'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('SECURITY')
 
 // Handle both ESM and CJS imports
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,7 +164,7 @@ export async function ensureMetahubAccess(
     // Otherwise do membership check using request-scoped queryable (RLS-enabled if available)
     const membership = await getMembershipSafe(exec, userId, metahubId, dbSession)
     if (!membership) {
-        console.warn('[SECURITY] Permission denied', {
+        log.warn('Permission denied', {
             timestamp: new Date().toISOString(),
             userId,
             metahubId,
@@ -236,7 +239,7 @@ export async function ensureHubAccess(
     const hubData = await hubsService.findById(metahubId, hubId)
 
     if (!hubData) {
-        console.warn('[SECURITY] Permission denied', {
+        log.warn('Permission denied', {
             timestamp: new Date().toISOString(),
             userId,
             hubId,

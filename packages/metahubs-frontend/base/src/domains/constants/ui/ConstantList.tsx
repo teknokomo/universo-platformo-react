@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
-import { useParams } from 'react-router-dom'
 import { Box, Chip, Stack, Tabs, Tab, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -14,10 +13,9 @@ import {
     FlowListTable,
     PaginationControls,
     ToolbarControls,
-    useDebouncedSearch,
-    usePaginated,
     ViewHeaderMUI as ViewHeader,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import type { DragEndEvent } from '@universo/template-mui'
@@ -32,25 +30,15 @@ import {
 } from '@universo/utils'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import { useSettingValue } from '../../settings/hooks/useSettings'
-import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
-import { getSetById } from '../../sets'
-import * as constantsApi from '../api'
+import { metahubsQueryKeys } from '../../shared'
 import { useCopyConstant, useCreateConstant, useDeleteConstant, useMoveConstant, useReorderConstant, useUpdateConstant } from '../hooks'
+import { useConstantListData } from '../hooks/useConstantListData'
 import constantActions from './ConstantActions'
 import { ConstantGeneralFields, ConstantValueFields, ensureConstantValidationRules } from './ConstantFormFields'
 import { ExistingCodenamesProvider } from '../../../components'
-import type {
-    Constant,
-    ConstantDisplay,
-    ConstantLocalizedPayload,
-    MetahubSet,
-    SetLocalizedPayload,
-    Hub,
-    PaginatedResponse
-} from '../../../types'
-import { getVLCString, toConstantDisplay } from '../../../types'
-import { extractLocalizedInput, ensureEntityCodenameContent, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import type { Constant, ConstantDisplay, ConstantLocalizedPayload, MetahubSet, SetLocalizedPayload } from '../../../types'
+import { getVLCString } from '../../../types'
+import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent } from '../../../utils/localizedInput'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../utils/codename'
 import {
     buildInitialValues as buildSetInitialValues,
@@ -61,304 +49,54 @@ import {
 } from '../../sets/ui/SetActions'
 import type { SetDisplayWithHub } from '../../sets/ui/SetActions'
 import { useUpdateSetAtMetahub } from '../../sets/hooks/mutations'
-import * as hubsApi from '../../hubs'
+import {
+    buildInitialFormValues,
+    extractResponseMessage,
+    isLocalizedContent,
+    isValidTimeString,
+    isValidDateString,
+    isValidDateTimeString,
+    renderConstantValue
+} from './constantListUtils'
+import type { ConstantFormValues } from './constantListUtils'
 
 type GenericFormValues = Record<string, unknown>
 
-type ConstantFormValues = {
-    nameVlc: VersionedLocalizedContent<string> | null
-    codename: VersionedLocalizedContent<string> | null
-    codenameTouched?: boolean
-    dataType: ConstantDataType
-    validationRules: Record<string, unknown>
-    value: unknown
-    _editingEntityId?: string | null
-}
-
-const DEFAULT_FORM_VALUES: ConstantFormValues = {
-    nameVlc: null,
-    codename: null,
-    codenameTouched: false,
-    dataType: 'STRING',
-    validationRules: { maxLength: 10, localized: false, versioned: false },
-    value: null,
-    _editingEntityId: null
-}
-
-const appendCopySuffix = (
-    value: VersionedLocalizedContent<string> | null | undefined,
-    uiLocale: string,
-    fallback: string
-): VersionedLocalizedContent<string> => {
-    const normalizedLocale = normalizeLocale(uiLocale)
-    const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
-    if (!value?.locales) {
-        return {
-            _schema: '1',
-            _primary: normalizedLocale,
-            locales: {
-                [normalizedLocale]: {
-                    content: `${fallback}${suffix}`,
-                    version: 1,
-                    isActive: true,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }
-            }
-        }
-    }
-
-    const nextLocales = Object.fromEntries(
-        Object.entries(value.locales).map(([locale, localeValue]) => {
-            const localeSuffix = normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)'
-            const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
-            return [locale, { ...localeValue, content: content ? `${content}${localeSuffix}` : `${fallback}${localeSuffix}` }]
-        })
-    )
-
-    return { ...value, locales: nextLocales }
-}
-
-const buildInitialFormValues = (
-    source: Constant | null,
-    mode: 'create' | 'edit' | 'copy',
-    codenameStyle: 'kebab-case' | 'pascal-case',
-    codenameAlphabet: 'en' | 'en-ru',
-    uiLocale: string
-): ConstantFormValues => {
-    if (!source) return DEFAULT_FORM_VALUES
-
-    if (mode === 'edit') {
-        return {
-            nameVlc: source.name ?? null,
-            codename: ensureEntityCodenameContent(source, uiLocale, getVLCString(source.codename) || ''),
-            codenameTouched: true,
-            dataType: source.dataType,
-            validationRules: (source.validationRules as Record<string, unknown>) ?? {},
-            value: source.value ?? null,
-            _editingEntityId: source.id
-        }
-    }
-
-    return {
-        nameVlc: appendCopySuffix(source.name ?? null, uiLocale, getVLCString(source.codename) || 'Copy'),
-        codename: null,
-        codenameTouched: false,
-        dataType: source.dataType,
-        validationRules: (source.validationRules as Record<string, unknown>) ?? {},
-        value: source.value ?? null,
-        _editingEntityId: null
-    }
-}
-
-const normalizeDateComposition = (value: unknown): 'date' | 'time' | 'datetime' => {
-    if (typeof value !== 'string') return 'datetime'
-    const normalized = value
-        .trim()
-        .toLowerCase()
-        .replace(/[_\s-]+/g, '')
-    if (normalized === 'date' || normalized === 'dateonly') return 'date'
-    if (normalized === 'time' || normalized === 'timeonly') return 'time'
-    return 'datetime'
-}
-
-const formatDateConstantValue = (rawValue: string, dateComposition: unknown, uiLocale: string): string | null => {
-    const parsed = new Date(rawValue)
-    if (Number.isNaN(parsed.getTime())) {
-        return null
-    }
-
-    const normalizedLocale = normalizeLocale(uiLocale)
-    const locale = normalizedLocale === 'ru' ? 'ru-RU' : uiLocale
-    const composition = normalizeDateComposition(dateComposition)
-
-    if (composition === 'date') {
-        return new Intl.DateTimeFormat(locale, {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            timeZone: 'UTC'
-        }).format(parsed)
-    }
-
-    if (composition === 'time') {
-        return new Intl.DateTimeFormat(locale, {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-            timeZone: 'UTC'
-        }).format(parsed)
-    }
-
-    return new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-    }).format(parsed)
-}
-
-const renderConstantValue = (row: ConstantDisplay, uiLocale: string, labels: { boolTrue: string; boolFalse: string }): string => {
-    const value = row.value
-    if (value === null || value === undefined) return '—'
-    if (row.dataType === 'BOOLEAN') {
-        if (typeof value === 'boolean') return value ? labels.boolTrue : labels.boolFalse
-        if (typeof value === 'string') {
-            const normalized = value.trim().toLowerCase()
-            if (normalized === 'true') return labels.boolTrue
-            if (normalized === 'false') return labels.boolFalse
-        }
-    }
-    if (row.dataType === 'DATE' && typeof value === 'string') {
-        return formatDateConstantValue(value, row.validationRules?.dateComposition, uiLocale) ?? value
-    }
-    if (typeof value === 'string') return value
-    if (typeof value === 'number') return String(value)
-    if (typeof value === 'object') {
-        const localized = getVLCString(value as VersionedLocalizedContent<string>, uiLocale)
-        if (localized) return localized
-        try {
-            return JSON.stringify(value)
-        } catch {
-            return '—'
-        }
-    }
-    return String(value)
-}
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object' || !('data' in response)) return undefined
-    const data = (response as { data?: unknown }).data
-    if (!data || typeof data !== 'object') return undefined
-    const message = (data as { error?: unknown; message?: unknown }).error ?? (data as { message?: unknown }).message
-    return typeof message === 'string' ? message : undefined
-}
-
-const isLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
-    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
-
-const isValidTimeString = (value: string) => /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?$/.test(value)
-
-const isValidDateString = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-    const date = new Date(`${value}T00:00:00`)
-    return !Number.isNaN(date.getTime())
-}
-
-const isValidDateTimeString = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(value)) return false
-    const date = new Date(value)
-    return !Number.isNaN(date.getTime())
-}
-
 const ConstantList = () => {
-    const { metahubId, hubId: hubIdParam, setId } = useParams<{ metahubId: string; hubId?: string; setId: string }>()
     const { t, i18n } = useTranslation('metahubs')
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
-    const constantCodenameScope = useSettingValue<string>('sets.constantCodenameScope') ?? 'per-level'
     const updateSetMutation = useUpdateSetAtMetahub()
 
-    const [editingConstant, setEditingConstant] = useState<Constant | null>(null)
-    const [copySource, setCopySource] = useState<Constant | null>(null)
+    const {
+        metahubId,
+        setId,
+        effectiveHubId,
+        setForHubResolution,
+        setResolutionError,
+        allHubs,
+        isLoading,
+        error,
+        paginationResult,
+        searchValue,
+        handleSearchChange,
+        codenameEntities,
+        constantsMap,
+        sortedConstants,
+        orderMap,
+        tableData
+    } = useConstantListData()
+
+    const { dialogs, openCreate, openEdit, openCopy, openDelete, openConflict, close } = useListDialogs<Constant>()
+    const editingConstant = dialogs.edit.item
+    const copySource = dialogs.copy.item
+    const isDialogOpen = dialogs.create.open || dialogs.edit.open || dialogs.copy.open
     const [dialogError, setDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
-    const [isDialogOpen, setDialogOpen] = useState(false)
     const [editDialogOpen, setEditDialogOpen] = useState(false)
-    const [deleteState, setDeleteState] = useState<{ open: boolean; constant: Constant | null }>({ open: false, constant: null })
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: ConstantLocalizedPayload } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
-
-    const {
-        data: setForHubResolution,
-        isLoading: isSetResolutionLoading,
-        error: setResolutionError
-    } = useQuery({
-        queryKey: metahubId && setId ? metahubsQueryKeys.setDetail(metahubId, setId) : ['metahubs', 'sets', 'detail', 'empty'],
-        queryFn: async () => {
-            if (!metahubId || !setId) throw new Error('metahubId and setId are required')
-            return getSetById(metahubId, setId)
-        },
-        enabled: !!metahubId && !!setId && !hubIdParam
-    })
-
-    const effectiveHubId = hubIdParam || setForHubResolution?.hubs?.[0]?.id
-    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
-
-    // Fetch hubs for the Settings edit dialog (SetActions.buildFormTabs needs hubs)
-    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
-        queryFn: async () => {
-            if (!metahubId) {
-                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
-            }
-            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
-                limit: hubsListParams.limit,
-                sortBy: hubsListParams.sortBy,
-                sortOrder: hubsListParams.sortOrder
-            })
-        },
-        enabled: !!metahubId,
-        refetchOnWindowFocus: false,
-        staleTime: 5 * 60 * 1000,
-        retry: false
-    })
-    const allHubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
-
-    const canLoadConstants = !!metahubId && !!setId && (!hubIdParam || !isSetResolutionLoading)
-
-    const paginationResult = usePaginated<Constant, 'codename' | 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn:
-            metahubId && setId
-                ? (params) =>
-                      effectiveHubId
-                          ? metahubsQueryKeys.constantsList(metahubId, effectiveHubId, setId, { ...params, locale: i18n.language })
-                          : metahubsQueryKeys.constantsListDirect(metahubId, setId, { ...params, locale: i18n.language })
-                : () => ['empty'],
-        queryFn:
-            metahubId && setId
-                ? (params) =>
-                      effectiveHubId
-                          ? constantsApi.listConstants(metahubId, effectiveHubId, setId, { ...params, locale: i18n.language })
-                          : constantsApi.listConstantsDirect(metahubId, setId, { ...params, locale: i18n.language })
-                : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
-        initialLimit: 20,
-        sortBy: 'sortOrder',
-        sortOrder: 'asc',
-        enabled: canLoadConstants
-    })
-
-    const { data: constants, isLoading, error } = paginationResult
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
-
-    const isGlobalScope = constantCodenameScope === 'global'
-    const { data: globalCodenamesData } = useQuery({
-        queryKey: metahubsQueryKeys.allConstantCodenames(metahubId ?? '', setId ?? ''),
-        queryFn: () => constantsApi.listAllConstantCodenames(metahubId ?? '', setId ?? ''),
-        enabled: isGlobalScope && !!metahubId && !!setId
-    })
-
-    const codenameEntities = useMemo(() => {
-        if (isGlobalScope && globalCodenamesData?.items) return globalCodenamesData.items
-        return constants ?? []
-    }, [constants, globalCodenamesData?.items, isGlobalScope])
-
-    const constantsMap = useMemo(() => new Map((constants ?? []).map((constant) => [constant.id, constant])), [constants])
 
     const handlePendingConstantInteraction = useCallback(
         (constantId: string) => {
@@ -373,15 +111,6 @@ const ConstantList = () => {
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
         [effectiveHubId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient, setId]
-    )
-    const sortedConstants = useMemo(
-        () => [...(constants ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id)),
-        [constants]
-    )
-    const orderMap = useMemo(() => new Map(sortedConstants.map((constant, index) => [constant.id, index])), [sortedConstants])
-    const tableData = useMemo(
-        () => sortedConstants.map((constant) => toConstantDisplay(constant, i18n.language)),
-        [sortedConstants, i18n.language]
     )
 
     const createConstantMutation = useCreateConstant()
@@ -640,15 +369,14 @@ const ConstantList = () => {
                     })
                 }
 
-                setDialogOpen(false)
-                setEditingConstant(null)
-                setCopySource(null)
+                close('create')
+                close('edit')
+                close('copy')
                 setDialogError(null)
             } catch (error: unknown) {
                 if (editingConstant && isOptimisticLockConflict(error)) {
                     const conflict = extractConflictInfo(error)
-                    setConflictState({
-                        open: true,
+                    openConflict({
                         conflict,
                         pendingUpdate: {
                             id: editingConstant.id,
@@ -815,27 +543,23 @@ const ConstantList = () => {
             openEditDialog: (entity: ConstantDisplay) => {
                 const source = constantsMap.get(entity.id)
                 if (!source) return
-                setEditingConstant(source)
-                setCopySource(null)
                 setDialogError(null)
-                setDialogOpen(true)
+                openEdit(source)
             },
             openCopyDialog: (entity: ConstantDisplay) => {
                 const source = constantsMap.get(entity.id)
                 if (!source) return
-                setCopySource(source)
-                setEditingConstant(null)
                 setDialogError(null)
-                setDialogOpen(true)
+                openCopy(source)
             },
             openDeleteDialog: (entity: ConstantDisplay) => {
                 const source = constantsMap.get(entity.id)
                 if (!source) return
-                setDeleteState({ open: true, constant: source })
+                openDelete(source)
             },
             moveConstant: handleMove
         }),
-        [constantsMap, handleMove, orderMap, sortedConstants.length]
+        [constantsMap, handleMove, openCopy, openDelete, openEdit, orderMap, sortedConstants.length]
     )
 
     if (!metahubId || !setId) {
@@ -895,10 +619,8 @@ const ConstantList = () => {
                                 primaryAction={{
                                     label: tc('create', 'Create'),
                                     onClick: () => {
-                                        setEditingConstant(null)
-                                        setCopySource(null)
                                         setDialogError(null)
-                                        setDialogOpen(true)
+                                        openCreate()
                                     },
                                     startIcon: <AddRoundedIcon />
                                 }}
@@ -1002,9 +724,9 @@ const ConstantList = () => {
                     loading={createConstantMutation.isPending || copyConstantMutation.isPending || updateConstantMutation.isPending}
                     error={dialogError || undefined}
                     onClose={() => {
-                        setDialogOpen(false)
-                        setEditingConstant(null)
-                        setCopySource(null)
+                        close('create')
+                        close('edit')
+                        close('copy')
                         setDialogError(null)
                     }}
                     onSave={handleSave}
@@ -1088,21 +810,21 @@ const ConstantList = () => {
                 />
 
                 <ConfirmDeleteDialog
-                    open={deleteState.open}
+                    open={dialogs.delete.open}
                     title={t('constants.deleteDialog.title', 'Delete Constant')}
                     description={t('constants.deleteDialog.message', 'Are you sure you want to delete this constant?')}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setDeleteState({ open: false, constant: null })}
+                    onCancel={() => close('delete')}
                     onConfirm={() => {
-                        if (!deleteState.constant || !metahubId || !setId) return
+                        if (!dialogs.delete.item || !metahubId || !setId) return
                         deleteConstantMutation.mutate(
                             {
                                 metahubId,
                                 hubId: effectiveHubId,
                                 setId,
-                                constantId: deleteState.constant.id
+                                constantId: dialogs.delete.item.id
                             },
                             {
                                 onError: (error: unknown) => {
@@ -1118,10 +840,10 @@ const ConstantList = () => {
                 />
 
                 <ConflictResolutionDialog
-                    open={conflictState.open}
-                    conflict={conflictState.conflict}
+                    open={dialogs.conflict.open}
+                    conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                     onCancel={() => {
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                         if (metahubId && setId) {
                             if (effectiveHubId) {
                                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constants(metahubId, effectiveHubId, setId) })
@@ -1132,15 +854,16 @@ const ConstantList = () => {
                         }
                     }}
                     onOverwrite={async () => {
-                        if (!conflictState.pendingUpdate || !metahubId || !setId) return
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: ConstantLocalizedPayload } })?.pendingUpdate
+                        if (!pendingUpdate || !metahubId || !setId) return
                         await updateConstantMutation.mutateAsync({
                             metahubId,
                             hubId: effectiveHubId,
                             setId,
-                            constantId: conflictState.pendingUpdate.id,
-                            data: conflictState.pendingUpdate.patch
+                            constantId: pendingUpdate.id,
+                            data: pendingUpdate.patch
                         })
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                     }}
                     isLoading={updateConstantMutation.isPending}
                 />

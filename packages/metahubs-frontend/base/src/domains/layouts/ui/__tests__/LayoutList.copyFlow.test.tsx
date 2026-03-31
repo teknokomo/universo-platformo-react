@@ -34,7 +34,9 @@ vi.mock('../../hooks/mutations', () => ({
 
 const mockUsePaginated = vi.fn()
 
-vi.mock('@universo/template-mui', () => ({
+vi.mock('@universo/template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo/template-mui')>()
+    return {
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ItemCard: ({ data, headerAction }: { data: { name?: string }; headerAction?: ReactNode }) => (
         <div>
@@ -62,8 +64,10 @@ vi.mock('@universo/template-mui', () => ({
     ConfirmDialog: () => null,
     useConfirm: () => ({ confirm: vi.fn(async () => true) }),
     LocalizedInlineField: () => null,
-    notifyError: vi.fn()
-}))
+    notifyError: vi.fn(),
+    useListDialogs: actual.useListDialogs
+    }
+})
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,

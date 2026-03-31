@@ -25,10 +25,8 @@ import type {
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from '@universo/utils/vlc'
 export type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/utils/vlc'
 
-// Import for local use in helper functions
-import { getVLCString } from '@universo/utils/vlc'
+// Import types for local use in entity interfaces and payloads
 import type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/utils/vlc'
-import { ensureEntityCodenameContent, getLocalizedContentText } from './utils/localizedInput'
 
 // Re-export role type
 export type { MetahubRole }
@@ -697,144 +695,17 @@ export interface ConstantLocalizedPayload {
 }
 
 // ============ DISPLAY CONVERTERS ============
-
-/** Convert Metahub to MetahubDisplay for table rendering */
-export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDisplay {
-    return {
-        ...metahub,
-        codename: getLocalizedContentText(metahub.codename, locale, ''),
-        name: getVLCString(metahub.name, locale),
-        description: getVLCString(metahub.description, locale)
-    }
-}
-
-/** Convert Branch to BranchDisplay for table rendering */
-export function toBranchDisplay(branch: MetahubBranch, locale = 'en'): MetahubBranchDisplay {
-    return {
-        ...branch,
-        codename: getLocalizedContentText(branch.codename, locale, ''),
-        name: getVLCString(branch.name, locale),
-        description: getVLCString(branch.description, locale)
-    }
-}
-
-/** Convert MetahubLayout to MetahubLayoutDisplay for table/card rendering */
-export function toMetahubLayoutDisplay(layout: MetahubLayout, locale = 'en'): MetahubLayoutDisplay {
-    const name = getVLCString(layout.name, locale)
-    return {
-        ...layout,
-        name: name || layout.templateKey,
-        description: getVLCString(layout.description, locale),
-        templateKey: layout.templateKey
-    }
-}
-
-/** Convert Hub to HubDisplay for table rendering */
-export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
-    const name = getVLCString(hub.name, locale)
-    const codename = getLocalizedContentText(hub.codename, locale, '')
-    return {
-        ...hub,
-        codename,
-        name: name || codename,
-        description: getVLCString(hub.description, locale)
-    }
-}
-
-/** Convert Catalog to CatalogDisplay for table rendering */
-export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDisplay {
-    const name = getVLCString(catalog.name, locale)
-    const codename = getLocalizedContentText(catalog.codename, locale, '')
-    return {
-        ...catalog,
-        codename,
-        name: name || codename,
-        description: getVLCString(catalog.description, locale),
-        hubs: catalog.hubs?.map((hub) => ({
-            id: hub.id,
-            name: getVLCString(hub.name, locale) || hub.codename,
-            codename: hub.codename
-        }))
-    }
-}
-
-/** Convert Set to MetahubSetDisplay for table rendering. */
-export function toSetDisplay(set: MetahubSet, locale = 'en'): MetahubSetDisplay {
-    const name = getVLCString(set.name, locale)
-    const codename = getLocalizedContentText(set.codename, locale, '')
-    return {
-        ...set,
-        codename,
-        name: name || codename,
-        description: getVLCString(set.description, locale),
-        hubs: set.hubs?.map((hub) => ({
-            id: hub.id,
-            name: getVLCString(hub.name, locale) || hub.codename,
-            codename: hub.codename
-        }))
-    }
-}
-
-/** Convert Enumeration to EnumerationDisplay for table rendering */
-export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): EnumerationDisplay {
-    const name = getVLCString(enumeration.name, locale)
-    const codename = getLocalizedContentText(enumeration.codename, locale, '')
-    return {
-        ...enumeration,
-        codename,
-        name: name || codename,
-        description: getVLCString(enumeration.description, locale),
-        hubs: enumeration.hubs?.map((hub) => ({
-            id: hub.id,
-            name: getVLCString(hub.name, locale) || hub.codename,
-            codename: hub.codename
-        }))
-    }
-}
-
-/** Convert EnumerationValue to EnumerationValueDisplay for table rendering */
-export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'): EnumerationValueDisplay {
-    return {
-        ...value,
-        codename: getLocalizedContentText(value.codename, locale, ''),
-        name: getVLCString(value.name, locale),
-        description: getVLCString(value.description, locale)
-    }
-}
-
-/** Convert Attribute to AttributeDisplay for table rendering */
-export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
-    return {
-        ...attr,
-        codename: getLocalizedContentText(ensureEntityCodenameContent(attr, locale, attr.codename), locale, attr.codename),
-        name: getVLCString(attr.name, locale)
-    }
-}
-
-/** Convert Constant to ConstantDisplay for table rendering. */
-export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDisplay {
-    return {
-        ...constant,
-        codename: getLocalizedContentText(ensureEntityCodenameContent(constant, locale, constant.codename), locale, constant.codename),
-        name: getVLCString(constant.name, locale)
-    }
-}
-
-/** Convert HubElement to HubElementDisplay for table rendering */
-export function toHubElementDisplay(element: HubElement, attributes: Attribute[] = [], locale = 'en'): HubElementDisplay {
-    // Prefer display attribute if set, otherwise fall back to first STRING attribute
-    const displayAttr = attributes.find((a) => a.isDisplayAttribute)
-    const fallbackAttr = attributes.find((a) => a.dataType === 'STRING')
-    const selectedAttr = displayAttr || fallbackAttr
-    const rawValue = selectedAttr ? element.data[selectedAttr.codename] : undefined
-    const nameValue =
-        selectedAttr && rawValue !== undefined && rawValue !== null
-            ? getVLCString(rawValue as VersatileLocalizedContent, locale) || String(rawValue)
-            : `Element ${element.id.slice(0, 8)}`
-
-    return {
-        ...element,
-        name: nameValue,
-        description: ''
-    }
-}
+// Re-exported from displayConverters.ts for backward compatibility
+export {
+    toMetahubDisplay,
+    toBranchDisplay,
+    toMetahubLayoutDisplay,
+    toHubDisplay,
+    toCatalogDisplay,
+    toSetDisplay,
+    toEnumerationDisplay,
+    toEnumerationValueDisplay,
+    toAttributeDisplay,
+    toConstantDisplay,
+    toHubElementDisplay
+} from './displayConverters'

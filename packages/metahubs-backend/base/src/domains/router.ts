@@ -2,6 +2,7 @@ import { Router, type ErrorRequestHandler, type RequestHandler } from 'express'
 import type { DbExecutor } from '@universo/utils'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
+import { createLogger } from '../utils/logger'
 import { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 import { createBranchesRoutes } from './branches/routes/branchesRoutes'
 import { createHubsRoutes } from './hubs/routes/hubsRoutes'
@@ -19,6 +20,8 @@ import { createPublicationsRoutes } from './publications/routes/publicationsRout
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 import { createSettingsRoutes } from './settings/routes/settingsRoutes'
 import { isMetahubDomainError } from './shared/domainErrors'
+
+const log = createLogger('Metahubs')
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
@@ -38,7 +41,7 @@ export async function initializeRateLimiters(): Promise<void> {
         maxRead: 600, // Increased from 100 for normal workflow
         maxWrite: 240 // Increased from 60 for active editing
     })
-    console.info('[Metahubs] Rate limiters initialized (read: 600/15min, write: 240/15min)')
+    log.info('Rate limiters initialized (read: 600/15min, write: 240/15min)')
 }
 
 /**
@@ -105,7 +108,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
         res.status(err.statusCode).json({
             error: err.message,
             code: err.code,
-            details: err.details ?? null
+            ...(err.details ?? {})
         })
     }
     router.use(domainErrorHandler)
@@ -119,7 +122,29 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
  */
 export function createPublicMetahubsServiceRoutes(getDbExecutor: () => DbExecutor): Router {
     const { read } = getRateLimiters()
-    return createPublicMetahubsRoutes(getDbExecutor, read)
+    const router = Router()
+    router.use('/', createPublicMetahubsRoutes(getDbExecutor, read))
+
+    const domainErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+        if (!isMetahubDomainError(err)) {
+            next(err)
+            return
+        }
+
+        if (res.headersSent) {
+            next(err)
+            return
+        }
+
+        res.status(err.statusCode).json({
+            error: err.message,
+            code: err.code,
+            ...(err.details ?? {})
+        })
+    }
+    router.use(domainErrorHandler)
+
+    return router
 }
 
 export { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'

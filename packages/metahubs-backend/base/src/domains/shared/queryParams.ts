@@ -42,3 +42,27 @@ export type ListQueryParams = z.infer<typeof ListQuerySchema>
 export function validateListQuery(query: unknown): ListQueryParams {
     return ListQuerySchema.parse(query)
 }
+
+export interface PaginationResult<T> {
+    items: T[]
+    pagination: {
+        limit: number
+        offset: number
+        total: number
+        hasMore: boolean
+    }
+}
+
+export function paginateItems<T>(items: T[], query: Pick<ListQueryParams, 'limit' | 'offset'>): PaginationResult<T> {
+    const total = items.length
+    const paged = items.slice(query.offset, query.offset + query.limit)
+    return {
+        items: paged,
+        pagination: {
+            limit: query.limit,
+            offset: query.offset,
+            total,
+            hasMore: query.offset + query.limit < total
+        }
+    }
+}

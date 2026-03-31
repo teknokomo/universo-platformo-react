@@ -8,6 +8,12 @@ import { buildStructureMigrationMeta } from './metahubMigrationMeta'
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
 import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { createLogger } from '../../../utils/logger'
+
+const log = createLogger('SystemTableMigrator')
+
+/** Priority value that pushes destructive changes to the end of the migration order */
+const DESTRUCTIVE_CHANGE_PRIORITY = 1000
 
 /**
  * Result of a system table migration.
@@ -111,7 +117,7 @@ export class SystemTableMigrator {
             const message =
                 `Destructive system-table changes detected for V${diff.fromVersion}→V${diff.toVersion}. ` +
                 'Automatic migration is blocked until a dedicated destructive migration path is implemented.'
-            console.error(`[SystemTableMigrator] ${message}`, { skippedDestructive })
+            log.error(message, { skippedDestructive })
             return {
                 fromVersion: diff.fromVersion,
                 toVersion: diff.toVersion,
@@ -135,10 +141,10 @@ export class SystemTableMigrator {
                         [SystemChangeType.ALTER_INDEX]: 60,
                         [SystemChangeType.ADD_INDEX]: 70,
                         [SystemChangeType.ADD_FK]: 80,
-                        [SystemChangeType.DROP_TABLE]: 1000,
-                        [SystemChangeType.DROP_COLUMN]: 1000,
-                        [SystemChangeType.DROP_INDEX]: 1000,
-                        [SystemChangeType.DROP_FK]: 1000
+                        [SystemChangeType.DROP_TABLE]: DESTRUCTIVE_CHANGE_PRIORITY,
+                        [SystemChangeType.DROP_COLUMN]: DESTRUCTIVE_CHANGE_PRIORITY,
+                        [SystemChangeType.DROP_INDEX]: DESTRUCTIVE_CHANGE_PRIORITY,
+                        [SystemChangeType.DROP_FK]: DESTRUCTIVE_CHANGE_PRIORITY
                     }
                     return priority[left.type] - priority[right.type]
                 })
@@ -206,7 +212,7 @@ export class SystemTableMigrator {
             return { fromVersion: diff.fromVersion, toVersion: diff.toVersion, applied, skippedDestructive, success: true }
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
-            console.error(`[SystemTableMigrator] Migration V${diff.fromVersion}→V${diff.toVersion} failed:`, message)
+            log.error(`Migration V${diff.fromVersion}→V${diff.toVersion} failed:`, message)
             return {
                 fromVersion: diff.fromVersion,
                 toVersion: diff.toVersion,

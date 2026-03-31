@@ -14,7 +14,6 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import type { EnumerationLocalizedPayload, EnumerationValueLocalizedPayload } from '../../../types'
 import {
     applyOptimisticCreateToQueryKeyPrefixes,
     applyOptimisticReorder,
@@ -25,92 +24,21 @@ import {
     rollbackReorderSnapshots
 } from '../../shared'
 import * as enumerationsApi from '../api'
-import type { EnumerationCopyInput } from '../api'
-import type { EnumerationValueCopyInput } from '../api'
-
-interface CreateEnumerationParams {
-    metahubId: string
-    hubId: string
-    data: EnumerationLocalizedPayload & { sortOrder?: number }
-}
-
-interface CreateEnumerationAtMetahubParams {
-    metahubId: string
-    data: EnumerationLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateEnumerationParams {
-    metahubId: string
-    hubId: string
-    enumerationId: string
-    data: EnumerationLocalizedPayload & { sortOrder?: number; expectedVersion?: number }
-}
-
-interface UpdateEnumerationAtMetahubParams {
-    metahubId: string
-    enumerationId: string
-    data: EnumerationLocalizedPayload & { sortOrder?: number; expectedVersion?: number }
-}
-
-interface DeleteEnumerationParams {
-    metahubId: string
-    hubId?: string
-    enumerationId: string
-    force?: boolean
-}
-
-interface CopyEnumerationParams {
-    metahubId: string
-    enumerationId: string
-    data: EnumerationCopyInput
-}
-
-interface ReorderEnumerationParams {
-    metahubId: string
-    hubId?: string
-    enumerationId: string
-    newSortOrder: number
-}
-
-interface CreateEnumerationValueParams {
-    metahubId: string
-    enumerationId: string
-    data: EnumerationValueLocalizedPayload
-}
-
-interface UpdateEnumerationValueParams {
-    metahubId: string
-    enumerationId: string
-    valueId: string
-    data: Partial<EnumerationValueLocalizedPayload> & { expectedVersion?: number }
-}
-
-interface DeleteEnumerationValueParams {
-    metahubId: string
-    enumerationId: string
-    valueId: string
-}
-
-interface MoveEnumerationValueParams {
-    metahubId: string
-    enumerationId: string
-    valueId: string
-    direction: 'up' | 'down'
-}
-
-interface CopyEnumerationValueParams {
-    metahubId: string
-    enumerationId: string
-    valueId: string
-    data?: EnumerationValueCopyInput
-}
-
-interface ReorderEnumerationValueParams {
-    metahubId: string
-    enumerationId: string
-    valueId: string
-    newSortOrder: number
-}
+import type {
+    CreateEnumerationParams,
+    CreateEnumerationAtMetahubParams,
+    UpdateEnumerationParams,
+    UpdateEnumerationAtMetahubParams,
+    DeleteEnumerationParams,
+    CopyEnumerationParams,
+    ReorderEnumerationParams,
+    CreateEnumerationValueParams,
+    UpdateEnumerationValueParams,
+    DeleteEnumerationValueParams,
+    MoveEnumerationValueParams,
+    CopyEnumerationValueParams,
+    ReorderEnumerationValueParams
+} from './mutationTypes'
 
 const getEnumerationValueQueryKeyPrefix = (metahubId: string, enumerationId: string) =>
     metahubsQueryKeys.enumerationValues(metahubId, enumerationId)

@@ -92,7 +92,6 @@
         "@mui/x-date-pickers-pro": "catalog:",
         "@mui/x-tree-view": "catalog:",
         "html-react-parser": "catalog:",
-        "use-debounce": "catalog:",
         "i18next": "catalog:",
         "i18next-browser-languagedetector": "catalog:",
         "zod": "catalog:",

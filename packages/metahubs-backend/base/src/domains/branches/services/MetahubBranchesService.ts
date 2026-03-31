@@ -28,7 +28,16 @@ import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metah
 import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
 import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
+import { createLogger } from '../../../utils/logger'
+
+const log = createLogger('MetahubBranchesService')
 import { getCodenamePayloadText, resolveCodenamePayload } from '../../shared/codenamePayload'
+import {
+    MetahubDomainError,
+    MetahubNotFoundError,
+    MetahubConflictError,
+    MetahubValidationError
+} from '../../shared/domainErrors'
 
 export interface BranchListOptions {
     limit?: number
@@ -252,7 +261,7 @@ export class MetahubBranchesService {
             try {
                 return validateTemplateManifest(version.manifestJson)
             } catch (error) {
-                console.warn(`[MetahubBranchesService] Invalid manifest in template version ${version.id}, falling back to default:`, error)
+                log.warn(`Invalid manifest in template version ${version.id}, falling back to default:`, error)
                 return undefined
             }
         }
@@ -438,22 +447,26 @@ export class MetahubBranchesService {
         const lockKey = uuidToLockKey(`${metahubId}:initial-branch`)
         const acquired = await acquireAdvisoryLock(this.knex, lockKey)
         if (!acquired) {
-            throw new Error('Initial branch creation in progress')
+            throw new MetahubDomainError({
+                message: 'Initial branch creation in progress',
+                statusCode: 409,
+                code: 'BRANCH_CREATION_IN_PROGRESS'
+            })
         }
 
         const branchNumber = 1
         const schemaName = this.buildSchemaName(metahubId, branchNumber)
         const resolvedCodename = resolveCodenamePayload(codename ?? 'main', 'en')
         if (!resolvedCodename) {
-            throw new Error('Failed to resolve initial branch codename')
+            throw new MetahubValidationError('Failed to resolve initial branch codename')
         }
         try {
             const metahub = await findMetahubById(this.exec, metahubId)
             if (!metahub) {
-                throw new Error('Metahub not found')
+                throw new MetahubNotFoundError('Metahub', metahubId)
             }
             if (metahub.defaultBranchId) {
-                throw new Error('Default branch is already configured')
+                throw new MetahubConflictError('Default branch is already configured')
             }
 
             // Load template manifest from the metahub's assigned template (if any)
@@ -466,10 +479,10 @@ export class MetahubBranchesService {
             const savedBranch = await this.exec.transaction(async (tx) => {
                 const lockedMetahub = await findMetahubForUpdate(tx, metahubId)
                 if (!lockedMetahub) {
-                    throw new Error('Metahub not found')
+                    throw new MetahubNotFoundError('Metahub', metahubId)
                 }
                 if (lockedMetahub.defaultBranchId) {
-                    throw new Error('Default branch is already configured')
+                    throw new MetahubConflictError('Default branch is already configured')
                 }
 
                 const saved = await createBranchRow(tx, {
@@ -498,7 +511,12 @@ export class MetahubBranchesService {
             if (!existingBranch) {
                 const cleanupError = await this.cleanupSchemaWithDiagnostics(schemaName, 'createDefaultBranch')
                 if (cleanupError) {
-                    throw new Error(`Branch rollback cleanup failed for schema "${schemaName}": ${cleanupError}`)
+                    throw new MetahubDomainError({
+                        message: `Branch rollback cleanup failed for schema "${schemaName}": ${cleanupError}`,
+                        statusCode: 500,
+                        code: 'BRANCH_CLEANUP_FAILED',
+                        details: { schemaName, cleanupError }
+                    })
                 }
             }
             throw error
@@ -525,7 +543,11 @@ export class MetahubBranchesService {
         const lockKey = uuidToLockKey(`${metahubId}:branch-create`)
         const acquired = await acquireAdvisoryLock(this.knex, lockKey)
         if (!acquired) {
-            throw new Error('Branch creation in progress')
+            throw new MetahubDomainError({
+                message: 'Branch creation in progress',
+                statusCode: 409,
+                code: 'BRANCH_CREATION_IN_PROGRESS'
+            })
         }
 
         let schemaName: string | null = null
@@ -534,12 +556,12 @@ export class MetahubBranchesService {
             await this.exec.transaction(async (tx) => {
                 const metahub = await findMetahubForUpdate(tx, metahubId)
                 if (!metahub) {
-                    throw new Error('Metahub not found')
+                    throw new MetahubNotFoundError('Metahub', metahubId)
                 }
 
                 const sourceBranch = sourceBranchId ? await findBranchByIdAndMetahub(tx, sourceBranchId, metahubId) : null
                 if (sourceBranchId && !sourceBranch) {
-                    throw new Error('Source branch not found')
+                    throw new MetahubNotFoundError('Source branch', sourceBranchId)
                 }
 
                 const maxBranchNumber = await getMaxBranchNumber(tx, metahubId)
@@ -600,14 +622,23 @@ export class MetahubBranchesService {
             })
 
             if (!savedBranch) {
-                throw new Error('Branch creation failed')
+                throw new MetahubDomainError({
+                    message: 'Branch creation failed',
+                    statusCode: 500,
+                    code: 'BRANCH_CREATION_FAILED'
+                })
             }
             return savedBranch
         } catch (error) {
             if (schemaName) {
                 const cleanupError = await this.cleanupSchemaWithDiagnostics(schemaName, 'createBranch')
                 if (cleanupError) {
-                    throw new Error(`Branch rollback cleanup failed for schema "${schemaName}": ${cleanupError}`)
+                    throw new MetahubDomainError({
+                        message: `Branch rollback cleanup failed for schema "${schemaName}": ${cleanupError}`,
+                        statusCode: 500,
+                        code: 'BRANCH_CLEANUP_FAILED',
+                        details: { schemaName, cleanupError }
+                    })
                 }
             }
             throw error
@@ -629,7 +660,7 @@ export class MetahubBranchesService {
     ) {
         const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
-            throw new Error('Branch not found')
+            throw new MetahubNotFoundError('Branch', branchId)
         }
 
         // Optimistic locking check
@@ -661,12 +692,12 @@ export class MetahubBranchesService {
     async activateBranch(metahubId: string, branchId: string, userId: string) {
         const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
-            throw new Error('Branch not found')
+            throw new MetahubNotFoundError('Branch', branchId)
         }
 
         const membership = await findMetahubMembership(this.exec, metahubId, userId)
         if (!membership) {
-            throw new Error('Membership not found')
+            throw new MetahubNotFoundError('Membership', userId)
         }
 
         await updateMetahubMember(this.exec, membership.id, { activeBranchId: branch.id })
@@ -678,7 +709,7 @@ export class MetahubBranchesService {
     async setDefaultBranch(metahubId: string, branchId: string): Promise<MetahubBranchRow> {
         const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
-            throw new Error('Branch not found')
+            throw new MetahubNotFoundError('Branch', branchId)
         }
 
         await updateMetahubFieldsRaw(this.exec, metahubId, { defaultBranchId: branchId })
@@ -700,7 +731,7 @@ export class MetahubBranchesService {
     }> {
         const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
-            throw new Error('Branch not found')
+            throw new MetahubNotFoundError('Branch', branchId)
         }
 
         const chain: Array<{
@@ -768,27 +799,35 @@ export class MetahubBranchesService {
         const lockKey = uuidToLockKey(`${metahubId}:${branchId}:branch-delete`)
         const acquired = await acquireAdvisoryLock(this.knex, lockKey)
         if (!acquired) {
-            throw new Error('Branch deletion in progress')
+            throw new MetahubDomainError({
+                message: 'Branch deletion in progress',
+                statusCode: 409,
+                code: 'BRANCH_DELETION_IN_PROGRESS'
+            })
         }
 
         try {
             await this.exec.transaction(async (tx) => {
                 const metahub = await findMetahubForUpdate(tx, metahubId)
                 if (!metahub) {
-                    throw new Error('Metahub not found')
+                    throw new MetahubNotFoundError('Metahub', metahubId)
                 }
                 if (metahub.defaultBranchId === branchId) {
-                    throw new Error('Default branch cannot be deleted')
+                    throw new MetahubDomainError({
+                        message: 'Default branch cannot be deleted',
+                        statusCode: 409,
+                        code: 'DEFAULT_BRANCH_UNDELETABLE'
+                    })
                 }
 
                 const branch = await findBranchForUpdate(tx, branchId, metahubId)
                 if (!branch) {
-                    throw new Error('Branch not found')
+                    throw new MetahubNotFoundError('Branch', branchId)
                 }
 
                 const blockingUsersCount = await countMembersOnBranch(tx, metahubId, branchId, requesterId)
                 if (blockingUsersCount > 0) {
-                    throw new Error('Branch is active for other users')
+                    throw new MetahubConflictError('Branch is active for other users')
                 }
 
                 // Clear active branch for requester if it matches this branch.

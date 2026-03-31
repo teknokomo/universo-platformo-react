@@ -40,73 +40,20 @@ import { normalizeLocale } from '../utils/localizedInput'
 import * as applicationsApi from '../api/applications'
 import * as connectorsApi from '../api/connectors'
 import { applicationsQueryKeys } from '../api/queryKeys'
-
-// ============================================================================
-// Types
-// ============================================================================
-
-interface UpdateApplicationParams {
-    id: string
-    data: applicationsApi.ApplicationInput
-}
-
-interface CopyApplicationParams {
-    id: string
-    data?: applicationsApi.ApplicationCopyInput
-}
-
-interface JoinApplicationParams {
-    id: string
-}
-
-interface LeaveApplicationParams {
-    id: string
-}
-
-class CopySyncStepError extends Error {
-    constructor(readonly copiedApplicationId: string, readonly originalError: unknown) {
-        const message = originalError instanceof Error ? originalError.message : 'Unknown sync error'
-        super(message)
-        this.name = 'CopySyncStepError'
-    }
-}
-
-interface UpdateMemberRoleParams {
-    applicationId: string
-    memberId: string
-    data: { role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
-}
-
-interface RemoveMemberParams {
-    applicationId: string
-    memberId: string
-}
-
-interface InviteMemberParams {
-    applicationId: string
-    data: { email: string; role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
-}
-
-interface CreateConnectorParams {
-    applicationId: string
-    data: ConnectorLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateConnectorParams {
-    applicationId: string
-    connectorId: string
-    data: ConnectorLocalizedPayload & { sortOrder?: number }
-}
-
-interface DeleteConnectorParams {
-    applicationId: string
-    connectorId: string
-}
-
-interface SyncConnectorParams {
-    applicationId: string
-    confirmDestructive?: boolean
-}
+import type {
+    UpdateApplicationParams,
+    CopyApplicationParams,
+    JoinApplicationParams,
+    LeaveApplicationParams,
+    UpdateMemberRoleParams,
+    RemoveMemberParams,
+    InviteMemberParams,
+    CreateConnectorParams,
+    UpdateConnectorParams,
+    DeleteConnectorParams,
+    SyncConnectorParams
+} from './mutationTypes'
+import { CopySyncStepError } from './mutationTypes'
 
 // ============================================================================
 // Helpers

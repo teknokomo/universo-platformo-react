@@ -1,5 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo, useCallback } from 'react'
 import {
     Box,
     Skeleton,
@@ -19,7 +18,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient, useQuery } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 import {
     TemplateMainCard as MainCard,
@@ -28,14 +27,12 @@ import {
     EmptyListState,
     SkeletonGrid,
     APIEmptySVG,
-    usePaginated,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     gridSpacing,
     LocalizedInlineField,
     useCodenameAutoFillVlc,
-    revealPendingEntityFeedback
+    useListDialogs
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -49,67 +46,24 @@ import {
     useActivateBranch,
     useSetDefaultBranch
 } from '../hooks/mutations'
+import { useBranchListData } from '../hooks/useBranchListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
-import * as branchesApi from '../api'
 import { metahubsQueryKeys, invalidateBranchesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
-import { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload, getVLCString, toBranchDisplay } from '../../../types'
+import type { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload } from '../../../types'
+import { getVLCString } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
-import { normalizeBranchCopyOptions } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import { CodenameField, BranchDeleteDialog, ExistingCodenamesProvider } from '../../../components'
 import { getBranchCopyOptions, setAllBranchCopyChildren, toggleBranchCopyChild } from '../utils/copyOptions'
 import branchActions from './BranchActions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-
-type BranchFormValues = {
-    nameVlc: VersionedLocalizedContent<string> | null
-    descriptionVlc: VersionedLocalizedContent<string> | null
-    codename: VersionedLocalizedContent<string> | null
-    codenameTouched?: boolean
-    sourceBranchId?: string | null
-    fullCopy?: boolean
-    copyLayouts?: boolean
-    copyHubs?: boolean
-    copyCatalogs?: boolean
-    copyEnumerations?: boolean
-}
-
-type GenericFormValues = Record<string, unknown>
-
-type BranchMenuBaseContext = {
-    t: (key: string, options?: unknown) => string
-} & Record<string, unknown>
-
-const extractResponseStatus = (error: unknown): number | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const status = (response as { status?: unknown }).status
-    return typeof status === 'number' ? status : undefined
-}
-
-const extractResponseData = (error: unknown): Record<string, unknown> | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const data = (response as { data?: unknown }).data
-    if (!data || typeof data !== 'object') return undefined
-    return data as Record<string, unknown>
-}
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    const data = extractResponseData(error)
-    if (!data) return undefined
-    const backendError = data.error
-    if (typeof backendError === 'string') return backendError
-    const message = data.message
-    return typeof message === 'string' ? message : undefined
-}
+import type { GenericFormValues, BranchMenuBaseContext } from './branchListUtils'
+import { extractResponseStatus, extractResponseMessage } from './branchListUtils'
 
 type BranchFormFieldsProps = {
     values: GenericFormValues
@@ -370,45 +324,28 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
 
 const BranchList = () => {
     const codenameConfig = useCodenameConfig()
-    const { metahubId } = useParams<{ metahubId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const preferredVlcLocale = useMetahubPrimaryLocale()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [isDialogOpen, setDialogOpen] = useState(false)
+    const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<MetahubBranch>()
     const [view, setView] = useViewPreference(STORAGE_KEYS.BRANCH_DISPLAY_STYLE)
-    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
-    const paginationResult = usePaginated<MetahubBranch, 'name' | 'codename' | 'created' | 'updated'>({
-        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.branchesList(metahubId, params) : () => ['empty'],
-        queryFn: metahubId
-            ? (params) => branchesApi.listBranches(metahubId, params)
-            : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
-        initialLimit: 20,
-        sortBy: 'updated',
-        sortOrder: 'desc',
-        enabled: !!metahubId
-    })
-
-    const { data: branches, isLoading, error } = paginationResult
-
-    const { handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
-
-    const [deleteDialogState, setDeleteDialogState] = useState<{
-        open: boolean
-        branch: MetahubBranch | null
-    }>({ open: false, branch: null })
-
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: BranchLocalizedPayload } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
+    const {
+        metahubId,
+        branches,
+        isLoading,
+        error,
+        paginationResult,
+        handleSearchChange,
+        branchMap,
+        handlePendingBranchInteraction,
+        sourceOptions,
+        localizedFormDefaults,
+        getBranchDisplay
+    } = useBranchListData()
 
     const createBranchMutation = useCreateBranch()
     const copyBranchMutation = useCopyBranch()
@@ -416,73 +353,6 @@ const BranchList = () => {
     const deleteBranchMutation = useDeleteBranch()
     const activateBranchMutation = useActivateBranch()
     const setDefaultBranchMutation = useSetDefaultBranch()
-
-    const branchMap = useMemo(() => {
-        if (!Array.isArray(branches)) return new Map<string, MetahubBranch>()
-        return new Map(branches.map((branch) => [branch.id, branch]))
-    }, [branches])
-
-    const handlePendingBranchInteraction = useCallback(
-        (branchId: string) => {
-            if (!metahubId) return
-            revealPendingEntityFeedback({
-                queryClient,
-                queryKeyPrefix: metahubsQueryKeys.branches(metahubId),
-                entityId: branchId,
-                extraQueryKeys: [metahubsQueryKeys.branchDetail(metahubId, branchId)]
-            })
-            enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
-        },
-        [enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
-    )
-
-    const branchOptionsQuery = useQuery({
-        queryKey: metahubId
-            ? metahubsQueryKeys.branchesList(metahubId, { limit: 1000, offset: 0, sortBy: 'created', sortOrder: 'asc' })
-            : ['empty'],
-        queryFn: () =>
-            metahubId
-                ? branchesApi.listBranches(metahubId, { limit: 1000, offset: 0, sortBy: 'created', sortOrder: 'asc' })
-                : Promise.resolve({ items: [], pagination: { limit: 0, offset: 0, count: 0, total: 0, hasMore: false } }),
-        enabled: Boolean(metahubId)
-    })
-
-    const branchOptions = useMemo(() => {
-        const items = branchOptionsQuery.data?.items ?? []
-        return items.map((branch) => {
-            const name = getVLCString(branch.name, i18n.language) || branch.codename || ''
-            return {
-                id: branch.id,
-                label: name ? `${name} (${branch.codename})` : branch.codename,
-                isDefault: branch.isDefault
-            }
-        })
-    }, [branchOptionsQuery.data?.items, i18n.language])
-
-    const sourceOptions = useMemo(() => {
-        return [
-            {
-                id: '',
-                label: t('metahubs:branches.sourceEmpty', 'Empty branch'),
-                isEmpty: true
-            },
-            ...branchOptions
-        ]
-    }, [branchOptions, t])
-
-    const preferredSourceBranchId = ''
-
-    const localizedFormDefaults = useMemo<BranchFormValues>(
-        () => ({
-            nameVlc: null,
-            descriptionVlc: null,
-            codename: null,
-            codenameTouched: false,
-            sourceBranchId: preferredSourceBranchId,
-            ...normalizeBranchCopyOptions()
-        }),
-        [preferredSourceBranchId]
-    )
 
     const buildCreateTabs = useCallback(
         ({
@@ -585,18 +455,6 @@ const BranchList = () => {
         [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
     )
 
-    const getBranchDisplay = useCallback(
-        (branch: MetahubBranch): MetahubBranchDisplay => {
-            const display = toBranchDisplay(branch, i18n.language)
-            return {
-                ...display,
-                name: display.name || branch.codename || '',
-                description: display.description || ''
-            }
-        },
-        [i18n.language]
-    )
-
     const getStatusChips = (branch: MetahubBranch) => (
         <Stack direction='row' spacing={0.5} flexWrap='wrap'>
             {branch.isDefault ? <Chip size='small' label={t('metahubs:branches.badge.default', 'Default')} variant='outlined' /> : null}
@@ -696,8 +554,7 @@ const BranchList = () => {
                                 if (isOptimisticLockConflict(error)) {
                                     const conflict = extractConflictInfo(error)
                                     if (conflict) {
-                                        setConflictState({
-                                            open: true,
+                                        openConflict({
                                             conflict,
                                             pendingUpdate: { id, patch: { ...patch, codename: codenamePayload } }
                                         })
@@ -757,7 +614,7 @@ const BranchList = () => {
                 openDeleteDialog: (branchOrDisplay: MetahubBranch | MetahubBranchDisplay) => {
                     const branch = 'metahubId' in branchOrDisplay ? branchOrDisplay : branchMap.get(branchOrDisplay.id)
                     if (branch) {
-                        setDeleteDialogState({ open: true, branch })
+                        openDelete(branch)
                     }
                 }
             }
@@ -791,11 +648,11 @@ const BranchList = () => {
     }
 
     const handleAddNew = () => {
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleCreateBranch = (data: GenericFormValues) => {
@@ -998,7 +855,7 @@ const BranchList = () => {
                 )}
 
                 <EntityFormDialog
-                    open={isDialogOpen}
+                    open={dialogs.create.open}
                     title={t('metahubs:branches.createDialog.title', 'Create Branch')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
@@ -1015,32 +872,33 @@ const BranchList = () => {
                 />
 
                 <BranchDeleteDialog
-                    open={deleteDialogState.open}
-                    branch={deleteDialogState.branch}
+                    open={dialogs.delete.open}
+                    branch={dialogs.delete.item}
                     metahubId={metahubId}
-                    onClose={() => setDeleteDialogState({ open: false, branch: null })}
+                    onClose={() => close('delete')}
                     onConfirm={handleDeleteBranch}
                     isDeleting={deleteBranchMutation.isPending}
                 />
 
                 <ConflictResolutionDialog
-                    open={conflictState.open}
-                    conflict={conflictState.conflict}
+                    open={dialogs.conflict.open}
+                    conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                     onCancel={() => {
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                         if (metahubId) {
                             invalidateBranchesQueries.all(queryClient, metahubId)
                         }
                     }}
                     onOverwrite={async () => {
-                        if (conflictState.pendingUpdate && metahubId) {
-                            const { id, patch } = conflictState.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: BranchLocalizedPayload } })?.pendingUpdate
+                        if (pendingUpdate && metahubId) {
+                            const { id, patch } = pendingUpdate
                             await updateBranchMutation.mutateAsync({
                                 metahubId,
                                 branchId: id,
                                 data: patch
                             })
-                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                            close('conflict')
                         }
                     }}
                     isLoading={updateBranchMutation.isPending}

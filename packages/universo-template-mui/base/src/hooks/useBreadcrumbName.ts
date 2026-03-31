@@ -1,29 +1,15 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useAuth, type AuthClient } from '@universo/auth-frontend'
 import i18n from '@universo/i18n'
-
-type VlcLike = {
-    _primary?: string
-    locales?: Record<string, { content?: unknown }>
-}
-
-type SimpleLocalizedInputLike = {
-    en?: unknown
-    ru?: unknown
-    [key: string]: unknown
-}
+import { getVLCString } from '@universo/utils'
 
 type QueryErrorWithStatus = Error & {
     status?: number
     response?: { status?: number }
 }
 
-const NON_RETRYABLE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504] as const
-
-function createHttpStatusError(status: number): QueryErrorWithStatus {
-    const error = new Error(`HTTP error! status: ${status}`) as QueryErrorWithStatus
-    error.status = status
-    return error
-}
+const NON_RETRYABLE_HTTP_STATUSES = [400, 403, 404, 409, 422, 429] as const
 
 function extractHttpStatus(error: unknown): number | undefined {
     if (!error || typeof error !== 'object') return undefined
@@ -34,35 +20,13 @@ function extractHttpStatus(error: unknown): number | undefined {
 function shouldRetryBreadcrumbQuery(failureCount: number, error: unknown): boolean {
     const status = extractHttpStatus(error)
     if (typeof status === 'number') {
-        return !NON_RETRYABLE_HTTP_STATUSES.includes(status as (typeof NON_RETRYABLE_HTTP_STATUSES)[number]) && failureCount < 1
+        return !NON_RETRYABLE_HTTP_STATUSES.includes(status as (typeof NON_RETRYABLE_HTTP_STATUSES)[number]) && failureCount < 2
     }
-    return failureCount < 1
+    return failureCount < 2
 }
 
-function extractLocalizedString(value: unknown): string {
-    if (typeof value === 'string') return value
-    if (!value || typeof value !== 'object') return ''
-
-    const language = (i18n?.resolvedLanguage || i18n?.language || 'en').split(/[-_]/)[0].toLowerCase()
-    const obj = value as Record<string, unknown>
-
-    // VLC-like: { _primary, locales: { en: { content }, ... } }
-    const vlc = obj as VlcLike
-    if (vlc.locales && typeof vlc.locales === 'object') {
-        const primary = typeof vlc._primary === 'string' ? vlc._primary : undefined
-        const entry = (vlc.locales[language] ?? (primary ? vlc.locales[primary] : undefined)) as any
-        const content = entry?.content
-        return typeof content === 'string' ? content : ''
-    }
-
-    // SimpleLocalizedInput-like: { en?: string, ru?: string, ... }
-    const simple = obj as SimpleLocalizedInputLike
-    const localized = simple[language]
-    if (typeof localized === 'string') return localized
-    if (typeof simple.en === 'string') return simple.en
-    if (typeof simple.ru === 'string') return simple.ru
-
-    return ''
+function extractLocalizedString(value: unknown, language: string): string {
+    return getVLCString(value as Parameters<typeof getVLCString>[0], language)
 }
 
 function getCurrentLanguageKey(): string {
@@ -89,25 +53,25 @@ export interface EntityNameHookConfig {
 }
 
 /**
- * Default fetch function using native fetch API.
+ * Default fetch function using the authenticated axios client.
  * Used when no custom fetcher is provided.
  */
-function createDefaultFetcher(apiPath: string, nameField: string): EntityNameFetcher {
+async function loadBreadcrumbEntity(client: AuthClient, path: string): Promise<Record<string, unknown>> {
+    try {
+        const response = await client.get<Record<string, unknown>>(path)
+        return response.data
+    } catch (error) {
+        const status = extractHttpStatus(error)
+        console.warn('[breadcrumbs] Request failed', { path, status, error })
+        throw error
+    }
+}
+
+function createDefaultFetcher(client: AuthClient, apiPath: string, nameField: string): EntityNameFetcher {
     return async (entityId: string): Promise<string> => {
-        const response = await fetch(`/api/v1/${apiPath}/${entityId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        })
-
-        if (!response.ok) {
-            throw createHttpStatusError(response.status)
-        }
-
-        const data = await response.json()
-        return extractLocalizedString((data as any)?.[nameField])
+        const language = getCurrentLanguageKey()
+        const data = await loadBreadcrumbEntity(client, `/${apiPath}/${entityId}`)
+        return extractLocalizedString(data?.[nameField], language)
     }
 }
 
@@ -145,22 +109,32 @@ function createDefaultFetcher(apiPath: string, nameField: string): EntityNameFet
 export function createEntityNameHook(config: EntityNameHookConfig) {
     const { entityType, apiPath, nameField = 'name', fetcher } = config
 
-    // Use custom fetcher or create default one
-    const fetchEntityName = fetcher ?? createDefaultFetcher(apiPath ?? entityType + 's', nameField)
-
     return function useEntityName(entityId: string | null): string | null {
+        const { client, loading: authLoading } = useAuth()
         const language = getCurrentLanguageKey()
+        const fetchEntityName = fetcher ?? createDefaultFetcher(client, apiPath ?? entityType + 's', nameField)
         const query = useQuery({
             queryKey: ['breadcrumb', entityType, entityId, language],
             queryFn: () => fetchEntityName(entityId!),
-            enabled: Boolean(entityId),
+            enabled: Boolean(entityId) && !authLoading,
             staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
             retry: shouldRetryBreadcrumbQuery,
-            retryOnMount: false,
+            retryOnMount: true,
+            refetchOnMount: 'always',
             refetchOnWindowFocus: false // Don't refetch on tab focus
         })
+        const resolvedName = query.isLoading ? null : query.data || null
+        useBreadcrumbSuccessDebug({
+            entityType,
+            entityId,
+            authLoading,
+            language,
+            queryStatus: query.status,
+            fetchStatus: query.fetchStatus,
+            resolvedName
+        })
 
-        return query.isLoading ? null : query.data ?? null
+        return resolvedName
     }
 }
 
@@ -182,6 +156,41 @@ export function createTruncateFunction(defaultMaxLength = 30) {
 // ============================================================
 // Pre-configured hooks for all entity types
 // ============================================================
+
+/**
+ * Resolve a display name from an entity response.
+ * Tries name first, then codename as fallback (both may be VLC JSONB objects).
+ * Uses || instead of ?? because extractLocalizedString returns '' on failure (not null).
+ */
+function resolveEntityDisplayName(entity: Record<string, unknown>): string | null {
+    const language = getCurrentLanguageKey()
+    return extractLocalizedString(entity?.name, language) || extractLocalizedString(entity?.codename, language) || null
+}
+
+function useBreadcrumbSuccessDebug(params: {
+    entityType: string
+    entityId: string | null
+    authLoading: boolean
+    language: string
+    queryStatus: string
+    fetchStatus: string
+    resolvedName: string | null
+}) {
+    const { entityType, entityId, authLoading, language, queryStatus, fetchStatus, resolvedName } = params
+
+    useEffect(() => {
+        if (!entityId || authLoading) return
+        if (queryStatus === 'success' && !resolvedName) {
+            console.warn('[breadcrumbs] Empty label after successful query', {
+                entityType,
+                entityId,
+                language,
+                queryStatus,
+                fetchStatus
+            })
+        }
+    }, [authLoading, entityId, entityType, fetchStatus, language, queryStatus, resolvedName])
+}
 
 /**
  * Hook to fetch and cache metahub name by ID for breadcrumb display.
@@ -211,24 +220,20 @@ export const useApplicationName = createEntityNameHook({
  * Requires both metahubId and hubId since Hub API is nested under Metahub.
  */
 export function useHubName(metahubId: string | null, hubId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'hub', metahubId, hubId, language],
         queryFn: async () => {
             if (!metahubId || !hubId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/hub/${hubId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && hubId),
+        enabled: Boolean(metahubId && hubId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -240,24 +245,20 @@ export function useHubName(metahubId: string | null, hubId: string | null): stri
  * Requires metahubId, hubId, and catalogId since Catalog API is nested under Hub.
  */
 export function useCatalogName(metahubId: string | null, hubId: string | null, catalogId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'catalog', metahubId, hubId, catalogId, language],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && hubId && catalogId),
+        enabled: Boolean(metahubId && hubId && catalogId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -269,24 +270,20 @@ export function useCatalogName(metahubId: string | null, hubId: string | null, c
  * Uses the standalone catalog endpoint (without hub context).
  */
 export function useCatalogNameStandalone(metahubId: string | null, catalogId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId, language],
         queryFn: async () => {
             if (!metahubId || !catalogId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/catalog/${catalogId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/catalog/${catalogId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && catalogId),
+        enabled: Boolean(metahubId && catalogId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -298,24 +295,20 @@ export function useCatalogNameStandalone(metahubId: string | null, catalogId: st
  * Uses the standalone set endpoint (without hub context).
  */
 export function useSetNameStandalone(metahubId: string | null, setId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'set-standalone', metahubId, setId, language],
         queryFn: async () => {
             if (!metahubId || !setId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/set/${setId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/set/${setId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && setId),
+        enabled: Boolean(metahubId && setId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -327,24 +320,20 @@ export function useSetNameStandalone(metahubId: string | null, setId: string | n
  * Requires metahubId and enumerationId since Enumeration API is nested under Metahub.
  */
 export function useEnumerationName(metahubId: string | null, enumerationId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'enumeration', metahubId, enumerationId, language],
         queryFn: async () => {
             if (!metahubId || !enumerationId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/enumeration/${enumerationId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/enumeration/${enumerationId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && enumerationId),
+        enabled: Boolean(metahubId && enumerationId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -361,24 +350,20 @@ export function useAttributeName(
     catalogId: string | null,
     attributeId: string | null
 ): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId, language],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId || !attributeId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && hubId && catalogId && attributeId),
+        enabled: Boolean(metahubId && hubId && catalogId && attributeId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -390,28 +375,37 @@ export function useAttributeName(
  * Requires metahubId and publicationId since Publication API is nested under Metahub.
  */
 export function useMetahubPublicationName(metahubId: string | null, publicationId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'metahub-publication', metahubId, publicationId, language],
+        queryKey:
+            metahubId && publicationId
+                ? ['metahubs', 'detail', metahubId, 'publications', 'detail', publicationId]
+                : ['metahubs', 'detail', 'missing-id', 'publications', 'detail', 'missing-id'],
         queryFn: async () => {
             if (!metahubId || !publicationId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/publication/${publicationId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/publication/${publicationId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && publicationId),
+        enabled: Boolean(metahubId && publicationId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
+    const resolvedName = query.isLoading ? null : query.data ?? null
+    useBreadcrumbSuccessDebug({
+        entityType: 'metahub-publication',
+        entityId: publicationId,
+        authLoading,
+        language,
+        queryStatus: query.status,
+        fetchStatus: query.fetchStatus,
+        resolvedName
+    })
 
-    return query.isLoading ? null : query.data ?? null
+    return resolvedName
 }
 
 // Backward-compatible alias
@@ -422,24 +416,22 @@ export const useMetahubApplicationName = useMetahubPublicationName
  * Requires metahubId and layoutId since Layout API is nested under Metahub.
  */
 export function useLayoutName(metahubId: string | null, layoutId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'layout', metahubId, layoutId, language],
         queryFn: async () => {
             if (!metahubId || !layoutId) return null
-            const response = await fetch(`/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.templateKey ?? null
+            const entity = (await loadBreadcrumbEntity(client, `/metahub/${metahubId}/layout/${layoutId}`)) as Record<string, unknown> & {
+                templateKey?: string | null
+            }
+            return extractLocalizedString(entity?.name, language) || entity?.templateKey || null
         },
-        enabled: Boolean(metahubId && layoutId),
+        enabled: Boolean(metahubId && layoutId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 
@@ -451,24 +443,20 @@ export function useLayoutName(metahubId: string | null, layoutId: string | null)
  * Requires applicationId and connectorId since Connector API is nested under Application.
  */
 export function useConnectorName(applicationId: string | null, connectorId: string | null): string | null {
+    const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
         queryKey: ['breadcrumb', 'connector', applicationId, connectorId, language],
         queryFn: async () => {
             if (!applicationId || !connectorId) return null
-            const response = await fetch(`/api/v1/applications/${applicationId}/connectors/${connectorId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) throw createHttpStatusError(response.status)
-            const entity = await response.json()
-            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+            const entity = await loadBreadcrumbEntity(client, `/applications/${applicationId}/connectors/${connectorId}`)
+            return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(applicationId && connectorId),
+        enabled: Boolean(applicationId && connectorId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: false,
+        retryOnMount: true,
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
 

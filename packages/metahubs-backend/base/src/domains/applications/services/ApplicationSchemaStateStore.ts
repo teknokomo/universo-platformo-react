@@ -1,5 +1,6 @@
 import { ApplicationSchemaStatus } from '@universo/types'
 import type { SqlQueryable } from '@universo/utils/database'
+import { MetahubNotFoundError } from '../../shared/domainErrors'
 
 export interface PersistApplicationSchemaSyncStateInput {
     applicationId: string
@@ -58,6 +59,6 @@ export const persistApplicationSchemaSyncState = async (
     )
 
     if (result.length < 1) {
-        throw new Error(`Application ${input.applicationId} not found while persisting schema sync state`)
+        throw new MetahubNotFoundError('Application', input.applicationId)
     }
 }

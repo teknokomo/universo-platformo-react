@@ -1,4 +1,5 @@
 import { MetahubObjectsService } from '../../domains/metahubs/services/MetahubObjectsService'
+import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
 
 describe('MetahubObjectsService mutation fail-closed behavior', () => {
     type MockExecutor = {
@@ -42,9 +43,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
     it('fails closed when soft delete touches no active rows', async () => {
         mockQuery.mockResolvedValueOnce([])
 
-        await expect(service.delete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(
-            'Object missing-object not found while soft deleting metahub object'
-        )
+        await expect(service.delete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
 
     it('restores only metahub object rows that are currently in trash', async () => {
@@ -61,9 +60,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
     it('fails closed when restore touches no deleted rows', async () => {
         mockQuery.mockResolvedValueOnce([])
 
-        await expect(service.restore('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(
-            'Object missing-object not found while restoring metahub object'
-        )
+        await expect(service.restore('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
 
     it('permanently deletes only rows that still exist in the metahub schema', async () => {
@@ -79,8 +76,6 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
     it('fails closed when permanent delete touches no rows', async () => {
         mockQuery.mockResolvedValueOnce([])
 
-        await expect(service.permanentDelete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(
-            'Object missing-object not found while permanently deleting metahub object'
-        )
+        await expect(service.permanentDelete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
 })

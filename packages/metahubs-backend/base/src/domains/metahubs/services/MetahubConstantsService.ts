@@ -7,6 +7,7 @@ import { buildCodenameAttempt, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/
 import { toJsonbValue } from '../../shared/jsonb'
 import type { ConstantDataType } from '@universo/types'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
+import { MetahubNotFoundError, MetahubValidationError, MetahubConflictError } from '../../shared/domainErrors'
 
 const ALLOWED_CONSTANT_TYPES: ConstantDataType[] = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 const ACTIVE = `_upl_deleted = false AND _mhb_deleted = false`
@@ -110,7 +111,7 @@ export class MetahubConstantsService {
         db?: SqlQueryable
     ) {
         if (!ALLOWED_CONSTANT_TYPES.includes(data.dataType)) {
-            throw new Error(`Unsupported constant data type: ${data.dataType}`)
+            throw new MetahubValidationError(`Unsupported constant data type: ${data.dataType}`)
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -166,7 +167,7 @@ export class MetahubConstantsService {
         const qt = qSchemaTable(schemaName, '_mhb_constants')
 
         if (data.dataType && !ALLOWED_CONSTANT_TYPES.includes(data.dataType)) {
-            throw new Error(`Unsupported constant data type: ${data.dataType}`)
+            throw new MetahubValidationError(`Unsupported constant data type: ${data.dataType}`)
         }
 
         const updateData: Record<string, unknown> = {
@@ -244,7 +245,7 @@ export class MetahubConstantsService {
                  LIMIT 1`,
                 [constantId, objectId]
             )
-            if (!current) throw new Error('Constant not found')
+            if (!current) throw new MetahubNotFoundError('Constant', constantId)
             const currentOrder = current.sort_order as number
 
             const neighborSql =
@@ -285,7 +286,7 @@ export class MetahubConstantsService {
                 [objectId]
             )
             const currentIndex = constants.findIndex((item) => item.id === constantId)
-            if (currentIndex === -1) throw new Error('Constant not found')
+            if (currentIndex === -1) throw new MetahubNotFoundError('Constant', constantId)
 
             const [moved] = constants.splice(currentIndex, 1)
             const targetIndex = Math.max(0, Math.min(constants.length, newSortOrder - 1))
@@ -318,7 +319,7 @@ export class MetahubConstantsService {
             if (!exists) return candidate
         }
 
-        throw new Error('Could not generate unique constant codename')
+        throw new MetahubConflictError('Could not generate unique constant codename')
     }
 
     async findSetReferenceBlockers(metahubId: string, targetSetId: string, userId?: string) {

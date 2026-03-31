@@ -14,47 +14,15 @@ import {
 import { makePendingMarkers } from '@universo/utils'
 import { applyOptimisticReorder, metahubsQueryKeys, rollbackReorderSnapshots } from '../../shared'
 import * as elementsApi from '../api'
-import type { ElementCopyOptions } from '@universo/types'
-
-interface BaseElementScope {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-}
-
-interface CreateElementParams extends BaseElementScope {
-    data: {
-        data: Record<string, unknown>
-        sortOrder?: number
-    }
-}
-
-interface UpdateElementParams extends BaseElementScope {
-    elementId: string
-    data: {
-        data?: Record<string, unknown>
-        sortOrder?: number
-    }
-}
-
-interface DeleteElementParams extends BaseElementScope {
-    elementId: string
-}
-
-interface CopyElementParams extends BaseElementScope {
-    elementId: string
-    data?: Partial<ElementCopyOptions>
-}
-
-interface MoveElementParams extends BaseElementScope {
-    elementId: string
-    direction: 'up' | 'down'
-}
-
-interface ReorderElementParams extends BaseElementScope {
-    elementId: string
-    newSortOrder: number
-}
+import type {
+    BaseElementScope,
+    CreateElementParams,
+    UpdateElementParams,
+    DeleteElementParams,
+    CopyElementParams,
+    MoveElementParams,
+    ReorderElementParams
+} from './mutationTypes'
 
 const invalidateElementScopes = async (queryClient: ReturnType<typeof useQueryClient>, variables: BaseElementScope): Promise<void> => {
     if (variables.hubId) {

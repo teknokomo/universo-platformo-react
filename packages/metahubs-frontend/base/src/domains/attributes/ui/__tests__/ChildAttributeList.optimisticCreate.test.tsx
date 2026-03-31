@@ -111,9 +111,13 @@ const templateMuiMock = vi.hoisted(() => ({
     notifyError: vi.fn()
 }))
 
-vi.mock('@universo/template-mui', () => ({
-    ...templateMuiMock
-}))
+vi.mock('@universo/template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo/template-mui')>()
+    return {
+        ...templateMuiMock,
+        useListDialogs: actual.useListDialogs
+    }
+})
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
     ...templateMuiMock,

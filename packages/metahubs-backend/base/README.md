@@ -46,6 +46,42 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 - Package services and persistence helpers stay reusable outside the top-level router composition.
 - Tests prove service-level contracts directly where route tests use mocks.
 
+## Controller–Service–Store Pattern
+
+Each domain follows a three-layer split:
+
+1. **Routes** (`domains/<domain>/routes/<domain>Routes.ts`) — thin Express route definitions (parameter extraction, response codes, delegation to controller).
+2. **Controller** (`domains/<domain>/routes/<domain>Controller.ts`) — handler functions that validate input, call services/stores, and return responses.
+3. **Store** (`persistence/<domain>Store.ts`) — raw SQL queries via `DbExecutor.query()` with parameterized bindings.
+
+### `createMetahubHandler()`
+
+Factory-generated handler that wraps every metahub-scoped controller action:
+- Resolves `userId` from the request.
+- Obtains a request-scoped `DbExecutor` (with RLS context).
+- Runs `ensureMetahubAccess()` permission check.
+- Provides a `MetahubHandlerContext` (`req`, `res`, `userId`, `metahubId`, `exec`, `schemaService`) to the handler.
+
+```ts
+const handle = createMetahubHandler(getDbExecutor)
+router.get('/:metahubId/hubs', handle(hubsController.list, { permission: 'viewer' }))
+```
+
+### Domain Error Hierarchy
+
+`MetahubDomainError` is the base class with `statusCode`, `code`, and optional `details`:
+
+| Subclass | Status | Code |
+|---|---|---|
+| `MetahubMigrationRequiredError` | 428 | `MIGRATION_REQUIRED` |
+| `MetahubPoolExhaustedError` | 503 | `CONNECTION_POOL_EXHAUSTED` |
+| `MetahubSchemaLockTimeoutError` | 503 | `SCHEMA_LOCK_TIMEOUT` |
+| `MetahubMigrationApplyLockTimeoutError` | 409 | `MIGRATION_APPLY_LOCK_TIMEOUT` |
+
+### Query Pagination
+
+`paginateItems(items, { limit, offset })` provides in-memory pagination with `{ items, pagination: { limit, offset, total, hasMore } }`. Input validation uses `validateListQuery()` with Zod schema.
+
 ## Development
 
 ```bash

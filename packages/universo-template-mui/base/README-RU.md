@@ -13,7 +13,7 @@
 - Экспорты dashboard, такие как `Dashboard`, `StatCard` и `HighlightedCard`, дают общие примитивы композиции страниц.
 - Dialog, table, selection, pagination и card-компоненты переэкспортируются из корня пакета.
 - Фабричные хелперы вроде `createEntityActions()` и `createMemberActions()` уменьшают дублирование CRUD-action wiring.
-- Хуки вроде `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()` и optimistic CRUD helpers поддерживают общие frontend-сценарии.
+- Хуки вроде `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, `useListDialogs()` и optimistic CRUD helpers поддерживают общие frontend-сценарии.
 
 ## Integration Role
 

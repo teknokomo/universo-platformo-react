@@ -32,9 +32,15 @@ import {
     MetahubMigrationRequiredError,
     MetahubPoolExhaustedError,
     MetahubSchemaLockTimeoutError,
-    isKnexPoolTimeoutError
+    isKnexPoolTimeoutError,
+    MetahubNotFoundError,
+    MetahubValidationError,
+    MetahubSchemaSyncError
 } from '../../shared/domainErrors'
 import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { createLogger } from '../../../utils/logger'
+
+const log = createLogger('MetahubSchemaService')
 
 /**
  * In-memory cache for schema existence.
@@ -402,11 +408,11 @@ export class MetahubSchemaService {
     }> {
         const metahub = await findMetahubById(this.exec, metahubId)
         if (!metahub) {
-            throw new Error('Metahub not found')
+            throw new MetahubNotFoundError('Metahub', metahubId)
         }
         const defaultBranchId = metahub.defaultBranchId
         if (!defaultBranchId) {
-            throw new Error('Default branch is not configured for this metahub')
+            throw new MetahubValidationError('Default branch is not configured for this metahub')
         }
 
         let branchId = this.branchIdOverride ?? defaultBranchId
@@ -419,7 +425,7 @@ export class MetahubSchemaService {
 
         const branch = await findBranchByIdAndMetahub(this.exec, branchId, metahubId)
         if (!branch) {
-            throw new Error('Branch not found')
+            throw new MetahubNotFoundError('Branch', branchId)
         }
         return {
             branchId,
@@ -455,7 +461,7 @@ export class MetahubSchemaService {
     private async loadManifest(metahubId: string): Promise<MetahubTemplateManifest> {
         const metahub = await findMetahubById(this.exec, metahubId)
         if (!metahub) {
-            throw new Error('Metahub not found')
+            throw new MetahubNotFoundError('Metahub', metahubId)
         }
 
         if (metahub.templateVersionId) {
@@ -464,8 +470,8 @@ export class MetahubSchemaService {
                 try {
                     return validateTemplateManifest(version.manifestJson)
                 } catch (error) {
-                    console.warn(
-                        `[MetahubSchemaService] Invalid manifest in template version ${version.id}, falling back to default:`,
+                    log.warn(
+                        `Invalid manifest in template version ${version.id}, falling back to default:`,
                         error
                     )
                 }
@@ -591,18 +597,21 @@ export class MetahubSchemaService {
                     toVersion: CURRENT_STRUCTURE_VERSION
                 })
             }
-            console.error(`[MetahubSchemaService] Structure migration failed for ${schemaName}:`, result.error)
-            throw new Error(`Structure migration V${fromVersion}→V${CURRENT_STRUCTURE_VERSION} failed: ${result.error}`)
+            log.error(`Structure migration failed for ${schemaName}:`, result.error)
+            throw new MetahubSchemaSyncError(
+                `Structure migration V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}`,
+                result.error
+            )
         }
 
         if (result.applied.length > 0) {
-            console.info(
-                `[MetahubSchemaService] Migrated ${schemaName} V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}: ${result.applied.length} changes applied`
+            log.info(
+                `Migrated ${schemaName} V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}: ${result.applied.length} changes applied`
             )
         }
 
         if (result.skippedDestructive.length > 0) {
-            console.warn(`[MetahubSchemaService] ${result.skippedDestructive.length} destructive changes skipped for ${schemaName}`)
+            log.warn(`${result.skippedDestructive.length} destructive changes skipped for ${schemaName}`)
         }
         // 2. Keep seed data in sync after structure migration
         const seedSynced = await this.syncTemplateSeed(schemaName, manifest, CURRENT_STRUCTURE_VERSION, templateVersionInfo)
@@ -711,8 +720,8 @@ export class MetahubSchemaService {
 
         await this.recordTemplateSeedMigration(schemaName, structureVersion, seedResult, templateVersionInfo)
 
-        console.info(
-            `[MetahubSchemaService] Seed sync for ${schemaName}: ` +
+        log.info(
+            `Seed sync for ${schemaName}: ` +
                 `+${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
                 `+${seedResult.settingsAdded} settings, +${seedResult.entitiesAdded} entities, ` +
                 `+${seedResult.constantsAdded} constants, +${seedResult.attributesAdded} attributes, ` +
@@ -808,7 +817,7 @@ export class MetahubSchemaService {
     ): Promise<{ templateVersionId: string | null; templateVersionLabel: string | null }> {
         const metahub = await findMetahubById(this.exec, metahubId)
         if (!metahub) {
-            throw new Error('Metahub not found')
+            throw new MetahubNotFoundError('Metahub', metahubId)
         }
         if (!metahub.templateVersionId) {
             return { templateVersionId: null, templateVersionLabel: null }

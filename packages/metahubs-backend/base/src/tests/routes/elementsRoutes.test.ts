@@ -22,6 +22,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createElementsRoutes } from '../../domains/elements/routes/elementsRoutes'
+import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
 
 const mockElementsService = {
     findAllAndCount: jest.fn(),
@@ -117,7 +118,7 @@ describe('Elements Routes', () => {
     })
 
     it('PATCH /metahub/:metahubId/catalog/:catalogId/element/:elementId/move returns 404 when missing', async () => {
-        const missingError = Object.assign(new Error('Element not found'), { code: 'ELEMENT_NOT_FOUND' })
+        const missingError = new MetahubNotFoundError('Element', '55555555-5555-4555-8555-555555555555')
         mockElementsService.moveElement.mockRejectedValueOnce(missingError)
 
         const app = buildApp()

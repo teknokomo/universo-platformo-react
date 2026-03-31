@@ -5,6 +5,7 @@ import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
+import { MetahubNotFoundError } from '../../shared/domainErrors'
 
 /**
  * Options for querying objects
@@ -22,8 +23,10 @@ export type MetahubObjectRow = {
     id: string
     kind: MetahubObjectKind | string
     codename: Record<string, unknown>
-    table_name?: any
+    table_name?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- polymorphic JSONB: shape varies by object kind
     presentation?: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- polymorphic JSONB: shape varies by object kind
     config?: any
     _upl_version?: number
     _upl_created_at?: unknown
@@ -48,6 +51,7 @@ export class MetahubObjectsService {
         return {
             ...(row as MetahubObjectRow),
             codename: ensureCodenameValue(row.codename),
+            table_name: typeof row.table_name === 'string' ? row.table_name : undefined,
             presentation
         }
     }
@@ -230,7 +234,7 @@ export class MetahubObjectsService {
 
             const normalized = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [createdId])
             if (!normalized) {
-                throw new Error(`${kind} not found`)
+                throw new MetahubNotFoundError(kind, createdId)
             }
             return this.normalizeObjectRow(normalized)
         }
@@ -304,7 +308,7 @@ export class MetahubObjectsService {
     ) {
         const existing = await this.findById(metahubId, id, userId)
         if (!existing || existing.kind !== kind) {
-            throw new Error(`${kind} not found`)
+            throw new MetahubNotFoundError(kind, id)
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -415,7 +419,7 @@ export class MetahubObjectsService {
         )
 
         if (rows.length < 1) {
-            throw new Error(`Object ${id} not found while soft deleting metahub object`)
+            throw new MetahubNotFoundError('Object', id)
         }
     }
 
@@ -439,7 +443,7 @@ export class MetahubObjectsService {
         )
 
         if (rows.length < 1) {
-            throw new Error(`Object ${id} not found while restoring metahub object`)
+            throw new MetahubNotFoundError('Object', id)
         }
     }
 
@@ -458,7 +462,7 @@ export class MetahubObjectsService {
         )
 
         if (rows.length < 1) {
-            throw new Error(`Object ${id} not found while permanently deleting metahub object`)
+            throw new MetahubNotFoundError('Object', id)
         }
     }
 
@@ -535,7 +539,7 @@ export class MetahubObjectsService {
 
             const currentIndex = rows.findIndex((row) => row.id === objectId)
             if (currentIndex === -1) {
-                throw new Error(`${kind} not found`)
+                throw new MetahubNotFoundError(kind, objectId)
             }
 
             const targetIndex = Math.max(0, Math.min(rows.length - 1, newSortOrder - 1))
@@ -575,7 +579,7 @@ export class MetahubObjectsService {
             )
 
             if (!updated) {
-                throw new Error(`${kind} not found`)
+                throw new MetahubNotFoundError(kind, objectId)
             }
 
             return updated ? this.normalizeObjectRow(updated) : null

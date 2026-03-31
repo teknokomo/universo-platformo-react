@@ -13,6 +13,7 @@ const request = require('supertest') as typeof import('supertest')
 import { createBranchesRoutes } from '../../domains/branches/routes/branchesRoutes'
 import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
+import { MetahubDomainError } from '../../domains/shared/domainErrors'
 
 const mockEnsureMetahubAccess = jest.fn(async () => ({ membership: { role: 'owner' } }))
 jest.mock('../../domains/shared/guards', () => ({
@@ -148,7 +149,13 @@ describe('Branches Options Routes', () => {
         const branchId = 'branch-1'
 
         jest.spyOn(MetahubBranchesService.prototype, 'getBlockingUsers').mockResolvedValue([])
-        jest.spyOn(MetahubBranchesService.prototype, 'deleteBranch').mockRejectedValue(new Error('Branch deletion in progress'))
+        jest.spyOn(MetahubBranchesService.prototype, 'deleteBranch').mockRejectedValue(
+            new MetahubDomainError({
+                message: 'Branch deletion in progress',
+                statusCode: 409,
+                code: 'BRANCH_DELETION_IN_PROGRESS'
+            })
+        )
 
         const app = buildApp()
         const response = await request(app).delete(`/metahub/${metahubId}/branch/${branchId}`).expect(409)

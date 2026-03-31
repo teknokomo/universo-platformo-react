@@ -46,6 +46,42 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 - Package services и persistence helpers остаются переиспользуемыми вне top-level router composition.
 - Tests напрямую доказывают service-level contracts там, где route tests используют mocks.
 
+## Паттерн Controller–Service–Store
+
+Каждый домен следует трёхслойному разделению:
+
+1. **Routes** (`domains/<domain>/routes/<domain>Routes.ts`) — тонкие Express route definitions (извлечение параметров, коды ответов, делегирование controller-у).
+2. **Controller** (`domains/<domain>/routes/<domain>Controller.ts`) — функции-обработчики, валидирующие input, вызывающие services/stores и формирующие ответы.
+3. **Store** (`persistence/<domain>Store.ts`) — raw SQL queries через `DbExecutor.query()` с параметризованными bindings.
+
+### `createMetahubHandler()`
+
+Фабрично-сгенерированный handler, оборачивающий каждое metahub-scoped действие controller-а:
+- Получает `userId` из request-а.
+- Получает request-scoped `DbExecutor` (с RLS context).
+- Выполняет `ensureMetahubAccess()` permission check.
+- Предоставляет `MetahubHandlerContext` (`req`, `res`, `userId`, `metahubId`, `exec`, `schemaService`) обработчику.
+
+```ts
+const handle = createMetahubHandler(getDbExecutor)
+router.get('/:metahubId/hubs', handle(hubsController.list, { permission: 'viewer' }))
+```
+
+### Иерархия доменных ошибок
+
+`MetahubDomainError` — базовый класс с `statusCode`, `code` и опциональным `details`:
+
+| Подкласс | Статус | Код |
+|---|---|---|
+| `MetahubMigrationRequiredError` | 428 | `MIGRATION_REQUIRED` |
+| `MetahubPoolExhaustedError` | 503 | `CONNECTION_POOL_EXHAUSTED` |
+| `MetahubSchemaLockTimeoutError` | 503 | `SCHEMA_LOCK_TIMEOUT` |
+| `MetahubMigrationApplyLockTimeoutError` | 409 | `MIGRATION_APPLY_LOCK_TIMEOUT` |
+
+### Пагинация запросов
+
+`paginateItems(items, { limit, offset })` обеспечивает in-memory пагинацию с `{ items, pagination: { limit, offset, total, hasMore } }`. Валидация входных данных использует `validateListQuery()` с Zod schema.
+
 ## Development
 
 ```bash

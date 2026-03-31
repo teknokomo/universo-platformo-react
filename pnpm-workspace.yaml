@@ -3,6 +3,25 @@ packages:
     - 'packages/*/base'
     # NOTE: packages/apps-template-mui is included via packages/*.
 
+# Supply chain security — mitigate compromised package attacks
+# See: https://pnpm.io/supply-chain-security
+#
+# minimumReleaseAge: delay installing newly published versions (in minutes).
+# 7 days = 10080 min — malicious releases are usually detected within hours,
+# so a week-long quarantine practically eliminates the risk.
+minimumReleaseAge: 10080
+
+# blockExoticSubdeps: only direct deps may use git repos / tarball URLs;
+# transitive deps must come from the registry.
+blockExoticSubdeps: true
+
+# trustPolicy: fail if a package's trust level has decreased compared to
+# previous releases (e.g. was published by a trusted publisher but now isn't).
+trustPolicy: no-downgrade
+# Allow older packages that were published before trust/provenance infrastructure
+# existed — 90 days (129600 min) grace window.
+trustPolicyIgnoreAfter: 129600
+
 # Catalog - single source of truth for dependency versions
 # Using conservative versions to minimize migration risk
 catalog:

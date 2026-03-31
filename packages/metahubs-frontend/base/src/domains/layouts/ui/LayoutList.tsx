@@ -46,7 +46,8 @@ import {
     gridSpacing,
     LocalizedInlineField,
     notifyError,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
@@ -192,18 +193,10 @@ const LayoutList = () => {
 
     const [view, setView] = useViewPreference(STORAGE_KEYS.LAYOUT_DISPLAY_STYLE)
 
-    const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
-    const [isEditDialogOpen, setEditDialogOpen] = useState(false)
+    const { dialogs, openCreate, openEdit, openCopy, openDelete, close } = useListDialogs<MetahubLayout>()
     const [dialogError, setDialogError] = useState<string | null>(null)
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
-    const [editingLayout, setEditingLayout] = useState<MetahubLayout | null>(null)
-    const [copyingLayout, setCopyingLayout] = useState<MetahubLayout | null>(null)
-    const [isCopyDialogOpen, setCopyDialogOpen] = useState(false)
-    const [deleteDialogState, setDeleteDialogState] = useState<{ open: boolean; layout: MetahubLayout | null }>({
-        open: false,
-        layout: null
-    })
 
     const [menuState, setMenuState] = useState<LayoutMenuState>({ anchorEl: null, layout: null })
 
@@ -269,20 +262,17 @@ const LayoutList = () => {
 
     const handleAddNew = () => {
         setDialogError(null)
-        setEditingLayout(null)
-        setCreateDialogOpen(true)
+        openCreate()
     }
 
     const handleEdit = (layout: MetahubLayout) => {
         setDialogError(null)
-        setEditingLayout(layout)
-        setEditDialogOpen(true)
+        openEdit(layout)
     }
 
     const handleCopy = (layout: MetahubLayout) => {
         setCopyDialogError(null)
-        setCopyingLayout(layout)
-        setCopyDialogOpen(true)
+        openCopy(layout)
     }
 
     const getCardData = (layout: MetahubLayout): MetahubLayoutDisplay => toMetahubLayoutDisplay(layout, i18n.language)
@@ -299,7 +289,7 @@ const LayoutList = () => {
     }, [i18n.language])
 
     const copyInitialValues: LayoutFormValues = useMemo(() => {
-        if (!copyingLayout) {
+        if (!dialogs.copy.item) {
             return {
                 ...localizedDefaults,
                 copyWidgets: true,
@@ -308,19 +298,19 @@ const LayoutList = () => {
         }
 
         const uiLocale = normalizeLocale(i18n.language)
-        const sourceName = getVLCString(copyingLayout.name, uiLocale) || getVLCString(copyingLayout.name, 'en') || ''
-        const sourceDescription = getVLCString(copyingLayout.description, uiLocale) || getVLCString(copyingLayout.description, 'en') || ''
+        const sourceName = getVLCString(dialogs.copy.item.name, uiLocale) || getVLCString(dialogs.copy.item.name, 'en') || ''
+        const sourceDescription = getVLCString(dialogs.copy.item.description, uiLocale) || getVLCString(dialogs.copy.item.description, 'en') || ''
 
         return {
             templateKey: 'dashboard',
-            nameVlc: appendLocalizedCopySuffix(ensureLocalizedContent(copyingLayout.name, uiLocale, sourceName), uiLocale, sourceName),
-            descriptionVlc: ensureLocalizedContent(copyingLayout.description ?? null, uiLocale, sourceDescription),
-            isActive: Boolean(copyingLayout.isActive),
+            nameVlc: appendLocalizedCopySuffix(ensureLocalizedContent(dialogs.copy.item.name, uiLocale, sourceName), uiLocale, sourceName),
+            descriptionVlc: ensureLocalizedContent(dialogs.copy.item.description ?? null, uiLocale, sourceDescription),
+            isActive: Boolean(dialogs.copy.item.isActive),
             isDefault: false,
             copyWidgets: true,
             deactivateAllWidgets: false
         }
-    }, [copyingLayout, i18n.language, localizedDefaults])
+    }, [dialogs.copy.item, i18n.language, localizedDefaults])
 
     const validateLayoutForm = useCallback(
         (_values: LayoutDialogValues) => {
@@ -413,12 +403,12 @@ const LayoutList = () => {
         setDialogError(null)
         const payload = toPayload(values, { includeConfig: true })
         createLayoutMutation.mutate({ metahubId, data: payload })
-        setCreateDialogOpen(false)
+        close('create')
     }
 
     const handleUpdate = async (values: LayoutDialogValues) => {
-        if (!metahubId || !editingLayout) return
-        const currentLayout = editingLayout
+        if (!metahubId || !dialogs.edit.item) return
+        const currentLayout = dialogs.edit.item
         setDialogError(null)
         const payload = toPayload(values, {
             expectedVersion: currentLayout.version,
@@ -426,33 +416,30 @@ const LayoutList = () => {
             existingLayout: currentLayout
         })
 
-        setEditDialogOpen(false)
-        setEditingLayout(null)
+        close('edit')
         updateLayoutMutation.mutate(
             { metahubId, layoutId: currentLayout.id, data: payload },
             {
                 onError: (error: unknown) => {
                     const message = error instanceof Error ? error.message : String(error)
                     setDialogError(message)
-                    setEditingLayout(currentLayout)
-                    setEditDialogOpen(true)
+                    openEdit(currentLayout)
                 }
             }
         )
     }
 
     const handleCopyLayout = async (values: LayoutDialogValues) => {
-        if (!metahubId || !copyingLayout) return
+        if (!metahubId || !dialogs.copy.item) return
         try {
             setCopyDialogError(null)
             const payload = toCopyPayload(values)
             copyLayoutMutation.mutate({
                 metahubId,
-                layoutId: copyingLayout.id,
+                layoutId: dialogs.copy.item.id,
                 data: payload
             })
-            setCopyDialogOpen(false)
-            setCopyingLayout(null)
+            close('copy')
         } catch (e: unknown) {
             setCopyDialogError(e instanceof Error ? e.message : String(e))
             notifyError(t, enqueueSnackbar, e)
@@ -486,17 +473,17 @@ const LayoutList = () => {
     }
 
     const handleDelete = (layout: MetahubLayout) => {
-        setDeleteDialogState({ open: true, layout })
+        openDelete(layout)
     }
 
     const handleDeleteConfirm = async () => {
-        if (!metahubId || !deleteDialogState.layout) return
+        if (!metahubId || !dialogs.delete.item) return
         try {
-            deleteLayoutMutation.mutate({ metahubId, layoutId: deleteDialogState.layout.id })
-            setDeleteDialogState({ open: false, layout: null })
+            deleteLayoutMutation.mutate({ metahubId, layoutId: dialogs.delete.item.id })
+            close('delete')
         } catch (e: unknown) {
             notifyError(t, enqueueSnackbar, e)
-            setDeleteDialogState({ open: false, layout: null })
+            close('delete')
         }
     }
 
@@ -690,24 +677,24 @@ const LayoutList = () => {
 
     // Keep edit dialog state in sync if list updates (e.g., optimistic lock changes).
     useEffect(() => {
-        if (!editingLayout) return
-        const fresh = layoutsById.get(editingLayout.id)
-        if (fresh) setEditingLayout(fresh)
-    }, [editingLayout, layoutsById])
+        if (!dialogs.edit.item) return
+        const fresh = layoutsById.get(dialogs.edit.item.id)
+        if (fresh && fresh !== dialogs.edit.item) openEdit(fresh)
+    }, [dialogs.edit.item, layoutsById, openEdit])
 
     const editInitialValues = useMemo(() => {
-        if (!editingLayout) return localizedDefaults
+        if (!dialogs.edit.item) return localizedDefaults
         const uiLocale = normalizeLocale(i18n.language)
-        const nameFallback = getVLCString(editingLayout.name, uiLocale) || ''
-        const descriptionFallback = getVLCString(editingLayout.description, uiLocale) || ''
+        const nameFallback = getVLCString(dialogs.edit.item.name, uiLocale) || ''
+        const descriptionFallback = getVLCString(dialogs.edit.item.description, uiLocale) || ''
         return {
-            templateKey: editingLayout.templateKey,
-            nameVlc: ensureLocalizedContent(editingLayout.name, uiLocale, nameFallback),
-            descriptionVlc: ensureLocalizedContent(editingLayout.description ?? null, uiLocale, descriptionFallback),
-            isActive: Boolean(editingLayout.isActive),
-            isDefault: Boolean(editingLayout.isDefault)
+            templateKey: dialogs.edit.item.templateKey,
+            nameVlc: ensureLocalizedContent(dialogs.edit.item.name, uiLocale, nameFallback),
+            descriptionVlc: ensureLocalizedContent(dialogs.edit.item.description ?? null, uiLocale, descriptionFallback),
+            isActive: Boolean(dialogs.edit.item.isActive),
+            isDefault: Boolean(dialogs.edit.item.isDefault)
         } satisfies LayoutFormValues
-    }, [editingLayout, i18n.language, localizedDefaults])
+    }, [dialogs.edit.item, i18n.language, localizedDefaults])
 
     const menuLayout = menuState.layout
     const disableDeactivate = Boolean(menuLayout?.isDefault) || (Boolean(menuLayout?.isActive) && activeCount <= 1)
@@ -941,7 +928,7 @@ const LayoutList = () => {
             </Menu>
 
             <EntityFormDialog
-                open={isCreateDialogOpen}
+                open={dialogs.create.open}
                 title={t('layouts.createDialog.title', 'Create layout')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
@@ -950,7 +937,7 @@ const LayoutList = () => {
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={createLayoutMutation.isPending}
                 error={dialogError || undefined}
-                onClose={() => setCreateDialogOpen(false)}
+                onClose={() => close('create')}
                 onSave={handleCreate}
                 hideDefaultFields
                 initialExtraValues={localizedDefaults}
@@ -960,7 +947,7 @@ const LayoutList = () => {
             />
 
             <EntityFormDialog
-                open={isEditDialogOpen}
+                open={dialogs.edit.open}
                 mode='edit'
                 title={t('layouts.editDialog.title', 'Edit layout')}
                 nameLabel={tc('fields.name', 'Name')}
@@ -970,10 +957,7 @@ const LayoutList = () => {
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={updateLayoutMutation.isPending}
                 error={dialogError || undefined}
-                onClose={() => {
-                    setEditDialogOpen(false)
-                    setEditingLayout(null)
-                }}
+                onClose={() => close('edit')}
                 onSave={handleUpdate}
                 hideDefaultFields
                 initialExtraValues={editInitialValues}
@@ -982,17 +966,17 @@ const LayoutList = () => {
                 canSave={canSaveLayoutForm}
                 showDeleteButton
                 deleteButtonText={tc('actions.delete', 'Delete')}
-                deleteButtonDisabled={Boolean(editingLayout?.isDefault)}
+                deleteButtonDisabled={Boolean(dialogs.edit.item?.isDefault)}
                 onDelete={() => {
-                    if (editingLayout) {
-                        setDeleteDialogState({ open: true, layout: editingLayout })
-                        setEditDialogOpen(false)
+                    if (dialogs.edit.item) {
+                        openDelete(dialogs.edit.item)
+                        close('edit')
                     }
                 }}
             />
 
             <EntityFormDialog
-                open={isCopyDialogOpen}
+                open={dialogs.copy.open}
                 title={t('layouts.copyTitle', 'Copying layout')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
@@ -1001,10 +985,7 @@ const LayoutList = () => {
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={copyLayoutMutation.isPending}
                 error={copyDialogError || undefined}
-                onClose={() => {
-                    setCopyDialogOpen(false)
-                    setCopyingLayout(null)
-                }}
+                onClose={() => close('copy')}
                 onSave={handleCopyLayout}
                 hideDefaultFields
                 initialExtraValues={copyInitialValues}
@@ -1054,14 +1035,14 @@ const LayoutList = () => {
             />
 
             <ConfirmDeleteDialog
-                open={deleteDialogState.open}
+                open={dialogs.delete.open}
                 title={t('layouts.deleteDialog.title', 'Delete layout?')}
                 description={t('layouts.deleteDialog.description', 'This action cannot be undone.')}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={deleteLayoutMutation.isPending}
-                onCancel={() => setDeleteDialogState({ open: false, layout: null })}
+                onCancel={() => close('delete')}
                 onConfirm={handleDeleteConfirm}
             />
         </MainCard>

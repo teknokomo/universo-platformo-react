@@ -165,9 +165,12 @@ const templateMuiMock = vi.hoisted(() => ({
     revealPendingEntityFeedback: vi.fn()
 }))
 
-vi.mock('@universo/template-mui', () => ({
-    ...templateMuiMock,
-    FlowListTable: ({
+vi.mock('@universo/template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo/template-mui')>()
+    return {
+        ...templateMuiMock,
+        useListDialogs: actual.useListDialogs,
+        FlowListTable: ({
         data,
         renderActions
     }: {
@@ -205,7 +208,8 @@ vi.mock('@universo/template-mui', () => ({
             </button>
         )
     }
-}))
+    }
+})
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
     EntityFormDialog: ({

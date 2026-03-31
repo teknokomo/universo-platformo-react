@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.56.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.57.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.56.0-alpha (March 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.57.0-alpha (April 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
@@ -80,7 +80,7 @@ Website: [https://universo.pro](https://universo.pro)
 -   Most runtime workspaces follow the `packages/<name>/base` convention, while package roots such as `packages/apps-template-mui` and `packages/universo-rest-docs` provide shared UI scaffolding and documentation services.
 -   The backend side is organized around a SQL-first PostgreSQL/Supabase runtime, modular migration tooling, schema-definition utilities, and feature packages for authentication, onboarding, profile, metahubs, applications, and administration.
 -   The frontend side is organized around a React shell, shared UI/state/i18n packages, and feature packages for onboarding, authentication, profile, metahubs, applications, and administration.
--   Fixed schemas, runtime metadata, and authoring flows now converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
+-   In the metahubs and admin domains, fixed schemas, runtime metadata, and authoring flows converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
 -   The repository also contains cross-cutting documentation and architecture notes that track active plans, verified progress, and stable system patterns for ongoing platform development.
 
 ## Universo Platformo Functionality (in development)

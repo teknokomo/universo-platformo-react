@@ -6,6 +6,7 @@ import { incrementVersion } from '../../../utils/optimisticLock'
 import { getSettingDefinition } from '@universo/types'
 import type { MetahubSettingRow } from '@universo/types'
 import { validateSettingValue } from '../../shared/validateSettingValue'
+import { MetahubValidationError } from '../../shared/domainErrors'
 
 const TABLE = '_mhb_settings'
 
@@ -63,7 +64,7 @@ export class MetahubSettingsService {
     async upsert(metahubId: string, key: string, value: Record<string, unknown>, userId?: string): Promise<MetahubSettingRow> {
         const validationError = validateSettingValue(key, value)
         if (validationError) {
-            throw new Error(validationError)
+            throw new MetahubValidationError(validationError)
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -112,7 +113,7 @@ export class MetahubSettingsService {
     ): Promise<MetahubSettingRow[]> {
         const unknownKeys = settings.map((s) => s.key).filter((k) => !getSettingDefinition(k))
         if (unknownKeys.length > 0) {
-            throw new Error(`Unknown setting keys: ${unknownKeys.join(', ')}`)
+            throw new MetahubValidationError(`Unknown setting keys: ${unknownKeys.join(', ')}`)
         }
 
         const invalidValueErrors = settings
@@ -120,7 +121,7 @@ export class MetahubSettingsService {
             .filter((error): error is string => Boolean(error))
 
         if (invalidValueErrors.length > 0) {
-            throw new Error(invalidValueErrors.join('; '))
+            throw new MetahubValidationError(invalidValueErrors.join('; '))
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)

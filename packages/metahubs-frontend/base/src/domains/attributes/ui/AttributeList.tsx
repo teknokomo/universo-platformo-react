@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
@@ -11,7 +11,7 @@ import StarIcon from '@mui/icons-material/Star'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient, useQuery } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -19,12 +19,11 @@ import {
     ToolbarControls,
     EmptyListState,
     APIEmptySVG,
-    usePaginated,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     useConfirm,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
@@ -39,32 +38,22 @@ import {
     useReorderAttribute,
     useToggleAttributeRequired,
     useSetDisplayAttribute,
-    useClearDisplayAttribute
-} from '../hooks/mutations'
-import * as attributesApi from '../api'
-import { getCatalogById } from '../../catalogs'
-import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
-import {
-    DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY,
-    type MetaEntityKind,
-    type PlatformSystemAttributesPolicy,
-    type VersionedLocalizedContent
-} from '@universo/types'
+    useClearDisplayAttribute,
+    useAttributeListData
+} from '../hooks'
+import { invalidateAttributesQueries, metahubsQueryKeys } from '../../shared'
+import type { VersionedLocalizedContent } from '@universo/types'
 import {
     Attribute,
     AttributeDisplay,
     AttributeDataType,
     AttributeLocalizedPayload,
     toAttributeDisplay,
-    AttributeValidationRules,
     getDefaultValidationRules,
     getPhysicalDataType,
     formatPhysicalType,
-    Hub,
-    Catalog,
     CatalogLocalizedPayload,
-    getVLCString,
-    PaginatedResponse
+    getVLCString
 } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { getCatalogSystemFieldDefinition } from '@universo/utils'
@@ -87,141 +76,18 @@ import {
 } from '../../catalogs/ui/CatalogActions'
 import type { CatalogDisplayWithHub } from '../../catalogs/ui/CatalogActions'
 import { useUpdateCatalogAtMetahub } from '../../catalogs/hooks/mutations'
-import * as hubsApi from '../../hubs'
+import type { AttributeFormValues, ConfirmSpec, CatalogTab } from './attributeListUtils'
+import {
+    extractResponseData,
+    hasResponseStatus,
+    extractResponseMessage,
+    extractResponseCode,
+    extractResponseMaxChildAttributes,
+    sanitizeAttributeUiConfig,
+    getDataTypeColor
+} from './attributeListUtils'
 
 type GenericFormValues = Record<string, unknown>
-
-type ActionBaseContext = {
-    t: (key: string, defaultValue?: string, opts?: Record<string, unknown>) => string
-}
-
-type ConfirmSpec = {
-    titleKey?: string
-    title?: string
-    descriptionKey?: string
-    description?: string
-    confirmKey?: string
-    confirmButtonName?: string
-    cancelKey?: string
-    cancelButtonName?: string
-    interpolate?: Record<string, unknown>
-}
-
-type CatalogTab = 'attributes' | 'system' | 'elements' | 'settings'
-
-const extractResponseData = (error: unknown): Record<string, unknown> | null => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return null
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object' || !('data' in response)) return null
-    const data = (response as { data?: unknown }).data
-    return data && typeof data === 'object' ? (data as Record<string, unknown>) : null
-}
-
-const hasResponseStatus = (error: unknown): boolean => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return false
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return false
-    return 'status' in response
-}
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    const data = extractResponseData(error)
-    const message = data?.message
-    if (typeof message === 'string' && message.trim().length > 0) return message
-    const fallbackError = data?.error
-    return typeof fallbackError === 'string' && fallbackError.trim().length > 0 ? fallbackError : undefined
-}
-
-const extractResponseCode = (error: unknown): string | undefined => {
-    const data = extractResponseData(error)
-    const code = data?.code
-    return typeof code === 'string' ? code : undefined
-}
-
-const extractResponseMaxChildAttributes = (error: unknown): number | undefined => {
-    const data = extractResponseData(error)
-    const max = data?.maxChildAttributes
-    return typeof max === 'number' && Number.isFinite(max) ? max : undefined
-}
-
-type AttributeFormValues = {
-    nameVlc: VersionedLocalizedContent<string> | null
-    codename: string
-    codenameTouched?: boolean
-    dataType?: AttributeDataType
-    isRequired?: boolean
-    isDisplayAttribute?: boolean
-    validationRules?: AttributeValidationRules
-    targetEntityId?: string | null
-    targetEntityKind?: MetaEntityKind | null
-    targetConstantId?: string | null
-    uiConfig?: Record<string, unknown>
-}
-
-const sanitizeAttributeUiConfig = (
-    dataType: AttributeDataType,
-    targetEntityKind: MetaEntityKind | null | undefined,
-    sourceUiConfig: Record<string, unknown>
-): Record<string, unknown> => {
-    const nextUiConfig = { ...sourceUiConfig }
-    const isEnumerationRef = dataType === 'REF' && targetEntityKind === 'enumeration'
-
-    if (!isEnumerationRef) {
-        delete nextUiConfig.enumPresentationMode
-        delete nextUiConfig.defaultEnumValueId
-        delete nextUiConfig.enumAllowEmpty
-        delete nextUiConfig.enumLabelEmptyDisplay
-        return nextUiConfig
-    }
-
-    if (
-        nextUiConfig.enumPresentationMode !== 'select' &&
-        nextUiConfig.enumPresentationMode !== 'radio' &&
-        nextUiConfig.enumPresentationMode !== 'label'
-    ) {
-        nextUiConfig.enumPresentationMode = 'select'
-    }
-
-    if (
-        'defaultEnumValueId' in nextUiConfig &&
-        nextUiConfig.defaultEnumValueId !== null &&
-        typeof nextUiConfig.defaultEnumValueId !== 'string'
-    ) {
-        delete nextUiConfig.defaultEnumValueId
-    }
-
-    if (typeof nextUiConfig.enumAllowEmpty !== 'boolean') {
-        nextUiConfig.enumAllowEmpty = true
-    }
-
-    if (nextUiConfig.enumLabelEmptyDisplay !== 'empty' && nextUiConfig.enumLabelEmptyDisplay !== 'dash') {
-        nextUiConfig.enumLabelEmptyDisplay = 'dash'
-    }
-
-    return nextUiConfig
-}
-
-// Get color for data type chip
-const getDataTypeColor = (dataType: AttributeDataType): 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' => {
-    switch (dataType) {
-        case 'STRING':
-            return 'primary'
-        case 'NUMBER':
-            return 'secondary'
-        case 'BOOLEAN':
-            return 'success'
-        case 'DATE':
-            return 'warning'
-        case 'REF':
-            return 'info'
-        case 'JSON':
-            return 'default'
-        case 'TABLE':
-            return 'warning'
-        default:
-            return 'default'
-    }
-}
 
 /**
  * Render-prop component that reads DnD state and provides `isDropTarget` + ghost row data for a container.
@@ -242,23 +108,44 @@ const DndDropTarget: React.FC<{
 
 const AttributeListContent = () => {
     const navigate = useNavigate()
-    const location = useLocation()
-    const [searchParams] = useSearchParams()
-    const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const requestedCatalogTab = searchParams.get('tab')
-    const isDedicatedSystemRoute = location.pathname.endsWith('/system')
-    const activeCatalogTab: Extract<CatalogTab, 'attributes' | 'system'> =
-        isDedicatedSystemRoute || requestedCatalogTab === 'system' ? 'system' : 'attributes'
-    const isSystemView = activeCatalogTab === 'system'
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
-    const attributeCodenameScope = useSettingValue<string>('catalogs.attributeCodenameScope') ?? 'per-level'
-    const [isDialogOpen, setDialogOpen] = useState(false)
+
+    const {
+        metahubId,
+        hubIdParam,
+        catalogId,
+        effectiveHubId,
+        hubs,
+        isSystemView,
+        activeCatalogTab,
+        isDedicatedSystemRoute,
+        requestedCatalogTab,
+        isCatalogResolutionLoading,
+        catalogResolutionError,
+        catalogForHubResolution,
+        isLoading,
+        error,
+        attributes,
+        paginationResult,
+        searchValue,
+        handleSearchChange,
+        codenameEntities,
+        attributeMap,
+        platformSystemAttributesPolicy,
+        limitValue,
+        totalAttributes,
+        limitReached,
+        childSearchMatchParentIds,
+        attributeCodenameScope
+    } = useAttributeListData()
+
+    const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<Attribute>()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [expandedTableIds, setExpandedTableIds] = useState<Set<string>>(new Set())
     const updateCatalogMutation = useUpdateCatalogAtMetahub()
@@ -284,142 +171,10 @@ const AttributeListContent = () => {
         }
     }, [buildCatalogTabPath, catalogId, isDedicatedSystemRoute, metahubId, navigate, requestedCatalogTab])
 
-    // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
-    // Resolve a stable hubId from the catalog's hub associations.
-    const {
-        data: catalogForHubResolution,
-        isLoading: isCatalogResolutionLoading,
-        error: catalogResolutionError
-    } = useQuery({
-        queryKey:
-            metahubId && catalogId ? metahubsQueryKeys.catalogDetail(metahubId, catalogId) : ['metahubs', 'catalogs', 'detail', 'empty'],
-        queryFn: async () => {
-            if (!metahubId || !catalogId) {
-                throw new Error('metahubId and catalogId are required')
-            }
-            return getCatalogById(metahubId, catalogId)
-        },
-        enabled: !!metahubId && !!catalogId && !hubIdParam
-    })
-
-    // Hub ID from URL param, or resolved from catalog (for hub-scoped views)
-    // Note: empty string means no hub - catalog exists without hub association, which is valid
-    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
-    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
-
-    // Fetch hubs for the Settings edit dialog (CatalogActions.buildFormTabs needs hubs)
-    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
-        queryFn: async () => {
-            if (!metahubId) {
-                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
-            }
-            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
-                limit: hubsListParams.limit,
-                sortBy: hubsListParams.sortBy,
-                sortOrder: hubsListParams.sortOrder
-            })
-        },
-        enabled: !!metahubId,
-        refetchOnWindowFocus: false,
-        staleTime: 5 * 60 * 1000,
-        retry: false
-    })
-    const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
-
-    // Can load attributes when we have metahubId and catalogId
-    // hubId is optional - attributes belong to catalog directly
-    const canLoadAttributes = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
-
-    const attributesLimit = 100
-
-    // Use paginated hook for attributes list
-    const paginationResult = usePaginated<Attribute, 'codename' | 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn:
-            metahubId && catalogId
-                ? (params) =>
-                      effectiveHubId
-                          ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, {
-                                ...params,
-                                locale: i18n.language,
-                                scope: isSystemView ? 'system' : undefined
-                            })
-                          : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, {
-                                ...params,
-                                locale: i18n.language,
-                                scope: isSystemView ? 'system' : undefined
-                            })
-                : () => ['empty'],
-        queryFn:
-            metahubId && catalogId
-                ? (params) =>
-                      effectiveHubId
-                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, {
-                                ...params,
-                                locale: i18n.language,
-                                scope: isSystemView ? 'system' : undefined
-                            })
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, {
-                                ...params,
-                                locale: i18n.language,
-                                scope: isSystemView ? 'system' : undefined
-                            })
-                : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
-        initialLimit: 20,
-        sortBy: 'sortOrder',
-        sortOrder: 'asc',
-        enabled: canLoadAttributes,
-        keepPreviousDataOnQueryKeyChange: false
-    })
-
-    const { data: attributes, isLoading, error } = paginationResult
-    // usePaginated already extracts items array, so data IS the array
-
     useEffect(() => {
         paginationResult.actions.goToPage(1)
         setExpandedTableIds(new Set())
     }, [activeCatalogTab, catalogId, paginationResult.actions])
-
-    const isGlobalScope = attributeCodenameScope === 'global'
-    const { data: globalCodenamesData } = useQuery({
-        queryKey: metahubsQueryKeys.allAttributeCodenames(metahubId ?? '', catalogId ?? ''),
-        queryFn: () => attributesApi.listAllAttributeCodenames(metahubId ?? '', catalogId ?? ''),
-        enabled: !isSystemView && isGlobalScope && !!metahubId && !!catalogId
-    })
-
-    const codenameEntities = useMemo(() => {
-        if (isSystemView) {
-            return []
-        }
-        if (isGlobalScope && globalCodenamesData?.items) {
-            return globalCodenamesData.items
-        }
-        return attributes ?? []
-    }, [attributes, globalCodenamesData?.items, isGlobalScope, isSystemView])
-
-    const attributesMeta = paginationResult.meta as
-        | {
-              totalAll?: number
-              limit?: number
-              limitReached?: boolean
-              childSearchMatchParentIds?: string[]
-              platformSystemAttributesPolicy?: PlatformSystemAttributesPolicy
-          }
-        | undefined
-    const platformSystemAttributesPolicy = attributesMeta?.platformSystemAttributesPolicy ?? DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY
-    const limitValue = attributesMeta?.limit ?? attributesLimit
-    const totalAttributes = attributesMeta?.totalAll ?? paginationResult.pagination.totalItems
-    const limitReached = attributesMeta?.limitReached ?? totalAttributes >= limitValue
-    const childSearchMatchParentIds = useMemo(
-        () => attributesMeta?.childSearchMatchParentIds ?? [],
-        [attributesMeta?.childSearchMatchParentIds]
-    )
-
-    // Instant search for better UX
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
 
     // Auto-expand TABLE parents that have matching child attributes during search
     useEffect(() => {
@@ -431,18 +186,6 @@ const AttributeListContent = () => {
             })
         }
     }, [childSearchMatchParentIds])
-
-    // State for independent ConfirmDeleteDialog
-    const [deleteDialogState, setDeleteDialogState] = useState<{
-        open: boolean
-        attribute: Attribute | null
-    }>({ open: false, attribute: null })
-
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: AttributeLocalizedPayload } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -460,11 +203,6 @@ const AttributeListContent = () => {
     // DnD cross-list permission settings
     const allowCrossListRootChildren = useSettingValue<boolean>('catalogs.allowAttributeMoveBetweenRootAndChildren') ?? true
     const allowCrossListBetweenChildren = useSettingValue<boolean>('catalogs.allowAttributeMoveBetweenChildLists') ?? true
-
-    const attributeMap = useMemo(() => {
-        if (!Array.isArray(attributes)) return new Map<string, Attribute>()
-        return new Map(attributes.map((attr) => [attr.id, attr]))
-    }, [attributes])
 
     const systemAttributeActions = useMemo<ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[]>(
         () => [
@@ -695,7 +433,7 @@ const AttributeListContent = () => {
         const hasNoAttributes = (attributes?.length ?? 0) === 0
         return {
             nameVlc: null,
-            codename: '',
+            codename: null,
             codenameTouched: false,
             dataType: 'STRING',
             isRequired: hasNoAttributes,
@@ -718,7 +456,9 @@ const AttributeListContent = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('attributes.validation.codenameRequired', 'Codename is required')
@@ -762,7 +502,9 @@ const AttributeListContent = () => {
     const canSaveAttributeForm = useCallback(
         (values: GenericFormValues) => {
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             const hasBasicInfo =
                 !values._hasCodenameDuplicate &&
@@ -1071,8 +813,7 @@ const AttributeListContent = () => {
                                 if (isOptimisticLockConflict(error)) {
                                     const conflict = extractConflictInfo(error)
                                     if (conflict) {
-                                        setConflictState({
-                                            open: true,
+                                        openConflict({
                                             conflict,
                                             pendingUpdate: {
                                                 id,
@@ -1224,7 +965,7 @@ const AttributeListContent = () => {
                         )
                         return
                     }
-                    setDeleteDialogState({ open: true, attribute })
+                    openDelete(attribute)
                 }
             }
         }),
@@ -1290,11 +1031,11 @@ const AttributeListContent = () => {
     }
 
     const handleAddNew = () => {
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleCatalogTabChange = (_event: unknown, nextTab: CatalogTab) => {
@@ -1673,7 +1414,7 @@ const AttributeListContent = () => {
                     )}
 
                     <EntityFormDialog
-                        open={isDialogOpen}
+                        open={dialogs.create.open}
                         title={t('attributes.createDialog.title', 'Add Attribute')}
                         nameLabel={tc('fields.name', 'Name')}
                         descriptionLabel={tc('fields.description', 'Description')}
@@ -1691,16 +1432,16 @@ const AttributeListContent = () => {
 
                     {/* Independent ConfirmDeleteDialog */}
                     <ConfirmDeleteDialog
-                        open={deleteDialogState.open}
+                        open={dialogs.delete.open}
                         title={t('attributes.deleteDialog.title')}
                         description={t('attributes.deleteDialog.message')}
                         confirmButtonText={tc('actions.delete', 'Delete')}
                         deletingButtonText={tc('actions.deleting', 'Deleting...')}
                         cancelButtonText={tc('actions.cancel', 'Cancel')}
-                        onCancel={() => setDeleteDialogState({ open: false, attribute: null })}
+                        onCancel={() => close('delete')}
                         onConfirm={() => {
-                            if (!deleteDialogState.attribute) return
-                            const actualAttribute = attributeMap.get(deleteDialogState.attribute.id) ?? deleteDialogState.attribute
+                            if (!dialogs.delete.item) return
+                            const actualAttribute = attributeMap.get(dialogs.delete.item.id) ?? dialogs.delete.item
                             if (actualAttribute?.isDisplayAttribute) {
                                 enqueueSnackbar(
                                     t(
@@ -1709,7 +1450,7 @@ const AttributeListContent = () => {
                                     ),
                                     { variant: 'warning' }
                                 )
-                                setDeleteDialogState({ open: false, attribute: null })
+                                close('delete')
                                 return
                             }
 
@@ -1718,7 +1459,7 @@ const AttributeListContent = () => {
                                     metahubId,
                                     hubId: effectiveHubId,
                                     catalogId,
-                                    attributeId: deleteDialogState.attribute.id
+                                    attributeId: dialogs.delete.item.id
                                 },
                                 {
                                     onError: (err: unknown) => {
@@ -1738,10 +1479,10 @@ const AttributeListContent = () => {
                         }}
                     />
                     <ConflictResolutionDialog
-                        open={conflictState.open}
-                        conflict={conflictState.conflict}
+                        open={dialogs.conflict.open}
+                        conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                         onCancel={() => {
-                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                            close('conflict')
                             if (metahubId && catalogId) {
                                 // Invalidate global codenames cache (for global scope duplicate checking)
                                 invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
@@ -1753,8 +1494,9 @@ const AttributeListContent = () => {
                             }
                         }}
                         onOverwrite={async () => {
-                            if (conflictState.pendingUpdate && metahubId && catalogId) {
-                                const { id, patch } = conflictState.pendingUpdate
+                            const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: AttributeLocalizedPayload } })?.pendingUpdate
+                            if (pendingUpdate && metahubId && catalogId) {
+                                const { id, patch } = pendingUpdate
                                 await updateAttributeMutation.mutateAsync({
                                     metahubId,
                                     hubId: effectiveHubId,
@@ -1762,7 +1504,7 @@ const AttributeListContent = () => {
                                     attributeId: id,
                                     data: patch
                                 })
-                                setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                                close('conflict')
                             }
                         }}
                         isLoading={updateAttributeMutation.isPending}

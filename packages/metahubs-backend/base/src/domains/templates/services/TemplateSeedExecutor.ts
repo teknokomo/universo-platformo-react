@@ -12,6 +12,9 @@ import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
 import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
+import { createLogger } from '../../../utils/logger'
+
+const log = createLogger('TemplateSeedExecutor')
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
@@ -142,7 +145,7 @@ export class TemplateSeedExecutor {
         for (const [layoutCodename, widgets] of Object.entries(widgetsByLayout)) {
             const layoutId = layoutIdMap.get(layoutCodename)
             if (!layoutId) {
-                console.warn(`[TemplateSeedExecutor] Layout codename "${layoutCodename}" not found in layoutIdMap, skipping widgets`)
+                log.warn(`Layout codename "${layoutCodename}" not found in layoutIdMap, skipping widgets`)
                 continue
             }
 
@@ -523,8 +526,8 @@ export class TemplateSeedExecutor {
         for (const [enumerationCodename, values] of Object.entries(valuesByEnumeration)) {
             const objectId = resolveEntityIdByCodename(entityIdMap, enumerationCodename, 'enumeration')
             if (!objectId) {
-                console.warn(
-                    `[TemplateSeedExecutor] Enumeration codename "${enumerationCodename}" not found or ambiguous, skipping enumeration values`
+                log.warn(
+                    `Enumeration codename "${enumerationCodename}" not found or ambiguous, skipping enumeration values`
                 )
                 continue
             }
@@ -595,7 +598,7 @@ export class TemplateSeedExecutor {
         for (const [entityCodename, elements] of Object.entries(elementsByEntity)) {
             const objectId = resolveEntityIdByCodename(entityIdMap, entityCodename)
             if (!objectId) {
-                console.warn(`[TemplateSeedExecutor] Entity codename "${entityCodename}" not found or ambiguous, skipping elements`)
+                log.warn(`Entity codename "${entityCodename}" not found or ambiguous, skipping elements`)
                 continue
             }
 

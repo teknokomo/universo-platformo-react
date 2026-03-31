@@ -4,7 +4,95 @@
 
 ---
 
-## Current Focus: PR #741 Bot Review Fixes — COMPLETE
+## Current Focus: Supply Chain Security Hardening — 2026-03-31
+
+### Changes Applied
+- **pnpm upgraded**: 10.4.1 → 10.33.0 (globally via npm)
+- **pnpm-workspace.yaml**: added supply chain security settings:
+  - `minimumReleaseAge: 10080` — 7-day quarantine for new package versions
+  - `blockExoticSubdeps: true` — block git/tarball transitive deps
+  - `trustPolicy: no-downgrade` — prevent installing packages with degraded trust level
+  - `trustPolicyIgnoreAfter: 129600` — 90-day grace for old packages without provenance
+- Validated with `pnpm install` — lockfile up to date, all 30 workspace projects OK
+
+## Previous Focus: Breadcrumb Refresh Fix — queryClient.clear() Race Condition — 2026-03-31
+
+### Root Cause (FINAL)
+On every page refresh, App.tsx's `queryClient.clear()` was destroying all React Query caches at exactly the wrong moment:
+
+1. Auth check completes → `user` transitions from `null` to `{id: '...'}`
+2. `AuthGuard` renders children → NavbarBreadcrumbs mounts for the first time
+3. NavbarBreadcrumbs' `useQuery` hooks fire, creating queries and starting fetches
+4. **In the same commit's effects phase**, App.tsx's useEffect detects `prevUserId=null → currentUserId='uuid'` → calls `queryClient.clear()` — all queries destroyed!
+5. In-flight breadcrumb fetches complete but their query entries no longer exist — data is lost
+6. Breadcrumbs permanently show "..."
+
+SPA navigation works because auth is already loaded, so the null→user transition (and clear) doesn't happen.
+
+### Fix
+Changed the `queryClient.clear()` condition in `packages/universo-core-frontend/base/src/App.tsx` from:
+```tsx
+if (prevUserId !== undefined && prevUserId !== currentUserId)
+```
+to:
+```tsx
+if (typeof prevUserId === 'string' && prevUserId !== currentUserId)
+```
+
+This skips clearing on initial session restore (null → userId) while still clearing on logout (userId → null) and user switch (userA → userB).
+
+### Validation
+- Build: 28/28 ✅
+- Jest (universo-template-mui): 20 suites, 230 tests ✅
+- Fix verified in minified bundle: `typeof u=="string"&&u!==c&&(s.clear(),SW())`
+
+### Previous Iterations (All Contributed but Didn't Fix Root Cause)
+1. Switch raw fetch → auth client + gate on `!authLoading` — necessary but insufficient
+2. Replace custom VLC parser → canonical `getVLCString()` — correct but didn't fix timing
+3. Align breadcrumb query keys to page-level keys + add diagnostics — cache sharing is beneficial but queryClient.clear() destroyed all queries regardless of key
+
+## Previous Focus: Attribute Create Button Fix — VLC Codename Mismatch
+
+### Summary
+Fixed critical bug: "Create" button in attribute creation dialog was permanently disabled. Root cause: after codename JSONB unification, `canSaveAttributeForm` and `validateAttributeForm` in `AttributeList.tsx` treated `values.codename` as a plain string (`typeof values.codename === 'string'`), but `useCodenameAutoFillVlc` sets it as a VLC (VersionedLocalizedContent) object. `typeof VLC_object === 'string'` → always `false` → `rawCodename` = `''` → `Boolean(normalizedCodename)` = `false` → button disabled.
+
+### Changes
+- **AttributeList.tsx**: Both `canSaveAttributeForm` and `validateAttributeForm` now use `getVLCString()` to extract codename text from VLC, consistent with MetahubList, CatalogActions, HubActions
+- **attributeListUtils.ts**: `AttributeFormValues.codename` type changed from `string` to `VersionedLocalizedContent<string> | null`
+- **AttributeList.tsx**: Initial form default changed from `codename: ''` to `codename: null`
+
+### Validation
+- Build: 28/28 packages ✅
+- Vitest: 112 files, 621 tests — all pass ✅
+
+### Next Steps
+- User should verify attribute creation in the running app
+- No remaining issues identified
+
+## Previous Focus: Comprehensive QA Remediation Complete — Zero Technical Debt
+
+### Summary
+Completed all findings from comprehensive QA audit across metahubs-backend and metahubs-frontend. Fixed data integrity (soft-delete), domain error architecture, type safety, code quality (logger, magic numbers), and breadcrumb UI bugs.
+
+### Key Outcomes
+- **Soft-delete**: MetahubAttributesService/MetahubElementsService hard DELETE → mhbSoftDelete (branch-scoped)
+- **Domain errors**: publicMetahubsController + MetahubBranchesService converted; applicationMigrationsController got error codes on all 17 response sites
+- **Type safety**: MetahubObjectRow any→concrete, attributesController 11 any→unknown/typed, catch(any)→unknown
+- **Logger**: createLogger utility + 33 console.* calls replaced across 12 files with structured [tag] prefix
+- **Constants**: DESTRUCTIVE_CHANGE_PRIORITY, MAX_ROLLBACK_FETCH_LIMIT
+- **Breadcrumbs**: Root cause fixed — ?? vs || operator for name/codename fallback, resolveEntityDisplayName helper for VLC JSONB codenames
+- **Dependencies**: Removed unused use-debounce from metahubs-frontend
+
+### Validation
+- Build: 28/28 packages ✅
+- Jest: 45 suites, 384 pass, 3 skip ✅
+- Vitest: 112 files, 621 tests — all pass ✅
+
+### Next Steps
+- No remaining technical debt
+- Ready for QA validation or new feature work
+
+## Previous Focus: QA Remediation Complete — All 7 QR Issues Resolved
 
 ### Summary
 Addressed all 9 bot review comments (Gemini + Copilot) on PR #741. CSRF middleware rewritten with improved token reading, type safety via declaration merging, comprehensive unit tests added.

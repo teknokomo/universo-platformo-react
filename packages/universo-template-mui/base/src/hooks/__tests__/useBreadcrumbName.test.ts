@@ -1,11 +1,16 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
+import { useAuth } from '@universo/auth-frontend'
 import { createEntityNameHook, createTruncateFunction, useMetaverseName, truncateMetaverseName } from '../useBreadcrumbName'
 
-// Mock fetch globally
-const mockFetch = jest.fn()
-global.fetch = mockFetch
+jest.mock('@universo/auth-frontend', () => ({
+    useAuth: jest.fn()
+}))
+
+const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>
+const mockClientGet = jest.fn()
+const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined)
 
 describe('useBreadcrumbName', () => {
     let queryClient: QueryClient
@@ -16,11 +21,19 @@ describe('useBreadcrumbName', () => {
                 queries: { retry: false }
             }
         })
-        mockFetch.mockClear()
+        mockClientGet.mockClear()
+        mockUseAuth.mockReturnValue({
+            client: { get: mockClientGet },
+            loading: false
+        } as never)
     })
 
     afterEach(() => {
         queryClient.clear()
+    })
+
+    afterAll(() => {
+        mockConsoleWarn.mockRestore()
     })
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
@@ -37,13 +50,12 @@ describe('useBreadcrumbName', () => {
 
             // Should return null immediately without making API call
             expect(result.current).toBeNull()
-            expect(mockFetch).not.toHaveBeenCalled()
+            expect(mockClientGet).not.toHaveBeenCalled()
         })
 
         it('should fetch entity name and return it', async () => {
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: () => Promise.resolve({ name: 'Test Entity Name' })
+            mockClientGet.mockResolvedValueOnce({
+                data: { name: 'Test Entity Name' }
             })
 
             const useTestEntityName = createEntityNameHook({
@@ -60,19 +72,12 @@ describe('useBreadcrumbName', () => {
                 expect(result.current).toBe('Test Entity Name')
             })
 
-            expect(mockFetch).toHaveBeenCalledWith(
-                '/api/v1/tests/test-id-123',
-                expect.objectContaining({
-                    method: 'GET',
-                    credentials: 'include'
-                })
-            )
+            expect(mockClientGet).toHaveBeenCalledWith('/tests/test-id-123')
         })
 
         it('should use custom nameField when provided', async () => {
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: () => Promise.resolve({ title: 'Custom Field Value', name: 'Wrong Field' })
+            mockClientGet.mockResolvedValueOnce({
+                data: { title: 'Custom Field Value', name: 'Wrong Field' }
             })
 
             const useTestEntityName = createEntityNameHook({
@@ -85,6 +90,30 @@ describe('useBreadcrumbName', () => {
 
             await waitFor(() => {
                 expect(result.current).toBe('Custom Field Value')
+            })
+        })
+
+        it('should fall back to any available locale from VLC content', async () => {
+            mockClientGet.mockResolvedValueOnce({
+                data: {
+                    name: {
+                        _primary: 'de',
+                        locales: {
+                            de: { content: 'Deutscher Name' }
+                        }
+                    }
+                }
+            })
+
+            const useTestEntityName = createEntityNameHook({
+                entityType: 'test',
+                apiPath: 'tests'
+            })
+
+            const { result } = renderHook(() => useTestEntityName('locale-fallback-id'), { wrapper })
+
+            await waitFor(() => {
+                expect(result.current).toBe('Deutscher Name')
             })
         })
 
@@ -103,14 +132,11 @@ describe('useBreadcrumbName', () => {
             })
 
             expect(customFetcher).toHaveBeenCalledWith('entity-456')
-            expect(mockFetch).not.toHaveBeenCalled()
+            expect(mockClientGet).not.toHaveBeenCalled()
         })
 
         it('should return null when fetch fails', async () => {
-            mockFetch.mockResolvedValueOnce({
-                ok: false,
-                status: 404
-            })
+            mockClientGet.mockRejectedValueOnce({ response: { status: 404 } })
 
             const useTestEntityName = createEntityNameHook({
                 entityType: 'test',
@@ -125,10 +151,9 @@ describe('useBreadcrumbName', () => {
             })
         })
 
-        it('should cache results with same queryKey', async () => {
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: () => Promise.resolve({ name: 'Cached Name' })
+        it('should serve cached results immediately and then refetch on remount', async () => {
+            mockClientGet.mockResolvedValue({
+                data: { name: 'Cached Name' }
             })
 
             const useTestEntityName = createEntityNameHook({
@@ -150,16 +175,46 @@ describe('useBreadcrumbName', () => {
                 expect(result2.current).toBe('Cached Name')
             })
 
-            // fetch should only be called once due to caching
-            expect(mockFetch).toHaveBeenCalledTimes(1)
+            // The second mount gets cached data immediately, then performs the forced mount refetch.
+            expect(mockClientGet).toHaveBeenCalledTimes(2)
+        })
+
+        it('should wait for auth loading before fetching', async () => {
+            let authLoading = true
+            mockUseAuth.mockImplementation(
+                () =>
+                    ({
+                        client: { get: mockClientGet },
+                        loading: authLoading
+                    }) as never
+            )
+            mockClientGet.mockResolvedValueOnce({ data: { name: 'After Auth Ready' } })
+
+            const useTestEntityName = createEntityNameHook({
+                entityType: 'test',
+                apiPath: 'tests'
+            })
+
+            const { result, rerender } = renderHook(() => useTestEntityName('delayed-id'), { wrapper })
+
+            expect(result.current).toBeNull()
+            expect(mockClientGet).not.toHaveBeenCalled()
+
+            authLoading = false
+            rerender()
+
+            await waitFor(() => {
+                expect(result.current).toBe('After Auth Ready')
+            })
+
+            expect(mockClientGet).toHaveBeenCalledWith('/tests/delayed-id')
         })
     })
 
     describe('Pre-configured hooks', () => {
         it('useMetaverseName should call correct API endpoint', async () => {
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: () => Promise.resolve({ name: 'My Metaverse' })
+            mockClientGet.mockResolvedValueOnce({
+                data: { name: 'My Metaverse' }
             })
 
             const { result } = renderHook(() => useMetaverseName('mv-123'), { wrapper })
@@ -168,7 +223,7 @@ describe('useBreadcrumbName', () => {
                 expect(result.current).toBe('My Metaverse')
             })
 
-            expect(mockFetch).toHaveBeenCalledWith('/api/v1/metaverses/mv-123', expect.anything())
+            expect(mockClientGet).toHaveBeenCalledWith('/metaverses/mv-123')
         })
     })
 

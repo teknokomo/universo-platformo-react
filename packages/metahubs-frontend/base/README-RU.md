@@ -395,5 +395,46 @@ docs(readme): обновить руководство по установке
 - [`@universo/template-mui`](../../universo-template-mui/base/README-RU.md) - UI компоненты
 - [`@universo/types`](../../universo-types/base/README-RU.md) - Общие типы
 
+## Общие абстракции
+
+### Паттерн декомпозиции компонентов
+
+Каждый List-компонент разделён на три слоя:
+1. **List-компонент** (`domains/<domain>/ui/<Domain>List.tsx`) — UI-рендеринг, диалоги, действия.
+2. **Data-хук** (`domains/<domain>/hooks/use<Domain>ListData.ts`) — React Query логика, пагинация, трансформации данных.
+3. **Утилиты** (`domains/<domain>/ui/<domain>ListUtils.ts`) — вспомогательные функции для форматирования, фильтрации, сортировки.
+
+### `createDomainErrorHandler()`
+
+Фабрика для маппинга backend error codes в локализованные snackbar-сообщения. Устраняет повторяющиеся if/else цепочки в mutation `onError` callbacks:
+
+```ts
+const handleError = createDomainErrorHandler({
+    LIMIT_REACHED: (data, t) => t('attributes.limitReached', { limit: data.limit }),
+})
+
+// В мутации: handleError(error, t, enqueueSnackbar, 'attributes.createError')
+```
+
+### `createSimpleDeleteMutation()`
+
+Настраиваемая фабрика для стандартных delete mutation hooks с оптимистичным удалением, откатом, snackbar-уведомлениями и инвалидацией кэша.
+
+### `useListDialogs()`
+
+Обобщённый хук на основе `useReducer`, управляющий пятью состояниями диалогов (create, edit, copy, delete, conflict) со стабильными ссылками на callback-функции. Устраняет повторяющееся управление состоянием диалогов в List-компонентах.
+
+### `useMetahubHubs(metahubId)`
+
+Общий хук для получения списка хабов с консистентным кэшированием (staleTime: 5 мин). Все List-компоненты используют один React Query key для автоматической дедупликации.
+
+### `mapBaseVlcFields(entity, locale)`
+
+Извлекает VLC-строки для стандартной тройки codename/name/description. Используется как building block в domain-specific `toXxxDisplay()` converter-функциях в `displayConverters.ts`.
+
+### `fetchAllPaginatedItems(fetchFn, params)`
+
+Рекурсивный пагинатор, который получает все страницы и возвращает единый `PaginatedResponse`.
+
 ---
 *Часть [Universo Platformo](../../../README-RU.md) - Пакетная бизнес-платформа*

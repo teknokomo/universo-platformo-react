@@ -13,6 +13,7 @@ import { escapeLikeWildcards } from '@universo/utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
+import { MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
 
 export type LayoutTemplateKey = 'dashboard'
 
@@ -52,8 +53,6 @@ export interface LayoutListOptions {
 }
 
 type DbRow = Record<string, unknown>
-
-export const LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE = 'LAYOUT_ZONE_WIDGET_NOT_FOUND'
 
 type ZoneSortOrderRow = {
     id: string
@@ -141,18 +140,12 @@ export const toggleLayoutZoneWidgetActiveSchema = z
 export class MetahubLayoutsService {
     constructor(private readonly exec: DbExecutor, private readonly schemaService: MetahubSchemaService) {}
 
-    private createConflictError(message: string): Error & { statusCode: number; code: string } {
-        return Object.assign(new Error(message), {
-            statusCode: 409,
-            code: 'LAYOUT_CONFLICT'
-        })
+    private createConflictError(message: string): MetahubConflictError {
+        return new MetahubConflictError(message)
     }
 
-    private createNotFoundError(message: string, code: string): Error & { statusCode: number; code: string } {
-        return Object.assign(new Error(message), {
-            statusCode: 404,
-            code
-        })
+    private createNotFoundError(message: string): MetahubNotFoundError {
+        return new MetahubNotFoundError(message, '')
     }
 
     private shouldSkipDefaultZoneWidgetSeed(layoutConfig: unknown): boolean {
@@ -196,7 +189,7 @@ export class MetahubLayoutsService {
     private assertWidgetAllowedInZone(widgetKey: DashboardLayoutWidgetKey, zone: DashboardLayoutZone): void {
         const allowedZones = allowedZonesMap.get(widgetKey)
         if (!allowedZones || !allowedZones.includes(zone)) {
-            throw new Error(`Widget "${widgetKey}" is not allowed in zone "${zone}"`)
+            throw new MetahubValidationError(`Widget "${widgetKey}" is not allowed in zone "${zone}"`)
         }
     }
 
@@ -431,7 +424,7 @@ export class MetahubLayoutsService {
         return this.exec.transaction(async (tx: SqlQueryable) => {
             const existing = await queryOne<DbRow>(tx, `SELECT * FROM ${lt} WHERE id = $1 AND ${ACTIVE} FOR UPDATE`, [layoutId])
             if (!existing) {
-                throw new Error('Layout not found')
+                throw new MetahubNotFoundError('Layout', layoutId)
             }
 
             const nextIsActive = input.isActive ?? Boolean(existing.is_active)
@@ -511,7 +504,7 @@ export class MetahubLayoutsService {
         await this.exec.transaction(async (tx: SqlQueryable) => {
             const existing = await queryOne<DbRow>(tx, `SELECT * FROM ${lt} WHERE id = $1 AND ${ACTIVE} FOR UPDATE`, [layoutId])
             if (!existing) {
-                throw new Error('Layout not found')
+                throw new MetahubNotFoundError('Layout', layoutId)
             }
             if (existing.is_default) {
                 throw this.createConflictError('Cannot delete default layout')
@@ -553,7 +546,7 @@ export class MetahubLayoutsService {
 
         const layout = await queryOne<DbRow>(this.exec, `SELECT * FROM ${lt} WHERE id = $1 AND ${ACTIVE}`, [layoutId])
         if (!layout) {
-            throw new Error('Layout not found')
+            throw new MetahubNotFoundError('Layout', layoutId)
         }
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
@@ -656,7 +649,7 @@ export class MetahubLayoutsService {
                 input.widgetId,
                 layoutId
             ])
-            if (!current) throw new Error('Layout widget not found')
+            if (!current) throw new MetahubNotFoundError('Layout widget', input.widgetId)
 
             const widgetKey = String(current.widget_key) as DashboardLayoutWidgetKey
             const sourceZone = String(current.zone) as DashboardLayoutZone
@@ -745,7 +738,7 @@ export class MetahubLayoutsService {
                 layoutId
             ])
             if (!current) {
-                throw this.createNotFoundError('Zone widget not found', LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE)
+                throw this.createNotFoundError('Zone widget not found')
             }
 
             const now = new Date()
@@ -782,7 +775,7 @@ export class MetahubLayoutsService {
                 layoutId
             ])
             if (!current) {
-                throw this.createNotFoundError('Zone widget not found', LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE)
+                throw this.createNotFoundError('Zone widget not found')
             }
 
             const now = new Date()

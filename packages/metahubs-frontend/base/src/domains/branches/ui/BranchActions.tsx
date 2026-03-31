@@ -12,113 +12,30 @@ import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFillVlc, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
-import { normalizeBranchCopyOptions } from '@universo/utils'
-import type { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload } from '../../../types'
+import type { MetahubBranchDisplay, BranchLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
-import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { sanitizeCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
-
-const DEFAULT_CC: CodenameConfig = {
-    style: 'pascal-case',
-    alphabet: 'en-ru',
-    allowMixed: false,
-    autoConvertMixedAlphabets: true,
-    autoReformat: true,
-    requireReformat: true
-}
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
-
-type GenericFormValues = Record<string, unknown>
+import { normalizeLocale } from '../../../utils/localizedInput'
+import { CodenameField } from '../../../components'
+import { useQuery } from '@tanstack/react-query'
+import * as branchesApi from '../api'
+import { metahubsQueryKeys } from '../../shared'
+import { getBranchCopyOptions, setAllBranchCopyChildren, toggleBranchCopyChild } from '../utils/copyOptions'
+import {
+    type GenericFormValues,
+    buildInitialValues,
+    buildCopyInitialValues,
+    validateBranchForm,
+    canSaveBranchForm,
+    toPayload
+} from './branchListUtils'
 
 type EditTabArgs = {
     values: GenericFormValues
     setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors?: Record<string, string>
-}
-
-import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField } from '../../../components'
-import { useQuery } from '@tanstack/react-query'
-import * as branchesApi from '../api'
-import { metahubsQueryKeys } from '../../shared'
-import { getBranchCopyOptions, setAllBranchCopyChildren, toggleBranchCopyChild } from '../utils/copyOptions'
-
-const buildInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>) => {
-    const branchMap = ctx.branchMap as Map<string, MetahubBranch> | undefined
-    const raw = branchMap?.get(ctx.entity.id)
-    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
-    const nameFallback = ctx.entity?.name || ctx.entity?.codename || ''
-    const descriptionFallback = ctx.entity?.description || ''
-
-    return {
-        nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
-        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
-        codenameTouched: true
-    }
-}
-
-const appendLocalizedCopySuffix = (
-    value: VersionedLocalizedContent<string> | null | undefined,
-    uiLocale: string,
-    fallback?: string
-): VersionedLocalizedContent<string> | null => {
-    if (!value) {
-        const locale = normalizeLocale(uiLocale)
-        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
-        const content = (fallback || '').trim()
-        const nextContent = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
-        return {
-            _schema: 'v1',
-            _primary: locale,
-            locales: {
-                [locale]: { content: nextContent }
-            }
-        }
-    }
-
-    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
-    const localeEntries = Object.entries(nextLocales)
-    for (const [locale, localeValue] of localeEntries) {
-        const normalizedLocale = normalizeLocale(locale)
-        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
-        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
-        if (content.length > 0) {
-            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
-        }
-    }
-
-    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
-    if (!hasAnyContent) {
-        const locale = normalizeLocale(uiLocale)
-        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
-        const content = (fallback || '').trim()
-        nextLocales[locale] = { content: content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}` }
-    }
-
-    return {
-        ...value,
-        locales: nextLocales
-    }
-}
-
-const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>) => {
-    const initial = buildInitialValues(ctx)
-    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
-
-    return {
-        ...initial,
-        nameVlc: appendLocalizedCopySuffix(
-            initial.nameVlc as VersionedLocalizedContent<string> | null | undefined,
-            uiLocale,
-            ctx.entity?.name || ctx.entity?.codename || ''
-        ),
-        codename: null,
-        codenameTouched: false,
-        ...normalizeBranchCopyOptions()
-    }
 }
 
 const BranchCopyOptionsTab = ({
@@ -201,61 +118,6 @@ const BranchCopyOptionsTab = ({
             />
         </Stack>
     )
-}
-
-const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>, values: GenericFormValues) => {
-    const cc = _cc(values)
-    const errors: Record<string, string> = {}
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    if (!hasPrimaryContent(nameVlc)) {
-        errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
-    }
-    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
-    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
-    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
-    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
-    if (!normalizedCodename) {
-        errors.codename = ctx.t('metahubs:branches.validation.codenameRequired', 'Codename is required')
-    } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
-        errors.codename = ctx.t('metahubs:branches.validation.codenameInvalid', 'Codename contains invalid characters')
-    }
-    return Object.keys(errors).length > 0 ? errors : null
-}
-
-const canSaveBranchForm = (values: GenericFormValues) => {
-    const cc = _cc(values)
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
-    const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
-    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
-    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
-    return (
-        !values._hasCodenameDuplicate &&
-        hasPrimaryContent(nameVlc) &&
-        Boolean(normalizedCodename) &&
-        isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)
-    )
-}
-
-const toPayload = (values: GenericFormValues): BranchLocalizedPayload => {
-    const cc = _cc(values)
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
-    const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
-    const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
-    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
-    const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
-    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
-
-    return {
-        codename: codenamePayload,
-        name: nameInput ?? {},
-        description: descriptionInput,
-        namePrimaryLocale,
-        descriptionPrimaryLocale
-    }
 }
 
 const BranchEditFields = ({

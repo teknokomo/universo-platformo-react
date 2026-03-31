@@ -40,16 +40,14 @@ const catalogAttributes = [
     }
 ]
 
-vi.mock('react-i18next', async () => {
-    const actual = await vi.importActual<typeof import('react-i18next')>('react-i18next')
-    return {
-        ...actual,
-        useTranslation: () => ({
-            t: (key: string, fallback?: string) => fallback ?? key,
-            i18n: { language: 'en' }
-        })
-    }
-})
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({
+        t: (key: string, fallback?: string) => fallback ?? key,
+        i18n: { language: 'en' }
+    }),
+    Trans: ({ children }: { children: React.ReactNode }) => children,
+    initReactI18next: { type: '3rdParty', init: () => {} }
+}))
 
 vi.mock('@universo/i18n', () => ({
     useCommonTranslations: () => ({
@@ -61,63 +59,93 @@ vi.mock('notistack', () => ({
     useSnackbar: () => ({ enqueueSnackbar: enqueueSnackbarMock })
 }))
 
-vi.mock('@tanstack/react-query', async () => {
-    const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query')
-    return {
-        ...actual,
-        useQueryClient: () => ({
-            invalidateQueries: vi.fn(),
-            isMutating: () => 0
-        }),
-        useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
-            if (Array.isArray(queryKey) && queryKey.includes('allCatalogs') && queryKey.includes('detail')) {
-                return { data: currentCatalog, isLoading: false, error: null }
+vi.mock('@tanstack/react-query', () => ({
+    useQueryClient: () => ({
+        invalidateQueries: vi.fn(),
+        isMutating: () => 0
+    }),
+    useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+        if (Array.isArray(queryKey) && queryKey.includes('allCatalogs') && queryKey.includes('detail')) {
+            return { data: currentCatalog, isLoading: false, error: null }
+        }
+        if (Array.isArray(queryKey) && queryKey.includes('hubs') && queryKey.includes('list')) {
+            return {
+                data: { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } },
+                isLoading: false,
+                error: null
             }
-            if (Array.isArray(queryKey) && queryKey.includes('hubs') && queryKey.includes('list')) {
-                return {
-                    data: { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } },
-                    isLoading: false,
-                    error: null
+        }
+        if (Array.isArray(queryKey) && queryKey.includes('attributes') && queryKey.includes('list')) {
+            return {
+                data: { items: catalogAttributes, pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false } },
+                isLoading: false,
+                error: null
+            }
+        }
+        if (Array.isArray(queryKey) && queryKey.includes('childAttributesForElements')) {
+            return { data: {}, isLoading: false, error: null }
+        }
+        return { data: undefined, isLoading: false, error: null }
+    },
+    useMutation: () => ({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn(),
+        isPending: false,
+        isLoading: false,
+        error: null
+    }),
+    QueryClientProvider: ({ children }: { children: React.ReactNode }) => children,
+    QueryClient: vi.fn()
+}))
+
+vi.mock('@universo/template-mui', () => {
+    const React = require('react') as typeof import('react')
+
+    function useListDialogs() {
+        const [dialogs, dispatch] = React.useReducer(
+            (state: Record<string, unknown>, action: { type: string; dialog?: string; item?: unknown; data?: unknown }) => {
+                switch (action.type) {
+                    case 'OPEN_CREATE':
+                        return { ...state, create: { open: true } }
+                    case 'OPEN':
+                        return { ...state, [action.dialog!]: { open: true, item: action.item } }
+                    case 'OPEN_CONFLICT':
+                        return { ...state, conflict: { open: true, data: action.data } }
+                    case 'CLOSE':
+                        return { ...state, [action.dialog!]: { open: false, item: null, data: null } }
+                    default:
+                        return state
                 }
+            },
+            {
+                create: { open: false },
+                edit: { open: false, item: null },
+                copy: { open: false, item: null },
+                delete: { open: false, item: null },
+                conflict: { open: false, data: null }
             }
-            if (Array.isArray(queryKey) && queryKey.includes('attributes') && queryKey.includes('list')) {
-                return {
-                    data: { items: catalogAttributes, pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false } },
-                    isLoading: false,
-                    error: null
-                }
-            }
-            if (Array.isArray(queryKey) && queryKey.includes('childAttributesForElements')) {
-                return { data: {}, isLoading: false, error: null }
-            }
-            return { data: undefined, isLoading: false, error: null }
-        },
-        useMutation: () => ({
-            mutate: vi.fn(),
-            mutateAsync: vi.fn(),
-            isPending: false,
-            isLoading: false,
-            error: null
-        })
+        )
+        return {
+            dialogs,
+            openCreate: React.useCallback(() => dispatch({ type: 'OPEN_CREATE' }), []),
+            openEdit: React.useCallback((item: unknown) => dispatch({ type: 'OPEN', dialog: 'edit', item }), []),
+            openCopy: React.useCallback((item: unknown) => dispatch({ type: 'OPEN', dialog: 'copy', item }), []),
+            openDelete: React.useCallback((item: unknown) => dispatch({ type: 'OPEN', dialog: 'delete', item }), []),
+            openConflict: React.useCallback((data: unknown) => dispatch({ type: 'OPEN_CONFLICT', data }), []),
+            close: React.useCallback((dialog: string) => dispatch({ type: 'CLOSE', dialog }), [])
+        }
     }
-})
 
-vi.mock('@universo/template-mui', async () => {
-    const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
     return {
-        ...actual,
+        useListDialogs,
+        createMemberActions: vi.fn(() => []),
+        createEntityActions: vi.fn(() => []),
         TemplateMainCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        ToolbarControls: ({ primaryAction }: { primaryAction?: { label?: string; onClick?: () => void; disabled?: boolean } }) => {
-            React.useEffect(() => {
-                primaryAction?.onClick?.()
-            }, [primaryAction])
-
-            return (
-                <button type='button' onClick={primaryAction?.onClick}>
-                    {primaryAction?.label ?? 'Create'}
-                </button>
-            )
-        },
+        ToolbarControls: ({ primaryAction }: { primaryAction?: { label?: string; onClick?: () => void; disabled?: boolean } }) => (
+            <button type='button' onClick={primaryAction?.onClick}>
+                {primaryAction?.label ?? 'Create'}
+            </button>
+        ),
         EmptyListState: ({ title, description }: { title?: string; description?: string }) => (
             <div>
                 <div>{title}</div>
@@ -143,7 +171,8 @@ vi.mock('@universo/template-mui', async () => {
                 {children}
             </div>
         ),
-        BaseEntityMenu: () => null
+        BaseEntityMenu: () => null,
+        gridSpacing: 2
     }
 })
 
@@ -204,20 +233,31 @@ vi.mock('../../enumerations/api', () => ({
     listEnumerationValues: vi.fn(async () => ({ items: [] }))
 }))
 
-vi.mock('../../shared', async () => {
-    const actual = await vi.importActual<typeof import('../../shared')>('../../shared')
-    return {
-        ...actual,
-        fetchAllPaginatedItems: vi.fn(async () => ({
-            items: [],
-            pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false }
-        })),
-        invalidateElementsQueries: {
-            all: vi.fn(),
-            detail: vi.fn()
-        }
-    }
-})
+vi.mock('../../shared', () => ({
+    metahubsQueryKeys: {
+        allCatalogs: (...args: unknown[]) => ['allCatalogs', ...args],
+        catalogDetail: (...args: unknown[]) => ['allCatalogs', 'detail', ...args],
+        hubs: (...args: unknown[]) => ['hubs', ...args],
+        hubsList: (...args: unknown[]) => ['hubs', 'list', ...args],
+        elementsList: (...args: unknown[]) => ['elements', 'list', ...args],
+        attributes: (...args: unknown[]) => ['attributes', ...args],
+        attributesList: (...args: unknown[]) => ['attributes', 'list', ...args],
+        constants: (...args: unknown[]) => ['constants', ...args],
+        enumerations: (...args: unknown[]) => ['enumerations', ...args],
+        childAttributesForElements: (...args: unknown[]) => ['childAttributesForElements', ...args]
+    },
+    fetchAllPaginatedItems: vi.fn(async () => ({
+        items: [],
+        pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false }
+    })),
+    invalidateElementsQueries: {
+        all: vi.fn(),
+        detail: vi.fn()
+    },
+    apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+    createDomainErrorHandler: vi.fn(() => vi.fn()),
+    optimisticReorder: vi.fn()
+}))
 
 vi.mock('../../../settings/hooks/useSettings', () => ({
     useSettingValue: () => true
@@ -225,6 +265,44 @@ vi.mock('../../../settings/hooks/useSettings', () => ({
 
 vi.mock('../../../settings/hooks/useMetahubPrimaryLocale', () => ({
     useMetahubPrimaryLocale: () => 'en'
+}))
+
+vi.mock('../../hooks/useElementListData', () => ({
+    useElementListData: () => ({
+        metahubId: 'metahub-1',
+        hubIdParam: undefined,
+        catalogId: 'catalog-1',
+        effectiveHubId: undefined,
+        hubs: [],
+        catalogForHubResolution: currentCatalog,
+        isCatalogResolutionLoading: false,
+        catalogResolutionError: null,
+        attributes: catalogAttributes,
+        orderedAttributes: catalogAttributes,
+        childAttributesMap: {},
+        childEnumValuesMap: {},
+        setConstantsMap: {},
+        allowElementCopy: true,
+        allowElementDelete: true,
+        paginationResult: {
+            data: [],
+            isLoading: false,
+            error: null,
+            pagination: { total: 0, limit: 20, offset: 0, count: 0, hasMore: false },
+            actions: { setSearch: vi.fn(), goToPage: vi.fn() }
+        },
+        isLoading: false,
+        error: null,
+        handleSearchChange: vi.fn(),
+        sortedElements: [],
+        images: new Map(),
+        elementMap: new Map(),
+        elementOrderMap: new Map(),
+        visibleAttributesForColumns: catalogAttributes,
+        refTargetByAttribute: new Map(),
+        refDisplayMap: new Map(),
+        isFetchingRefDisplayMap: false
+    })
 }))
 
 vi.mock('../ElementActions', () => ({
@@ -253,14 +331,71 @@ vi.mock('../../hubs', () => ({
     listHubs: vi.fn(async () => ({ items: [] }))
 }))
 
-vi.mock('@universo/utils', async () => {
-    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
-    return {
-        ...actual,
-        isOptimisticLockConflict: () => false,
-        extractConflictInfo: () => null
-    }
-})
+vi.mock('../../hubs/hooks', () => ({
+    useMetahubHubs: () => ({ data: [], isLoading: false, error: null })
+}))
+
+vi.mock('@universo/utils', () => ({
+    isOptimisticLockConflict: () => false,
+    extractConflictInfo: () => null,
+    hasAxiosResponse: (error: unknown) => {
+        return error !== null && typeof error === 'object' && 'response' in error
+    },
+    createLocalizedContent: (locale: string = 'en', content: unknown = '') => ({
+        _schema: '1',
+        _primary: locale,
+        locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
+    }),
+    filterLocalizedContent: (value: unknown) => value ?? null,
+    updateLocalizedContentLocale: (content: unknown) => content,
+    normalizeCatalogCopyOptions: (opts: unknown) => opts ?? {},
+    getVLCString: () => '',
+    getVLCPrimaryString: () => '',
+    buildVLC: (locale: string, content: unknown) => ({
+        _schema: '1',
+        _primary: locale,
+        locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
+    })
+}))
+
+vi.mock('@universo/utils/vlc', () => ({
+    normalizeLocale: (locale?: string) => (locale || 'en').toLowerCase().slice(0, 2),
+    getSimpleLocalizedValue: () => '',
+    getVLCString: () => '',
+    getVLCPrimaryString: () => '',
+    isLocalizedContent: () => false,
+    createLocalizedContent: (locale: string = 'en', content: unknown = '') => ({
+        _schema: '1',
+        _primary: locale,
+        locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
+    }),
+    filterLocalizedContent: (value: unknown) => value ?? null,
+    updateLocalizedContentLocale: (content: unknown) => content,
+    buildVLC: (locale: string, content: unknown) => ({
+        _schema: '1',
+        _primary: locale,
+        locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
+    }),
+    ensureVLC: (value: unknown) => value ?? { _schema: '1', _primary: 'en', locales: {} },
+    resolveLocalizedContent: () => '',
+    getLocalizedContentLocales: () => [],
+    mapBaseVlcFields: (value: unknown) => value,
+    sanitizeLocalizedInput: (value: unknown) => value,
+    buildLocalizedContent: (locale: string, content: unknown) => ({
+        _schema: '1',
+        _primary: locale,
+        locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
+    }),
+    getCodenamePrimary: () => '',
+    enforceSingleLocaleCodename: (value: unknown) => value,
+    createCodenameVLC: (locale: string, content: string) => ({
+        _schema: '1',
+        _primary: locale,
+        locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
+    }),
+    ensureCodenameVLC: (value: unknown) => value ?? { _schema: '1', _primary: 'en', locales: {} },
+    getVLCStringWithFallback: () => ''
+}))
 
 import ElementList from '../ElementList'
 
@@ -280,6 +415,10 @@ describe('ElementList create error flow', () => {
                 </Routes>
             </MemoryRouter>
         )
+
+        // Click the Create button to open the dialog (no auto-open via useEffect to avoid infinite re-render loop)
+        const createButton = await screen.findByRole('button', { name: /create/i })
+        await user.click(createButton)
 
         expect(await screen.findByRole('dialog', { name: 'Add Element' })).toBeInTheDocument()
 

@@ -5,6 +5,7 @@ import { MetahubSchemaService } from './MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
+import { MetahubNotFoundError } from '../../shared/domainErrors'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
@@ -275,7 +276,7 @@ export class MetahubHubsService {
             [hubId]
         )
 
-        if (!existing) throw new Error('Hub not found')
+        if (!existing) throw new MetahubNotFoundError('Hub', hubId)
 
         const currentPresentation = (existing.presentation as Record<string, unknown>) ?? {}
         const currentConfig = (existing.config as Record<string, unknown>) ?? {}

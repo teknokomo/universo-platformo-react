@@ -85,6 +85,33 @@ export async function softDelete(exec: SqlQueryable, schema: string, table: stri
 }
 
 /**
+ * Soft delete a branch-scoped record (_mhb_* tables) by setting
+ * _upl_deleted=true and _mhb_deleted=true plus audit fields.
+ *
+ * Branch-scoped tables use `_mhb_deleted` instead of `_app_deleted`.
+ */
+export async function mhbSoftDelete(exec: SqlQueryable, schemaName: string, table: string, id: string, userId?: string | null): Promise<boolean> {
+    const qt = qSchemaTable(schemaName, table)
+    const rows = await exec.query<{ id: string }>(
+        `UPDATE ${qt}
+         SET _upl_deleted = true,
+             _upl_deleted_at = NOW(),
+             _upl_deleted_by = $2,
+             _mhb_deleted = true,
+             _mhb_deleted_at = NOW(),
+             _mhb_deleted_by = $2,
+             _upl_updated_at = NOW(),
+             _upl_version = _upl_version + 1
+         WHERE id = $1
+           AND _upl_deleted = false
+           AND _mhb_deleted = false
+         RETURNING id`,
+        [id, userId ?? null]
+    )
+    return rows.length > 0
+}
+
+/**
  * Restore a soft-deleted record.
  */
 export async function restoreDeleted(exec: SqlQueryable, schema: string, table: string, id: string): Promise<boolean> {

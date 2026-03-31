@@ -12,44 +12,17 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import type { ConstantLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as constantsApi from '../api'
-import type { ConstantCopyInput } from '../api'
-
-interface BaseConstantScope {
-    metahubId: string
-    hubId?: string
-    setId: string
-}
-
-interface CreateConstantParams extends BaseConstantScope {
-    data: ConstantLocalizedPayload
-}
-
-interface UpdateConstantParams extends BaseConstantScope {
-    constantId: string
-    data: ConstantLocalizedPayload
-}
-
-interface DeleteConstantParams extends BaseConstantScope {
-    constantId: string
-}
-
-interface MoveConstantParams extends BaseConstantScope {
-    constantId: string
-    direction: 'up' | 'down'
-}
-
-interface CopyConstantParams extends BaseConstantScope {
-    constantId: string
-    data: ConstantCopyInput
-}
-
-interface ReorderConstantParams extends BaseConstantScope {
-    constantId: string
-    newSortOrder: number
-}
+import type {
+    BaseConstantScope,
+    CreateConstantParams,
+    UpdateConstantParams,
+    DeleteConstantParams,
+    MoveConstantParams,
+    CopyConstantParams,
+    ReorderConstantParams
+} from './mutationTypes'
 
 const invalidateSetConstantScopes = async (queryClient: ReturnType<typeof useQueryClient>, variables: BaseConstantScope): Promise<void> => {
     if (variables.hubId) {

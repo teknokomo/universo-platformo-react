@@ -148,17 +148,17 @@ describe('Layouts Routes', () => {
     })
 
     describe('POST /metahub/:metahubId/layout/:layoutId/copy', () => {
-        it('returns 404 when metahub does not exist', async () => {
-            mockFindMetahubById.mockResolvedValueOnce(null)
+        it('returns 403 when metahub does not exist (access denied)', async () => {
+            const forbidden = Object.assign(new Error('Access denied to this metahub'), { status: 403 })
+            mockEnsureMetahubAccess.mockRejectedValueOnce(forbidden)
 
             const app = buildApp()
             const response = await request(app)
                 .post('/metahub/missing/layout/layout-1/copy')
                 .send({ name: { en: 'Copy' } })
-                .expect(404)
+                .expect(403)
 
-            expect(response.body.error).toBe('Metahub not found')
-            expect(mockEnsureMetahubAccess).not.toHaveBeenCalled()
+            expect(response.body.error).toBe('Access denied to this metahub')
         })
 
         it('returns 403 when metahub access check fails', async () => {

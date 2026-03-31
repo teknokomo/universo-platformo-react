@@ -13,7 +13,7 @@ It is the shared presentation layer for the current React shell, not a standalon
 - Dashboard exports such as `Dashboard`, `StatCard`, and `HighlightedCard` provide common page composition primitives.
 - Dialog, table, selection, pagination, and card components are re-exported from the package root.
 - Factory helpers such as `createEntityActions()` and `createMemberActions()` reduce repeated CRUD-action wiring.
-- Hooks such as `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, and optimistic CRUD helpers support common frontend flows.
+- Hooks such as `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, `useListDialogs()`, and optimistic CRUD helpers support common frontend flows.
 
 ## Integration Role
 

@@ -1,4 +1,3 @@
-import { uniq } from 'lodash'
 import dayjs from 'dayjs'
 
 export const getUniqueNodeId = (nodeData, nodes) => {
@@ -446,7 +445,7 @@ export const getAvailableNodesForVariable = (nodes, edges, target, targetHandle)
 
     if (isSeqAgent) {
         collectParentNodes(target, nodes, edges)
-        return uniq(parentNodes)
+        return [...new Set(parentNodes)]
     } else {
         const inputEdges = edges.filter((edg) => edg.target === target && edg.targetHandle === targetHandle)
         if (inputEdges && inputEdges.length) {

@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient, useQuery } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -15,8 +15,6 @@ import {
     EmptyListState,
     SkeletonGrid,
     APIEmptySVG,
-    usePaginated,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     gridSpacing,
@@ -24,7 +22,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFillVlc,
     EntitySelectionPanel,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
 import type { EntitySelectionLabels } from '@universo/template-mui'
@@ -39,103 +38,26 @@ import {
     useUpdateEnumerationAtMetahub,
     useDeleteEnumeration,
     useCopyEnumeration,
-    useReorderEnumeration
-} from '../hooks/mutations'
+    useReorderEnumeration,
+    useEnumerationListData
+} from '../hooks'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
-import * as enumerationsApi from '../api'
 import type { EnumerationWithHubs } from '../api'
-import * as hubsApi from '../../hubs'
-import { fetchAllPaginatedItems, invalidateEnumerationsQueries, metahubsQueryKeys } from '../../shared'
+import { invalidateEnumerationsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
-import { EnumerationDisplay, EnumerationLocalizedPayload, Hub, PaginatedResponse, getVLCString, toEnumerationDisplay } from '../../../types'
+import { getVLCString, toEnumerationDisplay } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { EnumerationDeleteDialog, CodenameField, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
 import enumerationActions, { EnumerationDisplayWithHub } from './EnumerationActions'
-import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-
-/**
- * Hub info for display in the table column (global view)
- */
-interface HubDisplayInfo {
-    id: string
-    name: string
-    codename: string
-}
-
-/**
- * Extended EnumerationDisplay that includes hub info for the all-enumerations view.
- * For N:M relationship, we use the primary hub (first in list) for navigation.
- */
-interface EnumerationWithHubsDisplay extends EnumerationDisplay {
-    /** Primary hub ID for navigation (first hub in list) */
-    hubId: string
-    /** Primary hub name for display */
-    hubName: string
-    /** Primary hub codename */
-    hubCodename: string
-    /** All associated hubs count */
-    hubsCount: number
-    /** All hubs with display info for table column */
-    allHubs: HubDisplayInfo[]
-}
-
-type EnumerationFormValues = {
-    nameVlc: VersionedLocalizedContent<string> | null
-    descriptionVlc: VersionedLocalizedContent<string> | null
-    codename: VersionedLocalizedContent<string> | null
-    codenameTouched?: boolean
-    /** For N:M relationship - array of hub IDs */
-    hubIds: string[]
-    /** Single hub mode flag */
-    isSingleHub: boolean
-    /** Require at least one hub association */
-    isRequiredHub: boolean
-}
+import type { EnumerationFormValues, EnumerationPendingData, EnumerationMenuBaseContext, ConfirmSpec } from './enumerationListUtils'
+import { DIALOG_SAVE_CANCEL, extractResponseStatus, extractResponseMessage, toEnumerationWithHubsDisplay } from './enumerationListUtils'
 
 type GenericFormValues = Record<string, unknown>
-
-type EnumerationPendingData = EnumerationLocalizedPayload & { expectedVersion?: number }
-
-type EnumerationMenuBaseContext = {
-    t: (key: string, options?: unknown) => string
-} & Record<string, unknown>
-
-type ConfirmSpec = {
-    titleKey?: string
-    descriptionKey?: string
-    confirmKey?: string
-    cancelKey?: string
-    interpolate?: Record<string, unknown>
-    title?: string
-    description?: string
-    confirmButtonName?: string
-    cancelButtonName?: string
-}
-
-const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
-
-const extractResponseStatus = (error: unknown): number | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const status = (response as { status?: unknown }).status
-    return typeof status === 'number' ? status : undefined
-}
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const data = (response as { data?: unknown }).data
-    if (!data || typeof data !== 'object') return undefined
-    const message = (data as { message?: unknown }).message
-    return typeof message === 'string' ? message : undefined
-}
 
 type GeneralTabFieldsProps = {
     values: GenericFormValues
@@ -227,151 +149,47 @@ const GeneralTabFields = ({
     )
 }
 
-/**
- * Convert EnumerationWithHubs to display format with hub info (for global view)
- */
-const toEnumerationWithHubsDisplay = (enumeration: EnumerationWithHubs, locale: string): EnumerationWithHubsDisplay => {
-    const base = toEnumerationDisplay(enumeration, locale)
-    const hubs = enumeration.hubs || []
-    const primaryHub = hubs[0]
-    const hubName = primaryHub
-        ? getVLCString(primaryHub.name, locale) || getVLCString(primaryHub.name, 'en') || primaryHub.codename || '—'
-        : '—'
-
-    // Prepare all hubs with display info for table column
-    const allHubs: HubDisplayInfo[] = hubs.map((hub) => ({
-        id: hub.id,
-        name: getVLCString(hub.name, locale) || getVLCString(hub.name, 'en') || hub.codename || '—',
-        codename: hub.codename || ''
-    }))
-
-    return {
-        ...base,
-        hubId: primaryHub?.id || '',
-        hubName,
-        hubCodename: primaryHub?.codename || '',
-        hubsCount: hubs.length,
-        allHubs
-    }
-}
-
 const EnumerationListContent = () => {
     const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
-    // hubId is optional - when present, we're in hub-scoped mode; otherwise global mode
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
+    const preferredVlcLocale = useMetahubPrimaryLocale()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
-    const preferredVlcLocale = useMetahubPrimaryLocale()
-
-    /**
-     * isHubScoped determines the component behavior:
-     * - true: Hub-scoped view (inside a specific hub) - uses enumerationsList API
-     * - false: Global view (all enumerations in metahub) - uses allEnumerationsList API
-     */
-    const isHubScoped = Boolean(hubId)
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [isDialogOpen, setDialogOpen] = useState(false)
-    // Use different storage keys for different views
+
+    const {
+        metahubId,
+        hubId,
+        isHubScoped,
+        hubs,
+        isLoading,
+        error,
+        paginationResult,
+        searchValue,
+        handleSearchChange,
+        sortedEnumerations,
+        images,
+        enumerationMap,
+        allEnumerationsById,
+        existingEnumerationCodenames,
+        attachableExistingEnumerations,
+        allowCopy,
+        allowDelete,
+        allowAttachExistingEntities
+    } = useEnumerationListData()
+
+    const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<EnumerationWithHubs>()
     const [view, setView] = useViewPreference(
         isHubScoped ? STORAGE_KEYS.ENUMERATION_DISPLAY_STYLE : STORAGE_KEYS.ALL_ENUMERATIONS_DISPLAY_STYLE
     )
-
-    const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('enumerations')
-    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
-
-    // Fetch hubs for the create dialog (N:M relationship)
-    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
-        queryFn: async () => {
-            if (!metahubId) {
-                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
-            }
-            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
-                limit: hubsListParams.limit,
-                sortBy: hubsListParams.sortBy,
-                sortOrder: hubsListParams.sortOrder
-            })
-        },
-        enabled: !!metahubId,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        retryOnMount: false,
-        staleTime: 5 * 60 * 1000,
-        retry: false
-    })
-    const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
-
-    const { data: allEnumerationsResponse } = useQuery<PaginatedResponse<EnumerationWithHubs>>({
-        queryKey: metahubId
-            ? metahubsQueryKeys.allEnumerationsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
-            : ['metahubs', 'enumerations', 'all', 'empty'],
-        queryFn: async () => {
-            if (!metahubId) {
-                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
-            }
-            return fetchAllPaginatedItems((params) => enumerationsApi.listAllEnumerations(metahubId, params), {
-                limit: 1000,
-                sortBy: 'sortOrder',
-                sortOrder: 'asc'
-            })
-        },
-        enabled: Boolean(metahubId),
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        retryOnMount: false,
-        staleTime: 5 * 60 * 1000,
-        retry: false
-    })
-
-    // Use paginated hook for enumerations list - conditional API based on isHubScoped
-    const paginationResult = usePaginated<EnumerationWithHubs, 'codename' | 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn: metahubId
-            ? isHubScoped
-                ? (params) => metahubsQueryKeys.enumerationsList(metahubId, hubId!, params)
-                : (params) => metahubsQueryKeys.allEnumerationsList(metahubId, params)
-            : () => ['empty'],
-        queryFn: metahubId
-            ? isHubScoped
-                ? (params) => enumerationsApi.listEnumerations(metahubId, hubId!, params)
-                : (params) => enumerationsApi.listAllEnumerations(metahubId, params)
-            : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
-        initialLimit: 20,
-        sortBy: 'sortOrder',
-        sortOrder: 'asc',
-        enabled: !!metahubId && (isHubScoped ? !!hubId : true)
-    })
-
-    const { data: enumerations, isLoading, error } = paginationResult
-    // usePaginated already extracts items array, so data IS the array
-
-    // Instant search for better UX
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
-
-    // State for simple confirmation delete flow (unlink or other non-blocking cases)
-    const [confirmDeleteDialogState, setConfirmDeleteDialogState] = useState<{
-        open: boolean
-        enumeration: EnumerationWithHubs | null
-    }>({ open: false, enumeration: null })
 
     // State for blocking-entities delete flow (actual enumeration deletion)
     const [blockingDeleteDialogState, setBlockingDeleteDialogState] = useState<{
         open: boolean
         enumeration: EnumerationWithHubs | null
     }>({ open: false, enumeration: null })
-
-    // State for ConflictResolutionDialog
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingData: EnumerationPendingData | null
-        enumerationId: string | null
-    }>({ open: false, conflict: null, pendingData: null, enumerationId: null })
     const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
     const [isAttachingExisting, setAttachingExisting] = useState(false)
     const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
@@ -380,7 +198,6 @@ const EnumerationListContent = () => {
 
     const { confirm } = useConfirm()
 
-    // Filter entity actions based on settings (allowCopy / allowDelete)
     const filteredEnumerationActions = useMemo(
         () =>
             enumerationActions.filter((a) => {
@@ -398,35 +215,6 @@ const EnumerationListContent = () => {
     const updateEnumerationAtMetahubMutation = useUpdateEnumerationAtMetahub()
     const copyEnumerationMutation = useCopyEnumeration()
     const reorderEnumerationMutation = useReorderEnumeration()
-
-    const sortedEnumerations = useMemo(
-        () =>
-            [...enumerations].sort((a, b) => {
-                const sortA = a.sortOrder ?? 0
-                const sortB = b.sortOrder ?? 0
-                if (sortA !== sortB) return sortA - sortB
-                return a.id.localeCompare(b.id)
-            }),
-        [enumerations]
-    )
-
-    // Memoize images object
-    const images = useMemo(() => {
-        const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(sortedEnumerations)) {
-            sortedEnumerations.forEach((enumeration) => {
-                if (enumeration?.id) {
-                    imagesMap[enumeration.id] = []
-                }
-            })
-        }
-        return imagesMap
-    }, [sortedEnumerations])
-
-    const enumerationMap = useMemo(() => {
-        if (!Array.isArray(sortedEnumerations)) return new Map<string, EnumerationWithHubs>()
-        return new Map(sortedEnumerations.map((enumeration) => [enumeration.id, enumeration]))
-    }, [sortedEnumerations])
 
     useEffect(() => {
         if (!pendingEnumerationNavigation || !metahubId) return
@@ -471,28 +259,6 @@ const EnumerationListContent = () => {
         },
         [enqueueSnackbar, enumerationMap, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient]
     )
-
-    const allEnumerationsById = useMemo(() => {
-        const map = new Map<string, EnumerationWithHubs>()
-        const items = allEnumerationsResponse?.items ?? []
-        items.forEach((enumeration) => map.set(enumeration.id, enumeration))
-        return map
-    }, [allEnumerationsResponse?.items])
-
-    const existingEnumerationCodenames = useMemo(
-        () => allEnumerationsResponse?.items ?? enumerations ?? [],
-        [allEnumerationsResponse?.items, enumerations]
-    )
-
-    const attachableExistingEnumerations = useMemo(() => {
-        if (!isHubScoped || !hubId) return []
-        return (allEnumerationsResponse?.items ?? []).filter((enumeration) => {
-            const linkedHubIds = Array.isArray(enumeration.hubs) ? enumeration.hubs.map((hub) => hub.id) : []
-            if (linkedHubIds.includes(hubId)) return false
-            if (enumeration.isSingleHub && linkedHubIds.length > 0) return false
-            return true
-        })
-    }, [allEnumerationsResponse?.items, hubId, isHubScoped])
 
     const attachExistingEnumerationSelectionLabels = useMemo<EntitySelectionLabels>(
         () => ({
@@ -884,8 +650,7 @@ const EnumerationListContent = () => {
                             if (!isOptimisticLockConflict(error)) return
                             const conflict = extractConflictInfo(error)
                             if (!conflict) return
-                            setConflictState({
-                                open: true,
+                            openConflict({
                                 conflict,
                                 pendingData: { ...patch, codename: codenamePayload },
                                 enumerationId: id
@@ -993,7 +758,7 @@ const EnumerationListContent = () => {
                         return
                     }
 
-                    setConfirmDeleteDialogState({ open: true, enumeration })
+                    openDelete(enumeration)
                 }
             }
         }),
@@ -1031,11 +796,11 @@ const EnumerationListContent = () => {
     }
 
     const handleAddNew = () => {
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleOpenAttachExistingDialog = () => {
@@ -1507,7 +1272,7 @@ const EnumerationListContent = () => {
                 )}
 
                 <EntityFormDialog
-                    open={isDialogOpen}
+                    open={dialogs.create.open}
                     title={t('enumerations.createDialog.title', 'Create Enumeration')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
@@ -1587,18 +1352,18 @@ const EnumerationListContent = () => {
 
                 {/* Independent ConfirmDeleteDialog */}
                 <ConfirmDeleteDialog
-                    open={confirmDeleteDialogState.open}
+                    open={dialogs.delete.open}
                     title={t('enumerations.deleteDialog.title')}
                     description={t('enumerations.deleteDialog.message')}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setConfirmDeleteDialogState({ open: false, enumeration: null })}
+                    onCancel={() => close('delete')}
                     onConfirm={() => {
-                        if (!confirmDeleteDialogState.enumeration || !metahubId) return
+                        if (!dialogs.delete.item || !metahubId) return
 
-                        const deletingEnumerationId = confirmDeleteDialogState.enumeration.id
-                        const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.enumeration.hubs?.[0]?.id || ''
+                        const deletingEnumerationId = dialogs.delete.item.id
+                        const targetHubId = isHubScoped ? hubId! : dialogs.delete.item.hubs?.[0]?.id || ''
                         deleteEnumerationMutation.mutate(
                             {
                                 metahubId,
@@ -1670,29 +1435,30 @@ const EnumerationListContent = () => {
 
                 {/* Conflict Resolution Dialog for optimistic locking */}
                 <ConflictResolutionDialog
-                    open={conflictState.open}
-                    conflict={conflictState.conflict}
+                    open={dialogs.conflict.open}
+                    conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                     onOverwrite={async () => {
-                        if (!metahubId || !conflictState.enumerationId || !conflictState.pendingData) return
+                        const conflictData = dialogs.conflict.data as { conflict?: ConflictInfo; pendingData?: EnumerationLocalizedPayload; enumerationId?: string } | null
+                        if (!metahubId || !conflictData?.enumerationId || !conflictData?.pendingData) return
                         try {
-                            const enumeration = enumerationMap.get(conflictState.enumerationId)
+                            const enumeration = enumerationMap.get(conflictData.enumerationId)
                             const targetHubId = isHubScoped ? hubId! : enumeration?.hubs?.[0]?.id
                             // Retry without expectedVersion to force overwrite
                             if (targetHubId) {
                                 await updateEnumerationMutation.mutateAsync({
                                     metahubId,
                                     hubId: targetHubId,
-                                    enumerationId: conflictState.enumerationId,
-                                    data: conflictState.pendingData as EnumerationLocalizedPayload
+                                    enumerationId: conflictData.enumerationId,
+                                    data: conflictData.pendingData
                                 })
                             } else {
                                 await updateEnumerationAtMetahubMutation.mutateAsync({
                                     metahubId,
-                                    enumerationId: conflictState.enumerationId,
-                                    data: conflictState.pendingData as EnumerationLocalizedPayload
+                                    enumerationId: conflictData.enumerationId,
+                                    data: conflictData.pendingData
                                 })
                             }
-                            setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
+                            close('conflict')
                             enqueueSnackbar(t('enumerations.updateSuccess', 'Enumeration updated'), { variant: 'success' })
                         } catch (e) {
                             console.error('Failed to overwrite enumeration', e)
@@ -1708,10 +1474,10 @@ const EnumerationListContent = () => {
                                 await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(metahubId) })
                             }
                         }
-                        setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
+                        close('conflict')
                     }}
                     onCancel={() => {
-                        setConflictState({ open: false, conflict: null, pendingData: null, enumerationId: null })
+                        close('conflict')
                     }}
                 />
             </ExistingCodenamesProvider>

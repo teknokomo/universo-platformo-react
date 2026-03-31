@@ -5,9 +5,12 @@ import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import Link from '@mui/material/Link'
 import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
+import { useAuth } from '@universo/auth-frontend'
+import { getVLCString } from '@universo/utils'
 import { useHasGlobalAccess } from '@universo/store'
 import {
     truncateMetahubName,
@@ -43,40 +46,10 @@ const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     }
 }))
 
-type LocalizedValue = {
-    _primary?: string
-    locales?: Record<string, { content?: unknown }>
-}
-
 const extractLocalizedString = (value: unknown): string | null => {
-    if (typeof value === 'string') {
-        const trimmed = value.trim()
-        return trimmed.length > 0 ? trimmed : null
-    }
-
-    if (!value || typeof value !== 'object') {
-        return null
-    }
-
     const locale = (i18n.resolvedLanguage || i18n.language || 'en').split(/[-_]/)[0].toLowerCase()
-    const localized = value as LocalizedValue
-    const primary = typeof localized._primary === 'string' ? localized._primary : 'en'
-    const current = localized.locales?.[locale]?.content
-    if (typeof current === 'string' && current.trim().length > 0) {
-        return current.trim()
-    }
-
-    const primaryValue = localized.locales?.[primary]?.content
-    if (typeof primaryValue === 'string' && primaryValue.trim().length > 0) {
-        return primaryValue.trim()
-    }
-
-    const fallbackValue = localized.locales?.en?.content
-    if (typeof fallbackValue === 'string' && fallbackValue.trim().length > 0) {
-        return fallbackValue.trim()
-    }
-
-    return null
+    const localized = getVLCString(value as Parameters<typeof getVLCString>[0], locale).trim()
+    return localized.length > 0 ? localized : null
 }
 
 type ApplicationShellDetail = Record<string, unknown> & {
@@ -88,31 +61,26 @@ type ApplicationShellDetail = Record<string, unknown> & {
 export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
+    const { client, loading: authLoading } = useAuth()
 
     // Extract metahubId from URL for dynamic name loading (both singular and plural routes)
     const metahubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)/)
     const metahubId = metahubIdMatch ? metahubIdMatch[1] : null
-    const metahubDetailQuery = useQuery({
+    const metahubDetailQuery = useQuery<{ name?: unknown; codename?: unknown }, unknown, string | null>({
         queryKey: metahubId ? ['metahubs', 'detail', metahubId] : ['metahubs', 'detail', 'missing-id'],
         queryFn: async () => {
-            const response = await fetch(`/api/v1/metahub/${metahubId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) {
-                throw new Error(`Failed to load metahub detail for breadcrumbs: ${response.status}`)
-            }
-            return (await response.json()) as { name?: unknown; codename?: string | null }
+            const response = await client.get<{ name?: unknown; codename?: unknown }>(`/metahub/${metahubId}`)
+            return response.data
         },
-        enabled: Boolean(metahubId),
+        select: (data) => extractLocalizedString(data?.name) || extractLocalizedString(data?.codename) || null,
+        enabled: Boolean(metahubId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 2,
         retryOnMount: true,
         refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
-    const metahubName = extractLocalizedString(metahubDetailQuery.data?.name) ?? metahubDetailQuery.data?.codename ?? null
+    const metahubName = metahubDetailQuery.data ?? null
 
     // Extract layoutId from URL for dynamic name loading (under metahub context)
     // Pattern: /metahub/:metahubId/layouts/:layoutId
@@ -125,27 +93,45 @@ export default function NavbarBreadcrumbs() {
     // Pattern: /a/:applicationId/admin/...
     const applicationIdMatch = location.pathname.match(/^\/a\/([^/]+)\/admin(?:\/|$)/)
     const applicationId = applicationIdMatch ? applicationIdMatch[1] : null
-    const applicationDetailQuery = useQuery<ApplicationShellDetail>({
+    const applicationDetailQuery = useQuery<ApplicationShellDetail, unknown, string | null>({
         queryKey: applicationId ? ['applications', 'detail', applicationId] : ['applications', 'detail', 'missing-id'],
         queryFn: async () => {
-            const response = await fetch(`/api/v1/applications/${applicationId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            })
-            if (!response.ok) {
-                throw new Error(`Failed to load application detail for breadcrumbs: ${response.status}`)
-            }
-            return (await response.json()) as ApplicationShellDetail
+            const response = await client.get<ApplicationShellDetail>(`/applications/${applicationId}`)
+            return response.data
         },
-        enabled: Boolean(applicationId),
+        select: (data) => extractLocalizedString(data?.name) || data?.slug || null,
+        enabled: Boolean(applicationId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 2,
         retryOnMount: true,
         refetchOnMount: 'always',
         refetchOnWindowFocus: false
     })
-    const applicationName = extractLocalizedString(applicationDetailQuery.data?.name) ?? applicationDetailQuery.data?.slug ?? null
+    const applicationName = applicationDetailQuery.data ?? null
+
+    useEffect(() => {
+        if (!metahubId || authLoading) return
+        if (metahubDetailQuery.status === 'success' && !metahubName) {
+            console.warn('[breadcrumbs] Empty metahub label after successful detail query', {
+                path: location.pathname,
+                metahubId,
+                queryStatus: metahubDetailQuery.status,
+                fetchStatus: metahubDetailQuery.fetchStatus
+            })
+        }
+    }, [authLoading, location.pathname, metahubDetailQuery.fetchStatus, metahubDetailQuery.status, metahubId, metahubName])
+
+    useEffect(() => {
+        if (!applicationId || authLoading) return
+        if (applicationDetailQuery.status === 'success' && !applicationName) {
+            console.warn('[breadcrumbs] Empty application label after successful detail query', {
+                path: location.pathname,
+                applicationId,
+                queryStatus: applicationDetailQuery.status,
+                fetchStatus: applicationDetailQuery.fetchStatus
+            })
+        }
+    }, [applicationDetailQuery.fetchStatus, applicationDetailQuery.status, applicationId, applicationName, authLoading, location.pathname])
 
     // Extract connectorId from URL for dynamic name loading (under application admin context)
     // Pattern: /a/:applicationId/admin/connector/:connectorId
@@ -265,9 +251,9 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'catalogs') {
                     items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
 
-                    if (segments[3] && standaloneCatalogName) {
+                    if (segments[3]) {
                         items.push({
-                            label: truncateCatalogName(standaloneCatalogName),
+                            label: standaloneCatalogName ? truncateCatalogName(standaloneCatalogName) : '...',
                             to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
@@ -280,9 +266,9 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'catalog') {
                     items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
 
-                    if (segments[3] && standaloneCatalogName) {
+                    if (segments[3]) {
                         items.push({
-                            label: truncateCatalogName(standaloneCatalogName),
+                            label: standaloneCatalogName ? truncateCatalogName(standaloneCatalogName) : '...',
                             to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
@@ -297,14 +283,9 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'set') {
                     items.push({ label: t('sets'), to: `/metahub/${segments[1]}/sets` })
 
-                    if (segments[3] && setName) {
+                    if (segments[3]) {
                         items.push({
-                            label: truncateSetName(setName),
-                            to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
-                        })
-                    } else if (segments[3]) {
-                        items.push({
-                            label: segments[3],
+                            label: setName ? truncateSetName(setName) : '...',
                             to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
                         })
                     }
@@ -319,14 +300,9 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
                 } else if (segments[2] === 'enumeration') {
                     items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
-                    if (segments[3] && enumerationName) {
+                    if (segments[3]) {
                         items.push({
-                            label: truncateEnumerationName(enumerationName),
-                            to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
-                        })
-                    } else if (segments[3]) {
-                        items.push({
-                            label: segments[3],
+                            label: enumerationName ? truncateEnumerationName(enumerationName) : '...',
                             to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
                         })
                     }
@@ -345,10 +321,8 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'layouts') {
                     items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/layouts` })
 
-                    if (segments[3] && layoutName) {
-                        items.push({ label: truncateLayoutName(layoutName), to: location.pathname })
-                    } else if (segments[3]) {
-                        items.push({ label: segments[3], to: location.pathname })
+                    if (segments[3]) {
+                        items.push({ label: layoutName ? truncateLayoutName(layoutName) : '...', to: location.pathname })
                     }
                 } else if (segments[2] === 'publications') {
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
@@ -378,27 +352,29 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'hub') {
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
 
-                    if (segments[3] && hubName) {
+                    if (segments[3]) {
+                        const hubLabel = hubName ? truncateHubName(hubName) : '...'
+
                         if (segments[4] === 'catalogs') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
 
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
 
-                            if (segments[5] && catalogName) {
+                            if (segments[5]) {
                                 items.push({
-                                    label: truncateCatalogName(catalogName),
+                                    label: catalogName ? truncateCatalogName(catalogName) : '...',
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
                                 if (segments[6] === 'attributes') {
                                     items.push({ label: t('attributes'), to: location.pathname })
 
-                                    if (segments[7] && attributeName) {
+                                    if (segments[7]) {
                                         items.push({
-                                            label: truncateAttributeName(attributeName),
+                                            label: attributeName ? truncateAttributeName(attributeName) : '...',
                                             to: location.pathname
                                         })
                                     }
@@ -408,37 +384,32 @@ export default function NavbarBreadcrumbs() {
                             }
                         } else if (segments[4] === 'enumerations') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
                         } else if (segments[4] === 'sets') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
                         } else if (segments[4] === 'hubs') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs` })
                         } else if (segments[4] === 'set') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
 
-                            if (segments[5] && setName) {
+                            if (segments[5]) {
                                 items.push({
-                                    label: truncateSetName(setName),
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
-                                })
-                            } else if (segments[5]) {
-                                items.push({
-                                    label: segments[5],
+                                    label: setName ? truncateSetName(setName) : '...',
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
                                 })
                             }
@@ -451,19 +422,14 @@ export default function NavbarBreadcrumbs() {
                             }
                         } else if (segments[4] === 'enumeration') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
                             items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
 
-                            if (segments[5] && enumerationName) {
+                            if (segments[5]) {
                                 items.push({
-                                    label: truncateEnumerationName(enumerationName),
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
-                                })
-                            } else if (segments[5]) {
-                                items.push({
-                                    label: segments[5],
+                                    label: enumerationName ? truncateEnumerationName(enumerationName) : '...',
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
                                 })
                             }
@@ -476,24 +442,24 @@ export default function NavbarBreadcrumbs() {
                             }
                         } else if (segments[4] === 'catalog') {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
 
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
 
-                            if (segments[5] && catalogName) {
+                            if (segments[5]) {
                                 items.push({
-                                    label: truncateCatalogName(catalogName),
+                                    label: catalogName ? truncateCatalogName(catalogName) : '...',
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
                                 if (segments[6] === 'attributes') {
                                     items.push({ label: t('attributes'), to: location.pathname })
 
-                                    if (segments[7] && attributeName) {
+                                    if (segments[7]) {
                                         items.push({
-                                            label: truncateAttributeName(attributeName),
+                                            label: attributeName ? truncateAttributeName(attributeName) : '...',
                                             to: location.pathname
                                         })
                                     }
@@ -503,7 +469,7 @@ export default function NavbarBreadcrumbs() {
                             }
                         } else {
                             items.push({
-                                label: truncateHubName(hubName),
+                                label: hubLabel,
                                 to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
                             })
 

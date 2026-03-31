@@ -132,6 +132,9 @@ export type { UseCodenameAutoFillOptions } from './hooks/useCodenameAutoFill'
 export { useCodenameAutoFillVlc } from './hooks/useCodenameAutoFillVlc'
 export type { UseCodenameAutoFillVlcOptions } from './hooks/useCodenameAutoFillVlc'
 
+export { useListDialogs } from './hooks/useListDialogs'
+export type { UseListDialogsReturn } from './hooks/useListDialogs'
+
 // View preference system (localStorage-backed view modes)
 export { useViewPreference, DEFAULT_VIEW_STYLE } from './hooks/useViewPreference'
 export type { ViewStyle } from './hooks/useViewPreference'
@@ -205,6 +208,10 @@ export type {
     ConfirmOptimisticUpdateOptions
 } from './hooks/optimisticCrud'
 export type { PendingAction, PendingMarkers, MaybePending, SortOrderLike } from '@universo/utils'
+
+// Optimistic reorder
+export { applyOptimisticReorder, rollbackReorderSnapshots, reorderItemsBySortOrder } from './hooks/optimisticReorder'
+export type { ReorderQuerySnapshot } from './hooks/optimisticReorder'
 
 // Pending animation styles
 export { deletingCardSx, pendingCardSx, pendingRowSx, pendingBorderPulse, pendingPulse } from './styles/pendingAnimations'

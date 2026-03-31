@@ -11,6 +11,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createHubsRoutes } from '../../domains/hubs/routes/hubsRoutes'
+import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'metahub-1' }))
@@ -205,7 +206,9 @@ describe('Hubs Routes', () => {
         })
 
         it('returns 404 when hub is not found', async () => {
-            mockObjectsService.reorderByKind.mockRejectedValueOnce(new Error('hub not found'))
+            mockObjectsService.reorderByKind.mockRejectedValueOnce(
+                new MetahubNotFoundError('hub', '11111111-1111-4111-8111-111111111111')
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -216,7 +219,7 @@ describe('Hubs Routes', () => {
                 })
                 .expect(404)
 
-            expect(response.body.error).toBe('Hub not found')
+            expect(response.body.error).toBe('hub not found')
         })
 
         it('returns 400 for invalid payload', async () => {

@@ -6,3 +6,4 @@
 
 export * from './error-handlers'
 export * from './pagination'
+export * from './fetchAllPaginatedItems'

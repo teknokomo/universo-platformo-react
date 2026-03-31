@@ -21,6 +21,7 @@ export { formatDate, formatRange } from './ui-utils/formatDate'
 export * as api from './api/error-handlers'
 export * from './api/error-handlers'
 export { extractPaginationMeta, type PaginationMeta as UtilsPaginationMeta } from './api/pagination'
+export { fetchAllPaginatedItems, type FetchPageFn, type FetchAllPaginatedOptions } from './api/fetchAllPaginatedItems'
 
 // Public routes utilities
 export {

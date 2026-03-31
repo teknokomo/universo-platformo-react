@@ -13,7 +13,6 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import type { SetLocalizedPayload } from '../../../types'
 import {
     applyOptimisticCreateToQueryKeyPrefixes,
     applyOptimisticReorder,
@@ -23,51 +22,15 @@ import {
     rollbackReorderSnapshots
 } from '../../shared'
 import * as setsApi from '../api'
-import type { SetCopyInput } from '../api'
-
-interface CreateSetParams {
-    metahubId: string
-    hubId: string
-    data: SetLocalizedPayload & { sortOrder?: number }
-}
-
-interface CreateSetAtMetahubParams {
-    metahubId: string
-    data: SetLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateSetParams {
-    metahubId: string
-    hubId: string
-    setId: string
-    data: SetLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateSetAtMetahubParams {
-    metahubId: string
-    setId: string
-    data: SetLocalizedPayload & { sortOrder?: number }
-}
-
-interface DeleteSetParams {
-    metahubId: string
-    hubId?: string
-    setId: string
-    force?: boolean
-}
-
-interface CopySetParams {
-    metahubId: string
-    setId: string
-    data: SetCopyInput
-}
-
-interface ReorderSetParams {
-    metahubId: string
-    hubId?: string
-    setId: string
-    newSortOrder: number
-}
+import type {
+    CreateSetParams,
+    CreateSetAtMetahubParams,
+    UpdateSetParams,
+    UpdateSetAtMetahubParams,
+    DeleteSetParams,
+    CopySetParams,
+    ReorderSetParams
+} from './mutationTypes'
 
 export function useCreateSetAtMetahub() {
     const queryClient = useQueryClient()

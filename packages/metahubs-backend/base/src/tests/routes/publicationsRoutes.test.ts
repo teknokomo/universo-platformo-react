@@ -284,7 +284,9 @@ describe('Publications Routes', () => {
             })
             .expect(500)
 
-        expect(response.body).toEqual({ error: 'Failed to create publication schema: ddl exploded' })
+        expect(response.body).toMatchObject({
+            error: 'Schema sync failed'
+        })
         expect(mockSoftDelete).toHaveBeenNthCalledWith(
             1,
             transactionExecutors[1],
@@ -487,7 +489,9 @@ describe('Publications Routes', () => {
             })
             .expect(500)
 
-        expect(response.body).toEqual({ error: 'Failed to create linked application schema: ddl exploded' })
+        expect(response.body).toMatchObject({
+            error: 'Schema sync failed'
+        })
         expect(mockCreateLinkedApplication).toHaveBeenCalledWith(
             expect.objectContaining({
                 publicationId: 'publication-1',

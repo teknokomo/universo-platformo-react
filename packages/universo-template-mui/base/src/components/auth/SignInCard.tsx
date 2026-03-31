@@ -55,11 +55,6 @@ export default function SignInCard() {
             event.preventDefault()
             return
         }
-        const data = new FormData(event.currentTarget)
-        console.log({
-            email: data.get('email'),
-            password: data.get('password')
-        })
     }
 
     const validateInputs = () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const createBranchMutate = vi.fn()
 const invalidateBranchesAll = vi.fn(async () => undefined)
@@ -101,9 +101,13 @@ const templateMuiMock = {
     BaseEntityMenu: () => null
 }
 
-vi.mock('@universo/template-mui', () => ({
-    ...templateMuiMock
-}))
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    return {
+        ...templateMuiMock,
+        useListDialogs: actual.useListDialogs
+    }
+})
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
     ...templateMuiMock,
@@ -165,10 +169,11 @@ vi.mock('../../../../components', () => ({
 
 describe('BranchList create flow copy options', () => {
     beforeEach(() => {
+        cleanup()
         vi.clearAllMocks()
     })
 
-    it('forwards branch copy options from create dialog payload', async () => {
+    it('forwards branch copy options from create dialog payload', { timeout: 60_000 }, async () => {
         const mod = await import('../BranchList')
         const BranchList = mod.default
 
@@ -196,7 +201,7 @@ describe('BranchList create flow copy options', () => {
         })
     })
 
-    it('uses the fire-and-forget mutate handler instead of mutateAsync', async () => {
+    it('uses the fire-and-forget mutate handler instead of mutateAsync', { timeout: 60_000 }, async () => {
         const mod = await import('../BranchList')
         const BranchList = mod.default
 

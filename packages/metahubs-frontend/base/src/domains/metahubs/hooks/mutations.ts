@@ -18,42 +18,21 @@ import {
 } from '@universo/template-mui'
 import { makePendingMarkers, extractAxiosError, isApiError, isHttpStatus } from '@universo/utils'
 import { getVLCString } from '@universo/utils/vlc'
-import type { MetahubLocalizedPayload, SimpleLocalizedInput } from '../../../types'
+import type { SimpleLocalizedInput } from '../../../types'
 import { normalizeLocale } from '../../../utils/localizedInput'
 import { sanitizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { metahubsQueryKeys } from '../../shared'
 import * as metahubsApi from '../api'
 import type { MetahubInput } from '../api'
-
-type LegacyMetahubInput = { name: string; description?: string }
-
-interface UpdateMetahubParams {
-    id: string
-    data: LegacyMetahubInput | MetahubLocalizedPayload
-    expectedVersion?: number
-}
-
-interface CopyMetahubParams {
-    id: string
-    data?: metahubsApi.MetahubCopyInput
-}
-
-interface UpdateMemberRoleParams {
-    metahubId: string
-    memberId: string
-    data: { role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
-}
-
-interface RemoveMemberParams {
-    metahubId: string
-    memberId: string
-}
-
-interface InviteMemberParams {
-    metahubId: string
-    data: { email: string; role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
-}
+import type {
+    LegacyMetahubInput,
+    UpdateMetahubParams,
+    CopyMetahubParams,
+    UpdateMemberRoleParams,
+    RemoveMemberParams,
+    InviteMemberParams
+} from './mutationTypes'
 
 const buildLocalizedInput = (value: string | undefined, locale: string): SimpleLocalizedInput | undefined => {
     if (!value) return undefined

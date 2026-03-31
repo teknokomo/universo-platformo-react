@@ -15,32 +15,14 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { getVLCString, makePendingMarkers } from '@universo/utils'
-import type { MetahubLayoutLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as layoutsApi from '../api'
-import type { LayoutCopyInput } from '../api'
-
-interface CreateLayoutParams {
-    metahubId: string
-    data: MetahubLayoutLocalizedPayload
-}
-
-interface UpdateLayoutParams {
-    metahubId: string
-    layoutId: string
-    data: Partial<MetahubLayoutLocalizedPayload>
-}
-
-interface DeleteLayoutParams {
-    metahubId: string
-    layoutId: string
-}
-
-interface CopyLayoutParams {
-    metahubId: string
-    layoutId: string
-    data: LayoutCopyInput
-}
+import type {
+    CreateLayoutParams,
+    UpdateLayoutParams,
+    DeleteLayoutParams,
+    CopyLayoutParams
+} from './mutationTypes'
 
 export function useCreateLayout() {
     const queryClient = useQueryClient()
