@@ -57,6 +57,27 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.
 - Platform migration definitions stay in the package migration surface instead of route handlers.
 
+## Controller Architecture
+
+Route files delegate to domain controllers that encapsulate handler logic:
+
+- **`applicationsController.ts`** — application CRUD, membership management, runtime row operations.
+- **`connectorsController.ts`** — connector CRUD and publication link management.
+- **`syncController.ts`** — runtime schema sync, diff, and release-bundle operations.
+
+### `asyncHandler()`
+
+Express middleware wrapper that catches rejected promises and forwards errors to `next()`:
+
+```ts
+import { asyncHandler } from '../shared/asyncHandler'
+router.get('/apps', asyncHandler(async (req, res) => { /* ... */ }))
+```
+
+### `runtimeHelpers.ts`
+
+Shared helpers for runtime row controllers: query validation, executor resolution, schema assertions, and response formatting — extracted from inline route logic (~920 lines, 60+ exports).
+
 ## Development
 
 ```bash

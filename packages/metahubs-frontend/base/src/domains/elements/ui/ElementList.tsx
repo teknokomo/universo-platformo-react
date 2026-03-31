@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
     Box,
     Skeleton,
@@ -31,15 +31,14 @@ import {
     ToolbarControls,
     EmptyListState,
     APIEmptySVG,
-    usePaginated,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     useConfirm,
     revealPendingEntityFeedback,
     ViewHeaderMUI as ViewHeader,
     BaseEntityMenu,
-    type ActionContext
+    type ActionContext,
+    useListDialogs
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
 import {
@@ -50,12 +49,11 @@ import {
 } from '@universo/template-mui/components/dialogs'
 
 import { useCreateElement, useUpdateElement, useDeleteElement, useMoveElement, useReorderElement } from '../hooks/mutations'
+import { useElementListData } from '../hooks/useElementListData'
 import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
-import * as constantsApi from '../../constants/api'
-import { getCatalogById } from '../../catalogs'
 import { listEnumerationValues } from '../../enumerations/api'
-import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
+import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import {
     Constant,
     Hub,
@@ -63,13 +61,11 @@ import {
     CatalogLocalizedPayload,
     HubElement,
     HubElementDisplay,
-    PaginatedResponse,
     getVLCString,
     toHubElementDisplay,
     type VersionedLocalizedContent
 } from '../../../types'
 import { hasAxiosResponse, isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
-import { useSettingValue } from '../../settings/hooks/useSettings'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import elementActions from './ElementActions'
 import InlineTableEditor from './InlineTableEditor'
@@ -83,7 +79,16 @@ import {
 } from '../../catalogs/ui/CatalogActions'
 import type { CatalogDisplayWithHub } from '../../catalogs/ui/CatalogActions'
 import { useUpdateCatalogAtMetahub } from '../../catalogs/hooks/mutations'
-import * as hubsApi from '../../hubs'
+import {
+    type ElementMenuContext,
+    type ElementConfirmSpec,
+    type EnumerationValueOption,
+    isVersionedLocalizedContent,
+    extractResponseMessage,
+    resolveSetConstantLabel,
+    resolveRefId,
+    applyCopySuffixToFirstStringAttribute
+} from './elementListUtils'
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
     boxShadow: theme.shadows[4],
@@ -98,74 +103,6 @@ const StyledPopper = styled(Popper)(({ theme }) => ({
         padding: 6
     }
 }))
-
-type ElementOption = {
-    id: string
-    name: string
-}
-
-type RefTargetDescriptor = {
-    kind: 'catalog' | 'enumeration' | 'set'
-    targetId: string
-    targetConstantId?: string | null
-    setConstantLabel?: string | null
-}
-
-type ElementUpdatePatch = Record<string, unknown>
-
-type ElementMenuContext = ActionContext<HubElementDisplay, { data: ElementUpdatePatch }>
-
-type ElementConfirmSpec = {
-    title?: string
-    titleKey?: string
-    description?: string
-    descriptionKey?: string
-    confirmButtonName?: string
-    confirmKey?: string
-    cancelButtonName?: string
-    cancelKey?: string
-    interpolate?: Record<string, unknown>
-}
-
-const isVersionedLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
-    value !== null && typeof value === 'object' && 'locales' in value
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    if (!hasAxiosResponse(error)) return undefined
-    const responseData = error.response.data
-    if (!responseData || typeof responseData !== 'object') return undefined
-    const message = (responseData as { message?: unknown }).message
-    return typeof message === 'string' ? message : undefined
-}
-
-const resolveSetConstantLabel = (constant: Constant, locale: string): string => {
-    const rawValue = constant.value
-    if (rawValue === null || rawValue === undefined) return '—'
-
-    if (typeof rawValue === 'object') {
-        const localized = getVLCString(rawValue as Record<string, unknown>, locale)
-        if (localized && localized.trim().length > 0) return localized
-    }
-
-    if (constant.dataType === 'DATE' && typeof rawValue === 'string') {
-        const parsed = new Date(rawValue)
-        if (!Number.isNaN(parsed.getTime())) {
-            return parsed.toLocaleString(locale)
-        }
-    }
-
-    return String(rawValue)
-}
-
-const resolveRefId = (value: unknown): string | null => {
-    if (typeof value === 'string' && value.length > 0) return value
-    if (value && typeof value === 'object') {
-        const obj = value as Record<string, unknown>
-        if (typeof obj.id === 'string' && obj.id.length > 0) return obj.id
-        if (typeof obj.value === 'string' && obj.value.length > 0) return obj.value
-    }
-    return null
-}
 
 type ReferenceFieldAutocompleteProps = {
     metahubId: string
@@ -504,124 +441,50 @@ const EnumerationFieldAutocomplete = ({
     )
 }
 
-const normalizeUiLocale = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
-
-const getCopySuffixByLocale = (locale: string) => (normalizeUiLocale(locale) === 'ru' ? ' (копия)' : ' (copy)')
-const getCopyLabelByLocale = (locale: string) => (normalizeUiLocale(locale) === 'ru' ? 'Копия' : 'Copy')
-
-const isLocalizedContentValue = (value: unknown): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
-    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
-
-const applyCopySuffixToFirstStringAttribute = (params: {
-    sourceData: Record<string, unknown>
-    attributes: Attribute[]
-    locale: string
-}): Record<string, unknown> => {
-    const { sourceData, attributes, locale } = params
-    const firstStringAttribute = attributes.find((attribute) => attribute.dataType === 'STRING')
-    if (!firstStringAttribute) return { ...sourceData }
-
-    const fieldKey = firstStringAttribute.codename
-    const rawValue = sourceData[fieldKey]
-    const defaultSuffix = getCopySuffixByLocale(locale)
-
-    if (typeof rawValue === 'string') {
-        const content = rawValue.trim()
-        return {
-            ...sourceData,
-            [fieldKey]: content.length > 0 ? `${content}${defaultSuffix}` : `${getCopyLabelByLocale(locale)}${defaultSuffix}`
-        }
-    }
-
-    if (isLocalizedContentValue(rawValue)) {
-        const nextLocales = { ...(rawValue.locales ?? {}) }
-        let hasAnyContent = false
-        for (const [localeKey, localeValue] of Object.entries(nextLocales)) {
-            const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
-            if (!content) continue
-            hasAnyContent = true
-            nextLocales[localeKey] = {
-                ...(localeValue ?? {}),
-                content: `${content}${getCopySuffixByLocale(localeKey)}`
-            }
-        }
-
-        if (!hasAnyContent) {
-            const primaryLocale = normalizeUiLocale(rawValue._primary || locale)
-            nextLocales[primaryLocale] = { content: `${getCopyLabelByLocale(primaryLocale)}${getCopySuffixByLocale(primaryLocale)}` }
-        }
-
-        return {
-            ...sourceData,
-            [fieldKey]: {
-                ...rawValue,
-                locales: nextLocales
-            }
-        }
-    }
-
-    return {
-        ...sourceData,
-        [fieldKey]: `${getCopyLabelByLocale(locale)}${defaultSuffix}`
-    }
-}
-
 const ElementList = () => {
     const navigate = useNavigate()
-    const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const preferredVlcLocale = useMetahubPrimaryLocale()
-    const [isDialogOpen, setDialogOpen] = useState(false)
-    const [editDialogOpen, setEditDialogOpen] = useState(false)
-    const [editingElement, setEditingElement] = useState<HubElement | null>(null)
-    const [copyingElement, setCopyingElement] = useState<HubElement | null>(null)
-    const updateCatalogMutation = useUpdateCatalogAtMetahub()
 
-    // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
-    // Resolve a stable hubId from the catalog's hub associations.
+    // ── Data from hook ──
     const {
-        data: catalogForHubResolution,
-        isLoading: isCatalogResolutionLoading,
-        error: catalogResolutionError
-    } = useQuery({
-        queryKey:
-            metahubId && catalogId ? metahubsQueryKeys.catalogDetail(metahubId, catalogId) : ['metahubs', 'catalogs', 'detail', 'empty'],
-        queryFn: async () => {
-            if (!metahubId || !catalogId) {
-                throw new Error('metahubId and catalogId are required')
-            }
-            return getCatalogById(metahubId, catalogId)
-        },
-        enabled: !!metahubId && !!catalogId && !hubIdParam
-    })
+        metahubId,
+        hubIdParam,
+        catalogId,
+        effectiveHubId,
+        hubs,
+        catalogForHubResolution,
+        isCatalogResolutionLoading,
+        catalogResolutionError,
+        attributes,
+        orderedAttributes,
+        childAttributesMap,
+        childEnumValuesMap,
+        setConstantsMap,
+        allowElementCopy,
+        allowElementDelete,
+        paginationResult,
+        isLoading,
+        error,
+        handleSearchChange,
+        sortedElements,
+        images,
+        elementMap,
+        elementOrderMap,
+        visibleAttributesForColumns,
+        refTargetByAttribute,
+        refDisplayMap,
+        isFetchingRefDisplayMap
+    } = useElementListData()
 
-    // Hub ID from URL param, or resolved from catalog (for hub-scoped views)
-    // Note: undefined means no hub - catalog exists without hub association, which is valid
-    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
-    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
-
-    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
-        queryFn: async () => {
-            if (!metahubId) {
-                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
-            }
-            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
-                limit: hubsListParams.limit,
-                sortBy: hubsListParams.sortBy,
-                sortOrder: hubsListParams.sortOrder
-            })
-        },
-        enabled: !!metahubId,
-        refetchOnWindowFocus: false,
-        staleTime: 5 * 60 * 1000,
-        retry: false
-    })
-    const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
+    // ── Local state ──
+    const { dialogs, openCreate, openEdit, openCopy, openDelete, openConflict, close } = useListDialogs<HubElement>()
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
+    const updateCatalogMutation = useUpdateCatalogAtMetahub()
 
     // State management for dialog
     const [isSubmitting, setSubmitting] = useState(false)
@@ -629,33 +492,7 @@ const ElementList = () => {
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
-    // Can load data when we have metahubId and catalogId
-    // hubId is optional - elements/attributes belong to catalog directly
-    const canLoadData = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
-
-    // Fetch attributes for this catalog to build dynamic columns and forms
-    const { data: attributesData } = useQuery({
-        queryKey:
-            metahubId && catalogId
-                ? effectiveHubId
-                    ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100, locale: i18n.language })
-                    : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { limit: 100, locale: i18n.language })
-                : ['empty'],
-        queryFn:
-            metahubId && catalogId
-                ? () =>
-                      effectiveHubId
-                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100, locale: i18n.language })
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, { limit: 100, locale: i18n.language })
-                : async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }),
-        enabled: canLoadData
-    })
-
-    const attributes = useMemo(() => attributesData?.items ?? [], [attributesData])
-
-    // Filter element actions based on settings (allowElementCopy / allowElementDelete)
-    const allowElementCopy = useSettingValue<boolean>('catalogs.allowElementCopy')
-    const allowElementDelete = useSettingValue<boolean>('catalogs.allowElementDelete')
+    // Filter element actions based on settings
     const filteredElementActions = useMemo(
         () =>
             elementActions.filter((a) => {
@@ -665,150 +502,6 @@ const ElementList = () => {
             }),
         [allowElementCopy, allowElementDelete]
     )
-
-    // Identify TABLE attributes and fetch their children for inline editing
-    const tableAttributes = useMemo(() => attributes.filter((a) => a.dataType === 'TABLE'), [attributes])
-
-    const { data: childAttributesMap } = useQuery({
-        queryKey: ['metahubs', 'childAttributesForElements', metahubId, catalogId, tableAttributes.map((a) => a.id).join(',')],
-        queryFn: async () => {
-            if (!metahubId || !catalogId || tableAttributes.length === 0) return {}
-            const results: Record<string, typeof attributes> = {}
-            await Promise.all(
-                tableAttributes.map(async (tableAttr) => {
-                    try {
-                        const resp = effectiveHubId
-                            ? await attributesApi.listChildAttributes(metahubId, effectiveHubId, catalogId, tableAttr.id)
-                            : await attributesApi.listChildAttributesDirect(metahubId, catalogId, tableAttr.id)
-                        results[tableAttr.id] = resp.items ?? []
-                    } catch {
-                        results[tableAttr.id] = []
-                    }
-                })
-            )
-            return results
-        },
-        enabled: canLoadData && tableAttributes.length > 0
-    })
-
-    // Collect all unique enumeration target IDs from child REF attributes
-    const childEnumTargetIds = useMemo(() => {
-        if (!childAttributesMap) return [] as string[]
-        const ids = new Set<string>()
-        Object.values(childAttributesMap).forEach((children) => {
-            children.forEach((child) => {
-                if (child.dataType !== 'REF') return
-                const kind = child.targetEntityKind ?? null
-                const targetId = child.targetEntityId ?? null
-                if (kind === 'enumeration' && targetId) ids.add(targetId)
-            })
-        })
-        return Array.from(ids)
-    }, [childAttributesMap])
-
-    // Fetch enum values for child REF→enumeration attributes
-    const { data: childEnumValuesMap } = useQuery({
-        queryKey: ['metahubs', 'childEnumValues', metahubId, [...childEnumTargetIds].sort().join(','), i18n.language],
-        queryFn: async () => {
-            if (!metahubId || childEnumTargetIds.length === 0) return {}
-            const result: Record<
-                string,
-                Array<{ id: string; label: string; codename?: string; isDefault?: boolean; sortOrder?: number }>
-            > = {}
-            await Promise.all(
-                childEnumTargetIds.map(async (enumId) => {
-                    try {
-                        const resp = await listEnumerationValues(metahubId, enumId)
-                        result[enumId] = (resp.items ?? [])
-                            .slice()
-                            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                            .map((item) => ({
-                                id: item.id,
-                                label: getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename || item.id,
-                                codename: item.codename,
-                                isDefault: Boolean(item.isDefault),
-                                sortOrder: item.sortOrder
-                            }))
-                    } catch (err) {
-                        console.warn(`[ElementList] Failed to load enum values for ${enumId}:`, err)
-                        result[enumId] = []
-                    }
-                })
-            )
-            return result
-        },
-        enabled: Boolean(metahubId) && childEnumTargetIds.length > 0
-    })
-
-    const orderedAttributes = useMemo(
-        () =>
-            attributes
-                .map((attr, index) => ({ attr, index }))
-                .sort((a, b) => {
-                    const orderA = a.attr.sortOrder ?? 0
-                    const orderB = b.attr.sortOrder ?? 0
-                    return orderA - orderB || a.index - b.index
-                })
-                .map((item) => item.attr),
-        [attributes]
-    )
-
-    const setConstantTargets = useMemo(() => {
-        const pairs = new Set<string>()
-
-        orderedAttributes.forEach((attribute) => {
-            if (attribute.dataType !== 'REF') return
-            if (attribute.targetEntityKind !== 'set') return
-            if (!attribute.targetEntityId || !attribute.targetConstantId) return
-            pairs.add(`${attribute.targetEntityId}:${attribute.targetConstantId}`)
-        })
-
-        if (childAttributesMap) {
-            Object.values(childAttributesMap).forEach((children) => {
-                children.forEach((child) => {
-                    if (child.dataType !== 'REF') return
-                    if (child.targetEntityKind !== 'set') return
-                    if (!child.targetEntityId || !child.targetConstantId) return
-                    pairs.add(`${child.targetEntityId}:${child.targetConstantId}`)
-                })
-            })
-        }
-
-        return Array.from(pairs)
-            .map((pair) => {
-                const [setId, constantId] = pair.split(':')
-                return { setId, constantId }
-            })
-            .filter((pair) => pair.setId && pair.constantId)
-            .sort((a, b) => a.setId.localeCompare(b.setId) || a.constantId.localeCompare(b.constantId))
-    }, [childAttributesMap, orderedAttributes])
-
-    const { data: setConstantsMap } = useQuery({
-        queryKey: [
-            'metahubs',
-            'setConstantsForElements',
-            metahubId,
-            setConstantTargets.map((target) => `${target.setId}:${target.constantId}`).join(','),
-            i18n.language
-        ],
-        queryFn: async () => {
-            if (!metahubId || setConstantTargets.length === 0) return {}
-            const result: Record<string, Constant[]> = {}
-            await Promise.all(
-                setConstantTargets.map(async ({ setId: setTargetId, constantId }) => {
-                    try {
-                        const response = await constantsApi.getConstantDirect(metahubId, setTargetId, constantId)
-                        const current = result[setTargetId] ?? []
-                        result[setTargetId] = [...current, response.data]
-                    } catch (err) {
-                        console.warn(`[ElementList] Failed to load constant ${constantId} for set ${setTargetId}:`, err)
-                    }
-                })
-            )
-            return result
-        },
-        enabled: Boolean(metahubId) && setConstantTargets.length > 0
-    })
 
     const buildStringLengthHelperText = useCallback(
         (rules?: { minLength?: number | null; maxLength?: number | null }) => {
@@ -1137,49 +830,6 @@ const ElementList = () => {
         [metahubId, t]
     )
 
-    // Use paginated hook for elements list
-    const paginationResult = usePaginated<HubElement, 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn:
-            metahubId && catalogId
-                ? (params) =>
-                      effectiveHubId
-                          ? metahubsQueryKeys.elementsList(metahubId, effectiveHubId, catalogId, params)
-                          : metahubsQueryKeys.elementsListDirect(metahubId, catalogId, params)
-                : () => ['empty'],
-        queryFn:
-            metahubId && catalogId
-                ? (params) =>
-                      effectiveHubId
-                          ? elementsApi.listElements(metahubId, effectiveHubId, catalogId, params)
-                          : elementsApi.listElementsDirect(metahubId, catalogId, params)
-                : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
-        initialLimit: 20,
-        sortBy: 'sortOrder',
-        sortOrder: 'asc',
-        enabled: canLoadData
-    })
-
-    const { data: elements, isLoading, error } = paginationResult
-    // usePaginated already returns the items array as `data`, here aliased to `elements`
-
-    // Instant search for better UX
-    const { handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
-
-    // State for independent ConfirmDeleteDialog
-    const [deleteDialogState, setDeleteDialogState] = useState<{
-        open: boolean
-        element: HubElement | null
-    }>({ open: false, element: null })
-
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: { data: Record<string, unknown> } } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
-
     const { confirm } = useConfirm()
 
     const createElementMutation = useCreateElement()
@@ -1187,35 +837,6 @@ const ElementList = () => {
     const deleteElementMutation = useDeleteElement()
     const moveElementMutation = useMoveElement()
     const reorderElementMutation = useReorderElement()
-
-    const sortedElements = useMemo(
-        () =>
-            [...elements].sort((a, b) => {
-                const sortA = a.sortOrder ?? 0
-                const sortB = b.sortOrder ?? 0
-                if (sortA !== sortB) return sortA - sortB
-                return a.id.localeCompare(b.id)
-            }),
-        [elements]
-    )
-
-    // Memoize images object
-    const images = useMemo(() => {
-        const imagesMap: Record<string, never[]> = {}
-        if (Array.isArray(sortedElements)) {
-            sortedElements.forEach((element) => {
-                if (element?.id) {
-                    imagesMap[element.id] = []
-                }
-            })
-        }
-        return imagesMap
-    }, [sortedElements])
-
-    const elementMap = useMemo(() => {
-        if (!Array.isArray(sortedElements)) return new Map<string, HubElement>()
-        return new Map(sortedElements.map((element) => [element.id, element]))
-    }, [sortedElements])
 
     const handlePendingElementInteraction = useCallback(
         (elementId: string) => {
@@ -1231,146 +852,6 @@ const ElementList = () => {
         },
         [catalogId, effectiveHubId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
     )
-
-    const elementOrderMap = useMemo(() => {
-        const map = new Map<string, number>()
-        sortedElements.forEach((element, index) => {
-            map.set(element.id, index)
-        })
-        return map
-    }, [sortedElements])
-
-    const orderedAttributesForColumns = orderedAttributes
-    const visibleAttributesForColumns = useMemo(() => orderedAttributesForColumns.slice(0, 4), [orderedAttributesForColumns])
-
-    const visibleRefAttributesForColumns = useMemo(() => {
-        return visibleAttributesForColumns.filter((attr) => {
-            const targetKind = attr.targetEntityKind ?? null
-            const targetId = attr.targetEntityId ?? null
-            return (
-                attr.dataType === 'REF' &&
-                (targetKind === 'catalog' || targetKind === 'enumeration' || targetKind === 'set') &&
-                Boolean(targetId)
-            )
-        })
-    }, [visibleAttributesForColumns])
-
-    const refAttributesForColumns = useMemo(() => {
-        return visibleRefAttributesForColumns.filter((attr) => {
-            const targetKind = attr.targetEntityKind ?? null
-            return targetKind === 'catalog' || targetKind === 'enumeration'
-        })
-    }, [visibleRefAttributesForColumns])
-
-    const refTargetByAttribute = useMemo(() => {
-        const map: Record<string, RefTargetDescriptor> = {}
-        visibleRefAttributesForColumns.forEach((attr) => {
-            const targetKind = attr.targetEntityKind ?? null
-            const targetId = attr.targetEntityId ?? null
-            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration' && targetKind !== 'set')) return
-            if (targetKind === 'set') {
-                const targetConstantId = attr.targetConstantId ?? null
-                const targetConstant =
-                    targetConstantId && targetId
-                        ? (setConstantsMap?.[targetId] ?? []).find((constant) => constant.id === targetConstantId) ?? null
-                        : null
-                map[attr.codename] = {
-                    kind: targetKind,
-                    targetId,
-                    targetConstantId,
-                    setConstantLabel: targetConstant ? resolveSetConstantLabel(targetConstant, i18n.language) : null
-                }
-                return
-            }
-            map[attr.codename] = { kind: targetKind, targetId }
-        })
-        return map
-    }, [visibleRefAttributesForColumns, setConstantsMap, i18n.language])
-
-    const refIdsByTarget = useMemo(() => {
-        const map: Record<string, Set<string>> = {}
-        if (!Array.isArray(elements) || refAttributesForColumns.length === 0) return map
-
-        refAttributesForColumns.forEach((attr) => {
-            const targetKind = attr.targetEntityKind ?? null
-            const targetId = attr.targetEntityId ?? null
-            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) return
-
-            const mapKey = `${targetKind}:${targetId}`
-            if (!map[mapKey]) map[mapKey] = new Set()
-            elements.forEach((element) => {
-                const rawValue = element.data?.[attr.codename]
-                const resolvedId = resolveRefId(rawValue)
-                if (resolvedId) {
-                    map[mapKey].add(resolvedId)
-                }
-            })
-        })
-
-        return map
-    }, [elements, refAttributesForColumns])
-
-    const refIdsKey = useMemo(() => {
-        return Object.entries(refIdsByTarget)
-            .map(([targetKey, idsSet]) => ({
-                targetKey,
-                ids: Array.from(idsSet).sort()
-            }))
-            .sort((a, b) => a.targetKey.localeCompare(b.targetKey))
-    }, [refIdsByTarget])
-
-    const { data: refDisplayMap, isFetching: isFetchingRefDisplayMap } = useQuery({
-        queryKey: ['metahubs', 'ref-display', metahubId, refIdsKey, i18n.language],
-        enabled: Boolean(metahubId && refIdsKey.length > 0),
-        staleTime: 30000,
-        queryFn: async () => {
-            if (!metahubId) return {}
-            const result: Record<string, Record<string, string>> = {}
-
-            for (const entry of refIdsKey) {
-                if (!entry.ids.length) continue
-                const [targetKind, targetId] = entry.targetKey.split(':')
-                if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) continue
-
-                if (targetKind === 'catalog') {
-                    const attributesResponse = await attributesApi.listAttributesDirect(metahubId, targetId, {
-                        limit: 100,
-                        locale: i18n.language
-                    })
-                    const targetAttributes = attributesResponse?.items ?? []
-
-                    const elementsResponse = await Promise.all(
-                        entry.ids.map(async (id) => {
-                            try {
-                                const response = await elementsApi.getElementDirect(metahubId, targetId, id)
-                                return response.data
-                            } catch {
-                                return null
-                            }
-                        })
-                    )
-
-                    const displayMap: Record<string, string> = {}
-                    elementsResponse.filter(Boolean).forEach((element) => {
-                        const display = toHubElementDisplay(element as HubElement, targetAttributes, i18n.language)
-                        displayMap[(element as HubElement).id] = display.name || (element as HubElement).id
-                    })
-
-                    result[entry.targetKey] = displayMap
-                    continue
-                }
-
-                const valuesResponse = await listEnumerationValues(metahubId, targetId)
-                const valuesDisplayMap: Record<string, string> = {}
-                valuesResponse.items.forEach((item) => {
-                    valuesDisplayMap[item.id] = getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename
-                })
-                result[entry.targetKey] = valuesDisplayMap
-            }
-
-            return result
-        }
-    })
 
     // Build dynamic columns based on attributes
     const elementColumns = useMemo(() => {
@@ -1531,7 +1012,7 @@ const ElementList = () => {
                         if (isOptimisticLockConflict(error)) {
                             const conflict = extractConflictInfo(error)
                             if (conflict) {
-                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { data: patch } } })
+                                openConflict({ conflict, pendingUpdate: { id, patch: { data: patch } } })
                             }
                         }
                         throw error
@@ -1576,7 +1057,7 @@ const ElementList = () => {
                 },
                 openDeleteDialog: (element: HubElementDisplay) => {
                     const fullElement = elementMap.get(element.id) ?? (element as unknown as HubElement)
-                    setDeleteDialogState({ open: true, element: fullElement })
+                    openDelete(fullElement)
                 },
                 openEditDialog: async (element: HubElement | HubElementDisplay) => {
                     if (!metahubId || !catalogId) return
@@ -1599,7 +1080,7 @@ const ElementList = () => {
                         }
                     }
                     if (fullRecord) {
-                        setEditingElement(fullRecord)
+                        openEdit(fullRecord)
                     } else {
                         enqueueSnackbar(t('elements.updateError', 'Failed to update element'), { variant: 'error' })
                     }
@@ -1612,7 +1093,7 @@ const ElementList = () => {
                         return
                     }
                     setCopyDialogError(null)
-                    setCopyingElement(fullRecord)
+                    openCopy(fullRecord)
                 }
             }
         }),
@@ -1634,13 +1115,13 @@ const ElementList = () => {
     )
 
     const copyInitialData = useMemo(() => {
-        if (!copyingElement?.data || typeof copyingElement.data !== 'object') return undefined
+        if (!dialogs.copy.item?.data || typeof dialogs.copy.item.data !== 'object') return undefined
         return applyCopySuffixToFirstStringAttribute({
-            sourceData: copyingElement.data as Record<string, unknown>,
+            sourceData: dialogs.copy.item.data as Record<string, unknown>,
             attributes: orderedAttributes,
             locale: i18n.language
         })
-    }, [copyingElement?.data, i18n.language, orderedAttributes])
+    }, [dialogs.copy.item?.data, i18n.language, orderedAttributes])
 
     const applySetReferenceDefaultsToPayload = useCallback(
         (inputData: Record<string, unknown>): Record<string, unknown> => {
@@ -1719,20 +1200,20 @@ const ElementList = () => {
     }
 
     const handleAddNew = () => {
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleEditClose = () => {
-        setEditingElement(null)
+        close('edit')
         setDialogError(null)
     }
 
     const handleCopyClose = () => {
-        setCopyingElement(null)
+        close('copy')
         setCopyDialogError(null)
     }
 
@@ -1782,7 +1263,7 @@ const ElementList = () => {
     }
 
     const handleUpdateElement = async (data: Record<string, unknown>) => {
-        if (!editingElement) return
+        if (!dialogs.edit.item) return
 
         setDialogError(null)
         setSubmitting(true)
@@ -1792,7 +1273,7 @@ const ElementList = () => {
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
-                elementId: editingElement.id,
+                elementId: dialogs.edit.item.id,
                 data: { data: normalizedData }
             })
 
@@ -1816,7 +1297,7 @@ const ElementList = () => {
     }
 
     const handleCopyElement = async (values: Record<string, unknown>) => {
-        if (!copyingElement) return
+        if (!dialogs.copy.item) return
         setCopyDialogError(null)
         setSubmitting(true)
         try {
@@ -2025,7 +1506,7 @@ const ElementList = () => {
 
             {/* Create Element Dialog */}
             <DynamicEntityFormDialog
-                open={isDialogOpen}
+                open={dialogs.create.open}
                 onClose={handleDialogClose}
                 onSubmit={handleCreateElement}
                 fields={elementFields}
@@ -2044,10 +1525,10 @@ const ElementList = () => {
 
             {/* Edit Element Dialog */}
             <DynamicEntityFormDialog
-                open={!!editingElement}
+                open={dialogs.edit.open}
                 onClose={handleEditClose}
                 onSubmit={handleUpdateElement}
-                initialData={editingElement?.data}
+                initialData={dialogs.edit.item?.data}
                 i18nNamespace='metahubs'
                 isSubmitting={isSubmitting}
                 error={dialogError}
@@ -2062,15 +1543,15 @@ const ElementList = () => {
                 showDeleteButton
                 deleteButtonText={tc('actions.delete', 'Delete')}
                 onDelete={() => {
-                    if (editingElement) {
-                        setDeleteDialogState({ open: true, element: editingElement })
+                    if (dialogs.edit.item) {
+                        openDelete(dialogs.edit.item)
                     }
                 }}
                 renderField={renderElementField}
             />
 
             <DynamicEntityFormDialog
-                open={Boolean(copyingElement)}
+                open={dialogs.copy.open}
                 onClose={handleCopyClose}
                 onSubmit={handleCopyElement}
                 initialData={copyInitialData}
@@ -2090,22 +1571,22 @@ const ElementList = () => {
 
             {/* Independent ConfirmDeleteDialog */}
             <ConfirmDeleteDialog
-                open={deleteDialogState.open}
+                open={dialogs.delete.open}
                 title={t('elements.deleteDialog.title')}
                 description={t('elements.deleteDialog.message')}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, element: null })}
+                onCancel={() => close('delete')}
                 onConfirm={() => {
-                    if (!deleteDialogState.element) return
+                    if (!dialogs.delete.item) return
 
                     deleteElementMutation.mutate(
                         {
                             metahubId,
                             hubId: effectiveHubId,
                             catalogId,
-                            elementId: deleteDialogState.element.id
+                            elementId: dialogs.delete.item.id
                         },
                         {
                             onError: (err: unknown) => {
@@ -2125,10 +1606,10 @@ const ElementList = () => {
                 }}
             />
             <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
+                open={dialogs.conflict.open}
+                conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                 onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    close('conflict')
                     if (metahubId && catalogId) {
                         if (effectiveHubId) {
                             invalidateElementsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
@@ -2137,8 +1618,9 @@ const ElementList = () => {
                     }
                 }}
                 onOverwrite={async () => {
-                    if (conflictState.pendingUpdate && metahubId && catalogId) {
-                        const { id, patch } = conflictState.pendingUpdate
+                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: { data: Record<string, unknown> } } })?.pendingUpdate
+                    if (pendingUpdate && metahubId && catalogId) {
+                        const { id, patch } = pendingUpdate
                         await updateElementMutation.mutateAsync({
                             metahubId,
                             hubId: effectiveHubId,
@@ -2146,7 +1628,7 @@ const ElementList = () => {
                             elementId: id,
                             data: patch
                         })
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                     }
                 }}
                 isLoading={updateElementMutation.isPending}

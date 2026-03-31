@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -15,8 +15,6 @@ import {
     EmptyListState,
     SkeletonGrid,
     APIEmptySVG,
-    usePaginated,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     gridSpacing,
@@ -24,7 +22,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFillVlc,
     EntitySelectionPanel,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import type { EntitySelectionLabels } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
@@ -33,16 +32,17 @@ import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateHub, useUpdateHub, useDeleteHub, useCopyHub, useReorderHub } from '../hooks/mutations'
+import { useHubListData } from '../hooks/useHubListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as hubsApi from '../api'
-import { fetchAllPaginatedItems, metahubsQueryKeys, invalidateHubsQueries } from '../../shared'
+import { invalidateHubsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { Hub, HubDisplay, HubLocalizedPayload, PaginatedResponse, getVLCString, toHubDisplay } from '../../../types'
+import { Hub, HubDisplay, HubLocalizedPayload, getVLCString, toHubDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import { CodenameField, HubDeleteDialog, ExistingCodenamesProvider, HubParentSelectionPanel } from '../../../components'
 import hubActions, {
     buildInitialValues as buildHubInitialValues,
@@ -51,54 +51,17 @@ import hubActions, {
     canSaveHubForm,
     toPayload as hubToPayload
 } from './HubActions'
-import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
+import {
+    type HubFormValues,
+    type HubMenuBaseContext,
+    type ConfirmSpec,
+    DIALOG_SAVE_CANCEL,
+    extractResponseStatus,
+    extractResponseMessage
+} from './hubListUtils'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 
-type HubFormValues = {
-    nameVlc: VersionedLocalizedContent<string> | null
-    descriptionVlc: VersionedLocalizedContent<string> | null
-    codename: VersionedLocalizedContent<string> | null
-    codenameTouched?: boolean
-    parentHubId?: string | null
-}
-
 type GenericFormValues = Record<string, unknown>
-
-type HubMenuBaseContext = {
-    t: (key: string, options?: unknown) => string
-} & Record<string, unknown>
-
-type ConfirmSpec = {
-    titleKey?: string
-    descriptionKey?: string
-    confirmKey?: string
-    cancelKey?: string
-    interpolate?: Record<string, unknown>
-    title?: string
-    description?: string
-    confirmButtonName?: string
-    cancelButtonName?: string
-}
-
-const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
-
-const extractResponseStatus = (error: unknown): number | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const status = (response as { status?: unknown }).status
-    return typeof status === 'number' ? status : undefined
-}
-
-const extractResponseMessage = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
-    const response = (error as { response?: unknown }).response
-    if (!response || typeof response !== 'object') return undefined
-    const data = (response as { data?: unknown }).data
-    if (!data || typeof data !== 'object') return undefined
-    const message = (data as { message?: unknown }).message
-    return typeof message === 'string' ? message : undefined
-}
 
 type HubFormFieldsProps = {
     values: GenericFormValues
@@ -188,70 +151,38 @@ const HubListContent = () => {
     const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
     const location = useLocation()
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const preferredVlcLocale = useMetahubPrimaryLocale()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const isHubScoped = Boolean(hubId)
-    const [isDialogOpen, setDialogOpen] = useState(false)
+
+    const {
+        metahubId,
+        hubId,
+        isHubScoped,
+        hubs,
+        isLoading,
+        error,
+        paginationResult,
+        handleSearchChange,
+        sortedHubs,
+        images,
+        hubMap,
+        allHubs,
+        allHubsById,
+        attachableExistingHubs,
+        allowCopy,
+        allowDelete,
+        allowAttachExistingEntities,
+        allowHubNesting
+    } = useHubListData()
+
+    const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<Hub>()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.HUB_DISPLAY_STYLE)
 
-    // Use paginated hook for hubs list
-    const paginationResult = usePaginated<Hub, 'codename' | 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn: metahubId
-            ? (params) =>
-                  isHubScoped && hubId
-                      ? metahubsQueryKeys.childHubsList(metahubId, hubId, params)
-                      : metahubsQueryKeys.hubsList(metahubId, params)
-            : () => ['empty'],
-        queryFn: metahubId
-            ? (params) => (isHubScoped && hubId ? hubsApi.listChildHubs(metahubId, hubId, params) : hubsApi.listHubs(metahubId, params))
-            : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
-        initialLimit: 20,
-        sortBy: 'sortOrder',
-        sortOrder: 'asc',
-        enabled: !!metahubId,
-        keepPreviousDataOnQueryKeyChange: !isHubScoped
-    })
-
-    const { data: hubs, isLoading, error } = paginationResult
-    // usePaginated already extracts items array, so data IS the array
-
-    const { data: allHubsResponse } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId
-            ? metahubsQueryKeys.hubsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
-            : ['hubs-all'],
-        enabled: Boolean(metahubId),
-        queryFn: () =>
-            fetchAllPaginatedItems((params) => hubsApi.listHubs(String(metahubId), params), {
-                limit: 1000,
-                sortBy: 'sortOrder',
-                sortOrder: 'asc'
-            })
-    })
-    const allHubs = useMemo(() => allHubsResponse?.items ?? [], [allHubsResponse?.items])
-
-    // Instant search for better UX
-    const { handleSearchChange } = useDebouncedSearch({
-        onSearchChange: paginationResult.actions.setSearch,
-        delay: 0
-    })
-
-    // State for independent ConfirmDeleteDialog
-    const [deleteDialogState, setDeleteDialogState] = useState<{
-        open: boolean
-        hub: Hub | null
-    }>({ open: false, hub: null })
-
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: HubLocalizedPayload } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
     const [isAttachDialogOpen, setAttachDialogOpen] = useState(false)
     const [isAttachingExisting, setAttachingExisting] = useState(false)
     const [attachDialogError, setAttachDialogError] = useState<string | null>(null)
@@ -278,8 +209,6 @@ const HubListContent = () => {
 
     const { confirm } = useConfirm()
 
-    // Filter entity actions based on settings (allowCopy / allowDelete)
-    const { allowCopy, allowDelete, allowAttachExistingEntities, allowHubNesting } = useEntityPermissions('hubs')
     const filteredHubActions = useMemo(
         () =>
             hubActions.filter((a) => {
@@ -295,35 +224,6 @@ const HubListContent = () => {
     const deleteHubMutation = useDeleteHub()
     const copyHubMutation = useCopyHub()
     const reorderHubMutation = useReorderHub()
-
-    const sortedHubs = useMemo(
-        () =>
-            [...hubs].sort((a, b) => {
-                const sortA = a.sortOrder ?? 0
-                const sortB = b.sortOrder ?? 0
-                if (sortA !== sortB) return sortA - sortB
-                return a.id.localeCompare(b.id)
-            }),
-        [hubs]
-    )
-
-    // Memoize images object
-    const images = useMemo(() => {
-        const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(sortedHubs)) {
-            sortedHubs.forEach((hub) => {
-                if (hub?.id) {
-                    imagesMap[hub.id] = []
-                }
-            })
-        }
-        return imagesMap
-    }, [sortedHubs])
-
-    const hubMap = useMemo(() => {
-        if (!Array.isArray(sortedHubs)) return new Map<string, Hub>()
-        return new Map(sortedHubs.map((hub) => [hub.id, hub]))
-    }, [sortedHubs])
 
     useEffect(() => {
         if (!pendingHubNavigation || !metahubId) return
@@ -347,39 +247,6 @@ const HubListContent = () => {
         setEditDialogOpen(true)
         navigate(location.pathname, { replace: true, state: null })
     }, [isHubScoped, location.pathname, location.state, navigate])
-
-    const allHubsById = useMemo(() => {
-        const map = new Map<string, Hub>()
-        allHubs.forEach((hub) => map.set(hub.id, hub))
-        return map
-    }, [allHubs])
-
-    const currentHubAncestorIds = useMemo(() => {
-        const ancestors = new Set<string>()
-        if (!isHubScoped || !hubId) return ancestors
-
-        let current: string | null | undefined = hubId
-        const visited = new Set<string>()
-        while (current && !visited.has(current)) {
-            visited.add(current)
-            const parentHubId = allHubsById.get(current)?.parentHubId
-            if (!parentHubId) break
-            ancestors.add(parentHubId)
-            current = parentHubId
-        }
-
-        return ancestors
-    }, [allHubsById, hubId, isHubScoped])
-
-    const attachableExistingHubs = useMemo(() => {
-        if (!isHubScoped || !hubId) return []
-        return allHubs.filter((hub) => {
-            if (hub.id === hubId) return false
-            if (hub.parentHubId === hubId) return false
-            if (currentHubAncestorIds.has(hub.id)) return false
-            return true
-        })
-    }, [allHubs, currentHubAncestorIds, hubId, isHubScoped])
 
     const attachExistingHubSelectionLabels = useMemo<EntitySelectionLabels>(
         () => ({
@@ -716,8 +583,7 @@ const HubListContent = () => {
                                 if (isOptimisticLockConflict(error)) {
                                     const conflict = extractConflictInfo(error)
                                     if (conflict) {
-                                        setConflictState({
-                                            open: true,
+                                        openConflict({
                                             conflict,
                                             pendingUpdate: { id, patch: { ...patch, codename: codenamePayload } }
                                         })
@@ -775,7 +641,7 @@ const HubListContent = () => {
                     // Handle both Hub and HubDisplay (from BaseEntityMenu context)
                     const hub = 'metahubId' in hubOrDisplay ? hubOrDisplay : hubMap.get(hubOrDisplay.id)
                     if (hub) {
-                        setDeleteDialogState({ open: true, hub })
+                        openDelete(hub)
                     }
                 }
             }
@@ -814,11 +680,11 @@ const HubListContent = () => {
 
     const handleAddNew = () => {
         if (!canCreateInCurrentHub) return
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleOpenAttachExistingDialog = () => {
@@ -1260,7 +1126,7 @@ const HubListContent = () => {
                 )}
 
                 <EntityFormDialog
-                    open={isDialogOpen}
+                    open={dialogs.create.open}
                     title={t('hubs.createDialog.title', 'Create Hub')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
@@ -1337,10 +1203,10 @@ const HubListContent = () => {
 
                 {/* Hub delete dialog with blocking catalogs check */}
                 <HubDeleteDialog
-                    open={deleteDialogState.open}
-                    hub={deleteDialogState.hub}
+                    open={dialogs.delete.open}
+                    hub={dialogs.delete.item}
                     metahubId={metahubId}
-                    onClose={() => setDeleteDialogState({ open: false, hub: null })}
+                    onClose={() => close('delete')}
                     onConfirm={(hub) => {
                         deleteHubMutation.mutate(
                             {
@@ -1367,23 +1233,24 @@ const HubListContent = () => {
                     uiLocale={i18n.language}
                 />
                 <ConflictResolutionDialog
-                    open={conflictState.open}
-                    conflict={conflictState.conflict}
+                    open={dialogs.conflict.open}
+                    conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                     onCancel={() => {
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                         if (metahubId) {
                             invalidateHubsQueries.all(queryClient, metahubId)
                         }
                     }}
                     onOverwrite={async () => {
-                        if (conflictState.pendingUpdate && metahubId) {
-                            const { id, patch } = conflictState.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: HubLocalizedPayload } })?.pendingUpdate
+                        if (pendingUpdate && metahubId) {
+                            const { id, patch } = pendingUpdate
                             await updateHubMutation.mutateAsync({
                                 metahubId,
                                 hubId: id,
                                 data: patch
                             })
-                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                            close('conflict')
                         }
                     }}
                     isLoading={updateHubMutation.isPending}

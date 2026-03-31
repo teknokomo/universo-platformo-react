@@ -28,6 +28,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createAttributesRoutes } from '../../domains/attributes/routes/attributesRoutes'
+import { MetahubDomainError, MetahubNotFoundError } from '../../domains/shared/domainErrors'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
@@ -131,7 +132,7 @@ describe('Attributes Routes', () => {
     }) as RateLimitRequestHandler
 
     const errorHandler = (
-        err: Error & { status?: number; statusCode?: number; code?: string; details?: unknown },
+        err: Error & { status?: number; statusCode?: number; code?: string; details?: Record<string, unknown> },
         _req: Request,
         res: Response,
         next: NextFunction
@@ -143,7 +144,7 @@ describe('Attributes Routes', () => {
         res.status(statusCode).json({
             error: err.message || 'Internal Server Error',
             ...(err.code ? { code: err.code } : {}),
-            ...(err.details ? { details: err.details } : {})
+            ...(err.details ?? {})
         })
     }
 
@@ -204,11 +205,14 @@ describe('Attributes Routes', () => {
         })
 
         it('returns structured 409 when TABLE attribute catalog limit is reached', async () => {
-            const tableLimitError = Object.assign(new Error('TABLE_ATTRIBUTE_LIMIT_REACHED: Maximum 10 TABLE attributes per catalog'), {
-                code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
-                maxTableAttributes: 10
-            })
-            mockAttributesService.create.mockRejectedValueOnce(tableLimitError)
+            mockAttributesService.create.mockRejectedValueOnce(
+                new MetahubDomainError({
+                    message: 'Maximum 10 TABLE attributes per catalog',
+                    statusCode: 409,
+                    code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
+                    details: { maxTableAttributes: 10 }
+                })
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -254,7 +258,7 @@ describe('Attributes Routes', () => {
 
             expect(response.body).toMatchObject({
                 code: 'SCHEMA_SYNC_FAILED',
-                error: 'Metahub schema synchronization failed after the attribute change. The change was not acknowledged.',
+                error: 'Metahub schema synchronization failed after the change. The change was not acknowledged.',
                 details: { operation: 'attribute create' }
             })
             expect(mockAttributesService.create).toHaveBeenCalledWith(
@@ -315,7 +319,11 @@ describe('Attributes Routes', () => {
 
         it('returns 403 when service rejects cross-list transfer by settings', async () => {
             mockAttributesService.reorderAttribute.mockRejectedValueOnce(
-                new Error('TRANSFER_NOT_ALLOWED: Moving attributes between root and child lists is disabled by settings')
+                new MetahubDomainError({
+                    message: 'Moving attributes between root and child lists is disabled by settings',
+                    statusCode: 403,
+                    code: 'TRANSFER_NOT_ALLOWED'
+                })
             )
 
             const app = buildApp()
@@ -329,15 +337,18 @@ describe('Attributes Routes', () => {
                 .expect(403)
 
             expect(response.body.code).toBe('TRANSFER_NOT_ALLOWED')
-            expect(response.body.message).toContain('TRANSFER_NOT_ALLOWED')
+            expect(response.body.error).toContain('Moving attributes between root and child lists is disabled by settings')
         })
 
         it('returns structured 409 when TABLE child limit is reached', async () => {
-            const limitError = Object.assign(new Error('TABLE_CHILD_LIMIT_REACHED: Maximum 3 child attributes per TABLE'), {
-                code: 'TABLE_CHILD_LIMIT_REACHED',
-                maxChildAttributes: 3
-            })
-            mockAttributesService.reorderAttribute.mockRejectedValueOnce(limitError)
+            mockAttributesService.reorderAttribute.mockRejectedValueOnce(
+                new MetahubDomainError({
+                    message: 'Maximum 3 child attributes per TABLE',
+                    statusCode: 409,
+                    code: 'TABLE_CHILD_LIMIT_REACHED',
+                    details: { maxChildAttributes: 3 }
+                })
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -447,7 +458,7 @@ describe('Attributes Routes', () => {
 
             expect(response.body).toMatchObject({
                 code: 'SCHEMA_SYNC_FAILED',
-                error: 'Metahub schema synchronization failed after the attribute change. The change was not acknowledged.',
+                error: 'Metahub schema synchronization failed after the change. The change was not acknowledged.',
                 details: { operation: 'attribute update' }
             })
             expect(mockAttributesService.update).toHaveBeenCalledWith(
@@ -511,7 +522,13 @@ describe('Attributes Routes', () => {
                     isEnabled: true
                 }
             })
-            mockAttributesService.update.mockRejectedValue(new Error('System attribute upl.deleted cannot be disabled'))
+            mockAttributesService.update.mockRejectedValue(
+                new MetahubDomainError({
+                    message: 'System attribute upl.deleted cannot be disabled',
+                    statusCode: 409,
+                    code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                })
+            )
 
             const app = buildApp()
             const response = await request(app)

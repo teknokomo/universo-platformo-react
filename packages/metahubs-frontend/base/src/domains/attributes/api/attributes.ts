@@ -321,6 +321,38 @@ export const listChildAttributesDirect = async (
 }
 
 /**
+ * Batch-fetch child attributes for multiple TABLE parents in a single request.
+ * Eliminates N+1 queries when rendering ElementList with TABLE columns.
+ */
+export const listChildAttributesBatch = async (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    parentIds: string[]
+): Promise<Record<string, Attribute[]>> => {
+    const response = await apiClient.get<{ children: Record<string, Attribute[]> }>(
+        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attributes/children/batch`,
+        { params: { parentIds: parentIds.join(',') } }
+    )
+    return response.data.children
+}
+
+/**
+ * Batch-fetch child attributes for multiple TABLE parents (without hubId)
+ */
+export const listChildAttributesBatchDirect = async (
+    metahubId: string,
+    catalogId: string,
+    parentIds: string[]
+): Promise<Record<string, Attribute[]>> => {
+    const response = await apiClient.get<{ children: Record<string, Attribute[]> }>(
+        `/metahub/${metahubId}/catalog/${catalogId}/attributes/children/batch`,
+        { params: { parentIds: parentIds.join(',') } }
+    )
+    return response.data.children
+}
+
+/**
  * Create a child attribute inside a TABLE attribute (with hubId)
  */
 export const createChildAttribute = (

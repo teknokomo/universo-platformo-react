@@ -24,7 +24,8 @@ import {
     LocalizedInlineField,
     useCodenameAutoFillVlc,
     BaseEntityMenu,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -38,15 +39,13 @@ import {
 } from './EnumerationActions'
 import type { EnumerationActionContext, EnumerationDisplayWithHub } from './EnumerationActions'
 import { useUpdateEnumerationAtMetahub } from '../hooks'
-import * as hubsApi from '../../hubs'
+import { useMetahubHubs } from '../../hubs/hooks'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import type {
     EnumerationValue,
     EnumerationValueDisplay,
     Enumeration,
-    EnumerationLocalizedPayload,
-    Hub,
-    PaginatedResponse
+    EnumerationLocalizedPayload
 } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
 import {
@@ -68,7 +67,7 @@ import {
     useReorderEnumerationValue,
     useUpdateEnumerationValue
 } from '../hooks'
-import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
+import { metahubsQueryKeys } from '../../shared'
 import { DragOverlayValueRow } from './dnd'
 
 type ValueFormValues = {
@@ -242,11 +241,9 @@ const EnumerationValueList = () => {
     const { enqueueSnackbar } = useSnackbar()
 
     const [search, setSearch] = useState('')
-    const [isDialogOpen, setDialogOpen] = useState(false)
-    const [editingValue, setEditingValue] = useState<EnumerationValue | null>(null)
+    const { dialogs, openCreate, openEdit, openCopy, openDelete, close } = useListDialogs<EnumerationValue>()
     const [dialogError, setDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
-    const [deleteState, setDeleteState] = useState<{ open: boolean; value: EnumerationValue | null }>({ open: false, value: null })
 
     const createMutation = useCreateEnumerationValue()
     const updateMutation = useUpdateEnumerationValue()
@@ -259,8 +256,6 @@ const EnumerationValueList = () => {
     const updateEnumMutation = useUpdateEnumerationAtMetahub()
     const queryClient = useQueryClient()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
-    const hubsListParams = useMemo(() => ({ limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }), [])
-
     // DnD: Handle value reorder
     const handleValueReorder = useCallback(
         async (valueId: string, newSortOrder: number) => {
@@ -306,33 +301,18 @@ const EnumerationValueList = () => {
         enabled: !!metahubId && !!enumerationId
     })
 
-    // Fetch hubs for the Settings edit dialog (EnumerationActions.buildFormTabs needs hubs)
-    const { data: hubsData } = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubId ? metahubsQueryKeys.hubsList(metahubId, hubsListParams) : ['metahubs', 'hubs', 'list', 'empty'],
-        queryFn: async () => {
-            if (!metahubId) {
-                return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
-            }
-            return fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
-                limit: hubsListParams.limit,
-                sortBy: hubsListParams.sortBy,
-                sortOrder: hubsListParams.sortOrder
-            })
-        },
-        enabled: !!metahubId
-    })
-    const allHubs = useMemo<Hub[]>(() => hubsData?.items ?? [], [hubsData?.items])
+    // Hubs for the Settings edit dialog (shared hook — staleTime: 5min, deduplication via same queryKey)
+    const allHubs = useMetahubHubs(metahubId)
 
-    const [copyState, setCopyState] = useState<{ open: boolean; value: EnumerationValue | null }>({ open: false, value: null })
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
 
     const { data: blockingInfo } = useQuery({
         queryKey:
-            metahubId && enumerationId && editingValue?.id
-                ? ['metahubs', 'enumerationValueBlockingRefs', metahubId, enumerationId, editingValue.id]
+            metahubId && enumerationId && dialogs.edit.item?.id
+                ? ['metahubs', 'enumerationValueBlockingRefs', metahubId, enumerationId, dialogs.edit.item.id]
                 : ['metahubs', 'enumerationValueBlockingRefs', 'empty'],
-        queryFn: () => getEnumerationValueBlockingReferences(metahubId!, enumerationId!, editingValue!.id),
-        enabled: Boolean(metahubId && enumerationId && editingValue?.id)
+        queryFn: () => getEnumerationValueBlockingReferences(metahubId!, enumerationId!, dialogs.edit.item!.id),
+        enabled: Boolean(metahubId && enumerationId && dialogs.edit.item?.id)
     })
 
     const filteredValues = useMemo(() => {
@@ -413,12 +393,11 @@ const EnumerationValueList = () => {
             valueOrderMap,
             valueCount: values.length,
             openEditDialog: (value: EnumerationValue) => {
-                setEditingValue(value)
                 setDialogError(null)
-                setDialogOpen(true)
+                openEdit(value)
             },
             openDeleteDialog: (value: EnumerationValue) => {
-                setDeleteState({ open: true, value })
+                openDelete(value)
             },
             setDefaultValue: async (value: EnumerationValue) => {
                 if (!metahubId || !enumerationId) return
@@ -485,7 +464,7 @@ const EnumerationValueList = () => {
                     const source = valueCtx.valueMap.get(valueCtx.entity.id)
                     if (source) {
                         setCopyDialogError(null)
-                        setCopyState({ open: true, value: source })
+                        openCopy(source)
                     }
                 }
             },
@@ -647,18 +626,18 @@ const EnumerationValueList = () => {
     )
 
     const initialFormValues = useMemo<ValueFormValues>(() => {
-        if (!editingValue) return formDefaults
+        if (!dialogs.edit.item) return formDefaults
         return {
-            nameVlc: editingValue.name ?? null,
-            descriptionVlc: editingValue.description ?? null,
-            codename: ensureEntityCodenameContent(editingValue, i18n.language, editingValue.codename || ''),
+            nameVlc: dialogs.edit.item.name ?? null,
+            descriptionVlc: dialogs.edit.item.description ?? null,
+            codename: ensureEntityCodenameContent(dialogs.edit.item, i18n.language, dialogs.edit.item.codename || ''),
             codenameTouched: true,
-            isDefault: editingValue.isDefault ?? false
+            isDefault: dialogs.edit.item.isDefault ?? false
         }
-    }, [editingValue, formDefaults])
+    }, [dialogs.edit.item, formDefaults])
 
     const copyInitialValues = useMemo<CopyValueFormValues>(() => {
-        if (!copyState.value) {
+        if (!dialogs.copy.item) {
             return {
                 nameVlc: null,
                 descriptionVlc: null,
@@ -667,7 +646,7 @@ const EnumerationValueList = () => {
                 isDefault: false
             }
         }
-        const source = copyState.value
+        const source = dialogs.copy.item
         const sourceName = getVLCString(source.codename) || 'value'
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
@@ -676,7 +655,7 @@ const EnumerationValueList = () => {
             codenameTouched: false,
             isDefault: false
         }
-    }, [codenameConfig.alphabet, codenameConfig.style, copyState.value, i18n.language])
+    }, [codenameConfig.alphabet, codenameConfig.style, dialogs.copy.item, i18n.language])
 
     const validateForm = (valuesToValidate: GenericFormValues) => {
         const errors: Record<string, string> = {}
@@ -734,7 +713,7 @@ const EnumerationValueList = () => {
             return
         }
 
-        if (!editingValue) {
+        if (!dialogs.edit.item) {
             createMutation.mutate({
                 metahubId,
                 enumerationId,
@@ -748,15 +727,13 @@ const EnumerationValueList = () => {
                 }
             })
 
-            setDialogOpen(false)
-            setEditingValue(null)
+            close('create')
             setDialogError(null)
             return
         }
 
-        const currentEditingValue = editingValue
-        setDialogOpen(false)
-        setEditingValue(null)
+        const currentEditingValue = dialogs.edit.item
+        close('edit')
         setDialogError(null)
 
         updateMutation.mutate(
@@ -786,8 +763,7 @@ const EnumerationValueList = () => {
                             ? e
                             : t('enumerationValues.updateError', 'Failed to update enumeration value')
 
-                    setEditingValue(currentEditingValue)
-                    setDialogOpen(true)
+                    openEdit(currentEditingValue)
                     setDialogError(message)
                 }
             }
@@ -835,9 +811,8 @@ const EnumerationValueList = () => {
                                 primaryAction={{
                                     label: tc('create'),
                                     onClick: () => {
-                                        setEditingValue(null)
                                         setDialogError(null)
-                                        setDialogOpen(true)
+                                        openCreate()
                                     },
                                     startIcon: <AddRoundedIcon />
                                 }}
@@ -904,24 +879,27 @@ const EnumerationValueList = () => {
                 )}
 
                 <EntityFormDialog
-                    key={`enum-value-edit-${editingValue?.id ?? 'none'}-${editingValue?.version ?? 0}`}
-                    open={isDialogOpen}
+                    key={`enum-value-edit-${dialogs.edit.item?.id ?? 'none'}-${dialogs.edit.item?.version ?? 0}`}
+                    open={dialogs.create.open || dialogs.edit.open}
                     mode='edit'
                     title={
-                        editingValue
+                        dialogs.edit.item
                             ? t('enumerationValues.editDialog.title', 'Edit enumeration value')
                             : t('enumerationValues.createDialog.title', 'Create value')
                     }
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
-                    saveButtonText={editingValue ? tc('actions.save', 'Save') : tc('actions.create', 'Create')}
-                    savingButtonText={editingValue ? tc('actions.saving', 'Saving...') : tc('actions.creating', 'Creating...')}
+                    saveButtonText={dialogs.edit.item ? tc('actions.save', 'Save') : tc('actions.create', 'Create')}
+                    savingButtonText={dialogs.edit.item ? tc('actions.saving', 'Saving...') : tc('actions.creating', 'Creating...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     loading={createMutation.isPending || updateMutation.isPending}
                     error={dialogError || undefined}
                     onClose={() => {
-                        setDialogOpen(false)
-                        setEditingValue(null)
+                        if (dialogs.edit.open) {
+                            close('edit')
+                        } else {
+                            close('create')
+                        }
                         setDialogError(null)
                     }}
                     onSave={handleSave}
@@ -945,16 +923,16 @@ const EnumerationValueList = () => {
                             errors={errors ?? {}}
                             uiLocale={i18n.language}
                             translate={(key, defaultValue) => t(key, defaultValue ? { defaultValue } : {})}
-                            editingEntityId={editingValue?.id}
+                            editingEntityId={dialogs.edit.item?.id}
                         />
                     )}
                     validate={validateForm}
                     canSave={canSaveForm}
-                    showDeleteButton={Boolean(editingValue)}
+                    showDeleteButton={Boolean(dialogs.edit.item)}
                     deleteButtonText={tc('actions.delete', 'Delete')}
-                    deleteButtonDisabled={Boolean(editingValue && blockingInfo && !blockingInfo.canDelete)}
+                    deleteButtonDisabled={Boolean(dialogs.edit.item && blockingInfo && !blockingInfo.canDelete)}
                     deleteButtonDisabledReason={
-                        editingValue && blockingInfo && !blockingInfo.canDelete
+                        dialogs.edit.item && blockingInfo && !blockingInfo.canDelete
                             ? t(
                                   'enumerationValues.deleteBlockedReason',
                                   'Deletion is blocked because this value is used in defaults or predefined elements.'
@@ -962,16 +940,16 @@ const EnumerationValueList = () => {
                             : undefined
                     }
                     onDelete={() => {
-                        if (editingValue) {
-                            setDeleteState({ open: true, value: editingValue })
-                            setDialogOpen(false)
+                        if (dialogs.edit.item) {
+                            openDelete(dialogs.edit.item)
+                            close('edit')
                         }
                     }}
                 />
 
                 <EntityFormDialog
-                    key={`enum-value-copy-${copyState.value?.id ?? 'none'}-${copyState.value?.version ?? 0}`}
-                    open={copyState.open}
+                    key={`enum-value-copy-${dialogs.copy.item?.id ?? 'none'}-${dialogs.copy.item?.version ?? 0}`}
+                    open={dialogs.copy.open}
                     mode='copy'
                     title={t('enumerationValues.copyTitle', 'Copy Value')}
                     nameLabel={tc('fields.name', 'Name')}
@@ -982,11 +960,11 @@ const EnumerationValueList = () => {
                     loading={copyMutation.isPending}
                     error={copyDialogError || undefined}
                     onClose={() => {
-                        setCopyState({ open: false, value: null })
+                        close('copy')
                         setCopyDialogError(null)
                     }}
                     onSave={async (formValues: GenericFormValues) => {
-                        if (!metahubId || !enumerationId || !copyState.value) return
+                        if (!metahubId || !enumerationId || !dialogs.copy.item) return
                         setCopyDialogError(null)
 
                         const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -1012,7 +990,7 @@ const EnumerationValueList = () => {
                         copyMutation.mutate({
                             metahubId,
                             enumerationId,
-                            valueId: copyState.value.id,
+                            valueId: dialogs.copy.item.id,
                             data: {
                                 codename: codenamePayload,
                                 name: nameInput,
@@ -1022,7 +1000,7 @@ const EnumerationValueList = () => {
                                 isDefault
                             }
                         })
-                        setCopyState({ open: false, value: null })
+                        close('copy')
                     }}
                     hideDefaultFields
                     initialExtraValues={copyInitialValues}
@@ -1052,7 +1030,7 @@ const EnumerationValueList = () => {
                 />
 
                 <ConfirmDeleteDialog
-                    open={deleteState.open}
+                    open={dialogs.delete.open}
                     title={t('enumerationValues.deleteDialog.title', 'Delete enumeration value')}
                     description={t(
                         'enumerationValues.deleteDialog.message',
@@ -1061,14 +1039,14 @@ const EnumerationValueList = () => {
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setDeleteState({ open: false, value: null })}
+                    onCancel={() => close('delete')}
                     onConfirm={() => {
-                        if (!deleteState.value || !metahubId || !enumerationId) return
+                        if (!dialogs.delete.item || !metahubId || !enumerationId) return
                         deleteMutation.mutate(
                             {
                                 metahubId,
                                 enumerationId,
-                                valueId: deleteState.value.id
+                                valueId: dialogs.delete.item.id
                             },
                             {
                                 onError: (e: unknown) => {
@@ -1085,7 +1063,7 @@ const EnumerationValueList = () => {
                                 }
                             }
                         )
-                        setDeleteState({ open: false, value: null })
+                        close('delete')
                     }}
                     loading={deleteMutation.isPending}
                 />

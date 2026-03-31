@@ -1213,7 +1213,7 @@ describe('Metahubs Routes', () => {
             )
         })
 
-        it('hard-deletes created metahub when initial branch bootstrap fails', async () => {
+        it('soft-deletes created metahub when initial branch bootstrap fails', async () => {
             mockFindMetahubByCodename.mockResolvedValue(null)
             mockCreateMetahub.mockResolvedValue({
                 id: 'mock-id',
@@ -1249,10 +1249,12 @@ describe('Metahubs Routes', () => {
                 .expect(500)
 
             expect(response.body).toMatchObject({ error: 'branch bootstrap failed' })
-            // Cleanup uses hard DELETE (not soft-delete) to prevent zombie metahubs
-            expect(mockSoftDelete).not.toHaveBeenCalled()
-            expect(mockExec.query.mock.calls.some(([sql]: [string]) => String(sql).includes('DELETE FROM metahubs.cat_metahubs'))).toBe(
-                true
+            expect(mockSoftDelete).toHaveBeenCalledWith(
+                expect.anything(),
+                'metahubs',
+                'cat_metahubs',
+                'mock-id',
+                'test-user-id'
             )
         })
 

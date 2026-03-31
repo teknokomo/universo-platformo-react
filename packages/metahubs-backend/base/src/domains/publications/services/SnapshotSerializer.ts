@@ -18,6 +18,9 @@ import { MetahubConstantsService } from '../../metahubs/services/MetahubConstant
 import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
 import { getCodenameText } from '../../shared/codename'
+import { createLogger } from '../../../utils/logger'
+
+const log = createLogger('SnapshotSerializer')
 
 export interface MetahubSnapshot {
     version: 1
@@ -451,7 +454,7 @@ export class SnapshotSerializer {
         }
 
         if (iteration >= maxIterations) {
-            console.warn(`[SnapshotSerializer] Hit max iterations (${maxIterations}) fetching hubs for metahub ${metahubId}`)
+            log.warn(`Hit max iterations (${maxIterations}) fetching hubs for metahub ${metahubId}`)
         }
 
         return all

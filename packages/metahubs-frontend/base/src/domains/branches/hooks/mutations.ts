@@ -12,51 +12,18 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import type { BranchLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as branchesApi from '../api'
 import { resolveBranchCopyCompatibilityCode } from '../utils/copyOptions'
-
-interface CreateBranchParams {
-    metahubId: string
-    data: BranchLocalizedPayload
-}
-
-interface UpdateBranchParams {
-    metahubId: string
-    branchId: string
-    data: BranchLocalizedPayload
-}
-
-interface DeleteBranchParams {
-    metahubId: string
-    branchId: string
-}
-
-interface ActivateBranchParams {
-    metahubId: string
-    branchId: string
-}
-
-interface SetDefaultBranchParams {
-    metahubId: string
-    branchId: string
-}
-
-interface CopyBranchParams {
-    metahubId: string
-    data: BranchLocalizedPayload
-}
-
-type BranchMutationError = Error & {
-    response?: {
-        status?: number
-        data?: {
-            code?: string
-            error?: string
-        }
-    }
-}
+import type {
+    CreateBranchParams,
+    UpdateBranchParams,
+    DeleteBranchParams,
+    ActivateBranchParams,
+    SetDefaultBranchParams,
+    CopyBranchParams,
+    BranchMutationError
+} from './mutationTypes'
 
 const invalidateBranchScopes = (queryClient: ReturnType<typeof useQueryClient>, metahubId: string, branchId?: string): void => {
     if (queryClient.isMutating({ mutationKey: ['branches'] }) <= 1) {

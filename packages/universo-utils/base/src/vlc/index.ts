@@ -236,3 +236,6 @@ export {
     type SimpleLocalizedInput,
     type VersatileLocalizedContent
 } from './getters'
+
+// Re-export display converter utility
+export { mapBaseVlcFields } from './mapBaseVlcFields'

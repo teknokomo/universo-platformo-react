@@ -16,34 +16,17 @@ import {
 import { getVLCString, makePendingMarkers } from '@universo/utils'
 import { metahubsQueryKeys } from '../../shared'
 import * as publicationsApi from '../api'
-import type { CreatePublicationPayload, UpdatePublicationPayload } from '../api'
+import type {
+    CreatePublicationParams,
+    UpdatePublicationParams,
+    SyncPublicationParams,
+    DeletePublicationParams
+} from './mutationTypes'
 
 // Applications query keys for cross-domain invalidation
 const applicationsQueryKeys = {
     all: ['applications'] as const,
     lists: () => [...applicationsQueryKeys.all, 'list'] as const
-}
-
-interface CreatePublicationParams {
-    metahubId: string
-    data: CreatePublicationPayload
-}
-
-interface UpdatePublicationParams {
-    metahubId: string
-    publicationId: string
-    data: UpdatePublicationPayload
-}
-
-interface SyncPublicationParams {
-    metahubId: string
-    publicationId: string
-    confirmDestructive?: boolean
-}
-
-interface DeletePublicationParams {
-    metahubId: string
-    publicationId: string
 }
 
 export function useCreatePublication() {

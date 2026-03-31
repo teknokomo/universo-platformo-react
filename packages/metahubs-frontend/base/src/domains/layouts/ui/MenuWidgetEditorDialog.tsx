@@ -33,8 +33,7 @@ import { createLocalizedContent, generateUuidV7, buildVLC as utilsBuildVLC, ensu
 
 import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import * as catalogsApi from '../../catalogs/api'
-import * as hubsApi from '../../hubs/api'
-import type { Hub, PaginatedResponse } from '../../../types'
+import { useMetahubHubs } from '../../hubs/hooks'
 import { getVLCString, normalizeLocale } from '../../../types'
 
 // ---------------------------------------------------------------------------
@@ -191,11 +190,7 @@ function ItemFormDialog({
                 sortOrder: 'asc'
             })
     })
-    const hubsQuery = useQuery({
-        queryKey: metahubsQueryKeys.hubsList(metahubId, { limit: 200, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' }),
-        enabled: open,
-        queryFn: () => hubsApi.listHubs(metahubId, { limit: 200, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
-    })
+    const hubs = useMetahubHubs(metahubId)
 
     const hasTitleContent = useMemo(() => {
         if (!titleVlc?.locales || typeof titleVlc.locales !== 'object') return false
@@ -238,7 +233,6 @@ function ItemFormDialog({
     }
 
     const catalogs = catalogsQuery.data?.items ?? []
-    const hubs = hubsQuery.data?.items ?? []
 
     return (
         <EntityFormDialog
@@ -406,18 +400,7 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
     const [itemDialog, setItemDialog] = useState<{ open: boolean; item: MenuWidgetConfigItem | null }>({ open: false, item: null })
     const [dialogError, setDialogError] = useState<string | null>(null)
 
-    const hubsQuery = useQuery<PaginatedResponse<Hub>>({
-        queryKey: metahubsQueryKeys.hubsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' }),
-        enabled: open && Boolean(metahubId),
-        queryFn: () =>
-            fetchAllPaginatedItems((params) => hubsApi.listHubs(metahubId, params), {
-                limit: 1000,
-                sortBy: 'sortOrder',
-                sortOrder: 'asc'
-            })
-    })
-
-    const availableHubs = useMemo(() => hubsQuery.data?.items ?? [], [hubsQuery.data?.items])
+    const availableHubs = useMetahubHubs(metahubId)
 
     // WARN-1 fix: Reset draft when dialog opens with new config (moved from render to effect)
     const prevOpenRef = useRef(false)

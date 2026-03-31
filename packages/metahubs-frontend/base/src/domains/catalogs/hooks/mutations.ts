@@ -14,7 +14,6 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import type { CatalogLocalizedPayload } from '../../../types'
 import {
     applyOptimisticCreateToQueryKeyPrefixes,
     applyOptimisticReorder,
@@ -24,51 +23,15 @@ import {
     rollbackReorderSnapshots
 } from '../../shared'
 import * as catalogsApi from '../api'
-import type { CatalogCopyInput } from '../api'
-
-interface CreateCatalogParams {
-    metahubId: string
-    hubId: string
-    data: CatalogLocalizedPayload & { sortOrder?: number }
-}
-
-interface CreateCatalogAtMetahubParams {
-    metahubId: string
-    data: CatalogLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateCatalogParams {
-    metahubId: string
-    hubId: string
-    catalogId: string
-    data: CatalogLocalizedPayload & { sortOrder?: number }
-}
-
-interface UpdateCatalogAtMetahubParams {
-    metahubId: string
-    catalogId: string
-    data: CatalogLocalizedPayload & { sortOrder?: number }
-}
-
-interface DeleteCatalogParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    force?: boolean
-}
-
-interface CopyCatalogParams {
-    metahubId: string
-    catalogId: string
-    data: CatalogCopyInput
-}
-
-interface ReorderCatalogParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    newSortOrder: number
-}
+import type {
+    CreateCatalogParams,
+    CreateCatalogAtMetahubParams,
+    UpdateCatalogParams,
+    UpdateCatalogAtMetahubParams,
+    DeleteCatalogParams,
+    CopyCatalogParams,
+    ReorderCatalogParams
+} from './mutationTypes'
 
 export function useCreateCatalogAtMetahub() {
     const queryClient = useQueryClient()

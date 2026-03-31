@@ -11,6 +11,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createEnumerationsRoutes } from '../../domains/enumerations/routes/enumerationsRoutes'
+import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'metahub-1' }))
@@ -275,7 +276,9 @@ describe('Enumerations Routes', () => {
         })
 
         it('returns 404 when reordered value is not found in target enumeration', async () => {
-            mockValuesService.reorderValue.mockRejectedValueOnce(new Error('Enumeration value not found'))
+            mockValuesService.reorderValue.mockRejectedValueOnce(
+                new MetahubNotFoundError('Enumeration value', '44444444-4444-4444-4444-444444444444')
+            )
 
             const app = buildApp()
             const response = await request(app)

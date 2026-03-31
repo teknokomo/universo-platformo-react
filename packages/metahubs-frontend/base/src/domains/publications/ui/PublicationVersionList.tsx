@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
     Box,
     Skeleton,
@@ -33,7 +33,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { CheckCircle as ActiveIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 
 // project imports
@@ -44,14 +44,14 @@ import {
     APIEmptySVG,
     FlowListTable,
     LocalizedInlineField,
-    useDebouncedSearch,
-    PaginationControls
+    PaginationControls,
+    useListDialogs
 } from '@universo/template-mui'
-import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
-import { usePublicationVersions } from '../hooks/usePublicationVersions'
+import { usePublicationVersionListData } from '../hooks/usePublicationVersionListData'
+import type { VersionTableRow } from '../hooks/usePublicationVersionListData'
 import { usePublicationDetails } from '../hooks/usePublicationDetails'
 import { useUpdatePublication } from '../hooks/mutations'
 import {
@@ -60,7 +60,6 @@ import {
     useActivatePublicationVersion,
     useDeletePublicationVersion
 } from '../hooks/versionMutations'
-import { listBranchOptions } from '../../branches/api/branches'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
@@ -78,26 +77,11 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 import { invalidatePublicationSettingsQueries } from './publicationSettingsQueries'
 
 // ────────────────────────────────────────────────────────────────────────────
-// Types
-// ────────────────────────────────────────────────────────────────────────────
-
-interface VersionTableRow extends FlowListTableData {
-    id: string
-    name: string
-    versionNumber: number
-    description: string | null
-    isActive: boolean
-    createdAt: string
-    branchLabel: string
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────────────────────────────────────
 
 export const PublicationVersionList: React.FC = () => {
     const navigate = useNavigate()
-    const { metahubId, publicationId } = useParams<{ metahubId: string; publicationId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
@@ -105,7 +89,25 @@ export const PublicationVersionList: React.FC = () => {
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const updatePublicationMutation = useUpdatePublication()
 
-    // ── Parent publication query for Settings dialog ───────────────────
+    const {
+        metahubId,
+        publicationId,
+        rawVersions,
+        versions,
+        isLoading,
+        error,
+        branches,
+        defaultBranchId,
+        getBranchLabel,
+        searchValue,
+        handleSearchChange,
+        filteredVersions,
+        paginatedVersions,
+        paginationState,
+        paginationActions
+    } = usePublicationVersionListData()
+
+    // ── Parent publication query for Settings dialog ───────────────
     const { data: publicationData } = usePublicationDetails(metahubId!, publicationId!)
 
     // ── Settings dialog state ──────────────────────────────────────────
@@ -123,30 +125,6 @@ export const PublicationVersionList: React.FC = () => {
         [navigate, metahubId, publicationId]
     )
 
-    // ── Data queries ───────────────────────────────────────────────────
-    const { data: versionsResponse, isLoading, error } = usePublicationVersions(metahubId!, publicationId!)
-    const rawVersions = useMemo<PublicationVersion[]>(() => versionsResponse?.items ?? [], [versionsResponse])
-
-    // Branches for labels and create dialog
-    const { data: branchesResponse } = useQuery({
-        queryKey: ['metahub-branches', 'options', 'publication-versions-page', metahubId],
-        queryFn: () => listBranchOptions(metahubId!, { sortBy: 'name', sortOrder: 'asc' }),
-        enabled: Boolean(metahubId)
-    })
-    const branches = useMemo(() => branchesResponse?.items ?? [], [branchesResponse])
-    const defaultBranchId = branchesResponse?.meta?.defaultBranchId ?? branches[0]?.id ?? null
-
-    const getBranchLabel = useCallback(
-        (branchId?: string | null) => {
-            if (!branchId) return ''
-            const branch = branches.find((b) => b.id === branchId)
-            if (!branch) return t('metahubs:publications.versions.branchMissing', 'Deleted branch')
-            const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || branch.codename
-            return `${name} (${branch.codename})`
-        },
-        [branches, i18n.language, t]
-    )
-
     // ── Mutations ──────────────────────────────────────────────────────
     const createMutation = useCreatePublicationVersion()
     const updateMutation = useUpdatePublicationVersion()
@@ -154,10 +132,8 @@ export const PublicationVersionList: React.FC = () => {
     const deleteMutation = useDeletePublicationVersion()
 
     // ── Dialog states ──────────────────────────────────────────────────
-    const [createDialogOpen, setCreateDialogOpen] = useState(false)
+    const { dialogs, openCreate, openEdit, openDelete, close } = useListDialogs<PublicationVersion>()
     const [activateDialogOpen, setActivateDialogOpen] = useState<string | null>(null)
-    const [editDialogOpen, setEditDialogOpen] = useState<PublicationVersion | null>(null)
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null)
 
     // ── Row menu state ─────────────────────────────────────────────────
     const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null)
@@ -184,58 +160,30 @@ export const PublicationVersionList: React.FC = () => {
 
     // Auto-select default branch when create dialog opens
     useEffect(() => {
-        if (createDialogOpen && defaultBranchId) {
+        if (dialogs.create.open && defaultBranchId) {
             setCreateBranchId(defaultBranchId)
         }
-    }, [createDialogOpen, defaultBranchId])
+    }, [dialogs.create.open, defaultBranchId])
 
     // ── Handlers (declared before columns so they can be used in deps) ─
     const handleCloseCreateDialog = useCallback(() => {
-        setCreateDialogOpen(false)
+        close('create')
         setNameVlc(null)
         setDescriptionVlc(null)
         setCreateBranchId('')
-    }, [])
+    }, [close])
 
     const handleOpenEditDialog = useCallback((version: PublicationVersion) => {
-        setEditDialogOpen(version)
+        openEdit(version)
         setEditNameVlc(version.name)
         setEditDescriptionVlc(version.description)
-    }, [])
+    }, [openEdit])
 
     const handleCloseEditDialog = useCallback(() => {
-        setEditDialogOpen(null)
+        close('edit')
         setEditNameVlc(null)
         setEditDescriptionVlc(null)
-    }, [])
-
-    // ── Table data ─────────────────────────────────────────────────────
-    const versions: VersionTableRow[] = useMemo(
-        () =>
-            rawVersions.map((v) => ({
-                id: v.id,
-                name: getVLCString(v.name, i18n.language) || `Version ${v.versionNumber}`,
-                versionNumber: v.versionNumber,
-                description: getVLCString(v.description, i18n.language) || null,
-                isActive: v.isActive,
-                createdAt: v.createdAt,
-                branchLabel: getBranchLabel(v.branchId)
-            })),
-        [rawVersions, i18n.language, getBranchLabel]
-    )
-
-    // ── Search ─────────────────────────────────────────────────────────
-    const [searchQuery, setSearchQuery] = useState('')
-    const { searchValue, handleSearchChange } = useDebouncedSearch({ onSearchChange: setSearchQuery, delay: 0 })
-
-    const filteredVersions = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase()
-        if (!query) return versions
-        return versions.filter((v) => {
-            const name = (v.name || '').toLowerCase()
-            return name.includes(query) || `v${v.versionNumber}`.includes(query)
-        })
-    }, [versions, searchQuery])
+    }, [close])
 
     // ── Columns ────────────────────────────────────────────────────────
     const versionColumns = useMemo(
@@ -277,44 +225,6 @@ export const PublicationVersionList: React.FC = () => {
         [t, tc]
     )
 
-    // ── Pagination ─────────────────────────────────────────────────────────────
-    const [page, setPage] = useState(0)
-    const [pageSize, setPageSize] = useState(20)
-
-    const paginatedVersions = useMemo(() => {
-        const start = page * pageSize
-        return filteredVersions.slice(start, start + pageSize)
-    }, [filteredVersions, page, pageSize])
-
-    const paginationState = useMemo(
-        () => ({
-            currentPage: page + 1,
-            pageSize,
-            totalItems: filteredVersions.length,
-            totalPages: Math.ceil(filteredVersions.length / pageSize),
-            hasNextPage: (page + 1) * pageSize < filteredVersions.length,
-            hasPreviousPage: page > 0
-        }),
-        [page, pageSize, filteredVersions.length]
-    )
-
-    const paginationActions = useMemo(
-        () => ({
-            goToPage: (p: number) => setPage(p - 1),
-            nextPage: () => setPage((prev) => prev + 1),
-            previousPage: () => setPage((prev) => Math.max(0, prev - 1)),
-            // eslint-disable-next-line @typescript-eslint/no-empty-function
-            setSearch: () => {},
-            // eslint-disable-next-line @typescript-eslint/no-empty-function
-            setSort: () => {},
-            setPageSize: (size: number) => {
-                setPageSize(size)
-                setPage(0)
-            }
-        }),
-        []
-    )
-
     const handleCreate = useCallback(() => {
         if (!metahubId || !publicationId) return
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
@@ -341,7 +251,7 @@ export const PublicationVersionList: React.FC = () => {
     }, [metahubId, publicationId, nameVlc, descriptionVlc, createBranchId, defaultBranchId, createMutation, handleCloseCreateDialog])
 
     const handleUpdate = useCallback(() => {
-        if (!editDialogOpen || !metahubId || !publicationId) return
+        if (!dialogs.edit.item || !metahubId || !publicationId) return
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(editNameVlc)
         if (!nameInput || !namePrimaryLocale) return
 
@@ -351,7 +261,7 @@ export const PublicationVersionList: React.FC = () => {
             {
                 metahubId,
                 publicationId,
-                versionId: editDialogOpen.id,
+                versionId: dialogs.edit.item.id,
                 data: {
                     name: nameInput,
                     namePrimaryLocale,
@@ -361,7 +271,7 @@ export const PublicationVersionList: React.FC = () => {
             },
             { onSuccess: () => handleCloseEditDialog() }
         )
-    }, [editDialogOpen, metahubId, publicationId, editNameVlc, editDescriptionVlc, updateMutation, handleCloseEditDialog])
+    }, [dialogs.edit.item, metahubId, publicationId, editNameVlc, editDescriptionVlc, updateMutation, handleCloseEditDialog])
 
     const handleActivate = useCallback(() => {
         if (!activateDialogOpen || !metahubId || !publicationId) return
@@ -372,14 +282,14 @@ export const PublicationVersionList: React.FC = () => {
     }, [activateDialogOpen, metahubId, publicationId, activateMutation])
 
     const handleDelete = useCallback(() => {
-        if (!deleteDialogOpen || !metahubId || !publicationId) return
+        if (!dialogs.delete.item || !metahubId || !publicationId) return
         deleteMutation.mutate(
-            { metahubId, publicationId, versionId: deleteDialogOpen },
+            { metahubId, publicationId, versionId: dialogs.delete.item.id },
             {
-                onSuccess: () => setDeleteDialogOpen(null)
+                onSuccess: () => close('delete')
             }
         )
-    }, [deleteDialogOpen, metahubId, publicationId, deleteMutation])
+    }, [dialogs.delete.item, metahubId, publicationId, deleteMutation, close])
 
     // Helpers for the row menu
     const menuRow = useMemo(() => (menuRowId ? versions.find((v) => v.id === menuRowId) : null), [menuRowId, versions])
@@ -418,7 +328,7 @@ export const PublicationVersionList: React.FC = () => {
                         <ToolbarControls
                             primaryAction={{
                                 label: tc('create'),
-                                onClick: () => setCreateDialogOpen(true),
+                                onClick: openCreate,
                                 startIcon: <AddRoundedIcon />
                             }}
                         />
@@ -453,7 +363,7 @@ export const PublicationVersionList: React.FC = () => {
                             description={t('metahubs:publications.versions.emptyDescription', 'Create a version to get started')}
                             action={{
                                 label: tc('create'),
-                                onClick: () => setCreateDialogOpen(true)
+                                onClick: openCreate
                             }}
                         />
                     ) : (
@@ -491,7 +401,7 @@ export const PublicationVersionList: React.FC = () => {
             )}
 
             {/* ── Create Version Dialog ─────────────────────────────────── */}
-            <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
+            <Dialog open={dialogs.create.open} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
                 <DialogTitle>{t('metahubs:publications.versions.create', 'Create version')}</DialogTitle>
                 <DialogContent sx={{ overflow: 'visible' }}>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -557,7 +467,7 @@ export const PublicationVersionList: React.FC = () => {
             </Dialog>
 
             {/* ── Edit Version Dialog ───────────────────────────────────── */}
-            <Dialog open={!!editDialogOpen} onClose={handleCloseEditDialog} maxWidth='sm' fullWidth>
+            <Dialog open={dialogs.edit.open} onClose={handleCloseEditDialog} maxWidth='sm' fullWidth>
                 <DialogTitle>{t('metahubs:publications.versions.edit', 'Edit version')}</DialogTitle>
                 <DialogContent sx={{ overflow: 'visible' }}>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -580,7 +490,7 @@ export const PublicationVersionList: React.FC = () => {
                         />
                         <TextField
                             label={t('metahubs:publications.versions.branch', 'Branch')}
-                            value={getBranchLabel(editDialogOpen?.branchId)}
+                            value={getBranchLabel(dialogs.edit.item?.branchId)}
                             fullWidth
                             disabled
                         />
@@ -630,8 +540,8 @@ export const PublicationVersionList: React.FC = () => {
                 <MenuItem
                     disabled={menuRow?.isActive}
                     onClick={() => {
-                        if (menuRowId && !menuRow?.isActive) {
-                            setDeleteDialogOpen(menuRowId)
+                        if (menuRawVersion && !menuRow?.isActive) {
+                            openDelete(menuRawVersion)
                         }
                         handleMenuClose()
                     }}
@@ -645,7 +555,7 @@ export const PublicationVersionList: React.FC = () => {
             </Menu>
 
             {/* ── Delete Confirm Dialog ─────────────────────────────────── */}
-            <Dialog open={!!deleteDialogOpen} onClose={() => setDeleteDialogOpen(null)}>
+            <Dialog open={dialogs.delete.open} onClose={() => close('delete')}>
                 <DialogTitle>{t('metahubs:publications.versions.delete', 'Delete version')}</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
@@ -656,7 +566,7 @@ export const PublicationVersionList: React.FC = () => {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteDialogOpen(null)}>{tc('cancel')}</Button>
+                    <Button onClick={() => close('delete')}>{tc('cancel')}</Button>
                     <Button onClick={handleDelete} variant='contained' color='error' disabled={deleteMutation.isPending}>
                         {tc('actions.delete')}
                     </Button>

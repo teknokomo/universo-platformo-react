@@ -8,6 +8,8 @@ import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@uni
 import { AttributeDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
+import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
@@ -27,12 +29,6 @@ export class MetahubElementsService {
         private objectsService: MetahubObjectsService,
         private attributesService: MetahubAttributesService
     ) {}
-
-    private createServiceError(code: 'CATALOG_NOT_FOUND' | 'ELEMENT_NOT_FOUND' | 'ELEMENT_VALIDATION_FAILED', message: string): Error {
-        const error: Error & { code?: string } = new Error(message)
-        error.code = code
-        return error
-    }
 
     private buildSortOrderLockKey(schemaName: string, catalogId: string): string {
         return `mhb-elements-sort:${schemaName}:${catalogId}`
@@ -173,7 +169,7 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
+        if (!catalog) throw new MetahubNotFoundError('Catalog')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -239,7 +235,7 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
+        if (!catalog) throw new MetahubNotFoundError('Catalog')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -329,13 +325,13 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
+        if (!catalog) throw new MetahubNotFoundError('Catalog')
 
         // Validate element data against catalog attributes (use findAllFlat to include child attrs for TABLE validation)
         const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
         const validation = this.validateElementData(input.data, attributes)
         if (!validation.valid) {
-            throw this.createServiceError('ELEMENT_VALIDATION_FAILED', `Validation failed: ${validation.errors.join(', ')}`)
+            throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
         }
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -385,7 +381,7 @@ export class MetahubElementsService {
     ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
+        if (!catalog) throw new MetahubNotFoundError('Catalog')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -397,7 +393,7 @@ export class MetahubElementsService {
             [id, catalogId]
         )
 
-        if (!existing) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+        if (!existing) throw new MetahubNotFoundError('Element')
 
         const updateData: Record<string, unknown> = {
             _upl_updated_at: new Date(),
@@ -410,7 +406,7 @@ export class MetahubElementsService {
             const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
             const validation = this.validateElementData(mergedData, attributes)
             if (!validation.valid) {
-                throw this.createServiceError('ELEMENT_VALIDATION_FAILED', `Validation failed: ${validation.errors.join(', ')}`)
+                throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
             }
             updateData.data = mergedData
         }
@@ -444,7 +440,7 @@ export class MetahubElementsService {
     async delete(metahubId: string, catalogId: string, id: string, userId?: string) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
-        if (!catalog) throw this.createServiceError('CATALOG_NOT_FOUND', 'Catalog not found')
+        if (!catalog) throw new MetahubNotFoundError('Catalog')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -452,13 +448,10 @@ export class MetahubElementsService {
         await this.exec.transaction(async (tx: SqlQueryable) => {
             await this.acquireSortOrderLockInTransaction(tx, schemaName, catalogId)
 
-            const deleted = await tx.query<{ id: string }>(
-                `DELETE FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} RETURNING id`,
-                [id, catalogId]
-            )
+            const deleted = await mhbSoftDelete(tx, schemaName, '_mhb_elements', id, userId)
 
-            if (deleted.length === 0) {
-                throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            if (!deleted) {
+                throw new MetahubNotFoundError('Element')
             }
 
             await this.ensureSequentialSortOrderInTransaction(schemaName, catalogId, tx)
@@ -478,7 +471,7 @@ export class MetahubElementsService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
                 [elementId, catalogId]
             )
-            if (!current) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            if (!current) throw new MetahubNotFoundError('Element')
 
             const currentOrder = (current.sort_order as number) ?? 0
             const neighbor =
@@ -527,7 +520,7 @@ export class MetahubElementsService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
                 [elementId, catalogId]
             )
-            if (!updated) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            if (!updated) throw new MetahubNotFoundError('Element')
             return this.mapRowToElement(updated)
         })
     }
@@ -545,7 +538,7 @@ export class MetahubElementsService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
                 [elementId, catalogId]
             )
-            if (!current) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            if (!current) throw new MetahubNotFoundError('Element')
 
             const oldOrder = current.sort_order as number
             const totalResult = await queryOne<{ count: number | string }>(
@@ -603,7 +596,7 @@ export class MetahubElementsService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
                 [elementId, catalogId]
             )
-            if (!updated) throw this.createServiceError('ELEMENT_NOT_FOUND', 'Element not found')
+            if (!updated) throw new MetahubNotFoundError('Element')
             return this.mapRowToElement(updated)
         })
     }

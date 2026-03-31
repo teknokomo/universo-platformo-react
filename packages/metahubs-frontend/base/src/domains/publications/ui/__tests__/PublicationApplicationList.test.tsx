@@ -36,7 +36,9 @@ vi.mock('react-router-dom', async () => {
     }
 })
 
-vi.mock('@universo/template-mui', () => ({
+vi.mock('@universo/template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo/template-mui')>()
+    return {
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) =>
         primaryAction ? (
@@ -104,8 +106,10 @@ vi.mock('@universo/template-mui', () => ({
             <h1>{title}</h1>
             {children}
         </div>
-    )
-}))
+    ),
+    useListDialogs: actual.useListDialogs
+    }
+})
 
 vi.mock('../../hooks/usePublicationApplications', () => ({
     usePublicationApplications: mocks.usePublicationApplications

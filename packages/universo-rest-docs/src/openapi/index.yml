@@ -2770,6 +2770,46 @@ paths:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
   /applications/{applicationId}/runtime/rows/{rowId}:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/rows/{rowId}
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_rows_rowId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: rowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: rowId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
     patch:
       tags:
         - Applications
@@ -2815,46 +2855,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
-      security: *a1
-    get:
-      tags:
-        - Applications
-      summary: GET /applications/{applicationId}/runtime/rows/{rowId}
-      description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Applications_get_applications_applicationId_runtime_rows_rowId
-      parameters:
-        - name: applicationId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: applicationId path parameter.
-        - name: rowId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: rowId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
       security: *a1
     delete:
       tags:
@@ -4637,6 +4637,47 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /metahub/{metahubId}/catalog/{catalogId}/attributes/children/batch:
+    get:
+      tags:
+        - Attributes
+      summary: GET /metahub/{metahubId}/catalog/{catalogId}/attributes/children/batch
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Attributes_get_metahub_metahubId_catalog_catalogId_attributes_children_batch
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: catalogId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: catalogId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /metahub/{metahubId}/catalog/{catalogId}/attributes/reorder:
     patch:
       tags:
@@ -4753,397 +4794,6 @@ paths:
           $ref: "#/components/responses/GenericSuccess"
         "201":
           $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}:
-    get:
-      tags:
-        - Elements
-      summary: GET /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_get_metahub_metahubId_catalog_catalogId_element_elementId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-    patch:
-      tags:
-        - Elements
-      summary: PATCH /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_patch_metahub_metahubId_catalog_catalogId_element_elementId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-    delete:
-      tags:
-        - Elements
-      summary: DELETE /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_delete_metahub_metahubId_catalog_catalogId_element_elementId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "204":
-          $ref: "#/components/responses/NoContent"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-  /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}/copy:
-    post:
-      tags:
-        - Elements
-      summary: POST /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}/copy
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_post_metahub_metahubId_catalog_catalogId_element_elementId_copy
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "201":
-          $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}/move:
-    patch:
-      tags:
-        - Elements
-      summary: PATCH /metahub/{metahubId}/catalog/{catalogId}/element/{elementId}/move
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_patch_metahub_metahubId_catalog_catalogId_element_elementId_move
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/catalog/{catalogId}/elements:
-    get:
-      tags:
-        - Elements
-      summary: GET /metahub/{metahubId}/catalog/{catalogId}/elements
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_get_metahub_metahubId_catalog_catalogId_elements
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-    post:
-      tags:
-        - Elements
-      summary: POST /metahub/{metahubId}/catalog/{catalogId}/elements
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_post_metahub_metahubId_catalog_catalogId_elements
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "201":
-          $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/catalog/{catalogId}/elements/reorder:
-    patch:
-      tags:
-        - Elements
-      summary: PATCH /metahub/{metahubId}/catalog/{catalogId}/elements/reorder
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_patch_metahub_metahubId_catalog_catalogId_elements_reorder
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -7491,6 +7141,54 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/attributes/children/batch:
+    get:
+      tags:
+        - Attributes
+      summary: GET
+        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/attributes/children/batch
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Attributes_get_metahub_metahubId_hub_hubId_catalog_catalogId_attributes_children_batch
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: hubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: hubId path parameter.
+        - name: catalogId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: catalogId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/attributes/reorder:
     patch:
       tags:
@@ -7502,451 +7200,6 @@ paths:
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Attributes_patch_metahub_metahubId_hub_hubId_catalog_catalogId_attributes_reorder
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}:
-    get:
-      tags:
-        - Elements
-      summary: GET
-        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_get_metahub_metahubId_hub_hubId_catalog_catalogId_element_elementId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-    patch:
-      tags:
-        - Elements
-      summary: PATCH
-        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_patch_metahub_metahubId_hub_hubId_catalog_catalogId_element_elementId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-    delete:
-      tags:
-        - Elements
-      summary: DELETE
-        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_delete_metahub_metahubId_hub_hubId_catalog_catalogId_element_elementId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "204":
-          $ref: "#/components/responses/NoContent"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-  /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}/copy:
-    post:
-      tags:
-        - Elements
-      summary: POST
-        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}/copy
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_post_metahub_metahubId_hub_hubId_catalog_catalogId_element_elementId_copy
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "201":
-          $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}/move:
-    patch:
-      tags:
-        - Elements
-      summary: PATCH
-        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/element/{elementId}/move
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_patch_metahub_metahubId_hub_hubId_catalog_catalogId_element_elementId_move
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-        - name: elementId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: elementId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/elements:
-    get:
-      tags:
-        - Elements
-      summary: GET /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/elements
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_get_metahub_metahubId_hub_hubId_catalog_catalogId_elements
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-    post:
-      tags:
-        - Elements
-      summary: POST /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/elements
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_post_metahub_metahubId_hub_hubId_catalog_catalogId_elements
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: hubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: hubId path parameter.
-        - name: catalogId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: catalogId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "201":
-          $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/elements/reorder:
-    patch:
-      tags:
-        - Elements
-      summary: PATCH
-        /metahub/{metahubId}/hub/{hubId}/catalog/{catalogId}/elements/reorder
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Elements_patch_metahub_metahubId_hub_hubId_catalog_catalogId_elements_reorder
       parameters:
         - name: metahubId
           in: path

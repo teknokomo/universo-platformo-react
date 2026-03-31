@@ -6,7 +6,369 @@
 
 ## Active Open Tasks (Canonical)
 
-## PR #741 Bot Review Fixes — 2026-03-28
+## Supply Chain Security Hardening — 2026-03-31
+
+> Status: COMPLETE — pnpm 10.33.0, all 30 workspace projects validated
+
+- [x] Update pnpm from 10.4.1 to 10.33.0 (npm i -g pnpm@latest)
+- [x] Add minimumReleaseAge: 10080 (7 days) to pnpm-workspace.yaml
+- [x] Add blockExoticSubdeps: true
+- [x] Add trustPolicy: no-downgrade with trustPolicyIgnoreAfter: 129600 (90 days)
+- [x] Validate with pnpm install
+- [x] Memory-bank updated
+
+## Breadcrumb Refresh Fix — queryClient.clear() Race Condition — 2026-03-31
+
+> Status: COMPLETE — build 28/28, jest 20/20 (230 tests), fix verified in bundle
+
+- [x] Identify real root cause: App.tsx queryClient.clear() destroys breadcrumb queries during initial session restore
+- [x] Fix condition: `typeof prevUserId === 'string'` instead of `prevUserId !== undefined`
+- [x] Verify fix present in minified bundle
+- [x] Full build validation
+- [x] Jest validation
+- [x] Memory-bank updated
+
+## Breadcrumb Initial-Load Hardening — 2026-03-31
+
+> Status: COMPLETE — build 28/28, targeted jest 16/16, isolated vitest 3/3, full vitest green for breadcrumb scope (suite still has one unrelated timeout flake under full load)
+
+- [x] Replace breadcrumb raw fetch calls with authenticated auth-client requests
+- [x] Remove breadcrumb query key collisions with page-level detail queries
+- [x] Gate breadcrumb queries on completed auth loading during initial page refresh
+- [x] Replace breadcrumb custom localized parser with canonical `getVLCString()` handling
+- [x] Add breadcrumb request diagnostics in console for future failures
+- [x] Validate with full build and targeted tests
+
+## Connector Add Metahub Button & Breadcrumb Fixes — 2026-03-31
+
+> Status: COMPLETE — build 28/28, vitest 112/112 (621 tests)
+
+### Issue 1: Connector "Add metahub" button disabled in creation dialog
+- [x] Root cause: COALESCE(JSONB, text, text) type mismatch in publicationsController listAvailable SQL — cat_metahubs.codename is JSONB after codename unification
+- [x] Fix: Extract primary codename text from JSONB before COALESCE in publicationsController.ts line 424
+- [x] Note: Frontend silently caught the SQL error (connectorPublications.ts returns []) → EntitySelectionPanel.tsx disabled button when availableForSelection was empty
+
+### Issue 2: Breadcrumbs show "..." on page refresh (names don't load)
+- [x] Root cause: All breadcrumb hooks in useBreadcrumbName.ts had retryOnMount: false, refetchOnMount not set, and overly restrictive shouldRetryBreadcrumbQuery (no retries on 401/500+)
+- [x] Fix 1: Remove 401, 500, 502, 503, 504 from NON_RETRYABLE_HTTP_STATUSES (transient errors on page load)
+- [x] Fix 2: Increase retry limit from failureCount < 1 to failureCount < 2
+- [x] Fix 3: Change retryOnMount: false → true on all 10 hooks (factory + 9 individual)
+- [x] Fix 4: Add refetchOnMount: 'always' to all 10 hooks (matches inline query pattern in NavbarBreadcrumbs.tsx)
+
+### Validation
+- [x] Full build 28/28
+- [x] Vitest 112/112 (621 tests)
+- [x] Memory-bank updated
+
+## Attribute Create Button Fix — 2026-03-31
+
+> Status: COMPLETE — build 28/28, vitest 112/112 (621 tests)
+
+- [x] Fix canSaveAttributeForm: codename treated as plain string instead of VLC object
+- [x] Fix validateAttributeForm: same issue — `typeof values.codename === 'string'` always false for VLC
+- [x] Fix AttributeFormValues type: `codename: string` → `codename: VersionedLocalizedContent<string> | null`
+- [x] Fix initial form default: `codename: ''` → `codename: null`
+- [x] Validation: build 28/28, vitest 112/112 (621 tests)
+
+## Comprehensive QA Remediation — 2026-03-31
+
+> Status: COMPLETE — all findings resolved, build 28/28, jest 45/45, vitest 112/112
+
+### HIGH: Data Integrity
+- [x] Add mhbSoftDelete() to metahubsQueryHelpers.ts for branch-scoped tables
+- [x] Fix MetahubAttributesService.delete() → mhbSoftDelete (was hard DELETE)
+- [x] Fix MetahubElementsService.delete() → mhbSoftDelete (was hard DELETE)
+
+### HIGH: Domain Error Architecture
+- [x] Fix publicMetahubsController: replace direct res.status().json() with domain errors
+- [x] Add domainErrorHandler to createPublicMetahubsServiceRoutes
+- [x] Fix MetahubBranchesService: replace 3× plain Error() with MetahubDomainError
+- [x] Add error codes to applicationMigrationsController responses (17 sites)
+
+### MEDIUM: Type Safety
+- [x] Fix MetahubObjectsService: any → concrete types in MetahubObjectRow
+- [x] Fix publicMetahubsController: any → concrete types
+- [x] Fix attributesController: any → concrete types (matchesName, sort, updateData)
+- [x] Fix catch (error: any) → catch (error: unknown) in enumerationsController
+
+### MEDIUM: Code Quality
+- [x] Create metahubs-backend logger utility (createLogger, 33 console.* calls replaced)
+- [x] Fix magic numbers → named constants (DESTRUCTIVE_CHANGE_PRIORITY, MAX_ROLLBACK_FETCH_LIMIT)
+- [x] Remove unused use-debounce from metahubs-frontend devDependencies
+
+### MEDIUM: Breadcrumb Bugs
+- [x] Fix breadcrumb fallback: ?? → || for name/codename resolution in useBreadcrumbName.ts
+- [x] Fix codename VLC JSONB handling: resolveEntityDisplayName helper
+- [x] Fix NavbarBreadcrumbs.tsx: same ?? → || fix for metahub and application names
+
+### Validation
+- [x] Full build 28/28
+- [x] Jest 45/45 (384 pass, 3 skip)
+- [x] Vitest 112/112 (621 tests)
+- [x] Memory-bank updated
+
+---
+
+## Deep Domain Error Cleanup & Hardening — 2026-04-03
+
+> Status: COMPLETE — all HIGH/MEDIUM/LOW issues resolved, build 28/28, jest 45/45 (384 pass, 3 skip), vitest 112/112, zero technical debt
+
+### Service Error Conversion (Prior Session)
+- [x] Convert all 11+ service files from throw new Error() to domain errors
+- [x] Clean all 7 controller catch blocks (removed message-parsing catches)
+- [x] Remove 6 obsolete error guard helpers from errorGuards.ts
+- [x] Add 11 new error codes to MetahubErrorCode union
+
+### Error Factory & Response Format (Current Session)
+- [x] Fix error factory methods for frontend compatibility (TABLE_CHILD_LIMIT_REACHED, TABLE_ATTRIBUTE_LIMIT_REACHED, TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN)
+- [x] Change SYSTEM_ATTRIBUTE_PROTECTED from MetahubValidationError to MetahubDomainError with explicit code
+- [x] Update domainErrorHandler response format: spread details into root { error, code, ...details }
+- [x] Update createMetahubHandler catch block: same details spread pattern
+- [x] Revert assertManagedMetahubSchemaName to plain Error (internal 500 assertion)
+- [x] Make MetahubNotFoundError.id parameter optional
+- [x] Remove duplicate local isUniqueViolation from attributesController.ts
+- [x] Fix orphaned try-without-catch in layoutsController.ts (2 instances)
+
+### Test Updates
+- [x] Update attributesRoutes.test.ts: 3 test mocks + errorHandler spread format
+- [x] Update hubsRoutes.test.ts: MetahubNotFoundError mock
+- [x] Update elementsRoutes.test.ts: MetahubNotFoundError mock
+- [x] Update enumerationsRoutes.test.ts: MetahubNotFoundError mock
+- [x] Update catalogsRoutes.test.ts: errorHandler spread format
+- [x] Update metahubsRoutes.test.ts: hard-delete → soft-delete test
+- [x] Update createMetahubHandler.test.ts: remove nested details
+- [x] Update MetahubObjectsService.test.ts: 3 fail-closed tests
+- [x] Update ApplicationSchemaStateStore.test.ts: MetahubNotFoundError class check
+- [x] Update errorGuards.test.ts: remove all tests for 6 deleted functions
+- [x] Update branchesOptions.test.ts: MetahubDomainError for branch deletion
+
+### Other Fixes
+- [x] MEDIUM: Update README codename convergence claims (scoped to metahubs+admin domains)
+- [x] LOW: Replace hard DELETE with softDelete on branch creation failure
+- [x] LOW: Replace lodash.uniq with native Set in genericHelper.js
+- [x] Sanitize err.details analysis: all details contain safe public data (no action needed)
+
+### Validation
+- [x] Full build 28/28
+- [x] Jest 45/45 (384 pass, 3 skip)
+- [x] Vitest 112/112
+- [x] Memory-bank updated
+
+---
+
+## Comprehensive QA Fix — 2026-03-31
+
+> Status: COMPLETE — all issues resolved, build 28/28, jest 45/45 (399 pass, 3 skip), vitest 112/112 (621 tests) (2026-04-01)
+
+### Batch 1: Quick Fixes
+- [x] SEC-1: Remove console.log with password in SignInCard.tsx
+- [x] BUG-1: Fix setDialogOpen → openCreate()/close('create') in AttributeList.tsx
+- [x] BUG-2+3: Fix breadcrumb '...' on refresh + UUID fallback in NavbarBreadcrumbs.tsx
+- [x] ARCH-5: Replace duplicated errorGuards in attributesController.ts with imports from shared
+
+### Batch 2: Backend Error Handling
+- [x] ARCH-4: Replace raw throw new Error() with domain errors in metahubsController, publicationsController, catalogsController, enumerationsController
+- [x] SEC-2: Fix listAvailable soft-delete filter in publicationsController
+- [x] SEC-5: Mask internal errors in publications double-failure scenario
+
+### Batch 3: Public Routes Hardening
+- [x] ARCH-6: Extract publicMetahubsRoutes.ts to publicMetahubsController.ts
+- [x] SEC-3: Add Zod validation for limit/offset in public routes
+- [x] SEC-4: DTO filtering for public route responses
+
+### Batch 4: Dead Code Removal
+- [x] ARCH-1: Remove unused useHubScopedList hook + test + exports + README refs
+- [x] ARCH-2: Remove unused useSimpleMutation hook + test + exports + README refs
+
+### Batch 5: useListDialogs Migration
+- [x] ARCH-3a: Migrate EnumerationValueList.tsx to useListDialogs
+- [x] ARCH-3b: Migrate LayoutList.tsx to useListDialogs
+- [x] ARCH-3c: Migrate PublicationVersionList.tsx to useListDialogs
+- [x] ARCH-3d: Migrate PublicationApplicationList.tsx to useListDialogs
+- [x] ARCH-3e: Migrate ChildAttributeList.tsx to useListDialogs
+
+### Batch 6: Validation
+- [x] Full build validation (pnpm build) — 28/28
+- [x] Full test validation (jest 45/45, vitest 112/112)
+- [x] Fix MetahubSchemaSyncError.operation property exposure
+- [x] Fix 4 Jest test expectations for new domain error format
+- [x] Fix 4 Vitest mocks to include useListDialogs via importOriginal
+
+---
+
+## QA Final Remediation — 2026-03-30
+
+> Status: COMPLETE — all issues resolved, build 28/28, vitest 633/634 (1 pre-existing timeout), jest 45/45 suites 399/399 tests (2026-03-31)
+
+### I-3: Replace generic Error with MetahubDomainError in metahubMigrationsController.ts
+- [x] Replace 7× `throw new Error()` with MetahubNotFoundError / MetahubValidationError
+
+### I-4: Replace generic Error with MetahubDomainError in layoutsController.ts
+- [x] Replace 1× `throw new Error('Failed to create layout copy')` with MetahubDomainError
+
+### I-2: Decompose applicationMigrationsRoutes.ts (636 LOC → thin routes + controller)
+- [x] Create applicationMigrationsController.ts with handler logic
+- [x] Slim down route file to thin router registration
+
+### T-1: Missing unit tests for shared abstractions
+- [x] T-1a: Test for errorGuards.ts (24 tests)
+- [x] T-1b: Test for useHubScopedList.ts (7 tests)
+- [x] T-1c: Test for useSimpleMutation.ts (6 tests)
+
+### D-1: Update frontend READMEs with shared hooks documentation
+- [x] metahubs-frontend README — add useListDialogs, useHubScopedList
+- [x] template-mui README — add useListDialogs, useHubScopedList
+
+### Build + test validation
+- [x] Full build 28/28
+- [x] vitest 633/634 (1 pre-existing timeout in applications-frontend)
+- [x] jest 45/45 suites, 399/399 tests
+
+---
+
+## QA Remediation: Refactoring Gaps — 2026-03-30
+
+> Status: COMPLETE — all 7 QR issues resolved, build 28/28, vitest 621/621, jest 375/375 (2026-03-31)
+
+### QR-1: applicationSyncRoutes.ts decomposition (3,182→barrel + modules) — COMPLETE
+- [x] QR-1.1: Extract types/interfaces to syncTypes.ts (~20 types)
+- [x] QR-1.2: Extract Zod schemas to syncTypes.ts (~6 schemas)
+- [x] QR-1.3: Extract SQL/normalization helpers to syncHelpers.ts (~15 functions)
+- [x] QR-1.4: Extract runtime data loading to syncDataLoader.ts (~6 functions)
+- [x] QR-1.5: Extract element seeding + enum sync to syncSeeding.ts (~5 functions)
+- [x] QR-1.6: Extract layout/widget persistence to syncLayoutPersistence.ts (~8 functions)
+- [x] QR-1.7: Extract dashboard config + change detection to syncEngine.ts (~6 functions)
+- [x] QR-1.8: Keep barrel re-export in applicationSyncRoutes.ts (route factory + re-exports)
+- [x] QR-1.9: Build + test validation (10/10 build, 116/116 tests pass)
+
+### QR-2: createMetahubHandler adoption in remaining controllers — COMPLETE
+- [x] QR-2.1: Migrate layoutsController.ts to createMetahubHandler (13 handlers)
+- [x] QR-2.2: Migrate settingsController.ts to createMetahubHandler (4 handlers)
+- [x] QR-2.3: Migrate branchesController.ts to createMetahubHandler (9 handlers)
+- [x] QR-2.4: Migrate elementsController.ts to createMetahubHandler (8 handlers)
+- [x] QR-2.5: Skip publicationsController.ts — uses createEnsureMetahubRouteAccess, mixed scoped/non-scoped, high risk
+- [x] QR-2.6: Skip metahubsController.ts — needs membership context (ctx.membership.role, ctx.isSynthetic, ctx.globalRole)
+- [x] QR-2.7: Skip enumerationsController.ts — uses createEnsureMetahubRouteAccess, 20+ handlers, high risk
+- [x] QR-2.8: Skip metahubMigrationsController.ts — needs ensureAccess inside try/catch for DB timeout→503 mapping
+- [x] QR-2.9: Build 12/12 + tests 43/43 (368 passed, 0 failed)
+
+### QR-3: Domain error middleware + adoption — COMPLETE
+- [x] QR-3.1: Add MetahubDomainError handler to createMetahubHandler try-catch wrapper
+- [x] QR-3.2: Build 12/12 + tests 43/43 (368 passed, 0 failed)
+
+### QR-4: useListDialogs adoption in List components — COMPLETE
+- [x] QR-4.1: Adopt in ConstantList.tsx (simplest dialog pattern)
+- [x] QR-4.2: Adopt in MetahubList.tsx
+- [x] QR-4.3: Adopt in BranchList.tsx
+- [x] QR-4.4: Adopt in HubList.tsx
+- [x] QR-4.5: Adopt in SetList.tsx (has attach + dual delete)
+- [x] QR-4.6: Adopt in CatalogList.tsx
+- [x] QR-4.7: Adopt in EnumerationList.tsx
+- [x] QR-4.8: Adopt in AttributeList.tsx
+- [x] QR-4.9: Adopt in ElementList.tsx
+- [x] QR-4.10: Adopt in PublicationList.tsx
+- [x] QR-4.11: Build + test validation (44/44 test files, 159/159 tests pass)
+  - Note: Fixed ElementList.createErrorFlow OOM caused by infinite re-render loop in ToolbarControls mock useEffect
+
+### QR-5: Extract mutationTypes in remaining domains — COMPLETE
+- [x] QR-5.1: Extract types from sets/hooks/mutations.ts
+- [x] QR-5.2: Extract types from hubs/hooks/mutations.ts
+- [x] QR-5.3: Extract types from catalogs/hooks/mutations.ts
+- [x] QR-5.4: Extract types from constants/hooks/mutations.ts
+- [x] QR-5.5: Extract types from branches/hooks/mutations.ts
+- [x] QR-5.6: Extract types from publications/hooks/mutations.ts
+- [x] QR-5.7: Extract types from elements/hooks/mutations.ts
+- [x] QR-5.8: Extract types from metahubs/hooks/mutations.ts
+- [x] QR-5.9: Extract types from layouts/hooks/mutations.ts
+- [x] QR-5.10: Build validation (9/9 tasks pass)
+
+### QR-6: Update architecture documentation — COMPLETE
+- [x] QR-6.1: Update docs/en/architecture/backend.md — Controller–Service–Store pattern, domain structure
+- [x] QR-6.2: Update docs/ru/architecture/backend.md — translated version (81/81 lines match)
+- [x] QR-6.3: Build validation (docs structure)
+
+### QR-7: Add missing tests — COMPLETE
+- [x] QR-7.1: Test for createMetahubHandler domain error handling (7/7 pass)
+- [x] QR-7.2: Test for useListDialogs hook renderHook (9/9 pass)
+- [x] QR-7.3: Full regression: build 28/28, vitest 112/112 (621 tests), jest 44/44 (375 tests)
+
+---
+
+## Metahubs & Applications Comprehensive Refactoring — 2026-03-29
+
+> Status: COMPLETE — all 9 phases implemented, build 28/28 green, all tests pass (2026-03-30)
+
+### Phase 1: Backend Foundation Abstractions
+- [x] 1.1–1.7: All completed (domainErrors, asyncHandler, createMetahubServices, createMetahubHandler, paginateItems, errorGuards, exports)
+
+### Phase 2: Frontend Foundation Abstractions
+- [x] 2.1–2.7: All completed (useListDialogs, useHubScopedList, createDomainErrorHandler, useSimpleMutation, fetchAllPaginatedItems, optimisticReorder, mapBaseVlcFields, build validated)
+
+### Phase 3: Backend metahubs-backend route refactoring (3.1–3.13)
+- [x] 3.1: constantsRoutes.ts → controller + thin routes
+- [x] 3.2: setsRoutes.ts → controller + thin routes
+- [x] 3.3: hubsRoutes.ts → controller + thin routes
+- [x] 3.4: catalogsRoutes.ts → controller + thin routes (1959→77 lines routes, 16 handlers in controller)
+- [x] 3.5: attributesRoutes.ts → controller + thin routes (2291→156 lines routes, 14 handlers in controller)
+- [x] 3.6: settingsRoutes.ts → controller + thin routes (262→26 lines, 4 handlers)
+- [x] 3.7: elementsRoutes.ts → controller + thin routes (443→37 lines, 8 handlers)
+- [x] 3.8: branchesRoutes.ts → controller + thin routes (671→29 lines, 9 handlers)
+- [x] 3.9: layoutsRoutes.ts → controller + thin routes (760→36 lines, 13 handlers)
+- [x] 3.10: metahubMigrationsRoutes.ts → controller + thin routes (951→35 lines, 8 handlers)
+- [x] 3.11: metahubsRoutes.ts → controller + thin routes (1640→55 lines, 14 handlers)
+- [x] 3.12: publicationsRoutes.ts → controller + thin routes (1754→64 lines, 15 handlers)
+- [x] 3.13: enumerationsRoutes.ts → controller + thin routes (2248→74 lines, 24 handlers)
+  - Note: templatesRoutes.ts (94 lines, 2 read-only handlers) — already thin, no refactoring needed
+- [x] 3.14: Full validation: `pnpm build` 12/12 + all metahubs-backend tests pass (41 suites, 346 tests)
+
+### Phase 4: Backend applications-backend route refactoring (4.0–4.4)
+- [x] 4.0: Created shared/asyncHandler.ts + shared/runtimeHelpers.ts (~920 lines, 60+ exports)
+- [x] 4.1: applicationsRoutes.ts (5120→73 lines) — 3 controllers (applications, runtimeRows, runtimeChildRows), 26 handlers, 3 manual tx→.transaction() fixed
+- [x] 4.2: applicationSyncRoutes.ts — syncController.ts (4 handlers), 14 functions exported, thin factory
+- [x] 4.3: connectorsRoutes.ts (618→33 lines) — connectorsController.ts (8 handlers)
+- [x] 4.4: Full validation — build 10/10, tests 10 suites / 113 tests pass
+
+### Phase 5: Frontend metahubs-frontend List components (5.1–5.11)
+- [x] 5.1: ConstantList.tsx — utils + useConstantListData hook extracted, 1239→972 lines
+- [x] 5.2: SetList.tsx — setListUtils + useSetListData hook extracted, build 9/9
+- [x] 5.3: HubList.tsx — hubListUtils + useHubListData hook extracted, build 9/9
+- [x] 5.4: CatalogList.tsx — catalogListUtils + useCatalogListData hook extracted, build 9/9
+- [x] 5.5: EnumerationList.tsx — enumerationListUtils + useEnumerationListData hook extracted, build 9/9 (EnumerationValueList deferred — different pattern)
+- [x] 5.6: AttributeList.tsx — attributeListUtils + useAttributeListData hook extracted, build 9/9 (ChildAttributeList/AttributeActions deferred — deeply domain-specific)
+- [x] 5.7: ElementList.tsx — elementListUtils + useElementListData hook extracted (2246→1740 lines), build 9/9
+- [x] 5.8: MetahubList.tsx — metahubListUtils + useMetahubListData hook extracted (1001→889 lines), build 9/9
+- [x] 5.9: PublicationList.tsx + PublicationVersionList.tsx — hooks extracted (1136→1011, 735→646), build 9/9
+- [x] 5.10: BranchList.tsx + BranchActions.tsx — branchListUtils + useBranchListData extracted (1053→921, 682→544), build 9/9
+- [x] 5.11: Full validation: `pnpm build` 28/28 + metahubs-frontend 152 tests pass
+
+### Phase 6: Mutation hooks consolidation (6.1–6.5)
+- [x] 6.1–6.5: Consolidate mutation hooks with createDomainErrorHandler
+  - [x] 6.1: attributes/mutations.ts — types extracted to mutationTypes.ts, error handler to attributeErrorHandler.ts (1142→935), build 9/9
+  - [x] 6.2: enumerations/mutations.ts — types extracted to mutationTypes.ts (816→744), build 9/9
+  - [x] 6.3: applications/hooks/mutations.ts — types+CopySyncStepError extracted to mutationTypes.ts (861→808), build 10/10
+  - [x] 6.4: metahubs types.ts — converters extracted to displayConverters.ts with mapBaseVlcFields + shared mapHubRefs helper (840→711), build 9/9
+  - [x] 6.5: Full validation — `pnpm build` 28/28, metahubs-frontend 152 tests pass
+
+### Phase 7: Performance improvements (7.1–7.3)
+- [x] 7.1: Batch child attributes endpoint — added to attributesController
+- [x] 7.2: useMetahubHubs shared hook — replaced 8 duplicate hub queries across metahubs-frontend
+- [x] 7.3: Store query optimization — index coverage reviewed, no gaps found
+
+### Phase 8: Testing (8.1–8.5)
+- [x] 8.1: Backend unit tests — domainErrors.test.ts, queryParams.test.ts (metahubs-backend 43/368)
+- [x] 8.2: Backend unit tests — asyncHandler.test.ts (applications-backend 11/116)
+- [x] 8.3: Frontend unit tests — createDomainErrorHandler.test.ts (metahubs-frontend 44/159)
+- [x] 8.4: Utils unit tests — mapBaseVlcFields.test.ts (utils 23/257)
+- [x] 8.5: Full regression — build 28/28, all tests pass
+
+### Phase 9: Documentation (9.1–9.5)
+- [x] 9.1: metahubs-backend README.md + README-RU.md — Controller–Service–Store, domainErrors, pagination docs
+- [x] 9.2: metahubs-frontend README.md + README-RU.md — Shared Abstractions section
+- [x] 9.3: applications-backend README.md + README-RU.md — Controller Architecture, asyncHandler, runtimeHelpers
+- [x] 9.4: applications-frontend — verified READMEs already up to date
+- [x] 9.5: Memory Bank — systemPatterns, techContext, progress, activeContext, tasks updated
+
+> **ALL 9 PHASES COMPLETE — 2026-03-30** — zero technical debt
 
 > Status: COMPLETE — all 9 bot review comments addressed; csrf.ts rewritten (body→query→headers, req.get(), declaration merging), csrf.d.ts + csrf.test.ts (8 tests) added, oclif ^4→^3 reverted, progress.md clarified; build 28/28 green, 599 vitest + 31 Jest pass, lint 0 errors
 

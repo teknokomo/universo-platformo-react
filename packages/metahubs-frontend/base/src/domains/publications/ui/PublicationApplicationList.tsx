@@ -42,7 +42,8 @@ import {
     FlowListTable,
     LocalizedInlineField,
     useDebouncedSearch,
-    PaginationControls
+    PaginationControls,
+    useListDialogs
 } from '@universo/template-mui'
 import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
@@ -120,7 +121,7 @@ export const PublicationApplicationList: React.FC = () => {
     const createMutation = useCreatePublicationApplication()
 
     // ── Dialog state ───────────────────────────────────────────────────
-    const [createDialogOpen, setCreateDialogOpen] = useState(false)
+    const { dialogs, openCreate, close } = useListDialogs<{ id: string }>()
     const [nameVlc, setNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [descriptionVlc, setDescriptionVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [createSchema, setCreateSchema] = useState(false)
@@ -258,7 +259,7 @@ export const PublicationApplicationList: React.FC = () => {
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleCloseCreateDialog = useCallback(() => {
-        setCreateDialogOpen(false)
+        close('create')
         setNameVlc(null)
         setDescriptionVlc(null)
         setCreateSchema(false)
@@ -330,7 +331,7 @@ export const PublicationApplicationList: React.FC = () => {
                         <ToolbarControls
                             primaryAction={{
                                 label: tc('create'),
-                                onClick: () => setCreateDialogOpen(true),
+                                onClick: () => openCreate(),
                                 startIcon: <AddRoundedIcon />
                             }}
                         />
@@ -368,7 +369,7 @@ export const PublicationApplicationList: React.FC = () => {
                             )}
                             action={{
                                 label: tc('create'),
-                                onClick: () => setCreateDialogOpen(true)
+                                onClick: () => openCreate()
                             }}
                         />
                     ) : (
@@ -406,7 +407,7 @@ export const PublicationApplicationList: React.FC = () => {
             )}
 
             {/* ── Create Application Dialog ─────────────────────────────── */}
-            <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
+            <Dialog open={dialogs.create.open} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
                 <DialogTitle>{t('metahubs:publications.applications.createTitle', 'Create Application')}</DialogTitle>
                 <DialogContent sx={{ overflow: 'visible' }}>
                     <Stack spacing={2} sx={{ mt: 1 }}>

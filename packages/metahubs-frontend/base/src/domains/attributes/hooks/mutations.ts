@@ -12,132 +12,24 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import type { AttributeLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import * as attributesApi from '../api'
-import type { AttributeCopyInput } from '../api'
-
-type AttributeMutationError = Error & {
-    response?: {
-        status?: number
-        data?: {
-            code?: string
-            message?: string
-            error?: string
-            limit?: number
-            maxChildAttributes?: number
-            maxTableAttributes?: number
-        }
-    }
-}
-
-interface CreateAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    data: AttributeLocalizedPayload & {
-        validationRules?: Record<string, unknown>
-        uiConfig?: Record<string, unknown>
-        isRequired?: boolean
-        sortOrder?: number
-    }
-}
-
-interface UpdateAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
-    data: AttributeLocalizedPayload & {
-        validationRules?: Record<string, unknown>
-        uiConfig?: Record<string, unknown>
-        isRequired?: boolean
-        isEnabled?: boolean
-        sortOrder?: number
-        expectedVersion?: number
-    }
-}
-
-interface DeleteAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
-}
-
-interface MoveAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
-    direction: 'up' | 'down'
-}
-
-interface CopyAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
-    data: AttributeCopyInput
-}
-
-interface ChildAttributeMutationData extends AttributeLocalizedPayload {
-    validationRules?: Record<string, unknown>
-    uiConfig?: Record<string, unknown>
-    isRequired?: boolean
-    isDisplayAttribute?: boolean
-    sortOrder?: number
-    targetEntityId?: string | null
-    targetEntityKind?: string | null
-    targetConstantId?: string | null
-}
-
-interface CreateChildAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    parentAttributeId: string
-    data: ChildAttributeMutationData
-}
-
-interface UpdateChildAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    parentAttributeId: string
-    attributeId: string
-    data: ChildAttributeMutationData & {
-        expectedVersion?: number
-    }
-}
-
-interface DeleteChildAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    parentAttributeId: string
-    attributeId: string
-}
-
-interface CopyChildAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    parentAttributeId: string
-    attributeId: string
-    data: AttributeCopyInput
-}
-
-interface ReorderAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
-    newSortOrder: number
-    newParentAttributeId?: string | null
-    currentParentAttributeId?: string | null
-    autoRenameCodename?: boolean
-}
+import type {
+    AttributeMutationError,
+    CreateAttributeParams,
+    UpdateAttributeParams,
+    DeleteAttributeParams,
+    MoveAttributeParams,
+    CopyAttributeParams,
+    CreateChildAttributeParams,
+    UpdateChildAttributeParams,
+    DeleteChildAttributeParams,
+    CopyChildAttributeParams,
+    ReorderAttributeParams,
+    ToggleRequiredParams,
+    SetDisplayAttributeParams
+} from './mutationTypes'
+import { handleAttributeError } from './attributeErrorHandler'
 
 const getAttributeQueryKeyPrefix = (variables: { metahubId: string; hubId?: string; catalogId: string }) =>
     variables.hubId
@@ -287,49 +179,7 @@ export function useCreateAttribute() {
         },
         onError: (error: AttributeMutationError, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            const errorCode = error?.response?.data?.code
-            const responseData = error?.response?.data
-            const backendMessage = responseData?.message || responseData?.error
-
-            if (errorCode === 'ATTRIBUTE_LIMIT_REACHED') {
-                enqueueSnackbar(t('attributes.limitReached', { limit: responseData?.limit ?? '—' }), { variant: 'warning' })
-                return
-            }
-            if (errorCode === 'TABLE_CHILD_LIMIT_REACHED') {
-                enqueueSnackbar(
-                    t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
-                        max: responseData?.maxChildAttributes ?? '—'
-                    }),
-                    { variant: 'warning' }
-                )
-                return
-            }
-            if (errorCode === 'TABLE_ATTRIBUTE_LIMIT_REACHED') {
-                enqueueSnackbar(
-                    t('attributes.tableValidation.maxTableAttributes', 'Maximum {{max}} TABLE attributes per catalog', {
-                        max: responseData?.maxTableAttributes ?? '—'
-                    }),
-                    { variant: 'warning' }
-                )
-                return
-            }
-            if (errorCode === 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN') {
-                enqueueSnackbar(
-                    t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute'),
-                    { variant: 'warning' }
-                )
-                return
-            }
-            if (errorCode === 'NESTED_TABLE_FORBIDDEN') {
-                enqueueSnackbar(t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed'), {
-                    variant: 'warning'
-                })
-                return
-            }
-
-            enqueueSnackbar(backendMessage || error.message || t('attributes.createError', 'Failed to create attribute'), {
-                variant: 'error'
-            })
+            handleAttributeError(error, t, enqueueSnackbar, 'attributes.createError')
         },
         onSettled: (_data, _error, variables) => {
             invalidateAttributeScopes(queryClient, variables)
@@ -392,49 +242,7 @@ export function useCreateChildAttribute() {
         },
         onError: (error: AttributeMutationError, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            const errorCode = error?.response?.data?.code
-            const responseData = error?.response?.data
-            const backendMessage = responseData?.message || responseData?.error
-
-            if (errorCode === 'ATTRIBUTE_LIMIT_REACHED') {
-                enqueueSnackbar(t('attributes.limitReached', { limit: responseData?.limit ?? '—' }), { variant: 'warning' })
-                return
-            }
-            if (errorCode === 'TABLE_CHILD_LIMIT_REACHED') {
-                enqueueSnackbar(
-                    t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
-                        max: responseData?.maxChildAttributes ?? '—'
-                    }),
-                    { variant: 'warning' }
-                )
-                return
-            }
-            if (errorCode === 'TABLE_ATTRIBUTE_LIMIT_REACHED') {
-                enqueueSnackbar(
-                    t('attributes.tableValidation.maxTableAttributes', 'Maximum {{max}} TABLE attributes per catalog', {
-                        max: responseData?.maxTableAttributes ?? '—'
-                    }),
-                    { variant: 'warning' }
-                )
-                return
-            }
-            if (errorCode === 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN') {
-                enqueueSnackbar(
-                    t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute'),
-                    { variant: 'warning' }
-                )
-                return
-            }
-            if (errorCode === 'NESTED_TABLE_FORBIDDEN') {
-                enqueueSnackbar(t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed'), {
-                    variant: 'warning'
-                })
-                return
-            }
-
-            enqueueSnackbar(backendMessage || error.message || t('attributes.createError', 'Failed to create attribute'), {
-                variant: 'error'
-            })
+            handleAttributeError(error, t, enqueueSnackbar, 'attributes.createError')
         },
         onSettled: (_data, _error, variables) => {
             invalidateChildAttributeScopes(queryClient, variables)
@@ -1010,14 +818,6 @@ export function useCopyChildAttribute() {
     })
 }
 
-interface ToggleRequiredParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
-    isRequired: boolean
-}
-
 export function useToggleAttributeRequired() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -1056,13 +856,6 @@ export function useToggleAttributeRequired() {
             }
         }
     })
-}
-
-interface SetDisplayAttributeParams {
-    metahubId: string
-    hubId?: string
-    catalogId: string
-    attributeId: string
 }
 
 export function useSetDisplayAttribute() {

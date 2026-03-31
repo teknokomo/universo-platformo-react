@@ -41,9 +41,31 @@
 ## Package Surface
 
 - `createApplicationsRoutes(...)` монтирует CRUD, connector, membership и runtime-sync routes.
+- Route surface теперь включает public join/leave flows и settings endpoints для per-workspace catalog limits.
 - `initializeRateLimiters()` подготавливает package-level rate limiting до создания routes.
 - Persistence helpers в `src/services/` и `src/persistence/` образуют SQL-first write/read seams.
 - Platform migration definitions остаются в package migration surface, а не в route handlers.
+
+## Архитектура контроллеров
+
+Route files делегируют domain controllers, которые инкапсулируют логику обработчиков:
+
+- **`applicationsController.ts`** — CRUD приложений, управление членством, операции с runtime rows.
+- **`connectorsController.ts`** — CRUD коннекторов и управление publication links.
+- **`syncController.ts`** — runtime schema sync, diff и release-bundle операции.
+
+### `asyncHandler()`
+
+Express middleware wrapper, перехватывающий rejected promises и передающий ошибки в `next()`:
+
+```ts
+import { asyncHandler } from '../shared/asyncHandler'
+router.get('/apps', asyncHandler(async (req, res) => { /* ... */ }))
+```
+
+### `runtimeHelpers.ts`
+
+Общие helpers для runtime row controllers: валидация запросов, разрешение executor-ов, проверки схем и форматирование ответов — извлечены из inline route logic (~920 строк, 60+ экспортов).
 
 ## Development
 

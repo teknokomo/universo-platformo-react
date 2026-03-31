@@ -1,4 +1,30 @@
-export type MetahubErrorCode = 'MIGRATION_REQUIRED' | 'CONNECTION_POOL_EXHAUSTED' | 'SCHEMA_LOCK_TIMEOUT' | 'MIGRATION_APPLY_LOCK_TIMEOUT'
+export type MetahubErrorCode =
+    | 'MIGRATION_REQUIRED'
+    | 'CONNECTION_POOL_EXHAUSTED'
+    | 'SCHEMA_LOCK_TIMEOUT'
+    | 'MIGRATION_APPLY_LOCK_TIMEOUT'
+    | 'NOT_FOUND'
+    | 'CONFLICT'
+    | 'LIMIT_REACHED'
+    | 'SCHEMA_SYNC_FAILED'
+    | 'VALIDATION_ERROR'
+    | 'COPY_CLEANUP_FAILED'
+    | 'COPY_ATTRIBUTES_FAILED'
+    | 'PUBLICATION_COMPENSATION_FAILED'
+    | 'APPLICATION_COMPENSATION_FAILED'
+    | 'TRANSFER_NOT_ALLOWED'
+    | 'CODENAME_CONFLICT'
+    | 'TABLE_CHILD_LIMIT_REACHED'
+    | 'TABLE_ATTRIBUTE_LIMIT_REACHED'
+    | 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
+    | 'SYSTEM_ATTRIBUTE_PROTECTED'
+    | 'DISPLAY_ATTRIBUTE_TRANSFER_BLOCKED'
+    | 'BRANCH_CREATION_IN_PROGRESS'
+    | 'BRANCH_DELETION_IN_PROGRESS'
+    | 'BRANCH_CODENAME_EXISTS'
+    | 'DEFAULT_BRANCH_UNDELETABLE'
+    | 'BRANCH_CREATION_FAILED'
+    | 'BRANCH_CLEANUP_FAILED'
 
 export interface MetahubDomainErrorPayload {
     message: string
@@ -66,6 +92,61 @@ export class MetahubMigrationApplyLockTimeoutError extends MetahubDomainError {
             details
         })
         this.name = 'MetahubMigrationApplyLockTimeoutError'
+    }
+}
+
+export class MetahubNotFoundError extends MetahubDomainError {
+    constructor(entity: string, id?: string) {
+        super({
+            message: `${entity} not found`,
+            statusCode: 404,
+            code: 'NOT_FOUND',
+            details: { entity, ...(id != null ? { id } : {}) }
+        })
+        this.name = 'MetahubNotFoundError'
+    }
+}
+
+export class MetahubConflictError extends MetahubDomainError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super({ message, statusCode: 409, code: 'CONFLICT', details })
+        this.name = 'MetahubConflictError'
+    }
+}
+
+export class MetahubLimitReachedError extends MetahubDomainError {
+    constructor(entity: string, limit: number, details?: Record<string, unknown>) {
+        super({
+            message: `${entity} limit reached`,
+            statusCode: 409,
+            code: 'LIMIT_REACHED',
+            details: { entity, limit, ...details }
+        })
+        this.name = 'MetahubLimitReachedError'
+    }
+}
+
+export class MetahubSchemaSyncError extends MetahubDomainError {
+    public readonly operation: string
+    public declare readonly cause?: unknown
+
+    constructor(operation: string, cause?: unknown) {
+        super({
+            message: 'Schema sync failed',
+            statusCode: 500,
+            code: 'SCHEMA_SYNC_FAILED',
+            details: { operation }
+        })
+        this.name = 'MetahubSchemaSyncError'
+        this.operation = operation
+        if (cause) this.cause = cause
+    }
+}
+
+export class MetahubValidationError extends MetahubDomainError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super({ message, statusCode: 400, code: 'VALIDATION_ERROR', details })
+        this.name = 'MetahubValidationError'
     }
 }
 

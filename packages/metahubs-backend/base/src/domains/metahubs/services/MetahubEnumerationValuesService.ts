@@ -4,6 +4,7 @@ import { qSchemaTable, qSchema } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { incrementVersion, updateWithVersionCheck } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
+import { MetahubNotFoundError } from '../../shared/domainErrors'
 
 interface EnumerationValueCreateInput {
     enumerationId: string
@@ -156,7 +157,7 @@ export class MetahubEnumerationValuesService {
             await this.ensureDefaultConstraint(schemaName, tx)
 
             const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
-            if (!current) throw new Error('Enumeration value not found')
+            if (!current) throw new MetahubNotFoundError('Enumeration value', id)
 
             const updateData: Record<string, unknown> = {
                 _upl_updated_at: new Date(),
@@ -252,7 +253,7 @@ export class MetahubEnumerationValuesService {
 
             const currentIndex = ordered.findIndex((item) => item.id === valueId)
             if (currentIndex === -1) {
-                throw new Error('Enumeration value not found')
+                throw new MetahubNotFoundError('Enumeration value', valueId)
             }
 
             const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
@@ -281,7 +282,7 @@ export class MetahubEnumerationValuesService {
 
             const updated = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [valueId])
             if (!updated) {
-                throw new Error('Enumeration value not found')
+                throw new MetahubNotFoundError('Enumeration value', valueId)
             }
             return this.mapRow(updated)
         })
@@ -301,7 +302,7 @@ export class MetahubEnumerationValuesService {
                  LIMIT 1`,
                 [valueId, enumerationId]
             )
-            if (!current) throw new Error('Enumeration value not found')
+            if (!current) throw new MetahubNotFoundError('Enumeration value', valueId)
 
             const oldOrder = current.sort_order as number
             const clampedNew = Math.max(1, newSortOrder)
@@ -349,7 +350,7 @@ export class MetahubEnumerationValuesService {
                  LIMIT 1`,
                 [valueId, enumerationId]
             )
-            if (!updated) throw new Error('Enumeration value not found')
+            if (!updated) throw new MetahubNotFoundError('Enumeration value', valueId)
             return this.mapRow(updated)
         })
     }

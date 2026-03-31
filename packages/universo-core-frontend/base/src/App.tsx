@@ -74,12 +74,17 @@ const App: React.FC = () => {
     const queryClient = useQueryClient()
     const prevUserIdRef = useRef<string | null | undefined>(undefined)
 
-    // Clear all caches when user identity changes (login/logout/switch)
+    // Clear all caches when user identity changes (logout or user switch).
+    // Only clear when we previously had a known user ID (typeof === 'string').
+    // This avoids clearing the cache during the initial session restore on page
+    // refresh (null → userId), which would destroy queries that just started
+    // fetching in components like NavbarBreadcrumbs mounted by AuthGuard in the
+    // same render cycle.
     useEffect(() => {
         const currentUserId = user?.id ?? null
         const prevUserId = prevUserIdRef.current
 
-        if (prevUserId !== undefined && prevUserId !== currentUserId) {
+        if (typeof prevUserId === 'string' && prevUserId !== currentUserId) {
             queryClient.clear()
             resetUserSettingsCache()
         }

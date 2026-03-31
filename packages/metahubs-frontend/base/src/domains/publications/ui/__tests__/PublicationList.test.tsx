@@ -43,7 +43,9 @@ vi.mock('@tanstack/react-query', async () => {
     }
 })
 
-vi.mock('@universo/template-mui', () => ({
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    return {
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ItemCard: ({ children, headerAction }: { children?: ReactNode; headerAction?: ReactNode }) => (
         <div>
@@ -113,8 +115,9 @@ vi.mock('@universo/template-mui', () => ({
                 Sync Publication
             </button>
         )
-    }
-}))
+    },
+    useListDialogs: actual.useListDialogs
+}})
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
     EntityFormDialog: ({

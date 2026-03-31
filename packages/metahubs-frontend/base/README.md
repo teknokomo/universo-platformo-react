@@ -395,5 +395,46 @@ docs(readme): update installation guide
 - [`@universo/template-mui`](../../universo-template-mui/base/README.md) - UI components
 - [`@universo/types`](../../universo-types/base/README.md) - Shared types
 
+## Shared Abstractions
+
+### Component Decomposition Pattern
+
+Each List component is split into three layers:
+1. **List component** (`domains/<domain>/ui/<Domain>List.tsx`) — UI rendering, dialogs, actions.
+2. **Data hook** (`domains/<domain>/hooks/use<Domain>ListData.ts`) — React Query logic, pagination, data transforms.
+3. **Utilities** (`domains/<domain>/ui/<domain>ListUtils.ts`) — helper functions for formatting, filtering, sorting.
+
+### `createDomainErrorHandler()`
+
+Factory for mapping backend error codes to localized snackbar messages. Eliminates repetitive if/else chains in mutation `onError` callbacks:
+
+```ts
+const handleError = createDomainErrorHandler({
+    LIMIT_REACHED: (data, t) => t('attributes.limitReached', { limit: data.limit }),
+})
+
+// In mutation: handleError(error, t, enqueueSnackbar, 'attributes.createError')
+```
+
+### `createSimpleDeleteMutation()`
+
+Configurable factory for standard delete mutation hooks with optimistic delete, rollback, snackbar notifications, and cache invalidation.
+
+### `useListDialogs()`
+
+Generic `useReducer`-based hook managing five dialog states (create, edit, copy, delete, conflict) with stable callback references. Eliminates repetitive dialog open/close state management in List components.
+
+### `useMetahubHubs(metahubId)`
+
+Shared hook for fetching hub lists with consistent caching (staleTime: 5min). All List components share the same React Query key for automatic deduplication.
+
+### `mapBaseVlcFields(entity, locale)`
+
+Extracts VLC strings for the standard codename/name/description triple. Used as a building block inside domain-specific `toXxxDisplay()` converter functions in `displayConverters.ts`.
+
+### `fetchAllPaginatedItems(fetchFn, params)`
+
+Recursive paginator that fetches all pages and returns a unified `PaginatedResponse`.
+
 ---
 *Part of [Universo Platformo](../../../README.md) - A package-based business platform*

@@ -28,6 +28,13 @@ import {
     resolveCatalogSystemAttributeSeedPlan
 } from '../../shared/platformSystemAttributesPolicy'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
+import {
+    MetahubDomainError,
+    MetahubNotFoundError,
+    MetahubValidationError,
+    MetahubConflictError
+} from '../../shared/domainErrors'
+import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 type AttributeScope = 'business' | 'system' | 'all'
@@ -70,7 +77,11 @@ export class MetahubAttributesService {
         const forbiddenKeys = Object.keys(data).filter((key) => data[key] !== undefined && !allowedKeys.has(key))
 
         if (forbiddenKeys.length > 0) {
-            throw new Error(`System attribute mutation is restricted: ${forbiddenKeys.join(', ')}`)
+            throw new MetahubDomainError({
+                message: `System attribute mutation is restricted: ${forbiddenKeys.join(', ')}`,
+                statusCode: 409,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
         }
     }
 
@@ -82,7 +93,11 @@ export class MetahubAttributesService {
         if (currentAttribute?.system?.isSystem) return
         if (currentAttribute?.codename === codename) return
         if (RESERVED_CATALOG_SYSTEM_CODENAMES.has(codename)) {
-            throw new Error(`Codename ${codename} is reserved for managed system attributes`)
+            throw new MetahubDomainError({
+                message: `Codename ${codename} is reserved for managed system attributes`,
+                statusCode: 409,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
         }
     }
 
@@ -97,30 +112,30 @@ export class MetahubAttributesService {
         return raw
     }
 
-    private createTableChildLimitError(maxChildAttributes: number): Error {
-        const error: Error & { code?: string; maxChildAttributes?: number } = new Error(
-            `TABLE_CHILD_LIMIT_REACHED: Maximum ${maxChildAttributes} child attributes per TABLE`
-        )
-        error.code = 'TABLE_CHILD_LIMIT_REACHED'
-        error.maxChildAttributes = maxChildAttributes
-        return error
+    private createTableChildLimitError(maxChildAttributes: number): MetahubDomainError {
+        return new MetahubDomainError({
+            message: `Maximum ${maxChildAttributes} child attributes per TABLE`,
+            statusCode: 409,
+            code: 'TABLE_CHILD_LIMIT_REACHED',
+            details: { maxChildAttributes }
+        })
     }
 
-    private createTableAttributeLimitError(maxTableAttributes: number): Error {
-        const error: Error & { code?: string; maxTableAttributes?: number } = new Error(
-            `TABLE_ATTRIBUTE_LIMIT_REACHED: Maximum ${maxTableAttributes} TABLE attributes per catalog`
-        )
-        error.code = 'TABLE_ATTRIBUTE_LIMIT_REACHED'
-        error.maxTableAttributes = maxTableAttributes
-        return error
+    private createTableAttributeLimitError(maxTableAttributes: number): MetahubDomainError {
+        return new MetahubDomainError({
+            message: `Maximum ${maxTableAttributes} TABLE attributes per catalog`,
+            statusCode: 409,
+            code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
+            details: { maxTableAttributes }
+        })
     }
 
-    private createTableDisplayAttributeForbiddenError(): Error {
-        const error: Error & { code?: string } = new Error(
-            'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN: TABLE attributes cannot be set as display attribute'
-        )
-        error.code = 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
-        return error
+    private createTableDisplayAttributeForbiddenError(): MetahubDomainError {
+        return new MetahubDomainError({
+            message: 'TABLE attributes cannot be set as display attribute',
+            statusCode: 400,
+            code: 'TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN'
+        })
     }
 
     private async generateUniqueTableAttributeId(schemaName: string, catalogId: string, db?: SqlQueryable): Promise<string> {
@@ -142,7 +157,11 @@ export class MetahubAttributesService {
             }
         }
 
-        throw new Error('Failed to generate a unique TABLE attribute ID')
+        throw new MetahubDomainError({
+            message: 'Failed to generate a unique TABLE attribute ID',
+            statusCode: 500,
+            code: 'VALIDATION_ERROR'
+        })
     }
 
     /**
@@ -390,10 +409,14 @@ export class MetahubAttributesService {
 
             const definition = getCatalogSystemFieldDefinition(key)
             if (!definition) {
-                throw new Error(`System attribute ${key} is not registered`)
+                throw new MetahubValidationError(`System attribute ${key} is not registered`)
             }
             if (!nextEnabled && !definition.canDisable && origin === 'requested') {
-                throw new Error(`System attribute ${key} cannot be disabled`)
+                throw new MetahubDomainError({
+                    message: `System attribute ${key} cannot be disabled`,
+                    statusCode: 409,
+                    code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                })
             }
 
             nextStates.set(key, nextEnabled)
@@ -422,7 +445,7 @@ export class MetahubAttributesService {
             Array.from(nextStates.entries()).map(([key, stateEnabled]) => ({ key, enabled: stateEnabled }))
         )
         if (validation.errors.length > 0) {
-            throw new Error(validation.errors.join('; '))
+            throw new MetahubValidationError(validation.errors.join('; '))
         }
 
         return validation.normalized
@@ -722,13 +745,13 @@ export class MetahubAttributesService {
         if (data.parentAttributeId) {
             const parent = await this.findById(metahubId, data.parentAttributeId, userId, db)
             if (!parent) {
-                throw new Error(`Parent attribute ${data.parentAttributeId} not found`)
+                throw new MetahubNotFoundError('Parent attribute', data.parentAttributeId)
             }
             if (parent.dataType !== AttributeDataType.TABLE) {
-                throw new Error(`Parent attribute must be TABLE type, got ${parent.dataType}`)
+                throw new MetahubValidationError(`Parent attribute must be TABLE type, got ${parent.dataType}`)
             }
             if (data.dataType === AttributeDataType.TABLE) {
-                throw new Error('Nested TABLE attributes are not allowed')
+                throw new MetahubValidationError('Nested TABLE attributes are not allowed')
             }
             const maxChildAttributes = this.getMaxChildAttributesLimit(parent.validationRules)
             if (typeof maxChildAttributes === 'number') {
@@ -831,14 +854,22 @@ export class MetahubAttributesService {
         if (current?.system?.isSystem) {
             const systemKey = current.system.systemKey
             if (!systemKey && data.isEnabled !== undefined) {
-                throw new Error('System attribute toggle key is missing')
+                throw new MetahubDomainError({
+                    message: 'System attribute toggle key is missing',
+                    statusCode: 409,
+                    code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                })
             }
 
             const platformSystemAttributesPolicy: PlatformSystemAttributesPolicy =
                 data.platformSystemAttributesPolicy ?? (await readPlatformSystemAttributesPolicy(runner))
             const policyBlockReason = getPlatformSystemAttributeMutationBlockReason(systemKey ?? null, platformSystemAttributesPolicy)
             if (policyBlockReason) {
-                throw new Error(policyBlockReason)
+                throw new MetahubDomainError({
+                    message: policyBlockReason,
+                    statusCode: 403,
+                    code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                })
             }
 
             const updateSystemRows = async (tx: SqlQueryable) => {
@@ -983,17 +1014,30 @@ export class MetahubAttributesService {
         const attribute = await this.findById(metahubId, id, userId, runner)
 
         if (attribute?.system?.isSystem) {
-            throw new Error('System attributes cannot be deleted')
+            throw new MetahubDomainError({
+                message: 'System attributes cannot be deleted',
+                statusCode: 403,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
         }
 
         const runDelete = async (tx: SqlQueryable) => {
-            // If TABLE type, explicitly delete children before parent
+            // If TABLE type, soft-delete children before parent
             const [attribute] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
             if (attribute?.data_type === AttributeDataType.TABLE) {
-                await tx.query(`DELETE FROM ${qt} WHERE parent_attribute_id = $1`, [id])
+                const children = await tx.query<{ id: string }>(
+                    `SELECT id FROM ${qt} WHERE parent_attribute_id = $1 AND ${ACTIVE}`,
+                    [id]
+                )
+                for (const child of children) {
+                    await mhbSoftDelete(tx, schemaName, '_mhb_attributes', child.id, userId)
+                }
             }
 
-            await tx.query(`DELETE FROM ${qt} WHERE id = $1`, [id])
+            const deleted = await mhbSoftDelete(tx, schemaName, '_mhb_attributes', id, userId)
+            if (!deleted) {
+                throw new MetahubNotFoundError('Attribute', id)
+            }
         }
 
         if (db) {
@@ -1011,8 +1055,12 @@ export class MetahubAttributesService {
         return this.exec.transaction(async (tx: SqlQueryable) => {
             // Fetch current attribute to know its parent scope
             const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
-            if (!current) throw new Error('Attribute not found')
-            if (current.is_system === true) throw new Error('System attributes cannot be reordered')
+            if (!current) throw new MetahubNotFoundError('Attribute', attributeId)
+            if (current.is_system === true) throw new MetahubDomainError({
+                message: 'System attributes cannot be reordered',
+                statusCode: 403,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
 
             const parentAttributeId: string | null = (current.parent_attribute_id as string | null) ?? null
 
@@ -1077,8 +1125,12 @@ export class MetahubAttributesService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
                 [attributeId, objectId]
             )
-            if (!current) throw new Error('Attribute not found')
-            if (current.is_system === true) throw new Error('System attributes cannot be reordered')
+            if (!current) throw new MetahubNotFoundError('Attribute', attributeId)
+            if (current.is_system === true) throw new MetahubDomainError({
+                message: 'System attributes cannot be reordered',
+                statusCode: 403,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
 
             const currentParent: string | null = (current.parent_attribute_id as string | null) ?? null
             const targetParent: string | null = newParentAttributeId !== undefined ? newParentAttributeId : currentParent
@@ -1128,7 +1180,7 @@ export class MetahubAttributesService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
                 [attributeId, objectId]
             )
-            if (!refreshed) throw new Error('Attribute not found')
+            if (!refreshed) throw new MetahubNotFoundError('Attribute', attributeId)
             const oldOrder = refreshed.sort_order as number
             const clampedNew = Math.max(1, newSortOrder)
 
@@ -1170,7 +1222,7 @@ export class MetahubAttributesService {
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE}`,
                 [attributeId, objectId]
             )
-            if (!updated) throw new Error('Attribute not found')
+            if (!updated) throw new MetahubNotFoundError('Attribute', attributeId)
             return this.mapRowToAttribute(updated)
         })
     }
@@ -1197,23 +1249,37 @@ export class MetahubAttributesService {
         const targetIsRoot = targetParentId === null
 
         if ((sourceIsRoot || targetIsRoot) && !allowCrossListRootChildren) {
-            throw new Error('TRANSFER_NOT_ALLOWED: Moving attributes between root and child lists is disabled by settings')
+            throw new MetahubDomainError({
+                message: 'Moving attributes between root and child lists is disabled by settings',
+                statusCode: 403,
+                code: 'TRANSFER_NOT_ALLOWED'
+            })
         }
 
         if (!sourceIsRoot && !targetIsRoot && !allowCrossListBetweenChildren) {
-            throw new Error('TRANSFER_NOT_ALLOWED: Moving attributes between child lists is disabled by settings')
+            throw new MetahubDomainError({
+                message: 'Moving attributes between child lists is disabled by settings',
+                statusCode: 403,
+                code: 'TRANSFER_NOT_ALLOWED'
+            })
         }
 
         // 1. Display attribute cannot be moved across lists
         if (attribute.is_display_attribute) {
-            throw new Error(
-                'DISPLAY_ATTRIBUTE_TRANSFER_BLOCKED: Display attribute cannot be moved. Assign another attribute as the display attribute first.'
-            )
+            throw new MetahubDomainError({
+                message: 'Display attribute cannot be moved. Assign another attribute as the display attribute first.',
+                statusCode: 403,
+                code: 'DISPLAY_ATTRIBUTE_TRANSFER_BLOCKED'
+            })
         }
 
         // 2. TABLE attributes can only exist at root level
         if (attribute.data_type === AttributeDataType.TABLE && targetParentId !== null) {
-            throw new Error('TRANSFER_NOT_ALLOWED: TABLE attributes can only exist at the root level')
+            throw new MetahubDomainError({
+                message: 'TABLE attributes can only exist at the root level',
+                statusCode: 403,
+                code: 'TRANSFER_NOT_ALLOWED'
+            })
         }
 
         // 3. If target is a child list, verify parent is TABLE type and data type is allowed
@@ -1224,10 +1290,18 @@ export class MetahubAttributesService {
                 [targetParentId, objectId]
             )
             if (!parentAttr || parentAttr.data_type !== AttributeDataType.TABLE) {
-                throw new Error('TRANSFER_NOT_ALLOWED: Target parent is not a TABLE attribute')
+                throw new MetahubDomainError({
+                    message: 'Target parent is not a TABLE attribute',
+                    statusCode: 403,
+                    code: 'TRANSFER_NOT_ALLOWED'
+                })
             }
             if (!TABLE_CHILD_DATA_TYPES.includes(attribute.data_type)) {
-                throw new Error(`TRANSFER_NOT_ALLOWED: ${attribute.data_type} attributes are not allowed in TABLE children`)
+                throw new MetahubDomainError({
+                    message: `${attribute.data_type} attributes are not allowed in TABLE children`,
+                    statusCode: 403,
+                    code: 'TRANSFER_NOT_ALLOWED'
+                })
             }
 
             const maxChildAttributes = this.getMaxChildAttributesLimit(parentAttr.validation_rules)
@@ -1264,9 +1338,10 @@ export class MetahubAttributesService {
 
         if (await hasConflict(attribute.codename)) {
             if (!autoRenameCodename) {
-                const error: any = new Error(`CODENAME_CONFLICT: Codename "${attribute.codename}" already exists in the target scope`)
-                error.codename = attribute.codename
-                throw error
+                throw new MetahubConflictError(
+                    `Codename "${attribute.codename}" already exists in the target scope`,
+                    { code: 'CODENAME_CONFLICT', codename: attribute.codename }
+                )
             }
 
             // Auto-rename using buildCodenameAttempt() retry loop
@@ -1287,7 +1362,10 @@ export class MetahubAttributesService {
                 }
             }
             if (!renamed) {
-                throw new Error(`CODENAME_CONFLICT: Could not generate unique codename after ${CODENAME_RETRY_MAX_ATTEMPTS} attempts`)
+                throw new MetahubConflictError(
+                    `Could not generate unique codename after ${CODENAME_RETRY_MAX_ATTEMPTS} attempts`,
+                    { code: 'CODENAME_CONFLICT' }
+                )
             }
         }
     }
@@ -1371,10 +1449,14 @@ export class MetahubAttributesService {
 
         const attribute = await this.findById(metahubId, attributeId, userId, runner)
         if (!attribute) {
-            throw new Error('Attribute not found')
+            throw new MetahubNotFoundError('Attribute', attributeId)
         }
         if (attribute.system?.isSystem) {
-            throw new Error('System attributes cannot be used as display attributes')
+            throw new MetahubDomainError({
+                message: 'System attributes cannot be used as display attributes',
+                statusCode: 403,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
         }
 
         // TABLE type attributes cannot be display attributes
@@ -1426,10 +1508,14 @@ export class MetahubAttributesService {
 
         const attribute = await queryOne<Record<string, unknown>>(runner, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
         if (!attribute) {
-            throw new Error('Attribute not found')
+            throw new MetahubNotFoundError('Attribute', attributeId)
         }
         if (attribute.is_system === true) {
-            throw new Error('System attributes cannot be used as display attributes')
+            throw new MetahubDomainError({
+                message: 'System attributes cannot be used as display attributes',
+                statusCode: 403,
+                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+            })
         }
 
         if (attribute.is_display_attribute) {
@@ -1444,7 +1530,7 @@ export class MetahubAttributesService {
             const displayCount = displayCountResult?.count ?? 0
 
             if (displayCount <= 1) {
-                throw new Error('At least one display attribute is required in each scope')
+                throw new MetahubValidationError('At least one display attribute is required in each scope')
             }
         }
 

@@ -159,13 +159,13 @@ describe('Catalogs Routes', () => {
         next()
     }) as RateLimitRequestHandler
 
-    const errorHandler = (err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
+    const errorHandler = (err: Error & { status?: number; statusCode?: number; code?: string; details?: Record<string, unknown> }, _req: Request, res: Response, next: NextFunction) => {
         if (res.headersSent) {
             return next(err)
         }
         const statusCode = err.statusCode || err.status || 500
         const message = err.message || 'Internal Server Error'
-        res.status(statusCode).json({ error: message })
+        res.status(statusCode).json({ error: message, ...(err.code ? { code: err.code } : {}), ...(err.details ?? {}) })
     }
 
     const mockExec = {
@@ -308,7 +308,10 @@ describe('Catalogs Routes', () => {
         })
 
         it('returns 404 when catalog is not found for reorder', async () => {
-            mockObjectsService.reorderByKind.mockRejectedValueOnce(new Error('catalog not found'))
+            const { MetahubNotFoundError } = require('../../domains/shared/domainErrors')
+            mockObjectsService.reorderByKind.mockRejectedValueOnce(
+                new MetahubNotFoundError('catalog', '22222222-2222-4222-8222-222222222222')
+            )
 
             const app = buildApp()
             const response = await request(app)
@@ -319,7 +322,8 @@ describe('Catalogs Routes', () => {
                 })
                 .expect(404)
 
-            expect(response.body.error).toBe('Catalog not found')
+            expect(response.body.error).toBe('catalog not found')
+            expect(response.body.code).toBe('NOT_FOUND')
         })
     })
 

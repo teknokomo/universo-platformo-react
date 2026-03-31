@@ -1,6 +1,7 @@
 import { ApplicationSchemaStatus } from '@universo/types'
 import type { SqlQueryable } from '@universo/utils/database'
 import { persistApplicationSchemaSyncState } from '../../domains/applications/services/ApplicationSchemaStateStore'
+import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
 
 describe('ApplicationSchemaStateStore', () => {
     it('updates application schema state with audit/version fields', async () => {
@@ -67,6 +68,6 @@ describe('ApplicationSchemaStateStore', () => {
                 appStructureVersion: null,
                 userId: null
             })
-        ).rejects.toThrow('Application missing-app not found while persisting schema sync state')
+        ).rejects.toThrow(MetahubNotFoundError)
     })
 })

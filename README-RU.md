@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.56.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.57.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Внимание, пожалуйста, прочитайте это внимательно.**
@@ -63,7 +63,7 @@ Universo Platformo React — это текущая эталонная реали
 
 ## Текущий статус
 
-**Текущая версия**: 0.56.0-alpha (март 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
+**Текущая версия**: 0.57.0-alpha (апрель 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
 
 ## Технологический стек
 
@@ -80,7 +80,7 @@ Universo Platformo React — это текущая эталонная реали
 -   Большинство рабочих пакетов следует соглашению `packages/<name>/base`, а корни пакетов вроде `packages/apps-template-mui` и `packages/universo-rest-docs` предоставляют общую UI-обвязку и сервисы документации.
 -   Бекенд-часть организована вокруг SQL-first рантайма на PostgreSQL/Supabase, модульного миграционного инструментария, утилит описания схем и feature-пакетов для аутентификации, онбординга, профиля, metahubs, applications и администрирования.
 -   Фронтенд-часть организована вокруг React-оболочки, общих пакетов UI/state/i18n и feature-пакетов для онбординга, аутентификации, профиля, metahubs, applications и администрирования.
--   Fixed schemas, runtime metadata и authoring flows теперь сходятся к одному persisted-контракту `codename JSONB` на основе versioned localized content (VLC), а platform migrations переводят legacy dual-field хранение codename в ту же форму.
+-   В доменах metahubs и admin, fixed schemas, runtime metadata и authoring flows сходятся к одному persisted-контракту `codename JSONB` на основе versioned localized content (VLC), а platform migrations переводят legacy dual-field хранение codename в ту же форму.
 -   Репозиторий также содержит сквозную документацию и архитектурные заметки, которые фиксируют активные планы, проверенный прогресс и устойчивые системные паттерны для дальнейшего развития платформы.
 
 ## Функциональность Universo Platformo (в разработке)

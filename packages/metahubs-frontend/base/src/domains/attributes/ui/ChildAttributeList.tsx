@@ -15,7 +15,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { EntityFormDialog, ConfirmDeleteDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
-import { BaseEntityMenu, notifyError, FlowListTable } from '@universo/template-mui'
+import { BaseEntityMenu, notifyError, FlowListTable, useListDialogs } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import { TABLE_CHILD_DATA_TYPES } from '@universo/types'
@@ -251,22 +251,10 @@ const ChildAttributeList = ({
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [isDialogOpen, setDialogOpen] = useState(false)
+    const { dialogs, openCreate, openEdit, openCopy, openDelete, close } = useListDialogs<Attribute>()
     const [dialogError, setDialogError] = useState<string | null>(null)
-    const [editState, setEditState] = useState<{ open: boolean; attribute: Attribute | null }>({
-        open: false,
-        attribute: null
-    })
     const [editDialogError, setEditDialogError] = useState<string | null>(null)
-    const [copyState, setCopyState] = useState<{ open: boolean; attribute: Attribute | null }>({
-        open: false,
-        attribute: null
-    })
     const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
-    const [deleteState, setDeleteState] = useState<{ open: boolean; attribute: Attribute | null }>({
-        open: false,
-        attribute: null
-    })
 
     // Mutation hooks for child attribute actions
     const createChildAttributeMutation = useCreateChildAttribute()
@@ -486,7 +474,7 @@ const ChildAttributeList = ({
                 order: 10,
                 onSelect: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const attr = childAttributeMap.get(ctx.entity.id)
-                    if (attr) setEditState({ open: true, attribute: attr })
+                    if (attr) openEdit(attr)
                 }
             },
             {
@@ -498,7 +486,7 @@ const ChildAttributeList = ({
                 onSelect: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const attr = childAttributeMap.get(ctx.entity.id)
                     if (attr) {
-                        setCopyState({ open: true, attribute: attr })
+                        openCopy(attr)
                     }
                 }
             },
@@ -664,7 +652,7 @@ const ChildAttributeList = ({
                 },
                 onSelect: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const attr = childAttributeMap.get(ctx.entity.id) ?? (ctx.entity as unknown as Attribute)
-                    setDeleteState({ open: true, attribute: attr })
+                    openDelete(attr)
                 }
             }
         ],
@@ -973,7 +961,7 @@ const ChildAttributeList = ({
                 targetEntityKind
             }
 
-            setDialogOpen(false)
+            close('create')
             createChildAttributeMutation.mutate(
                 {
                     metahubId,
@@ -997,7 +985,7 @@ const ChildAttributeList = ({
                                 localizeTableValidationError(e, t, maxChildAttributesLimit) || msg || t('attributes.createError')
                             setDialogError(localizedMsg)
                         }
-                        setDialogOpen(true)
+                        openCreate()
                     },
                     onSettled: () => {
                         void onRefresh?.()
@@ -1021,8 +1009,8 @@ const ChildAttributeList = ({
     }
 
     const handleUpdate = async (data: GenericFormValues) => {
-        if (!editState.attribute) return
-        const currentAttribute = editState.attribute
+        if (!dialogs.edit.item) return
+        const currentAttribute = dialogs.edit.item
         setEditDialogError(null)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -1040,7 +1028,7 @@ const ChildAttributeList = ({
                 return
             }
             const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
-            const dataType = (data.dataType as string) ?? editState.attribute.dataType
+            const dataType = (data.dataType as string) ?? currentAttribute.dataType
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null | undefined) ?? null : null
             const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null | undefined) ?? null : null
             const uiConfig = (data.uiConfig as Record<string, unknown>) ?? {}
@@ -1062,10 +1050,10 @@ const ChildAttributeList = ({
                 uiConfig: normalizedUiConfig,
                 targetEntityId,
                 targetEntityKind,
-                expectedVersion: editState.attribute.version
+                expectedVersion: currentAttribute.version
             }
 
-            setEditState({ open: false, attribute: null })
+            close('edit')
             updateChildAttributeMutation.mutate(
                 {
                     metahubId,
@@ -1083,7 +1071,7 @@ const ChildAttributeList = ({
                                 msg ||
                                 t('attributes.updateError', 'Failed to update attribute')
                         )
-                        setEditState({ open: true, attribute: currentAttribute })
+                        openEdit(currentAttribute)
                     },
                     onSettled: () => {
                         void onRefresh?.()
@@ -1101,8 +1089,8 @@ const ChildAttributeList = ({
     }
 
     const handleCopy = (data: GenericFormValues) => {
-        if (!copyState.attribute) return
-        const currentAttribute = copyState.attribute
+        if (!dialogs.copy.item) return
+        const currentAttribute = dialogs.copy.item
         setCopyDialogError(null)
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
@@ -1121,7 +1109,7 @@ const ChildAttributeList = ({
         }
         const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
 
-        setCopyState({ open: false, attribute: null })
+        close('copy')
         copyChildAttributeMutation.mutate(
             {
                 metahubId,
@@ -1142,7 +1130,7 @@ const ChildAttributeList = ({
                 onError: (e: unknown) => {
                     const msg = extractResponseMessage(e) ?? (e instanceof Error ? e.message : '')
                     setCopyDialogError(msg || t('attributes.copyError', 'Failed to copy attribute'))
-                    setCopyState({ open: true, attribute: currentAttribute })
+                    openCopy(currentAttribute)
                 },
                 onSettled: () => {
                     void onRefresh?.()
@@ -1153,8 +1141,8 @@ const ChildAttributeList = ({
 
     /** Build initial values for edit dialog from the existing attribute. */
     const editInitialValues = useMemo(() => {
-        if (!editState.attribute) return localizedDefaults
-        const attr = editState.attribute
+        if (!dialogs.edit.item) return localizedDefaults
+        const attr = dialogs.edit.item
         return {
             nameVlc: attr.name,
             codename: ensureEntityCodenameContent(attr, i18n.language, attr.codename || ''),
@@ -1171,11 +1159,11 @@ const ChildAttributeList = ({
             validationRules: attr.validationRules ?? {},
             uiConfig: attr.uiConfig ?? {}
         }
-    }, [editState.attribute, localizedDefaults])
+    }, [dialogs.edit.item, localizedDefaults])
 
     const copyInitialValues = useMemo(() => {
-        if (!copyState.attribute) return null
-        const source = copyState.attribute
+        if (!dialogs.copy.item) return null
+        const source = dialogs.copy.item
         const sourceName = getVLCString(source.codename) || 'attribute'
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
@@ -1189,7 +1177,7 @@ const ChildAttributeList = ({
             validationRules: source.validationRules ?? {},
             uiConfig: source.uiConfig ?? {}
         }
-    }, [codenameConfig.alphabet, codenameConfig.style, copyState.attribute, i18n.language])
+    }, [codenameConfig.alphabet, codenameConfig.style, dialogs.copy.item, i18n.language])
 
     // Filtered child attributes (for search) and their display representations
     const filteredChildAttributes = useMemo(() => {
@@ -1245,7 +1233,7 @@ const ChildAttributeList = ({
                             <Button
                                 variant='contained'
                                 size='small'
-                                onClick={() => setDialogOpen(true)}
+                                onClick={() => openCreate()}
                                 startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
                                 sx={{ borderRadius: 1, height: 28, fontSize: 12, textTransform: 'none' }}
                                 disabled={isChildLimitReached}
@@ -1322,7 +1310,7 @@ const ChildAttributeList = ({
                 )}
 
                 <EntityFormDialog
-                    open={isDialogOpen}
+                    open={dialogs.create.open}
                     title={t('attributes.createChildDialog.title', 'Add Child Attribute')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
@@ -1331,7 +1319,7 @@ const ChildAttributeList = ({
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     loading={createChildAttributeMutation.isPending}
                     error={dialogError || undefined}
-                    onClose={() => setDialogOpen(false)}
+                    onClose={() => close('create')}
                     onSave={handleCreate}
                     hideDefaultFields
                     initialExtraValues={localizedDefaults}
@@ -1341,8 +1329,8 @@ const ChildAttributeList = ({
                 />
 
                 <EntityFormDialog
-                    key={`child-edit-${editState.attribute?.id ?? 'none'}-${editState.attribute?.version ?? 0}`}
-                    open={editState.open}
+                    key={`child-edit-${dialogs.edit.item?.id ?? 'none'}-${dialogs.edit.item?.version ?? 0}`}
+                    open={dialogs.edit.open}
                     mode='edit'
                     title={t('attributes.editChildDialog.title', 'Edit Child Attribute')}
                     nameLabel={tc('fields.name', 'Name')}
@@ -1352,7 +1340,7 @@ const ChildAttributeList = ({
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     loading={updateChildAttributeMutation.isPending}
                     error={editDialogError || undefined}
-                    onClose={() => setEditState({ open: false, attribute: null })}
+                    onClose={() => close('edit')}
                     onSave={handleUpdate}
                     hideDefaultFields
                     initialExtraValues={editInitialValues}
@@ -1362,26 +1350,26 @@ const ChildAttributeList = ({
                             true,
                             true,
                             true,
-                            editState.attribute?.isDisplayAttribute ? true : undefined,
-                            editState.attribute?.id ?? null
+                            dialogs.edit.item?.isDisplayAttribute ? true : undefined,
+                            dialogs.edit.item?.id ?? null
                         )
                     }
                     validate={validate}
                     canSave={canSave}
                     showDeleteButton
                     deleteButtonText={tc('actions.delete', 'Delete')}
-                    deleteButtonDisabled={!canDeleteChildAttribute(editState.attribute)}
+                    deleteButtonDisabled={!canDeleteChildAttribute(dialogs.edit.item)}
                     onDelete={() => {
-                        if (editState.attribute) {
-                            setDeleteState({ open: true, attribute: editState.attribute })
-                            setEditState({ open: false, attribute: null })
+                        if (dialogs.edit.item) {
+                            openDelete(dialogs.edit.item)
+                            close('edit')
                         }
                     }}
                 />
 
                 <EntityFormDialog
-                    key={`child-copy-${copyState.attribute?.id ?? 'none'}-${copyState.attribute?.version ?? 0}`}
-                    open={copyState.open}
+                    key={`child-copy-${dialogs.copy.item?.id ?? 'none'}-${dialogs.copy.item?.version ?? 0}`}
+                    open={dialogs.copy.open}
                     mode='copy'
                     title={t('attributes.copyTitle', 'Copy Attribute')}
                     saveButtonText={t('attributes.copy.action', 'Copy')}
@@ -1389,7 +1377,7 @@ const ChildAttributeList = ({
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     loading={copyChildAttributeMutation.isPending}
                     error={copyDialogError || undefined}
-                    onClose={() => setCopyState({ open: false, attribute: null })}
+                    onClose={() => close('copy')}
                     onSave={handleCopy}
                     hideDefaultFields
                     initialExtraValues={copyInitialValues ?? localizedDefaults}
@@ -1399,17 +1387,17 @@ const ChildAttributeList = ({
                 />
 
                 <ConfirmDeleteDialog
-                    open={deleteState.open}
+                    open={dialogs.delete.open}
                     title={t('attributes.deleteDialog.title', 'Delete Attribute')}
                     description={t('attributes.deleteChildDialog.message', 'Are you sure you want to delete this child attribute?')}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setDeleteState({ open: false, attribute: null })}
+                    onCancel={() => close('delete')}
                     onConfirm={() => {
-                        if (!deleteState.attribute) return
-                        const attributeId = deleteState.attribute.id
-                        setDeleteState({ open: false, attribute: null })
+                        if (!dialogs.delete.item) return
+                        const attributeId = dialogs.delete.item.id
+                        close('delete')
                         deleteChildAttributeMutation.mutate(
                             {
                                 metahubId,

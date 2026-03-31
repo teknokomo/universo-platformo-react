@@ -84,6 +84,16 @@ if (!userId) return
 -   **Frontend seam**: metahubs UI does not call the admin settings API directly for this feature; instead it relies on `attributes` list response `meta` plus dedicated `/system` routes in `MainRoutesMUI.tsx` and the catalog views.
 -   **Ordering behavior**: canonical system-row order is preserved by disabling optimistic `moveToFront` behavior for attribute enable/disable mutations.
 
+#### 3.2.4 Metahubs & Applications Shared Abstractions (Refactoring 2026-03-29)
+-   **Backend controller factories**: `createMetahubHandler(services)` injects shared MetahubServices into all domain controllers; `asyncHandler(fn)` wraps async Express handlers for error forwarding.
+-   **Backend domain errors**: `MetahubDomainError` base class + typed subclasses (`NotFoundError`, `ConflictError`, `ValidationError`, `ForbiddenError`) with status codes and error codes.
+-   **Backend pagination**: `paginateItems(items, page, limit)` + `validateListQuery(query)` provide reusable in-memory pagination and Zod-based query validation.
+-   **Frontend error handling**: `createDomainErrorHandler({ errorCodeMap, fallbackKey, t, enqueueSnackbar })` eliminates per-mutation error switch/if chains with a declarative factory.
+-   **Frontend mutation types**: each domain extracts mutation types to `mutationTypes.ts` and display converters to `displayConverters.ts`.
+-   **Frontend hub caching**: `useMetahubHubs(metahubId)` shared hook centralizes hub list queries with 5-min stale time and automatic React Query deduplication, replacing 8 duplicate inline queries.
+-   **Frontend VLC mapping**: `mapBaseVlcFields(entity, locale)` in `@universo/utils` extracts localized name/description/codename from VLC containers for display.
+-   **Test coverage**: domainErrors, queryParams (paginateItems + validateListQuery), asyncHandler, createDomainErrorHandler, mapBaseVlcFields — all tested.
+
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
@@ -248,7 +258,8 @@ if (!userId) return
 -   **Multi-Technology**: AR.js (production), PlayCanvas (ready), extensible system
 
 ## Development Environment
-**Package Management**: PNPM workspaces with monorepo architecture
+**Package Management**: PNPM 10.33.0 workspaces with monorepo architecture
+**Supply Chain Security**: minimumReleaseAge 7 days, blockExoticSubdeps, trustPolicy no-downgrade (see pnpm-workspace.yaml)
 **Build System**: TypeScript + React frontend, Node.js + Express backend
 **Base Platform**: legacy upstream shell 2.2.8 with enhanced ASSISTANT support
 

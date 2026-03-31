@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useState, useMemo, useCallback } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import {
     Box,
     ButtonBase,
@@ -24,7 +24,7 @@ import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -34,34 +34,31 @@ import {
     EmptyListState,
     SkeletonGrid,
     APIEmptySVG,
-    useDebouncedSearch,
     PaginationControls,
     FlowListTable,
     gridSpacing,
     useConfirm,
     LocalizedInlineField,
     CollapsibleSection,
-    revealPendingEntityFeedback
+    revealPendingEntityFeedback,
+    useListDialogs
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { PaginationState, PaginationActions } from '@universo/template-mui'
 
 import { useCreatePublication, useDeletePublication, useSyncPublication, useUpdatePublication } from '../hooks/mutations'
+import { usePublicationListData } from '../hooks/usePublicationListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
-import { usePublicationsList } from '../hooks/usePublications'
-import { useMetahubDetails } from '../../metahubs'
-import type { Publication, PublicationAccessMode } from '../api'
-import { invalidatePublicationsQueries } from '../../shared'
+import { metahubsQueryKeys, invalidatePublicationsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString, type PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import publicationActions from './PublicationActions'
 import { AccessPanel } from './AccessPanel'
+import type { PublicationAccessMode, Publication } from '../api'
 
 type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -122,152 +119,37 @@ const PublicationFormFields = ({
 
 const PublicationList = () => {
     const navigate = useNavigate()
-    const { metahubId } = useParams<{ metahubId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [isDialogOpen, setDialogOpen] = useState(false)
+    const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<Publication>()
     const [view, setView] = useViewPreference(STORAGE_KEYS.PUBLICATION_DISPLAY_STYLE)
 
     const [dialogError, setDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
-    // Use publications list hook
     const {
-        data: publicationsResponse,
+        metahubId,
+        metahub,
+        isMetahubLoading,
+        publications,
         isLoading,
         error,
-        refetch
-    } = usePublicationsList(metahubId ?? '', {
-        enabled: !!metahubId
-    })
-
-    // Fetch metahub details for the create dialog's Metahub tab
-    const { data: metahub, isLoading: isMetahubLoading } = useMetahubDetails(metahubId ?? '', {
-        enabled: !!metahubId
-    })
-
-    const { data: branchesResponse } = useQuery({
-        queryKey: ['metahub-branches', 'options', 'publication', metahubId],
-        queryFn: () => listBranchOptions(metahubId ?? '', { sortBy: 'name', sortOrder: 'asc' }),
-        enabled: !!metahubId
-    })
-
-    const branches = branchesResponse?.items ?? []
-    const defaultBranchId = branchesResponse?.meta?.defaultBranchId ?? branches[0]?.id ?? null
-
-    const getBranchLabel = useCallback(
-        (branchId?: string | null) => {
-            if (!branchId) return ''
-            const branch = branches.find((item) => item.id === branchId)
-            if (!branch) return `${t('publications.versions.branchMissing', 'Deleted branch')} (${branchId})`
-            const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || branch.codename
-            return `${name} (${branch.codename})`
-        },
-        [branches, i18n.language, t]
-    )
-
-    const publications = publicationsResponse?.items ?? []
-
-    // Local (client-side) search + pagination.
-    // Backend list endpoint currently returns all items, so we slice/filter here.
-    const [currentPage, setCurrentPage] = useState(1)
-    const [pageSize, setPageSize] = useState(20)
-    const [searchQuery, setSearchQuery] = useState('')
-
-    const setSearch = useCallback((nextSearch: string) => {
-        setSearchQuery(nextSearch)
-        setCurrentPage(1)
-    }, [])
-
-    const { handleSearchChange } = useDebouncedSearch({
-        onSearchChange: setSearch,
-        delay: 0
-    })
-
-    const filteredPublications = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase()
-        if (!query) return publications
-
-        return publications.filter((publication) => {
-            const name = (getVLCString(publication.name, i18n.language) || '').toLowerCase()
-            const description = (getVLCString(publication.description, i18n.language) || '').toLowerCase()
-            const schemaName = (publication.schemaName || '').toLowerCase()
-            return name.includes(query) || description.includes(query) || schemaName.includes(query)
-        })
-    }, [publications, i18n.language, searchQuery])
-
-    const totalItems = filteredPublications.length
-    const totalPages = totalItems > 0 ? Math.ceil(totalItems / pageSize) : 0
-
-    useEffect(() => {
-        if (totalPages === 0) {
-            if (currentPage !== 1) setCurrentPage(1)
-            return
-        }
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages)
-        }
-    }, [currentPage, totalPages])
-
-    const visiblePublications = useMemo(() => {
-        if (totalItems === 0) return []
-        const start = (currentPage - 1) * pageSize
-        return filteredPublications.slice(start, start + pageSize)
-    }, [currentPage, filteredPublications, pageSize, totalItems])
-
-    const pagination: PaginationState = useMemo(
-        () => ({
-            currentPage,
-            pageSize,
-            totalItems,
-            totalPages,
-            hasNextPage: totalPages > 0 ? currentPage < totalPages : false,
-            hasPreviousPage: currentPage > 1,
-            search: searchQuery
-        }),
-        [currentPage, pageSize, searchQuery, totalItems, totalPages]
-    )
-
-    const paginationActions: PaginationActions = useMemo(
-        () => ({
-            goToPage: (page: number) => {
-                if (totalPages === 0) {
-                    setCurrentPage(1)
-                    return
-                }
-                const safePage = Math.max(1, Math.min(page, totalPages))
-                setCurrentPage(safePage)
-            },
-            nextPage: () => {
-                if (totalPages === 0) return
-                setCurrentPage((p) => Math.min(p + 1, totalPages))
-            },
-            previousPage: () => setCurrentPage((p) => Math.max(p - 1, 1)),
-            setSearch,
-            setSort: () => undefined,
-            setPageSize: (nextSize: number) => {
-                const safeSize = Number.isFinite(nextSize) && nextSize > 0 ? nextSize : 20
-                setPageSize(safeSize)
-                setCurrentPage(1)
-            }
-        }),
-        [setSearch, totalPages]
-    )
-
-    // State for independent ConfirmDeleteDialog
-    const [deleteDialogState, setDeleteDialogState] = useState<{
-        open: boolean
-        publication: Publication | null
-    }>({ open: false, publication: null })
-
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: any } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
+        refetch,
+        branches,
+        defaultBranchId,
+        getBranchLabel,
+        handleSearchChange,
+        searchQuery,
+        visiblePublications,
+        pagination,
+        paginationActions,
+        totalItems,
+        images,
+        publicationMap
+    } = usePublicationListData()
 
     const { confirm } = useConfirm()
 
@@ -275,24 +157,6 @@ const PublicationList = () => {
     const updatePublicationMutation = useUpdatePublication()
     const deletePublicationMutation = useDeletePublication()
     const syncPublicationMutation = useSyncPublication()
-
-    // Memoize images object
-    const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
-        if (Array.isArray(publications)) {
-            publications.forEach((publication) => {
-                if (publication?.id) {
-                    imagesMap[publication.id] = []
-                }
-            })
-        }
-        return imagesMap
-    }, [publications])
-
-    const publicationMap = useMemo(() => {
-        if (!Array.isArray(publications)) return new Map<string, Publication>()
-        return new Map(publications.map((publication) => [publication.id, publication]))
-    }, [publications])
 
     const handlePendingPublicationInteraction = useCallback(
         (publicationId: string) => {
@@ -701,7 +565,7 @@ const PublicationList = () => {
                                 if (isOptimisticLockConflict(error)) {
                                     const conflict = extractConflictInfo(error)
                                     if (conflict) {
-                                        setConflictState({ open: true, conflict, pendingUpdate: { id, patch: data } })
+                                        openConflict({ conflict, pendingUpdate: { id, patch: data } })
                                     }
                                 }
                             }
@@ -729,7 +593,7 @@ const PublicationList = () => {
                     // Find the original publication from the map
                     const publication = publicationMap.get(entity.id)
                     if (publication) {
-                        setDeleteDialogState({ open: true, publication })
+                        openDelete(publication)
                     }
                 },
                 confirm: async (spec: any) => {
@@ -767,7 +631,6 @@ const PublicationList = () => {
             metahubId,
             navigate,
             queryClient,
-            setDeleteDialogState,
             syncPublicationMutation,
             updatePublicationMutation
         ]
@@ -786,15 +649,15 @@ const PublicationList = () => {
     }
 
     const handleAddNew = () => {
-        setDialogOpen(true)
+        openCreate()
     }
 
     const handleDialogClose = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleDialogSave = () => {
-        setDialogOpen(false)
+        close('create')
     }
 
     const handleCreatePublication = (data: Record<string, any>) => {
@@ -1051,7 +914,7 @@ const PublicationList = () => {
 
             <EntityFormDialog
                 key={createDialogKey}
-                open={isDialogOpen}
+                open={dialogs.create.open}
                 title={t('publications.createDialog.title', 'Create Publication')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
@@ -1071,20 +934,20 @@ const PublicationList = () => {
 
             {/* Independent ConfirmDeleteDialog for Publications */}
             <ConfirmDeleteDialog
-                open={deleteDialogState.open}
+                open={dialogs.delete.open}
                 title={t('publications.deleteDialog.title')}
                 description={t('publications.deleteDialog.warning')}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, publication: null })}
+                onCancel={() => close('delete')}
                 onConfirm={() => {
-                    if (!deleteDialogState.publication || !metahubId) return
+                    if (!dialogs.delete.item || !metahubId) return
 
                     deletePublicationMutation.mutate(
                         {
                             metahubId,
-                            publicationId: deleteDialogState.publication.id
+                            publicationId: dialogs.delete.item.id
                         },
                         {
                             onSuccess: () => {
@@ -1108,23 +971,24 @@ const PublicationList = () => {
                 }}
             />
             <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
+                open={dialogs.conflict.open}
+                conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                 onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    close('conflict')
                     if (metahubId) {
                         invalidatePublicationsQueries.all(queryClient, metahubId)
                     }
                 }}
                 onOverwrite={async () => {
-                    if (conflictState.pendingUpdate && metahubId) {
-                        const { id, patch } = conflictState.pendingUpdate
+                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: any } })?.pendingUpdate
+                    if (pendingUpdate && metahubId) {
+                        const { id, patch } = pendingUpdate
                         await updatePublicationMutation.mutateAsync({
                             metahubId,
                             publicationId: id,
                             data: patch
                         })
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        close('conflict')
                     }
                 }}
                 isLoading={updatePublicationMutation.isPending}
