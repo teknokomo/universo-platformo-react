@@ -358,6 +358,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                                     disabled={isLoading || deleteButtonDisabled}
                                     color='error'
                                     aria-label={deleteButtonText}
+                                    data-testid='entity-form-delete'
                                     title={deleteButtonText}
                                     sx={{ mr: 'auto' }}
                                 >
@@ -370,6 +371,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                                     variant='outlined'
                                     color='error'
                                     startIcon={<DeleteIcon />}
+                                    data-testid='entity-form-delete'
                                     sx={{ borderRadius: 1, mr: 'auto' }}
                                 >
                                     {deleteButtonText}
@@ -383,12 +385,13 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
 
                 {/* Action buttons */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button onClick={handleClose} disabled={isLoading} sx={{ borderRadius: 1 }}>
+                    <Button onClick={handleClose} disabled={isLoading} data-testid='entity-form-cancel' sx={{ borderRadius: 1 }}>
                         {cancelButtonText}
                     </Button>
                     <Button
                         onClick={handleSave}
                         variant='contained'
+                        data-testid='entity-form-submit'
                         disabled={isLoading || isSubmitDisabled}
                         sx={{
                             borderRadius: 1,

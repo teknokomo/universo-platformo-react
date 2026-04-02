@@ -59,4 +59,5 @@
 ## Руководства
 
 * [Обзор](guides/README.md)
+* [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Обновление схем системных приложений](guides/updating-system-app-schemas.md)

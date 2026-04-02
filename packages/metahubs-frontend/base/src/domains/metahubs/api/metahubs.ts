@@ -4,6 +4,7 @@ import {
     Metahub,
     MetahubMember,
     MetahubAssignableRole,
+    MetahubMembersResponse,
     PaginationParams,
     PaginatedResponse,
     MetahubLocalizedPayload,
@@ -72,7 +73,7 @@ export const copyMetahub = (id: string, data: MetahubCopyInput = {}) => apiClien
 // ============ METAHUB MEMBERS ============
 
 export const listMetahubMembers = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetahubMember>> => {
-    const response = await apiClient.get<{ members: MetahubMember[]; total: number; limit?: number; offset?: number }>(
+    const response = await apiClient.get<MetahubMembersResponse & { total: number; limit?: number; offset?: number }>(
         `/metahub/${metahubId}/members`,
         {
             params: {
@@ -99,6 +100,10 @@ export const listMetahubMembers = async (metahubId: string, params?: PaginationP
             offset,
             count,
             hasMore: offset + count < total
+        },
+        meta: {
+            role: response.data.role,
+            permissions: response.data.permissions
         }
     }
 }

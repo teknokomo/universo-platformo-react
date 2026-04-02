@@ -9,12 +9,15 @@ import {
     FlowListTable,
     PaginationControls,
     EmptyListState,
-    APIEmptySVG
+    APIEmptySVG,
+    PAGE_CONTENT_GUTTER_MX
 } from '@universo/template-mui'
 import type { PaginationActions, PaginationState } from '@universo/template-mui'
 import { useMetahubMigrationsList, useMetahubMigrationsPlan, useApplyMetahubMigrations } from '../hooks'
 import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString } from '../../../types'
+
+const METAHUB_MIGRATIONS_BRANCH_SELECT_TEST_ID = 'metahub-migrations-branch-select'
 
 type MigrationDisplayRow = {
     id: string
@@ -43,6 +46,7 @@ const MetahubMigrations = () => {
     })
 
     const branches = useMemo(() => branchesResponse?.items ?? [], [branchesResponse?.items])
+    const branchLabelId = 'metahub-migrations-branch-label'
 
     const effectiveBranchId = useMemo(
         () => branchId ?? branchesResponse?.meta?.activeBranchId ?? branchesResponse?.meta?.defaultBranchId ?? branches[0]?.id,
@@ -230,11 +234,13 @@ const MetahubMigrations = () => {
             <Stack flexDirection='column' sx={{ gap: 1 }}>
                 <ViewHeader title={t('metahubs:migrations.title', 'Migrations')} />
 
-                <Stack sx={{ pb: 2, mx: { xs: -1.5, md: -2 } }} spacing={2}>
+                <Stack sx={{ pb: 2, mx: PAGE_CONTENT_GUTTER_MX }} spacing={2}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
                         <FormControl size='small' sx={{ minWidth: 320 }}>
-                            <InputLabel>{t('metahubs:migrations.branchLabel', 'Branch')}</InputLabel>
+                            <InputLabel id={branchLabelId}>{t('metahubs:migrations.branchLabel', 'Branch')}</InputLabel>
                             <Select
+                                labelId={branchLabelId}
+                                data-testid={METAHUB_MIGRATIONS_BRANCH_SELECT_TEST_ID}
                                 value={effectiveBranchId ?? ''}
                                 label={t('metahubs:migrations.branchLabel', 'Branch')}
                                 onChange={(event) => {
@@ -244,7 +250,9 @@ const MetahubMigrations = () => {
                             >
                                 {branches.map((item) => (
                                     <MenuItem key={item.id} value={item.id}>
-                                        {`${getVLCString(item.name, i18n.language) || item.codename} (${item.codename})`}
+                                        {`${getVLCString(item.name, i18n.language) || getVLCString(item.codename, i18n.language) || ''} (${
+                                            getVLCString(item.codename, i18n.language) || ''
+                                        })`}
                                     </MenuItem>
                                 ))}
                             </Select>

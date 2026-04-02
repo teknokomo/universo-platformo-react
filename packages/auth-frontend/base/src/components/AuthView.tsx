@@ -362,6 +362,7 @@ export const AuthView = ({
                                     value={email}
                                     onChange={(event) => setEmail(event.target.value)}
                                     disabled={submitting}
+                                    inputProps={{ 'data-testid': 'auth-email-input' }}
                                     InputProps={{ startAdornment: adornment.email }}
                                 />
                                 <TextField
@@ -371,6 +372,7 @@ export const AuthView = ({
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
                                     disabled={submitting}
+                                    inputProps={{ 'data-testid': 'auth-password-input' }}
                                     InputProps={{ startAdornment: adornment.password }}
                                 />
 
@@ -446,6 +448,7 @@ export const AuthView = ({
                                     variant='contained'
                                     color='primary'
                                     size='large'
+                                    data-testid='auth-submit-button'
                                     disabled={submitting || isConsentBlockingRegister || isCaptchaBlocking}
                                     startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
                                 >

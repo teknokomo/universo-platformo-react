@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import { ensureAuthenticated, getSupabaseForReq, ensureAndRefresh, type AuthenticatedRequest } from '../services/supabaseSession'
 import { createPermissionService } from '../services/permissionService'
+import { resolveSupabasePublicKey } from '../utils/resolveSupabasePublicKey'
 import {
     validateCaptcha,
     getCaptchaConfig,
@@ -187,7 +188,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
         let createdUserId: string | null = null
 
         try {
-            const supa = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
+            const supa = createClient(process.env.SUPABASE_URL as string, resolveSupabasePublicKey(), {
                 auth: { persistSession: false }
             })
 

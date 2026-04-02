@@ -501,7 +501,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             }
         })
         return payload
-    }, [fields, formData, resolveValuePresent])
+    }, [fields, formData, normalizedLocale, resolveValuePresent])
 
     const handleSubmit = async () => {
         if (hasMissingRequired) return
@@ -1263,6 +1263,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
                 {showDeleteButton ? (
                     <Button
+                        data-testid='entity-form-delete'
                         onClick={deleteButtonDisabled ? undefined : onDelete}
                         disabled={isSubmitting || deleteButtonDisabled}
                         variant='outlined'
@@ -1273,10 +1274,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     </Button>
                 ) : null}
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button onClick={onClose} disabled={isSubmitting}>
+                    <Button data-testid='entity-form-cancel' onClick={onClose} disabled={isSubmitting}>
                         {cancelButtonText}
                     </Button>
                     <Button
+                        data-testid='entity-form-submit'
                         onClick={handleSubmit}
                         variant='contained'
                         disabled={isSubmitDisabled}

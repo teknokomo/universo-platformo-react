@@ -15,7 +15,7 @@ export function createBranchesRoutes(
   router.use(ensureAuth)
 
   const createHandler = createMetahubHandlerFactory(getDbExecutor)
-  const ctrl = createBranchesController(createHandler)
+  const ctrl = createBranchesController(createHandler, getDbExecutor)
 
   router.get('/metahub/:metahubId/branches/options', readLimiter, asyncHandler(ctrl.listOptions))
   router.get('/metahub/:metahubId/branches', readLimiter, asyncHandler(ctrl.list))

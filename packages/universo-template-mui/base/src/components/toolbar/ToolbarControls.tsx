@@ -49,7 +49,7 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
     const { t } = useTranslation()
     // isSuperuser = user has is_superuser=true role (full bypass)
     // hasAnyGlobalRole = user has any global role (metaeditor, etc.)
-    const { isSuperuser, hasAnyGlobalRole } = useHasGlobalAccess()
+    const { isSuperuser } = useHasGlobalAccess()
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [primaryActionMenuAnchor, setPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null)
 
@@ -145,11 +145,13 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
                                     onClick={primaryAction.onClick}
                                     disabled={primaryAction.disabled}
                                     startIcon={primaryAction.startIcon}
+                                    data-testid='toolbar-primary-action'
                                     sx={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
                                 >
                                     {primaryAction.label}
                                 </Button>
                                 <Button
+                                    data-testid='toolbar-primary-action-menu-trigger'
                                     aria-label={primaryActionMenuAriaLabel}
                                     aria-controls={isPrimaryActionMenuOpen ? 'toolbar-primary-action-menu' : undefined}
                                     aria-haspopup='menu'
@@ -191,6 +193,7 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
                             onClick={primaryAction.onClick}
                             disabled={primaryAction.disabled}
                             startIcon={primaryAction.startIcon}
+                            data-testid='toolbar-primary-action'
                             sx={{ borderRadius: 1, height: 40 }}
                         >
                             {primaryAction.label}

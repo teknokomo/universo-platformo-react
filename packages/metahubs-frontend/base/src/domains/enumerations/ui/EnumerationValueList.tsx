@@ -41,12 +41,7 @@ import type { EnumerationActionContext, EnumerationDisplayWithHub } from './Enum
 import { useUpdateEnumerationAtMetahub } from '../hooks'
 import { useMetahubHubs } from '../../hubs/hooks'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import type {
-    EnumerationValue,
-    EnumerationValueDisplay,
-    Enumeration,
-    EnumerationLocalizedPayload
-} from '../../../types'
+import type { EnumerationValue, EnumerationValueDisplay, Enumeration, EnumerationLocalizedPayload } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
 import {
     normalizeLocale,
@@ -627,14 +622,26 @@ const EnumerationValueList = () => {
 
     const initialFormValues = useMemo<ValueFormValues>(() => {
         if (!dialogs.edit.item) return formDefaults
+        const normalizedName =
+            ensureLocalizedContent(
+                dialogs.edit.item.name ?? null,
+                i18n.language,
+                getVLCString(dialogs.edit.item.name, i18n.language) || dialogs.edit.item.codename || ''
+            ) ?? null
+        const normalizedDescription =
+            ensureLocalizedContent(
+                dialogs.edit.item.description ?? null,
+                i18n.language,
+                getVLCString(dialogs.edit.item.description, i18n.language) || ''
+            ) ?? null
         return {
-            nameVlc: dialogs.edit.item.name ?? null,
-            descriptionVlc: dialogs.edit.item.description ?? null,
+            nameVlc: normalizedName,
+            descriptionVlc: normalizedDescription,
             codename: ensureEntityCodenameContent(dialogs.edit.item, i18n.language, dialogs.edit.item.codename || ''),
             codenameTouched: true,
             isDefault: dialogs.edit.item.isDefault ?? false
         }
-    }, [dialogs.edit.item, formDefaults])
+    }, [dialogs.edit.item, formDefaults, i18n.language])
 
     const copyInitialValues = useMemo<CopyValueFormValues>(() => {
         if (!dialogs.copy.item) {
@@ -648,9 +655,11 @@ const EnumerationValueList = () => {
         }
         const source = dialogs.copy.item
         const sourceName = getVLCString(source.codename) || 'value'
+        const normalizedDescription =
+            ensureLocalizedContent(source.description ?? null, i18n.language, getVLCString(source.description, i18n.language) || '') ?? null
         return {
             nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
-            descriptionVlc: source.description ?? null,
+            descriptionVlc: normalizedDescription,
             codename: null,
             codenameTouched: false,
             isDefault: false
@@ -695,14 +704,14 @@ const EnumerationValueList = () => {
 
         const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameValue = formValues.codename as VersionedLocalizedContent<string> | null | undefined
+        const codenameValue = formValues.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
-    const codenameRaw = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
-    const codename = normalizeCodenameForStyle(codenameRaw, codenameConfig.style, codenameConfig.alphabet)
+        const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+        const codenameRaw = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+        const codename = normalizeCodenameForStyle(codenameRaw, codenameConfig.style, codenameConfig.alphabet)
         const isDefault = Boolean(formValues.isDefault)
-    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
         if (!nameInput || !namePrimaryLocale) {
             setDialogError(tc('crud.nameRequired', 'Name is required'))

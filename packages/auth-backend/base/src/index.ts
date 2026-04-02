@@ -4,12 +4,13 @@ export { ensureAuthenticated, ensureAndRefresh, getSupabaseForReq } from './serv
 export { ensureAuth } from './middlewares/ensureAuth'
 export { createEnsureAuthWithRls } from './middlewares/ensureAuthWithRls'
 export { applyRlsContext } from './utils/rlsContext'
+export { assertSupabaseJwtVerificationConfig, verifySupabaseJwt } from './utils/verifySupabaseJwt'
 export type { SessionTokens, AuthenticatedRequest, SessionWithTokens } from './services/supabaseSession'
 export type { RequestWithDbContext, EnsureAuthWithRlsOptions } from './middlewares/ensureAuthWithRls'
+export type { VerifiedSupabaseJwtClaims } from './utils/verifySupabaseJwt'
 
 /**
  * Plain row type for auth.users table (read-only, Supabase-managed).
- * Replaces the former TypeORM AuthUser entity.
  */
 export interface AuthUserRow {
     id: string

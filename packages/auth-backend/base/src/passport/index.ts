@@ -1,6 +1,7 @@
 import passport from 'passport'
 import { Strategy as LocalStrategy } from 'passport-local'
 import { createClient } from '@supabase/supabase-js'
+import { resolveSupabasePublicKey } from '../utils/resolveSupabasePublicKey'
 
 // Universo Platformo | Passport Local Strategy using Supabase as IdP
 passport.use(
@@ -9,7 +10,7 @@ passport.use(
         async (email: string, password: string, done: (error: unknown, user?: any, info?: any) => void) => {
             try {
                 // Create a per-request client without persistence
-                const supa = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
+                const supa = createClient(process.env.SUPABASE_URL as string, resolveSupabasePublicKey(), {
                     auth: { persistSession: false }
                 })
                 const { data, error } = await supa.auth.signInWithPassword({ email, password })

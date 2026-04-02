@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
+import { Box } from '@mui/material'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { createLocalizedContent } from '@universo/utils'
 import { sanitizeCodename } from '@universo/utils/validation/codename'
@@ -63,10 +64,7 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({
     localizedEnabled = true
 }) => {
     // Always provide a valid VLC so LocalizedInlineField never fires its auto-init effect.
-    const effectiveValue = useMemo(
-        () => value ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
-        [value, uiLocale]
-    )
+    const effectiveValue = useMemo(() => value ?? createLocalizedContent(normalizeLocale(uiLocale), ''), [value, uiLocale])
 
     // Only mark as "touched" when user types actual content (non-empty primary).
     // This prevents auto-init from marking the field as touched.
@@ -86,20 +84,22 @@ export const CodenameField: React.FC<CodenameFieldProps> = ({
     )
 
     return (
-        <LocalizedInlineField
-            mode={localizedEnabled ? 'localized' : 'versioned'}
-            label={label}
-            value={effectiveValue}
-            onChange={handleLocalizedChange}
-            required={required}
-            disabled={disabled}
-            error={error || null}
-            helperText={error || helperText}
-            uiLocale={uiLocale}
-            normalizeOnBlur={effectiveNormalizeOnBlur}
-            maxLength={100}
-            autoInitialize={false}
-        />
+        <Box data-testid='codename-field' data-codename-mode={localizedEnabled ? 'localized' : 'versioned'}>
+            <LocalizedInlineField
+                mode={localizedEnabled ? 'localized' : 'versioned'}
+                label={label}
+                value={effectiveValue}
+                onChange={handleLocalizedChange}
+                required={required}
+                disabled={disabled}
+                error={error || null}
+                helperText={error || helperText}
+                uiLocale={uiLocale}
+                normalizeOnBlur={effectiveNormalizeOnBlur}
+                maxLength={100}
+                autoInitialize={false}
+            />
+        </Box>
     )
 }
 

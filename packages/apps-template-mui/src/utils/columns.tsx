@@ -22,6 +22,8 @@ export interface ToGridColumnsOptions {
     cellRenderers?: CellRendererOverrides
 }
 
+const buildGridRowActionsTriggerTestId = (rowId: string) => `grid-row-actions-trigger-${rowId}`
+
 /**
  * Convert API column definitions into MUI DataGrid `GridColDef[]`.
  *
@@ -130,6 +132,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                 >
                     <IconButton
                         size='small'
+                        data-testid={buildGridRowActionsTriggerTestId(String(params.row.id))}
                         aria-label={options.actionsAriaLabel ?? 'Actions'}
                         onClick={(e) => {
                             e.stopPropagation()

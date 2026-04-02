@@ -208,7 +208,20 @@ export default function RoleFormDialog({
             copyPermissions: showCopyPermissions ? copyPermissions : undefined,
             isSuperuser: showIsSuperuser ? isSuperuser : undefined
         }
-    }, [codename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed, color, copyPermissions, description, isSuperuser, name, showCopyPermissions, showIsSuperuser, t])
+    }, [
+        codename,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        color,
+        copyPermissions,
+        description,
+        isSuperuser,
+        name,
+        showCopyPermissions,
+        showIsSuperuser,
+        t
+    ])
 
     const handleSubmit = useCallback(async () => {
         const payload = validate()

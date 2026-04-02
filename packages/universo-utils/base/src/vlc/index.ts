@@ -217,9 +217,18 @@ export function enforceSingleLocaleCodename(
 ): VersionedLocalizedContent<string> {
     if (localizedEnabled !== false) return vlc
     const primary = vlc._primary
-    const localeKeys = Object.keys(vlc).filter((k) => k !== '_primary')
-    if (localeKeys.length <= 1) return vlc
-    return { _primary: primary, [primary]: vlc[primary] ?? '' } as VersionedLocalizedContent<string>
+    const primaryEntry = vlc.locales?.[primary]
+    const localeKeys = Object.keys(vlc.locales ?? {})
+
+    if (!primaryEntry || localeKeys.length <= 1) return vlc
+
+    return {
+        _schema: vlc._schema,
+        _primary: primary,
+        locales: {
+            [primary]: primaryEntry
+        }
+    }
 }
 
 // Re-export sanitize utilities for backend use

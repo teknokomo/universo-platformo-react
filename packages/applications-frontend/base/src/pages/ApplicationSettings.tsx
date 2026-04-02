@@ -5,13 +5,34 @@ import { Alert, Box, Button, CircularProgress, Stack, Tab, Tabs, TextField, Typo
 import SaveIcon from '@mui/icons-material/Save'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
-import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
+import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import { getApplicationWorkspaceLimits, updateApplicationWorkspaceLimits } from '../api/applications'
-import { toApplicationDisplay, type ApplicationWorkspaceLimitItem } from '../types'
+import { toApplicationDisplay, type ApplicationWorkspaceLimitItem, type SchemaStatus } from '../types'
 
 type SettingsTab = 'general' | 'limits'
+
+const RUNTIME_SCHEMA_READY_STATUSES = new Set<SchemaStatus | 'ready'>([
+    'synced',
+    'outdated',
+    'update_available',
+    'maintenance',
+    'error',
+    'ready'
+])
+
+const hasInitializedRuntimeSchema = (schemaName?: string | null, schemaStatus?: SchemaStatus | null): boolean => {
+    if (!schemaName) {
+        return false
+    }
+
+    if (!schemaStatus) {
+        return false
+    }
+
+    return RUNTIME_SCHEMA_READY_STATUSES.has(schemaStatus as SchemaStatus | 'ready')
+}
 
 const ApplicationSettings = () => {
     const { applicationId } = useParams<{ applicationId: string }>()
@@ -25,8 +46,8 @@ const ApplicationSettings = () => {
         enabled: Boolean(applicationId)
     })
     const applicationDisplay = applicationQuery.data ? toApplicationDisplay(applicationQuery.data, i18n.language) : null
-    const hasRuntimeSchema = Boolean(applicationQuery.data?.schemaName)
-    const supportsWorkspaceLimits = hasRuntimeSchema && applicationQuery.data?.workspacesEnabled === true
+    const runtimeSchemaReady = hasInitializedRuntimeSchema(applicationQuery.data?.schemaName, applicationQuery.data?.schemaStatus)
+    const supportsWorkspaceLimits = runtimeSchemaReady && applicationQuery.data?.workspacesEnabled === true
 
     const limitsQuery = useQuery({
         queryKey: applicationId
@@ -91,17 +112,17 @@ const ApplicationSettings = () => {
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
             <ViewHeader title={t('settings.title', 'Application Settings')} description={applicationDisplay.name} search={false} />
 
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+            <Box data-testid='application-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={(_, value: SettingsTab) => setActiveTab(value)}>
                     <Tab value='general' label={t('settings.tabs.general', 'General')} />
                     <Tab value='limits' label={t('settings.tabs.limits', 'Limits')} />
                 </Tabs>
             </Box>
 
-            <Box sx={{ p: 2 }}>
+            <Box data-testid='application-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
                 {activeTab === 'general' ? (
                     <Stack spacing={2}>
-                        {!hasRuntimeSchema ? (
+                        {!runtimeSchemaReady ? (
                             <Alert severity='info'>
                                 {t(
                                     'settings.requiresSchema',
@@ -130,7 +151,7 @@ const ApplicationSettings = () => {
                             )}
                         </Alert>
 
-                        {!hasRuntimeSchema ? (
+                        {!runtimeSchemaReady ? (
                             <Alert severity='info'>
                                 {t(
                                     'settings.limitsRequiresSchema',
@@ -155,6 +176,7 @@ const ApplicationSettings = () => {
                                 {effectiveLimits.map((item) => (
                                     <Box
                                         key={item.objectId}
+                                        data-testid={`application-settings-limit-card-${item.objectId}`}
                                         sx={{
                                             display: 'grid',
                                             gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 180px' },
@@ -182,7 +204,10 @@ const ApplicationSettings = () => {
                                                     [item.objectId]: event.target.value
                                                 }))
                                             }
-                                            inputProps={{ min: 1 }}
+                                            inputProps={{
+                                                min: 1,
+                                                'data-testid': `application-settings-limit-input-${item.objectId}`
+                                            }}
                                             helperText={t('settings.emptyMeansUnlimited', 'Leave empty for unlimited')}
                                         />
                                     </Box>
@@ -190,6 +215,7 @@ const ApplicationSettings = () => {
 
                                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                                     <Button
+                                        data-testid='application-settings-limits-save'
                                         variant='contained'
                                         startIcon={<SaveIcon />}
                                         onClick={() => saveLimitsMutation.mutate(limitsQuery.data ?? [])}

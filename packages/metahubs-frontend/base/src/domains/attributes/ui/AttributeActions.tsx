@@ -69,7 +69,13 @@ const canDeleteAttributeEntity = (ctx: ActionContext<AttributeDisplay, Attribute
     return displayCount > 1
 }
 
-import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import {
+    extractLocalizedInput,
+    ensureLocalizedContent,
+    ensureEntityCodenameContent,
+    hasPrimaryContent,
+    normalizeLocale
+} from '../../../utils/localizedInput'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 
 const ATTRIBUTE_DATA_TYPES = new Set<Attribute['dataType']>(['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'])
@@ -634,7 +640,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                         if (!hasPrimaryContent(nameVlc)) {
                             errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
                         }
-                        const codename = normalizeCodenameForStyle(String(values.codename ?? ''), cc.style, cc.alphabet)
+                        const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+                        const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+                        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+                        const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
                         if (!codename) {
                             errors.codename = ctx.t('attributes.validation.codenameRequired', 'Codename is required')
                         } else if (!isValidCodenameForStyle(codename, cc.style, cc.alphabet, cc.allowMixed)) {
@@ -644,7 +653,11 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     },
                     canSave: (values: GenericFormValues) => {
                         const cc = _cc(values)
-                        const codename = normalizeCodenameForStyle(String(values.codename ?? ''), cc.style, cc.alphabet)
+                        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+                        const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+                        const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
+                        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+                        const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
                         return (
                             !values._hasCodenameDuplicate &&
                             Boolean(codename) &&
@@ -655,9 +668,19 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     onSave: async (values: GenericFormValues) => {
                         const cc = _cc(values)
                         try {
-                            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(values.nameVlc)
+                            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+                            const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
+                            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+                            const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+                            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+                            const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+                            const codenamePayload = ensureLocalizedContent(
+                                codenameValue,
+                                namePrimaryLocale ?? codenamePrimaryLocale,
+                                codename || ''
+                            )
                             const payload: Record<string, unknown> = {
-                                codename: normalizeCodenameForStyle(String(values.codename ?? ''), cc.style, cc.alphabet),
+                                codename: codenamePayload,
                                 name: nameInput ?? {},
                                 namePrimaryLocale,
                                 validationRules: values.validationRules ?? {},

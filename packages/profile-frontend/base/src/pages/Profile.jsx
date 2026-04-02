@@ -273,6 +273,7 @@ const Profile = () => {
                                     onChange={(e) => setProfile({ ...profile, nickname: e.target.value })}
                                     disabled={profileLoading}
                                     required
+                                    inputProps={{ 'data-testid': 'profile-nickname-input' }}
                                     helperText={t('nicknameHelp')}
                                 />
                             </Grid>
@@ -283,6 +284,7 @@ const Profile = () => {
                                     value={profile.first_name}
                                     onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
                                     disabled={profileLoading}
+                                    inputProps={{ 'data-testid': 'profile-first-name-input' }}
                                 />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
@@ -292,10 +294,11 @@ const Profile = () => {
                                     value={profile.last_name}
                                     onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
                                     disabled={profileLoading}
+                                    inputProps={{ 'data-testid': 'profile-last-name-input' }}
                                 />
                             </Grid>
                             <Grid size={12}>
-                                <Button type='submit' variant='contained' disabled={profileLoading}>
+                                <Button type='submit' variant='contained' data-testid='profile-update-submit' disabled={profileLoading}>
                                     {profileLoading ? t('updating') : t('updateProfile')}
                                 </Button>
                             </Grid>

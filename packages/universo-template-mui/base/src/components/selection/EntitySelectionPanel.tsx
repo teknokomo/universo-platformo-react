@@ -262,6 +262,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                         startIcon={<AddIcon />}
                         onClick={handleOpenPicker}
                         disabled={disabled || !canAddMore || availableForSelection.length === 0}
+                        data-testid='entity-selection-add-button'
                     >
                         {labels.addButton}
                     </Button>
@@ -374,6 +375,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                             placeholder={labels.searchPlaceholder}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            data-testid='entity-selection-search'
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position='start'>
@@ -389,7 +391,11 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                         {filteredEntities.length > 0 ? (
                             filteredEntities.map((entity) => (
                                 <ListItem key={entity.id} disablePadding>
-                                    <ListItemButton onClick={() => handleTogglePending(entity.id)} dense>
+                                    <ListItemButton
+                                        onClick={() => handleTogglePending(entity.id)}
+                                        dense
+                                        data-testid={`entity-selection-option-${entity.id}`}
+                                    >
                                         <ListItemIcon sx={{ minWidth: 36 }}>
                                             <Checkbox edge='start' checked={pendingSelection.includes(entity.id)} disableRipple />
                                         </ListItemIcon>
@@ -410,7 +416,12 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClosePicker}>{labels.cancelButton}</Button>
-                    <Button onClick={handleConfirmSelection} variant='contained' disabled={pendingSelection.length === 0}>
+                    <Button
+                        onClick={handleConfirmSelection}
+                        variant='contained'
+                        disabled={pendingSelection.length === 0}
+                        data-testid='entity-selection-confirm'
+                    >
                         {labels.confirmButton} ({pendingSelection.length})
                     </Button>
                 </DialogActions>

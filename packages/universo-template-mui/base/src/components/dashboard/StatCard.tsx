@@ -14,7 +14,7 @@ import { areaElementClasses } from '@mui/x-charts/LineChart'
  * When value is 0, returns a flat array of zeros.
  * When value > 0, returns a smooth growth curve from near 0 to the current value.
  */
-export function buildRealisticTrendData(currentValue: number, points: number = 30): number[] {
+export function buildRealisticTrendData(currentValue: number, points = 30): number[] {
     if (points <= 0) return []
     if (points === 1) return [currentValue <= 0 ? 0 : currentValue]
     if (currentValue <= 0) {
@@ -41,6 +41,7 @@ export type StatCardProps = {
      * @example ['Day 1', 'Day 2', 'Day 3', ...]
      */
     xAxisLabels?: string[]
+    dataTestId?: string
 }
 
 function buildXAxisLabels(dataLength: number, labels: string[]) {
@@ -81,7 +82,17 @@ function AreaGradient({ color, id }: { color: string; id: string }) {
     )
 }
 
-export default function StatCard({ title, value, interval, trend, trendPercentage, description, data, xAxisLabels }: StatCardProps) {
+export default function StatCard({
+    title,
+    value,
+    interval,
+    trend,
+    trendPercentage,
+    description,
+    data,
+    xAxisLabels,
+    dataTestId
+}: StatCardProps) {
     const theme = useTheme()
     const gradientId = useId()
 
@@ -110,7 +121,7 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
     const defaultTrendValues = { up: '+25%', down: '-25%', neutral: '+5%' }
 
     return (
-        <Card variant='outlined' sx={{ height: '100%', flexGrow: 1 }}>
+        <Card variant='outlined' sx={{ height: '100%', flexGrow: 1 }} data-testid={dataTestId}>
             <CardContent sx={{ pb: 2, '&:last-child': { pb: 2 } }}>
                 <Typography component='h2' variant='subtitle2' gutterBottom noWrap title={title}>
                     {title}

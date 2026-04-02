@@ -4,8 +4,7 @@ import { qSchemaTable, qColumn } from '@universo/database'
 /**
  * SQL-first soft delete helpers for metahubs-backend.
  *
- * Replaces the TypeORM-based queryHelpers.ts with neutral functions
- * that accept SqlQueryable and work with raw SQL.
+ * Neutral functions that accept SqlQueryable and work with raw SQL.
  */
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -201,7 +201,7 @@ const ConnectorBoard = () => {
                 <Grid container spacing={3} columns={12}>
                     {/* Schema Status Card */}
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <Card variant='outlined'>
+                        <Card variant='outlined' data-testid='application-connector-board-schema-card'>
                             <CardContent>
                                 <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 2 }}>
                                     <StorageIcon color='primary' />
@@ -225,6 +225,7 @@ const ConnectorBoard = () => {
 
                                 <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
                                     <Button
+                                        data-testid='application-connector-board-sync-button'
                                         variant='contained'
                                         color='primary'
                                         startIcon={<SyncIcon />}
@@ -240,6 +241,7 @@ const ConnectorBoard = () => {
                                     </Button>
                                 </Box>
                                 <Button
+                                    data-testid='application-connector-board-view-migrations'
                                     variant='outlined'
                                     startIcon={<HistoryIcon />}
                                     onClick={() => navigate(`/a/${applicationId}/admin/migrations`)}
@@ -254,7 +256,7 @@ const ConnectorBoard = () => {
 
                     {/* Details Card */}
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <Card variant='outlined'>
+                        <Card variant='outlined' data-testid='application-connector-board-details-card'>
                             <CardContent>
                                 <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 2 }}>
                                     <InfoOutlinedIcon color='primary' />

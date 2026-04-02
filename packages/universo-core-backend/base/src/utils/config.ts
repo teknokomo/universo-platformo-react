@@ -1,15 +1,16 @@
 // BEWARE: This file is an intereem solution until we have a proper config strategy
 
 import path from 'path'
-import dotenv from 'dotenv'
+import { getBackendRootDir, loadBackendEnv } from './env'
 
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env'), override: true })
+loadBackendEnv()
 
 const resolveLogLevel = () => process.env.LOG_LEVEL ?? 'info'
+const backendRootDir = getBackendRootDir()
 
 // default config
 const loggingConfig = {
-    dir: process.env.LOG_PATH ?? path.join(__dirname, '..', '..', 'logs'),
+    dir: process.env.LOG_PATH ?? path.join(backendRootDir, 'logs'),
     server: {
         level: resolveLogLevel(),
         filename: 'server.log',

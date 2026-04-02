@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { CodenameVLCSchema, LocalizedStringSchema, LocalizedStringOptionalSchema } from '@universo/types'
+import { isValidCodenameForStyle } from '@universo/utils/validation/codename'
 
-const ROLE_CODENAME_PATTERN = /^[a-z][a-z0-9_-]*$/
+const LEGACY_ROLE_CODENAME_PATTERN = /^[a-z][a-z0-9_-]*$/
 
 export const RoleCodenameSchema = CodenameVLCSchema.superRefine((value, ctx) => {
     const primaryContent = value.locales[value._primary]?.content?.trim() ?? ''
@@ -22,11 +23,15 @@ export const RoleCodenameSchema = CodenameVLCSchema.superRefine((value, ctx) => 
         })
     }
 
-    if (primaryContent.length > 0 && !ROLE_CODENAME_PATTERN.test(primaryContent)) {
+    const matchesConfiguredStyle = isValidCodenameForStyle(primaryContent, 'pascal-case', 'en-ru', false)
+    const matchesLegacyStyle = LEGACY_ROLE_CODENAME_PATTERN.test(primaryContent)
+
+    if (primaryContent.length > 0 && !matchesConfiguredStyle && !matchesLegacyStyle) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['locales', value._primary, 'content'],
-            message: 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes'
+            message:
+                'Codename must match the configured PascalCase role style or the legacy lowercase slug format (letters, digits, underscores, dashes)'
         })
     }
 })

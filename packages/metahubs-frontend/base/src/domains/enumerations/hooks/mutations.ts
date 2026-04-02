@@ -98,16 +98,12 @@ export function useCreateEnumerationAtMetahub() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerations'] }) <= 1) {
-                queryClient.invalidateQueries({
-                    queryKey: metahubsQueryKeys.allEnumerations(variables.metahubId),
-                    refetchType: 'inactive'
-                })
-                for (const hubId of variables.data.hubIds ?? []) {
-                    queryClient.invalidateQueries({
-                        queryKey: metahubsQueryKeys.enumerations(variables.metahubId, hubId),
-                        refetchType: 'inactive'
-                    })
-                }
+                safeInvalidateQueries(
+                    queryClient,
+                    ['enumerations'],
+                    metahubsQueryKeys.allEnumerations(variables.metahubId),
+                    ...(variables.data.hubIds ?? []).map((hubId) => metahubsQueryKeys.enumerations(variables.metahubId, hubId))
+                )
             }
         }
     })
@@ -165,7 +161,7 @@ export function useCreateEnumeration() {
             enqueueSnackbar(t('enumerations.createSuccess', 'Enumeration created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
-            safeInvalidateQueriesInactive(
+            safeInvalidateQueries(
                 queryClient,
                 ['enumerations'],
                 metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId),
@@ -504,7 +500,8 @@ export function useCreateEnumerationValue() {
                     queryClient,
                     getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId),
                     context.optimisticId,
-                    data.id
+                    data.id,
+                    { serverEntity: data }
                 )
             }
             enqueueSnackbar(t('enumerationValues.createSuccess', 'Enumeration value created'), { variant: 'success' })
@@ -544,11 +541,12 @@ export function useUpdateEnumerationValue() {
                 moveToFront: true
             })
         },
-        onSuccess: (_data, variables) => {
+        onSuccess: (data, variables) => {
             confirmOptimisticUpdate(
                 queryClient,
                 getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId),
-                variables.valueId
+                variables.valueId,
+                { serverEntity: data ?? null }
             )
             enqueueSnackbar(t('enumerationValues.updateSuccess', 'Enumeration value updated'), { variant: 'success' })
         },

@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
+import { applyRlsContext } from '@universo/auth-backend'
+import { getPoolExecutor } from '@universo/database'
 import { activeAppRowCondition } from '@universo/utils'
 import {
   findMetahubById,
@@ -103,6 +105,7 @@ const getGlobalMetahubCodenameConfig = async (exec: SqlQueryable): Promise<Globa
                 SELECT key, value
                 FROM admin.cfg_settings
                 WHERE category = $1
+                                    AND ${activeAppRowCondition()}
                                     AND key IN ('codenameStyle', 'codenameAlphabet', 'codenameAllowMixedAlphabets', 'codenameAutoConvertMixedAlphabets', 'codenameLocalizedEnabled')
             `,
       ['metahubs']
@@ -152,6 +155,29 @@ const assertManagedMetahubSchemaName = (schemaName: string): void => {
 
 const safeErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error)
+}
+
+const resolveBearerAccessToken = (req: Request): string | null => {
+  const headerValue = req.headers.authorization ?? req.headers.Authorization
+  if (typeof headerValue !== 'string') return null
+  return headerValue.startsWith('Bearer ') ? headerValue.slice(7) : null
+}
+
+const applyRlsContextToExecutor = async (executor: Pick<DbExecutor, 'query' | 'isReleased'>, accessToken: string): Promise<void> => {
+  await applyRlsContext(
+    {
+      query: executor.query,
+      isReleased: executor.isReleased
+    },
+    accessToken
+  )
+}
+
+const runCommittedRlsTransaction = async <T>(executor: DbExecutor, accessToken: string, work: (tx: DbExecutor) => Promise<T>): Promise<T> => {
+  return executor.transaction(async (tx) => {
+    await applyRlsContextToExecutor(tx, accessToken)
+    return work(tx)
+  })
 }
 
 const cleanupClonedSchemas = async (
@@ -351,8 +377,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
   // ---- codenameDefaults ----
   const codenameDefaults = async (req: Request, res: Response) => {
-    const { exec } = getServices(req)
-    const config = await getGlobalMetahubCodenameConfig(exec)
+    const config = await getGlobalMetahubCodenameConfig(getDbExecutor())
     return res.json({
       success: true,
       data: {
@@ -618,7 +643,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
       return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
     }
 
-    const { exec, branchesService } = getServices(req)
+    const { exec } = getServices(req)
+    const accessToken = resolveBearerAccessToken(req)
     const codenameConfig = await getGlobalMetahubCodenameConfig(exec)
 
     const normalizedCodename = normalizeCodenameForStyle(
@@ -710,52 +736,73 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
     }
 
     let metahub: MetahubRow
+    const rootExec = getPoolExecutor()
     try {
-      metahub = await exec.transaction(async (tx) => {
-        const saved = await createMetahubStore(tx, {
-          name: nameVlc,
-          description: descriptionVlc,
-          codename: codenameVlc,
-          slug: result.data.slug,
-          isPublic: result.data.isPublic ?? false,
-          templateId: templateId ?? null,
-          templateVersionId: templateVersionId ?? null,
-          userId
-        })
+      metahub = accessToken
+        ? await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
+            const saved = await createMetahubStore(tx, {
+              name: nameVlc,
+              description: descriptionVlc,
+              codename: codenameVlc,
+              slug: result.data.slug,
+              isPublic: result.data.isPublic ?? false,
+              templateId: templateId ?? null,
+              templateVersionId: templateVersionId ?? null,
+              userId
+            })
 
-        await addMetahubMember(tx, {
-          metahubId: saved.id,
-          userId,
-          role: 'owner',
-          createdBy: userId
-        })
+            await addMetahubMember(tx, {
+              metahubId: saved.id,
+              userId,
+              role: 'owner',
+              createdBy: userId
+            })
 
-        return saved
-      })
+            const txBranchesService = new MetahubBranchesService(tx)
+            await txBranchesService.createInitialBranch({
+              metahubId: saved.id,
+              name: branchName,
+              description: branchDescription ?? null,
+              createdBy: userId,
+              createOptions: result.data.createOptions
+            })
+
+            return saved
+          })
+        : await exec.transaction(async (tx) => {
+            const saved = await createMetahubStore(tx, {
+              name: nameVlc,
+              description: descriptionVlc,
+              codename: codenameVlc,
+              slug: result.data.slug,
+              isPublic: result.data.isPublic ?? false,
+              templateId: templateId ?? null,
+              templateVersionId: templateVersionId ?? null,
+              userId
+            })
+
+            await addMetahubMember(tx, {
+              metahubId: saved.id,
+              userId,
+              role: 'owner',
+              createdBy: userId
+            })
+
+            const txBranchesService = new MetahubBranchesService(tx)
+            await txBranchesService.createInitialBranch({
+              metahubId: saved.id,
+              name: branchName,
+              description: branchDescription ?? null,
+              createdBy: userId,
+              createOptions: result.data.createOptions
+            })
+
+            return saved
+          })
     } catch (error) {
       const conflictMessage = resolveMetahubUniqueConflictError(error)
       if (conflictMessage) {
         return res.status(409).json({ error: conflictMessage })
-      }
-      throw error
-    }
-
-    try {
-      await branchesService.createInitialBranch({
-        metahubId: metahub.id,
-        name: branchName,
-        description: branchDescription ?? null,
-        createdBy: userId,
-        createOptions: result.data.createOptions
-      })
-    } catch (error) {
-      try {
-        await softDelete(exec, 'metahubs', 'cat_metahubs', metahub.id, userId)
-      } catch (cleanupError) {
-        log.error('Failed to cleanup metahub after initial-branch failure', {
-          metahubId: metahub.id,
-          error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
-        })
       }
       throw error
     }

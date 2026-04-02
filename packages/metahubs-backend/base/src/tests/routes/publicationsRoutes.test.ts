@@ -22,6 +22,7 @@ const mockDeserializeSnapshot = jest.fn()
 const mockCalculateHash = jest.fn()
 const mockEnsureSchema = jest.fn()
 const mockEnrichDefinitionsWithSetConstants = jest.fn()
+const mockApplyRlsContext = jest.fn()
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -94,6 +95,11 @@ jest.mock('../../domains/ddl', () => ({
 jest.mock('@universo/applications-backend', () => ({
     __esModule: true,
     runPublishedApplicationRuntimeSync: (...args: unknown[]) => mockRunPublishedApplicationRuntimeSync(...args)
+}))
+
+jest.mock('@universo/auth-backend', () => ({
+    __esModule: true,
+    applyRlsContext: (...args: unknown[]) => mockApplyRlsContext(...args)
 }))
 
 jest.mock('../../domains/applications/services/ApplicationSchemaStateStore', () => ({
@@ -180,6 +186,7 @@ const createMockTransaction = (): MockTx => {
 describe('Publications Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as Request & { user?: { id: string } }).user = { id: 'user-1' }
+        req.headers.authorization = 'Bearer test-access-token'
         next()
     }
 
@@ -242,10 +249,32 @@ describe('Publications Routes', () => {
         mockGenerateFullSchema.mockRejectedValue(new Error('ddl exploded'))
         mockRunPublishedApplicationRuntimeSync.mockResolvedValue({ seedWarnings: [] })
         mockPersistApplicationSchemaSyncState.mockResolvedValue(undefined)
+        mockApplyRlsContext.mockResolvedValue(undefined)
         mockSoftDelete.mockResolvedValue(true)
     })
 
     it('returns 500 and compensates publication metadata when schema generation fails during publication creation', async () => {
+        mockExec.transaction.mockImplementation(async (callback: (tx: MockTx) => Promise<unknown>) => {
+            const tx = createMockTransaction()
+            tx.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (typeof sql !== 'string') {
+                    return []
+                }
+
+                if (sql.includes('UPDATE metahubs.doc_publication_versions')) {
+                    return [{ id: params?.[0] as string }]
+                }
+
+                if (sql.includes('UPDATE metahubs.doc_publications')) {
+                    return [{ id: params?.[0] as string }]
+                }
+
+                return []
+            })
+            transactionExecutors.push(tx)
+            return callback(tx)
+        })
+
         mockCreatePublication.mockResolvedValue({
             id: 'publication-1',
             name: { en: 'Publication' },
@@ -287,22 +316,6 @@ describe('Publications Routes', () => {
         expect(response.body).toMatchObject({
             error: 'Schema sync failed'
         })
-        expect(mockSoftDelete).toHaveBeenNthCalledWith(
-            1,
-            transactionExecutors[1],
-            'metahubs',
-            'doc_publication_versions',
-            'version-1',
-            'user-1'
-        )
-        expect(mockSoftDelete).toHaveBeenNthCalledWith(
-            2,
-            transactionExecutors[1],
-            'metahubs',
-            'doc_publications',
-            'publication-1',
-            'user-1'
-        )
         const compensationSql = transactionExecutors[1].query.mock.calls.map(([sql]) => String(sql))
 
         expect(compensationSql).toEqual(
@@ -311,10 +324,37 @@ describe('Publications Routes', () => {
                 expect.stringContaining('UPDATE applications.cat_connectors'),
                 expect.stringContaining('UPDATE applications.rel_connector_publications'),
                 expect.stringContaining('UPDATE applications.rel_application_users'),
-                expect.stringContaining('UPDATE applications.cat_applications')
+                expect.stringContaining('UPDATE applications.cat_applications'),
+                expect.stringContaining('UPDATE metahubs.doc_publication_versions'),
+                expect.stringContaining('UPDATE metahubs.doc_publications')
             ])
         )
+        expect(compensationSql.join('\n')).toContain('active_version_id = NULL')
         expect(compensationSql.join('\n')).toContain('_upl_version = COALESCE(cp._upl_version, 1) + 1')
+    })
+
+    it('enforces the single-publication limit using only active publications', async () => {
+        mockExec.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('COUNT(*)::int AS count') && sql.includes('COALESCE(_upl_deleted, false) = false')) {
+                return [{ count: 1 }]
+            }
+            return []
+        })
+
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/publications')
+            .send({
+                name: { en: 'Publication' },
+                autoCreateApplication: false,
+                createApplicationSchema: false
+            })
+            .expect(400)
+
+        expect(response.body).toMatchObject({
+            error: 'Single publication limit reached'
+        })
+        expect(mockCreatePublication).not.toHaveBeenCalled()
     })
 
     it('runs published application runtime sync and persists synced state after successful schema generation', async () => {
@@ -438,6 +478,13 @@ describe('Publications Routes', () => {
                 userId: 'user-1'
             })
         )
+        expect(mockApplyRlsContext).toHaveBeenCalledTimes(2)
+        expect(mockApplyRlsContext.mock.calls[0]?.[1]).toBe('test-access-token')
+        expect(mockApplyRlsContext.mock.calls[1]?.[1]).toBe('test-access-token')
+        expect(mockApplyRlsContext.mock.invocationCallOrder[0]).toBeLessThan(mockCreatePublication.mock.invocationCallOrder[0])
+        expect(mockApplyRlsContext.mock.invocationCallOrder[1]).toBeLessThan(
+            mockPersistApplicationSchemaSyncState.mock.invocationCallOrder[0]
+        )
         expect(mockPersistApplicationSchemaSyncState).toHaveBeenCalledWith(
             ddlTransaction,
             expect.objectContaining({
@@ -511,6 +558,7 @@ describe('Publications Routes', () => {
                 expect.stringContaining('UPDATE applications.cat_applications')
             ])
         )
+        expect(mockApplyRlsContext).toHaveBeenCalledTimes(2)
         expect(mockSoftDelete).not.toHaveBeenCalled()
     })
 

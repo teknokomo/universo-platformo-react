@@ -196,6 +196,13 @@ pnpm dev
 
 This mode is resource-intensive in the current monorepo, so routine validation is usually better done with `pnpm build` and targeted package commands.
 
+### Turborepo Build Contract
+
+- Root builds now run on Turbo 2 task contracts with strict environment mode and local caching enabled for build artifacts.
+- Routine validation should continue to use `pnpm build` from the repository root so Turbo can reuse and repopulate the shared workspace cache correctly.
+- CI can opt into Turbo remote cache by defining `TURBO_TEAM` and `TURBO_TOKEN` secrets; local contributors do not need those variables for normal development.
+- The root task contract intentionally excludes generated `dist/`, `build/`, `coverage/`, and `.turbo/` artifacts from task inputs so repeated builds can produce real cache hits instead of self-invalidating.
+
 ## Contributing
 
 We welcome contributions to Universo Platformo React and Universo Platformo implementations on other tech stacks, which are located in our other repositories. However, we will not be able to accept poorly prepared PRs from contributors who do not fully understand our project's goals and are not familiar with the development environment of our project. Our project is rapidly evolving, and because it is still in the alpha stage, it may undergo significant architectural changes and adjustments to development priorities. To ensure your contribution is accepted and relevant to the project, please first contact Vladimir Levadnij using the contact information provided above.

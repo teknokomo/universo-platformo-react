@@ -141,6 +141,7 @@ const MetahubBoard = () => {
                             value={branchesCount}
                             interval={t('board.stats.branches.interval')}
                             data={branchesData}
+                            dataTestId='metahub-board-stat-card-branches'
                         />
                     </Grid>
 
@@ -151,6 +152,7 @@ const MetahubBoard = () => {
                             value={applicationsCount}
                             interval={t('board.stats.applications.interval')}
                             data={applicationsData}
+                            dataTestId='metahub-board-stat-card-applications'
                         />
                     </Grid>
 
@@ -161,6 +163,7 @@ const MetahubBoard = () => {
                             value={metahubDisplay.membersCount ?? 0}
                             interval={t('board.stats.members.interval')}
                             data={membersData}
+                            dataTestId='metahub-board-stat-card-members'
                         />
                     </Grid>
 
@@ -183,6 +186,7 @@ const MetahubBoard = () => {
                             value={hubsCount}
                             interval={t('board.stats.hubs.interval')}
                             data={hubsData}
+                            dataTestId='metahub-board-stat-card-hubs'
                         />
                     </Grid>
 
@@ -193,6 +197,7 @@ const MetahubBoard = () => {
                             value={catalogsCount}
                             interval={t('board.stats.catalogs.interval')}
                             data={catalogsData}
+                            dataTestId='metahub-board-stat-card-catalogs'
                         />
                     </Grid>
 
@@ -203,6 +208,7 @@ const MetahubBoard = () => {
                             value={publicationsCount}
                             interval={t('board.stats.publications.interval')}
                             data={publicationsData}
+                            dataTestId='metahub-board-stat-card-publications'
                         />
                     </Grid>
 
@@ -213,6 +219,7 @@ const MetahubBoard = () => {
                             value={versionsCount}
                             interval={t('board.stats.versions.interval')}
                             data={versionsData}
+                            dataTestId='metahub-board-stat-card-versions'
                         />
                     </Grid>
                 </Grid>

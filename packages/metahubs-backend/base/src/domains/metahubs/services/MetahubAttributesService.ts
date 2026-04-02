@@ -28,12 +28,7 @@ import {
     resolveCatalogSystemAttributeSeedPlan
 } from '../../shared/platformSystemAttributesPolicy'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
-import {
-    MetahubDomainError,
-    MetahubNotFoundError,
-    MetahubValidationError,
-    MetahubConflictError
-} from '../../shared/domainErrors'
+import { MetahubDomainError, MetahubNotFoundError, MetahubValidationError, MetahubConflictError } from '../../shared/domainErrors'
 import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
@@ -42,7 +37,6 @@ const RESERVED_CATALOG_SYSTEM_CODENAMES = new Set(getReservedCatalogSystemFieldC
 
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
- * Replaces the old TypeORM Attribute entity logic.
  */
 export class MetahubAttributesService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
@@ -714,7 +708,7 @@ export class MetahubAttributesService {
              WHERE attr.data_type = 'REF'
                AND attr.target_object_kind = 'enumeration'
                AND attr.target_object_id = $1
-               AND el.data ->> attr.codename = $2
+               AND el.data ->> (${codenamePrimaryTextSql('attr.codename')}) = $2
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
                AND el._upl_deleted = false AND el._mhb_deleted = false
@@ -1025,10 +1019,7 @@ export class MetahubAttributesService {
             // If TABLE type, soft-delete children before parent
             const [attribute] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
             if (attribute?.data_type === AttributeDataType.TABLE) {
-                const children = await tx.query<{ id: string }>(
-                    `SELECT id FROM ${qt} WHERE parent_attribute_id = $1 AND ${ACTIVE}`,
-                    [id]
-                )
+                const children = await tx.query<{ id: string }>(`SELECT id FROM ${qt} WHERE parent_attribute_id = $1 AND ${ACTIVE}`, [id])
                 for (const child of children) {
                     await mhbSoftDelete(tx, schemaName, '_mhb_attributes', child.id, userId)
                 }
@@ -1056,11 +1047,12 @@ export class MetahubAttributesService {
             // Fetch current attribute to know its parent scope
             const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
             if (!current) throw new MetahubNotFoundError('Attribute', attributeId)
-            if (current.is_system === true) throw new MetahubDomainError({
-                message: 'System attributes cannot be reordered',
-                statusCode: 403,
-                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
-            })
+            if (current.is_system === true)
+                throw new MetahubDomainError({
+                    message: 'System attributes cannot be reordered',
+                    statusCode: 403,
+                    code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                })
 
             const parentAttributeId: string | null = (current.parent_attribute_id as string | null) ?? null
 
@@ -1126,11 +1118,12 @@ export class MetahubAttributesService {
                 [attributeId, objectId]
             )
             if (!current) throw new MetahubNotFoundError('Attribute', attributeId)
-            if (current.is_system === true) throw new MetahubDomainError({
-                message: 'System attributes cannot be reordered',
-                statusCode: 403,
-                code: 'SYSTEM_ATTRIBUTE_PROTECTED'
-            })
+            if (current.is_system === true)
+                throw new MetahubDomainError({
+                    message: 'System attributes cannot be reordered',
+                    statusCode: 403,
+                    code: 'SYSTEM_ATTRIBUTE_PROTECTED'
+                })
 
             const currentParent: string | null = (current.parent_attribute_id as string | null) ?? null
             const targetParent: string | null = newParentAttributeId !== undefined ? newParentAttributeId : currentParent
@@ -1338,10 +1331,10 @@ export class MetahubAttributesService {
 
         if (await hasConflict(attribute.codename)) {
             if (!autoRenameCodename) {
-                throw new MetahubConflictError(
-                    `Codename "${attribute.codename}" already exists in the target scope`,
-                    { code: 'CODENAME_CONFLICT', codename: attribute.codename }
-                )
+                throw new MetahubConflictError(`Codename "${attribute.codename}" already exists in the target scope`, {
+                    code: 'CODENAME_CONFLICT',
+                    codename: attribute.codename
+                })
             }
 
             // Auto-rename using buildCodenameAttempt() retry loop
@@ -1362,10 +1355,9 @@ export class MetahubAttributesService {
                 }
             }
             if (!renamed) {
-                throw new MetahubConflictError(
-                    `Could not generate unique codename after ${CODENAME_RETRY_MAX_ATTEMPTS} attempts`,
-                    { code: 'CODENAME_CONFLICT' }
-                )
+                throw new MetahubConflictError(`Could not generate unique codename after ${CODENAME_RETRY_MAX_ATTEMPTS} attempts`, {
+                    code: 'CODENAME_CONFLICT'
+                })
             }
         }
     }

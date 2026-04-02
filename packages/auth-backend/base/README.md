@@ -155,13 +155,18 @@ pnpm --filter @universo/auth-backend lint
 
 ## Environment Configuration
 
-Consumed by `packages/universo-core-backend/base`. Required variables:
+Consumed by `packages/universo-core-backend/base`.
 
 ### Required Variables
 - `SESSION_SECRET` - Secret key for session signing and encryption
 - `SUPABASE_URL` - Supabase project URL for authentication
-- `SUPABASE_ANON_KEY` - Supabase anonymous public key
-- `SUPABASE_JWT_SECRET` - JWT secret for token verification in RLS context
+- `SUPABASE_PUBLISHABLE_DEFAULT_KEY` or `SUPABASE_ANON_KEY` - Supabase public client key. New projects should prefer `SUPABASE_PUBLISHABLE_DEFAULT_KEY`; legacy projects may keep `SUPABASE_ANON_KEY`.
+
+### JWT Verification Variables
+- `SUPABASE_JWT_SECRET` - Optional legacy JWT secret for HS256 verification
+- `SUPABASE_JWKS_URL` - Optional explicit JWKS endpoint override for asymmetric JWT verification
+- `SUPABASE_JWT_ISSUER` - Optional explicit issuer override (defaults to `${SUPABASE_URL}/auth/v1`)
+- `SUPABASE_JWT_AUDIENCE` - Optional audience override (defaults to `authenticated`)
 
 ### Optional Cookie Configuration
 - `SESSION_COOKIE_NAME` - Custom session cookie name (default: 'connect.sid')
@@ -174,8 +179,15 @@ Consumed by `packages/universo-core-backend/base`. Required variables:
 # .env
 SESSION_SECRET=your-strong-secret-key-here
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_JWT_SECRET=your-jwt-secret-key
+SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_key
+# Optional legacy alias for older environments:
+# SUPABASE_ANON_KEY=sb_publishable_or_legacy_anon_key
+# Legacy HS256-only projects:
+# SUPABASE_JWT_SECRET=your-jwt-secret-key
+# Optional asymmetric overrides:
+# SUPABASE_JWKS_URL=https://your-project.supabase.co/auth/v1/.well-known/jwks.json
+# SUPABASE_JWT_ISSUER=https://your-project.supabase.co/auth/v1
+# SUPABASE_JWT_AUDIENCE=authenticated
 
 # Optional production settings
 SESSION_COOKIE_SECURE=true
@@ -280,7 +292,7 @@ export async function getUserItems(req: Request) {
 - **Customizable**: Adjustable window size and attempt limits
 
 ### JWT Security
-- **Secret Verification**: JWT tokens verified using `SUPABASE_JWT_SECRET`
+- **Dual-mode Verification**: HS256 tokens use `SUPABASE_JWT_SECRET`; asymmetric Supabase tokens use JWKS verification via `jose`
 - **Expiration Handling**: Automatic token refresh before expiration
 - **Single-flight Refresh**: Prevents concurrent refresh requests
 - **Secure Storage**: Access tokens stored in session, not client-side
@@ -293,7 +305,7 @@ If migrating from simple authentication to RLS-enabled authentication:
 1. **Update Middleware**: Replace `ensureAuth` with `createEnsureAuthWithRls`
 2. **Service Layer**: Use a request-bound executor instead of global database helpers
 3. **Database Policies**: Create appropriate RLS policies in PostgreSQL
-4. **Environment**: Add `SUPABASE_JWT_SECRET` to environment variables
+4. **Environment**: Configure legacy `SUPABASE_JWT_SECRET` or the JWKS-based Supabase env contract
 
 ### Migration Steps
 ```typescript

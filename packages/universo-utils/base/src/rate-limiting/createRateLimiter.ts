@@ -1,7 +1,40 @@
-import { rateLimit, type RateLimitRequestHandler } from 'express-rate-limit'
+import {
+    ipKeyGenerator,
+    rateLimit,
+    type AugmentedRequest,
+    type RateLimitInfo,
+    type RateLimitRequestHandler,
+    type Store
+} from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis'
 import { RedisClientManager } from './RedisClientManager'
 import type { RateLimitType, RateLimitConfig } from './types'
+
+type RateLimitRequestLike = {
+    ip?: string
+    socket?: {
+        remoteAddress?: string | null
+    }
+    headers?: Record<string, string | string[] | undefined>
+}
+
+export function resolveRateLimitKey(req: RateLimitRequestLike): string {
+    const forwardedHeader = req.headers?.['x-forwarded-for']
+    const forwarded =
+        typeof forwardedHeader === 'string'
+            ? forwardedHeader.split(',')[0]?.trim()
+            : Array.isArray(forwardedHeader)
+            ? forwardedHeader[0]?.trim()
+            : null
+
+    const ip = req.ip || req.socket?.remoteAddress || forwarded
+
+    if (!ip) {
+        return 'unknown'
+    }
+
+    return ipKeyGenerator(ip)
+}
 
 /**
  * Create production-ready rate limiter middleware
@@ -44,7 +77,7 @@ export async function createRateLimiter(type: RateLimitType, config?: RateLimitC
     const max = type === 'read' ? maxRead : type === 'write' ? maxWrite : maxCustom ?? 100
 
     // Try to use Redis store for distributed rate limiting with retry logic
-    let store: any = undefined // undefined = use MemoryStore (default)
+    let store: Store | undefined = undefined // undefined = use MemoryStore (default)
 
     const effectiveRedisUrl = redisUrl || process.env.REDIS_URL
 
@@ -90,10 +123,11 @@ export async function createRateLimiter(type: RateLimitType, config?: RateLimitC
         standardHeaders: true, // Return rate limit info in headers (RateLimit-*)
         legacyHeaders: false, // Disable X-RateLimit-* headers
         store,
+        keyGenerator: resolveRateLimitKey,
 
         // Custom error handler with detailed response
         handler: (req, res) => {
-            const limitInfo = (req as any).rateLimit
+            const limitInfo = (req as AugmentedRequest).rateLimit as RateLimitInfo | undefined
 
             // Calculate retry-after in seconds
             const resetMs = limitInfo?.resetTime ? Math.max(0, limitInfo.resetTime.getTime() - Date.now()) : windowMs
@@ -111,7 +145,7 @@ export async function createRateLimiter(type: RateLimitType, config?: RateLimitC
 
             // Log rate limit violation (for monitoring/alerting)
             console.warn(`[RateLimit:${type}] Limit exceeded`, {
-                ip: req.ip,
+                ip: resolveRateLimitKey(req),
                 current: limitInfo?.current,
                 limit: limitInfo?.limit,
                 path: req.path

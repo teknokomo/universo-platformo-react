@@ -281,4 +281,105 @@ describe('createEnsureAuthWithRls', () => {
         expect(releaseConnection).toHaveBeenCalledTimes(1)
         expect(releaseConnection).toHaveBeenCalledWith(connection)
     })
+
+    it('rolls back aborted requests without marking the session released during setup', async () => {
+        const next = jest.fn()
+        const connection = { id: 'conn-4' }
+        const rawCalls: string[] = []
+        const connectionRaw = jest.fn().mockResolvedValue({ rows: [] })
+        const raw = jest.fn((sql: string) => {
+            rawCalls.push(sql)
+            return { connection: connectionRaw }
+        })
+        const releaseConnection = jest.fn()
+        const getKnex = jest.fn(() => ({
+            raw,
+            client: {
+                acquireConnection: jest.fn(async () => connection),
+                releaseConnection
+            }
+        }))
+        mockedCreateRlsExecutor.mockReturnValue({
+            query: jest.fn(),
+            transaction: jest.fn(),
+            isReleased: jest.fn(() => false)
+        } as never)
+
+        const middleware = createEnsureAuthWithRls({ getKnex: getKnex as never })
+        const req = {
+            originalUrl: '/api/private',
+            url: '/api/private',
+            path: '/api/private',
+            method: 'GET',
+            session: { tokens: { access: 'token' } },
+            user: { id: 'user-1' }
+        } as unknown as Request & { dbContext?: unknown }
+        const res = createResponse()
+
+        mockedApplyRlsContext.mockImplementation(async (session) => {
+            await res.emit('close')
+            expect(session.isReleased()).toBe(false)
+            await session.query('SELECT 1')
+        })
+
+        await middleware(req, res, next)
+
+        expect(next).not.toHaveBeenCalled()
+        expect(rawCalls).toContain('ROLLBACK')
+        expect(rawCalls).not.toContain('COMMIT')
+        expect(releaseConnection).toHaveBeenCalledTimes(1)
+        expect(releaseConnection).toHaveBeenCalledWith(connection)
+        expect(req.dbContext).toBeUndefined()
+    })
+
+    it('defers cleanup when the request closes before the pinned connection is acquired', async () => {
+        const next = jest.fn()
+        const connection = { id: 'conn-early-close' }
+        const rawCalls: string[] = []
+        const connectionRaw = jest.fn().mockResolvedValue({ rows: [] })
+        const raw = jest.fn((sql: string) => {
+            rawCalls.push(sql)
+            return { connection: connectionRaw }
+        })
+        const releaseConnection = jest.fn()
+        const acquireConnection = jest.fn(async () => {
+            await res.emit('close')
+            return connection
+        })
+        const getKnex = jest.fn(() => ({
+            raw,
+            client: {
+                acquireConnection,
+                releaseConnection
+            }
+        }))
+
+        mockedCreateRlsExecutor.mockReturnValue({
+            query: jest.fn(),
+            transaction: jest.fn(),
+            isReleased: jest.fn(() => false)
+        } as never)
+        mockedApplyRlsContext.mockResolvedValue(undefined)
+
+        const middleware = createEnsureAuthWithRls({ getKnex: getKnex as never })
+        const req = {
+            originalUrl: '/api/private',
+            url: '/api/private',
+            path: '/api/private',
+            method: 'GET',
+            session: { tokens: { access: 'token' } },
+            user: { id: 'user-1' }
+        } as unknown as Request & { dbContext?: unknown }
+        const res = createResponse()
+
+        await middleware(req, res, next)
+
+        expect(next).not.toHaveBeenCalled()
+        expect(acquireConnection).toHaveBeenCalledTimes(1)
+        expect(rawCalls).toContain('ROLLBACK')
+        expect(rawCalls).not.toContain('COMMIT')
+        expect(releaseConnection).toHaveBeenCalledTimes(1)
+        expect(releaseConnection).toHaveBeenCalledWith(connection)
+        expect(req.dbContext).toBeUndefined()
+    })
 })

@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 
 // project imports
-import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm } from '@universo/template-mui'
+import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { useSettings, useUpdateSettings, useResetSetting } from '../hooks/useSettings'
@@ -242,7 +242,7 @@ const SettingsPage = () => {
             <ViewHeader search title={t('settings.title')} searchPlaceholder={t('settings.search')} onSearchChange={handleSearchChange} />
 
             {/* Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+            <Box data-testid='metahub-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={handleTabChange} variant='scrollable' scrollButtons='auto'>
                     {SETTING_TABS.map((tab) => (
                         <Tab key={tab} label={t(`settings.tabs.${tab}`)} value={tab} />
@@ -251,7 +251,7 @@ const SettingsPage = () => {
             </Box>
 
             {/* Content */}
-            <Box sx={{ p: 2, mx: { xs: -1.5, md: -2 } }}>
+            <Box data-testid='metahub-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
                 {isLoading ? (
                     <Stack spacing={2}>
                         {[1, 2, 3].map((i) => (
@@ -278,7 +278,7 @@ const SettingsPage = () => {
                             const isLocallyModified = entry.key in localChanges
 
                             return (
-                                <Box key={entry.key} sx={{ py: 2, px: 1, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                                <Box key={entry.key} sx={{ py: 2, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                                     {/* Label + description */}
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Stack direction='row' alignItems='center' spacing={1}>

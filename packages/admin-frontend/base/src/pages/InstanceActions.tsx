@@ -1,3 +1,4 @@
+import { resolveLocalizedContent } from '@universo/utils'
 import { createEntityActions } from '@universo/template-mui'
 import type { Instance } from '../types'
 
@@ -24,8 +25,8 @@ const baseActions = createEntityActions<Instance, InstanceData>({
     showDeleteInEdit: true,
     deleteButtonDisabledInEdit: true,
     getInitialFormData: (entity) => ({
-        initialName: entity.name,
-        initialDescription: entity.description || ''
+        initialName: resolveLocalizedContent(entity.name, 'en', entity.codename),
+        initialDescription: resolveLocalizedContent(entity.description, 'en', '')
     })
 })
 

@@ -31,7 +31,7 @@ import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY, PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS } from '@universo/types'
 
-import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
+import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
 
 import * as settingsApi from '../api/settingsApi'
 import type { AdminSettingItem } from '../api/settingsApi'
@@ -203,7 +203,7 @@ const AdminSettings = () => {
             <ViewHeader title={t('settings.title')} />
 
             {/* Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+            <Box data-testid='admin-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={handleTabChange}>
                     <Tab label={t('settings.tabs.metahubs')} value='metahubs' />
                     <Tab label={t('settings.tabs.applications')} value='applications' />
@@ -211,7 +211,7 @@ const AdminSettings = () => {
             </Box>
 
             {/* Content */}
-            <Box sx={{ p: 3 }}>
+            <Box data-testid='admin-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
                 {activeTab === 'metahubs' && (
                     <>
                         {isLoading ? (
@@ -223,7 +223,10 @@ const AdminSettings = () => {
                         ) : (
                             <Stack spacing={0} divider={<Divider />}>
                                 {/* Codename Style */}
-                                <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-codenameStyle'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameStyle')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -249,7 +252,10 @@ const AdminSettings = () => {
                                 </Box>
 
                                 {/* Codename Alphabet */}
-                                <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-codenameAlphabet'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameAlphabet')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -277,7 +283,10 @@ const AdminSettings = () => {
 
                                 {/* Allow Mixed Alphabets (only visible when alphabet is en-ru) */}
                                 {effectiveAlphabet === 'en-ru' && (
-                                    <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box
+                                        data-testid='admin-setting-codenameAllowMixedAlphabets'
+                                        sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                    >
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Typography variant='subtitle2'>
                                                 {t('settings.metahubs.codenameAllowMixedAlphabets')}
@@ -306,7 +315,10 @@ const AdminSettings = () => {
 
                                 {/* Auto-convert mixed alphabets (only visible when alphabet is en-ru and mixed is disabled) */}
                                 {effectiveAlphabet === 'en-ru' && !effectiveAllowMixed && (
-                                    <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box
+                                        data-testid='admin-setting-codenameAutoConvertMixedAlphabets'
+                                        sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                    >
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Typography variant='subtitle2'>
                                                 {t('settings.metahubs.codenameAutoConvertMixedAlphabets')}
@@ -328,11 +340,12 @@ const AdminSettings = () => {
                                 )}
 
                                 {/* Enable Localized Codenames (VLC) */}
-                                <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-codenameLocalizedEnabled'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant='subtitle2'>
-                                            {t('settings.metahubs.codenameLocalizedEnabled')}
-                                        </Typography>
+                                        <Typography variant='subtitle2'>{t('settings.metahubs.codenameLocalizedEnabled')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t('settings.metahubs.codenameLocalizedEnabledDescription')}
                                         </Typography>

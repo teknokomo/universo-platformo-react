@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import type { GlobalAccessService } from '../services/globalAccessService'
-import { getRequestDbSession, isAdminPanelEnabled } from '@universo/utils'
+import { isAdminPanelEnabled } from '@universo/utils'
 import type { RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
 
 export interface DashboardRoutesConfig {
@@ -21,7 +21,7 @@ export function createDashboardRoutes({ globalAccessService }: DashboardRoutesCo
                 return res.status(401).json({ success: false, error: 'Authentication required' })
             }
 
-            const hasDashboardAccess = await globalAccessService.hasWorkspaceAccess(userId, getRequestDbSession(req))
+            const hasDashboardAccess = await globalAccessService.hasWorkspaceAccess(userId)
 
             if (!hasDashboardAccess) {
                 return res.status(403).json({ success: false, error: 'Access denied: dashboard is unavailable for this role' })

@@ -30,6 +30,15 @@ interface LocaleDialogProps {
     locale: LocaleItem | null // null = create mode, LocaleItem = edit mode
 }
 
+const normalizeLocaleCodeInput = (value: string): string => {
+    const sanitized = value.replace(/[^a-zA-Z-]/g, '')
+    const [languagePart = '', regionPart = ''] = sanitized.split('-', 2)
+    const normalizedLanguage = languagePart.slice(0, 2).toLowerCase()
+    const normalizedRegion = regionPart.slice(0, 2).toUpperCase()
+
+    return normalizedRegion ? `${normalizedLanguage}-${normalizedRegion}` : normalizedLanguage
+}
+
 /**
  * Dialog for creating/editing locales
  */
@@ -172,7 +181,7 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
                         <TextField
                             label={t('locales.code', 'Code')}
                             value={code}
-                            onChange={(e) => setCode(e.target.value.toLowerCase())}
+                            onChange={(e) => setCode(normalizeLocaleCodeInput(e.target.value))}
                             placeholder='en'
                             helperText={t('locales.codeHelp', 'ISO 639-1 code (e.g., en, ru, de, fr)')}
                             required

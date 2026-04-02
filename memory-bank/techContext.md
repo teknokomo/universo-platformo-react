@@ -56,9 +56,6 @@ if (!userId) return
 -   **Synchronization**: Changes to Design-Time metadata (e.g., adding a catalog) trigger DDL operations in the corresponding `mhb_<UUID>` schema via `MetahubSchemaService`.
 -   **Benefits**: Isolation of user data, scalability, and simplified access control for run-time records.
 
-#### 3.2.1 Metahub Attribute Defaults
--   **NUMBER defaults**: `getDefaultValidationRules()` now uses `scale = 0` (precision 10). This keeps NUMERIC defaults as integers unless explicitly configured.
-
 #### 3.2.2 Codename Validation & Retry Reliability
 -   **Shared validation source**: Codename normalization/validation lives in `@universo/utils/validation/codename` and is consumed by frontend + backend.
 -   **Shared retry policy**: Backend codename copy/rename flows use centralized constants in `domains/shared/codenameStyleHelper.ts` (`CODENAME_RETRY_MAX_ATTEMPTS`, `CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT`).
@@ -128,7 +125,6 @@ if (!userId) return
 -   **Templates**: Quiz (AR.js), MMOOMM (PlayCanvas) with template-first architecture
 
 #### 5. PlayCanvas MMOOMM Template (Recent Stabilization)
-
 -   **Purpose**: Space MMO foundation with ship movement and physics
 -   **Key Features**: WASD+QZ controls, physics fallback system, optimized logging
 -   **Technical Implementation**:
@@ -214,6 +210,12 @@ if (!userId) return
 **Primary Tool**: tsdown v0.15.7 (Rolldown + Oxc), 100% coverage (15 custom packages).  
 **Output**: Dual-format (ESM + CJS), TypeScript declarations (.d.ts/.d.mts), tree-shaking, ~50% faster than tsc.  
 **Pattern**: Single `tsdown.config.ts`, platform neutral/node, manual package.json exports control.
+
+### Root workspace orchestration note (Updated 2026-04-03)
+- The repository root now uses Turbo `2.9.3` with Turbo 2 `tasks` syntax and a root `packageManager` declaration.
+- Root validation/build commands should continue to run from the repository root via `pnpm build`; repeated root builds are now expected to reuse the local Turbo cache rather than re-executing all 28 package builds.
+- Turbo cache correctness depends on excluding generated `dist/**`, `build/**`, `coverage/**`, and `.turbo/**` artifacts from task `inputs`; if repeated root builds ever drop back to `0 cached`, inspect the Turbo summary for output-artifact leakage into hashed inputs before changing package scripts.
+- CI exposes optional `TURBO_TEAM` and `TURBO_TOKEN` secrets so remote cache can be enabled later without changing the local developer contract.
 
 ### Browser env entrypoint note
 - `@universo/utils` now emits a dedicated browser env sub-entry (`dist/env/index.browser.*`) and maps the browser export for `./env` to that entry.

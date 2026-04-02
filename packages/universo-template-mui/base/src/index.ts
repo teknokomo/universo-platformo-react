@@ -118,7 +118,7 @@ export { useUserSettings, resetUserSettingsCache, getShowAllItemsSetting } from 
 export type { UserSettingsData } from './hooks/useUserSettings'
 
 // Constants
-export { gridSpacing } from './constants'
+export { gridSpacing, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from './constants'
 
 // Pagination system
 export { usePaginated } from './hooks/usePaginated'

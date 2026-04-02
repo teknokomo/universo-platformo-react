@@ -113,6 +113,7 @@ const ApplicationBoard = () => {
                             value={applicationDisplay.connectorsCount ?? 0}
                             interval={t('board.stats.connectors.interval')}
                             data={connectorsData}
+                            dataTestId='application-board-stat-card-connectors'
                         />
                     </Grid>
 
@@ -123,6 +124,7 @@ const ApplicationBoard = () => {
                             value={migrationsCount}
                             interval={t('board.stats.migrations.interval')}
                             data={migrationsData}
+                            dataTestId='application-board-stat-card-migrations'
                         />
                     </Grid>
 
@@ -133,6 +135,7 @@ const ApplicationBoard = () => {
                             value={applicationDisplay.membersCount ?? 0}
                             interval={t('board.stats.members.interval')}
                             data={membersData}
+                            dataTestId='application-board-stat-card-members'
                         />
                     </Grid>
 

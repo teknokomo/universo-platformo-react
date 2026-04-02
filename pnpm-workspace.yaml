@@ -75,6 +75,7 @@ catalog:
     '@mui/x-tree-view': ^8.27.0
     
     # Testing utilities
+    '@playwright/test': ^1.58.2
     '@testing-library/react': ^14.3.1
     '@testing-library/jest-dom': ^6.8.0
     '@testing-library/user-event': ^14.6.1

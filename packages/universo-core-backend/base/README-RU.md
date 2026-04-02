@@ -27,7 +27,7 @@ packages/universo-core-backend/base/
 
 ## Startup Flow
 
-1. Проверить обязательную auth-конфигурацию, например `SUPABASE_JWT_SECRET`.
+1. Проверить auth-конфигурацию либо для legacy `SUPABASE_JWT_SECRET`, либо для современного Supabase JWKS verification.
 2. Инициализировать shared Knex singleton из `@universo/database`.
 3. Провалидировать и выполнить registered platform migrations через `@universo/migrations-platform`.
 4. Если `BOOTSTRAP_SUPERUSER_ENABLED=true`, создать или подтвердить стартового суперпользователя через Supabase Admin API, при необходимости восстановить profile row и обеспечить эксклюзивную глобальную роль `superuser`.
@@ -98,3 +98,4 @@ pnpm migration:export
 - Пакет всё ещё содержит compatibility exports в `src/database/entities/` для кода, который ещё не был полностью очищен.
 - Канонический database runtime основан на Knex и шарится через `@universo/database`.
 - Новые backend-сервисы должны регистрировать native SQL platform migration definitions вместо TypeORM entities и migrations.
+- Для подключения к Supabase Postgres в этом проекте используйте direct connection, если хост стабильно видит его, иначе переходите на session pooler на `:5432`. Transaction pooler на `:6543` использовать нельзя, потому что request-scoped RLS зависит от pinned session state.

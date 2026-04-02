@@ -112,6 +112,7 @@ const AdminBoard = () => {
                             value={stats.totalGlobalUsers}
                             interval={t('board.stats.totalUsers.interval', 'All time')}
                             data={totalUsersData}
+                            dataTestId='admin-board-stat-card-total-users'
                         />
                     </Grid>
 
@@ -122,6 +123,7 @@ const AdminBoard = () => {
                             value={stats.totalRoles}
                             interval={t('board.stats.roles.interval', 'System + custom')}
                             data={rolesData}
+                            dataTestId='admin-board-stat-card-roles'
                         />
                     </Grid>
 
@@ -132,6 +134,7 @@ const AdminBoard = () => {
                             value={stats.totalApplications}
                             interval={t('board.stats.totalApplications.interval', 'Published + draft')}
                             data={applicationsData}
+                            dataTestId='admin-board-stat-card-applications'
                         />
                     </Grid>
 
@@ -142,6 +145,7 @@ const AdminBoard = () => {
                             value={stats.totalMetahubs}
                             interval={t('board.stats.totalMetahubs.interval', 'All metahubs')}
                             data={metahubsData}
+                            dataTestId='admin-board-stat-card-metahubs'
                         />
                     </Grid>
 

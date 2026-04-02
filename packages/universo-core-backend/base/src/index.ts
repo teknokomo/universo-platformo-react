@@ -8,12 +8,17 @@ import session from 'express-session'
 import { createCsrfProtection } from './middlewares/csrf'
 import rateLimit from 'express-rate-limit'
 const cookieParser = require('cookie-parser')
-import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import apiV1Router from './routes'
-import { passport, createAuthRouter } from '@universo/auth-backend'
+import {
+    passport,
+    createAuthRouter,
+    assertSupabaseJwtVerificationConfig,
+    verifySupabaseJwt,
+    type VerifiedSupabaseJwtClaims
+} from '@universo/auth-backend'
 import { createGlobalAccessService } from '@universo/admin-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo/database'
@@ -33,7 +38,7 @@ import {
 } from '@universo/migrations-platform'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
-import { API_WHITELIST_URLS, isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { API_WHITELIST_URLS, isGlobalMigrationCatalogEnabled, parsePositiveInt, resolveRateLimitKey } from '@universo/utils'
 import 'global-agent/bootstrap'
 import { bootstrapStartupSuperuser } from './bootstrap/bootstrapSuperuser'
 import { createSupabaseAdminClient } from './utils/supabaseAdmin'
@@ -55,7 +60,7 @@ type SessionWithTokens = session.Session &
         tokens?: SessionTokens
     }
 
-type VerifiedJwtClaims = JwtPayload & {
+type VerifiedJwtClaims = VerifiedSupabaseJwtClaims & {
     user_id?: string
     uid?: string
 }
@@ -170,11 +175,13 @@ export class App {
     }
 
     async config() {
-        // Validate required authentication secrets at startup
-        const jwtSecret = process.env.SUPABASE_JWT_SECRET as string | undefined
-        if (!jwtSecret) {
-            logger.error('❌ [auth] SUPABASE_JWT_SECRET is not configured')
-            throw new Error('Auth configuration error: SUPABASE_JWT_SECRET is required')
+        try {
+            assertSupabaseJwtVerificationConfig()
+        } catch (error) {
+            logger.error('❌ [auth] Supabase JWT verification is not configured correctly', {
+                error: error instanceof Error ? error.message : String(error)
+            })
+            throw error
         }
 
         // Limit is needed to allow sending/receiving base64 encoded string
@@ -229,7 +236,16 @@ export class App {
         this.app.use(passport.session())
 
         const csrfProtection = createCsrfProtection()
-        const loginLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
+        const loginRateLimitWindowMs = parsePositiveInt(process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS, 60_000)
+        const loginRateLimitMax = parsePositiveInt(process.env.AUTH_LOGIN_RATE_LIMIT_MAX, 10)
+
+        const loginLimiter = rateLimit({
+            windowMs: loginRateLimitWindowMs,
+            max: loginRateLimitMax,
+            standardHeaders: true,
+            legacyHeaders: false,
+            keyGenerator: resolveRateLimitKey
+        })
         const globalAccessService = createGlobalAccessService({ getDbExecutor: getPoolExecutor })
         const supabaseAdmin =
             process.env.SUPABASE_URL && process.env.SERVICE_ROLE_KEY
@@ -323,8 +339,8 @@ export class App {
             }
 
             try {
-                const verified = jwt.verify(tokenToVerify, jwtSecret)
-                const decoded: VerifiedJwtClaims = typeof verified === 'string' ? { sub: verified } : verified
+                const { payload } = await verifySupabaseJwt(tokenToVerify)
+                const decoded: VerifiedJwtClaims = payload
                 const supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
                 const authenticatedRequest = req as AuthenticatedRequest
                 if (supabaseUserId) {
@@ -335,6 +351,9 @@ export class App {
                 return next()
             } catch (error) {
                 logger.warn('[auth] JWT verification error', error as Error)
+                if (error instanceof Error && error.message.startsWith('Auth configuration error:')) {
+                    return res.status(500).json({ error: 'Server auth configuration error' })
+                }
                 return res.status(401).json({ error: 'Unauthorized Access: Invalid or expired token' })
             }
         })
