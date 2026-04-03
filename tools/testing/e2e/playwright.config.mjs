@@ -7,6 +7,7 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const env = loadE2eEnvironment()
 const setupPattern = /.*setup\/auth\.setup\.ts/
 const matrixPattern = /.*matrix\/.*\.spec\.ts/
+const generatorPattern = /.*generators\/.*\.spec\.ts/
 
 export default defineConfig({
     testDir: path.resolve(currentDir, 'specs'),
@@ -52,7 +53,7 @@ export default defineConfig({
         {
             name: 'chromium',
             dependencies: ['setup'],
-            testIgnore: [setupPattern, matrixPattern],
+            testIgnore: [setupPattern, matrixPattern, generatorPattern],
             use: {
                 storageState: storageStatePath
             }
@@ -75,6 +76,14 @@ export default defineConfig({
                 storageState: { cookies: [], origins: [] },
                 locale: 'ru-RU',
                 colorScheme: 'dark'
+            }
+        },
+        {
+            name: 'generators',
+            dependencies: ['setup'],
+            testMatch: generatorPattern,
+            use: {
+                storageState: storageStatePath
             }
         }
     ]

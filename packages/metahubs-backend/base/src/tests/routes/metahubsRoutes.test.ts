@@ -15,6 +15,7 @@ const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn((value: string) => value)
 const mockSoftDelete = jest.fn(async () => true)
+const mockRestoreFromSnapshot = jest.fn(async () => undefined)
 const mockCreateInitialBranch = jest.fn(async () => ({
     id: 'branch-main',
     metahubId: 'metahub-1',
@@ -47,6 +48,9 @@ jest.mock('../../domains/ddl', () => ({
     getDDLServices: () => ({
         cloner: { clone: (...args: unknown[]) => mockClone(...args) },
         generator: { dropSchema: (...args: unknown[]) => mockDropSchema(...args) }
+    }),
+    createPoolSnapshotRestoreService: () => ({
+        restoreFromSnapshot: (...args: unknown[]) => mockRestoreFromSnapshot(...args)
     })
 }))
 
@@ -101,6 +105,8 @@ const mockAddMetahubMember = jest.fn(async () => ({ id: 'membership-new' }))
 const mockUpdateMetahubMember = jest.fn(async () => null)
 const mockRemoveMetahubMember = jest.fn(async () => undefined)
 const mockCountMetahubMembers = jest.fn(async () => 0)
+const mockCreatePublication = jest.fn(async () => ({ id: 'pub-1' }))
+const mockCreatePublicationVersion = jest.fn(async () => ({ id: 'version-1', versionNumber: 1 }))
 const mockFindBranchByIdAndMetahub = jest.fn(async () => null)
 const mockFindBranchesByMetahub = jest.fn(async () => [])
 const mockCreateBranch = jest.fn(async () => ({ id: 'branch-new' }))
@@ -130,7 +136,9 @@ jest.mock('../../persistence', () => ({
     countBranches: (...args: any[]) => mockCountBranches(...args),
     findTemplateByIdNotDeleted: (...args: any[]) => mockFindTemplateByIdNotDeleted(...args),
     findTemplateByCodename: (...args: any[]) => mockFindTemplateByCodename(...args),
-    softDelete: (...args: any[]) => mockSoftDelete(...args)
+    softDelete: (...args: any[]) => mockSoftDelete(...args),
+    createPublication: (...args: any[]) => mockCreatePublication(...args),
+    createPublicationVersion: (...args: any[]) => mockCreatePublicationVersion(...args)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -140,6 +148,8 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
+import { buildSnapshotEnvelope } from '@universo/utils'
+import { createLocalizedContent } from '@universo/utils/vlc'
 
 describe('Metahubs Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -1476,6 +1486,434 @@ describe('Metahubs Routes', () => {
         it.skip('should include rate limit headers in response (requires real Redis)', async () => {
             // This test requires actual rate limiter with Redis to inject headers
             // Skip in unit tests - covered by integration tests
+        })
+    })
+
+    // ── Import / Export ─────────────────────────────────────────────────
+
+    describe('POST /metahubs/import', () => {
+        const makeTestEnvelope = () => {
+            const metahubId = '00000000-0000-0000-0000-000000000001'
+            const snapshot = {
+                version: '1.0.0',
+                metahubId,
+                entities: {
+                    '00000000-0000-0000-0000-000000000010': {
+                        kind: 'catalog',
+                        codename: 'test-catalog',
+                        presentation: { name: {}, description: {} },
+                        config: {},
+                        fields: []
+                    }
+                }
+            }
+            return buildSnapshotEnvelope({
+                snapshot: snapshot as Record<string, unknown>,
+                metahub: {
+                    id: metahubId,
+                    name: createLocalizedContent('en', 'Test Metahub') as unknown as Record<string, unknown>,
+                    description: createLocalizedContent('en', 'Description') as unknown as Record<string, unknown>,
+                    codename: testCodenameVlc('test-codename') as unknown as Record<string, unknown>,
+                    slug: 'test-slug'
+                }
+            })
+        }
+
+        it('should return 401 if user is not authenticated', async () => {
+            const app = express()
+            app.use(express.json())
+            const noAuthMiddleware = (req: Request, _res: Response, next: NextFunction) => {
+                // No user set
+                next()
+            }
+            app.use(
+                '/',
+                createMetahubsRoutes(noAuthMiddleware, () => mockExec as any, mockRateLimiter, mockRateLimiter)
+            )
+            app.use(errorHandler)
+
+            await request(app)
+                .post('/metahubs/import')
+                .send(makeTestEnvelope())
+                .expect(401)
+        })
+
+        it('should return 400 on invalid envelope (missing required fields)', async () => {
+            const app = buildApp()
+            await request(app)
+                .post('/metahubs/import')
+                .send({ kind: 'not_a_snapshot' })
+                .expect(400)
+        })
+
+        it('should return 400 on hash mismatch', async () => {
+            const envelope = makeTestEnvelope()
+            envelope.snapshotHash = 'a'.repeat(64)
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(envelope)
+                .expect(400)
+            expect(res.body.details).toContain('hash mismatch')
+        })
+
+        it.skip('should return 413 if content-length exceeds max file size (Express body parser waits for declared bytes)', async () => {
+            // The defense-in-depth Content-Length check runs after Express body parsing.
+            // Setting Content-Length > actual body causes Express to hang waiting for bytes.
+            // The global express.json({ limit }) already enforces the real size limit.
+        })
+
+        it('should return 201 on valid import', async () => {
+            const transactionExecutors: Array<{ query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }> = []
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId: 'new-metahub-id'
+            })
+            mockCreatePublication.mockResolvedValueOnce({ id: 'pub-1' })
+            mockCreatePublicationVersion.mockResolvedValueOnce({ id: 'version-1', versionNumber: 1 })
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                transactionExecutors.push(tx)
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(makeTestEnvelope())
+                .expect(201)
+
+            expect(res.body).toMatchObject({
+                metahub: { id: 'new-metahub-id' },
+                publication: { id: 'pub-1', activeVersionId: 'version-1' },
+                version: { id: 'version-1', versionNumber: 1 }
+            })
+            expect(mockRestoreFromSnapshot).toHaveBeenCalled()
+            expect(transactionExecutors).toHaveLength(2)
+            expect(mockCreatePublication).toHaveBeenLastCalledWith(
+                transactionExecutors[1],
+                expect.objectContaining({ metahubId: 'new-metahub-id', autoCreateApplication: false })
+            )
+            expect(mockCreatePublicationVersion).toHaveBeenLastCalledWith(
+                transactionExecutors[1],
+                expect.objectContaining({ publicationId: 'pub-1', isActive: true, versionNumber: 1 })
+            )
+            expect(transactionExecutors[1].query).toHaveBeenCalledWith(
+                'UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2',
+                ['version-1', 'pub-1']
+            )
+        })
+
+        it('preserves exported publication version number when the snapshot envelope carries it', async () => {
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            const envelope = makeTestEnvelope()
+            envelope.publication = {
+                id: '00000000-0000-0000-0000-000000000101',
+                name: createLocalizedContent('en', 'Imported publication') as unknown as Record<string, unknown>,
+                versionId: '00000000-0000-0000-0000-000000000102',
+                versionNumber: 7
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId: 'new-metahub-id'
+            })
+            mockCreatePublication.mockResolvedValueOnce({ id: 'pub-1' })
+            mockCreatePublicationVersion.mockResolvedValueOnce({ id: 'version-1', versionNumber: 7 })
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(envelope)
+                .expect(201)
+
+            expect(res.body).toMatchObject({
+                version: { id: 'version-1', versionNumber: 7 }
+            })
+            expect(mockCreatePublicationVersion).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({ versionNumber: 7 })
+            )
+        })
+
+        it('rolls back imported metahub artifacts when snapshot restore fails', async () => {
+            const transactionExecutors: Array<{ query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }> = []
+            const schemaName = 'mhb_018f8a787b8f7c1da111222233334444_b1'
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName,
+                metahubId: 'new-metahub-id'
+            })
+            mockFindMetahubForUpdate.mockResolvedValueOnce(metahubRow)
+            mockRestoreFromSnapshot.mockRejectedValueOnce(new Error('restore exploded'))
+
+            let transactionCallIndex = 0
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const currentCall = transactionCallIndex++
+                const tx = {
+                    query: jest.fn(async (sql: string) => {
+                        if (currentCall === 1 && sql.includes('SELECT schema_name AS "schemaName"')) {
+                            return [{ schemaName }]
+                        }
+                        return []
+                    }),
+                    transaction: jest.fn(),
+                    isReleased: () => false
+                }
+                transactionExecutors.push(tx)
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(makeTestEnvelope())
+                .expect(500)
+
+            expect(res.body).toMatchObject({
+                error: 'Snapshot import failed and created resources were cleaned up',
+                code: 'METAHUB_IMPORT_ROLLED_BACK',
+                details: {
+                    metahubId: 'new-metahub-id',
+                    importError: 'restore exploded'
+                }
+            })
+            expect(mockCreatePublication).not.toHaveBeenCalled()
+            expect(mockSoftDelete).toHaveBeenCalledWith(transactionExecutors[1], 'metahubs', 'cat_metahubs', 'new-metahub-id', 'test-user-id')
+            expect(transactionExecutors[1].query).toHaveBeenCalledWith(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`)
+        })
+
+        it('rolls back imported metahub artifacts when the initial branch is missing after create', async () => {
+            const transactionExecutors: Array<{ query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }> = []
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: null
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubForUpdate.mockResolvedValueOnce({ id: 'new-metahub-id', codename: 'test-codename-imported' })
+
+            let transactionCallIndex = 0
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const currentCall = transactionCallIndex++
+                const tx = {
+                    query: jest.fn(async (sql: string) => {
+                        if (currentCall === 1 && sql.includes('SELECT schema_name AS "schemaName"')) {
+                            return []
+                        }
+                        return []
+                    }),
+                    transaction: jest.fn(),
+                    isReleased: () => false
+                }
+                transactionExecutors.push(tx)
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(makeTestEnvelope())
+                .expect(500)
+
+            expect(res.body).toMatchObject({
+                error: 'Snapshot import failed and created resources were cleaned up',
+                code: 'METAHUB_IMPORT_ROLLED_BACK',
+                details: {
+                    metahubId: 'new-metahub-id',
+                    importError: 'Failed to create metahub branch'
+                }
+            })
+            expect(mockRestoreFromSnapshot).not.toHaveBeenCalled()
+            expect(mockCreatePublication).not.toHaveBeenCalled()
+            expect(mockSoftDelete).toHaveBeenCalledWith(transactionExecutors[1], 'metahubs', 'cat_metahubs', 'new-metahub-id', 'test-user-id')
+        })
+
+        it('rolls back imported metahub artifacts when the created branch has no schema', async () => {
+            const transactionExecutors: Array<{ query: jest.Mock; transaction: jest.Mock; isReleased: () => boolean }> = []
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: null,
+                metahubId: 'new-metahub-id'
+            })
+            mockFindMetahubForUpdate.mockResolvedValueOnce({ id: 'new-metahub-id', codename: 'test-codename-imported' })
+
+            let transactionCallIndex = 0
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const currentCall = transactionCallIndex++
+                const tx = {
+                    query: jest.fn(async (sql: string) => {
+                        if (currentCall === 1 && sql.includes('SELECT schema_name AS "schemaName"')) {
+                            return []
+                        }
+                        return []
+                    }),
+                    transaction: jest.fn(),
+                    isReleased: () => false
+                }
+                transactionExecutors.push(tx)
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(makeTestEnvelope())
+                .expect(500)
+
+            expect(res.body).toMatchObject({
+                error: 'Snapshot import failed and created resources were cleaned up',
+                code: 'METAHUB_IMPORT_ROLLED_BACK',
+                details: {
+                    metahubId: 'new-metahub-id',
+                    importError: 'Branch schema not found'
+                }
+            })
+            expect(mockRestoreFromSnapshot).not.toHaveBeenCalled()
+            expect(mockCreatePublication).not.toHaveBeenCalled()
+            expect(mockSoftDelete).toHaveBeenCalledWith(transactionExecutors[1], 'metahubs', 'cat_metahubs', 'new-metahub-id', 'test-user-id')
+        })
+
+        it('returns explicit cleanup failure details when import compensation also fails', async () => {
+            const schemaName = 'mhb_018f8a787b8f7c1da111222233334444_b1'
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName,
+                metahubId: 'new-metahub-id'
+            })
+            mockFindMetahubForUpdate.mockResolvedValueOnce(metahubRow)
+            mockRestoreFromSnapshot.mockRejectedValueOnce(new Error('restore exploded'))
+
+            let transactionCallIndex = 0
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const currentCall = transactionCallIndex++
+                const tx = {
+                    query: jest.fn(async (sql: string) => {
+                        if (currentCall === 1 && sql.includes('SELECT schema_name AS "schemaName"')) {
+                            return [{ schemaName }]
+                        }
+                        if (currentCall === 1 && sql.includes('DROP SCHEMA IF EXISTS')) {
+                            throw new Error('drop failed')
+                        }
+                        return []
+                    }),
+                    transaction: jest.fn(),
+                    isReleased: () => false
+                }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .post('/metahubs/import')
+                .send(makeTestEnvelope())
+                .expect(500)
+
+            expect(res.body).toMatchObject({
+                error: 'Snapshot import failed and cleanup did not complete',
+                code: 'METAHUB_IMPORT_CLEANUP_FAILED',
+                details: {
+                    metahubId: 'new-metahub-id',
+                    importError: 'restore exploded',
+                    cleanupError: 'drop failed'
+                }
+            })
+            expect(mockSoftDelete).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('GET /metahub/:metahubId/export', () => {
+        it('should return 401 if user is not authenticated', async () => {
+            const app = express()
+            app.use(express.json())
+            const noAuthMiddleware = (req: Request, _res: Response, next: NextFunction) => {
+                next()
+            }
+            app.use(
+                '/',
+                createMetahubsRoutes(noAuthMiddleware, () => mockExec as any, mockRateLimiter, mockRateLimiter)
+            )
+            app.use(errorHandler)
+
+            await request(app)
+                .get('/metahub/00000000-0000-0000-0000-000000000001/export')
+                .expect(401)
+        })
+
+        it('should return 404 if metahub not found', async () => {
+            mockFindMetahubById.mockResolvedValueOnce(null)
+            const app = buildApp()
+            await request(app)
+                .get('/metahub/00000000-0000-0000-0000-000000000001/export')
+                .expect(404)
+        })
+
+        it('should return 400 if metahub has no default branch', async () => {
+            mockFindMetahubById.mockResolvedValueOnce({
+                id: '00000000-0000-0000-0000-000000000001',
+                name: createLocalizedContent('en', 'Test'),
+                codename: testCodenameVlc('test'),
+                defaultBranchId: null
+            })
+            const app = buildApp()
+            await request(app)
+                .get('/metahub/00000000-0000-0000-0000-000000000001/export')
+                .expect(400)
         })
     })
 })

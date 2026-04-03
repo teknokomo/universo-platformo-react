@@ -20,7 +20,14 @@ export const dashboardLayoutConfigSchema = z
         showProductTree: z.boolean().optional(),
         showUsersByCountryChart: z.boolean().optional(),
         showRightSideMenu: z.boolean().optional(),
-        showFooter: z.boolean().optional()
+        showFooter: z.boolean().optional(),
+        // Enhanced view settings
+        showViewToggle: z.boolean().optional(),
+        defaultViewMode: z.enum(['table', 'card']).optional(),
+        showFilterBar: z.boolean().optional(),
+        enableRowReordering: z.boolean().optional(),
+        cardColumns: z.number().int().min(2).max(4).optional(),
+        rowHeight: z.union([z.number().int().min(36).max(200), z.literal('auto')]).optional()
     })
     .optional()
 

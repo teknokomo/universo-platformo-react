@@ -1,46 +1,6 @@
-import pg from 'pg'
 import { createApiContext, disposeApiContext, listInstances, login } from './api-session.mjs'
+import { createE2eDatabaseClient } from './e2eDatabase.mjs'
 import { loadE2eEnvironment } from '../env/load-e2e-env.mjs'
-
-function getFallbackDatabaseSslConfig() {
-    if (process.env.DATABASE_SSL_KEY_BASE64) {
-        return {
-            rejectUnauthorized: false,
-            ca: Buffer.from(process.env.DATABASE_SSL_KEY_BASE64, 'base64').toString()
-        }
-    }
-
-    if (process.env.DATABASE_SSL === 'true') {
-        return { rejectUnauthorized: false }
-    }
-
-    return false
-}
-
-function getFallbackDatabaseConnectionConfig() {
-    loadE2eEnvironment()
-
-    const host = String(process.env.DATABASE_HOST || '').trim()
-    const user = String(process.env.DATABASE_USER || '').trim()
-    const password = String(process.env.DATABASE_PASSWORD || '')
-    const database = String(process.env.DATABASE_NAME || '').trim()
-    const port = Number.parseInt(String(process.env.DATABASE_PORT || '5432'), 10)
-
-    if (!host || !user || !password || !database || !Number.isFinite(port)) {
-        const message =
-            'DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD, and DATABASE_NAME are required for bootstrap fallback instance resolution'
-        throw new Error(message)
-    }
-
-    return {
-        host,
-        port,
-        user,
-        password,
-        database,
-        ssl: getFallbackDatabaseSslConfig()
-    }
-}
 
 export function getBootstrapCredentials() {
     loadE2eEnvironment()
@@ -70,8 +30,7 @@ export async function resolvePrimaryInstance(api) {
     const instance = items[0]
 
     if (!instance?.id) {
-        const { Client } = pg
-        const client = new Client(getFallbackDatabaseConnectionConfig())
+        const client = createE2eDatabaseClient()
 
         await client.connect()
 

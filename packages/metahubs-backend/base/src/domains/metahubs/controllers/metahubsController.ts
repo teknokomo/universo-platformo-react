@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import { applyRlsContext } from '@universo/auth-backend'
 import { getPoolExecutor } from '@universo/database'
-import { activeAppRowCondition } from '@universo/utils'
+import { activeAppRowCondition, buildSnapshotEnvelope, getCodenamePrimary, validateSnapshotEnvelope } from '@universo/utils'
 import {
   findMetahubById,
   findMetahubByCodename,
@@ -26,6 +26,8 @@ import {
   findTemplateByIdNotDeleted,
   findTemplateByCodename,
   softDelete,
+  createPublication,
+  createPublicationVersion,
   type SqlQueryable,
   type MetahubRow,
   type MetahubUserRow,
@@ -36,7 +38,8 @@ import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } fr
 import { resolveUserId } from '../../shared/routeAuth'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { validateListQuery } from '../../shared/queryParams'
-import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+import { sanitizeLocalizedInput, buildLocalizedContent, ensureVLC } from '@universo/utils/vlc'
+import { createCodenameVLC } from '@universo/utils/vlc'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { codenameErrorMessage } from '../../shared/codenameStyleHelper'
 import {
@@ -53,6 +56,15 @@ import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession, type Db
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
+import { MetahubAttributesService } from '../services/MetahubAttributesService'
+import { MetahubElementsService } from '../services/MetahubElementsService'
+import { MetahubEnumerationValuesService } from '../services/MetahubEnumerationValuesService'
+import { MetahubConstantsService } from '../services/MetahubConstantsService'
+import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
+import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
+import { createPoolSnapshotRestoreService } from '../../ddl'
+import type { MetahubSnapshotTransportEnvelope } from '@universo/types'
+import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo/types'
 import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 import { getDDLServices, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
@@ -193,6 +205,92 @@ const cleanupClonedSchemas = async (
     }
   }
   return cleanupFailures
+}
+
+const cleanupImportedMetahubInTx = async (tx: DbExecutor, metahubId: string, userId: string): Promise<void> => {
+  const lockedMetahub = await findMetahubForUpdate(tx, metahubId)
+  if (!lockedMetahub) return
+
+  const lockedBranches = await tx.query<{ schemaName: string | null }>(
+    `SELECT schema_name AS "schemaName"
+     FROM metahubs.cat_metahub_branches
+     WHERE metahub_id = $1
+     FOR UPDATE`,
+    [metahubId]
+  )
+
+  const schemasToDrop = lockedBranches
+    .map((branch) => branch.schemaName)
+    .filter((schemaName): schemaName is string => Boolean(schemaName))
+
+  for (const schemaName of schemasToDrop) {
+    assertManagedMetahubSchemaName(schemaName)
+  }
+
+  for (const schemaName of schemasToDrop) {
+    const schemaIdent = quoteIdentifier(schemaName)
+    await tx.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`)
+  }
+
+  await tx.query(
+    `UPDATE metahubs.doc_publication_versions
+     SET _upl_deleted = true,
+         _upl_deleted_at = NOW(),
+         _upl_deleted_by = $2,
+         _app_deleted = true,
+         _app_deleted_at = NOW(),
+         _app_deleted_by = $2,
+         _upl_updated_at = NOW(),
+         _upl_version = _upl_version + 1
+     WHERE publication_id IN (
+         SELECT id FROM metahubs.doc_publications WHERE metahub_id = $1
+     ) AND _upl_deleted = false AND _app_deleted = false`,
+    [metahubId, userId]
+  )
+
+  await tx.query(
+    `UPDATE metahubs.doc_publications
+     SET _upl_deleted = true,
+         _upl_deleted_at = NOW(),
+         _upl_deleted_by = $2,
+         _app_deleted = true,
+         _app_deleted_at = NOW(),
+         _app_deleted_by = $2,
+         _upl_updated_at = NOW(),
+         _upl_version = _upl_version + 1
+     WHERE metahub_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+    [metahubId, userId]
+  )
+
+  await tx.query(
+    `UPDATE metahubs.rel_metahub_users
+     SET _upl_deleted = true,
+         _upl_deleted_at = NOW(),
+         _upl_deleted_by = $2,
+         _app_deleted = true,
+         _app_deleted_at = NOW(),
+         _app_deleted_by = $2,
+         _upl_updated_at = NOW(),
+         _upl_version = _upl_version + 1
+     WHERE metahub_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+    [metahubId, userId]
+  )
+
+  await tx.query(
+    `UPDATE metahubs.cat_metahub_branches
+     SET _upl_deleted = true,
+         _upl_deleted_at = NOW(),
+         _upl_deleted_by = $2,
+         _app_deleted = true,
+         _app_deleted_at = NOW(),
+         _app_deleted_by = $2,
+         _upl_updated_at = NOW(),
+         _upl_version = _upl_version + 1
+     WHERE metahub_id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+    [metahubId, userId]
+  )
+
+  await softDelete(tx, 'metahubs', 'cat_metahubs', metahubId, userId)
 }
 
 interface UniqueViolationErrorLike {
@@ -1606,6 +1704,269 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
     return res.status(204).send()
   }
 
+  // ---- importFromSnapshot ----
+  const importFromSnapshot = async (req: Request, res: Response) => {
+    const userId = resolveUserId(req)
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+    // 0. Server-side file size check (defense-in-depth; Express body-parser also enforces a global limit)
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10)
+    if (contentLength > SNAPSHOT_BUNDLE_CONSTRAINTS.MAX_FILE_SIZE_BYTES) {
+      return res.status(413).json({ error: 'Request body too large' })
+    }
+
+    // 1. Validate envelope (prototype pollution + depth + hash checks)
+    let envelope: MetahubSnapshotTransportEnvelope
+    try {
+      envelope = validateSnapshotEnvelope(req.body)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Validation failed'
+      return res.status(400).json({ error: 'Invalid snapshot envelope', details: message })
+    }
+
+    const { exec } = getServices(req)
+    const accessToken = resolveBearerAccessToken(req)
+    const rootExec = getPoolExecutor()
+
+    // 2. Generate unique codename for imported metahub
+    const sourceCodename = getCodenamePrimary(envelope.metahub.codename as unknown as VersionedLocalizedContent<string>) ?? 'imported'
+    const importedCodenameText = `${sourceCodename}-imported-${Date.now()}`
+    const importedCodename = createCodenameVLC('en', importedCodenameText)
+
+    // 3. Build localized name/description from envelope
+    const importedName = ensureVLC(envelope.metahub.name, 'en')
+    if (!importedName) {
+      return res.status(400).json({ error: 'Snapshot envelope has no metahub name' })
+    }
+
+    const importedDescription = envelope.metahub.description
+      ? ensureVLC(envelope.metahub.description, 'en')
+      : undefined
+
+    const branchName = buildLocalizedContent({ en: 'Main', ru: 'Основная' }, 'en', 'en')!
+    const branchDescription = buildLocalizedContent({ en: 'Imported branch', ru: 'Импортированная ветка' }, 'en', 'en')
+
+    // 4. Create metahub + owner membership + initial branch (empty, no template entities)
+    let metahub: MetahubRow
+    const createMetahubInTx = async (tx: DbExecutor) => {
+      const saved = await createMetahubStore(tx, {
+        name: importedName,
+        description: importedDescription,
+        codename: importedCodename,
+        slug: undefined,
+        isPublic: false,
+        templateId: null,
+        templateVersionId: null,
+        userId
+      })
+
+      await addMetahubMember(tx, {
+        metahubId: saved.id,
+        userId,
+        role: 'owner',
+        createdBy: userId
+      })
+
+      const txBranchesService = new MetahubBranchesService(tx)
+      await txBranchesService.createInitialBranch({
+        metahubId: saved.id,
+        name: branchName,
+        description: branchDescription ?? null,
+        createdBy: userId,
+        createOptions: {
+          createHub: false,
+          createCatalog: false,
+          createSet: false,
+          createEnumeration: false
+        }
+      })
+
+      return saved
+    }
+
+    try {
+      metahub = accessToken
+        ? await runCommittedRlsTransaction(rootExec, accessToken, createMetahubInTx)
+        : await exec.transaction(createMetahubInTx)
+    } catch (error) {
+      const conflictMessage = resolveMetahubUniqueConflictError(error)
+      if (conflictMessage) {
+        return res.status(409).json({ error: conflictMessage })
+      }
+      throw error
+    }
+
+    try {
+      // 5. Restore snapshot into the newly created branch schema
+      const freshMetahub = await findMetahubById(exec, metahub.id)
+      if (!freshMetahub?.defaultBranchId) {
+        throw new Error('Failed to create metahub branch')
+      }
+
+      const branch = await findBranchByIdAndMetahub(exec, freshMetahub.defaultBranchId, metahub.id)
+      if (!branch?.schemaName) {
+        throw new Error('Branch schema not found')
+      }
+
+      const restoreService = createPoolSnapshotRestoreService(branch.schemaName)
+      await restoreService.restoreFromSnapshot(
+        metahub.id,
+        envelope.snapshot as unknown as import('../../publications/services/SnapshotSerializer').MetahubSnapshot,
+        userId
+      )
+
+      // 6. Create publication + first version from the imported snapshot
+      const publicationName = envelope.publication?.name
+        ? ensureVLC(envelope.publication.name, 'en')
+        : importedName
+
+      const importedPublicationVersionNumber = envelope.publication?.versionNumber
+      let importedVersionNumber = 1
+      if (typeof importedPublicationVersionNumber === 'number' && Number.isInteger(importedPublicationVersionNumber) && importedPublicationVersionNumber > 0) {
+        importedVersionNumber = importedPublicationVersionNumber
+      }
+
+      const { publication, version } = await exec.transaction(async (tx) => {
+        const publication = await createPublication(tx, {
+          metahubId: metahub.id,
+          name: publicationName!,
+          description: undefined,
+          autoCreateApplication: false,
+          userId
+        })
+
+        const version = await createPublicationVersion(tx, {
+          publicationId: publication.id,
+          versionNumber: importedVersionNumber,
+          name: publicationName!,
+          description: null,
+          snapshotJson: envelope.snapshot as Record<string, unknown>,
+          snapshotHash: envelope.snapshotHash,
+          branchId: null,
+          isActive: true,
+          userId
+        })
+
+        await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publication.id])
+
+        return { publication, version }
+      })
+
+      return res.status(201).json({
+        metahub: {
+          id: metahub.id,
+          name: metahub.name,
+          codename: metahub.codename,
+        },
+        publication: { id: publication.id, activeVersionId: version.id },
+        version: { id: version.id, versionNumber: version.versionNumber },
+        importedFrom: {
+          sourceMetahubId: envelope.metahub.id,
+          exportedAt: envelope.exportedAt,
+        },
+      })
+    } catch (error) {
+      try {
+        const cleanup = (tx: DbExecutor) => cleanupImportedMetahubInTx(tx, metahub.id, userId)
+        if (accessToken) {
+          await runCommittedRlsTransaction(rootExec, accessToken, cleanup)
+        } else {
+          await exec.transaction(cleanup)
+        }
+        MetahubSchemaService.clearCache(metahub.id)
+      } catch (cleanupError) {
+        return res.status(500).json({
+          error: 'Snapshot import failed and cleanup did not complete',
+          code: 'METAHUB_IMPORT_CLEANUP_FAILED',
+          details: {
+            metahubId: metahub.id,
+            importError: safeErrorMessage(error),
+            cleanupError: safeErrorMessage(cleanupError)
+          }
+        })
+      }
+
+      return res.status(500).json({
+        error: 'Snapshot import failed and created resources were cleaned up',
+        code: 'METAHUB_IMPORT_ROLLED_BACK',
+        details: {
+          metahubId: metahub.id,
+          importError: safeErrorMessage(error)
+        }
+      })
+    }
+  }
+
+  // ---- exportMetahub ----
+  const exportMetahub = async (req: Request, res: Response) => {
+    const userId = resolveUserId(req)
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+    const { metahubId } = req.params
+    const { exec } = getServices(req)
+    const dbSession = getRequestDbSession(req)
+
+    await ensureMetahubAccess(exec, userId, metahubId, undefined, dbSession)
+
+    const metahub = await findMetahubById(exec, metahubId)
+    if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
+
+    const activeBranchId = metahub.defaultBranchId
+    if (!activeBranchId) {
+      return res.status(400).json({ error: 'Metahub has no default branch' })
+    }
+
+    const branch = await findBranchByIdAndMetahub(exec, activeBranchId, metahubId)
+    if (!branch) {
+      return res.status(400).json({ error: 'Default branch not found' })
+    }
+
+    const schemaService = new MetahubSchemaService(exec, activeBranchId)
+    const objectsService = new MetahubObjectsService(exec, schemaService)
+    const attributesService = new MetahubAttributesService(exec, schemaService)
+    const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
+    const hubsService = new MetahubHubsService(exec, schemaService)
+    const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
+    const constantsService = new MetahubConstantsService(exec, schemaService)
+
+    const serializer = new SnapshotSerializer(
+      objectsService,
+      attributesService,
+      elementsService,
+      hubsService,
+      enumerationValuesService,
+      constantsService
+    )
+
+    const snapshot = await serializer.serializeMetahub(metahubId, {
+      structureVersion: structureVersionToSemver(branch.structureVersion),
+    })
+
+    await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
+
+    const envelope = buildSnapshotEnvelope({
+      snapshot: snapshot as unknown as MetahubSnapshotTransportEnvelope['snapshot'],
+      metahub: {
+        id: metahub.id,
+        name: metahub.name as unknown as Record<string, unknown>,
+        description: (metahub.description ?? undefined) as unknown as Record<string, unknown> | undefined,
+        codename: metahub.codename as unknown as Record<string, unknown>,
+        slug: metahub.slug ?? undefined,
+      },
+    })
+
+    const primary = getCodenamePrimary(metahub.codename) ?? metahub.id
+    const asciiFilename = `metahub-${primary.replace(/[^a-zA-Z0-9\-_.]/g, '_')}.json`
+    const utf8Filename = `metahub-${primary}.json`
+
+    res.type('application/json')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(utf8Filename)}`
+    )
+    return res.send(JSON.stringify(envelope))
+  }
+
   return {
     codenameDefaults,
     list,
@@ -1615,6 +1976,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
     copy,
     update,
     remove,
+    exportMetahub,
+    importFromSnapshot,
     listMembers,
     addMember,
     updateMember,

@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
-import { localizedContent, OptimisticLockError } from '@universo/utils'
+import { localizedContent, OptimisticLockError, buildSnapshotEnvelope, getCodenamePrimary, validateSnapshotEnvelope } from '@universo/utils'
 import { applyRlsContext } from '@universo/auth-backend'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
@@ -29,9 +29,10 @@ import {
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
 import { getDDLServices, generateSchemaName, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
-import { createKnexExecutor, getPoolExecutor, qSchemaTable } from '@universo/database'
+import { createKnexExecutor } from '@universo/database'
 import { runPublishedApplicationRuntimeSync, type PublishedApplicationSnapshot } from '@universo/applications-backend'
 import { ApplicationSchemaStatus } from '@universo/types'
+import type { MetahubSnapshotTransportEnvelope } from '@universo/types'
 import { createLinkedApplication } from '../helpers/createLinkedApplication'
 import { MetahubValidationError, MetahubNotFoundError, MetahubDomainError, MetahubSchemaSyncError } from '../../shared/domainErrors'
 import { TARGET_APP_STRUCTURE_VERSION } from '../../applications/constants'
@@ -324,113 +325,8 @@ const assertSchemaGenerationSucceeded = (result: { success: boolean; errors: str
   throw new MetahubSchemaSyncError(context, new Error(errorMessage))
 }
 
-/**
- * Injects layout + zone-widget data into an existing MetahubSnapshot **in place**.
- */
-const attachLayoutsToSnapshot = async (options: {
-  schemaService: MetahubSchemaService
-  snapshot: MetahubSnapshot
-  metahubId: string
-  userId: string
-}): Promise<void> => {
-  const { schemaService, snapshot, metahubId, userId } = options
-
-  try {
-    const poolExec = getPoolExecutor()
-    const branchSchemaName = await schemaService.ensureSchema(metahubId, userId)
-    const layoutsTable = qSchemaTable(branchSchemaName, '_mhb_layouts')
-
-    const layoutRows = await poolExec.query<{
-      id: string
-      template_key: string | null
-      name: Record<string, unknown> | null
-      description: Record<string, unknown> | null
-      config: Record<string, unknown> | null
-      is_active: boolean
-      is_default: boolean
-      sort_order: number | null
-    }>(
-      `SELECT id, template_key, name, description, config, is_active, is_default, sort_order
-       FROM ${layoutsTable}
-       WHERE _upl_deleted = false AND _mhb_deleted = false
-       ORDER BY sort_order ASC, _upl_created_at ASC`,
-      []
-    )
-
-    const layouts = (layoutRows ?? []).map((r) => ({
-      id: String(r.id),
-      templateKey: String(r.template_key ?? 'dashboard'),
-      name: (r.name as Record<string, unknown>) ?? {},
-      description: (r.description as Record<string, unknown> | null) ?? null,
-      config: (r.config as Record<string, unknown>) ?? {},
-      isActive: Boolean(r.is_active),
-      isDefault: Boolean(r.is_default),
-      sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0
-    }))
-
-    const activeLayouts = layouts.filter((layout) => layout.isActive)
-    const defaultLayout = activeLayouts.find((layout) => layout.isDefault) ?? activeLayouts[0] ?? null
-
-    snapshot.layouts = activeLayouts
-    snapshot.defaultLayoutId = defaultLayout?.id ?? null
-    snapshot.layoutConfig = defaultLayout?.config ?? {}
-
-    const hasTableRows = await poolExec.query<{ exists: boolean }>(
-      `SELECT EXISTS (
-          SELECT 1 FROM information_schema.tables
-          WHERE table_schema = $1 AND table_name = $2
-      ) AS exists`,
-      [branchSchemaName, '_mhb_widgets']
-    )
-    const hasLayoutZoneWidgets = hasTableRows[0]?.exists === true
-
-    if (hasLayoutZoneWidgets) {
-      const activeLayoutIds = (snapshot.layouts ?? []).map((l) => l.id)
-      const widgetsTable = qSchemaTable(branchSchemaName, '_mhb_widgets')
-
-      let widgetSql = `SELECT id, layout_id, zone, widget_key, sort_order, config, is_active
-                       FROM ${widgetsTable}
-                       WHERE _upl_deleted = false AND _mhb_deleted = false`
-      const widgetParams: unknown[] = []
-
-      if (activeLayoutIds.length > 0) {
-        const placeholders = activeLayoutIds.map((_, i) => `$${i + 1}`).join(', ')
-        widgetSql += ` AND layout_id IN (${placeholders})`
-        widgetParams.push(...activeLayoutIds)
-      }
-
-      widgetSql += ` ORDER BY layout_id ASC, zone ASC, sort_order ASC, _upl_created_at ASC`
-
-      const zoneRows = await poolExec.query<{
-        id: string
-        layout_id: string
-        zone: string
-        widget_key: string
-        sort_order: number | null
-        config: Record<string, unknown> | null
-        is_active: boolean
-      }>(widgetSql, widgetParams)
-
-      snapshot.layoutZoneWidgets = (zoneRows ?? []).map((row) => ({
-        id: String(row.id),
-        layoutId: String(row.layout_id),
-        zone: String(row.zone),
-        widgetKey: String(row.widget_key),
-        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-        config: row.config && typeof row.config === 'object' ? row.config : {},
-        isActive: row.is_active !== false
-      }))
-    } else {
-      snapshot.layoutZoneWidgets = []
-    }
-  } catch (e) {
-    log.warn('Failed to load metahub layout config (ignored)', e)
-    snapshot.layouts = []
-    snapshot.layoutZoneWidgets = []
-    snapshot.defaultLayoutId = null
-    snapshot.layoutConfig = {}
-  }
-}
+// attachLayoutsToSnapshot extracted to shared/snapshotLayouts.ts
+import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 
 async function notifyLinkedApplicationsUpdateAvailable(
   exec: SqlQueryable,
@@ -1822,6 +1718,123 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     return res.json({ success: true })
   }
 
+  // ─── IMPORT VERSION ─────────────────────────────────────────────────────────
+
+  const importVersion = async (req: Request, res: Response) => {
+    const { metahubId, publicationId } = req.params
+    const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+    if (!userId) return
+    const { exec } = services(req)
+
+    // 1. Validate envelope
+    let envelope: MetahubSnapshotTransportEnvelope
+    try {
+      envelope = validateSnapshotEnvelope(req.body)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Validation failed'
+      return res.status(400).json({ error: 'Invalid snapshot envelope', details: message })
+    }
+
+    // 2. Verify publication exists and belongs to this metahub
+    const publication = await findPublicationById(exec, publicationId)
+    if (!publication || publication.metahubId !== metahubId) {
+      return res.status(404).json({ error: 'Publication not found' })
+    }
+
+    // 3. Create version from imported snapshot
+    const versions = await listPublicationVersions(exec, publicationId)
+    const nextVersionNumber = Math.max(0, ...versions.map((v) => v.versionNumber)) + 1
+
+    const { buildLocalizedContent: buildLC } = localizedContent
+    const versionName = buildLC({ en: `Imported v${nextVersionNumber}` }, 'en')
+
+    const result = await exec.transaction(async (tx) => {
+      await deactivatePublicationVersions(tx, publicationId)
+
+      const version = await createPublicationVersion(tx, {
+        publicationId,
+        versionNumber: nextVersionNumber,
+        name: versionName!,
+        description: null,
+        snapshotJson: envelope.snapshot as Record<string, unknown>,
+        snapshotHash: envelope.snapshotHash,
+        branchId: null,
+        isActive: true,
+        userId
+      })
+
+      await tx.query(
+        'UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2',
+        [version.id, publicationId]
+      )
+
+      return version
+    })
+
+    await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, result.id)
+
+    return res.status(201).json({
+      ...result,
+      importedFrom: {
+        sourceMetahubId: envelope.metahub.id,
+        sourceSnapshotHash: envelope.snapshotHash,
+        exportedAt: envelope.exportedAt,
+      },
+    })
+  }
+
+  // ─── EXPORT VERSION ─────────────────────────────────────────────────────────
+
+  const exportVersion = async (req: Request, res: Response) => {
+    const { metahubId, publicationId, versionId } = req.params
+    const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+    if (!userId) return
+    const { exec } = services(req)
+
+    const publication = await findPublicationById(exec, publicationId)
+    if (!publication || publication.metahubId !== metahubId) {
+      return res.status(404).json({ error: 'Publication not found' })
+    }
+
+    const version = await findPublicationVersionById(exec, versionId)
+    if (!version || version.publicationId !== publicationId) {
+      return res.status(404).json({ error: 'Version not found' })
+    }
+
+    const metahub = await findMetahubById(exec, metahubId)
+    if (!metahub) {
+      return res.status(404).json({ error: 'Metahub not found' })
+    }
+
+    const envelope = buildSnapshotEnvelope({
+      snapshot: version.snapshotJson as MetahubSnapshotTransportEnvelope['snapshot'],
+      metahub: {
+        id: metahub.id,
+        name: metahub.name as unknown as Record<string, unknown>,
+        description: (metahub.description ?? undefined) as unknown as Record<string, unknown> | undefined,
+        codename: metahub.codename as unknown as Record<string, unknown>,
+        slug: metahub.slug ?? undefined,
+      },
+      publication: {
+        id: publication.id,
+        name: publication.name as unknown as Record<string, unknown>,
+        versionId: version.id,
+        versionNumber: version.versionNumber,
+      },
+    })
+
+    const primary = getCodenamePrimary(metahub.codename) ?? metahub.id
+    const asciiFilename = `metahub-${primary.replace(/[^a-zA-Z0-9\-_.]/g, '_')}-v${version.versionNumber}.json`
+    const utf8Filename = `metahub-${primary}-v${version.versionNumber}.json`
+
+    res.type('application/json')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(utf8Filename)}`
+    )
+    return res.send(JSON.stringify(envelope))
+  }
+
   return {
     listAvailable,
     list,
@@ -1835,6 +1848,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     sync,
     listVersions,
     createVersion,
+    exportVersion,
+    importVersion,
     activateVersion,
     updateVersion,
     deleteVersion

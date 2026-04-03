@@ -82,6 +82,17 @@ router.get('/:metahubId/hubs', handle(hubsController.list, { permission: 'viewer
 
 `paginateItems(items, { limit, offset })` provides in-memory pagination with `{ items, pagination: { limit, offset, total, hasMore } }`. Input validation uses `validateListQuery()` with Zod schema.
 
+### Snapshot Export/Import
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/metahub/:id/export` | Export full metahub as JSON snapshot envelope |
+| `POST` | `/api/v1/metahubs/import` | Import snapshot envelope as a new metahub |
+| `GET` | `/api/v1/metahub/:id/publication/:pubId/versions/:verId/export` | Export a publication version snapshot |
+| `POST` | `/api/v1/metahub/:id/publication/:pubId/versions/import` | Import snapshot as a new publication version |
+
+Import endpoints validate envelope integrity (SHA-256 hash), nesting depth, prototype pollution, and entity count limits. See [Snapshot Export & Import guide](../../../docs/en/guides/snapshot-export-import.md) for details.
+
 ## Development
 
 ```bash

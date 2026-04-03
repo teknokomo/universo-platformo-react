@@ -11,10 +11,10 @@ import SideMenuRight from './components/SideMenuRight'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
 
 export interface DashboardLayoutConfig {
-    showSideMenu: boolean
+    showSideMenu?: boolean
     showRightSideMenu?: boolean
-    showAppNavbar: boolean
-    showHeader: boolean
+    showAppNavbar?: boolean
+    showHeader?: boolean
     showBreadcrumbs?: boolean
     showSearch?: boolean
     showDatePicker?: boolean
@@ -30,6 +30,13 @@ export interface DashboardLayoutConfig {
     showProductTree?: boolean
     showUsersByCountryChart?: boolean
     showFooter?: boolean
+    // Enhanced view settings
+    showViewToggle?: boolean
+    defaultViewMode?: 'table' | 'card'
+    showFilterBar?: boolean
+    enableRowReordering?: boolean
+    cardColumns?: number
+    rowHeight?: number | 'auto'
 }
 
 export interface DashboardDetailsSlot {

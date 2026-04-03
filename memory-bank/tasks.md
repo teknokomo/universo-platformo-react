@@ -6,11 +6,108 @@
 
 ## Active Open Tasks (Canonical)
 
+
+
+- [x] Close the verified snapshot/runtime follow-up gaps from 2026-04-04
+	- Note: This wave reopens only the residual defects confirmed by direct verification after the previous implementation pass. Do not touch unrelated working-tree changes.
+	- Required outcomes:
+		- [x] Make `importFromSnapshot` cleanup-safe for the two early post-create failure branches (`Failed to create metahub branch`, `Branch schema not found`) instead of returning before compensation.
+		- [x] Replace the runtime view smoke test with a deterministic `/a/...` flow that provisions a real application, asserts enhanced runtime controls, and proves the FlowListTable path is active when row reordering is enabled.
+		- [x] Persist enhanced runtime layout settings into the self-model generator contract and regenerate `tools/fixtures/self-model-metahub-snapshot.json` from the corrected order of operations.
+		- [x] Fix the manual self-model utility CSRF endpoint and refresh generator documentation so the described scope matches the real 13-section fixture.
+	- Validation target: focused metahubs-backend tests, apps-template/runtime browser flow validation, targeted self-model generator rerun when available, and the canonical root `pnpm build`.
+	- Outcome: early import branch/schema failures now reuse the rollback cleanup path, `app-runtime-views.spec.ts` exercises the real `/a/${applicationId}` route with card/search/list assertions, the self-model generator reran successfully and regenerated the fixture with enhanced runtime layout fields, the manual utility now uses `/api/v1/auth/csrf`, the generator docs describe the 13-section scope, and the validation stack passed (`metahubsRoutes.test.ts`, targeted runtime Playwright flow, targeted generator run, root `pnpm build`).
+
+
+- [x] Implement QA closure for snapshot import cleanup, runtime list consistency, and self-model scope
+	- Note: Keep scope limited to the six validated QA items from the current implementation pass. Do not revert unrelated worktree changes.
+	- Required outcomes:
+		- [x] Make metahub snapshot import cleanup-safe on restore/publication failure, including explicit cleanup-failure reporting.
+		- [x] Add backend tests for import rollback and cleanup-failure paths.
+		- [x] Fix apps-template runtime filtered-view pagination/search consistency in MainGrid.
+		- [x] Finish the enableRowReordering runtime path with FlowListTable integration and LayoutDetails wiring without regressing the DataGrid path.
+		- [x] Expand the self-model generator/fixture contract from the current 9-catalog shape to the planned 13-section scope and update dependent assertions/docs if needed.
+		- [x] Clean remaining diagnostics/editorial issues in snapshotArchive.test.ts and SnapshotRestoreService.test.ts, then revalidate with focused tests and a full root pnpm build.
+	- Validation target: focused Jest/Vitest runs for touched backend/frontend/utils areas, then full root `pnpm build`.
+	- Outcome: metahub import now fails closed with explicit rollback vs cleanup-failure responses, MainGrid uses local filtered totals and FlowListTable reorder mode when configured, LayoutDetails exposes the now-real reorder toggle again, the self-model generator and CLI create the planned 13 sections via real hub/set/enumeration endpoints and regenerated `tools/fixtures/self-model-metahub-snapshot.json`, the two QA-flagged test files are diagnostics-clean, focused tests passed, and the root `pnpm build` finished green (`28/28`).
+
+- [x] QA remediation follow-up for snapshot/runtime settings hardening
+	- Note: Reopen the completed snapshot wave only for validated post-QA implementation gaps. Keep the fix scope limited to concrete defects: snapshot transport type contract drift, runtime view-settings contract drift, RBAC/import test gaps, and repository cleanup artifacts.
+	- Required outcomes:
+		- [x] Align `buildSnapshotEnvelope()` input typing with the stricter snapshot transport schema and remove the confirmed editor/TypeScript contract drift.
+		- [x] Resolve the `enableRowReordering` contract debt consistently across apps-template-mui runtime, layout settings UI, and documentation without introducing a noop feature seam.
+		- [x] Add backend tests that prove publication version import behavior and permission-path expectations more directly.
+		- [x] Remove accidental repository-root artifact files left outside the project contract.
+		- [x] Revalidate with focused package tests/checks and a full root `pnpm build`.
+	- Validation target: strict package-level TypeScript validation for touched code where relevant, focused Jest/Vitest runs for touched backend/utils areas, then full root `pnpm build`.
+	- Outcome: tightened snapshot envelope typing in `@universo/utils` and backend export callsites, removed the stale `enableRowReordering` config seam from runtime/docs/i18n, added publication-version import happy-path assertions, deleted accidental root artifacts, and finished with green focused tests plus a green root `pnpm build` (`28/28`).
+
+- [x] Fix snapshot import UX, backend compatibility, and remaining E2E failures
+	- Note: Closed the snapshot-import follow-up wave by fixing the import-created publication/version linkage, aligning the import dialog with the shared modal contract, and stabilizing the remaining full-suite regressions.
+	- Required outcomes:
+		- [x] Import dialog copy is renamed from snapshot wording to configuration wording, including RU text for the no-file-selected state.
+		- [x] Import dialog matches the shared modal style contract and does not render the extra horizontal divider lines.
+		- [x] `tools/fixtures/self-model-metahub-snapshot.json` imports successfully through the real browser UI.
+		- [x] Connector-driven schema creation for an application linked to the imported self-model metahub no longer fails on `GET /api/v1/application/:id/diff`.
+		- [x] E2E covers the imported-self-model -> connector -> create schema path.
+		- [x] Residual full-suite failures are fixed and `pnpm run test:e2e:full` completes green.
+		- [x] Wrapper-managed E2E runs stop the owned server and release port `3100` after completion.
+	- Validation target: focused Playwright CLI reruns for the touched flows, then full `pnpm run test:e2e:full`, plus an explicit post-run port-availability check.
+	- Outcome: full root `pnpm build` passed; targeted metahubs import tests, connector/snapshot/admin/visual Playwright reruns passed; final `pnpm run test:e2e:full` finished green; post-run `lsof -iTCP:3100 -sTCP:LISTEN` showed no listener.
+
+- [x] E2E Supabase full reset and teardown hardening
+	- Note: Replaced manifest-only cleanup as the primary isolation boundary with a guarded full project reset for the dedicated hosted E2E Supabase. Scope now covers application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations`, Supabase auth users, runner orchestration, diagnostics, and EN/RU docs.
+	- Validation:
+		- [x] Added a safe `full reset` backend helper with dry-run/report support and strict E2E-only guardrails.
+		- [x] Derived resettable fixed schemas from registered system app definitions while keeping infrastructure schema `public` intact and self-healed.
+		- [x] Integrated reset before suite startup and after server shutdown in the Playwright runner.
+		- [x] Kept manifest cleanup as a narrow recovery/helper path, not the primary isolation strategy.
+		- [x] Added doctor/report tooling to verify leftover schemas/users after teardown.
+		- [x] Updated English and Russian E2E documentation with the new reset contract and safety rules.
+		- [x] Validated via full `pnpm build`, full `pnpm run test:e2e:full`, explicit post-run cleanup verification, and a green smoke rerun proving automatic runner-finalize reset.
+	- Outcome: full `test:e2e:full` completed and exposed 5 pre-existing spec failures outside the reset scope (`app-runtime-views`, `profile-update`, `snapshot-export-import`, visual metahub dialog). After the run, `test:e2e:cleanup` + `test:e2e:doctor -- --assert-empty` confirmed zero project-owned schemas/auth users/artifacts; after the runner process-group fix, `test:e2e:smoke` passed `11/11` and automatic `runner-finalize` left the database empty without manual intervention.
+
 - [x] Address validated PR #745 review findings in admin locale, instance, and role codename flows.
 	- Note: Implemented the confirmed fixes only: locale typing now preserves a trailing separator, instance inline edits keep untouched locales, and role codename validation now honors runtime `metahubs` settings on backend routes while preserving legacy slug compatibility. Validation passed via focused Jest, package builds, and full `pnpm build`.
 
 - [x] Add Package Configuration for `core-frontend` to include `.env*` files in build inputs, closing the .env cache-invalidation gap.
 	- Note: `core-frontend` is the only package that reads `.env` via `dotenv` at Vite build time. Without explicit `.env*` inputs, changing a `.env` value would not invalidate the cached build.
+
+- [x] Metahub Self-Hosted App & Snapshot Export/Import — ALL PHASES COMPLETE
+	- Plan: `memory-bank/plan/metahub-self-hosted-app-and-snapshot-export-plan-2026-04-03.md`
+	- QA v2 deep-dive found 3 critical + 4 high + 4 medium issues; all 11 corrections applied to plan v3
+	- Phases 1–8 ALL COMPLETE — backend, frontend, apps-template-mui, layout config UI, self-model, tests, docs
+	- Full build passing: 28 successful, 0 failed; snapshot tests: 15/15 passing; unit tests: 274/274
+	- QA Post-Implementation Fixes (2026-04-03):
+		- [x] H1: E2E tampered hash test now uses 64-char fake hash to test integrity, not Zod length
+		- [x] H2: Removed noop `enableRowReordering` toggle from LayoutDetails View Settings (Zod schema field kept for future DnD)
+		- [x] M3: Added per-entity field count (200) and element count (10,000) validation to `validateSnapshotEnvelope`
+		- [x] M4: File input in ImportSnapshotDialog now resets on close via `useRef`
+	- Self-Model E2E (2026-04-03):
+		- [x] Created `self-model-metahub-export.spec.ts` — creates 9 catalogs with 27 attributes, publication, version, screenshots, exports to fixture
+		- [x] Fixed codename JSONB/VLC format in all E2E specs (createMetahub, catalogs, attributes, publication, version)
+		- [x] Fixture saved: `tools/fixtures/self-model-metahub-snapshot.json` (62 KB, 13 entities)
+		- [x] 3 screenshots in `test-results/self-model/`
+	- Remaining QA Findings (2026-04-03):
+		- [x] F2: Import endpoint VLC format fix — replaced `buildLocalizedContent` with `ensureVLC` in `importFromSnapshot`
+		- [x] F1: E2E toolbar dropdown selector fixed — `toolbar-primary-action-menu-trigger` (matches actual data-testid)
+	- QA v3 Hardening Fixes (2026-04-03):
+		- [x] C1: Fixed VLC format incompatibility — import now uses `ensureVLC()` instead of `buildLocalizedContent()` for name/description/publication
+		- [x] H1+H2: Added `log.warn()` for unmapped hub references and silent cross-reference nullification in SnapshotRestoreService
+		- [x] H3: `defaultLayoutId` confirmed as false positive — snapshot is self-consistent with original IDs
+		- [x] H4: `enableRowReordering` intentionally kept as future DnD placeholder (previous QA decision)
+		- [x] M1: Tightened Zod snapshot schema — explicit optional fields for known snapshot structure, passthrough kept for forward compatibility
+		- [x] M2: Server-side `Content-Length` check added as defense-in-depth in import route (Express body parser also enforces global limit)
+		- [x] L1: i18n keys confirmed already present (`export.exportVersion`, `export.exportMetahub` etc.)
+		- [x] C2: Added 7 unit tests for import/export routes (401, 400, hash mismatch, 201 happy path, export 401/404/400)
+		- [x] M5: Created SnapshotRestoreService.test.ts with 6 unit tests (entities, hub remap, constants, layouts, orphan skip, empty snapshot)
+		- [x] M3: Fixed E2E snapshot spec — selector mismatch + import response ID extraction
+	- Full build: 28/28 passing; metahubs-backend: 47 suites, 421 tests; utils: 274 tests
+	- Generators Architecture (2026-04-03):
+		- [x] Created `specs/generators/` folder and moved `self-model-metahub-export.spec.ts` from `specs/flows/`
+		- [x] Added `generators` project to `playwright.config.mjs` (dedicated `testMatch`, isolated from `chromium` via `testIgnore`)
+		- [x] Updated `package.json`: `test:e2e:full` explicitly lists non-generator projects; added `test:e2e:generators` script
+		- [x] Documented Snapshot Generators section in both E2E READMEs (EN + RU, 331/331 lines parity)
 
 ## Current Wave Notes — 2026-04-03
 

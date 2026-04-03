@@ -589,6 +589,9 @@ importers:
       '@universo/i18n':
         specifier: workspace:*
         version: link:../universo-i18n/base
+      '@universo/template-mui':
+        specifier: workspace:*
+        version: link:../universo-template-mui/base
       '@universo/types':
         specifier: workspace:*
         version: link:../universo-types/base

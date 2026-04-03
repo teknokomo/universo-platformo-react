@@ -280,6 +280,31 @@ interface DashboardDetailsSlot {
 }
 ```
 
+### DashboardLayoutConfig — Настройки отображения
+
+Интерфейс `DashboardLayoutConfig` поддерживает опциональные настройки отображения,
+которые включают расширенные режимы отображения в секции деталей:
+
+```typescript
+interface DashboardLayoutConfig {
+  // ... существующие булевые флаги (showSideMenu, showHeader и т.д.)
+
+  // Настройки отображения (опционально — при отсутствии используется классический табличный режим)
+  showViewToggle?: boolean       // Показать переключатель режима карточки/таблица
+  defaultViewMode?: 'table' | 'card'  // Начальный режим отображения
+  showFilterBar?: boolean        // Показать поле поиска в панели инструментов
+  cardColumns?: number           // Количество колонок в карточном виде (2–4)
+  rowHeight?: number | 'auto'    // Фиксированная высота в пикселях или 'auto' для авторазмера
+}
+```
+
+Когда `showViewToggle` или `showFilterBar` установлены, секция деталей рендерит
+**EnhancedDetailsSection**, которая интегрирует компоненты из `@universo/template-mui`
+(ViewHeaderMUI, ToolbarControls, ItemCard, PaginationControls) вместе с DataGrid.
+
+Эти настройки валидируются во время выполнения Zod-схемой `dashboardLayoutConfigSchema`
+в `api/api.ts`.
+
 ## Разработка
 
 ### Доступные скрипты

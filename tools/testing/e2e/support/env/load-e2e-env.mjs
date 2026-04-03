@@ -16,6 +16,16 @@ export const storageStatePath = path.resolve(authDir, 'storage-state.json')
 
 let cachedEnv = null
 
+const normalizeFullResetMode = (value) => {
+    const normalized = String(value || 'strict').trim().toLowerCase()
+
+    if (normalized === 'strict' || normalized === 'off') {
+        return normalized
+    }
+
+    throw new Error(`Invalid E2E_FULL_RESET_MODE value: ${value}. Expected 'strict' or 'off'.`)
+}
+
 const normalizeHost = (value) => {
     if (!value || value === '0.0.0.0' || value === '::') {
         return '127.0.0.1'
@@ -100,6 +110,7 @@ export function loadE2eEnvironment() {
     process.env.E2E_TEST_USER_PASSWORD = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
     process.env.E2E_TEST_USER_ROLE_CODENAMES = process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User'
     process.env.E2E_TEST_USER_EMAIL_DOMAIN = process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'
+    process.env.E2E_FULL_RESET_MODE = normalizeFullResetMode(process.env.E2E_FULL_RESET_MODE)
 
     cachedEnv = {
         envTarget,
@@ -113,7 +124,8 @@ export function loadE2eEnvironment() {
         storageStatePath,
         backendEnvPath,
         frontendEnvPath,
-        baseURL
+        baseURL,
+        fullResetMode: process.env.E2E_FULL_RESET_MODE
     }
 
     return cachedEnv

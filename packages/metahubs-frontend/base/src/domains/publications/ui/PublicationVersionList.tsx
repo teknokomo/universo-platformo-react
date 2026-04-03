@@ -30,6 +30,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
 import { CheckCircle as ActiveIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -58,12 +60,14 @@ import {
     useCreatePublicationVersion,
     useUpdatePublicationVersion,
     useActivatePublicationVersion,
-    useDeletePublicationVersion
+    useDeletePublicationVersion,
+    useImportSnapshotVersion
 } from '../hooks/versionMutations'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
 import type { PublicationVersion } from '../api'
+import { exportPublicationVersion } from '../api'
 import type { Publication } from '../api'
 import {
     buildInitialValues as buildPubInitialValues,
@@ -75,6 +79,7 @@ import {
 import type { PublicationLocalizedPayload } from './PublicationActions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { invalidatePublicationSettingsQueries } from './publicationSettingsQueries'
+import { ImportSnapshotDialog } from './ImportSnapshotDialog'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Component
@@ -130,10 +135,13 @@ export const PublicationVersionList: React.FC = () => {
     const updateMutation = useUpdatePublicationVersion()
     const activateMutation = useActivatePublicationVersion()
     const deleteMutation = useDeletePublicationVersion()
+    const importVersionMutation = useImportSnapshotVersion()
 
     // ── Dialog states ──────────────────────────────────────────────────
     const { dialogs, openCreate, openEdit, openDelete, close } = useListDialogs<PublicationVersion>()
     const [activateDialogOpen, setActivateDialogOpen] = useState<string | null>(null)
+    const [importDialogOpen, setImportDialogOpen] = useState(false)
+    const [exportingVersionId, setExportingVersionId] = useState<string | null>(null)
 
     // ── Row menu state ─────────────────────────────────────────────────
     const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null)
@@ -291,6 +299,42 @@ export const PublicationVersionList: React.FC = () => {
         )
     }, [dialogs.delete.item, metahubId, publicationId, deleteMutation, close])
 
+    const handleExportVersion = useCallback(async (versionId: string) => {
+        if (!metahubId || !publicationId) return
+        setExportingVersionId(versionId)
+        try {
+            await exportPublicationVersion(metahubId, publicationId, versionId)
+        } catch {
+            enqueueSnackbar(t('metahubs:export.exportError'), { variant: 'error' })
+        } finally {
+            setExportingVersionId(null)
+        }
+    }, [metahubId, publicationId, enqueueSnackbar, t])
+
+    const handleImportVersionConfirm = useCallback(async (file: File) => {
+        if (!metahubId || !publicationId) return
+        let json: unknown
+        try {
+            const text = await file.text()
+            json = JSON.parse(text)
+        } catch {
+            enqueueSnackbar(t('metahubs:export.invalidJson'), { variant: 'error' })
+            return
+        }
+        importVersionMutation.mutate(
+            { metahubId, publicationId, envelopeJson: json },
+            {
+                onSuccess: () => {
+                    setImportDialogOpen(false)
+                    enqueueSnackbar(t('metahubs:export.importVersionSuccess'), { variant: 'success' })
+                },
+                onError: () => {
+                    enqueueSnackbar(t('metahubs:export.importError'), { variant: 'error' })
+                }
+            }
+        )
+    }, [metahubId, publicationId, importVersionMutation, enqueueSnackbar, t])
+
     // Helpers for the row menu
     const menuRow = useMemo(() => (menuRowId ? versions.find((v) => v.id === menuRowId) : null), [menuRowId, versions])
     const menuRawVersion = useMemo(() => (menuRowId ? rawVersions.find((v) => v.id === menuRowId) : null), [menuRowId, rawVersions])
@@ -331,6 +375,13 @@ export const PublicationVersionList: React.FC = () => {
                                 onClick: openCreate,
                                 startIcon: <AddRoundedIcon />
                             }}
+                            primaryActionMenuItems={[
+                                {
+                                    label: t('metahubs:export.importVersion'),
+                                    onClick: () => setImportDialogOpen(true),
+                                    startIcon: <FileUploadIcon />
+                                }
+                            ]}
                         />
                     </ViewHeader>
 
@@ -536,6 +587,18 @@ export const PublicationVersionList: React.FC = () => {
                         <ListItemText>{t('metahubs:publications.versions.activate', 'Activate')}</ListItemText>
                     </MenuItem>
                 )}
+                <MenuItem
+                    disabled={exportingVersionId === menuRowId}
+                    onClick={() => {
+                        if (menuRowId) void handleExportVersion(menuRowId)
+                        handleMenuClose()
+                    }}
+                >
+                    <ListItemIcon>
+                        <FileDownloadIcon fontSize='small' />
+                    </ListItemIcon>
+                    <ListItemText>{t('metahubs:export.exportVersion')}</ListItemText>
+                </MenuItem>
                 <Divider />
                 <MenuItem
                     disabled={menuRow?.isActive}
@@ -640,6 +703,16 @@ export const PublicationVersionList: React.FC = () => {
                         />
                     )
                 })()}
+
+            <ImportSnapshotDialog
+                open={importDialogOpen}
+                onClose={() => setImportDialogOpen(false)}
+                onConfirm={handleImportVersionConfirm}
+                isLoading={importVersionMutation.isPending}
+                error={importVersionMutation.error?.message}
+                title={t('metahubs:export.importVersion')}
+                confirmLabel={t('metahubs:export.importVersion')}
+            />
         </MainCard>
     )
 }

@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.57.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.58.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Внимание, пожалуйста, прочитайте это внимательно.**

@@ -221,7 +221,19 @@
             "description": "Configure dashboard zones and widgets.",
             "dragHint": "Drag widgets between zones to change runtime composition.",
             "addWidget": "Add widget",
-            "widgetCatalogTitle": "Available widgets"
+            "widgetCatalogTitle": "Available widgets",
+            "viewSettings": "Application View Settings",
+            "showViewToggle": "Card/table view toggle",
+            "defaultViewMode": "Default view mode",
+            "viewModeTable": "Table",
+            "viewModeCard": "Card",
+            "showFilterBar": "Search/filter bar",
+            "enableRowReordering": "Enable row reordering",
+            "cardColumns": "Card columns",
+            "rowHeight": "Row height",
+            "rowHeightCompact": "Compact (default)",
+            "rowHeightNormal": "Normal (52px)",
+            "rowHeightAuto": "Auto (multi-line)"
         },
         "menuEditor": {
             "title": "Menu configuration",
@@ -1655,5 +1667,22 @@
         "common": {
             "placeholder": "Settings for this section will be available in future versions."
         }
+    },
+    "export": {
+        "importMetahub": "Import Configuration",
+        "importSnapshot": "Import Configuration",
+        "importVersion": "Import Version from Configuration",
+        "exportVersion": "Export Snapshot",
+        "exportMetahub": "Export Metahub",
+        "chooseFile": "Choose File",
+        "noFileSelected": "No file selected",
+        "fileSelectLabel": "Select a .json configuration file exported from Universo Platformo.",
+        "fileSizeError": "File is too large. Maximum size: {{maxMB}} MB.",
+        "invalidFormat": "Only .json files are accepted.",
+        "invalidJson": "The selected file does not contain valid JSON.",
+        "importSuccess": "Metahub imported successfully",
+        "importVersionSuccess": "Version imported successfully",
+        "importError": "Failed to import configuration",
+        "exportError": "Failed to export snapshot"
     }
 }

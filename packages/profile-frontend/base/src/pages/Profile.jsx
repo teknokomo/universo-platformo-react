@@ -1,9 +1,34 @@
 // Universo Platformo | User profile page
 import { useState, useEffect } from 'react'
 import { useTranslation } from '@universo/i18n'
-import { useAuth } from '@universo/auth-frontend'
+import { AUTH_CSRF_STORAGE_KEY, getStoredCsrfToken, useAuth } from '@universo/auth-frontend'
 import { MainCard } from '@universo/template-mui'
 import { Box, TextField, Button, Stack, Alert, Typography, Grid, Paper, Divider } from '@mui/material'
+
+const resolveCsrfToken = async () => {
+    const cachedToken = getStoredCsrfToken()
+    if (cachedToken) {
+        return cachedToken
+    }
+
+    const response = await fetch(`${window.location.origin}/api/v1/auth/csrf`, {
+        credentials: 'include'
+    })
+    const data = await response.json().catch(() => null)
+    const token = data?.csrfToken
+
+    if (!response.ok || typeof token !== 'string' || !token) {
+        throw new Error('Unable to resolve CSRF token')
+    }
+
+    try {
+        window.sessionStorage.setItem(AUTH_CSRF_STORAGE_KEY, token)
+    } catch {
+        // Ignore storage unavailability; the token can still be used for the current request.
+    }
+
+    return token
+}
 
 const Profile = () => {
     const { t } = useTranslation('profile')
@@ -78,10 +103,12 @@ const Profile = () => {
         setProfileLoading(true)
 
         try {
+            const csrfToken = await resolveCsrfToken()
             const response = await fetch(`${window.location.origin}/api/v1/profile/${user.id}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 credentials: 'include',
                 body: JSON.stringify({
@@ -125,10 +152,12 @@ const Profile = () => {
         }
 
         try {
+            const csrfToken = await resolveCsrfToken()
             const res = await fetch(`${window.location.origin}/api/v1/auth/email`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 credentials: 'include',
                 body: JSON.stringify({ email })
@@ -189,10 +218,12 @@ const Profile = () => {
         }
 
         try {
+            const csrfToken = await resolveCsrfToken()
             const res = await fetch(`${window.location.origin}/api/v1/auth/password`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 credentials: 'include',
                 body: JSON.stringify({

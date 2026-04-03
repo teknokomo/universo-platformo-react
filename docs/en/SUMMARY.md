@@ -61,3 +61,5 @@
 * [Overview](guides/README.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Updating System App Schemas](guides/updating-system-app-schemas.md)
+* [Snapshot Export & Import](guides/snapshot-export-import.md)
+* [Application Template View Settings](guides/app-template-views.md)

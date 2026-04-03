@@ -6,6 +6,7 @@ import ruMetahubs from './locales/ru/metahubs.json'
 
 interface MetahubsBundle {
     metahubs?: Record<string, unknown>
+    export?: Record<string, unknown>
     layouts?: Record<string, unknown>
     menus?: Record<string, unknown>
     templates?: Record<string, unknown>
@@ -63,6 +64,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         publications: bundle?.publications ?? {},
         migrations: bundle?.migrations ?? {},
         settings: bundle?.settings ?? {},
+        export: bundle?.export ?? {},
         createOptions: bundle?.createOptions ?? {},
         ref: bundle?.ref ?? {},
         common: bundle?.common ?? {},
@@ -96,6 +98,7 @@ interface MetahubsTranslation {
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
+    export?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
     errors?: Record<string, unknown>

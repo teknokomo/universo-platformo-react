@@ -1,9 +1,25 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
-import { Box, Button, CircularProgress, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material'
+import {
+    Box,
+    Button,
+    CircularProgress,
+    FormControl,
+    FormControlLabel,
+    IconButton,
+    InputLabel,
+    Menu,
+    MenuItem,
+    Paper,
+    Select,
+    Stack,
+    Switch,
+    Tooltip,
+    Typography
+} from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
@@ -171,6 +187,7 @@ export default function LayoutDetails() {
     const [addWidgetMenu, setAddWidgetMenu] = useState<AddWidgetMenuState>({ anchorEl: null, zone: null })
     const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
+    const [viewSettingsSaving, setViewSettingsSaving] = useState(false)
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -298,6 +315,25 @@ export default function LayoutDetails() {
             return current
         })
     }
+
+    const handleViewSettingChange = useCallback(
+        async (key: string, value: unknown) => {
+            if (!metahubId || !layoutId || !layout) return
+            setViewSettingsSaving(true)
+            const updatedConfig = { ...layout.config, [key]: value }
+            try {
+                await layoutsApi.updateLayout(metahubId, layoutId, { config: updatedConfig })
+                await queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId)
+                })
+            } catch (e: unknown) {
+                notifyError(t, enqueueSnackbar, e)
+            } finally {
+                setViewSettingsSaving(false)
+            }
+        },
+        [metahubId, layoutId, layout, queryClient, t, enqueueSnackbar]
+    )
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
@@ -457,6 +493,88 @@ export default function LayoutDetails() {
                         <Typography color='error'>{t('layouts.zoneErrors.load', 'Failed to load layout zones')}</Typography>
                     ) : (
                         <Stack spacing={2}>
+                            <Paper variant='outlined' sx={{ p: 2 }}>
+                                <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
+                                    {t('layouts.details.viewSettings', 'Application View Settings')}
+                                </Typography>
+                                <Stack spacing={1.5}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={Boolean(layout?.config?.showViewToggle)}
+                                                disabled={viewSettingsSaving}
+                                                onChange={(_, checked) => void handleViewSettingChange('showViewToggle', checked)}
+                                            />
+                                        }
+                                        label={t('layouts.details.showViewToggle', 'Card/table view toggle')}
+                                    />
+                                    <FormControl size='small' sx={{ minWidth: 180 }}>
+                                        <InputLabel>{t('layouts.details.defaultViewMode', 'Default view mode')}</InputLabel>
+                                        <Select
+                                            value={(layout?.config?.defaultViewMode as string) || 'table'}
+                                            label={t('layouts.details.defaultViewMode', 'Default view mode')}
+                                            disabled={viewSettingsSaving}
+                                            onChange={(e) => void handleViewSettingChange('defaultViewMode', e.target.value)}
+                                        >
+                                            <MenuItem value='table'>{t('layouts.details.viewModeTable', 'Table')}</MenuItem>
+                                            <MenuItem value='card'>{t('layouts.details.viewModeCard', 'Card')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={Boolean(layout?.config?.showFilterBar)}
+                                                disabled={viewSettingsSaving}
+                                                onChange={(_, checked) => void handleViewSettingChange('showFilterBar', checked)}
+                                            />
+                                        }
+                                        label={t('layouts.details.showFilterBar', 'Search/filter bar')}
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={Boolean(layout?.config?.enableRowReordering)}
+                                                disabled={viewSettingsSaving}
+                                                onChange={(_, checked) => void handleViewSettingChange('enableRowReordering', checked)}
+                                            />
+                                        }
+                                        label={t('layouts.details.enableRowReordering', 'Enable row reordering')}
+                                    />
+                                    <FormControl size='small' sx={{ minWidth: 180 }}>
+                                        <InputLabel>{t('layouts.details.cardColumns', 'Card columns')}</InputLabel>
+                                        <Select
+                                            value={Number(layout?.config?.cardColumns) || 3}
+                                            label={t('layouts.details.cardColumns', 'Card columns')}
+                                            disabled={viewSettingsSaving}
+                                            onChange={(e) => void handleViewSettingChange('cardColumns', Number(e.target.value))}
+                                        >
+                                            <MenuItem value={2}>2</MenuItem>
+                                            <MenuItem value={3}>3</MenuItem>
+                                            <MenuItem value={4}>4</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size='small' sx={{ minWidth: 180 }}>
+                                        <InputLabel>{t('layouts.details.rowHeight', 'Row height')}</InputLabel>
+                                        <Select
+                                            value={String(layout?.config?.rowHeight ?? 'compact')}
+                                            label={t('layouts.details.rowHeight', 'Row height')}
+                                            disabled={viewSettingsSaving}
+                                            onChange={(e) => {
+                                                const v = e.target.value
+                                                const val = v === 'compact' ? undefined : v === 'auto' ? 'auto' : Number(v)
+                                                void handleViewSettingChange('rowHeight', val)
+                                            }}
+                                        >
+                                            <MenuItem value='compact'>
+                                                {t('layouts.details.rowHeightCompact', 'Compact (default)')}
+                                            </MenuItem>
+                                            <MenuItem value='52'>{t('layouts.details.rowHeightNormal', 'Normal (52px)')}</MenuItem>
+                                            <MenuItem value='auto'>{t('layouts.details.rowHeightAuto', 'Auto (multi-line)')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Stack>
+                            </Paper>
+
                             <Typography variant='body2' color='text.secondary'>
                                 {t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
                             </Typography>

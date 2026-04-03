@@ -17,6 +17,9 @@ export interface CustomizedDataGridProps {
     pageSizeOptions?: number[]
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
+    /** Custom row height: number for fixed px, 'auto' for multi-line content */
+    rowHeight?: number | 'auto'
+    hideFooter?: boolean
 }
 
 export function getCustomizedDataGridRowClassName(row: Record<string, unknown> | undefined, index: number): string {
@@ -43,7 +46,9 @@ export default function CustomizedDataGrid({
     paginationModel,
     onPaginationModelChange,
     pageSizeOptions = [10, 20, 50],
-    localeText
+    localeText,
+    rowHeight,
+    hideFooter = false
 }: CustomizedDataGridProps) {
     const firstDataField = columns.find((column) => typeof column.field === 'string' && !String(column.field).startsWith('__'))?.field
 
@@ -67,8 +72,12 @@ export default function CustomizedDataGrid({
                       }
             }
             pageSizeOptions={pageSizeOptions}
+            hideFooter={hideFooter}
             disableColumnResize
-            density='compact'
+            density={rowHeight ? undefined : 'compact'}
+            getRowHeight={
+                rowHeight === 'auto' ? () => 'auto' : typeof rowHeight === 'number' ? () => rowHeight : undefined
+            }
             localeText={localeText}
             sx={{
                 [`& .MuiDataGrid-columnHeader`]: {
@@ -77,6 +86,17 @@ export default function CustomizedDataGrid({
                 '& .MuiDataGrid-cell': {
                     position: 'relative'
                 },
+                ...(rowHeight === 'auto'
+                    ? {
+                          '& .MuiDataGrid-cell': {
+                              position: 'relative',
+                              whiteSpace: 'normal',
+                              wordWrap: 'break-word',
+                              lineHeight: 1.5,
+                              py: 1
+                          }
+                      }
+                    : {}),
                 ...(firstDataField
                     ? {
                           // Internal header separators only (exclude first real column)

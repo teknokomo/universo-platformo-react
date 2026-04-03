@@ -363,8 +363,8 @@ export class App {
         await initializeApplicationsRateLimiters()
         await initializeStartRateLimiters()
 
-        // Mount API v1 routes
-        this.app.use('/api/v1', apiV1Router)
+        // Mount API v1 routes (CSRF protection applied globally — skips GET/HEAD/OPTIONS)
+        this.app.use('/api/v1', csrfProtection, apiV1Router)
 
         // ═══════════════════════════════════════════════════════════════
         // Serve UI static files

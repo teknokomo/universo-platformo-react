@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
 import { cleanupE2eRun } from './support/backend/e2eCleanup.mjs'
+import { fullResetE2eProject } from './support/backend/e2eFullReset.mjs'
 import { artifactsDir, ensureE2eDirectories, loadE2eEnvironment, repoRoot } from './support/env/load-e2e-env.mjs'
 
 const env = loadE2eEnvironment()
@@ -29,6 +30,8 @@ const playwrightReportDir = `${repoRoot}/playwright-report`
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const toErrorMessage = (error) => (error instanceof Error ? error.message : String(error))
+
+const fullResetEnabled = env.fullResetMode !== 'off'
 
 function pipeChildStream(stream, target) {
     if (!stream) {
@@ -160,7 +163,38 @@ async function waitForServerReady(timeoutMs) {
     throw new Error(`E2E server did not become ready at ${pingUrl} within ${timeoutMs}ms`)
 }
 
+async function waitForServerStopped(timeoutMs) {
+    const deadline = Date.now() + timeoutMs
+
+    while (Date.now() < deadline) {
+        if (!(await isServerReachable())) {
+            return
+        }
+
+        await sleep(250)
+    }
+
+    throw new Error(`E2E server at ${env.baseURL} did not stop within ${timeoutMs}ms`)
+}
+
+function terminateServerProcess(signal) {
+    if (!serverProcess) {
+        return
+    }
+
+    if (process.platform !== 'win32' && Number.isInteger(serverProcess.pid) && serverProcess.pid > 0) {
+        process.kill(-serverProcess.pid, signal)
+        return
+    }
+
+    serverProcess.kill(signal)
+}
+
 async function startServerIfNeeded() {
+    if (process.env.E2E_ALLOW_REUSE_SERVER === 'true' && fullResetEnabled) {
+        throw new Error('E2E_ALLOW_REUSE_SERVER=true is incompatible with E2E_FULL_RESET_MODE=strict. Set E2E_FULL_RESET_MODE=off only for manual debugging against an already running server.')
+    }
+
     if (await isServerReachable()) {
         if (process.env.E2E_ALLOW_REUSE_SERVER === 'true') {
             return false
@@ -174,7 +208,8 @@ async function startServerIfNeeded() {
     serverProcess = spawn('pnpm', ['start'], {
         cwd: repoRoot,
         env: baseCommandEnv,
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: process.platform !== 'win32'
     })
 
     pipeChildStream(serverProcess.stdout, process.stdout)
@@ -192,6 +227,14 @@ async function startServerIfNeeded() {
     return true
 }
 
+async function runFullReset(reason) {
+    if (!fullResetEnabled) {
+        return null
+    }
+
+    return fullResetE2eProject({ dryRun: false, quiet: false, reason })
+}
+
 async function stopServerIfOwned() {
     if (!serverProcess) {
         return
@@ -203,16 +246,17 @@ async function stopServerIfOwned() {
         serverProcess.once('exit', () => resolve())
     })
 
-    serverProcess.kill('SIGTERM')
+    terminateServerProcess('SIGTERM')
 
     const forcedKillTimer = setTimeout(() => {
         if (serverProcess && !serverProcess.killed) {
-            serverProcess.kill('SIGKILL')
+            terminateServerProcess('SIGKILL')
         }
     }, 15_000)
 
     await exitPromise
     clearTimeout(forcedKillTimer)
+    await waitForServerStopped(15_000)
     serverProcess = null
 }
 
@@ -242,8 +286,7 @@ async function finalizeAndExit(code) {
     try {
         await cleanupE2eRun({ quiet: false })
     } catch (error) {
-        cleanupFailed = true
-        console.error(`[e2e-runner] Cleanup failed: ${toErrorMessage(error)}`)
+        console.warn(`[e2e-runner] Manifest cleanup warning: ${toErrorMessage(error)}`)
     }
 
     try {
@@ -251,6 +294,13 @@ async function finalizeAndExit(code) {
     } catch (error) {
         cleanupFailed = true
         console.error(`[e2e-runner] Failed to stop E2E server: ${toErrorMessage(error)}`)
+    }
+
+    try {
+        await runFullReset('runner-finalize')
+    } catch (error) {
+        cleanupFailed = true
+        console.error(`[e2e-runner] Full reset failed: ${toErrorMessage(error)}`)
     }
 
     try {
@@ -265,8 +315,20 @@ async function finalizeAndExit(code) {
 
 async function main() {
     try {
+        if (playwrightArgs.includes('--no-deps')) {
+            throw new Error('Playwright --no-deps is disallowed for the E2E runner because it bypasses setup dependencies and teardown guarantees.')
+        }
+
         await acquireRunLock()
         await resetPlaywrightArtifacts()
+
+        if (fullResetEnabled && (await isServerReachable())) {
+            throw new Error(
+                `E2E full reset requires ${env.baseURL} to be stopped before the suite starts. Stop the running server or set E2E_FULL_RESET_MODE=off only for manual debugging.`
+            )
+        }
+
+        await runFullReset('runner-pre-start')
         await startServerIfNeeded()
         const exitCode = await runPlaywrightTests(playwrightArgs)
         await finalizeAndExit(exitCode)
