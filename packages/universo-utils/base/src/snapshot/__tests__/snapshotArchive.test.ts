@@ -172,14 +172,30 @@ describe('validateSnapshotEnvelope', () => {
   })
 
   it('strips prototype pollution keys', () => {
-    const envelope = makeMinimalEnvelope() as unknown as Record<string, unknown>
-    // eslint-disable-next-line no-proto
-    envelope.__proto__ = { polluted: true }
-    envelope['constructor'] = { polluted: true }
-    // Should not throw — keys are silently stripped
-    // The envelope itself will fail Zod validation since critical fields may be missing
-    // after pollution keys rewrite the structure, but the point is no prototype pollution
-    expect(() => validateSnapshotEnvelope(makeMinimalEnvelope())).not.toThrow()
+    const envelope = makeMinimalEnvelope()
+    const pollutedLayoutConfig: Record<string, unknown> = {
+      safe: true,
+      constructor: { polluted: true },
+    }
+
+    Object.defineProperty(pollutedLayoutConfig, '__proto__', {
+      value: { polluted: true },
+      enumerable: true,
+      configurable: true,
+    })
+
+    envelope.snapshot.layoutConfig = pollutedLayoutConfig
+    envelope.snapshotHash = computeSnapshotHash({
+      ...envelope.snapshot,
+      layoutConfig: { safe: true },
+    } as Record<string, unknown>)
+
+    const result = validateSnapshotEnvelope(envelope)
+    const sanitizedLayoutConfig = result.snapshot.layoutConfig as Record<string, unknown>
+
+    expect(sanitizedLayoutConfig.safe).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(sanitizedLayoutConfig, 'constructor')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(sanitizedLayoutConfig, '__proto__')).toBe(false)
   })
 
   it('rejects deeply nested JSON', () => {

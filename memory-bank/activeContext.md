@@ -6,6 +6,18 @@
 
 ## Current Focus: Snapshot Import Final Stabilization — COMPLETE — 2026-04-03
 
+## Current Focus: PR #747 Review Remediation QA — COMPLETE — 2026-04-03
+
+- Goal achieved: every Copilot/Gemini review note on PR #747 was re-checked against the live branch state, and only the low-risk findings that mapped to real defects were fixed.
+- Confirmed-and-fixed items: the misplaced `attachLayoutsToSnapshot` static import, the `ImportSnapshotDialog` `React.ChangeEvent` namespace mismatch, the ineffective snapshot prototype-pollution test, the unreadable VLC codename logging in `SnapshotRestoreService`, the timestamp-only imported-metahub codename suffix, and the `MainGrid` FlowListTable `renderCell` call that passed `api: {} as never`.
+- Explicitly deferred items: the runtime comments about server-wide search coverage and persisted row ordering were classified as broader product/architecture changes rather than safe review-remediation fixes, so they were intentionally left out of this pass.
+- Validation closure: touched-file diagnostics stayed clean, focused utils/apps-template/metahubs backend tests passed, and the canonical root `pnpm build` finished green.
+
+### Immediate Next Steps
+
+- No active work remains from this remediation wave.
+- If the user wants the PR updated remotely, the next step is to commit and push this validated fix set to the existing PR branch.
+
 ## Current Focus: Verified Snapshot/Runtime Residual Gap Closure — COMPLETE — 2026-04-04
 
 - Goal achieved: the residual defects found during the trust-but-verify pass are now closed without reopening unrelated feature scope.

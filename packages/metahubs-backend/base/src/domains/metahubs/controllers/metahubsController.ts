@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import { applyRlsContext } from '@universo/auth-backend'
@@ -1730,7 +1731,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
     // 2. Generate unique codename for imported metahub
     const sourceCodename = getCodenamePrimary(envelope.metahub.codename as unknown as VersionedLocalizedContent<string>) ?? 'imported'
-    const importedCodenameText = `${sourceCodename}-imported-${Date.now()}`
+    const importedCodenameText = `${sourceCodename}-imported-${Date.now()}-${randomBytes(4).toString('hex')}`
     const importedCodename = createCodenameVLC('en', importedCodenameText)
 
     // 3. Build localized name/description from envelope

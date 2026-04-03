@@ -42,7 +42,11 @@ vi.mock('@universo/template-mui', async () => {
                 data-testid='flow-list-table'
                 data-rows={String(props.data?.length ?? 0)}
                 data-sortable={String(Boolean(props.sortableRows))}
-            />
+            >
+                <div data-testid='flow-list-table-first-cell'>
+                    {props.customColumns?.[0]?.render ? props.customColumns[0].render(props.data?.[0]) : null}
+                </div>
+            </div>
         ),
         PaginationControls: (props: any) => (
             <div data-testid='pagination-controls'>
@@ -109,5 +113,29 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('flow-list-table')).toHaveAttribute('data-rows', '2')
         expect(screen.getByTestId('flow-list-table')).toHaveAttribute('data-sortable', 'true')
         expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
+    })
+
+    it('passes a minimal Grid API shim into FlowListTable renderCell callbacks', () => {
+        const renderCell = vi.fn((params: any) => {
+            const currentRow = params.api.getRow(params.id)
+            return `${String(currentRow.name)}:${String(params.api.getCellValue(params.id, 'status'))}`
+        })
+
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    columns: [
+                        { field: 'name', headerName: 'Name', renderCell },
+                        { field: 'status', headerName: 'Status' }
+                    ]
+                }}
+            >
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, enableRowReordering: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(renderCell).toHaveBeenCalled()
+        expect(screen.getByTestId('flow-list-table-first-cell')).toHaveTextContent('Alpha:Open')
     })
 })

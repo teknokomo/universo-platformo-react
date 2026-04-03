@@ -7,6 +7,16 @@
 ## Active Open Tasks (Canonical)
 
 
+- [x] Address validated PR #747 review findings without widening scope
+	- Note: Evaluate every bot comment from PR #747 against the current branch state, fix only the findings that are technically correct and safe, and explicitly avoid speculative architecture changes that would widen the feature surface.
+	- Required outcomes:
+		- [x] Confirm which review comments still correspond to live defects in the current worktree after the post-PR edits.
+		- [x] Fix the confirmed correctness issues in backend/frontend/tests with minimal changes and no unrelated refactors.
+		- [x] Check external documentation where it materially helps validate the proposed fix or reject a bot suggestion.
+		- [x] Revalidate the touched surfaces with focused checks/tests and leave the branch ready for a follow-up commit.
+	- Validation target: diagnostics for touched files, focused tests/builds for touched packages, and a canonical root build.
+	- Outcome: fixed the live mid-file import, the `React.ChangeEvent` namespace issue, the ineffective snapshot prototype-pollution test, the SnapshotRestoreService codename logging output, the imported-metahub codename collision risk, and the `MainGrid` FlowListTable `renderCell` API placeholder; explicitly did not widen scope into server-side runtime search or persisted row-order storage because those review comments were product/architecture suggestions rather than safe correctness fixes. The branch is validated locally and ready for commit/push if requested.
+
 
 - [x] Close the verified snapshot/runtime follow-up gaps from 2026-04-04
 	- Note: This wave reopens only the residual defects confirmed by direct verification after the previous implementation pass. Do not touch unrelated working-tree changes.

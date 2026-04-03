@@ -1,4 +1,5 @@
 import type { Knex } from 'knex'
+import { getCodenamePrimary } from '@universo/utils'
 import type {
   CatalogSystemFieldsSnapshot,
   EnumerationValueDefinition
@@ -22,6 +23,11 @@ import { resolveWidgetTableName } from '../../templates/services/widgetTableReso
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotRestoreService')
+
+const getEntityCodenameText = (codename: MetaEntitySnapshot['codename']): string => {
+  if (typeof codename === 'string') return codename
+  return getCodenamePrimary(codename) ?? '[unknown]'
+}
 
 /**
  * Restores metahub branch schema entities from a MetahubSnapshot.
@@ -131,6 +137,7 @@ export class SnapshotRestoreService {
     entityIdMap: Map<string, string>
   ): Record<string, unknown> {
     const config: Record<string, unknown> = { ...(entity.config ?? {}) }
+    const entityCodenameText = getEntityCodenameText(entity.codename)
 
     // Remap hub references
     if (Array.isArray(entity.hubs) && entity.hubs.length > 0) {
@@ -140,7 +147,7 @@ export class SnapshotRestoreService {
         if (newHubId) {
           mappedHubs.push(newHubId)
         } else {
-          log.warn(`Hub reference ${oldHubId} not found in entityIdMap for entity codename=${entity.codename}, dropping reference`)
+          log.warn(`Hub reference ${oldHubId} not found in entityIdMap for entity codename=${entityCodenameText}, dropping reference`)
         }
       }
       config.hubs = mappedHubs

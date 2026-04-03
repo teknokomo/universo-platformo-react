@@ -46,6 +46,7 @@ import { MetahubEnumerationValuesService } from '../../metahubs/services/Metahub
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
+import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('Publications')
@@ -324,9 +325,6 @@ const assertSchemaGenerationSucceeded = (result: { success: boolean; errors: str
   const errorMessage = result.errors.length > 0 ? result.errors.join('; ') : 'Unknown DDL generation failure'
   throw new MetahubSchemaSyncError(context, new Error(errorMessage))
 }
-
-// attachLayoutsToSnapshot extracted to shared/snapshotLayouts.ts
-import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 
 async function notifyLinkedApplicationsUpdateAvailable(
   exec: SqlQueryable,

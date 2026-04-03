@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, type ChangeEvent } from 'react'
 import {
     Button,
     Alert,
@@ -48,7 +48,7 @@ export function ImportSnapshotDialog({
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [localError, setLocalError] = useState<string | null>(null)
 
-    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
         setLocalError(null)

@@ -44,6 +44,27 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-03 PR #747 Review Remediation Closure
+
+Closed the selective remediation pass for bot review comments on PR #747. The work stayed constrained to findings that were verified against the current branch state and backed by code inspection plus targeted documentation checks.
+
+| Area | Resolution |
+| --- | --- |
+| Import/export controller hygiene | Moved `attachLayoutsToSnapshot` back into the main import section in `publicationsController.ts`, matching the ES module top-level import requirement. |
+| Frontend type correctness | `ImportSnapshotDialog.tsx` now imports `ChangeEvent` directly instead of referencing `React.ChangeEvent` without a React namespace import. |
+| Snapshot validation coverage | `snapshotArchive.test.ts` now validates the actually polluted snapshot payload and proves dangerous keys are stripped while preserving valid data. |
+| Snapshot restore diagnostics | `SnapshotRestoreService` warning logs now print the primary codename text instead of interpolating a VLC object into the message. |
+| Import codename collision hardening | `metahubsController.importFromSnapshot()` now appends a random hex suffix in addition to `Date.now()` when deriving the imported metahub codename. |
+| Runtime FlowListTable compatibility | `MainGrid` now passes a minimal DataGrid-style API shim to `renderCell` callbacks in the FlowListTable path, and the runtime test suite covers that contract directly. |
+| Scope discipline | Review comments suggesting server-side runtime search and persisted row ordering were explicitly rejected for this pass because they were broader feature suggestions rather than safe correctness fixes. |
+
+### Validation
+
+- `pnpm --filter @universo/utils test -- --run src/snapshot/__tests__/snapshotArchive.test.ts`
+- `pnpm --filter @universo/apps-template-mui test -- --run src/dashboard/components/__tests__/MainGrid.test.tsx`
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts`
+- `pnpm build` passed with `28/28` successful tasks
+
 ## 2026-04-04 Verified Snapshot/Runtime Residual Gap Closure
 
 Closed the small follow-up wave that remained after direct verification of the previous snapshot/runtime remediation pass. The work stayed constrained to the proven gaps: early import rollback coverage, deterministic runtime browser proof, self-model fixture fidelity, and stale generator tooling/docs.

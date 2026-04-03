@@ -84,6 +84,7 @@ export interface MainGridLayoutConfig {
 }
 
 type RuntimeDetailsRow = Record<string, unknown> & { id: string; name?: string }
+type FlowListCellParams = Parameters<NonNullable<GridColDef['renderCell']>>[0]
 
 const getSearchableText = (value: unknown): string => {
     if (typeof value === 'string') return value
@@ -106,8 +107,33 @@ const reorderRowsByIds = <T extends { id: string }>(rows: T[], activeId: string,
 
 const paginateRows = <T,>(rows: T[], page: number, pageSize: number): T[] => rows.slice(page * pageSize, page * pageSize + pageSize)
 
-const buildFlowListColumns = (columns: GridColDef[]): TableColumn<RuntimeDetailsRow>[] =>
-    columns
+const buildFlowListCellParams = (
+    column: GridColDef,
+    row: RuntimeDetailsRow,
+    rowsById: Map<string, RuntimeDetailsRow>
+): FlowListCellParams => {
+    const value = row[column.field]
+    const api = {
+        getRow: (id: string | number) => rowsById.get(String(id)) ?? null,
+        getCellValue: (id: string | number, field: string) => rowsById.get(String(id))?.[field]
+    } as FlowListCellParams['api']
+
+    return {
+        id: row.id,
+        field: column.field,
+        value,
+        formattedValue: value,
+        row,
+        colDef: column,
+        api
+    } as FlowListCellParams
+}
+
+const buildFlowListColumns = (columns: GridColDef[], rows: RuntimeDetailsRow[]): TableColumn<RuntimeDetailsRow>[] =>
+    {
+        const rowsById = new Map(rows.map((item) => [String(item.id), item]))
+
+        return columns
         .filter((column) => column.field !== 'id')
         .map((column) => ({
             id: String(column.field),
@@ -118,18 +144,12 @@ const buildFlowListColumns = (columns: GridColDef[]): TableColumn<RuntimeDetails
             render: (row) => {
                 const value = row[column.field]
                 if (typeof column.renderCell === 'function') {
-                    return column.renderCell({
-                        id: row.id,
-                        field: column.field,
-                        value,
-                        row,
-                        colDef: column,
-                        api: {} as never
-                    } as never)
+                    return column.renderCell(buildFlowListCellParams(column, row, rowsById))
                 }
                 return getSearchableText(value)
             }
         }))
+    }
 
 function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayoutConfig }) {
     const details = useDashboardDetails()
@@ -157,7 +177,6 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
         return rows.filter((row) => Object.values(row).some((val) => getSearchableText(val).toLowerCase().includes(lower)))
     }, [orderedRows, search])
 
-    const flowListColumns = useMemo(() => buildFlowListColumns(details?.columns ?? []), [details?.columns])
     const isClientFiltered = search.trim().length > 0
 
     useEffect(() => {
@@ -180,6 +199,7 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
     const pageSize = isClientFiltered ? clientPageSize : serverPageSize
     const totalItems = isClientFiltered ? filteredRows.length : details?.rowCount ?? filteredRows.length
     const visibleRows = isClientFiltered ? paginateRows(filteredRows, page, pageSize) : filteredRows
+    const flowListColumns = useMemo(() => buildFlowListColumns(details?.columns ?? [], orderedRows), [details?.columns, orderedRows])
 
     const paginationState: PaginationState = {
         currentPage: page + 1,
