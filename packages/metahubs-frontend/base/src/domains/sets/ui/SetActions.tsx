@@ -26,7 +26,13 @@ const DEFAULT_CC: CodenameConfig = {
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
-import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import {
+    extractLocalizedInput,
+    ensureLocalizedContent,
+    ensureEntityCodenameContent,
+    hasPrimaryContent,
+    normalizeLocale
+} from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
 
 /**
@@ -538,6 +544,7 @@ const setActions: readonly ActionDescriptor<SetDisplayWithHub, SetLocalizedPaylo
                     onSave: async (data: SetFormValues) => {
                         try {
                             const payload = toPayload(data)
+                            const { hubIds: _hubIds, isSingleHub: _isSingleHub, isRequiredHub: _isRequiredHub, ...copyPayload } = payload
                             const copyOptions = getSetCopyOptions(data)
                             const currentHubId = (ctx as SetActionContext).currentHubId
                             const detachedFromCurrentHub =
@@ -560,7 +567,7 @@ const setActions: readonly ActionDescriptor<SetDisplayWithHub, SetLocalizedPaylo
                                 }
                             }
                             void ctx.api?.copyEntity?.(ctx.entity.id, {
-                                ...payload,
+                                ...copyPayload,
                                 ...copyOptions
                             })
                         } catch (error: unknown) {

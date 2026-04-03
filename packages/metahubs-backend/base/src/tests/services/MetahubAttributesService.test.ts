@@ -1,6 +1,7 @@
 const mockEnsureSchema = jest.fn()
 
 import { MetahubAttributesService } from '../../domains/metahubs/services/MetahubAttributesService'
+import { codenamePrimaryTextSql } from '../../domains/shared/codename'
 
 describe('MetahubAttributesService active-row filtering', () => {
     const schemaService = {
@@ -92,6 +93,13 @@ describe('MetahubAttributesService active-row filtering', () => {
 
         expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['attr-1'])
         expect(mockExecQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
+    })
+
+    it('uses primary codename text when matching enum value blockers against element data keys', async () => {
+        await service.findElementEnumValueBlockers('metahub-1', 'enum-1', 'value-1', 'user-1')
+
+        expect(mockExecQuery).toHaveBeenCalled()
+        expect(mockExecQuery.mock.calls[0][0]).toContain(`el.data ->> (${codenamePrimaryTextSql('attr.codename')}) = $2`)
     })
 
     it('adds branch active-row predicates to getAllAttributes reads', async () => {

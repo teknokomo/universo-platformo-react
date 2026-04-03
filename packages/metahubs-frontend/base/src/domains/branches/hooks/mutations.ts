@@ -7,6 +7,7 @@ import {
     applyOptimisticUpdate,
     generateOptimisticId,
     rollbackOptimisticSnapshots,
+    safeInvalidateQueries,
     safeInvalidateQueriesInactive,
     confirmOptimisticUpdate,
     confirmOptimisticCreate
@@ -26,11 +27,9 @@ import type {
 } from './mutationTypes'
 
 const invalidateBranchScopes = (queryClient: ReturnType<typeof useQueryClient>, metahubId: string, branchId?: string): void => {
-    if (queryClient.isMutating({ mutationKey: ['branches'] }) <= 1) {
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(metahubId), refetchType: 'inactive' })
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(metahubId), refetchType: 'inactive' })
-        queryClient.invalidateQueries({ queryKey: ['metahub-branches'], refetchType: 'inactive' })
-    }
+    safeInvalidateQueries(queryClient, ['branches'], metahubsQueryKeys.branches(metahubId), metahubsQueryKeys.detail(metahubId), [
+        'metahub-branches'
+    ])
 
     if (branchId) {
         safeInvalidateQueriesInactive(queryClient, ['branches'], metahubsQueryKeys.branchDetail(metahubId, branchId))

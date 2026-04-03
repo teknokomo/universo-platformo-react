@@ -10,7 +10,8 @@ import type { TFunction } from 'i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
-import { resolveLocalizedContent } from '@universo/utils'
+import { createLocalizedContent, filterLocalizedContent, resolveLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
 
 import { useViewPreference } from '../hooks/useViewPreference'
@@ -49,6 +50,8 @@ type InstanceData = {
 
 type TranslateFn = TFunction<string, string>
 
+const normalizeLocale = (locale: string): string => (isValidLocaleCode(locale) ? locale : 'en')
+
 /**
  * Get status chip color based on instance status
  */
@@ -86,7 +89,7 @@ const LocalChip = ({ isLocal, t }: { isLocal: boolean; t: TranslateFn }) =>
  * Get instance name for display (resolves VLC to string)
  */
 const getInstanceName = (instance: Instance, locale: string): string => {
-    const safeLocale = isValidLocaleCode(locale) ? locale : 'en'
+    const safeLocale = normalizeLocale(locale)
     return resolveLocalizedContent(instance.name, safeLocale, instance.codename)
 }
 
@@ -94,8 +97,31 @@ const getInstanceName = (instance: Instance, locale: string): string => {
  * Get instance description for display (resolves VLC to string)
  */
 const getInstanceDescription = (instance: Instance, locale: string): string => {
-    const safeLocale = isValidLocaleCode(locale) ? locale : 'en'
+    const safeLocale = normalizeLocale(locale)
     return resolveLocalizedContent(instance.description, safeLocale, '')
+}
+
+const updateLocalizedStringValue = (
+    currentValue: VersionedLocalizedContent<string> | null | undefined,
+    locale: string,
+    value: string
+): VersionedLocalizedContent<string> => {
+    const normalizedLocale = normalizeLocale(locale)
+    const trimmedValue = value.trim()
+
+    if (!currentValue) {
+        return createLocalizedContent(normalizedLocale, trimmedValue)
+    }
+
+    return updateLocalizedContentLocale(currentValue, normalizedLocale, trimmedValue)
+}
+
+const updateOptionalLocalizedStringValue = (
+    currentValue: VersionedLocalizedContent<string> | null | undefined,
+    locale: string,
+    value: string
+) => {
+    return filterLocalizedContent(updateLocalizedStringValue(currentValue, locale, value)) || null
 }
 
 /**
@@ -231,7 +257,17 @@ const InstanceList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: InstanceData) => {
-                    await updateInstanceMutation.mutateAsync({ id, data: patch })
+                    const name = patch.name.trim()
+                    const description = patch.description?.trim() || ''
+                    const currentInstance = instances.find((instance) => instance.id === id)
+
+                    await updateInstanceMutation.mutateAsync({
+                        id,
+                        data: {
+                            name: updateLocalizedStringValue(currentInstance?.name, i18n.language, name),
+                            description: updateOptionalLocalizedStringValue(currentInstance?.description, i18n.language, description)
+                        }
+                    })
                 }
                 // deleteEntity not implemented for MVP
             },
@@ -274,7 +310,7 @@ const InstanceList = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, queryClient, updateInstanceMutation]
+        [confirm, enqueueSnackbar, i18n.language, queryClient, updateInstanceMutation]
     )
 
     // Get instance actions with delete disabled for MVP

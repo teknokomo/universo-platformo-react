@@ -1,9 +1,8 @@
 import { Command, Flags } from '@oclif/core'
-import path from 'path'
-import dotenv from 'dotenv'
 import logger from '../utils/logger'
+import { loadBackendEnv } from '../utils/env'
 
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env'), override: true })
+loadBackendEnv()
 
 enum EXIT_CODE {
     SUCCESS = 0,
@@ -16,9 +15,13 @@ export abstract class BaseCommand extends Command {
         PORT: Flags.string(),
         SESSION_SECRET: Flags.string(),
         SUPABASE_URL: Flags.string(),
+        SUPABASE_PUBLISHABLE_DEFAULT_KEY: Flags.string(),
         SUPABASE_ANON_KEY: Flags.string(),
         SERVICE_ROLE_KEY: Flags.string(),
         SUPABASE_JWT_SECRET: Flags.string(),
+        SUPABASE_JWKS_URL: Flags.string(),
+        SUPABASE_JWT_ISSUER: Flags.string(),
+        SUPABASE_JWT_AUDIENCE: Flags.string(),
         BOOTSTRAP_SUPERUSER_ENABLED: Flags.string(),
         BOOTSTRAP_SUPERUSER_EMAIL: Flags.string(),
         BOOTSTRAP_SUPERUSER_PASSWORD: Flags.string(),
@@ -105,9 +108,13 @@ export abstract class BaseCommand extends Command {
         // Session configuration
         if (flags.SESSION_SECRET) process.env.SESSION_SECRET = flags.SESSION_SECRET
         if (flags.SUPABASE_URL) process.env.SUPABASE_URL = flags.SUPABASE_URL
+        if (flags.SUPABASE_PUBLISHABLE_DEFAULT_KEY) process.env.SUPABASE_PUBLISHABLE_DEFAULT_KEY = flags.SUPABASE_PUBLISHABLE_DEFAULT_KEY
         if (flags.SUPABASE_ANON_KEY) process.env.SUPABASE_ANON_KEY = flags.SUPABASE_ANON_KEY
         if (flags.SERVICE_ROLE_KEY) process.env.SERVICE_ROLE_KEY = flags.SERVICE_ROLE_KEY
         if (flags.SUPABASE_JWT_SECRET) process.env.SUPABASE_JWT_SECRET = flags.SUPABASE_JWT_SECRET
+        if (flags.SUPABASE_JWKS_URL) process.env.SUPABASE_JWKS_URL = flags.SUPABASE_JWKS_URL
+        if (flags.SUPABASE_JWT_ISSUER) process.env.SUPABASE_JWT_ISSUER = flags.SUPABASE_JWT_ISSUER
+        if (flags.SUPABASE_JWT_AUDIENCE) process.env.SUPABASE_JWT_AUDIENCE = flags.SUPABASE_JWT_AUDIENCE
         if (flags.BOOTSTRAP_SUPERUSER_ENABLED) process.env.BOOTSTRAP_SUPERUSER_ENABLED = flags.BOOTSTRAP_SUPERUSER_ENABLED
         if (flags.BOOTSTRAP_SUPERUSER_EMAIL) process.env.BOOTSTRAP_SUPERUSER_EMAIL = flags.BOOTSTRAP_SUPERUSER_EMAIL
         if (flags.BOOTSTRAP_SUPERUSER_PASSWORD) process.env.BOOTSTRAP_SUPERUSER_PASSWORD = flags.BOOTSTRAP_SUPERUSER_PASSWORD

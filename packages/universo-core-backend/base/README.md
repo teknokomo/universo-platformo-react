@@ -27,7 +27,7 @@ packages/universo-core-backend/base/
 
 ## Startup Flow
 
-1. Validate required auth configuration such as `SUPABASE_JWT_SECRET`.
+1. Validate auth configuration for either legacy `SUPABASE_JWT_SECRET` verification or modern Supabase JWKS verification.
 2. Initialize the shared Knex singleton from `@universo/database`.
 3. Validate and run registered platform migrations through `@universo/migrations-platform`.
 4. If `BOOTSTRAP_SUPERUSER_ENABLED=true`, create or confirm the startup superuser through the Supabase Admin API, repair the profile row if needed, and enforce the exclusive global `superuser` role.
@@ -98,3 +98,5 @@ pnpm migration:export
 - The package still contains compatibility exports under `src/database/entities/` for code that has not been fully trimmed yet.
 - The canonical database runtime is Knex-based and shared through `@universo/database`.
 - New backend services should register native SQL platform migration definitions instead of TypeORM entities and migrations.
+- For Supabase Postgres connectivity in this project, use direct connection when your host can reach it reliably; otherwise prefer the session pooler on `:5432`. Do not use the transaction pooler on `:6543` because request-scoped RLS depends on pinned session state.
+- The auth login/register limiter defaults to `10` attempts per `60_000ms`. Dedicated e2e environments can raise `AUTH_LOGIN_RATE_LIMIT_MAX` and `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS` instead of changing the production-safe defaults in code.

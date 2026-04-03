@@ -120,6 +120,14 @@ export const MetahubMembers = () => {
         return imagesMap
     }, [members])
 
+    const currentMember = useMemo(() => members.find((member) => member.userId === user?.id) ?? null, [members, user?.id])
+    const memberMeta = paginationResult.meta as { role?: MetahubRole; permissions?: { manageMembers?: boolean } } | undefined
+    const currentRole = currentMember?.role ?? memberMeta?.role ?? null
+    const canManageMembers =
+        typeof memberMeta?.permissions?.manageMembers === 'boolean'
+            ? memberMeta.permissions.manageMembers
+            : currentRole === 'owner' || currentRole === 'admin'
+
     const handleInviteDialogClose = () => {
         setInviteDialogOpen(false)
     }
@@ -342,11 +350,15 @@ export const MetahubMembers = () => {
                             onViewModeChange={(mode: string) => handleChange(null, mode)}
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('members.inviteMember'),
-                                onClick: () => setInviteDialogOpen(true),
-                                startIcon: <AddRoundedIcon />
-                            }}
+                            primaryAction={
+                                canManageMembers
+                                    ? {
+                                          label: tc('members.inviteMember'),
+                                          onClick: () => setInviteDialogOpen(true),
+                                          startIcon: <AddRoundedIcon />
+                                      }
+                                    : undefined
+                            }
                         />
                     </ViewHeader>
 
@@ -381,8 +393,7 @@ export const MetahubMembers = () => {
                                                 return false
                                             }
 
-                                            const currentMember = members.find((m) => m.userId === user?.id)
-                                            if (!currentMember) return false
+                                            if (!currentMember || !canManageMembers) return false
 
                                             return canManageRole(currentMember.role, member.role)
                                         })
@@ -434,8 +445,7 @@ export const MetahubMembers = () => {
                                                 return null
                                             }
 
-                                            const currentMember = members.find((m) => m.userId === user?.id)
-                                            if (!currentMember) return null
+                                            if (!currentMember || !canManageMembers) return null
 
                                             if (!canManageRole(currentMember.role, row.role)) {
                                                 return null

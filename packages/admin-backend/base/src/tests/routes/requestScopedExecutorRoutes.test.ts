@@ -278,6 +278,54 @@ describe('admin routes request-scoped executor usage', () => {
         expect(response.body.error).toContain('editor-copy')
     })
 
+    it('accepts PascalCase role codenames used by the admin role dialog', async () => {
+        const { poolExec, requestExec, session } = buildExecutors()
+        const pascalCodename = createCodenameVLC('en', 'EditorCopy')
+
+        rolesStore.findRoleByCodename.mockResolvedValue(null)
+        rolesStore.createRole.mockResolvedValue({
+            id: 'role-1',
+            codename: pascalCodename,
+            name: localizedValue,
+            description: null,
+            color: '#111111',
+            is_superuser: false,
+            is_system: false,
+            _upl_created_at: '2026-03-18T00:00:00.000Z',
+            _upl_updated_at: '2026-03-18T00:00:00.000Z'
+        })
+        requestExec.transaction.mockImplementation(async (fn: (trx: unknown) => Promise<unknown>) => fn(requestExec))
+
+        const app = express()
+        app.use(express.json())
+        attachRequestContext(app, requestExec, session)
+        app.use(
+            '/roles',
+            createRolesRoutes({
+                globalAccessService: {} as never,
+                permissionService: {} as never,
+                getDbExecutor: () => poolExec as never
+            })
+        )
+
+        const response = await request(app).post('/roles').send({
+            codename: pascalCodename,
+            name: localizedValue,
+            description: localizedValue,
+            color: '#111111',
+            isSuperuser: false,
+            permissions: []
+        })
+
+        expect(response.status).toBe(201)
+        expect(rolesStore.createRole).toHaveBeenCalledWith(
+            requestExec,
+            expect.objectContaining({
+                codename: pascalCodename
+            })
+        )
+    })
+
     it('returns 409 when role copy hits a concurrent codename conflict after validation', async () => {
         const { poolExec, requestExec, session } = buildExecutors()
         const sourceRoleId = '00000000-0000-4000-a000-000000000001'

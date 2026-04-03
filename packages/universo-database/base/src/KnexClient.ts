@@ -76,7 +76,6 @@ function getSSLConfig(): { rejectUnauthorized: boolean; ca?: string } | undefine
 /**
  * Initialize the Knex singleton. Idempotent — returns existing instance if created.
  *
- * Pool budget: 100% Knex (no TypeORM split).
  * Default pool max = DATABASE_POOL_MAX env or 15 (Supabase Nano safe default).
  */
 export function initKnex(): Knex {

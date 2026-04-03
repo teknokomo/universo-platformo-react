@@ -20,6 +20,7 @@ import {
     clearMemberActiveBranch,
     findTemplateVersionById
 } from '../../../persistence'
+import { activeMetahubRowCondition } from '../../../persistence/metahubsQueryHelpers'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
 import { getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { getKnex } from '@universo/database'
@@ -30,12 +31,7 @@ import { OptimisticLockError } from '@universo/utils'
 import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { createLogger } from '../../../utils/logger'
 import { getCodenamePayloadText, resolveCodenamePayload } from '../../shared/codenamePayload'
-import {
-    MetahubDomainError,
-    MetahubNotFoundError,
-    MetahubConflictError,
-    MetahubValidationError
-} from '../../shared/domainErrors'
+import { MetahubDomainError, MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
 
 const log = createLogger('MetahubBranchesService')
 
@@ -286,7 +282,7 @@ export class MetahubBranchesService {
     async listBranches(metahubId: string, options: BranchListOptions = {}) {
         const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = options
         const params: unknown[] = [metahubId]
-        const conditions: string[] = ['b.metahub_id = $1']
+        const conditions: string[] = ['b.metahub_id = $1', activeMetahubRowCondition('b')]
 
         if (search) {
             const escapedSearch = escapeLikeWildcards(search.toLowerCase())
@@ -357,7 +353,7 @@ export class MetahubBranchesService {
     async listAllBranches(metahubId: string, options: BranchListAllOptions = {}) {
         const { sortBy = 'updated', sortOrder = 'desc', search } = options
         const params: unknown[] = [metahubId]
-        const conditions: string[] = ['b.metahub_id = $1']
+        const conditions: string[] = ['b.metahub_id = $1', activeMetahubRowCondition('b')]
 
         if (search) {
             const escapedSearch = escapeLikeWildcards(search.toLowerCase())

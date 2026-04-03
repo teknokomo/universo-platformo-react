@@ -757,6 +757,7 @@ const LayoutList = () => {
                         <>
                             {view === 'card' ? (
                                 <Box
+                                    data-testid='metahub-layouts-list-content'
                                     sx={{
                                         display: 'grid',
                                         gap: gridSpacing,
@@ -814,7 +815,7 @@ const LayoutList = () => {
                                     ))}
                                 </Box>
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                <Box data-testid='metahub-layouts-list-content' sx={{ mx: { xs: -1.5, md: -2 } }}>
                                     <FlowListTable
                                         data={layouts.map(getCardData)}
                                         images={images}

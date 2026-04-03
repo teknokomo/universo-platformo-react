@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit'
 import { ProfileController } from '../controllers/profileController'
 import { ProfileService } from '../services/profileService'
 import type { DbExecutor } from '@universo/utils/database'
+import { resolveRateLimitKey } from '@universo/utils/rate-limiting'
 
 export interface ProfileRouteDeps {
     getDbExecutor: () => DbExecutor
@@ -13,7 +14,12 @@ export function createProfileRoutes(deps: ProfileRouteDeps, authMiddleware?: Req
     const router = Router()
 
     // Public route: check nickname availability (with basic rate limiting)
-    const checkNicknameLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+    const checkNicknameLimiter = rateLimit({
+        windowMs: 60_000,
+        max: 30,
+        standardHeaders: true,
+        keyGenerator: resolveRateLimitKey
+    })
     router.get('/check-nickname/:nickname', checkNicknameLimiter, async (req, res) => {
         const nickname = (req.params.nickname || '').trim()
         // Basic validation: allow letters, numbers, underscore; 3-30 chars

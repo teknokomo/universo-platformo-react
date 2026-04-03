@@ -10,6 +10,7 @@ import {
 } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { resolveApplicationLifecycleContractFromConfig, resolvePlatformSystemFieldsContractFromConfig } from '@universo/utils'
+import { buildSetLocalStatementTimeoutSql } from '@universo/utils/database'
 import { buildSchemaSnapshot } from './snapshot'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName, generateChildTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
@@ -21,6 +22,7 @@ const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMER
     'enumeration') as MetaEntityKind
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
+const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 
 const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
     const timestamp = new Date(0).toISOString()
@@ -70,6 +72,8 @@ export interface GenerateFullSchemaOptions {
         migrationName: string
         migrationId: string
     }) => Promise<void>
+    /** Optional statement timeout override for heavy DDL operations */
+    statementTimeoutMs?: number
 }
 
 interface NormalizedSystemTableCapabilityOptions {
@@ -282,6 +286,7 @@ export class SchemaGenerator {
 
         try {
             await this.knex.transaction(async (trx) => {
+                await trx.raw(buildSetLocalStatementTimeoutSql(options?.statementTimeoutMs ?? DEFAULT_DDL_STATEMENT_TIMEOUT_MS))
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {

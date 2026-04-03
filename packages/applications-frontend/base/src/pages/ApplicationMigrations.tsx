@@ -3,7 +3,13 @@ import { Box, Stack, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 
 // project imports
-import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG } from '@universo/template-mui'
+import {
+    TemplateMainCard as MainCard,
+    ViewHeaderMUI as ViewHeader,
+    EmptyListState,
+    APIEmptySVG,
+    PAGE_CONTENT_GUTTER_MX
+} from '@universo/template-mui'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { toApplicationDisplay } from '../types'
 import { MigrationsTab } from '../components'
@@ -34,14 +40,14 @@ const ApplicationMigrations = () => {
     // Loading state
     if (isLoading) {
         return (
-            <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
+            <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
                 <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
                     <CircularProgress size={40} />
                     <Typography variant='body2' color='text.secondary'>
                         {t('migrations.loading', 'Loading migrations...')}
                     </Typography>
                 </Stack>
-            </Box>
+            </MainCard>
         )
     }
 
@@ -50,35 +56,32 @@ const ApplicationMigrations = () => {
         const errorMessage = error instanceof Error ? error.message : t('migrations.loadError', 'Failed to load migrations')
 
         return (
-            <Stack spacing={3} sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%', p: 2 }}>
+            <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
                 <EmptyListState
                     image={APIEmptySVG}
                     imageAlt='Error loading migrations'
                     title={t('migrations.loadError', 'Failed to load migrations')}
                 />
-                <Alert severity='error' sx={{ mx: 'auto', maxWidth: 600 }}>
+                <Alert severity='error' sx={{ mx: 'auto', maxWidth: 600, m: 2 }}>
                     {errorMessage}
                 </Alert>
-            </Stack>
+            </MainCard>
         )
     }
 
     return (
-        <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
-            {/* ViewHeader with horizontal padding */}
-            <Box sx={{ px: { xs: 1.5, md: 2 } }}>
-                <ViewHeader
-                    title={t('migrations.title', 'Migration History')}
-                    description={t('migrations.description', 'Schema changes applied to this application database.')}
-                    search={false}
-                />
-            </Box>
+        <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
+            <ViewHeader
+                title={t('migrations.title', 'Migration History')}
+                description={t('migrations.description', 'Schema changes applied to this application database.')}
+                search={false}
+            />
 
             {/* Migrations Tab Content */}
-            <Box sx={{ px: { xs: 1.5, md: 2 } }}>
+            <Box sx={{ mx: PAGE_CONTENT_GUTTER_MX }}>
                 <MigrationsTab applicationId={applicationId!} />
             </Box>
-        </Stack>
+        </MainCard>
     )
 }
 

@@ -8,6 +8,7 @@ import {
     rollbackOptimisticSnapshots,
     generateOptimisticId,
     getNextOptimisticSortOrderFromQueries,
+    safeInvalidateQueries,
     safeInvalidateQueriesInactive,
     confirmOptimisticUpdate,
     confirmOptimisticCreate
@@ -81,13 +82,12 @@ export function useCreateSetAtMetahub() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['sets'] }) <= 1) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(variables.metahubId), refetchType: 'inactive' })
-                for (const hubId of variables.data.hubIds ?? []) {
-                    queryClient.invalidateQueries({
-                        queryKey: metahubsQueryKeys.sets(variables.metahubId, hubId),
-                        refetchType: 'inactive'
-                    })
-                }
+                safeInvalidateQueries(
+                    queryClient,
+                    ['sets'],
+                    metahubsQueryKeys.allSets(variables.metahubId),
+                    ...(variables.data.hubIds ?? []).map((hubId) => metahubsQueryKeys.sets(variables.metahubId, hubId))
+                )
             }
         }
     })
@@ -145,7 +145,7 @@ export function useCreateSet() {
             enqueueSnackbar(t('sets.createSuccess', 'Set created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
-            safeInvalidateQueriesInactive(
+            safeInvalidateQueries(
                 queryClient,
                 ['sets'],
                 metahubsQueryKeys.sets(variables.metahubId, variables.hubId),

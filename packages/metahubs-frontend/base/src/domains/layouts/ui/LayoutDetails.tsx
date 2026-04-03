@@ -15,7 +15,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import type { DashboardLayoutZone, DashboardLayoutWidgetKey, MenuWidgetConfig, ColumnsContainerConfig } from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
-import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError } from '@universo/template-mui'
+import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError, PAGE_CONTENT_GUTTER_MX } from '@universo/template-mui'
 
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
 import * as layoutsApi from '../api'
@@ -47,7 +47,6 @@ type ColumnsEditorState = {
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
 const EMPTY_WIDGET_CATALOG: DashboardLayoutWidgetCatalogItem[] = []
-
 function SortableWidgetChip({
     id,
     label,
@@ -81,6 +80,7 @@ function SortableWidgetChip({
     return (
         <Paper
             ref={setNodeRef}
+            data-testid={`layout-widget-${id}`}
             style={style}
             variant='outlined'
             sx={{
@@ -119,6 +119,7 @@ function SortableWidgetChip({
                 <Tooltip title={toggleActiveTooltip || ''} arrow>
                     <IconButton
                         size='small'
+                        data-testid={`layout-widget-toggle-${id}`}
                         onClick={() => onToggleActive(!isActive)}
                         sx={!isActive ? { color: 'text.disabled' } : undefined}
                     >
@@ -143,6 +144,7 @@ function LayoutZoneColumn({ zone, title, children }: { zone: DashboardLayoutZone
     return (
         <Paper
             ref={setNodeRef}
+            data-testid={`layout-zone-${zone}`}
             variant='outlined'
             sx={{
                 p: 1.5,
@@ -431,25 +433,22 @@ export default function LayoutDetails() {
 
     return (
         <MainCard
-            sx={{ maxWidth: '100%', width: '100%' }}
-            contentSX={{ px: 0, py: 0 }}
-            disableContentPadding
+            content={false}
+            sx={{ maxWidth: '100%', width: '100%', mx: PAGE_CONTENT_GUTTER_MX, p: 0, gap: 0 }}
             disableHeader
             border={false}
             shadow={false}
         >
-            <Stack spacing={2}>
-                <Box sx={{ px: { xs: 1.5, md: 2 } }}>
-                    <ViewHeader
-                        title={layoutName || t('layouts.details.title', 'Layout')}
-                        description={t('layouts.details.description', 'Configure dashboard zones and widgets.')}
-                        search={false}
-                        isBackButton
-                        onBack={() => navigate(`/metahub/${metahubId}/layouts`)}
-                    />
-                </Box>
+            <Stack spacing={2} sx={{ width: '100%' }}>
+                <ViewHeader
+                    title={layoutName || t('layouts.details.title', 'Layout')}
+                    description={t('layouts.details.description', 'Configure dashboard zones and widgets.')}
+                    search={false}
+                    isBackButton
+                    onBack={() => navigate(`/metahub/${metahubId}/layouts`)}
+                />
 
-                <Box sx={{ px: { xs: 1.5, md: 2 } }}>
+                <Box data-testid='metahub-layout-details-content' sx={{ pb: 2, width: '100%' }}>
                     {isLoading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                             <CircularProgress size={28} />

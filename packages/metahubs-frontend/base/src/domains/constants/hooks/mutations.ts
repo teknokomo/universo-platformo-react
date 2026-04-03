@@ -8,6 +8,7 @@ import {
     generateOptimisticId,
     getNextOptimisticSortOrderFromQueries,
     rollbackOptimisticSnapshots,
+    safeInvalidateQueries,
     confirmOptimisticUpdate,
     confirmOptimisticCreate
 } from '@universo/template-mui'
@@ -26,29 +27,21 @@ import type {
 
 const invalidateSetConstantScopes = async (queryClient: ReturnType<typeof useQueryClient>, variables: BaseConstantScope): Promise<void> => {
     if (variables.hubId) {
-        await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId),
-            refetchType: 'inactive'
-        })
-        await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId),
-            refetchType: 'inactive'
-        })
+        await safeInvalidateQueries(
+            queryClient,
+            ['constants'],
+            metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId),
+            metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId)
+        )
         await queryClient.invalidateQueries({
             queryKey: metahubsQueryKeys.sets(variables.metahubId, variables.hubId),
             refetchType: 'inactive'
         })
     } else {
-        await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId),
-            refetchType: 'inactive'
-        })
+        await safeInvalidateQueries(queryClient, ['constants'], metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId))
     }
 
-    await queryClient.invalidateQueries({
-        queryKey: metahubsQueryKeys.setDetail(variables.metahubId, variables.setId),
-        refetchType: 'inactive'
-    })
+    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.setDetail(variables.metahubId, variables.setId) })
     await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(variables.metahubId), refetchType: 'inactive' })
     await queryClient.invalidateQueries({
         queryKey: metahubsQueryKeys.allConstantCodenames(variables.metahubId, variables.setId),
@@ -102,7 +95,9 @@ export function useCreateConstant() {
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, getConstantQueryKeyPrefix(variables), context.optimisticId, data.id)
+                confirmOptimisticCreate(queryClient, getConstantQueryKeyPrefix(variables), context.optimisticId, data.id, {
+                    serverEntity: data
+                })
             }
             enqueueSnackbar(t('constants.createSuccess', 'Constant created'), { variant: 'success' })
         },
@@ -145,8 +140,10 @@ export function useUpdateConstant() {
                 moveToFront: true
             })
         },
-        onSuccess: (_data, variables) => {
-            confirmOptimisticUpdate(queryClient, getConstantQueryKeyPrefix(variables), variables.constantId)
+        onSuccess: (data, variables) => {
+            confirmOptimisticUpdate(queryClient, getConstantQueryKeyPrefix(variables), variables.constantId, {
+                serverEntity: data ?? null
+            })
             enqueueSnackbar(t('constants.updateSuccess', 'Constant updated'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
@@ -316,17 +313,12 @@ export function useCopyConstant() {
                 insertPosition: 'prepend'
             })
         },
-        onSuccess: (data, _variables, context) => {
+        onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, getConstantQueryKeyPrefix(_variables), context.optimisticId, data.id)
+                confirmOptimisticCreate(queryClient, getConstantQueryKeyPrefix(variables), context.optimisticId, data.id, {
+                    serverEntity: data
+                })
             }
-            console.info('[optimistic-copy:constants] onSuccess', {
-                metahubId: _variables.metahubId,
-                setId: _variables.setId,
-                constantId: _variables.constantId,
-                optimisticId: context?.optimisticId,
-                realId: data?.id ?? null
-            })
             enqueueSnackbar(t('constants.copySuccess', 'Constant copied'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
@@ -337,12 +329,6 @@ export function useCopyConstant() {
             if (queryClient.isMutating({ mutationKey: ['constants'] }) <= 1) {
                 await invalidateSetConstantScopes(queryClient, variables)
             }
-            console.info('[optimistic-copy:constants] onSettled', {
-                metahubId: variables.metahubId,
-                setId: variables.setId,
-                constantId: variables.constantId,
-                hasError: Boolean(_error)
-            })
         }
     })
 }

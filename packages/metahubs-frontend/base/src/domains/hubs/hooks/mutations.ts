@@ -19,13 +19,7 @@ import { makePendingMarkers } from '@universo/utils'
 import { getVLCString } from '@universo/utils/vlc'
 import { applyOptimisticReorder, metahubsQueryKeys, rollbackReorderSnapshots } from '../../shared'
 import * as hubsApi from '../api'
-import type {
-    CreateHubParams,
-    UpdateHubParams,
-    DeleteHubParams,
-    CopyHubParams,
-    ReorderHubParams
-} from './mutationTypes'
+import type { CreateHubParams, UpdateHubParams, DeleteHubParams, CopyHubParams, ReorderHubParams } from './mutationTypes'
 
 export function useCreateHub() {
     const queryClient = useQueryClient()
@@ -94,7 +88,7 @@ export function useCreateHub() {
         },
         onSettled: (_data, _error, variables) => {
             console.info('[hub:create] onSettled', { metahubId: variables.metahubId })
-            safeInvalidateQueriesInactive(
+            safeInvalidateQueries(
                 queryClient,
                 ['hubs'],
                 metahubsQueryKeys.hubs(variables.metahubId),
@@ -275,7 +269,7 @@ export function useCopyHub() {
             enqueueSnackbar(t('hubs.copySuccess', 'Hub copied'), { variant: 'success' })
         },
         onSettled: async (_data, _error, variables) => {
-            safeInvalidateQueriesInactive(
+            safeInvalidateQueries(
                 queryClient,
                 ['hubs'],
                 metahubsQueryKeys.hubs(variables.metahubId),

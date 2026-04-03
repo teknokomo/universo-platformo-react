@@ -83,13 +83,12 @@ export function useCreateCatalogAtMetahub() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['catalogs'] }) <= 1) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId), refetchType: 'inactive' })
-                for (const hubId of variables.data.hubIds ?? []) {
-                    queryClient.invalidateQueries({
-                        queryKey: metahubsQueryKeys.catalogs(variables.metahubId, hubId),
-                        refetchType: 'inactive'
-                    })
-                }
+                safeInvalidateQueries(
+                    queryClient,
+                    ['catalogs'],
+                    metahubsQueryKeys.allCatalogs(variables.metahubId),
+                    ...(variables.data.hubIds ?? []).map((hubId) => metahubsQueryKeys.catalogs(variables.metahubId, hubId))
+                )
             }
         }
     })
@@ -148,7 +147,7 @@ export function useCreateCatalog() {
             enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
-            safeInvalidateQueriesInactive(
+            safeInvalidateQueries(
                 queryClient,
                 ['catalogs'],
                 metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId),

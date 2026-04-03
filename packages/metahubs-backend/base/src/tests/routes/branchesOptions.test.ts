@@ -5,6 +5,12 @@ jest.mock('@universo/admin-backend', () => ({
     hasSubjectPermission: jest.fn(async () => false)
 }))
 
+const mockApplyRlsContext = jest.fn(async () => undefined)
+jest.mock('@universo/auth-backend', () => ({
+    __esModule: true,
+    applyRlsContext: (...args: unknown[]) => mockApplyRlsContext(...args)
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -94,6 +100,7 @@ describe('Branches Options Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockApplyRlsContext.mockResolvedValue(undefined)
     })
 
     afterEach(() => {
@@ -242,5 +249,41 @@ describe('Branches Options Routes', () => {
             code: 'BRANCH_COPY_DANGLING_REFERENCES',
             error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
         })
+    })
+
+    it('creates branches inside a committed RLS-aware transaction when a bearer token is provided', async () => {
+        const metahubId = 'metahub-1'
+        const createBranchSpy = jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockResolvedValue({
+            id: 'branch-created',
+            codename: testCodenameVlc('branch-created'),
+            name: { locales: { en: { content: 'Branch Created' } }, _primary: 'en', _schema: 'v1' },
+            description: null,
+            sourceBranchId: null,
+            branchNumber: 2,
+            _uplVersion: 1,
+            _uplCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+            _uplUpdatedAt: new Date('2026-01-01T00:00:00.000Z')
+        } as any)
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .post(`/metahub/${metahubId}/branches`)
+            .set('Authorization', 'Bearer test-access-token')
+            .send({
+                codename: testCodenameVlc('branch-created'),
+                name: { en: 'Branch Created' }
+            })
+            .expect(201)
+
+        expect(response.body.id).toBe('branch-created')
+        expect(mockExec.transaction).toHaveBeenCalled()
+        expect(mockApplyRlsContext).toHaveBeenCalled()
+        expect(createBranchSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metahubId,
+                createdBy: 'test-user-id'
+            })
+        )
     })
 })

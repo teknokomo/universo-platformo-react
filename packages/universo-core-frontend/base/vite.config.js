@@ -9,6 +9,39 @@ const require = createRequire(import.meta.url)
 const tablerIconsEsm = require.resolve('@tabler/icons-react/dist/esm/tabler-icons-react.mjs')
 const supportedLanguagesPath = require.resolve('@universo/i18n/supported-languages.json')
 const supportedLanguages = JSON.parse(fs.readFileSync(supportedLanguagesPath, 'utf-8'))
+const frontendRootDir = resolve(__dirname)
+const backendRootDir = resolve(__dirname, '../../universo-core-backend/base')
+
+const buildFrontendEnvCandidates = (target) => {
+    if (target === 'e2e') {
+        return ['.env.e2e.local', '.env.e2e', '.env']
+    }
+
+    if (target === 'test') {
+        return ['.env.test.local', '.env.test', '.env']
+    }
+
+    return ['.env']
+}
+
+const resolveEnvFilePath = (rootDir, explicitPath, target) => {
+    if (explicitPath) {
+        return resolve(rootDir, explicitPath)
+    }
+
+    return buildFrontendEnvCandidates(target)
+        .map((candidate) => resolve(rootDir, candidate))
+        .find((candidate) => fs.existsSync(candidate))
+}
+
+const loadEnvFile = (rootDir, explicitPath, target) => {
+    const envPath = resolveEnvFilePath(rootDir, explicitPath, target)
+    if (envPath) {
+        dotenv.config({ path: envPath, override: false })
+    }
+
+    return envPath
+}
 
 const supportedLanguagesPlugin = () => ({
     name: 'inject-supported-languages',
@@ -22,9 +55,16 @@ const supportedLanguagesPlugin = () => ({
 })
 
 export default defineConfig(async ({ mode }) => {
+    const envTarget = process.env.UNIVERSO_ENV_TARGET?.trim()
+    const explicitFrontendEnvPath = process.env.UNIVERSO_FRONTEND_ENV_FILE?.trim()
+    const explicitBackendEnvPath = process.env.UNIVERSO_ENV_FILE?.trim()
+
+    loadEnvFile(frontendRootDir, explicitFrontendEnvPath, envTarget)
+
     let proxy = undefined
     if (mode === 'development') {
-        const serverEnv = dotenv.config({ processEnv: {}, path: '../server/.env' }).parsed
+        const backendEnvPath = resolveEnvFilePath(backendRootDir, explicitBackendEnvPath, envTarget)
+        const serverEnv = backendEnvPath ? dotenv.config({ processEnv: {}, path: backendEnvPath }).parsed : undefined
         const serverHost = serverEnv?.['HOST'] ?? 'localhost'
         const serverPort = parseInt(serverEnv?.['PORT'] ?? 3000)
         if (!Number.isNaN(serverPort) && serverPort > 0 && serverPort < 65535) {
@@ -37,12 +77,8 @@ export default defineConfig(async ({ mode }) => {
         }
     }
 
-    dotenv.config()
     return {
-        plugins: [
-            react(),
-            supportedLanguagesPlugin()
-        ],
+        plugins: [react(), supportedLanguagesPlugin()],
         esbuild: {
             target: 'es2022'
         },
@@ -57,11 +93,7 @@ export default defineConfig(async ({ mode }) => {
                 '@universo/metahubs-frontend'
             ],
             // Do not prebundle auth singleton to avoid duplicate copies across optimized deps
-            exclude: [
-                '@universo/auth-frontend',
-                'react-i18next',
-                'i18next'
-            ],
+            exclude: ['@universo/auth-frontend', 'react-i18next', 'i18next'],
             // Force Vite to pre-bundle CJS dependencies properly
             esbuildOptions: {
                 mainFields: ['browser', 'module', 'main'],
@@ -103,7 +135,7 @@ export default defineConfig(async ({ mode }) => {
                 }
             ]
         },
-        root: resolve(__dirname),
+        root: frontendRootDir,
         build: {
             outDir: './build',
             sourcemap: true,
@@ -118,7 +150,6 @@ export default defineConfig(async ({ mode }) => {
                         // Prevent auth-frontend from being split into separate chunk
                         // by NOT returning a chunk name - let Rollup decide based on first import
                         if (id.includes('auth-frontend')) {
-                            console.log('[vite-manualChunks] auth-frontend detected, using default chunking:', id)
                             return undefined // Let Rollup include it where it's first imported
                         }
                     }

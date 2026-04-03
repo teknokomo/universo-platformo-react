@@ -156,6 +156,28 @@ describe('MetahubBranchesService', () => {
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
 
+    it('listBranches excludes soft-deleted rows', async () => {
+        const queryMock = jest.fn(async () => [])
+        const exec = createMockExecutor(queryMock)
+        const service = new MetahubBranchesService(exec)
+
+        await service.listBranches(TEST_METAHUB_ID, { limit: 20, offset: 0 })
+
+        expect(queryMock).toHaveBeenCalled()
+        expect(queryMock.mock.calls[0][0]).toContain('b._upl_deleted = false AND b._app_deleted = false')
+    })
+
+    it('listAllBranches excludes soft-deleted rows', async () => {
+        const queryMock = jest.fn(async () => [])
+        const exec = createMockExecutor(queryMock)
+        const service = new MetahubBranchesService(exec)
+
+        await service.listAllBranches(TEST_METAHUB_ID)
+
+        expect(queryMock).toHaveBeenCalled()
+        expect(queryMock.mock.calls[0][0]).toContain('b._upl_deleted = false AND b._app_deleted = false')
+    })
+
     it('createInitialBranch throws explicit rollback cleanup error when schema cleanup fails', async () => {
         mockInitializeSchema.mockRejectedValueOnce(new Error('init failed'))
         mockDropSchema.mockRejectedValueOnce(new Error('drop failed'))

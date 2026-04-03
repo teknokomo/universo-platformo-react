@@ -1,7 +1,35 @@
 import { z } from 'zod'
 import { CodenameVLCSchema, LocalizedStringSchema, LocalizedStringOptionalSchema } from '@universo/types'
+import { isValidCodenameForStyle } from '@universo/utils/validation/codename'
 
-const ROLE_CODENAME_PATTERN = /^[a-z][a-z0-9_-]*$/
+const LEGACY_ROLE_CODENAME_PATTERN = /^[a-z][a-z0-9_-]*$/
+
+const SUPPORTED_ROLE_CODENAME_CONFIGS: Array<{
+    style: 'pascal-case' | 'kebab-case'
+    alphabet: 'en' | 'ru' | 'en-ru'
+    allowMixed: boolean
+}> = [
+    { style: 'pascal-case', alphabet: 'en', allowMixed: false },
+    { style: 'pascal-case', alphabet: 'ru', allowMixed: false },
+    { style: 'pascal-case', alphabet: 'en-ru', allowMixed: false },
+    { style: 'pascal-case', alphabet: 'en-ru', allowMixed: true },
+    { style: 'kebab-case', alphabet: 'en', allowMixed: false },
+    { style: 'kebab-case', alphabet: 'ru', allowMixed: false },
+    { style: 'kebab-case', alphabet: 'en-ru', allowMixed: false },
+    { style: 'kebab-case', alphabet: 'en-ru', allowMixed: true }
+]
+
+export const isLegacyRoleCodename = (value: string): boolean => LEGACY_ROLE_CODENAME_PATTERN.test(value)
+
+export const isSupportedRoleCodenameForAnyConfig = (value: string): boolean => {
+    if (isLegacyRoleCodename(value)) {
+        return true
+    }
+
+    return SUPPORTED_ROLE_CODENAME_CONFIGS.some((config) =>
+        isValidCodenameForStyle(value, config.style, config.alphabet, config.allowMixed)
+    )
+}
 
 export const RoleCodenameSchema = CodenameVLCSchema.superRefine((value, ctx) => {
     const primaryContent = value.locales[value._primary]?.content?.trim() ?? ''
@@ -22,11 +50,12 @@ export const RoleCodenameSchema = CodenameVLCSchema.superRefine((value, ctx) => 
         })
     }
 
-    if (primaryContent.length > 0 && !ROLE_CODENAME_PATTERN.test(primaryContent)) {
+    if (primaryContent.length > 0 && !isSupportedRoleCodenameForAnyConfig(primaryContent)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['locales', value._primary, 'content'],
-            message: 'Codename must start with a letter and contain only lowercase alphanumeric, underscores, or dashes'
+            message:
+                'Codename must match a supported role codename format or the legacy lowercase slug format (letters, digits, underscores, dashes)'
         })
     }
 })

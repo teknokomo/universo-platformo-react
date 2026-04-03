@@ -1,15 +1,38 @@
 {
     "$schema": "https://turbo.build/schema.json",
-    "pipeline": {
+    "envMode": "strict",
+    "globalDependencies": ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json"],
+    "tasks": {
         "build": {
             "dependsOn": ["^build"],
+            "inputs": ["$TURBO_DEFAULT$", "!README.md", "!README-RU.md", "!dist/**", "!build/**", "!.turbo/**", "!coverage/**"],
+            "env": ["NODE_ENV", "NODE_OPTIONS", "UNIVERSO_ENV_*", "VITE_*", "E2E_*", "CI"],
             "outputs": ["dist/**", "build/**"],
-            "cache": false
+            "outputLogs": "new-only"
         },
-        "test": {},
+        "test": {
+            "dependsOn": ["build"],
+            "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.workspace.ts", "!dist/**", "!build/**", "!.turbo/**", "!coverage/**"],
+            "env": ["NODE_ENV", "NODE_OPTIONS", "UNIVERSO_ENV_*", "VITE_*", "E2E_*", "CI"],
+            "outputs": ["coverage/**"]
+        },
         "dev": {
             "cache": false,
-            "persistent": true
+            "persistent": true,
+            "passThroughEnv": [
+                "NODE_ENV",
+                "NODE_OPTIONS",
+                "UNIVERSO_ENV_*",
+                "DATABASE_*",
+                "SUPABASE_*",
+                "SERVICE_ROLE_KEY",
+                "BOOTSTRAP_*",
+                "VITE_*",
+                "E2E_*",
+                "HOST",
+                "PORT",
+                "CI"
+            ]
         },
         "clean": {
             "cache": false

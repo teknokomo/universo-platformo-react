@@ -143,11 +143,10 @@ export function useCreateMetahub() {
         },
         onSettled: () => {
             console.info('[metahub:create] onSettled')
-            // NOTE: We intentionally do NOT invalidate here.
-            // confirmOptimisticCreate in onSuccess already provides the full server entity.
-            // Invalidating marks the query stale, which triggers a background refetch that
-            // can overwrite optimistic entries from a SUBSEQUENT mutation (e.g. copy started
-            // right after create). Eventual consistency is handled by staleTime.
+            // Refetch the active list after create so late-arriving pre-create responses
+            // cannot leave the visible list in an empty state. safeInvalidateQueries keeps
+            // the follow-up refetch from clobbering concurrent metahub mutations.
+            safeInvalidateQueries(queryClient, ['metahubs'], metahubsQueryKeys.lists())
         }
     })
 }

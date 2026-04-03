@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { localizedContent, OptimisticLockError } from '@universo/utils'
+import { applyRlsContext } from '@universo/auth-backend'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
 import { createEnsureMetahubRouteAccess } from '../../shared/guards'
@@ -64,6 +65,43 @@ const activeApplicationRowPredicate = (alias?: string): string => {
 }
 
 const getErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+
+const resolveBearerAccessToken = (req: Request): string | null => {
+  const headerValue = req.headers.authorization ?? req.headers.Authorization
+  if (typeof headerValue !== 'string') return null
+  return headerValue.startsWith('Bearer ') ? headerValue.slice(7) : null
+}
+
+const applyRlsContextToExecutor = async (executor: Pick<DbExecutor, 'query' | 'isReleased'>, accessToken: string): Promise<void> => {
+  await applyRlsContext(
+    {
+      query: executor.query,
+      isReleased: executor.isReleased
+    },
+    accessToken
+  )
+}
+
+const runCommittedRlsTransaction = async <T>(executor: DbExecutor, accessToken: string, work: (tx: DbExecutor) => Promise<T>): Promise<T> => {
+  return executor.transaction(async (tx) => {
+    await applyRlsContextToExecutor(tx, accessToken)
+    return work(tx)
+  })
+}
+
+const createRlsAwareTransactionExecutor = async (trx: Parameters<typeof createKnexExecutor>[0], accessToken: string) => {
+  const executor = createKnexExecutor(trx)
+
+  await applyRlsContextToExecutor(
+    {
+      query: executor.query,
+      isReleased: () => false
+    },
+    accessToken
+  )
+
+  return executor
+}
 
 const assertManagedApplicationSchemaName = (schemaName: string): void => {
   if (!schemaName.startsWith('app_') || !isManagedDynamicSchemaName(schemaName)) {
@@ -137,17 +175,122 @@ const markCreatedApplicationDeleted = async (
   )
 }
 
+const markCreatedPublicationVersionDeleted = async (
+  executor: SqlQueryable,
+  input: { publicationVersionId: string; userId?: string }
+): Promise<void> => {
+  const rows = await executor.query<{ id: string }>(
+    `
+    UPDATE metahubs.doc_publication_versions
+    SET _upl_deleted = true,
+        _upl_deleted_at = NOW(),
+        _upl_deleted_by = $2,
+        _app_deleted = true,
+        _app_deleted_at = NOW(),
+        _app_deleted_by = $2,
+        _upl_updated_at = NOW(),
+        _upl_version = COALESCE(_upl_version, 1) + 1
+    WHERE id = $1
+      AND COALESCE(_upl_deleted, false) = false
+      AND COALESCE(_app_deleted, false) = false
+    RETURNING id
+    `,
+    [input.publicationVersionId, input.userId ?? null]
+  )
+
+  if (rows.length > 0) {
+    return
+  }
+
+  const existingRows = await executor.query<{ id: string; uplDeleted: boolean | null; appDeleted: boolean | null }>(
+    `
+    SELECT id,
+           _upl_deleted AS "uplDeleted",
+           _app_deleted AS "appDeleted"
+    FROM metahubs.doc_publication_versions
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [input.publicationVersionId]
+  )
+
+  const existing = existingRows[0]
+  if (existing?.uplDeleted === true && existing?.appDeleted === true) {
+    return
+  }
+
+  throw new MetahubDomainError({
+    message: `Failed to compensate publication version ${input.publicationVersionId}`,
+    statusCode: 500,
+    code: 'PUBLICATION_COMPENSATION_FAILED'
+  })
+}
+
+const markCreatedPublicationDeleted = async (
+  executor: SqlQueryable,
+  input: { publicationId: string; userId?: string }
+): Promise<void> => {
+  const rows = await executor.query<{ id: string }>(
+    `
+    UPDATE metahubs.doc_publications
+    SET active_version_id = NULL,
+        _upl_deleted = true,
+        _upl_deleted_at = NOW(),
+        _upl_deleted_by = $2,
+        _app_deleted = true,
+        _app_deleted_at = NOW(),
+        _app_deleted_by = $2,
+        _upl_updated_at = NOW(),
+        _upl_version = COALESCE(_upl_version, 1) + 1
+    WHERE id = $1
+      AND COALESCE(_upl_deleted, false) = false
+      AND COALESCE(_app_deleted, false) = false
+    RETURNING id
+    `,
+    [input.publicationId, input.userId ?? null]
+  )
+
+  if (rows.length > 0) {
+    return
+  }
+
+  const existingRows = await executor.query<{ id: string; uplDeleted: boolean | null; appDeleted: boolean | null }>(
+    `
+    SELECT id,
+           _upl_deleted AS "uplDeleted",
+           _app_deleted AS "appDeleted"
+    FROM metahubs.doc_publications
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [input.publicationId]
+  )
+
+  const existing = existingRows[0]
+  if (existing?.uplDeleted === true && existing?.appDeleted === true) {
+    return
+  }
+
+  throw new MetahubDomainError({
+    message: `Failed to compensate publication ${input.publicationId}`,
+    statusCode: 500,
+    code: 'PUBLICATION_COMPENSATION_FAILED'
+  })
+}
+
 const compensateCreatedApplication = async (
   executor: DbExecutor,
+  accessToken: string,
   input: { applicationId: string; schemaName: string; userId?: string }
 ): Promise<void> => {
-  await executor.transaction(async (tx) => {
+  await runCommittedRlsTransaction(executor, accessToken, async (tx) => {
     await markCreatedApplicationDeleted(tx, input)
   })
 }
 
 const compensateCreatedPublication = async (
   executor: DbExecutor,
+  accessToken: string,
   input: {
     publicationId: string
     publicationVersionId: string
@@ -155,7 +298,7 @@ const compensateCreatedPublication = async (
     userId?: string
   }
 ): Promise<void> => {
-  await executor.transaction(async (tx) => {
+  await runCommittedRlsTransaction(executor, accessToken, async (tx) => {
     if (input.linkedApplication) {
       await markCreatedApplicationDeleted(tx, {
         applicationId: input.linkedApplication.applicationId,
@@ -164,8 +307,14 @@ const compensateCreatedPublication = async (
       })
     }
 
-    await softDelete(tx, 'metahubs', 'doc_publication_versions', input.publicationVersionId, input.userId)
-    await softDelete(tx, 'metahubs', 'doc_publications', input.publicationId, input.userId)
+    await markCreatedPublicationVersionDeleted(tx, {
+      publicationVersionId: input.publicationVersionId,
+      userId: input.userId
+    })
+    await markCreatedPublicationDeleted(tx, {
+      publicationId: input.publicationId,
+      userId: input.userId
+    })
   })
 }
 
@@ -513,7 +662,10 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     const { metahubId } = req.params
     const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
     if (!userId) return
-    const exec = getRequestDbExecutor(req, getDbExecutor())
+    const accessToken = resolveBearerAccessToken(req)
+    if (!accessToken) return res.status(401).json({ error: 'Unauthorized' })
+    const rootExec = getDbExecutor()
+    const exec = getRequestDbExecutor(req, rootExec)
 
     const parsed = createPublicationSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -549,7 +701,13 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     }
 
     const existingCountRows = await exec.query<{ count: number }>(
-      'SELECT COUNT(*)::int AS count FROM metahubs.doc_publications WHERE metahub_id = $1',
+      `
+      SELECT COUNT(*)::int AS count
+      FROM metahubs.doc_publications
+      WHERE metahub_id = $1
+        AND COALESCE(_upl_deleted, false) = false
+        AND COALESCE(_app_deleted, false) = false
+      `,
       [metahubId]
     )
     if ((existingCountRows[0]?.count ?? 0) > 0) {
@@ -593,7 +751,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
     const snapshotHash = serializer.calculateHash(snapshot)
 
-    const result = await exec.transaction(async (tx) => {
+    const result = await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
       const publication = await createPublication(tx, {
         metahubId,
         name: buildLocalizedContent(sanitizeLocalizedInput(name || {}), namePrimaryLocale || 'en')!,
@@ -684,6 +842,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
           userId,
           publicationSnapshot: snapshot as unknown as Record<string, unknown>,
           afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
+            const txExecutor = await createRlsAwareTransactionExecutor(trx, accessToken)
+
             await runPublishedApplicationRuntimeSync({
               trx,
               applicationId: result.applicationData!.application.id,
@@ -696,7 +856,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
               workspacesEnabled: result.applicationData!.application.workspacesEnabled === true
             })
 
-            await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
+            await persistApplicationSchemaSyncState(txExecutor, {
               applicationId: result.applicationData!.application.id,
               schemaStatus: ApplicationSchemaStatus.SYNCED,
               schemaError: null,
@@ -725,7 +885,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         log.error('DDL schema generation failed; compensating publication creation:', ddlError)
 
         try {
-          await compensateCreatedPublication(getDbExecutor(), {
+          await compensateCreatedPublication(rootExec, accessToken, {
             publicationId: result.publication.id,
             publicationVersionId: result.firstVersion.id,
             linkedApplication: {
@@ -1032,7 +1192,10 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     const { metahubId, publicationId } = req.params
     const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
     if (!userId) return
-    const exec = getRequestDbExecutor(req, getDbExecutor())
+    const accessToken = resolveBearerAccessToken(req)
+    if (!accessToken) return res.status(401).json({ error: 'Unauthorized' })
+    const rootExec = getDbExecutor()
+    const exec = getRequestDbExecutor(req, rootExec)
 
     const parsed = createApplicationForPublicationSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -1081,7 +1244,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
       }
     }
 
-    const result = await exec.transaction(async (tx) => {
+    const result = await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
       const linked = await createLinkedApplication({
         exec: tx,
         publicationId: publication.id,
@@ -1120,6 +1283,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
           userId,
           publicationSnapshot: snapshotData as unknown as Record<string, unknown>,
           afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
+            const txExecutor = await createRlsAwareTransactionExecutor(trx, accessToken)
+
             await runPublishedApplicationRuntimeSync({
               trx,
               applicationId: result.application.id,
@@ -1132,7 +1297,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
               workspacesEnabled: result.application.workspacesEnabled === true
             })
 
-            await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
+            await persistApplicationSchemaSyncState(txExecutor, {
               applicationId: result.application.id,
               schemaStatus: ApplicationSchemaStatus.SYNCED,
               schemaError: null,
@@ -1158,7 +1323,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         log.error('DDL schema generation for new linked application failed; compensating:', ddlError)
 
         try {
-          await compensateCreatedApplication(getDbExecutor(), {
+          await compensateCreatedApplication(rootExec, accessToken, {
             applicationId: result.application.id,
             schemaName: result.appSchemaName,
             userId

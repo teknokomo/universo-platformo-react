@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Request, Response, NextFunction } from 'express'
+import { resolveSupabasePublicKey } from '../utils/resolveSupabasePublicKey'
 
 export interface SessionTokens {
     access: string
@@ -41,7 +42,7 @@ export const ensureAuthenticated: Middleware = (req, res, next) => {
 
 export const getSupabaseForReq = (req: Request) => {
     const tokens = (req as AuthenticatedRequest).session?.tokens as SessionTokens | undefined
-    return createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
+    return createClient(process.env.SUPABASE_URL as string, resolveSupabasePublicKey(), {
         global: { headers: { Authorization: tokens?.access ? `Bearer ${tokens.access}` : '' } },
         auth: { persistSession: false }
     })

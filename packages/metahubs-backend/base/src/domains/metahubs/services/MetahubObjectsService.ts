@@ -39,7 +39,6 @@ const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
 /**
  * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
- * Replaces the old TypeORM Catalog entity logic.
  */
 export class MetahubObjectsService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}

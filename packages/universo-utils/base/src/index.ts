@@ -32,6 +32,7 @@ export const net = {
     ensurePortAvailable
 }
 export { createTimeSyncEstimator, updateSeqState, reconcileAck, ensurePortAvailable }
+export { resolveRateLimitKey } from './rate-limiting'
 
 // Direct exports for commonly used classes
 export { UPDLProcessor } from './updl/UPDLProcessor'

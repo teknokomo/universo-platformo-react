@@ -1,7 +1,9 @@
+import type { Request } from 'express'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import type { DbExecutor } from '../../../utils'
 import { database, localizedContent, validation } from '@universo/utils'
+import { applyRlsContext } from '@universo/auth-backend'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
 import type { BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
@@ -92,11 +94,37 @@ const getBranchCopyCompatibilityErrorCode = (
   return null
 }
 
+const resolveBearerAccessToken = (req: Request): string | null => {
+  const headerValue = req.headers.authorization ?? req.headers.Authorization
+  if (typeof headerValue !== 'string') return null
+  return headerValue.startsWith('Bearer ') ? headerValue.slice(7) : null
+}
+
+const applyRlsContextToExecutor = async (executor: Pick<DbExecutor, 'query' | 'isReleased'>, accessToken: string): Promise<void> => {
+  await applyRlsContext(
+    {
+      query: executor.query,
+      isReleased: executor.isReleased
+    },
+    accessToken
+  )
+}
+
+const runCommittedRlsTransaction = async <T>(executor: DbExecutor, accessToken: string, work: (tx: DbExecutor) => Promise<T>): Promise<T> => {
+  return executor.transaction(async (tx) => {
+    await applyRlsContextToExecutor(tx, accessToken)
+    return work(tx)
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
 
-export function createBranchesController(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
+export function createBranchesController(
+  createHandler: ReturnType<typeof createMetahubHandlerFactory>,
+  getDbExecutor: () => DbExecutor
+) {
   const getService = (exec: DbExecutor) => new MetahubBranchesService(exec)
 
   const getSettingsService = (ctx: MetahubHandlerContext) =>
@@ -234,6 +262,8 @@ export function createBranchesController(createHandler: ReturnType<typeof create
 
   const create = createHandler(async (ctx) => {
     const { req, res, metahubId, userId, exec } = ctx
+    const accessToken = resolveBearerAccessToken(req)
+    const rootExec = getDbExecutor()
 
     const branchesService = getService(exec)
 
@@ -298,15 +328,28 @@ export function createBranchesController(createHandler: ReturnType<typeof create
     }
 
     try {
-      const branch = await branchesService.createBranch({
-        metahubId,
-        sourceBranchId: sourceBranchId ?? null,
-        codename: codenameVlc,
-        name: nameVlc,
-        description: descriptionVlc ?? null,
-        copyOptions,
-        createdBy: userId
-      })
+      const branch = accessToken
+        ? await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
+            const transactionalService = new MetahubBranchesService(tx)
+            return transactionalService.createBranch({
+              metahubId,
+              sourceBranchId: sourceBranchId ?? null,
+              codename: codenameVlc,
+              name: nameVlc,
+              description: descriptionVlc ?? null,
+              copyOptions,
+              createdBy: userId
+            })
+          })
+        : await branchesService.createBranch({
+            metahubId,
+            sourceBranchId: sourceBranchId ?? null,
+            codename: codenameVlc,
+            name: nameVlc,
+            description: descriptionVlc ?? null,
+            copyOptions,
+            createdBy: userId
+          })
 
       res.status(201).json({
         id: branch.id,

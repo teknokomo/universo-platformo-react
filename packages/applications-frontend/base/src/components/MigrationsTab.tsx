@@ -141,7 +141,7 @@ export function MigrationsTab({ applicationId }: MigrationsTabProps) {
                 {t('migrations.description', 'Schema changes applied to this application database.')}
             </Typography>
 
-            <TableContainer component={Paper} variant='outlined'>
+            <TableContainer component={Paper} variant='outlined' data-testid='application-migrations-table'>
                 <Table size='small'>
                     <TableHead>
                         <TableRow>
@@ -209,9 +209,9 @@ function MigrationRow({ applicationId, migration, isLatest, isExpanded, onToggle
 
     return (
         <>
-            <TableRow hover>
+            <TableRow hover data-testid={`application-migration-row-${migration.id}`}>
                 <TableCell>
-                    <IconButton size='small' onClick={onToggleExpand}>
+                    <IconButton size='small' onClick={onToggleExpand} data-testid={`application-migration-expand-${migration.id}`}>
                         {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                     </IconButton>
                 </TableCell>
@@ -220,7 +220,15 @@ function MigrationRow({ applicationId, migration, isLatest, isExpanded, onToggle
                         <Typography variant='body2' fontFamily='monospace'>
                             {migration.name}
                         </Typography>
-                        {isLatest && <Chip size='small' label={t('migrations.latest', 'Latest')} color='primary' variant='outlined' />}
+                        {isLatest && (
+                            <Chip
+                                size='small'
+                                label={t('migrations.latest', 'Latest')}
+                                color='primary'
+                                variant='outlined'
+                                data-testid={`application-migration-latest-${migration.id}`}
+                            />
+                        )}
                         {migration.hasSeedWarnings && (
                             <Tooltip title={t('migrations.seedWarningsIndicator', 'Seed warnings detected')}>
                                 <WarningIcon fontSize='small' color='warning' />
@@ -240,7 +248,12 @@ function MigrationRow({ applicationId, migration, isLatest, isExpanded, onToggle
                 <TableCell align='right'>
                     {!isLatest && (
                         <Tooltip title={t('migrations.rollbackTo', 'Rollback to this migration')}>
-                            <IconButton size='small' onClick={onRollbackClick} color='warning'>
+                            <IconButton
+                                size='small'
+                                onClick={onRollbackClick}
+                                color='warning'
+                                data-testid={`application-migration-rollback-${migration.id}`}
+                            >
                                 <UndoIcon />
                             </IconButton>
                         </Tooltip>
@@ -255,7 +268,7 @@ function MigrationRow({ applicationId, migration, isLatest, isExpanded, onToggle
             <TableRow>
                 <TableCell colSpan={5} sx={{ py: 0, borderBottom: isExpanded ? undefined : 'none' }}>
                     <Collapse in={isExpanded} timeout='auto' unmountOnExit>
-                        <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover' }}>
+                        <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover' }} data-testid={`application-migration-summary-${migration.id}`}>
                             <Typography variant='subtitle2' gutterBottom>
                                 {t('migrations.summary', 'Summary')}
                             </Typography>

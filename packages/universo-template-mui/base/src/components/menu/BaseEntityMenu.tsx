@@ -194,10 +194,10 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
         event.preventDefault()
         event.stopPropagation()
         if (busyActionId) return
-            event.currentTarget.blur()
-            if (document.activeElement instanceof HTMLElement && document.activeElement !== event.currentTarget) {
-                document.activeElement.blur()
-            }
+        event.currentTarget.blur()
+        if (document.activeElement instanceof HTMLElement && document.activeElement !== event.currentTarget) {
+            document.activeElement.blur()
+        }
         handleClose()
         try {
             setBusyActionId(d.id)
@@ -273,14 +273,23 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
 
     // Use custom trigger if provided, otherwise use default
     const trigger = renderTrigger || defaultTrigger
+    const entityId =
+        entity && typeof entity === 'object' && 'id' in entity && typeof entity.id === 'string' && entity.id.length > 0
+            ? entity.id
+            : 'unknown'
 
     return (
         <>
-            {trigger({
-                onClick: handleOpen,
-                'aria-haspopup': 'true',
-                disabled: busyActionId !== null
-            })}
+            {React.cloneElement(
+                trigger({
+                    onClick: handleOpen,
+                    'aria-haspopup': 'true',
+                    disabled: busyActionId !== null
+                }),
+                {
+                    'data-testid': `entity-menu-trigger-${entityKind}-${entityId}`
+                }
+            )}
             <Menu
                 open={open}
                 onClose={handleClose}
@@ -306,6 +315,7 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                                     <MenuItem
                                         disabled={disabled}
                                         onClick={(event) => void doAction(event, a)}
+                                        data-testid={`entity-menu-item-${entityKind}-${a.id}-${entityId}`}
                                         sx={
                                             isDanger
                                                 ? {

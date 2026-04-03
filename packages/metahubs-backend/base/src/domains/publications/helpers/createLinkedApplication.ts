@@ -37,6 +37,8 @@ export interface CreateLinkedApplicationResult {
     appSchemaName: string
 }
 
+const buildLinkedApplicationSlug = (applicationId: string): string => `pub-${applicationId}`
+
 /**
  * Shared helper: creates Application + ApplicationUser (owner) + Connector + ConnectorPublication
  * within the given SQL-queryable context (transaction).
@@ -69,7 +71,7 @@ export async function createLinkedApplication(opts: CreateLinkedApplicationOpts)
 
     // 2. Set schemaName and slug
     const appSchemaName = generateSchemaName(application.id)
-    const appSlug = `pub-${application.id.slice(0, 8)}`
+    const appSlug = buildLinkedApplicationSlug(application.id)
     const updatedApp = await updateApplicationFields(exec, application.id, {
         schemaName: appSchemaName,
         slug: appSlug

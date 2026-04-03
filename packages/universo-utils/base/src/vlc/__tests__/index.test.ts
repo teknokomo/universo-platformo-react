@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
     createCodenameVLC,
     createLocalizedContent,
+    enforceSingleLocaleCodename,
     ensureCodenameVLC,
     updateLocalizedContentLocale,
     resolveLocalizedContent,
@@ -245,6 +246,26 @@ describe('Localized Content Utilities', () => {
         it('returns existing VLC values unchanged', () => {
             const value = createCodenameVLC('ru', 'Тест')
             expect(ensureCodenameVLC(value, 'en')).toEqual(value)
+        })
+    })
+
+    describe('enforceSingleLocaleCodename', () => {
+        it('keeps only the primary locale entry when localized mode is disabled', () => {
+            const original = updateLocalizedContentLocale(createCodenameVLC('en', 'EditorRole'), 'ru', 'РольРедактор')
+
+            const singleLocale = enforceSingleLocaleCodename(original, false)
+
+            expect(singleLocale._schema).toBe('1')
+            expect(singleLocale._primary).toBe('en')
+            expect(singleLocale.locales.en?.content).toBe('EditorRole')
+            expect(singleLocale.locales.ru).toBeUndefined()
+        })
+
+        it('returns the original VLC when localization stays enabled', () => {
+            const original = updateLocalizedContentLocale(createCodenameVLC('en', 'EditorRole'), 'ru', 'РольРедактор')
+
+            expect(enforceSingleLocaleCodename(original, true)).toEqual(original)
+            expect(enforceSingleLocaleCodename(original, undefined)).toEqual(original)
         })
     })
 })

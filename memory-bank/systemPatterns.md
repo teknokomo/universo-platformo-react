@@ -1,6 +1,5 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
-
 ---
 ## Generated REST Docs Source-Of-Truth Pattern (IMPORTANT)
 **Rule**: `@universo/rest-docs` must derive its OpenAPI path and method inventory from the live backend route files, not from a hand-maintained historical YAML taxonomy.
@@ -11,6 +10,16 @@
 - Keep GitBook API-reference pages aligned with the standalone interactive docs workflow.
 **Detection**: `rg "generate-openapi-source|routeSources|interactive-openapi-docs" packages/universo-rest-docs docs`
 **Why**: The repository has already removed older workspace-era API domains. Leaving REST docs on a hand-maintained mirror makes deleted route families look alive long after the runtime stopped mounting them.
+## Turbo 2 Root Cache Contract Pattern (IMPORTANT)
+**Rule**: Root Turborepo tasks must keep generated artifacts out of task `inputs`; otherwise repeated workspace builds self-invalidate and Turbo degrades back into an orchestrator.
+**Required**:
+- Keep the root config on Turbo 2 `tasks` syntax with `envMode: "strict"`.
+- Include root dependency manifests that should invalidate the whole workspace cache, at minimum `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, and `tsconfig.json`, in `globalDependencies`.
+- Exclude generated `dist/**`, `build/**`, `coverage/**`, and `.turbo/**` artifacts from task `inputs` for cached tasks such as `build` and `test`.
+- Keep package-level Turbo overrides minimal and evidence-based; the current confirmed exception is `packages/apps-template-mui`, whose `build` script is `tsc --noEmit` and therefore must declare `outputs: []`.
+- Validate Turbo contract changes with two consecutive root builds and require the second run to show cache hits before considering the migration complete.
+**Detection**: `rg '"tasks"|globalDependencies|outputs|inputs' turbo.json packages/*/turbo.json`
+**Why**: The first Turbo 2 migration pass built successfully but still produced `0 cached` on repeated runs because task hashes included `dist/**`, `build/**`, and `.turbo/turbo-build.log` as inputs. Excluding generated artifacts restored `28/28` cache hits on the next repeated root build.
 ## Fixed System-App Snapshot-Equivalent Baseline Pattern (IMPORTANT)
 **Rule**: Package-local docs and implementation for fixed system apps must describe applications and metahubs as separate application-like platform apps whose current baseline is maintained as a manual snapshot-equivalent model, then codified in `SystemAppDefinition` plus file-backed SQL support migrations and materialized during platform bootstrap.
 **Required**:
@@ -62,6 +71,15 @@
 - Copy flows must follow the same boundary rule as create/update flows: derive uniqueness from extracted primary codename text, but persist through shared VLC/store helpers instead of raw SQL string inserts or `String(jsonbValue)` coercion.
 **Detection**: `rg "codename_localized|presentation\?\.codename|ORDER BY codename ASC|data\[[^\]]*codename" packages docs`
 **Why**: The approved architecture is one persisted codename field across shared types, fixed schemas, snapshots, and runtime metadata. Reintroducing a second codename seam would recreate the same storage/query drift that this wave is removing.
+## Runtime Admin Codename Validation Pattern (IMPORTANT)
+**Rule**: Admin role codename validation must be split into two layers: a broad shared schema that accepts any supported runtime format plus legacy slugs, and an exact backend route check that reads the active `metahubs` codename settings from `admin.cfg_settings` before create/copy/update writes.
+**Required**:
+- Keep `RoleCodenameSchema` broad enough to avoid rejecting inputs that are valid under a non-default runtime codename configuration.
+- Perform exact role codename validation in `rolesRoutes` after reading `codenameStyle`, `codenameAlphabet`, and `codenameAllowMixedAlphabets` from settings, and after applying `enforceSingleLocaleCodename(...)`.
+- Preserve legacy lowercase slug compatibility for already-existing role codenames during the route-level check.
+- Keep admin frontend role codename UX and backend validation aligned with the same runtime settings contract.
+**Detection**: `rg "RoleCodenameSchema|codenameStyle|codenameAlphabet|codenameAllowMixedAlphabets|usePlatformCodenameConfig" packages/admin-*`
+**Why**: The admin UI already used runtime codename settings while backend role validation remained hardcoded to PascalCase + `en-ru`, which created a frontend/backend drift and false request rejections under valid non-default settings.
 ## Self-Scoped Admin SQL Helper Pattern (IMPORTANT)
 **Rule**: Admin `SECURITY DEFINER` helper functions that accept an optional or explicit `user_id` must remain self-scoped for authenticated request sessions and may perform cross-user introspection only from Tier 2 backend/bootstrap contexts where `auth.uid()` is absent.
 **Required**:
@@ -339,12 +357,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 **Detection**:
 - `rg "any-active-revision-export|inspectDefinitionCatalogLifecycle" packages/universo-migrations-platform/base/src`
 **Why**: Doctor is a lifecycle-health check, not a command-origin filter. If it hardcodes a single bootstrap export target, valid active revisions exported by other stable operational paths will appear falsely unhealthy.
-## Request-Scoped DB Contract Pattern (CRITICAL)
-**Rule**: All new or refactored DB access must use the neutral request-scoped contract (`DbExecutor` / `DbSession`) or package-level SQL-first persistence stores built on top of it.
-**Required**: `getRequestDbExecutor()` / `getRequestDbSession()` for neutral paths; request-scoped SQL helpers for transactional work.
-**Detection**: `rg "getRequestManager\(|getRepository\(" packages` to find legacy TypeORM-only consumers.
-**Fix**: Move route/service logic into SQL-first stores or executor-backed helpers while keeping RLS/session propagation intact.
-**Why**: Preserves RLS semantics without keeping TypeORM in newly migrated packages.
 ## Soft-Delete Parity At Persistence Boundaries (CRITICAL)
 **Rule**: SQL-first stores and access guards must treat `_upl_deleted = true` or `_app_deleted = true` rows as inactive in every list/find/count/access query, not only in route-local ad hoc SQL.
 **Required**:
@@ -586,6 +598,16 @@ return applicationsStore.listApplications(executor, userId)
 **Symptoms**:
 - Inconsistent pagination behavior across modules.
 **Fix**: adopt shared list components from template-mui.
+
+## Page Spacing Contract (IMPORTANT)
+**Rule**: Non-list pages (settings, migrations) must use shared spacing constants from `@universo/template-mui`.
+- `PAGE_CONTENT_GUTTER_MX` (`{ xs: -1.5, md: -2 }`) as `mx` on content sections below ViewHeader.
+- `PAGE_TAB_BAR_SX` (`{ borderBottom: 1, borderColor: 'divider', mb: 2 }`) for tab bars — NO `px`.
+- `MainLayoutMUI` provides `px: { xs: 2, md: 3 }`; `ViewHeader` compensates internally with `ml/mr: { xs: 0, md: -2 }`.
+**Detection**: `rg "px: 2.*Tabs\|borderBottom.*px" packages/*/base/src` (antipattern: tabs with `px`).
+**Symptoms**:
+- Tabs indented from content edges; settings/form content narrower than list tables on same pages.
+**Fix**: import `PAGE_CONTENT_GUTTER_MX` / `PAGE_TAB_BAR_SX` from `@universo/template-mui`.
 ## Dual Sidebar Menu Config (IMPORTANT)
 **Rule**: There are TWO sidebar menu configurations that must be kept in sync:
 1. **`metahubDashboard.ts`** (`packages/metahubs-frontend/base/src/menu-items/`) — Legacy config used by the older shared menu layer

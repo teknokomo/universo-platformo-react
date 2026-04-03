@@ -82,10 +82,11 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                 )}
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={onCancel} disabled={isLoading} color='inherit'>
+                <Button data-testid='confirm-delete-cancel' onClick={onCancel} disabled={isLoading} color='inherit'>
                     {cancelButtonText}
                 </Button>
                 <Button
+                    data-testid='confirm-delete-confirm'
                     onClick={handleConfirm}
                     disabled={isLoading}
                     variant='contained'

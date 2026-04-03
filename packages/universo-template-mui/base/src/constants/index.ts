@@ -4,3 +4,5 @@
  * Value based on MUI's spacing(3) = 24px (3 * 8px default spacing unit)
  */
 export const gridSpacing = 3
+
+export { PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from './pageSpacing'

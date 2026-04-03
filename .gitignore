@@ -30,6 +30,10 @@
 
 ## test
 **/coverage
+playwright-report
+test-results
+tools/testing/e2e/.auth
+tools/testing/e2e/.artifacts
 
 # misc
 .DS_Store
@@ -40,6 +44,8 @@
 .env.test.local
 .env.production.local
 .env
+**/.env.e2e
+**/.env.e2e.local
 
 ## turbo
 .turbo

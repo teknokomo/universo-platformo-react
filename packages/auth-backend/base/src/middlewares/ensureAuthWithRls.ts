@@ -114,30 +114,44 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
 
             let connection: unknown = null
             let released = false
-            let committed = false
+            let transactionFinalized = false
+            let setupInProgress = true
+            let pendingCleanupMode: 'commit' | 'rollback' | null = null
+            let responseFinished = false
 
-            // Cleanup function — commits the request-level transaction and releases the connection.
-            // Transaction-local set_config auto-clears on COMMIT/ROLLBACK, so no explicit reset needed.
-            const cleanup = async () => {
+            const cleanup = async (mode: 'commit' | 'rollback') => {
                 if (released) return
+                if (setupInProgress) {
+                    pendingCleanupMode = mode
+                    return
+                }
+
                 released = true
 
                 if (connection) {
                     try {
-                        if (!committed) {
-                            logRlsDebug('[RLS] Committing request transaction', { path: req.path })
-                            await knex.raw('COMMIT').connection(connection)
-                            committed = true
+                        if (!transactionFinalized) {
+                            if (mode === 'commit') {
+                                logRlsDebug('[RLS] Committing request transaction', { path: req.path })
+                                await knex.raw('COMMIT').connection(connection)
+                            } else {
+                                logRlsDebug('[RLS] Rolling back request transaction', { path: req.path })
+                                await knex.raw('ROLLBACK').connection(connection)
+                            }
+                            transactionFinalized = true
                         }
-                    } catch (commitErr) {
-                        console.warn('[RLS] COMMIT failed, attempting ROLLBACK', {
-                            path: req.path,
-                            error: commitErr instanceof Error ? commitErr.message : String(commitErr)
-                        })
-                        try {
-                            await knex.raw('ROLLBACK').connection(connection)
-                        } catch {
-                            /* best-effort rollback */
+                    } catch (transactionError) {
+                        if (mode === 'commit') {
+                            console.warn('[RLS] COMMIT failed, attempting ROLLBACK', {
+                                path: req.path,
+                                error: transactionError instanceof Error ? transactionError.message : String(transactionError)
+                            })
+                            try {
+                                await knex.raw('ROLLBACK').connection(connection)
+                                transactionFinalized = true
+                            } catch {
+                                /* best-effort rollback */
+                            }
                         }
                     }
                     try {
@@ -151,9 +165,21 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 delete (req as RequestWithDbContext).dbContext
             }
 
-            // Ensure cleanup on response completion
-            res.once('finish', cleanup)
-            res.once('close', cleanup)
+            const scheduleCleanup = (mode: 'commit' | 'rollback') => {
+                void cleanup(mode).catch((cleanupError) => {
+                    console.error('[RLS] Error during cleanup', cleanupError)
+                })
+            }
+
+            // Ensure cleanup on response completion. finish means the response was fully sent,
+            // while close without finish means the request was aborted and must be rolled back.
+            res.once('finish', () => {
+                responseFinished = true
+                scheduleCleanup('commit')
+            })
+            res.once('close', () => {
+                scheduleCleanup(responseFinished ? 'commit' : 'rollback')
+            })
 
             try {
                 // Acquire a dedicated connection from the pool
@@ -186,14 +212,23 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
 
                 // Attach the neutral request-scoped context
                 ;(req as RequestWithDbContext).dbContext = createRequestDbContext(session, executor)
+                setupInProgress = false
 
                 logRlsDebug('[RLS] ✅ Successfully applied RLS context', {
                     path: req.path,
                     userId: authReq.user?.id
                 })
 
+                if (pendingCleanupMode) {
+                    const mode = pendingCleanupMode
+                    pendingCleanupMode = null
+                    await cleanup(mode)
+                    return
+                }
+
                 next()
             } catch (error) {
+                setupInProgress = false
                 console.error('[RLS] ❌ Failed to apply RLS context', {
                     error: error instanceof Error ? error.message : String(error),
                     stack: error instanceof Error ? error.stack : undefined,
@@ -208,9 +243,9 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                     } catch {
                         /* best-effort */
                     }
-                    committed = true // prevent cleanup from attempting COMMIT
+                    transactionFinalized = true
                 }
-                await cleanup()
+                await cleanup('rollback')
                 if (isDatabaseConnectTimeoutError(error)) {
                     const wrapped = new Error('Database connection timeout while applying RLS context') as Error & {
                         statusCode?: number

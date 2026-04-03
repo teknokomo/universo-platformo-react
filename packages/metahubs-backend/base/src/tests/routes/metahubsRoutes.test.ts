@@ -20,15 +20,23 @@ const mockCreateInitialBranch = jest.fn(async () => ({
     metahubId: 'metahub-1',
     codename: 'main'
 }))
+const mockGetPoolExecutor = jest.fn()
+const mockApplyRlsContext = jest.fn(async () => undefined)
 
 jest.mock('@universo/database', () => ({
     __esModule: true,
     getKnex: jest.fn(() => ({})),
+    getPoolExecutor: () => mockGetPoolExecutor(),
     qSchema: jest.requireActual('@universo/database').qSchema,
     qTable: jest.requireActual('@universo/database').qTable,
     qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
     qColumn: jest.requireActual('@universo/database').qColumn,
     createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
+
+jest.mock('@universo/auth-backend', () => ({
+    __esModule: true,
+    applyRlsContext: (...args: unknown[]) => mockApplyRlsContext(...args)
 }))
 
 jest.mock('../../domains/ddl', () => ({
@@ -193,6 +201,8 @@ describe('Metahubs Routes', () => {
             ),
             isReleased: () => false
         }
+        mockGetPoolExecutor.mockReturnValue(mockExec)
+        mockApplyRlsContext.mockResolvedValue(undefined)
         mockEnsureMetahubAccess.mockResolvedValue({
             membership: {
                 id: 'membership-owner',
@@ -208,6 +218,82 @@ describe('Metahubs Routes', () => {
     })
 
     describe('GET /metahubs', () => {
+        it('should load codename defaults from the pool executor instead of request-scoped RLS context', async () => {
+            const requestScopedQuery = jest.fn(async () => {
+                throw new Error('RLS denied')
+            })
+
+            mockExec.query.mockImplementation(async (sql: string) => {
+                expect(sql).toContain('_upl_deleted = false')
+                expect(sql).toContain('_app_deleted = false')
+
+                return [
+                    {
+                        key: 'codenameLocalizedEnabled',
+                        value: { _value: false }
+                    }
+                ]
+            })
+
+            const app = express()
+            app.use(express.json())
+            app.use((req: Request, _res: Response, next: NextFunction) => {
+                ;(req as any).dbContext = {
+                    session: {
+                        query: requestScopedQuery,
+                        isReleased: () => false
+                    },
+                    executor: {
+                        query: requestScopedQuery,
+                        transaction: jest.fn(async () => undefined),
+                        isReleased: () => false
+                    },
+                    isReleased: () => false,
+                    query: requestScopedQuery
+                }
+                next()
+            })
+            app.use(
+                '/',
+                createMetahubsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter)
+            )
+            app.use(errorHandler)
+
+            const response = await request(app).get('/metahubs/codename-defaults').expect(200)
+
+            expect(response.body).toMatchObject({
+                success: true,
+                data: expect.objectContaining({
+                    localizedEnabled: false
+                })
+            })
+            expect(requestScopedQuery).not.toHaveBeenCalled()
+            expect(mockExec.query).toHaveBeenCalled()
+        })
+
+        it('should ignore soft-deleted legacy settings rows when loading codename defaults', async () => {
+            mockExec.query.mockImplementation(async (sql: string) => {
+                expect(sql).toContain('_upl_deleted = false')
+                expect(sql).toContain('_app_deleted = false')
+
+                return [
+                    {
+                        key: 'codenameLocalizedEnabled',
+                        value: { _value: false }
+                    }
+                ]
+            })
+
+            const response = await request(buildApp()).get('/metahubs/codename-defaults').expect(200)
+
+            expect(response.body).toMatchObject({
+                success: true,
+                data: expect.objectContaining({
+                    localizedEnabled: false
+                })
+            })
+        })
+
         it('should return empty array for user with no metahubs', async () => {
             mockListMetahubs.mockResolvedValue({ items: [], total: 0 })
 
@@ -1187,6 +1273,7 @@ describe('Metahubs Routes', () => {
 
             await request(app)
                 .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
                 .send({
                     name: 'New Hub',
                     codename: testCodenameVlc('NewHub'),
@@ -1213,7 +1300,7 @@ describe('Metahubs Routes', () => {
             )
         })
 
-        it('soft-deletes created metahub when initial branch bootstrap fails', async () => {
+        it('rolls back metahub creation when initial branch bootstrap fails', async () => {
             mockFindMetahubByCodename.mockResolvedValue(null)
             mockCreateMetahub.mockResolvedValue({
                 id: 'mock-id',
@@ -1245,17 +1332,12 @@ describe('Metahubs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
                 .send({ name: 'New Hub', codename: testCodenameVlc('NewHub') })
                 .expect(500)
 
             expect(response.body).toMatchObject({ error: 'branch bootstrap failed' })
-            expect(mockSoftDelete).toHaveBeenCalledWith(
-                expect.anything(),
-                'metahubs',
-                'cat_metahubs',
-                'mock-id',
-                'test-user-id'
-            )
+            expect(mockSoftDelete).not.toHaveBeenCalled()
         })
 
         it('returns 409 on create when database reports codename unique violation', async () => {
@@ -1268,6 +1350,7 @@ describe('Metahubs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
                 .send({ name: 'New Hub', codename: testCodenameVlc('new-hub') })
                 .expect(409)
 
@@ -1286,6 +1369,7 @@ describe('Metahubs Routes', () => {
             const app = buildApp()
             const response = await request(app)
                 .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
                 .send({ name: 'New Hub', codename: testCodenameVlc('new-hub') })
                 .expect(409)
 
@@ -1384,6 +1468,7 @@ describe('Metahubs Routes', () => {
             // POST should still work (separate write counter)
             await request(app)
                 .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
                 .send({ name: 'test', description: 'test', codename: testCodenameVlc('test-metahub') })
                 .expect(201)
         })

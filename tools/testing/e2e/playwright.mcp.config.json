@@ -1,0 +1,11 @@
+{
+    "browser": {
+        "browserName": "chromium",
+        "launchOptions": {
+            "headless": false
+        },
+        "contextOptions": {
+            "storageState": "./tools/testing/e2e/.auth/storage-state.json"
+        }
+    }
+}

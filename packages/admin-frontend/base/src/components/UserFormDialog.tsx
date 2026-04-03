@@ -145,6 +145,8 @@ export default function UserFormDialog({
     const [comment, setComment] = useState(initialComment)
     const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(initialRoleIds)
     const [validationError, setValidationError] = useState<string | null>(null)
+    const initialRoleIdsKey = useMemo(() => initialRoleIds.join(','), [initialRoleIds])
+    const normalizedInitialRoleIds = useMemo(() => (initialRoleIdsKey.length > 0 ? initialRoleIdsKey.split(',') : []), [initialRoleIdsKey])
 
     useEffect(() => {
         if (!open) {
@@ -155,9 +157,9 @@ export default function UserFormDialog({
         setEmail(initialEmail)
         setPassword('')
         setComment(initialComment)
-        setSelectedRoleIds(initialRoleIds)
+        setSelectedRoleIds(normalizedInitialRoleIds)
         setValidationError(null)
-    }, [open, initialComment, initialEmail, initialRoleIds])
+    }, [initialComment, initialEmail, normalizedInitialRoleIds, open])
 
     const currentLocale = useMemo(() => {
         const value = i18n.language.split('-')[0] || 'en'

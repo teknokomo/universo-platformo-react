@@ -1,5 +1,5 @@
 import type { DbSession } from '@universo/utils'
-import { jwtVerify } from 'jose'
+import { verifySupabaseJwt } from './verifySupabaseJwt'
 
 const RLS_DEBUG = process.env.AUTH_RLS_DEBUG === 'true'
 
@@ -22,19 +22,12 @@ const logRlsDebug = (message: string, payload?: unknown): void => {
 export async function applyRlsContext(session: DbSession, accessToken: string): Promise<void> {
     logRlsDebug('[RLS:applyContext] Starting RLS context setup')
 
-    const secret = process.env.SUPABASE_JWT_SECRET
-    if (!secret) {
-        console.error('[RLS:applyContext] ❌ SUPABASE_JWT_SECRET environment variable is missing')
-        throw new Error('SUPABASE_JWT_SECRET environment variable is required for RLS context')
-    }
-
-    logRlsDebug('[RLS:applyContext] JWT secret found, length:', secret.length)
-
     try {
         // Verify and decode JWT
         logRlsDebug('[RLS:applyContext] Verifying JWT token...')
-        const { payload } = await jwtVerify(accessToken, new TextEncoder().encode(secret))
+        const { payload, protectedHeader } = await verifySupabaseJwt(accessToken)
         logRlsDebug('[RLS:applyContext] ✅ JWT verified successfully', {
+            alg: protectedHeader.alg,
             sub: payload.sub,
             role: payload.role,
             exp: payload.exp

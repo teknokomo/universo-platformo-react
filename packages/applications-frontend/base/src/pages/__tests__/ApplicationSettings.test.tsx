@@ -155,7 +155,7 @@ describe('ApplicationSettings', () => {
                 slug: 'draft-app',
                 isPublic: false,
                 workspacesEnabled: false,
-                schemaName: null,
+                schemaName: 'app_draft_app',
                 schemaStatus: 'draft',
                 schemaSyncedAt: null,
                 schemaError: null,
@@ -201,6 +201,64 @@ describe('ApplicationSettings', () => {
 
         await userEvent.click(screen.getByRole('tab', { name: 'Limits' }))
         expect(screen.getByText('Limits settings will become available after the application schema is created.')).toBeInTheDocument()
+        expect(mockedGetApplicationWorkspaceLimits).not.toHaveBeenCalled()
+    })
+
+    it('does not load limits while schema provisioning is still pending', async () => {
+        mockedUseApplicationDetails.mockReturnValue({
+            data: {
+                id: 'app-3',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Pending App' }
+                    }
+                },
+                description: null,
+                slug: 'pending-app',
+                isPublic: false,
+                workspacesEnabled: true,
+                schemaName: 'app_pending_app',
+                schemaStatus: 'pending',
+                schemaSyncedAt: null,
+                schemaError: null,
+                connectorsCount: 0,
+                membersCount: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                version: 1
+            } as never,
+            isLoading: false,
+            isError: false
+        } as never)
+
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-3/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        await userEvent.click(screen.getByRole('tab', { name: 'Limits' }))
+
+        expect(screen.getByText('Limits settings will become available after the application schema is created.')).toBeInTheDocument()
+        expect(screen.queryByText('Failed to load limits')).not.toBeInTheDocument()
         expect(mockedGetApplicationWorkspaceLimits).not.toHaveBeenCalled()
     })
 })

@@ -146,6 +146,7 @@ const InstanceBoard = () => {
                             value={totalUsers}
                             interval={t('board.stats.totalUsers.interval', 'All time')}
                             data={totalUsersData}
+                            dataTestId='instance-board-stat-card-total-users'
                         />
                     </Grid>
 
@@ -156,6 +157,7 @@ const InstanceBoard = () => {
                             value={globalAccessUsers}
                             interval={t('board.stats.superusers.interval', 'With global roles')}
                             data={globalUsersData}
+                            dataTestId='instance-board-stat-card-superusers'
                         />
                     </Grid>
 
@@ -166,6 +168,7 @@ const InstanceBoard = () => {
                             value={stats?.totalRoles ?? 0}
                             interval={t('board.stats.roles.interval', 'System + custom')}
                             data={buildRealisticTrendData(stats?.totalRoles ?? 0)}
+                            dataTestId='instance-board-stat-card-roles'
                         />
                     </Grid>
 

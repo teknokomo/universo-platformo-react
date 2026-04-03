@@ -65,9 +65,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
     loading = false,
     error,
     onCancel,
-    onConfirm,
-    entityName,
-    entityType
+    onConfirm
 }) => {
     // Internal loading state for when onConfirm is async
     const [isDeleting, setIsDeleting] = useState(false)
@@ -112,7 +110,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                 )}
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={onCancel} disabled={isLoading} color='inherit'>
+                <Button onClick={onCancel} disabled={isLoading} color='inherit' data-testid='confirm-delete-cancel'>
                     {cancelButtonText}
                 </Button>
                 <Button
@@ -120,6 +118,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     disabled={isLoading}
                     variant='contained'
                     color='error'
+                    data-testid='confirm-delete-confirm'
                     startIcon={isLoading ? <CircularProgress size={16} color='inherit' /> : <DeleteIcon />}
                     sx={{
                         minWidth: '100px', // Ensure button doesn't shrink too much

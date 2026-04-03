@@ -99,6 +99,7 @@ const ApplicationRuntime = () => {
     const createActions = useMemo(
         () => (
             <Button
+                data-testid='application-runtime-create-row'
                 variant='contained'
                 size='small'
                 startIcon={<AddIcon />}
@@ -114,7 +115,7 @@ const ApplicationRuntime = () => {
     const workspaceLimitBanner = useMemo(
         () =>
             state.appData?.workspaceLimit?.canCreate === false ? (
-                <Alert severity='info'>
+                <Alert severity='info' data-testid='application-runtime-workspace-limit-banner'>
                     {t('app.workspaceLimitReached', {
                         defaultValue: 'The workspace limit for this catalog has been reached ({{current}} / {{max}}).',
                         current: state.appData.workspaceLimit.currentRows,
