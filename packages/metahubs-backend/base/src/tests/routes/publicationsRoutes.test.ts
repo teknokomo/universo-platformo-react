@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { buildSnapshotEnvelope } from '@universo/utils'
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
@@ -12,6 +13,9 @@ const mockFindPublicationVersionById = jest.fn()
 const mockFindTemplateVersionById = jest.fn()
 const mockCreatePublication = jest.fn()
 const mockCreatePublicationVersion = jest.fn()
+const mockListPublicationVersions = jest.fn()
+const mockDeactivatePublicationVersions = jest.fn()
+const mockNotifyLinkedAppsUpdateAvailable = jest.fn()
 const mockSoftDelete = jest.fn()
 const mockCreateLinkedApplication = jest.fn()
 const mockGenerateFullSchema = jest.fn()
@@ -47,13 +51,13 @@ jest.mock('../../persistence', () => ({
     findPublicationVersionById: (...args: unknown[]) => mockFindPublicationVersionById(...args),
     findTemplateVersionById: (...args: unknown[]) => mockFindTemplateVersionById(...args),
     listPublicationsByMetahub: jest.fn(async () => []),
-    listPublicationVersions: jest.fn(async () => []),
+    listPublicationVersions: (...args: unknown[]) => mockListPublicationVersions(...args),
     createPublication: (...args: unknown[]) => mockCreatePublication(...args),
     updatePublication: jest.fn(),
     createPublicationVersion: (...args: unknown[]) => mockCreatePublicationVersion(...args),
-    deactivatePublicationVersions: jest.fn(),
+    deactivatePublicationVersions: (...args: unknown[]) => mockDeactivatePublicationVersions(...args),
     activatePublicationVersion: jest.fn(),
-    notifyLinkedAppsUpdateAvailable: jest.fn(),
+    notifyLinkedAppsUpdateAvailable: (...args: unknown[]) => mockNotifyLinkedAppsUpdateAvailable(...args),
     resetLinkedAppsToSynced: jest.fn(),
     softDelete: (...args: unknown[]) => mockSoftDelete(...args)
 }))
@@ -183,6 +187,20 @@ const createMockTransaction = (): MockTx => {
     return tx
 }
 
+const makeSnapshotEnvelope = () =>
+    buildSnapshotEnvelope({
+        snapshot: {
+            version: '1.0.0',
+            metahubId: '00000000-0000-0000-0000-000000000001',
+            entities: {}
+        },
+        metahub: {
+            id: '00000000-0000-0000-0000-000000000001',
+            name: { en: 'Imported metahub' },
+            codename: { en: 'imported-metahub' }
+        }
+    })
+
 describe('Publications Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as Request & { user?: { id: string } }).user = { id: 'user-1' }
@@ -251,6 +269,9 @@ describe('Publications Routes', () => {
         mockPersistApplicationSchemaSyncState.mockResolvedValue(undefined)
         mockApplyRlsContext.mockResolvedValue(undefined)
         mockSoftDelete.mockResolvedValue(true)
+        mockListPublicationVersions.mockResolvedValue([])
+        mockDeactivatePublicationVersions.mockResolvedValue(undefined)
+        mockNotifyLinkedAppsUpdateAvailable.mockResolvedValue(undefined)
     })
 
     it('returns 500 and compensates publication metadata when schema generation fails during publication creation', async () => {
@@ -602,5 +623,135 @@ describe('Publications Routes', () => {
 
         // Verify parent publication soft-delete follows
         expect(mockSoftDelete).toHaveBeenCalledWith(tx, 'metahubs', 'doc_publications', 'publication-1', 'user-1')
+    })
+
+    describe('GET /metahub/:metahubId/publication/:publicationId/versions/:versionId/export', () => {
+        it('returns 200 with snapshot envelope for valid version', async () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                name: { en: 'Publication' },
+                description: null
+            })
+            mockFindPublicationVersionById.mockResolvedValue({
+                id: 'version-1',
+                publicationId: 'publication-1',
+                snapshotJson: { entities: [], version: 1, metahubId: 'metahub-1' },
+                snapshotHash: 'abc123'
+            })
+
+            const app = buildApp()
+            const res = await request(app)
+                .get('/metahub/metahub-1/publication/publication-1/versions/version-1/export')
+                .expect(200)
+
+            expect(res.headers['content-type']).toMatch(/json/)
+            expect(res.body).toHaveProperty('kind', 'metahub_snapshot_bundle')
+            expect(res.body).toHaveProperty('snapshot')
+        })
+
+        it('returns 404 when version not found', async () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                name: { en: 'Publication' },
+                description: null
+            })
+            mockFindPublicationVersionById.mockResolvedValue(null)
+
+            const app = buildApp()
+            await request(app)
+                .get('/metahub/metahub-1/publication/publication-1/versions/version-missing/export')
+                .expect(404)
+        })
+    })
+
+    describe('POST /metahub/:metahubId/publication/:publicationId/versions/import', () => {
+        it('returns 400 for invalid envelope (missing kind)', async () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                name: { en: 'Publication' },
+                description: null,
+                schemaName: 'mhb_test'
+            })
+
+            const app = buildApp()
+            await request(app)
+                .post('/metahub/metahub-1/publication/publication-1/versions/import')
+                .send({ snapshot: {}, snapshotHash: 'abc' })
+                .expect(400)
+        })
+
+        it('returns 400 for tampered hash', async () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                name: { en: 'Publication' },
+                description: null,
+                schemaName: 'mhb_test'
+            })
+
+            const app = buildApp()
+            await request(app)
+                .post('/metahub/metahub-1/publication/publication-1/versions/import')
+                .send({
+                    kind: 'metahub_snapshot_bundle',
+                    bundleVersion: 1,
+                    exportedAt: new Date().toISOString(),
+                    snapshot: { version: 1, metahubId: 'metahub-1', entities: [] },
+                    snapshotHash: 'tampered-hash'
+                })
+                .expect(400)
+        })
+
+        it('imports a new version, updates publication pointers, and requests manageMetahub permission', async () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                name: { en: 'Publication' },
+                description: null,
+                schemaName: 'mhb_test'
+            })
+            mockListPublicationVersions.mockResolvedValue([
+                { id: 'version-1', versionNumber: 1 },
+                { id: 'version-2', versionNumber: 2 }
+            ])
+            mockCreatePublicationVersion.mockResolvedValue({
+                id: 'version-3',
+                publicationId: 'publication-1',
+                versionNumber: 3,
+                isActive: true
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/publication/publication-1/versions/import')
+                .send(makeSnapshotEnvelope())
+                .expect(201)
+
+            expect(mockEnsureMetahubAccess).toHaveBeenCalledWith({}, 'user-1', 'metahub-1', 'manageMetahub')
+            expect(mockDeactivatePublicationVersions).toHaveBeenCalledWith(transactionExecutors[0], 'publication-1')
+            expect(mockCreatePublicationVersion).toHaveBeenCalledWith(
+                transactionExecutors[0],
+                expect.objectContaining({
+                    publicationId: 'publication-1',
+                    versionNumber: 3,
+                    isActive: true
+                })
+            )
+            expect(transactionExecutors[0].query).toHaveBeenCalledWith(
+                'UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2',
+                ['version-3', 'publication-1']
+            )
+            expect(mockNotifyLinkedAppsUpdateAvailable).toHaveBeenCalledWith(mockExec, 'publication-1', 'version-3')
+            expect(response.body).toMatchObject({
+                id: 'version-3',
+                versionNumber: 3,
+                importedFrom: {
+                    sourceMetahubId: '00000000-0000-0000-0000-000000000001'
+                }
+            })
+        })
     })
 })

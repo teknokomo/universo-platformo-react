@@ -30,7 +30,7 @@ import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 
 function withDashboardDefaults(
     config: DashboardLayoutConfig | Record<string, unknown> | undefined
-): Required<NonNullable<DashboardLayoutConfig>> {
+): NonNullable<DashboardLayoutConfig> {
     const c = (config ?? {}) as Record<string, unknown>
     const bool = (v: unknown, fb = true) => (typeof v === 'boolean' ? v : fb)
     return {
@@ -52,7 +52,13 @@ function withDashboardDefaults(
         showProductTree: bool(c.showProductTree),
         showUsersByCountryChart: bool(c.showUsersByCountryChart),
         showRightSideMenu: bool(c.showRightSideMenu),
-        showFooter: bool(c.showFooter)
+        showFooter: bool(c.showFooter),
+        showViewToggle: bool(c.showViewToggle, false),
+        defaultViewMode: (typeof c.defaultViewMode === 'string' ? c.defaultViewMode : 'table') as 'table' | 'card',
+        showFilterBar: bool(c.showFilterBar, false),
+        enableRowReordering: bool(c.enableRowReordering, false),
+        cardColumns: typeof c.cardColumns === 'number' ? c.cardColumns : 3,
+        rowHeight: c.rowHeight as number | 'auto' | undefined,
     }
 }
 
@@ -302,7 +308,7 @@ export interface CrudDashboardState {
     isError: boolean
 
     // Layout
-    layoutConfig: Required<NonNullable<DashboardLayoutConfig>>
+    layoutConfig: NonNullable<DashboardLayoutConfig>
 
     // Table
     columns: GridColDef[]

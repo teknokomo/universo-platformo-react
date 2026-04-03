@@ -61,3 +61,5 @@
 * [Обзор](guides/README.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Обновление схем системных приложений](guides/updating-system-app-schemas.md)
+* [Экспорт и импорт снимков](guides/snapshot-export-import.md)
+* [Настройки отображения шаблона приложения](guides/app-template-views.md)

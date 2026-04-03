@@ -2,7 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { metahubsQueryKeys } from '../../shared'
-import { createPublicationVersion, updatePublicationVersion, activatePublicationVersion, deletePublicationVersion } from '../api'
+import {
+    createPublicationVersion,
+    updatePublicationVersion,
+    activatePublicationVersion,
+    deletePublicationVersion,
+    importSnapshotVersion
+} from '../api'
 import type { CreateVersionPayload, UpdateVersionPayload } from '../api'
 
 interface CreateVersionParams {
@@ -131,6 +137,35 @@ export function useDeletePublicationVersion() {
         },
         onError: () => {
             enqueueSnackbar(t('publications.versions.deleteError', 'Failed to delete version'), { variant: 'error' })
+        }
+    })
+}
+
+interface ImportSnapshotVersionParams {
+    metahubId: string
+    publicationId: string
+    envelopeJson: unknown
+}
+
+export function useImportSnapshotVersion() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ metahubId, publicationId, envelopeJson }: ImportSnapshotVersionParams) => {
+            try {
+                return await importSnapshotVersion(metahubId, publicationId, envelopeJson)
+            } catch (error: any) {
+                const message = error?.response?.data?.details || error?.response?.data?.error || error?.message || 'Snapshot import failed'
+                throw new Error(message)
+            }
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: metahubsQueryKeys.publicationVersionsList(variables.metahubId, variables.publicationId)
+            })
+            queryClient.invalidateQueries({
+                queryKey: metahubsQueryKeys.publicationDetail(variables.metahubId, variables.publicationId)
+            })
         }
     })
 }

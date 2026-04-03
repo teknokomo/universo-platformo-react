@@ -535,3 +535,22 @@ export function useMemberMutations(metahubId: string) {
         isPending: inviteMutation.isPending || updateMutation.isPending || removeMutation.isPending
     }
 }
+
+export function useImportMetahubFromSnapshot() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async (envelopeJson: unknown) => {
+            try {
+                const { data } = await metahubsApi.importMetahubFromSnapshot(envelopeJson)
+                return data
+            } catch (error: any) {
+                const message = error?.response?.data?.details || error?.response?.data?.error || error?.message || 'Snapshot import failed'
+                throw new Error(message)
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.lists() })
+        }
+    })
+}

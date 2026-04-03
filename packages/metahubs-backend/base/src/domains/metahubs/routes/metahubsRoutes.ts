@@ -30,6 +30,9 @@ export function createMetahubsRoutes(
   // Create metahub
   router.post('/metahubs', writeLimiter, asyncHandler(ctrl.create))
 
+  // Import metahub from snapshot
+  router.post('/metahubs/import', writeLimiter, asyncHandler(ctrl.importFromSnapshot))
+
   // Copy metahub
   router.post('/metahub/:metahubId/copy', writeLimiter, asyncHandler(ctrl.copy))
 
@@ -38,6 +41,9 @@ export function createMetahubsRoutes(
 
   // Delete metahub
   router.delete('/metahub/:metahubId', writeLimiter, asyncHandler(ctrl.remove))
+
+  // Export metahub snapshot
+  router.get('/metahub/:metahubId/export', readLimiter, asyncHandler(ctrl.exportMetahub))
 
   // List members
   router.get('/metahub/:metahubId/members', readLimiter, asyncHandler(ctrl.listMembers))

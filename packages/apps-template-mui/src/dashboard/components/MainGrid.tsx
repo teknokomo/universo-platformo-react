@@ -1,15 +1,30 @@
+import { useEffect, useMemo, useState } from 'react'
 import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import type { GridColDef } from '@mui/x-data-grid'
 import Copyright from '../internals/components/Copyright'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import HighlightedCard from './HighlightedCard'
 import PageViewsBarChart from './PageViewsBarChart'
 import SessionsChart from './SessionsChart'
 import StatCard, { StatCardProps } from './StatCard'
-import type { ZoneWidgetItem } from '../Dashboard'
+import type { ZoneWidgetItem, DashboardLayoutConfig } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { renderWidget } from './widgetRenderer'
+import {
+    ViewHeaderMUI,
+    ToolbarControls,
+    ItemCard,
+    type ItemCardData,
+    FlowListTable,
+    type DragEndEvent,
+    type TableColumn,
+    PaginationControls,
+    type PaginationState,
+    type PaginationActions,
+    useViewPreference
+} from '@universo/template-mui'
 
 const data: StatCardProps[] = [
     {
@@ -59,13 +74,249 @@ export interface MainGridLayoutConfig {
     showDetailsTable?: boolean
     showColumnsContainer?: boolean
     showFooter?: boolean
+    // Enhanced view settings
+    showViewToggle?: boolean
+    defaultViewMode?: 'table' | 'card'
+    showFilterBar?: boolean
+    enableRowReordering?: boolean
+    cardColumns?: number
+    rowHeight?: number | 'auto'
+}
+
+type RuntimeDetailsRow = Record<string, unknown> & { id: string; name?: string }
+type FlowListCellParams = Parameters<NonNullable<GridColDef['renderCell']>>[0]
+
+const getSearchableText = (value: unknown): string => {
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+    return ''
+}
+
+const reorderRowsByIds = <T extends { id: string }>(rows: T[], activeId: string, overId: string | null | undefined): T[] => {
+    if (!overId || activeId === overId) return rows
+
+    const activeIndex = rows.findIndex((row) => row.id === activeId)
+    const overIndex = rows.findIndex((row) => row.id === overId)
+    if (activeIndex < 0 || overIndex < 0) return rows
+
+    const nextRows = [...rows]
+    const [movedRow] = nextRows.splice(activeIndex, 1)
+    nextRows.splice(overIndex, 0, movedRow)
+    return nextRows
+}
+
+const paginateRows = <T,>(rows: T[], page: number, pageSize: number): T[] => rows.slice(page * pageSize, page * pageSize + pageSize)
+
+const buildFlowListCellParams = (
+    column: GridColDef,
+    row: RuntimeDetailsRow,
+    rowsById: Map<string, RuntimeDetailsRow>
+): FlowListCellParams => {
+    const value = row[column.field]
+    const api = {
+        getRow: (id: string | number) => rowsById.get(String(id)) ?? null,
+        getCellValue: (id: string | number, field: string) => rowsById.get(String(id))?.[field]
+    } as FlowListCellParams['api']
+
+    return {
+        id: row.id,
+        field: column.field,
+        value,
+        formattedValue: value,
+        row,
+        colDef: column,
+        api
+    } as FlowListCellParams
+}
+
+const buildFlowListColumns = (columns: GridColDef[], rows: RuntimeDetailsRow[]): TableColumn<RuntimeDetailsRow>[] =>
+    {
+        const rowsById = new Map(rows.map((item) => [String(item.id), item]))
+
+        return columns
+        .filter((column) => column.field !== 'id')
+        .map((column) => ({
+            id: String(column.field),
+            label: column.headerName ?? String(column.field),
+            width: column.width,
+            align: column.align ?? 'left',
+            sortable: false,
+            render: (row) => {
+                const value = row[column.field]
+                if (typeof column.renderCell === 'function') {
+                    return column.renderCell(buildFlowListCellParams(column, row, rowsById))
+                }
+                return getSearchableText(value)
+            }
+        }))
+    }
+
+function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayoutConfig }) {
+    const details = useDashboardDetails()
+    const [viewMode, setViewMode] = useViewPreference(
+        'app-details-view',
+        (layoutConfig?.defaultViewMode as 'table' | 'card') ?? 'table'
+    )
+    const [search, setSearch] = useState('')
+    const [orderedRows, setOrderedRows] = useState<RuntimeDetailsRow[]>(() => (details?.rows as RuntimeDetailsRow[] | undefined) ?? [])
+    const [clientPage, setClientPage] = useState(0)
+    const [clientPageSize, setClientPageSize] = useState(details?.paginationModel?.pageSize ?? 20)
+
+    useEffect(() => {
+        setOrderedRows((details?.rows as RuntimeDetailsRow[] | undefined) ?? [])
+    }, [details?.rows])
+
+    useEffect(() => {
+        setClientPageSize(details?.paginationModel?.pageSize ?? 20)
+    }, [details?.paginationModel?.pageSize])
+
+    const filteredRows = useMemo(() => {
+        const rows = orderedRows
+        if (!search.trim()) return rows
+        const lower = search.toLowerCase()
+        return rows.filter((row) => Object.values(row).some((val) => getSearchableText(val).toLowerCase().includes(lower)))
+    }, [orderedRows, search])
+
+    const isClientFiltered = search.trim().length > 0
+
+    useEffect(() => {
+        if (!isClientFiltered) return
+        setClientPage(0)
+    }, [isClientFiltered, search])
+
+    useEffect(() => {
+        if (!isClientFiltered) return
+        const maxPage = Math.max(0, Math.ceil(filteredRows.length / clientPageSize) - 1)
+        if (clientPage > maxPage) {
+            setClientPage(maxPage)
+        }
+    }, [clientPage, clientPageSize, filteredRows.length, isClientFiltered])
+
+    const detailsTitle = details?.title ?? 'Details'
+    const serverPage = details?.paginationModel?.page ?? 0
+    const serverPageSize = details?.paginationModel?.pageSize ?? 20
+    const page = isClientFiltered ? clientPage : serverPage
+    const pageSize = isClientFiltered ? clientPageSize : serverPageSize
+    const totalItems = isClientFiltered ? filteredRows.length : details?.rowCount ?? filteredRows.length
+    const visibleRows = isClientFiltered ? paginateRows(filteredRows, page, pageSize) : filteredRows
+    const flowListColumns = useMemo(() => buildFlowListColumns(details?.columns ?? [], orderedRows), [details?.columns, orderedRows])
+
+    const paginationState: PaginationState = {
+        currentPage: page + 1,
+        pageSize,
+        totalItems,
+        totalPages: Math.ceil(totalItems / pageSize) || 1,
+        hasNextPage: (page + 1) * pageSize < totalItems,
+        hasPreviousPage: page > 0
+    }
+
+    const paginationActions: PaginationActions = {
+        goToPage: (p: number) => {
+            if (isClientFiltered) {
+                setClientPage(Math.max(0, p - 1))
+                return
+            }
+            details?.onPaginationModelChange?.({ page: p - 1, pageSize })
+        },
+        nextPage: () => {
+            if (isClientFiltered) {
+                setClientPage((prev) => prev + 1)
+                return
+            }
+            details?.onPaginationModelChange?.({ page: page + 1, pageSize })
+        },
+        previousPage: () => {
+            if (isClientFiltered) {
+                setClientPage((prev) => Math.max(0, prev - 1))
+                return
+            }
+            details?.onPaginationModelChange?.({ page: Math.max(0, page - 1), pageSize })
+        },
+        setSearch: (s: string) => setSearch(s),
+        setSort: () => {},
+        setPageSize: (size: number) => {
+            if (isClientFiltered) {
+                setClientPage(0)
+                setClientPageSize(size)
+                return
+            }
+            details?.onPaginationModelChange?.({ page: 0, pageSize: size })
+        }
+    }
+
+    const handleSortableDragEnd = (event: DragEndEvent) => {
+        const activeId = String(event.active.id)
+        const overId = event.over ? String(event.over.id) : null
+        setOrderedRows((rows) => reorderRowsByIds(rows, activeId, overId))
+    }
+
+    return (
+        <>
+            <ViewHeaderMUI
+                title={detailsTitle}
+                search={layoutConfig?.showFilterBar}
+                searchValue={search}
+                onSearchChange={(e) => setSearch(e.target.value)}
+            >
+                <ToolbarControls
+                    viewToggleEnabled={layoutConfig?.showViewToggle}
+                    viewMode={viewMode === 'card' ? 'card' : 'list'}
+                    onViewModeChange={(mode) => setViewMode(mode === 'card' ? 'card' : 'table')}
+                />
+                {details?.actions}
+            </ViewHeaderMUI>
+
+            {viewMode === 'card' ? (
+                <Grid container spacing={2}>
+                    {visibleRows.map((row) => {
+                        const displayCol = details?.columns?.find((c) => c.field !== 'id' && c.field !== 'actions')
+                        const descCol = details?.columns?.find(
+                            (c) => c.field !== 'id' && c.field !== displayCol?.field && c.field !== 'actions'
+                        )
+                        const cardData: ItemCardData = {
+                            name: String(row[displayCol?.field ?? ''] ?? row.id),
+                            description: descCol ? String(row[descCol.field] ?? '') : undefined
+                        }
+                        return (
+                            <Grid key={row.id} size={{ xs: 12, sm: 6, md: 12 / (layoutConfig?.cardColumns ?? 3) }}>
+                                <ItemCard data={cardData} />
+                            </Grid>
+                        )
+                    })}
+                </Grid>
+            ) : layoutConfig?.enableRowReordering ? (
+                <FlowListTable<RuntimeDetailsRow>
+                    data={visibleRows}
+                    customColumns={flowListColumns}
+                    sortableRows
+                    onSortableDragEnd={handleSortableDragEnd}
+                    sortStateId='app-details-row-order'
+                />
+            ) : (
+                <CustomizedDataGrid
+                    rows={visibleRows}
+                    columns={details?.columns ?? []}
+                    loading={details?.loading}
+                    rowCount={isClientFiltered ? undefined : details?.rowCount}
+                    paginationModel={isClientFiltered ? undefined : details?.paginationModel}
+                    onPaginationModelChange={isClientFiltered ? undefined : details?.onPaginationModelChange}
+                    pageSizeOptions={details?.pageSizeOptions}
+                    localeText={details?.localeText}
+                    rowHeight={layoutConfig?.rowHeight}
+                    hideFooter
+                />
+            )}
+
+            {totalItems > 0 && <PaginationControls pagination={paginationState} actions={paginationActions} />}
+        </>
+    )
 }
 
 export default function MainGrid({
     layoutConfig,
     centerWidgets
 }: {
-    layoutConfig?: MainGridLayoutConfig
+    layoutConfig?: DashboardLayoutConfig
     centerWidgets?: ZoneWidgetItem[]
 }) {
     const details = useDashboardDetails()
@@ -79,6 +330,7 @@ export default function MainGrid({
     const showFooter = layoutConfig?.showFooter ?? true
 
     const detailsTitle = details?.title ?? 'Details'
+    const isEnhancedMode = layoutConfig?.showViewToggle || layoutConfig?.showFilterBar || layoutConfig?.enableRowReordering
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
     const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
@@ -124,29 +376,34 @@ export default function MainGrid({
             {(showDetailsTitle || showColumnsContainer || showDetailsTable) && (
                 <>
                     {details?.banner ? <Box sx={{ mb: 2 }}>{details.banner}</Box> : null}
-                    {showDetailsTitle && (
-                        <Typography component='h2' variant='h6' sx={{ mb: 1 }}>
-                            {detailsTitle}
-                        </Typography>
-                    )}
-                    {details?.actions && <Box sx={{ mb: 2 }}>{details.actions}</Box>}
-                    {!details?.actions && showDetailsTitle && <Box sx={{ mb: 1 }} />}
 
                     {/* Data-driven: columnsContainer(s) from center zone widgets */}
                     {columnsContainerWidgets.length > 0
                         ? columnsContainerWidgets.map((w) => <Box key={w.id}>{renderWidget(w)}</Box>)
-                        : showDetailsTable && (
-                              <CustomizedDataGrid
-                                  rows={details?.rows ?? []}
-                                  columns={details?.columns ?? []}
-                                  loading={details?.loading}
-                                  rowCount={details?.rowCount}
-                                  paginationModel={details?.paginationModel}
-                                  onPaginationModelChange={details?.onPaginationModelChange}
-                                  pageSizeOptions={details?.pageSizeOptions}
-                                  localeText={details?.localeText}
-                              />
-                          )}
+                        : showDetailsTable &&
+                          (isEnhancedMode ? (
+                              <EnhancedDetailsSection layoutConfig={layoutConfig} />
+                          ) : (
+                              <>
+                                  {showDetailsTitle && (
+                                      <Typography component='h2' variant='h6' sx={{ mb: 1 }}>
+                                          {detailsTitle}
+                                      </Typography>
+                                  )}
+                                  {details?.actions && <Box sx={{ mb: 2 }}>{details.actions}</Box>}
+                                  {!details?.actions && showDetailsTitle && <Box sx={{ mb: 1 }} />}
+                                  <CustomizedDataGrid
+                                      rows={details?.rows ?? []}
+                                      columns={details?.columns ?? []}
+                                      loading={details?.loading}
+                                      rowCount={details?.rowCount}
+                                      paginationModel={details?.paginationModel}
+                                      onPaginationModelChange={details?.onPaginationModelChange}
+                                      pageSizeOptions={details?.pageSizeOptions}
+                                      localeText={details?.localeText}
+                                  />
+                              </>
+                          ))}
                 </>
             )}
 

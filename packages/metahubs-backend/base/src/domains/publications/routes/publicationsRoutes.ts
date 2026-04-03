@@ -54,6 +54,12 @@ export function createPublicationsRoutes(
   // Activate version
   router.post('/metahub/:metahubId/publication/:publicationId/versions/:versionId/activate', writeLimiter, asyncHandler(ctrl.activateVersion))
 
+  // Export version as snapshot bundle
+  router.get('/metahub/:metahubId/publication/:publicationId/versions/:versionId/export', readLimiter, asyncHandler(ctrl.exportVersion))
+
+  // Import version from snapshot bundle
+  router.post('/metahub/:metahubId/publication/:publicationId/versions/import', writeLimiter, asyncHandler(ctrl.importVersion))
+
   // Update version
   router.patch('/metahub/:metahubId/publication/:publicationId/versions/:versionId', writeLimiter, asyncHandler(ctrl.updateVersion))
 

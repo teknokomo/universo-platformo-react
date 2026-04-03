@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.57.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.58.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.57.0-alpha (April 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.58.0-alpha (April 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 

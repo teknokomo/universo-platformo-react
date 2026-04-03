@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import { fullResetE2eProject } from './support/backend/e2eFullReset.mjs'
 import { loadE2eEnvironment, repoRoot } from './support/env/load-e2e-env.mjs'
 
 const env = loadE2eEnvironment()
@@ -114,6 +115,8 @@ async function main() {
     let secondServer = null
 
     try {
+        await fullResetE2eProject({ dryRun: false, quiet: false, reason: 'restart-safe-pre-start' })
+
         firstServer = await startServer()
         await stopServer(firstServer)
         firstServer = null
@@ -124,10 +127,13 @@ async function main() {
         await stopServer(secondServer)
         secondServer = null
 
+        await fullResetE2eProject({ dryRun: false, quiet: false, reason: 'restart-safe-finalize' })
+
         process.stdout.write(`[restart-safe] OK: sequential start-stop-start succeeded against ${env.baseURL}\n`)
     } finally {
         await stopServer(firstServer).catch(() => undefined)
         await stopServer(secondServer).catch(() => undefined)
+        await fullResetE2eProject({ dryRun: false, quiet: true, reason: 'restart-safe-finally' }).catch(() => undefined)
     }
 }
 

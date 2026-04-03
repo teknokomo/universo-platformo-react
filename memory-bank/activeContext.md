@@ -4,81 +4,154 @@
 
 ---
 
-## Current Focus: PR #745 Review Remediation — 2026-04-03
+## Current Focus: Snapshot Import Final Stabilization — COMPLETE — 2026-04-03
 
-- The active branch is `feature/playwright-cli-e2e-qa-hardening`, and the current wave is limited to validated bot comments on PR `#745`.
-- Two high-priority findings are confirmed by code inspection: `LocaleDialog` currently collapses a trailing `-` while typing locale codes, and `InstanceList` currently replaces the full localized JSON when editing only one locale.
-- A third backend/admin consistency issue is also active: role codename validation in `admin-backend` is still hardcoded to PascalCase + `en-ru`, while the admin role form and routes already depend on dynamic `metahubs` codename settings.
-- This wave must stay minimal and safe: fix only confirmed inconsistencies, preserve legacy role slug compatibility, and validate with targeted tests/builds.
+## Current Focus: PR #747 Review Remediation QA — COMPLETE — 2026-04-03
 
-## Current State
+- Goal achieved: every Copilot/Gemini review note on PR #747 was re-checked against the live branch state, and only the low-risk findings that mapped to real defects were fixed.
+- Confirmed-and-fixed items: the misplaced `attachLayoutsToSnapshot` static import, the `ImportSnapshotDialog` `React.ChangeEvent` namespace mismatch, the ineffective snapshot prototype-pollution test, the unreadable VLC codename logging in `SnapshotRestoreService`, the timestamp-only imported-metahub codename suffix, and the `MainGrid` FlowListTable `renderCell` call that passed `api: {} as never`.
+- Explicitly deferred items: the runtime comments about server-wide search coverage and persisted row ordering were classified as broader product/architecture changes rather than safe review-remediation fixes, so they were intentionally left out of this pass.
+- Validation closure: touched-file diagnostics stayed clean, focused utils/apps-template/metahubs backend tests passed, and the canonical root `pnpm build` finished green.
 
-- The Turbo 2 config migration remains complete and validated; no further cache work is active in this session.
-- PR review triage found three inline bot comments and two review summaries on PR `#745`; all three validated inline findings are now implemented.
-- The locale-input and localized-instance update defects are closed in the admin frontend.
-- The role codename validation mismatch is closed by moving exact policy enforcement to backend routes that read runtime `metahubs` settings, while keeping legacy lowercase slug compatibility.
+### Immediate Next Steps
 
-## Latest Validated Outcomes
+- No active work remains from this remediation wave.
+- If the user wants the PR updated remotely, the next step is to commit and push this validated fix set to the existing PR branch.
 
-- PR `#745` review feedback was fetched directly from GitHub: three inline comments, no separate issue comments.
-- External BCP 47 guidance confirms the locale input should allow a temporary `en-` intermediate state while the user types a region suffix.
-- `packages/universo-utils/base/src/vlc/index.ts` already provides `updateLocalizedContentLocale(...)`, which preserves untouched locales and is the correct primitive for the `InstanceList` fix.
-- `packages/admin-backend/base/src/routes/rolesRoutes.ts` already reads `codenameLocalizedEnabled` from `admin.cfg_settings`, which confirms role codename behavior is not purely static and strengthens the need to remove the remaining hardcoded style/alphabet validation.
-- The targeted backend route suite now covers runtime role codename settings explicitly, including rejection under defaults and acceptance under configured `kebab-case` + `ru` settings.
-- Validation passed through `pnpm --filter @universo/admin-backend test -- src/tests/routes/rolesRoutes.test.ts`, package builds for admin backend/frontend, and a full root `pnpm build` (`28 successful, 28 total`).
+## Current Focus: Verified Snapshot/Runtime Residual Gap Closure — COMPLETE — 2026-04-04
 
-## Validation Snapshot
+- Goal achieved: the residual defects found during the trust-but-verify pass are now closed without reopening unrelated feature scope.
+- Backend closure: `importFromSnapshot` no longer returns before compensation when the imported metahub is missing its initial branch or branch schema; those paths now fail through the same rollback cleanup contract as restore failures.
+- Runtime closure: `tools/testing/e2e/specs/flows/app-runtime-views.spec.ts` now provisions a real application and exercises the repository-standard `/a/...` route with assertions for card mode, search filtering, and FlowListTable activation instead of behaving like a smoke test.
+- Fixture/tooling closure: the self-model generator and manual utility now persist enhanced runtime layout settings after widget/config synchronization, the committed fixture contains those fields, and the manual script uses `/api/v1/auth/csrf`.
+- Documentation closure: both E2E READMEs now describe the generator as the real 13-section self-model flow instead of the older 9-catalog wording.
 
-- Root build status: the first `pnpm build` under Turbo 2 passed with `28 successful, 28 total` in about `3m47s`.
-- Diagnostic status: the first repeated build also passed, but initially stayed at `0 cached, 28 total`, which exposed the output-artifact self-invalidation seam.
-- Turbo summary status: `pnpm turbo run build --summarize` confirmed that task `inputs` still included generated `dist/**`, `build/**`, and `.turbo/**` files before the final root-contract fix.
-- Final cache status: after excluding generated artifacts from task inputs, the next root build repopulated the cache and the following repeated `pnpm build` ended with `Cached: 28 cached, 28 total`.
+### Immediate Next Steps
 
-## Guardrails To Preserve
+- No active work remains from this verified follow-up wave.
+- If another QA pass is requested, start with the newly regenerated self-model fixture and the `/a/...` runtime flow because both now act as the canonical proof that enhanced runtime layout settings survive export/import.
 
-- Keep `pnpm build` as the canonical root validation path so Turbo sees the real workspace dependency graph.
-- Preserve Turbo `envMode: "strict"`; do not weaken environment correctness just to chase cache hits.
-- Keep package-level Turbo overrides minimal and evidence-based; `apps-template-mui` remains the only confirmed build-output exception in the current workspace inventory.
-- Exclude generated `dist/**`, `build/**`, `coverage/**`, and `.turbo/**` artifacts from task inputs so cache validity depends on source/config changes rather than on the previous build's outputs.
-- Leave remote cache opt-in through CI secrets rather than hardwiring a provider-specific contract into local workflows.
+## Current Focus: QA Closure For Snapshot Import Cleanup And Runtime Contracts — COMPLETE — 2026-04-03
 
-## Recent Closures Still Relevant
+- Goal achieved: the six validated post-QA implementation gaps are closed without reverting unrelated working-tree changes.
+- Backend closure: `importFromSnapshot` now compensates restore/publication failures by dropping created branch schemas, soft-deleting created metahub metadata, and returning explicit `METAHUB_IMPORT_ROLLED_BACK` vs `METAHUB_IMPORT_CLEANUP_FAILED` responses.
+- Runtime closure: apps-template filtered search now uses local filtered totals/page slices instead of stale server counts, and `enableRowReordering` now switches table mode to the shared FlowListTable sortable path while keeping the existing DataGrid path intact when disabled.
+- Fixture closure: the self-model Playwright generator and CLI now create the planned 13 sections through real hub/set/enumeration endpoints, seed an enumeration value, and regenerate `tools/fixtures/self-model-metahub-snapshot.json` from the corrected architecture.
+- Validation closure: focused metahubs route/service tests, apps-template Vitest, utils snapshot tests, the targeted self-model generator run, and the full root `pnpm build` all passed.
 
-- [progress.md#2026-04-02-final-e2e-hardening-closure-and-full-suite-green](progress.md#2026-04-02-final-e2e-hardening-closure-and-full-suite-green)
-  is the primary closure record for this finished wave.
-- [progress.md#2026-04-02-extended-playwright-coverage-restart-safe-validation-and-diagnostics](progress.md#2026-04-02-extended-playwright-coverage-restart-safe-validation-and-diagnostics)
-  tracks the expanded acceptance scope that closed earlier on the same day.
-- [progress.md#2026-04-02-playwright-full-suite-closure-and-route-surface-completion](progress.md#2026-04-02-playwright-full-suite-closure-and-route-surface-completion)
-  tracks the route-surface completion wave that preceded the final hardening closure.
-- [progress.md#2026-04-01-playwright-determinism-and-linked-application-stability-hardening](progress.md#2026-04-01-playwright-determinism-and-linked-application-stability-hardening)
-  tracks the determinism and runtime hardening that the final suite still depends on.
-- [progress.md#2026-04-01-supabase-jwtjwks-compatibility-remediation--complete](progress.md#2026-04-01-supabase-jwtjwks-compatibility-remediation--complete)
-  remains relevant because the current E2E environment still depends on that auth/RLS compatibility.
+## Current Focus: QA Remediation Follow-up For Snapshot/Runtime Settings Hardening — COMPLETE — 2026-04-03
 
-## Operational Constraints Still Worth Remembering
+- Goal achieved: the post-QA remediation wave closed the remaining verified technical debt without widening scope beyond the validated findings.
+- Snapshot contract closure: `buildSnapshotEnvelope()` now accepts the stricter transport snapshot type, matching the shared envelope schema and clearing the confirmed editor/type-contract drift in utils plus backend export callsites.
+- Runtime contract closure: the stale `enableRowReordering` setting is no longer advertised by the live apps-template-mui runtime surface, metahub layout translations, or public docs, avoiding a noop feature seam.
+- Regression-proofing closure: publication version import now has a direct happy-path backend test that asserts the permission path, deactivation of older versions, active-version pointer update, linked-app notification, and imported source metadata.
+- Repository hygiene closure: accidental repository-root artifact files were removed, focused utils/backend checks stayed green, and the full root `pnpm build` finished green (`28/28`).
 
-- The browser suite should continue to extend existing specs rather than introducing parallel replacement flows.
-- The product surface should remain real: dialogs, lists, route guards, and existing backend helpers are the preferred seams.
-- Helper changes should fail closed when persisted state is missing instead of continuing on optimistic UI assumptions.
-- Any future route-level browser assertion on guarded metahub pages should assume a transient loading shell can appear first.
-- Any future create/copy helper should prefer entity-id or durable persisted-state confirmation over transport-level timing.
+### Immediate Next Steps
 
-## Active Blockers
+- No active implementation work remains from this remediation wave.
+- If a new QA pass is requested, start from publication import/export contracts and apps-template runtime settings because those seams were the only touched production surfaces in this closure.
 
-- No active blocker is open for the remediation wave.
-- The remaining optional next step is an independent QA/review pass on the updated PR branch.
+## Previous Focus: Snapshot Import Final Stabilization — COMPLETE — 2026-04-03
 
-## Immediate Next Steps
+- Goal achieved: importing the self-model metahub now creates a coherent publication/version structure, so connector diff and first-attempt schema creation succeed immediately after import.
+- UI closure: the import dialog now uses the shared `StandardDialog`, shows configuration wording instead of snapshot wording, localizes the no-file-selected state, and no longer renders the extra divider lines.
+- Validation closure: focused metahubs route tests, root `pnpm build`, targeted Playwright reruns, and the final `pnpm run test:e2e:full` all passed.
+- Teardown closure: post-run `lsof -iTCP:3100 -sTCP:LISTEN` returned no listener, confirming wrapper-managed shutdown released the owned server port.
 
-- If the user wants a fresh review pass, switch to QA mode and audit PR `#745` again from the updated branch state.
-- If the user wants delivery, commit the remediation and push it to the existing PR branch.
+### Working Findings
+
+| Finding | Current decision |
+| --- | --- |
+| `pnpm start` can recreate fixed project schemas on an empty database | Confirmed via direct E2E startup and wrapper-managed startup before `bootstrapStartupSuperuser()` |
+| Full reset must also remove `upl_migrations` | Required so startup migrations rerun from a truly empty project state |
+| Manifest cleanup is insufficient for historical leftovers | Keep only as targeted recovery/helper cleanup |
+| Full reset must not drop Supabase-managed schemas | Restrict destructive scope to project-owned schemas and auth users only; self-heal `public` if a previous bad reset removed it |
+| Runner shutdown must stop the entire `pnpm start` process tree | Killing only the parent shell leaves backend children alive and blocks destructive post-reset |
+
+## Previous Focus: Metahub Self-Hosted App & Snapshot Export/Import — COMPLETE — 2026-04-03
+
+- Plan v3 at `memory-bank/plan/metahub-self-hosted-app-and-snapshot-export-plan-2026-04-03.md`.
+- **Status: FULLY COMPLETE — All phases implemented + all QA findings resolved. Build 28/28, metahubs-backend 47 suites / 421 tests, utils 274/274.**
+
+### QA v3 Hardening Fixes (2026-04-03)
+
+| Issue | Fix |
+| --- | --- |
+| C1: VLC format in `importFromSnapshot` | Replaced `buildLocalizedContent()` with `ensureVLC()` for name/description/publication |
+| H1+H2: Silent reference drops | Added `log.warn()` for unmapped hub IDs and cross-references in SnapshotRestoreService |
+| H3: `defaultLayoutId` not remapped | Confirmed false positive — snapshot is self-consistent with original IDs |
+| M1: Zod snapshot passthrough | Added explicit optional fields for known snapshot structure; passthrough kept for forward compat |
+| M2: Server-side file size | Added Content-Length check in import route (defense-in-depth) |
+| C2: Missing route tests | Added 7 unit tests for import/export routes (metahubsRoutes.test.ts) |
+| M5: Missing service tests | Created SnapshotRestoreService.test.ts with 6 tests |
+| M3: E2E spec failures | Fixed toolbar selector (`-menu-trigger`) + import response ID extraction |
+| F1: E2E selector mismatch | Fixed `toolbar-primary-action-dropdown` → `toolbar-primary-action-menu-trigger` |
+
+### Self-Model E2E Results
+
+- `self-model-metahub-export.spec.ts` — **PASS** (3.2 min)
+- Creates 9 catalogs (Metahubs, Catalogs, Attributes, Elements, Constants, Branches, Publications, Layouts, Settings) with 27 fields
+- Exports snapshot: `tools/fixtures/self-model-metahub-snapshot.json` (62 KB, 13 entities incl. 4 system)
+- 3 screenshots in `test-results/self-model/`
+- `snapshot-export-import.spec.ts` — tampered hash test passes; 2 findings open (F1: UI selector, F2: VLC import compat)
+
+### Generators Architecture — 2026-04-03
+
+- `specs/generators/` is the dedicated folder for on-demand snapshot generators. Excluded from `test:e2e:full` and all `--grep @flow/@smoke/…` runs.
+- Playwright config has a dedicated `generators` project; `chromium` project ignores generator files via `testIgnore`.
+- `pnpm run test:e2e:generators` runs all generators; individual via `--grep "self-model"`.
+- Output: persistent fixtures in `tools/fixtures/` (not gitignored, not cleaned by runner). Ephemeral screenshots in `test-results/`.
+- Both E2E READMEs (EN+RU) document the architecture, commands, available generators table, and how to add new ones.
+
+### QA Post-Implementation Fixes Applied
+
+| Issue | Fix |
+| --- | --- |
+| H1: E2E tampered hash test wrong length | `'a'.repeat(64)` tests actual hash mismatch |
+| H2: `enableRowReordering` toggle noop | Removed from LayoutDetails UI; Zod schema field kept for future DnD |
+| M3: Field/element limits not validated | Added per-entity checks in `validateSnapshotEnvelope` + 2 unit tests |
+| M4: File input not reset on dialog close | Added `useRef` to clear native input element |
+
+### Completed Phases
+
+- **Phase 1.1**: Shared types + Zod schema in `@universo/types` (`common/snapshots.ts`)
+- **Phase 1.2**: Snapshot helpers in `@universo/utils` (`snapshot/snapshotArchive.ts`) + 13 unit tests
+- **Phase 2.0**: CSRF global protection on `/api/v1` routes
+- **Phase 2.1–2.5**: Backend export/import routes, SnapshotRestoreService
+- **Phase 3.1–3.5**: Frontend export/import UI + i18n
+- **Phase 4**: `apps-template-mui` — EnhancedDetailsSection, card/table toggle, Zod schema, row height, i18n
+- **Phase 5**: Layout config UI — Application View Settings panel in LayoutDetails
+- **Phase 6**: Self-model metahub script — `tools/create-self-model-metahub.mjs`
+- **Phase 7**: Tests — publication route tests, E2E snapshot-export-import + app-runtime-views specs
+- **Phase 8**: Documentation — GitBook guides (en/ru), README updates (apps-template-mui, metahubs-backend)
+
+### Build Fix Notes (Session 11)
+
+- Fixed TypeScript cast errors in metahubsController.ts and publicationsController.ts: VLC→Record casts need `as unknown as Record<string, unknown>`
+- Fixed `'readMetahub'` not in `RolePermission` union — export routes use no-permission (membership-only) access check
+- Fixed `useCrudDashboard.ts` return type: `DashboardLayoutConfig` (from Zod) is `{...} | undefined` so `Required<>` was incompatible; changed to `NonNullable<>`
+- Made `showSideMenu`, `showAppNavbar`, `showHeader` optional in `DashboardLayoutConfig` interface to match Zod schema
+
+### Key Implementation Decisions
+
+- `SnapshotRestoreService` uses 3-pass creation order matching `TemplateSeedExecutor`: (1) entities+system attrs, (2) constants, (3) attributes/enum values/elements/layouts
+- `CatalogSystemFieldsSnapshot.fields` (not the whole object) is passed to `ensureCatalogSystemAttributesSeed`
+- Import generates new UUIDs with old→new ID remapping for cross-references
+- `createPoolSnapshotRestoreService(schemaName)` wrapper added to `ddl/index.ts`
+- Import dialog validates file size (50MB limit) and `.json` extension client-side before upload
+
+## Operational Constraints
+
+- Use `pnpm build` as the canonical root validation path.
+- Preserve Turbo `envMode: "strict"`.
+- Helper changes should fail closed when persisted state is missing.
 
 ## Session Hygiene
 
 - Keep this file current-focus only.
 - Keep durable completion detail in [progress.md](progress.md).
 - Keep checklist state in [tasks.md](tasks.md).
-- This scope can remain closed unless a later repo change reopens it with new evidence.
 
 ## References
 

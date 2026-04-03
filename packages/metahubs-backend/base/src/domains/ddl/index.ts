@@ -24,6 +24,7 @@ import {
 import { hasRuntimeHistoryTable as _hasRuntimeHistoryTable } from '@universo/migrations-core'
 import { TemplateSeedCleanupService } from '../templates/services/TemplateSeedCleanupService'
 import { TemplateSeedMigrator } from '../templates/services/TemplateSeedMigrator'
+import { SnapshotRestoreService } from '../metahubs/services/SnapshotRestoreService'
 
 // Re-export pure functions from @universo/schema-ddl
 export {
@@ -112,6 +113,13 @@ export function createPoolTemplateSeedCleanupService(schemaName: string): Templa
  */
 export function createPoolTemplateSeedMigrator(schemaName: string): TemplateSeedMigrator {
     return new TemplateSeedMigrator(getKnex(), schemaName)
+}
+
+/**
+ * Create a SnapshotRestoreService backed by the shared Knex pool.
+ */
+export function createPoolSnapshotRestoreService(schemaName: string): SnapshotRestoreService {
+    return new SnapshotRestoreService(getKnex(), schemaName)
 }
 
 /**

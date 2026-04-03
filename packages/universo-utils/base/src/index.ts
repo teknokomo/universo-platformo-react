@@ -19,6 +19,13 @@ export * as optimistic from './optimistic'
 // Note: Import from '@universo/utils/rate-limiting' for direct access
 export * as rateLimiting from './rate-limiting'
 
+// Snapshot archive utilities (server-side only — uses node:crypto)
+export {
+    computeSnapshotHash,
+    buildSnapshotEnvelope,
+    validateSnapshotEnvelope
+} from './snapshot/snapshotArchive'
+
 // Export all net utilities including Node.js-only ensurePortAvailable
 // Browser builds use index.browser.ts which stubs ensurePortAvailable
 import { createTimeSyncEstimator } from './net/timeSync'

@@ -7,6 +7,7 @@
 -   Дать агенту возможность проверять реальное состояние браузера, а не делать выводы только по JSX.
 -   Запускать повторяемые пользовательские сценарии через Playwright CLI и оставлять MCP как точечный инструмент отладки.
 -   Поднимать отдельного аутентифицированного пользователя для каждого прогона и удалять его во время teardown.
+-   Возвращать выделенный hosted E2E Supabase в project-empty состояние до и после каждого прогона suite.
 -   Держать секреты вне git с помощью выделенных e2e env-файлов.
 
 ## Files
@@ -39,9 +40,13 @@
 -   `specs/flows/metahub-settings.spec.ts`: browser-покрытие реальной страницы настроек metahub, unsaved-change affordance и сохранения settings updates.
 -   `specs/flows/publication-application-regression.spec.ts`: combined и split покрытие регрессий publication-to-application.
 -   `specs/flows/publication-create-variants.spec.ts`: browser-покрытие вариантов creation для publication-only и publication-plus-application-without-schema.
+-   `specs/generators/*`: on-demand snapshot generators, которые создают конфигурации метахабов и экспортируют persistent fixture файлы. Исключены из обычных тестовых прогонов; вызываются явно через `pnpm run test:e2e:generators`.
 -   `specs/visual/*`: screenshot assertions для выявления layout regression.
 -   `restart-safe-check.mjs`: последовательная built-app start/stop/start валидация для restart safety на fresh-db.
 -   `dialog-idle-diagnostics.mjs`: ограниченный diagnostics script, который держит create dialog открытым, снимает Chromium metrics через CDP и сохраняет trace/heap artifacts для расследования idle resource issues.
+-   `support/backend/e2eFullReset.mjs`: guarded full reset/inspection helpers для project-owned schemas, `upl_migrations` и Supabase auth users.
+-   `support/backend/e2eDatabase.mjs`: общие direct PostgreSQL connection и advisory-lock helpers для hosted E2E maintenance scripts.
+-   `support/backend/run-e2e-doctor.mjs`: CLI report для leftover project-owned schemas, auth users и локальных E2E artifacts.
 -   `support/backend/*`: provisioning, API login, run manifest и cleanup helpers.
 -   `support/browser/preferences.ts`: browser-local helpers для locale/theme preferences, используемые целевыми matrix assertions.
 -   `support/env/*`: env-loading helpers, которые принудительно держат `e2e` configuration boundary.
@@ -71,8 +76,12 @@ Backend e2e env должен содержать:
 -   `E2E_TEST_USER_PASSWORD`
 -   `E2E_TEST_USER_ROLE_CODENAMES`
 -   `E2E_TEST_USER_EMAIL_DOMAIN`
+-   `E2E_FULL_RESET_MODE` (`strict` по умолчанию, `off` только для ручной отладки)
 
 Для больших suite повышайте `AUTH_LOGIN_RATE_LIMIT_MAX` только в выделенном e2e backend env вместо ослабления production defaults. Browser suite легитимно делает много auth round-trips между disposable users, bootstrap-admin setup и API-assisted provisioning.
+
+Все wrapper-based E2E команды теперь принудительно соблюдают hosted-Supabase reset contract: удаляют все application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations` и Supabase auth users перед стартом suite и ещё раз после остановки сервера. Инфраструктурные схемы вроде `public` сохраняются, чтобы стартовые migrations могли пересобрать platform state поверх валидной базы Supabase/Postgres.
+Прямые `pnpm exec playwright test ...` обходят этот контракт и поэтому допустимы только для debug-only сценариев. Для обычной валидации используйте wrapper-команды ниже.
 
 ## Run Modes
 
@@ -109,7 +118,7 @@ pnpm run test:e2e:full
 
 ```bash
 pnpm run build:e2e
-pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs specs/matrix/auth-locale-theme.spec.ts
+node tools/testing/e2e/run-playwright-suite.mjs specs/matrix/auth-locale-theme.spec.ts
 ```
 
 Проверяйте restart-safe поведение на том же fresh e2e environment:
@@ -130,7 +139,8 @@ E2E runner намеренно однопроходный:
 
 -   Он захватывает lock в `tools/testing/e2e/.artifacts/run.lock` и сразу падает, если другой suite уже активен.
 -   Он сразу падает, если `E2E_BASE_URL` уже обслуживает запущенное приложение, предотвращая случайное повторное использование stale server.
--   Устанавливайте `E2E_ALLOW_REUSE_SERVER=true` только когда вы осознанно хотите направить Playwright на уже запущенный instance.
+-   Он запрещает `--no-deps`, потому что обход Playwright dependencies ломает контракт аутентифицированного setup.
+-   `E2E_FULL_RESET_MODE=strict` несовместим с `E2E_ALLOW_REUSE_SERVER=true`; устанавливайте `E2E_FULL_RESET_MODE=off` только для ручной отладки против уже запущенного instance.
 
 Использование тегов:
 
@@ -140,9 +150,10 @@ E2E runner намеренно однопроходный:
 -   `@permission`: ожидания по RBAC и access-denied.
 -   `@combined`: chained regressions для publication/application/connectors.
 -   `@visual`: screenshot assertions для layout drift.
+-   `@generator`: on-demand snapshot generators (исключены из обычных прогонов).
 
 Текущий инвентарь `@flow`: `30` tests в `25` files, подтверждено через `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` на 2026-04-02.
-Текущий статус полной валидации suite: `E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:full` прошёл с результатом `42/42` tests на 2026-04-02 после завершения QA remediation wave, закрытия Gap D CRUD breadth и стабилизации combined publication-plus-schema flow.
+Текущий статус полной валидации suite: `pnpm run test:e2e:full` прошёл с результатом `42/42` tests на 2026-04-02 после завершения QA remediation wave, закрытия Gap D CRUD breadth и стабилизации combined publication-plus-schema flow.
 
 Обновляйте просмотренные screenshot baselines после осознанного UI change:
 
@@ -151,11 +162,88 @@ pnpm run build:e2e
 pnpm run test:e2e:visual:update
 ```
 
+Запускайте on-demand snapshot generators (см. **Snapshot Generators** ниже):
+
+```bash
+pnpm run build:e2e
+pnpm run test:e2e:generators
+```
+
 Принудительно запускайте teardown, если предыдущий run упал:
 
 ```bash
 pnpm run test:e2e:cleanup
 ```
+
+Проверяйте состояние hosted E2E Supabase без мутаций:
+
+```bash
+pnpm run test:e2e:doctor
+```
+
+Просматривайте план полного reset без удаления схем и пользователей:
+
+```bash
+pnpm run test:e2e:reset:dry
+```
+
+Принудительно запускайте полный reset hosted Supabase вручную:
+
+```bash
+pnpm run test:e2e:reset
+```
+
+## Snapshot Generators
+
+Generator specs живут в `specs/generators/` и создают persistent fixture файлы без необходимости запускать `pnpm dev`. Они используют ту же E2E инфраструктуру (built app через `pnpm start`, disposable test user, API helpers), но **исключены из всех обычных тестовых прогонов** (`test:e2e:full`, `test:e2e:flows` и др.).
+
+### Как это работает
+
+1.  Конфигурация Playwright определяет выделенный `generators` проект, который матчит только `specs/generators/*.spec.ts`.
+2.  Проект `chromium` явно игнорирует generator файлы через `testIgnore`, поэтому они никогда не запускаются при `test:e2e:full` или любой команде `--grep @flow`/`@smoke`/и т.д.
+3.  Generator specs записывают свой output в `tools/fixtures/` — эта директория **не** очищается E2E runner'ом и **не** находится в `.gitignore`, поэтому fixture файлы сохраняются до ручного удаления и могут быть закоммичены в репозиторий.
+4.  Информационные скриншоты попадают в `test-results/self-model/` (или аналогичную), которая **очищается** при следующем E2E прогоне — это ожидаемое поведение.
+
+### Запуск генераторов
+
+Запустить все генераторы:
+
+```bash
+pnpm run build:e2e
+pnpm run test:e2e:generators
+```
+
+Запустить конкретный генератор по имени:
+
+```bash
+pnpm run build:e2e
+node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-model"
+```
+
+Если сервер уже запущен (например, от предыдущего E2E прогона), переиспользовать его:
+
+```bash
+E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
+```
+
+### Доступные генераторы
+
+| Генератор | Output | Описание |
+| --- | --- | --- |
+| `self-model-metahub-export` | `tools/fixtures/self-model-metahub-snapshot.json` | Создаёт метахаб, моделирующий платформу через 13 self-model sections, сохраняет enhanced runtime layout settings, публикует его и экспортирует snapshot. |
+
+### Создание новых генераторов
+
+Чтобы добавить новый генератор:
+
+1.  Создайте spec файл в `specs/generators/`, например `admin-config-export.spec.ts`.
+2.  Пометьте тест тегом `@generator` (не `@flow`).
+3.  Используйте `createLoggedInApiContext` + API helpers из `support/backend/api-session.mjs` для создания ресурсов через API.
+4.  Записывайте output fixtures в `tools/fixtures/` с помощью `fs.writeFileSync`.
+5.  Используйте `recordCreatedMetahub` / `recordCreatedApplication` чтобы runner мог очистить ресурсы базы данных после завершения генератора.
+6.  Устанавливайте щедрый `test.setTimeout()` (генераторы — длительные операции, 300s+ — типичная продолжительность).
+
+Generator specs следуют тем же конвенциям, что и flow specs — они зависят от проекта `setup` для аутентификации, используют тот же E2E env и участвуют в том же цикле очистки.
 
 ## Manual Screenshots and Video
 

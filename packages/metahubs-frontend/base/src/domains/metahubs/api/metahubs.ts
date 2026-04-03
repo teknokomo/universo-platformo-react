@@ -70,6 +70,9 @@ export const deleteMetahub = (id: string) => apiClient.delete<void>(`/metahub/${
 
 export const copyMetahub = (id: string, data: MetahubCopyInput = {}) => apiClient.post<Metahub>(`/metahub/${id}/copy`, data)
 
+export const importMetahubFromSnapshot = (envelopeJson: unknown) =>
+    apiClient.post<{ metahub: Metahub; publication: { id: string }; version: { id: string } }>('/metahubs/import', envelopeJson)
+
 // ============ METAHUB MEMBERS ============
 
 export const listMetahubMembers = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetahubMember>> => {

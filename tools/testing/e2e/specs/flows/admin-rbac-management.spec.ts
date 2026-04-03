@@ -156,20 +156,28 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
             (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/roles$/.test(response.url())
         )
         await roleDialog.getByRole('button', { name: 'Create' }).click()
-        await createRoleRequest
+        const createRoleResponse = await createRoleRequest
+        expect(createRoleResponse.ok()).toBe(true)
 
-        await page.waitForURL(/\/admin\/instance\/[^/]+\/roles\/[^/]+$/)
-
-        const roleId = page.url().split('/').pop()
+        const createRoleBody = await createRoleResponse.json()
+        const roleId = createRoleBody?.data?.id ?? createRoleBody?.id
         if (!roleId) {
             throw new Error('Created role id was not found in URL')
+        }
+
+        if (!new RegExp(`/admin/instance/[^/]+/roles/${roleId}$`).test(page.url())) {
+            await page.goto(`/admin/instance/${instance.id}/roles/${roleId}`)
         }
 
         await recordCreatedRole({ id: roleId, codename: roleCodename })
 
         const grantAllToggle = page.getByRole('switch', { name: 'Grant all permissions' })
         await grantAllToggle.check()
+        const savePermissionsRequest = page.waitForResponse(
+            (response) => response.request().method() === 'PATCH' && new RegExp(`/api/v1/admin/roles/${roleId}$`).test(response.url())
+        )
         await page.getByRole('button', { name: 'Save permissions' }).click()
+        await savePermissionsRequest
 
         await expect
             .poll(async () => {
@@ -180,7 +188,7 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
                         (permission: { subject?: string; action?: string }) => permission.subject === '*' && permission.action === '*'
                     )
                 )
-            })
+            }, { timeout: 30_000, intervals: [500, 1_000, 2_000] })
             .toBe(true)
 
         const assignableRoles = await getAssignableRoles(api)

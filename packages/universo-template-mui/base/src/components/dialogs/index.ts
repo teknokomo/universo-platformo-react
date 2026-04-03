@@ -14,6 +14,9 @@ export type { ConfirmDeleteDialogProps } from './ConfirmDeleteDialog'
 
 export { ConfirmDialog } from './ConfirmDialog'
 
+export { StandardDialog } from './StandardDialog'
+export type { StandardDialogProps } from './StandardDialog'
+
 export { BlockingEntitiesDeleteDialog } from './BlockingEntitiesDeleteDialog'
 export type {
     BlockingEntitiesDeleteDialogProps,

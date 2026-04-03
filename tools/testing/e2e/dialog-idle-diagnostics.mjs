@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { chromium } from '@playwright/test'
 import { cleanupE2eRun } from './support/backend/e2eCleanup.mjs'
+import { fullResetE2eProject } from './support/backend/e2eFullReset.mjs'
 import { provisionE2eRun } from './support/backend/e2eProvisioning.mjs'
 import { artifactsDir, ensureE2eDirectories, loadE2eEnvironment, repoRoot } from './support/env/load-e2e-env.mjs'
 
@@ -128,6 +129,7 @@ async function main() {
     await fs.mkdir(diagnosticsDir, { recursive: true })
 
     try {
+        await fullResetE2eProject({ dryRun: false, quiet: false, reason: 'dialog-diagnostics-pre-start' })
         serverProcess = await startOwnedServer()
         await cleanupE2eRun({ quiet: true })
         const manifest = await provisionE2eRun()
@@ -208,6 +210,7 @@ async function main() {
         await browser?.close().catch(() => undefined)
         await stopOwnedServer(serverProcess).catch(() => undefined)
         await cleanupE2eRun({ quiet: true }).catch(() => undefined)
+        await fullResetE2eProject({ dryRun: false, quiet: true, reason: 'dialog-diagnostics-finalize' }).catch(() => undefined)
     }
 }
 

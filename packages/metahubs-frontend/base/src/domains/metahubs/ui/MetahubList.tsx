@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Box, ButtonBase, Checkbox, Divider, FormControlLabel, Radio, RadioGroup, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -31,7 +32,7 @@ import {
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateMetahub, useUpdateMetahub, useDeleteMetahub, useCopyMetahub } from '../hooks/mutations'
+import { useCreateMetahub, useUpdateMetahub, useDeleteMetahub, useCopyMetahub, useImportMetahubFromSnapshot } from '../hooks/mutations'
 import { useMetahubListData } from '../hooks/useMetahubListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
@@ -45,6 +46,7 @@ import { CodenameField, ExistingCodenamesProvider } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 import type { GenericFormValues, ConfirmSpec, PendingMetahubNavigation, MetahubFormValues, BaseMenuContext } from './metahubListUtils'
 import { extractResponseStatus, extractResponseMessage, extractConflict } from './metahubListUtils'
+import { ImportSnapshotDialog } from '../../publications/ui/ImportSnapshotDialog'
 
 type GeneralTabFieldsProps = {
     values: GenericFormValues
@@ -205,6 +207,7 @@ const MetahubList = () => {
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<MetahubDisplay>()
     const [view, setView] = useViewPreference(STORAGE_KEYS.METAHUB_DISPLAY_STYLE)
     const [pendingMetahubNavigation, setPendingMetahubNavigation] = useState<PendingMetahubNavigation | null>(null)
+    const [importDialogOpen, setImportDialogOpen] = useState(false)
 
     const {
         metahubs,
@@ -223,6 +226,7 @@ const MetahubList = () => {
 
     // Mutation hook for create (fire-and-forget with optimistic UI)
     const createMetahubMutation = useCreateMetahub()
+    const importMutation = useImportMetahubFromSnapshot()
 
 
 
@@ -396,6 +400,27 @@ const MetahubList = () => {
     const handleAddNew = () => {
         openCreate()
     }
+
+    const handleImportConfirm = useCallback(async (file: File) => {
+        let json: unknown
+        try {
+            const text = await file.text()
+            json = JSON.parse(text)
+        } catch {
+            enqueueSnackbar(t('export.invalidJson'), { variant: 'error' })
+            return
+        }
+        importMutation.mutate(json as Record<string, unknown>, {
+            onSuccess: (data: { metahub: { id: string } }) => {
+                setImportDialogOpen(false)
+                enqueueSnackbar(t('export.importSuccess'), { variant: 'success' })
+                navigate(`/metahub/${data.metahub.id}`)
+            },
+            onError: () => {
+                enqueueSnackbar(t('export.importError'), { variant: 'error' })
+            }
+        })
+    }, [importMutation, navigate, enqueueSnackbar, t])
 
     const handleDialogClose = () => {
         close('create')
@@ -678,6 +703,13 @@ const MetahubList = () => {
                                     onClick: handleAddNew,
                                     startIcon: <AddRoundedIcon />
                                 }}
+                                primaryActionMenuItems={[
+                                    {
+                                        label: t('export.importMetahub'),
+                                        onClick: () => setImportDialogOpen(true),
+                                        startIcon: <FileUploadIcon />
+                                    }
+                                ]}
                             />
                         </ViewHeader>
 
@@ -874,6 +906,14 @@ const MetahubList = () => {
                             }
                         }
                     }}
+                />
+
+                <ImportSnapshotDialog
+                    open={importDialogOpen}
+                    onClose={() => setImportDialogOpen(false)}
+                    onConfirm={handleImportConfirm}
+                    isLoading={importMutation.isPending}
+                    error={importMutation.error?.message}
                 />
             </ExistingCodenamesProvider>
         </MainCard>

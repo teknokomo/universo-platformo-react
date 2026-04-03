@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import type { Locator, Page, Response } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
@@ -7,8 +8,10 @@ import {
     createMetahub,
     createPublication,
     disposeApiContext,
+    getApplication,
     getConnector,
-    listConnectorPublicationLinks
+    listConnectorPublicationLinks,
+    sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
@@ -31,6 +34,21 @@ type ConnectorLinkListResponse = {
         id?: string
         publicationId?: string
     }>
+}
+
+async function loadSelfModelSnapshotEnvelope() {
+    const fixturePath = `${process.cwd()}/tools/fixtures/self-model-metahub-snapshot.json`
+    const raw = await readFile(fixturePath, 'utf8')
+    const envelope = JSON.parse(raw) as {
+        metahub?: {
+            name?: {
+                _primary?: string
+                locales?: Record<string, { content?: string }>
+            }
+        }
+    }
+
+    return { fixturePath, envelope }
 }
 
 async function parseJsonResponse<T>(response: Response, label: string): Promise<T> {
@@ -279,6 +297,140 @@ test('@flow @combined application connector can be created through the browser a
 
         const persistedLinks = (await listConnectorPublicationLinks(api, application.id, createdConnector.id)) as ConnectorLinkListResponse
         expect((persistedLinks.items ?? []).map((item) => item.publicationId)).toEqual([publication.id])
+    } finally {
+        await disposeApiContext(api)
+    }
+})
+
+test('@flow imported snapshot publication creates schema on first connector attempt', async ({ page, runManifest }) => {
+    const api = await createLoggedInApiContext({
+        email: runManifest.testUser.email,
+        password: runManifest.testUser.password
+    })
+
+    try {
+        const { envelope } = await loadSelfModelSnapshotEnvelope()
+        const importResponse = await sendWithCsrf(api, 'POST', '/api/v1/metahubs/import', envelope)
+
+        if (!importResponse.ok) {
+            const bodyText = await importResponse.text()
+            throw new Error(`Snapshot import failed with ${importResponse.status} ${importResponse.statusText}: ${bodyText}`)
+        }
+
+        const importBody = await importResponse.json()
+        const importedMetahubId = importBody?.metahub?.id
+        const importedPublicationId = importBody?.publication?.id
+        const importedVersionId = importBody?.version?.id
+
+        if (typeof importedMetahubId !== 'string' || typeof importedPublicationId !== 'string' || typeof importedVersionId !== 'string') {
+            throw new Error(`Snapshot import response did not include metahub/publication/version ids: ${JSON.stringify(importBody)}`)
+        }
+
+        const importedMetahubName =
+            envelope?.metahub?.name?._primary && envelope?.metahub?.name?.locales?.[envelope.metahub.name._primary]?.content
+                ? envelope.metahub.name.locales[envelope.metahub.name._primary]?.content
+                : 'Imported metahub'
+
+        await recordCreatedMetahub({
+            id: importedMetahubId,
+            name: importedMetahubName,
+            codename: 'imported-self-model-fixture'
+        })
+        await recordCreatedPublication({
+            id: importedPublicationId,
+            metahubId: importedMetahubId,
+            schemaName: null
+        })
+
+        const applicationName = `E2E ${runManifest.runId} imported schema app`
+        const connectorName = `E2E ${runManifest.runId} imported connector`
+
+        const application = await createApplication(api, {
+            name: { en: applicationName },
+            namePrimaryLocale: 'en',
+            workspacesEnabled: false,
+            isPublic: false
+        })
+
+        if (!application?.id) {
+            throw new Error('Application creation did not return an id for imported snapshot connector flow')
+        }
+
+        await recordCreatedApplication({
+            id: application.id,
+            slug: application.slug
+        })
+
+        await page.goto(`/a/${application.id}/admin/connectors`)
+        await expect(page.getByRole('heading', { name: 'Connectors' })).toBeVisible()
+
+        const createButton = page.getByTestId(toolbarSelectors.primaryAction)
+        await createButton.click()
+
+        const createDialog = page.getByRole('dialog', { name: 'Create Connector' })
+        await expect(createDialog).toBeVisible()
+
+        await fillConnectorGeneralFields(createDialog, {
+            name: connectorName,
+            description: `Imported snapshot connector ${runManifest.runId}`
+        })
+
+        await createDialog.getByRole('tab', { name: 'Metahubs' }).click()
+        await createDialog.getByTestId(entitySelectionSelectors.addButton).click()
+
+        const pickerDialog = page.getByRole('dialog', { name: 'Select Metahub' })
+        await expect(pickerDialog).toBeVisible()
+        await pickerDialog.getByTestId(buildEntitySelectionOptionSelector(importedPublicationId)).click()
+        await pickerDialog.getByTestId(entitySelectionSelectors.confirmButton).click()
+
+        await expect(pickerDialog).toHaveCount(0)
+        await expect(createDialog.getByText(importedMetahubName)).toBeVisible()
+
+        const createRequest = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`)
+        )
+        await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
+
+        const createResponse = await createRequest
+        const createdConnector = await parseJsonResponse<{ id?: string }>(createResponse, 'Creating imported connector')
+        if (!createdConnector.id) {
+            throw new Error('Create connector response did not contain an id for imported snapshot flow')
+        }
+
+        await page.goto(`/a/${application.id}/admin/connector/${createdConnector.id}`)
+        await expect(page.getByTestId('application-connector-board-schema-card')).toBeVisible()
+
+        const diffResponsePromise = page.waitForResponse(
+            (response) => response.request().method() === 'GET' && response.url().endsWith(`/api/v1/application/${application.id}/diff`)
+        )
+        await page.getByTestId('application-connector-board-sync-button').click()
+
+        const diffResponse = await diffResponsePromise
+        expect(diffResponse.status()).toBe(200)
+
+        const diffDialog = page.getByRole('dialog', { name: 'Schema Changes' })
+        await expect(diffDialog).toBeVisible()
+        await expect(diffDialog.getByRole('heading', { name: /The following schema will be created/i })).toBeVisible()
+
+        const syncResponsePromise = page.waitForResponse(
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${application.id}/sync`)
+        )
+        await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
+
+        const syncResponse = await syncResponsePromise
+        expect(syncResponse.status()).toBe(200)
+
+        const syncBody = await syncResponse.json()
+        expect(syncBody?.status).toBe('created')
+        await expect(diffDialog).toHaveCount(0)
+
+        await expect
+            .poll(async () => {
+                const refreshed = await getApplication(api, application.id)
+                return refreshed?.schemaStatus ?? refreshed?.data?.schemaStatus ?? null
+            })
+            .toBe('synced')
     } finally {
         await disposeApiContext(api)
     }

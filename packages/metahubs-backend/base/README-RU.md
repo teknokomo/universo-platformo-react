@@ -82,6 +82,17 @@ router.get('/:metahubId/hubs', handle(hubsController.list, { permission: 'viewer
 
 `paginateItems(items, { limit, offset })` обеспечивает in-memory пагинацию с `{ items, pagination: { limit, offset, total, hasMore } }`. Валидация входных данных использует `validateListQuery()` с Zod schema.
 
+### Экспорт/импорт снимков
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/v1/metahub/:id/export` | Экспорт полного метахаба как JSON-конверта снимка |
+| `POST` | `/api/v1/metahubs/import` | Импорт конверта снимка как нового метахаба |
+| `GET` | `/api/v1/metahub/:id/publication/:pubId/versions/:verId/export` | Экспорт снимка версии публикации |
+| `POST` | `/api/v1/metahub/:id/publication/:pubId/versions/import` | Импорт снимка как новой версии публикации |
+
+Конечные точки импорта проверяют целостность конверта (хеш SHA-256), глубину вложенности, защиту от загрязнения прототипа и лимиты количества сущностей. Подробнее в [руководстве по экспорту и импорту снимков](../../../docs/ru/guides/snapshot-export-import.md).
+
 ## Development
 
 ```bash

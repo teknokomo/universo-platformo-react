@@ -280,6 +280,31 @@ interface DashboardDetailsSlot {
 }
 ```
 
+### DashboardLayoutConfig — View Settings
+
+The `DashboardLayoutConfig` interface supports optional view settings that enable
+enhanced display modes in the details section:
+
+```typescript
+interface DashboardLayoutConfig {
+  // ... existing boolean flags (showSideMenu, showHeader, etc.)
+
+  // View Settings (optional — when absent, classic table mode is used)
+  showViewToggle?: boolean       // Show card/table view mode toggle
+  defaultViewMode?: 'table' | 'card'  // Initial view mode
+  showFilterBar?: boolean        // Show search input in toolbar
+  cardColumns?: number           // Number of columns in card view (2–4)
+  rowHeight?: number | 'auto'    // Fixed pixel height or 'auto' for content-based
+}
+```
+
+When `showViewToggle` or `showFilterBar` is set, the details section renders an
+**EnhancedDetailsSection** that integrates `@universo/template-mui` components
+(ViewHeaderMUI, ToolbarControls, ItemCard, PaginationControls) alongside the DataGrid.
+
+These settings are validated at runtime by the `dashboardLayoutConfigSchema` Zod schema
+in `api/api.ts`.
+
 ## Development
 
 ### Available Scripts

@@ -221,7 +221,19 @@
             "description": "Настраивайте зоны дашборда и размещённые в них виджеты.",
             "dragHint": "Перетаскивайте виджеты между зонами, чтобы изменить состав рантайм-интерфейса.",
             "addWidget": "Добавить виджет",
-            "widgetCatalogTitle": "Доступные виджеты"
+            "widgetCatalogTitle": "Доступные виджеты",
+            "viewSettings": "Настройки отображения приложения",
+            "showViewToggle": "Переключатель карточек/таблицы",
+            "defaultViewMode": "Вид по умолчанию",
+            "viewModeTable": "Таблица",
+            "viewModeCard": "Карточки",
+            "showFilterBar": "Строка поиска/фильтрации",
+            "enableRowReordering": "Включить перестановку строк",
+            "cardColumns": "Столбцы карточек",
+            "rowHeight": "Высота строки",
+            "rowHeightCompact": "Компактная (по умолчанию)",
+            "rowHeightNormal": "Обычная (52px)",
+            "rowHeightAuto": "Авто (многострочная)"
         },
         "menuEditor": {
             "title": "Настройка меню",
@@ -1707,5 +1719,22 @@
         "common": {
             "placeholder": "Настройки этого раздела будут доступны в будущих версиях."
         }
+    },
+    "export": {
+        "importMetahub": "Импорт конфигурации",
+        "importSnapshot": "Импорт конфигурации",
+        "importVersion": "Импорт версии конфигурации",
+        "exportVersion": "Экспорт снимка",
+        "exportMetahub": "Экспорт метахаба",
+        "chooseFile": "Выбрать файл",
+        "noFileSelected": "Файл не выбран",
+        "fileSelectLabel": "Выберите файл .json конфигурации, экспортированный из Universo Platformo.",
+        "fileSizeError": "Файл слишком большой. Максимальный размер: {{maxMB}} МБ.",
+        "invalidFormat": "Принимаются только файлы .json.",
+        "invalidJson": "Выбранный файл не содержит валидный JSON.",
+        "importSuccess": "Метахаб успешно импортирован",
+        "importVersionSuccess": "Версия успешно импортирована",
+        "importError": "Не удалось импортировать конфигурацию",
+        "exportError": "Не удалось экспортировать снимок"
     }
 }
