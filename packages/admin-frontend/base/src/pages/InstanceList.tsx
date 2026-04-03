@@ -10,7 +10,7 @@ import type { TFunction } from 'i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
-import { createLocalizedContent, filterLocalizedContent, resolveLocalizedContent } from '@universo/utils'
+import { createLocalizedContent, filterLocalizedContent, resolveLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
 
@@ -101,8 +101,27 @@ const getInstanceDescription = (instance: Instance, locale: string): string => {
     return resolveLocalizedContent(instance.description, safeLocale, '')
 }
 
-const toLocalizedStringValue = (locale: string, value: string): VersionedLocalizedContent<string> => {
-    return createLocalizedContent(normalizeLocale(locale), value.trim())
+const updateLocalizedStringValue = (
+    currentValue: VersionedLocalizedContent<string> | null | undefined,
+    locale: string,
+    value: string
+): VersionedLocalizedContent<string> => {
+    const normalizedLocale = normalizeLocale(locale)
+    const trimmedValue = value.trim()
+
+    if (!currentValue) {
+        return createLocalizedContent(normalizedLocale, trimmedValue)
+    }
+
+    return updateLocalizedContentLocale(currentValue, normalizedLocale, trimmedValue)
+}
+
+const updateOptionalLocalizedStringValue = (
+    currentValue: VersionedLocalizedContent<string> | null | undefined,
+    locale: string,
+    value: string
+) => {
+    return filterLocalizedContent(updateLocalizedStringValue(currentValue, locale, value)) || null
 }
 
 /**
@@ -240,12 +259,13 @@ const InstanceList = () => {
                 updateEntity: async (id: string, patch: InstanceData) => {
                     const name = patch.name.trim()
                     const description = patch.description?.trim() || ''
+                    const currentInstance = instances.find((instance) => instance.id === id)
 
                     await updateInstanceMutation.mutateAsync({
                         id,
                         data: {
-                            name: toLocalizedStringValue(i18n.language, name),
-                            description: filterLocalizedContent(toLocalizedStringValue(i18n.language, description)) || null
+                            name: updateLocalizedStringValue(currentInstance?.name, i18n.language, name),
+                            description: updateOptionalLocalizedStringValue(currentInstance?.description, i18n.language, description)
                         }
                     })
                 }

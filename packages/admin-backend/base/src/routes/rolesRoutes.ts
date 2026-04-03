@@ -1,6 +1,7 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { activeAppRowCondition, getCodenamePrimary, getRequestDbExecutor, uuid, type DbExecutor } from '@universo/utils'
 import { enforceSingleLocaleCodename } from '@universo/utils/vlc'
+import { isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { isUniqueViolation } from '@universo/utils/database'
 import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
@@ -19,7 +20,7 @@ import {
     listRoleUsers
 } from '../persistence/rolesStore'
 import { findSetting } from '../persistence/settingsStore'
-import { CreateRoleSchema, RoleCodenameSchema, UpdateRoleSchema } from '../schemas'
+import { CreateRoleSchema, RoleCodenameSchema, UpdateRoleSchema, isLegacyRoleCodename } from '../schemas'
 import { z } from 'zod'
 
 /**
@@ -63,6 +64,12 @@ export interface RolesRoutesConfig {
     getDbExecutor: () => DbExecutor
 }
 
+type RoleCodenameValidationConfig = {
+    style: 'pascal-case' | 'kebab-case'
+    alphabet: 'en' | 'ru' | 'en-ru'
+    allowMixed: boolean
+}
+
 export function createRolesRoutes({ globalAccessService, permissionService, getDbExecutor }: RolesRoutesConfig): Router {
     const router = Router()
     const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
@@ -73,12 +80,69 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             fn(req, res).catch(next)
         }
 
+    function extractSettingValue(row: Awaited<ReturnType<typeof findSetting>>): unknown {
+        if (!row) {
+            return undefined
+        }
+
+        const raw = row.value
+        return typeof raw === 'object' && raw !== null && '_value' in raw ? (raw as { _value: unknown })._value : raw
+    }
+
+    async function getRoleCodenameValidationConfig(exec: DbExecutor): Promise<RoleCodenameValidationConfig> {
+        const [styleRow, alphabetRow, allowMixedRow] = await Promise.all([
+            findSetting(exec, 'metahubs', 'codenameStyle'),
+            findSetting(exec, 'metahubs', 'codenameAlphabet'),
+            findSetting(exec, 'metahubs', 'codenameAllowMixedAlphabets')
+        ])
+
+        const config: RoleCodenameValidationConfig = {
+            style: 'pascal-case',
+            alphabet: 'en-ru',
+            allowMixed: false
+        }
+
+        const styleValue = extractSettingValue(styleRow)
+        if (styleValue === 'pascal-case' || styleValue === 'kebab-case') {
+            config.style = styleValue
+        }
+
+        const alphabetValue = extractSettingValue(alphabetRow)
+        if (alphabetValue === 'en' || alphabetValue === 'ru' || alphabetValue === 'en-ru') {
+            config.alphabet = alphabetValue
+        }
+
+        const allowMixedValue = extractSettingValue(allowMixedRow)
+        if (typeof allowMixedValue === 'boolean') {
+            config.allowMixed = allowMixedValue
+        }
+
+        return config
+    }
+
+    function validateRoleCodename(
+        codename: { _primary: string },
+        codenameText: string,
+        config: RoleCodenameValidationConfig
+    ): Array<{ code: string; path: string[]; message: string }> | null {
+        if (isValidCodenameForStyle(codenameText, config.style, config.alphabet, config.allowMixed) || isLegacyRoleCodename(codenameText)) {
+            return null
+        }
+
+        return [
+            {
+                code: 'custom',
+                path: ['codename', 'locales', codename._primary, 'content'],
+                message: `Codename must match the configured ${config.style} / ${config.alphabet} role settings or the legacy lowercase slug format`
+            }
+        ]
+    }
+
     /** Read codenameLocalizedEnabled from admin.cfg_settings */
     async function isCodenameLocalizedEnabled(exec: DbExecutor): Promise<boolean> {
         const row = await findSetting(exec, 'metahubs', 'codenameLocalizedEnabled')
         if (!row) return true
-        const raw = row.value
-        const val = typeof raw === 'object' && raw !== null && '_value' in raw ? (raw as { _value: unknown })._value : raw
+        const val = extractSettingValue(row)
         return val !== false
     }
 
@@ -184,6 +248,20 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const localizedEnabled = await isCodenameLocalizedEnabled(exec)
             const codename = enforceSingleLocaleCodename(rawCodename, localizedEnabled)
             const codenameText = getCodenamePrimary(codename)
+            const codenameValidationDetails = validateRoleCodename(
+                codename,
+                codenameText,
+                await getRoleCodenameValidationConfig(exec)
+            )
+
+            if (codenameValidationDetails) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid request body',
+                    details: codenameValidationDetails
+                })
+                return
+            }
 
             const existing = await findRoleByCodename(exec, codenameText)
             if (existing) {
@@ -267,6 +345,21 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const localizedEnabled = await isCodenameLocalizedEnabled(exec)
             const enforcedCopyCodename = enforceSingleLocaleCodename(parsed.data.codename, localizedEnabled)
             const requestedCodename = getCodenamePrimary(enforcedCopyCodename)
+            const codenameValidationDetails = validateRoleCodename(
+                enforcedCopyCodename,
+                requestedCodename,
+                await getRoleCodenameValidationConfig(exec)
+            )
+
+            if (codenameValidationDetails) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid request body',
+                    details: codenameValidationDetails
+                })
+                return
+            }
+
             const sourceRole = await findRoleById(exec, sourceRoleId)
             if (!sourceRole) {
                 res.status(404).json({ success: false, error: 'Source role not found' })
@@ -364,6 +457,23 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const localizedEnabled = await isCodenameLocalizedEnabled(exec)
             const codename = rawUpdateCodename !== undefined ? enforceSingleLocaleCodename(rawUpdateCodename, localizedEnabled) : undefined
             const nextCodenameText = codename !== undefined ? getCodenamePrimary(codename) : undefined
+
+            if (codename !== undefined && nextCodenameText !== undefined) {
+                const codenameValidationDetails = validateRoleCodename(
+                    codename,
+                    nextCodenameText,
+                    await getRoleCodenameValidationConfig(exec)
+                )
+
+                if (codenameValidationDetails) {
+                    res.status(400).json({
+                        success: false,
+                        error: 'Invalid request body',
+                        details: codenameValidationDetails
+                    })
+                    return
+                }
+            }
 
             // Protect system roles from critical changes
             if (role.is_system) {

@@ -44,6 +44,23 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-03 PR #745 Review Remediation Closure
+
+Closed the validated review findings on the Playwright CLI E2E / QA hardening branch without widening the change scope beyond confirmed defects.
+
+| Area | Resolution |
+| --- | --- |
+| Locale input UX | `LocaleDialog` now preserves a temporary trailing `-` while the user types region-based locale codes such as `en-US`, instead of collapsing `en-` back to `en`. |
+| Localized instance edits | `InstanceList` now updates only the active locale via `updateLocalizedContentLocale(...)`, so editing one locale no longer overwrites translations stored in other locales. |
+| Role codename validation | `admin-backend` role routes now read runtime `metahubs` codename settings for exact validation, while the shared schema remains broad enough to avoid pre-parse false negatives and still accepts legacy lowercase slug codenames. |
+| Regression coverage | Added focused route tests that prove runtime-setting-aware role codename rejection/acceptance paths. |
+
+### Validation
+- `pnpm --filter @universo/admin-backend test -- src/tests/routes/rolesRoutes.test.ts`
+- `pnpm --filter @universo/admin-backend build`
+- `pnpm --filter @universo/admin-frontend build`
+- `pnpm build` (`28 successful, 28 total`)
+
 ## 2026-04-03 Turbo 2 .env Cache Correctness Hardening
 
 Added a Package Configuration at `packages/universo-core-frontend/base/turbo.json` to include `.env*` files (excluding `*.example`) in the `core-frontend` build hash. This closes the gap where changing a `.env` value would not invalidate the Vite-built bundle. Backend packages (`core-backend`) do NOT need this fix since `tsc` does not read `.env` at build time.

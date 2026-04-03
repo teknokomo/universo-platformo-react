@@ -191,6 +191,34 @@ describe('rolesRoutes', () => {
         expect(mockCreateRole).toHaveBeenCalledTimes(1)
     })
 
+    it('rejects role codename that conflicts with the configured runtime settings', async () => {
+        const res = await request(buildApp())
+            .post('/roles')
+            .send({ codename: vlcString('роль-редактор'), name: vlcString('Reviewer'), color: '#9e9e9e', isSuperuser: false })
+
+        expect(res.status).toBe(400)
+        expect(res.body.details[0].message).toContain('configured')
+    })
+
+    it('accepts role codename that matches the configured runtime settings', async () => {
+        mockFindSetting.mockImplementation(async (_exec, _category, key) => {
+            if (key === 'codenameStyle') return { value: { _value: 'kebab-case' } } as never
+            if (key === 'codenameAlphabet') return { value: { _value: 'ru' } } as never
+            if (key === 'codenameAllowMixedAlphabets') return { value: { _value: false } } as never
+            return null as never
+        })
+        mockFindByCodename.mockResolvedValue(null as never)
+        mockCreateRole.mockResolvedValue({ id: VALID_UUID_2 } as never)
+        mockFindById.mockResolvedValue({ ...sampleRole, id: VALID_UUID_2 } as never)
+
+        const res = await request(buildApp())
+            .post('/roles')
+            .send({ codename: vlcString('роль-редактор'), name: vlcString('Reviewer'), color: '#9e9e9e', isSuperuser: false })
+
+        expect(res.status).toBe(201)
+        expect(mockCreateRole).toHaveBeenCalledTimes(1)
+    })
+
     it('rejects duplicate codename on create', async () => {
         mockFindByCodename.mockResolvedValue(sampleRole as never)
 

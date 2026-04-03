@@ -71,6 +71,15 @@
 - Copy flows must follow the same boundary rule as create/update flows: derive uniqueness from extracted primary codename text, but persist through shared VLC/store helpers instead of raw SQL string inserts or `String(jsonbValue)` coercion.
 **Detection**: `rg "codename_localized|presentation\?\.codename|ORDER BY codename ASC|data\[[^\]]*codename" packages docs`
 **Why**: The approved architecture is one persisted codename field across shared types, fixed schemas, snapshots, and runtime metadata. Reintroducing a second codename seam would recreate the same storage/query drift that this wave is removing.
+## Runtime Admin Codename Validation Pattern (IMPORTANT)
+**Rule**: Admin role codename validation must be split into two layers: a broad shared schema that accepts any supported runtime format plus legacy slugs, and an exact backend route check that reads the active `metahubs` codename settings from `admin.cfg_settings` before create/copy/update writes.
+**Required**:
+- Keep `RoleCodenameSchema` broad enough to avoid rejecting inputs that are valid under a non-default runtime codename configuration.
+- Perform exact role codename validation in `rolesRoutes` after reading `codenameStyle`, `codenameAlphabet`, and `codenameAllowMixedAlphabets` from settings, and after applying `enforceSingleLocaleCodename(...)`.
+- Preserve legacy lowercase slug compatibility for already-existing role codenames during the route-level check.
+- Keep admin frontend role codename UX and backend validation aligned with the same runtime settings contract.
+**Detection**: `rg "RoleCodenameSchema|codenameStyle|codenameAlphabet|codenameAllowMixedAlphabets|usePlatformCodenameConfig" packages/admin-*`
+**Why**: The admin UI already used runtime codename settings while backend role validation remained hardcoded to PascalCase + `en-ru`, which created a frontend/backend drift and false request rejections under valid non-default settings.
 ## Self-Scoped Admin SQL Helper Pattern (IMPORTANT)
 **Rule**: Admin `SECURITY DEFINER` helper functions that accept an optional or explicit `user_id` must remain self-scoped for authenticated request sessions and may perform cross-user introspection only from Tier 2 backend/bootstrap contexts where `auth.uid()` is absent.
 **Required**:

@@ -32,11 +32,20 @@ interface LocaleDialogProps {
 
 const normalizeLocaleCodeInput = (value: string): string => {
     const sanitized = value.replace(/[^a-zA-Z-]/g, '')
+    const hasTrailingSeparator = sanitized.endsWith('-')
     const [languagePart = '', regionPart = ''] = sanitized.split('-', 2)
     const normalizedLanguage = languagePart.slice(0, 2).toLowerCase()
     const normalizedRegion = regionPart.slice(0, 2).toUpperCase()
 
-    return normalizedRegion ? `${normalizedLanguage}-${normalizedRegion}` : normalizedLanguage
+    if (!normalizedLanguage) {
+        return ''
+    }
+
+    if (normalizedRegion) {
+        return `${normalizedLanguage}-${normalizedRegion}`
+    }
+
+    return hasTrailingSeparator ? `${normalizedLanguage}-` : normalizedLanguage
 }
 
 /**
