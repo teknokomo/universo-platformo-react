@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-04-04: Self-hosted post-import schema diff and runtime inheritance regression wave
+
+- Research outcome implemented: the connector destructive-diff bug was caused by identity drift, not by harmless UI-only diff rendering. `@universo/schema-ddl/calculateSchemaDiff(...)` matches physical entities and fields by `entity.id` / `field.id`, not by codename.
+- Confirmed-and-fixed root cause: `metahubsController.importFromSnapshot` restored the imported snapshot into a fresh branch through `SnapshotRestoreService`, which remapped entity/attribute/layout IDs to new runtime rows, but originally created the initial publication version from the raw imported snapshot payload instead of serializing the restored live branch. The imported publication baseline now serializes from the restored live branch, keeping executable identity aligned with later publications.
+- Confirmed-and-fixed runtime-config seam: eager normalization of sparse catalog runtime config erased the distinction between inheritance and authored catalog overrides. The shared contract now keeps runtime config sparse, introduces explicit `useLayoutOverrides`, and applies layout-like catalog overrides only when that seam is actually enabled.
+- Closure validation: focused shared/backend/frontend tests passed, the missing browser-safe `sanitizeCatalogRuntimeViewConfig` export was fixed in `@universo/utils`, `pnpm run build:e2e` finished green (`28/28`), the real Playwright self-hosted generator reran and rewrote the committed fixture, the targeted browser import flow passed on the regenerated snapshot, and the canonical root `pnpm build` finished green (`28/28`).
+- No open research thread remains for this regression wave.
+
 ## 2026-03-23: Unified codename JSONB architecture revalidation
 
 - Research outcome: the user-correct target architecture is not the previously implemented dual-field model. The new target is one field only, `codename JSONB`, across metahubs root entities, child entities, admin roles, and runtime application metadata.

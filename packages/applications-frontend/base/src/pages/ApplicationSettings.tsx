@@ -110,7 +110,7 @@ const ApplicationSettings = () => {
 
     return (
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
-            <ViewHeader title={t('settings.title', 'Application Settings')} description={applicationDisplay.name} search={false} />
+            <ViewHeader title={t('settings.title', 'Application Settings')} search={false} />
 
             <Box data-testid='application-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={(_, value: SettingsTab) => setActiveTab(value)}>

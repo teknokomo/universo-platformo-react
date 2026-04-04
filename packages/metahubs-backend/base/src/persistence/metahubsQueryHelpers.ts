@@ -89,7 +89,13 @@ export async function softDelete(exec: SqlQueryable, schema: string, table: stri
  *
  * Branch-scoped tables use `_mhb_deleted` instead of `_app_deleted`.
  */
-export async function mhbSoftDelete(exec: SqlQueryable, schemaName: string, table: string, id: string, userId?: string | null): Promise<boolean> {
+export async function mhbSoftDelete(
+    exec: SqlQueryable,
+    schemaName: string,
+    table: string,
+    id: string,
+    userId?: string | null
+): Promise<boolean> {
     const qt = qSchemaTable(schemaName, table)
     const rows = await exec.query<{ id: string }>(
         `UPDATE ${qt}

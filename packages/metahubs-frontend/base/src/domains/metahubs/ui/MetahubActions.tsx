@@ -2,12 +2,14 @@ import { useCallback, useEffect } from 'react'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography, Checkbox } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFillVlc } from '@universo/template-mui'
+import { LocalizedInlineField, notifyError, useCodenameAutoFillVlc } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Metahub, MetahubDisplay, MetahubLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
+import { isPendingEntity } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig, getCodenameHelperKey } from '../../settings/hooks/useCodenameConfig'
 import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
@@ -33,7 +35,13 @@ type EditTabArgs = {
 
 const ignoreTemplateChange = (_id: string | null) => undefined
 
-import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import {
+    extractLocalizedInput,
+    ensureLocalizedContent,
+    ensureEntityCodenameContent,
+    hasPrimaryContent,
+    normalizeLocale
+} from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 
@@ -428,6 +436,21 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                         })
                     }
                 }
+            }
+        }
+    },
+    {
+        id: 'export',
+        labelKey: 'export.exportMetahub',
+        icon: <FileDownloadIcon />,
+        order: 30,
+        visible: (ctx) => !isPendingEntity(ctx.entity) && Boolean(ctx.entity.permissions?.manageMetahub),
+        onSelect: async (ctx) => {
+            try {
+                await ctx.runtime?.exportMetahub?.(ctx.entity.id)
+            } catch (error: unknown) {
+                notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                throw error
             }
         }
     },

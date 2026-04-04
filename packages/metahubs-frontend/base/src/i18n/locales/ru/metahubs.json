@@ -603,7 +603,31 @@
         "tabs": {
             "general": "Основное",
             "hubs": "Хабы",
+            "layout": "Макет",
             "options": "Опции"
+        },
+        "runtime": {
+            "showSearch": "Строка поиска/фильтрации",
+            "showCreateButton": "Показывать кнопку создания",
+            "showViewToggle": "Переключатель карточек/таблицы",
+            "enableRowReordering": "Включить перестановку строк",
+            "reorderPersistenceField": "Поле сохранения порядка",
+            "reorderPersistenceFieldHelper": "Укажите кодовое имя или ключ числового поля, в котором хранится сохраняемый порядок строк, например sort_order.",
+            "useLayoutOverrides": "Переопределять настройки макета приложения",
+            "useLayoutOverridesHelper": "Когда переключатель выключен, каталог наследует поиск, вид, карточки и высоту строк из макета приложения.",
+            "defaultViewMode": "Вид по умолчанию",
+            "viewModeTable": "Таблица",
+            "viewModeCard": "Карточки",
+            "cardColumns": "Столбцы карточек",
+            "rowHeight": "Высота строки",
+            "rowHeightCompact": "Компактная (по умолчанию)",
+            "rowHeightNormal": "Обычная (52px)",
+            "rowHeightAuto": "Авто (многострочная)",
+            "createSurface": "Тип окна создания",
+            "editSurface": "Тип окна редактирования",
+            "copySurface": "Тип окна копирования",
+            "surfaceDialog": "Диалог",
+            "surfacePage": "Страница"
         },
         "copy": {
             "action": "Копировать",
@@ -1094,6 +1118,10 @@
         "presentation": {
             "headerAsCheckbox": "Отображать заголовок как чекбокс",
             "headerAsCheckboxHelper": "Показать чекбокс в заголовке столбца вместо текста (только для типа Булево)",
+            "multilineEditor": "Использовать многострочный редактор",
+            "multilineEditorHelper": "В опубликованных рантайм-формах это поле STRING будет отображаться как textarea.",
+            "multilineRows": "Строк в textarea",
+            "multilineRowsHelper": "Выберите значение от 2 до 12 строк.",
             "enumMode": "Вид отображения перечисления",
             "enumModeHelper": "Применяется к ссылкам, которые указывают на перечисление в рантайм-формах.",
             "enumModeOptions": {

@@ -67,5 +67,20 @@ describe('metahubs-frontend entry exports', () => {
         expect(typeof en).toBe('object')
         expect(typeof ru).toBe('object')
         expect(typeof fallback).toBe('object')
+
+        expect((en as any).catalogs.tabs.layout).toBe('Layout')
+        expect((en as any).catalogs.runtime.showSearch).toBe('Search/filter bar')
+        expect((en as any).catalogs.runtime.createSurface).toBe('Create form type')
+        expect((en as any).catalogs.runtime.surfacePage).toBe('Page')
+        expect((en as any).sets.tabs).toEqual({
+            general: 'General',
+            hubs: 'Hubs',
+            options: 'Options'
+        })
+        expect((en as any).sets.runtime).toBeUndefined()
+
+        expect((ru as any).catalogs.tabs.layout).toBe('Макет')
+        expect((ru as any).catalogs.runtime.showSearch).toBe('Строка поиска/фильтрации')
+        expect((ru as any).catalogs.runtime.createSurface).toBe('Тип окна создания')
     })
 })

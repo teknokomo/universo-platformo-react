@@ -4,7 +4,212 @@
 
 ---
 
-## Active Open Tasks (Canonical)
+## Current Task Ledger (Canonical)
+
+## Active Session: 2026-04-04 Self-Hosted Fixture And Header Geometry Revalidation
+
+- [x] Repair the self-hosted fixture contract so imported catalog labels match the expected Sets / Enumerations naming on a fresh browser import.
+	- Note: Fix the canonical Playwright generator source of truth first, then regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the real generator instead of hand-editing the exported artifact.
+- [x] Remove the shared header gutter drift that became visible after the layout-details back button was removed and normalize runtime toolbar edge spacing.
+	- Note: Keep the fix in the shared `ViewHeader` / runtime action contract so both the layout details page and published `/a/...` header recover their standard left/right alignment.
+- [x] Normalize runtime header control heights so search and view-toggle controls match the Create action.
+	- Note: The current regression is caused by shared 40px controls next to a small Create button rendered outside `ToolbarControls`.
+- [x] Add geometry-focused regression coverage for the affected layout-details and published-runtime flows.
+	- Note: Existing tests already prove functionality, but they do not assert title/control edge alignment or height parity, which is why this regression passed previously.
+- [x] Regenerate the committed self-hosted fixture and revalidate the touched flows plus the canonical root build.
+	- Note: Validation must cover the real generator path, the affected Playwright flows, and the final root `pnpm build`.
+	- Current status: complete; the fixture contract now exports `Enumerations` / `Перечисления` and `Sets` / `Наборы` through the canonical generator path, `ViewHeader` no longer applies negative gutter offsets, the runtime Create button and shared controls now share the same 40px height contract, geometry assertions were added to the affected Playwright flows, the real generator reran and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, the targeted browser flows passed, and the canonical root `pnpm build` finished green.
+
+
+## Active Session: 2026-04-04 QA Remediation Closure
+
+- [x] Re-run focused lint/test validation on the touched self-hosted parity packages and isolate only the currently reproducible issues.
+	- Note: Use the latest branch state rather than the earlier QA snapshot so fixes target real remaining debt only.
+- [x] Fix every confirmed residual issue without widening scope beyond the self-hosted parity wave.
+	- Note: Prioritize lint/formatting debt in touched files and any test gaps or regressions that still reproduce.
+- [x] Revalidate the touched packages and finish with the canonical root `pnpm build`.
+- [x] Update memory-bank active/progress state to reflect the final remediation result.
+	- Note: Focused lint now ends with 0 errors for `@universo/utils`, `@universo/template-mui`, `@universo/metahubs-frontend`, `@universo/metahubs-backend`, and `@universo/apps-template-mui`; the only non-format residual defect was a duplicate `EnumerationValueOption` type declaration in `ElementList.tsx`; canonical root `pnpm build` finished green with `28/28` successful tasks.
+
+
+- [x] Close the post-import self-hosted schema-diff, runtime inheritance, UI polish, and fixture-fidelity regression wave from 2026-04-04
+	- Note: This pass is limited to the newly verified defects after the user imported the committed self-hosted fixture, linked an application, created schema, changed only catalog/layout runtime settings, published a new version, and observed connector/runtime regressions in real browser verification.
+	- Implementation order for the current session:
+		- [x] Fix the imported-snapshot ID drift so later live publications keep stable executable entity/field identity and layout-only publications do not produce full destructive application diffs.
+		- [x] Redesign catalog runtime settings so local overrides are opt-in and global layout settings remain inherited by default.
+		- [x] Remove the layout-settings back button, rename the unclear surface labels, and normalize the published runtime spacing/control-height polish.
+		- [x] Repair the self-hosted generator/fixture contract so default Main entities and section/category naming match the live clean-metahub behavior.
+		- [x] Regenerate the committed self-hosted fixture through the real generator and revalidate the touched flows.
+	- Required outcomes:
+		- [x] Imported metahubs/publications must not persist a raw imported snapshot as the active publication baseline when the live branch has already remapped object IDs during restore.
+		- [x] A layout-only or catalog-runtime-only publication change must not surface as full-table destructive schema recreation in the linked application connector.
+		- [x] Catalog-local runtime settings must inherit global layout settings until the user explicitly enables local overrides.
+		- [x] Layout/runtime authoring UI must remove the clipped back button, use clearer create/edit/copy wording, and keep the published runtime controls visually aligned.
+		- [x] The committed self-hosted fixture must export the corrected localized Main codename/section contract and stay aligned with the real import/generator path.
+	- Validation target: focused backend/frontend/unit tests, targeted self-hosted generator/import validation, and the canonical root `pnpm build`.
+	- Current status: complete; imported publication baselines now serialize from the restored live branch instead of the raw imported payload, catalog runtime config now keeps inheritance sparse unless `useLayoutOverrides` is explicitly enabled, the layout/runtime polish fixes are shipped, the self-hosted contract now canonicalizes localized Main codenames and section naming, the missing browser-safe `@universo/utils` export for `sanitizeCatalogRuntimeViewConfig` was fixed at the shared package boundary, the real Playwright generator reran and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, the targeted browser import flow passed on the regenerated fixture, `pnpm run build:e2e` finished green (`28/28`), and the final root `pnpm build` also finished green (`28/28`).
+
+
+- [x] Close the fresh-import self-hosted codename and section-name regressions from the 2026-04-04 user verification pass
+	- Note: This pass is limited to the newly verified defects after another full rebuild, empty database reset, and fresh import of `tools/fixtures/metahubs-self-hosted-app-snapshot.json`: the imported metahub codename still gains noisy suffixes and loses the Russian locale variant, one repeated section still appears as `Enumeration Values` / `Значения перечислений`, the auto-created default `Main` entities still persist type-suffixed English codenames (`MainHub`, `MainCatalog`, `MainSet`, `MainEnumeration`), and the committed self-hosted fixture must be regenerated from the corrected generator contract.
+	- Implementation order for the current session:
+		- [x] Replace noisy imported metahub codename generation with canonical localized EN/RU codename derivation from the imported metahub name while keeping collision handling deterministic.
+		- [x] Fix template-seeded default `Main` entity codename generation so the primary English codename is derived from the localized entity name instead of the raw template key suffix.
+		- [x] Remove the extra `Enumeration Values` / `Значения перечислений` self-hosted top-level catalog contract and fail closed if the committed fixture drifts back.
+		- [x] Regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the corrected Playwright generator and revalidate the touched flows.
+	- Required outcomes:
+		- [x] Imported self-hosted metahubs must use stable canonical metahub codenames derived from the localized metahub name, with both English and Russian codename locales and no timestamp/random noise on the normal path.
+		- [x] Auto-created default `Main` entities must no longer store `MainHub` / `MainCatalog` / `MainSet` / `MainEnumeration` as the primary English codename when the localized entity name is already `Main`.
+		- [x] The self-hosted fixture/generator contract must no longer create or tolerate a standalone `Enumeration Values` / `Значения перечислений` section.
+		- [x] The committed self-hosted fixture must be regenerated from the corrected generator contract and stay aligned with the import/browser validation path.
+	- Validation target: focused backend template/import tests, targeted self-hosted generator/import validation, regenerated fixture sanity checks, and the canonical root `pnpm build`.
+	- Current status: complete; imported metahub codenames are now derived from the localized imported metahub name with deterministic `Imported` / `Импорт` suffixes only on real collisions, template seed execution and migration now normalize the primary English codename from localized `Main` names instead of raw `MainHub`/`MainCatalog` keys, the self-hosted contract rejects the deprecated standalone `Enumeration Values` catalog plus legacy type-suffixed `Main*` codenames, the real Playwright generator reran and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json` with 11 canonical sections, the regenerated fixture no longer contains the legacy markers, the targeted browser import flow passed, and the final root `pnpm build` finished green.
+
+- [x] Close the fresh-import self-hosted publication/settings fixture regressions from the 2026-04-04 user verification pass
+	- Note: This pass is limited to the newly verified defects after a clean rebuild, empty database, and fresh import from `tools/fixtures/metahubs-self-hosted-app-snapshot.json`: publication settings open with an empty name, publication breadcrumbs can degrade to `[object Object]`, application settings render an extra application-name subtitle, the exported self-hosted metahub codename still carries run/import noise and lacks a Russian locale variant, and the exported default layout still contains duplicate left-side menu widgets.
+	- Implementation order for the current session:
+		- [x] Separate publication breadcrumb cache from publication detail cache and restore stable settings hydration.
+		- [x] Remove the extra application-settings subtitle from the frontend settings page.
+		- [x] Canonicalize the self-hosted metahub codename with stable EN/RU localized values.
+		- [x] Make the self-hosted generator/update flow keep exactly one canonical left menu widget.
+		- [x] Regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the corrected Playwright generator and revalidate the touched flows.
+	- Required outcomes:
+		- [x] Publication settings must show the existing localized publication name after a fresh self-hosted fixture import.
+		- [x] Publication breadcrumbs must never render `[object Object]` after repeated navigation into publication inner routes.
+		- [x] Application settings must render only the main page title without an extra duplicated application-name subtitle.
+		- [x] The committed self-hosted fixture must export a stable canonical metahub codename with a Russian localized codename variant.
+		- [x] The committed self-hosted fixture must contain exactly one canonical menu widget in the default layout (`Catalogs` / `Каталоги`), without the duplicate `Main` / `Основное` menu.
+		- [x] Revalidate with focused tests/checks, regenerate the committed fixture through the Playwright generator, and finish with the required targeted validations.
+	- Validation target: focused frontend tests for publication/application surfaces, targeted generator/fixture assertions, regenerated fixture sanity checks, and any required package/build validation for touched files.
+	- Current status: complete; publication breadcrumb/detail queries now use separate cache keys so settings hydration no longer leaks object/string payloads, the application settings subtitle is gone, the self-hosted live generator now creates a valid CodenameVLC while the committed fixture canonicalizes EN/RU codename locales, the regenerated fixture contains exactly one canonical `menuWidget`, targeted frontend tests passed, `pnpm run build:e2e` stayed green, the Playwright generator rerun passed and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, the targeted browser import flow passed on the regenerated fixture, and the final root `pnpm build` finished green.
+
+
+
+
+- [x] Close the post-QA self-hosted regressions and publication UX defects from the 2026-04-04 audit
+	- Note: This pass is limited to the concrete defects still confirmed after the last QA verdict and the user follow-up: the committed self-hosted fixture hash is invalid, catalog runtime defaults do not inherit layout settings correctly, publication settings/edit dialogs regress on localized values, publication version creation shows branch labels as `[object Object]`, and auto-created Main entities still miss Russian codename locales.
+	- Note: An additional validation blocker surfaced during the required Playwright import rerun: Node-side ESM consumers could not resolve `dayjs` plugin/locale imports from `@universo/utils` dist. This was fixed in the shared `formatDate` utility with explicit `.js` Day.js ESM specifiers before the browser flow was revalidated.
+	- Implementation order for the current session:
+		- [x] Repair the fixture hash contract and regenerate the committed snapshot.
+		- [x] Restore catalog runtime inheritance semantics without regressing explicit overrides.
+		- [x] Fix publication settings/edit hydration and normalize publication branch labels.
+		- [x] Seed localized default codenames for auto-created Main entities.
+		- [x] Revalidate with focused tests, browser import flow, and root build.
+	- Required outcomes:
+		- [x] Repair the self-hosted fixture/generator hash contract so the committed `metahubs-self-hosted-app-snapshot.json` imports successfully through the real browser flow.
+		- [x] Fix catalog runtime config resolution so layout-level defaults remain inherited unless a catalog explicitly overrides them.
+		- [x] Fix the publication settings/edit surface so existing localized names/descriptions load correctly instead of opening empty.
+		- [x] Fix publication version creation so the selected branch label renders localized text instead of `[object Object]`.
+		- [x] Ensure automatically created default `Main`/`Основной` entities seed Russian codename locales alongside English ones where the product already seeds EN/RU names.
+		- [x] Revalidate with focused tests, the relevant snapshot-import Playwright flow, and a canonical root `pnpm build`.
+	- Validation target: focused frontend/backend/unit tests, targeted self-hosted snapshot import E2E, and canonical root `pnpm build`.
+	- Current status: complete; the self-hosted canonicalizer now recomputes `snapshotHash` after canonical mutations and the committed fixture was rehashed to a validator-clean `0904ee61b0db8b1c541c9a8b2008d7af35a9c5768f497cf89586af83346b1d7c`, catalog runtime layout inheritance now preserves layout defaults unless catalog overrides are explicit, `EntityFormDialog` now hydrates async extra values until the user edits them, publication branch labels normalize VLC codenames to strings, template-seeded default Main entities now derive Russian codename locales from localized names, the Day.js ESM import blocker in `@universo/utils` was fixed, targeted package tests passed, the real browser import flow passed, and the final root `pnpm build` completed successfully.
+
+
+
+- [x] Close the last self-hosted documentation drift from the 2026-04-04 QA audit
+	- Note: The runtime/code path is already validated green; this pass is limited to the remaining stale README references that still mention the old self-model screenshots directory instead of the canonical self-hosted screenshots contract.
+	- Required outcomes:
+		- [x] Update both EN/RU E2E READMEs to point to the canonical self-hosted screenshots directory naming.
+		- [x] Recheck the active tooling/docs surface for remaining stale screenshot-path references after the edit.
+		- [x] Update memory-bank active/progress state so the final parity closure no longer carries even low-severity documentation debt.
+	- Validation target: targeted workspace grep checks for the stale screenshot-path string after the doc edit.
+	- Current status: complete; both E2E READMEs now point to the canonical self-hosted screenshots directory naming, the stale `test-results/self-model` path is gone from the active tooling/docs surface, and the memory-bank status now reflects a fully closed parity wave with no remaining low-severity documentation drift.
+
+- [x] Close the final QA-confirmed parity gaps from the 2026-04-04 self-hosted audit
+	- Note: This pass is limited to the concrete defects confirmed after the previous completion claim. Keep the validated runtime work intact while closing the remaining security, fixture-quality, naming-cleanup, migration-evidence, and route-test gaps.
+	- Required outcomes:
+		- [x] Tighten metahub snapshot export authorization so the frontend and backend require an explicit management-level permission instead of bare membership access, and add direct forbidden-path regression coverage.
+		- [x] Replace the remaining technical/mixed-language self-hosted fixture copy with clean product-grade EN/RU names and descriptions, then regenerate the committed fixture artifact from the corrected generator contract.
+		- [x] Remove the last legacy `self-model` fixture codename/reference that still survives in self-hosted consumer E2E coverage.
+		- [x] Add backend route-level regression coverage for catalog `runtimeConfig` create/update/copy persistence so the shared contract is proved through HTTP behavior rather than only implementation reads.
+		- [x] Close the migration-parity evidence gap by validating and documenting the shipped self-hosted migrations surface in a way that matches the real implementation instead of leaving the plan overstated.
+		- [x] Revalidate with focused tests for touched backend/frontend/generator surfaces and finish with a canonical root `pnpm build`.
+	- Validation target: focused Jest/Vitest suites, targeted self-hosted generator validation, regenerated fixture sanity checks, and the canonical root `pnpm build`.
+	- Current status: complete; metahub export now requires `manageMetahub` end-to-end with direct `403` backend coverage, the self-hosted contract/fixture copy was rewritten and the committed snapshot was regenerated from the corrected canonicalizer, the last consumer-side `self-model` codename was removed, catalog `runtimeConfig` HTTP coverage now spans create/update/copy, migration parity is now documented as a shipped UI surface rather than an implied fixture section, and the final root `pnpm build` finished green (`28/28`).
+
+
+- [x] Close the remaining QA-confirmed self-hosted fixture fidelity gaps
+	- Note: This pass is limited to the concrete defects confirmed by the 2026-04-04 QA audit after the previous "complete" status: the committed self-hosted snapshot is still an e2e-stamped artifact, the generator/CLI contract is not yet canonicalized, and regression coverage remains too weak to fail loudly on fixture drift.
+	- Note: Final consumer validation also exposed one remaining downstream blocker after import: application runtime sync still fails for the canonical self-hosted fixture during the connector-driven schema creation flow, so this pass must close that applications-backend compatibility gap before the task can be marked complete.
+	- Required outcomes:
+		- [x] Canonicalize the generated/exported self-hosted snapshot identity so the committed fixture uses stable product metadata instead of run-specific e2e names/codenames.
+		- [x] Rename and configure the canonical default dashboard layout instead of leaving the exported fixture on the seeded `Main` layout or creating an unused duplicate layout.
+		- [x] Strengthen generator and consumer assertions so stale self-model artifacts, weak localization, incomplete section descriptions, and incomplete settings baseline regressions fail closed.
+		- [x] Align the manual creation utility with the canonical generator contract so both produce the same self-hosted structure, layout naming, localization quality, and seeded settings data.
+		- [x] Regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the corrected generator contract and revalidate all consuming flows.
+		- [x] Make applications runtime sync preserve canonical enum-value codename payloads from imported snapshots so connector-driven schema creation no longer fails after self-hosted fixture import.
+		- [x] Update memory-bank status/progress so completion claims match the real artifact contract after validation.
+	- Validation target: focused generator/consumer checks, targeted lint for touched files, targeted self-hosted Playwright generator rerun, and canonical root `pnpm build`.
+	- Current status: complete; the canonical generator/CLI/layout contract was repaired, the committed self-hosted fixture was regenerated from the real generator, applications runtime sync now normalizes imported enum-value codenames as canonical VLC payloads and ships through the rebuilt package dist, focused applications-backend seeding coverage passed, both self-hosted fixture-consuming Playwright flows passed, and the canonical root `pnpm build` finished green (`28/28`).
+
+
+
+- [x] Close the remaining QA and plan-completion gaps for the metahub self-hosted parity wave
+	- Note: This implementation pass is limited to the concrete defects and incompletions confirmed by the 2026-04-04 QA audit after the nominal parity-wave completion. Keep legacy working behavior intact while removing the verified technical debt.
+	- Required outcomes:
+		- [x] Disable persisted runtime row reordering whenever the frontend cannot guarantee a complete dataset order, and keep the UI honest about local-search / partial-data constraints.
+		- [x] Prevent direct page-surface create activation when a catalog disables the create action via `runtimeConfig.showCreateButton`.
+		- [x] Expose the direct metahub export action in the metahub frontend so the shipped UI matches the supported backend surface.
+		- [x] Repair the stale applications-frontend test mock and clear the relevant lint / formatting debt introduced in touched files.
+		- [x] Update the parity plan/docs/memory-bank status so they reflect the completed implementation rather than a draft with open checklist items.
+		- [x] Revalidate with focused package tests/lint, required targeted checks, and a final root `pnpm build`.
+	- Validation target: targeted Vitest/Jest suites for touched packages, package lint for changed packages, and canonical root `pnpm build`.
+	- Current status: complete; runtime reorder now fails closed on partial/local-search datasets with explicit user messaging, hidden-create page routing is blocked, direct metahub export is exposed as a per-entity action, the stale applications-frontend mock and touched-file formatting debt were repaired, and validation finished green including targeted Vitest runs, lint for touched frontend packages, and a final root `pnpm build` (`28/28`).
+
+
+- [x] Close the final QA remediation gaps for the metahub self-hosted parity wave
+	- Note: This follow-up is limited to the concrete defects confirmed by the 2026-04-04 QA pass after the nominal parity-wave completion. Do not widen scope beyond the verified gaps in fixture fidelity, localization quality, regression-proofing, and their documentation/memory trail.
+	- Required outcomes:
+		- [x] Fix the English metahubs locale regression so newly added catalog runtime/layout keys are truly English in the EN bundle and remain aligned with RU.
+		- [x] Strengthen generator/export regression coverage so the self-hosted fixture contract asserts its real identity and catches stale self-model artifacts.
+		- [x] Regenerate or otherwise replace `tools/fixtures/metahubs-self-hosted-app-snapshot.json` with the actual self-hosted V2 artifact produced by the current generator contract, including the removal of the standalone `Attributes` catalog.
+		- [x] Update any touched EN/RU documentation and memory-bank status files so they describe the real delivered fixture/i18n state rather than the previously assumed one.
+		- [x] Revalidate with focused package tests/checks, the generator flow if available, and a final root `pnpm build`.
+	- Validation target: targeted metahubs-frontend tests, targeted generator validation, artifact sanity checks, and canonical root `pnpm build`.
+	- Current status: complete; the EN locale bundle and regression assertions were corrected, the self-hosted generator/export contract now fails closed against stale self-model assumptions, the committed fixture was regenerated through the real generator after fixing the `Settings` seed payload key mismatch (`Key`/`Value`/`Category`), and the validation stack finished green including the final root `pnpm build` (`28/28`).
+
+
+
+- [x] Implement the metahub self-hosted parity wave
+	- Note: Execute the approved plan in `memory-bank/plan/metahub-self-hosted-app-parity-plan-2026-04-04.md` end-to-end without widening scope beyond the defined parity wave. Preserve working legacy functionality while delivering the new self-hosted metahub MVP path.
+	- Current implementation pass (2026-04-04 QA closure + completion):
+		- [x] Fix the confirmed QA blockers in runtime CRUD and validation: parent create/copy permission gates, the `runtimeRowsController` root-build TypeScript error, and direct regression coverage for create/copy/reorder permissions.
+		- [x] Finish Phase 6 by wiring standalone runtime page surfaces through the existing shared form/page/tabular primitives and locking the behavior with focused tests.
+		- [x] Finish Phase 7 by exposing migration-control parity in the self-hosted app flow with the existing application migration page/guard patterns and navigation affordances.
+		- [x] Finish Phase 8 by replacing the transitional self-model fixture/generator naming and dependent flows with the localized V2 artifact contract.
+		- [x] Finish Phase 9 by closing the remaining snapshot/export/import fixture UX and regression gaps for the renamed self-hosted artifact contract.
+		- [x] Finish Phase 10 with focused unit/integration/Playwright/generator validation plus a green root `pnpm build`.
+		- [x] Finish Phase 11 with EN/RU tooling/docs updates for the delivered self-hosted fixture and flow behavior.
+	- Required outcomes:
+		- [x] Phase 0: capture baseline screenshots/current runtime evidence and keep the section-by-section parity evidence in the validation/docs trail.
+		- [x] Phase 1: introduce shared typed runtime/editing config contracts and make metahubs + applications-backend + apps-template consume the same schema/defaulting helpers.
+		- [x] Phase 2: add per-catalog layout/runtime/edit-surface authoring controls in existing metahub dialogs.
+		- [x] Phase 3: add multiline attribute authoring/runtime behavior using the existing `uiConfig.widget` seam.
+		- [x] Phase 4: refactor apps-template runtime to stay DataGrid-first while supporting toolbar, quick filter, card/list, row height, and per-catalog overrides.
+		- [x] Phase 5: implement persisted row-reordering rules and fail-closed gating.
+		- [x] Phase 6: add page-surface editing and child-relation runtime surfaces using shared form/page primitives.
+		- [x] Phase 7: add migration-control parity for the self-hosted metahub app using existing migration routes/patterns.
+		- [x] Phase 8: replace the self-model fixture/generator with the localized product-faithful V2 artifact and rename all dependent flows.
+		- [x] Phase 9: complete snapshot/export/import UX and regression coverage for new config fields.
+		- [x] Phase 10: add/extend unit, integration, Playwright, generator, and fresh-import validation coverage; pass targeted checks and root `pnpm build`.
+		- [x] Phase 11: update package READMEs and GitBook docs in EN/RU for the delivered behavior.
+	- Validation target: targeted tests during each phase, final root `pnpm build`, targeted Playwright coverage, generator rerun, and fresh hosted E2E import/export verification.
+	- Current status: complete; the shared runtime-config contract survives authoring/backend/runtime/export/import, standalone runtime now respects authored page surfaces, application self-hosted navigation exposes migrations parity, the V2 self-hosted fixture/generator contract replaced the transitional self-model artifact naming, focused tests/load checks passed, the shared browser export drift in `@universo/utils` was fixed at the source, and the final root `pnpm build` finished green (`28/28`).
+
+
+- [x] Plan the next metahub self-hosting parity wave
+	- Note: The previous snapshot/runtime wave delivered import/export and layout-level runtime settings, but did not reach catalog-level parity, attribute presentation parity, page-surface editing, or a production-credible self-model fixture. This planning task must define the next implementation wave without writing production code yet.
+	- Required outcomes:
+		- [x] Audit the remaining gap between the original metahub-self-hosting brief and the current implementation in `main`.
+		- [x] Produce a new detailed plan in `memory-bank/plan/metahub-self-hosted-app-parity-plan-2026-04-04.md` covering metadata contracts, runtime refactor, self-model V2, tests, and docs.
+		- [x] Explicitly fix the previous planning mistakes in the new plan: layout-global settings instead of catalog-specific settings, alternate runtime table degradation, local-only reorder semantics, and the weak self-model fixture structure.
+		- [x] Run a QA-oriented architecture review on the new plan against the real codebase, reusable UI/runtime seams, and relevant MUI DataGrid guidance.
+		- [x] Refine the plan so it reuses existing tabbed dialogs, attribute `uiConfig` seams, and current runtime primitives instead of introducing unnecessary nested settings DSLs or parallel CRUD surfaces.
+		- [x] Add the missing cross-package runtime schema unification and migration-control parity work so the plan does not leave hidden sync drift or a migrations-section parity hole.
+		- [x] Keep the new plan aligned with current package boundaries, modern shared-package usage, i18n-first text handling, UUID v7, and the no-legacy-removal constraint while awaiting final user approval.
+	- Current status: complete; the approved plan is now the implementation source of truth for the active wave.
+	- Validation target: codebase inspection, package README review, targeted external documentation lookup, and a discussion-ready plan file only.
 
 
 - [x] Address validated PR #747 review findings without widening scope

@@ -163,4 +163,3 @@ export function createAttributesRoutes(
 
     return router
 }
-

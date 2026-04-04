@@ -52,7 +52,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
             </div>
         ),
-        CrudDialogs: () => null,
+        CrudDialogs: ({ surface }: { surface?: 'dialog' | 'page' }) => <div data-testid='crud-dialogs-surface'>{surface ?? 'dialog'}</div>,
         RowActionsMenu: () => null,
         useCrudDashboard: (options: any) => {
             runtimeMocks.capturedCellRenderers = options.cellRenderers
@@ -115,8 +115,12 @@ vi.mock('@universo/apps-template-mui', async () => {
 })
 
 function renderRuntimePage() {
+    return renderRuntimePageAt('/applications/app-1/runtime')
+}
+
+function renderRuntimePageAt(route: string) {
     return render(
-        <MemoryRouter initialEntries={['/applications/app-1/runtime']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
                 <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
             </Routes>
@@ -210,6 +214,81 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(screen.getByTestId('apps-dashboard-banner')).toHaveTextContent(
             'The workspace limit for this catalog has been reached (2 / 2).'
         )
+    })
+
+    it('hides the create action when the catalog runtime config disables it', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                catalog: {
+                    name: 'Details',
+                    runtimeConfig: { showCreateButton: false }
+                }
+            }
+        }
+
+        renderRuntimePage()
+
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+    })
+
+    it('switches CrudDialogs to page surface when createSurface is configured as page', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                catalog: {
+                    name: 'Details',
+                    runtimeConfig: { createSurface: 'page' }
+                }
+            }
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
+        })
+        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('derives page surface from URL search params on direct navigation', async () => {
+        renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
+        })
+        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('blocks direct create page navigation when the catalog hides the create action', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                catalog: {
+                    name: 'Details',
+                    runtimeConfig: { showCreateButton: false, createSurface: 'page' }
+                }
+            },
+            handleCloseForm: vi.fn()
+        }
+
+        renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
+        })
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
     })
 
     it('blocks inline BOOLEAN mutation attempts for pending rows', async () => {

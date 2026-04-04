@@ -3,12 +3,12 @@
 // Supports i18n integration and multiple format patterns.
 
 import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
-import localizedFormat from 'dayjs/plugin/localizedFormat'
-import customParseFormat from 'dayjs/plugin/customParseFormat'
-import advancedFormat from 'dayjs/plugin/advancedFormat'
-import 'dayjs/locale/ru'
-import 'dayjs/locale/en'
+import relativeTime from 'dayjs/plugin/relativeTime.js'
+import localizedFormat from 'dayjs/plugin/localizedFormat.js'
+import customParseFormat from 'dayjs/plugin/customParseFormat.js'
+import advancedFormat from 'dayjs/plugin/advancedFormat.js'
+import 'dayjs/locale/ru.js'
+import 'dayjs/locale/en.js'
 
 // Initialize dayjs plugins
 dayjs.extend(relativeTime)

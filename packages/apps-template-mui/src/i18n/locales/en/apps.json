@@ -25,7 +25,10 @@
         "errorDelete": "Delete failed: {{message}}",
         "errorLoadRow": "Failed to load element data",
         "errorCopy": "Copy failed: {{message}}",
-        "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again."
+        "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
+        "errorReorder": "Reorder failed: {{message}}",
+        "localSearchScope": "Search applies to loaded rows only.",
+        "reorderRequiresCompleteDataset": "Row reordering is available only when all rows are loaded and search is cleared."
     },
     "tabular": {
         "addRow": "Add Row",

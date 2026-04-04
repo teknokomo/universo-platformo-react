@@ -1,6 +1,6 @@
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
-import { expectNotNarrowerThan, getHorizontalBounds } from '../../support/browser/spacing'
+import { expectLeftEdgeAligned, expectNotNarrowerThan, getHorizontalBounds } from '../../support/browser/spacing'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -10,7 +10,13 @@ import {
     listLayoutZoneWidgets
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
-import { buildLayoutWidgetSelector, buildLayoutWidgetToggleSelector, buildLayoutZoneSelector, pageSpacingSelectors } from '../../support/selectors/contracts'
+import {
+    buildLayoutWidgetSelector,
+    buildLayoutWidgetToggleSelector,
+    buildLayoutZoneSelector,
+    pageSpacingSelectors,
+    viewHeaderSelectors
+} from '../../support/selectors/contracts'
 
 function readLocalizedText(value, locale = 'en') {
     if (!value || typeof value !== 'object' || !('locales' in value)) {
@@ -98,6 +104,11 @@ test('@flow metahub layouts list and layout details load through the existing UI
         await expect(page.getByTestId(buildLayoutZoneSelector('center'))).toBeVisible()
         await expect(page.getByTestId(buildLayoutWidgetSelector(detailsTitleWidget.id))).toBeVisible()
         await expectNotNarrowerThan(layoutsListBounds, page.getByTestId(pageSpacingSelectors.metahubLayoutDetailsContent))
+        await expectLeftEdgeAligned(
+            page.getByTestId(pageSpacingSelectors.metahubLayoutDetailsContent),
+            page.getByTestId(viewHeaderSelectors.titleRegion),
+            4
+        )
 
         await page.getByTestId(buildLayoutWidgetToggleSelector(detailsTitleWidget.id)).click()
 

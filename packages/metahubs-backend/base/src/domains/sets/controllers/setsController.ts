@@ -162,18 +162,14 @@ const matchesSetSearch = (codename: string, name: unknown, searchLower: string):
     codename.toLowerCase().includes(searchLower) ||
     getLocalizedCandidates(name).some((candidate) => candidate.toLowerCase().includes(searchLower))
 
-const getSetCodenameText = (codename: unknown): string =>
-    getCodenamePayloadText(codename as Parameters<typeof getCodenamePayloadText>[0])
+const getSetCodenameText = (codename: unknown): string => getCodenamePayloadText(codename as Parameters<typeof getCodenamePayloadText>[0])
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
 
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
     const entries = Object.entries(locales)
-        .map(
-            ([locale, value]) =>
-                [normalizeLocaleCode(locale), typeof value?.content === 'string' ? value.content.trim() : ''] as const
-        )
+        .map(([locale, value]) => [normalizeLocaleCode(locale), typeof value?.content === 'string' ? value.content.trim() : ''] as const)
         .filter(([, content]) => content.length > 0)
 
     if (entries.length === 0) {
@@ -394,12 +390,8 @@ const getSetById = async (
     return enriched ?? null
 }
 
-const getBlockingReferences = async (
-    metahubId: string,
-    setId: string,
-    constantsService: MetahubConstantsService,
-    userId?: string
-) => constantsService.findSetReferenceBlockers(metahubId, setId, userId)
+const getBlockingReferences = async (metahubId: string, setId: string, constantsService: MetahubConstantsService, userId?: string) =>
+    constantsService.findSetReferenceBlockers(metahubId, setId, userId)
 
 const hardDeleteSet = async (
     metahubId: string,
@@ -514,11 +506,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
             sanitizedName !== undefined
                 ? buildLocalizedContent(sanitizedName, parsed.data.namePrimaryLocale, DEFAULT_PRIMARY_LOCALE)
                 : currentSet?.presentation?.name ||
-                  buildLocalizedContent(
-                      { [DEFAULT_PRIMARY_LOCALE]: finalCodename },
-                      parsed.data.namePrimaryLocale,
-                      DEFAULT_PRIMARY_LOCALE
-                  )
+                  buildLocalizedContent({ [DEFAULT_PRIMARY_LOCALE]: finalCodename }, parsed.data.namePrimaryLocale, DEFAULT_PRIMARY_LOCALE)
 
         const resolvedDescription =
             sanitizedDescription !== undefined
@@ -637,9 +625,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
         const { limit, offset, sortBy, sortOrder, search } = parsed.data
 
         const rawSets = (await objectsService.findAllByKind(metahubId, 'set', userId)) as SetObjectRow[]
-        const setRows = hubId
-            ? rawSets.filter((row) => isSetObject(row) && getSetHubIds(row).includes(hubId))
-            : rawSets.filter(isSetObject)
+        const setRows = hubId ? rawSets.filter((row) => isSetObject(row) && getSetHubIds(row).includes(hubId)) : rawSets.filter(isSetObject)
         const setIds = setRows.map((row) => row.id)
         const constantsCounts = await constantsService.countByObjectIds(metahubId, setIds, userId)
 
@@ -763,10 +749,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                 codenameStyle,
                 codenameAlphabet
             )
-            if (
-                !normalizedBaseCodename ||
-                !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)
-            ) {
+            if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
                     details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }

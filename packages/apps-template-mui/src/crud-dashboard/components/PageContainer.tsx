@@ -8,7 +8,7 @@ import MuiLink from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 
 const PageContentHeader = styled('div')(({ theme }) => ({
     display: 'flex',

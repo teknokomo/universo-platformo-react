@@ -25,7 +25,13 @@ const DEFAULT_CC: CodenameConfig = {
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
-import { extractLocalizedInput, ensureLocalizedContent, ensureEntityCodenameContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import {
+    extractLocalizedInput,
+    ensureLocalizedContent,
+    ensureEntityCodenameContent,
+    hasPrimaryContent,
+    normalizeLocale
+} from '../../../utils/localizedInput'
 import { CodenameField, HubParentSelectionPanel } from '../../../components'
 
 export type HubFormValues = Record<string, unknown>

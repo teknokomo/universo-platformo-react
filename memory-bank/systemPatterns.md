@@ -1,6 +1,30 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
 ---
+## Shared Browser/Main Entrypoint Parity Pattern (IMPORTANT)
+**Rule**: When a shared package exposes both a Node/main entrypoint and a browser-specific entrypoint, every browser-safe helper consumed by frontend bundles must be exported from both surfaces.
+**Required**:
+- Keep `src/index.browser.ts` aligned with `src/index.ts` for browser-safe validation/runtime helpers such as dashboard layout normalization, catalog runtime-config normalization, and other pure utilities used by frontend packages.
+- Fix missing exports at the shared package boundary rather than working around them in downstream apps-template or shell packages.
+- Revalidate the original failing consumer package after the shared export fix, then rerun the canonical root build.
+**Detection**: `rg "index.browser|normalizeDashboardLayoutConfig|normalizeCatalogRuntimeViewConfig|resolveCatalogRuntimeDashboardLayoutConfig" packages/universo-utils packages/apps-template-mui packages/universo-core-frontend`
+**Why**: The final self-hosting parity build failed only in the browser bundle because `@universo/utils` exported `normalizeDashboardLayoutConfig` from the Node entrypoint but not from `index.browser.ts`. Fixing the shared export surface removed the drift for every browser consumer instead of hiding it in one package.
+## Metahub Export Authorization Pattern (IMPORTANT)
+**Rule**: Direct metahub snapshot export is a management action, not a membership-level read action.
+**Required**:
+- Backend `GET /metahub/:metahubId/export` must call `ensureMetahubAccess(..., 'manageMetahub', ...)`.
+- Frontend metahub action menus must gate export with the same `permissions.manageMetahub` seam already used for edit/delete/copy.
+- Keep a direct route-level forbidden regression test for export so permission drift fails closed.
+**Detection**: `rg "exportMetahub|manageMetahub|/export" packages/metahubs-backend packages/metahubs-frontend`
+**Why**: QA found that export had been left on bare membership access even after the frontend started exposing it as a user-facing action. Export now has to stay aligned with the explicit management contract on both sides.
+## Self-Hosted Migrations Surface Documentation Pattern (IMPORTANT)
+**Rule**: Self-hosted migrations parity must be documented as a real navigation/page/guard surface, not as a synthetic snapshot section.
+**Required**:
+- Reuse the existing migrations menu items, pages, API hooks, and guards in `metahubs-frontend` and `applications-frontend`.
+- Do not add fake migration entities to the committed self-hosted fixture just to satisfy documentation.
+- Keep plans/progress/memory wording aligned with the shipped UI surface.
+**Detection**: `rg "migrations|MigrationGuard|/migrations" packages/metahubs-frontend packages/applications-frontend memory-bank`
+**Why**: The implementation already shipped real migrations UI surfaces, but QA found the plan language still implied that parity depended on a fixture-level migration section. Documenting the actual seam prevents future drift between product reality and the fixture contract.
 ## Generated REST Docs Source-Of-Truth Pattern (IMPORTANT)
 **Rule**: `@universo/rest-docs` must derive its OpenAPI path and method inventory from the live backend route files, not from a hand-maintained historical YAML taxonomy.
 **Required**:

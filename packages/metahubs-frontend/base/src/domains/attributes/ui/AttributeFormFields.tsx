@@ -512,6 +512,11 @@ export const PresentationTabFields = ({
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
     const uiConfig = useMemo(() => (values.uiConfig ?? {}) as Record<string, unknown>, [values.uiConfig])
     const isEnumRef = dataType === 'REF' && targetEntityKind === 'enumeration'
+    const isMultilineString = dataType === 'STRING' && uiConfig.widget === 'textarea'
+    const multilineRows =
+        typeof uiConfig.rows === 'number' && Number.isInteger(uiConfig.rows) && uiConfig.rows >= 2 && uiConfig.rows <= 12
+            ? uiConfig.rows
+            : 4
 
     const enumPresentationMode: EnumPresentationMode =
         uiConfig.enumPresentationMode === 'radio' || uiConfig.enumPresentationMode === 'label' ? uiConfig.enumPresentationMode : 'select'
@@ -580,6 +585,51 @@ export const PresentationTabFields = ({
                 />
                 {displayAttributeHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>}
             </Box>
+            {dataType === 'STRING' && (
+                <>
+                    <Divider />
+                    <Box>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={isMultilineString}
+                                    onChange={(_, checked) => {
+                                        updateUiConfig(
+                                            checked ? { widget: 'textarea', rows: multilineRows } : { widget: 'text', rows: undefined }
+                                        )
+                                    }}
+                                    disabled={isLoading}
+                                />
+                            }
+                            label={t('attributes.presentation.multilineEditor', 'Use multiline editor')}
+                        />
+                        <FormHelperText sx={{ mt: -0.5, ml: 7 }}>
+                            {t(
+                                'attributes.presentation.multilineEditorHelper',
+                                'Renders this STRING field as a textarea in published runtime forms.'
+                            )}
+                        </FormHelperText>
+                    </Box>
+                    {isMultilineString && (
+                        <TextField
+                            label={t('attributes.presentation.multilineRows', 'Textarea rows')}
+                            type='number'
+                            size='small'
+                            fullWidth
+                            disabled={isLoading}
+                            value={multilineRows}
+                            onChange={(event) => {
+                                const rawValue = Number(event.target.value)
+                                updateUiConfig({
+                                    rows: Number.isInteger(rawValue) && rawValue >= 2 && rawValue <= 12 ? rawValue : 4
+                                })
+                            }}
+                            inputProps={{ min: 2, max: 12 }}
+                            helperText={t('attributes.presentation.multilineRowsHelper', 'Choose between 2 and 12 rows.')}
+                        />
+                    )}
+                </>
+            )}
             {dataType === 'TABLE' && (
                 <>
                     <Divider />

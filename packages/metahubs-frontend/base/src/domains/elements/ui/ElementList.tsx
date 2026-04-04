@@ -82,7 +82,6 @@ import { useUpdateCatalogAtMetahub } from '../../catalogs/hooks/mutations'
 import {
     type ElementMenuContext,
     type ElementConfirmSpec,
-    type EnumerationValueOption,
     isVersionedLocalizedContent,
     extractResponseMessage,
     resolveSetConstantLabel,
@@ -1618,7 +1617,9 @@ const ElementList = () => {
                     }
                 }}
                 onOverwrite={async () => {
-                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: { data: Record<string, unknown> } } })?.pendingUpdate
+                    const pendingUpdate = (
+                        dialogs.conflict.data as { pendingUpdate?: { id: string; patch: { data: Record<string, unknown> } } }
+                    )?.pendingUpdate
                     if (pendingUpdate && metahubId && catalogId) {
                         const { id, patch } = pendingUpdate
                         await updateElementMutation.mutateAsync({

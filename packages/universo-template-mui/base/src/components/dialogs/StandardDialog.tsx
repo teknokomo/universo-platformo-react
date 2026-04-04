@@ -40,8 +40,8 @@ export function StandardDialog({
     const paperSx = Array.isArray(paperProps?.sx)
         ? [{ borderRadius: 1 }, ...paperProps.sx]
         : paperProps?.sx
-          ? [{ borderRadius: 1 }, paperProps.sx]
-          : [{ borderRadius: 1 }]
+        ? [{ borderRadius: 1 }, paperProps.sx]
+        : [{ borderRadius: 1 }]
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth={maxWidth} fullWidth={fullWidth} PaperProps={{ ...paperProps, sx: paperSx }}>

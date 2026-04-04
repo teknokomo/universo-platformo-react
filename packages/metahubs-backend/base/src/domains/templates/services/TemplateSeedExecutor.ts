@@ -5,8 +5,12 @@ import type {
     TemplateSeedZoneWidget,
     TemplateSeedElement,
     DashboardLayoutWidgetKey,
-    DashboardLayoutZone
+    DashboardLayoutZone,
+    CodenameAlphabet,
+    CodenameStyle,
+    VersionedLocalizedContent
 } from '@universo/types'
+import { normalizeCodenameForStyle } from '@universo/utils/validation/codename'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
@@ -18,6 +22,79 @@ const log = createLogger('TemplateSeedExecutor')
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
+
+type TemplateSeedCodenameConfig = {
+    style: CodenameStyle
+    alphabet: CodenameAlphabet
+    localizedEnabled: boolean
+}
+
+const DEFAULT_TEMPLATE_SEED_CODENAME_CONFIG: TemplateSeedCodenameConfig = {
+    style: 'pascal-case',
+    alphabet: 'en-ru',
+    localizedEnabled: true
+}
+
+const normalizeLocaleCode = (value: string): string => value.split('-')[0].split('_')[0].toLowerCase()
+
+const readTemplateSeedSettingValue = (settings: MetahubTemplateSeed['settings'], key: string): unknown => {
+    const setting = settings?.find((entry) => entry.key === key)
+    return setting && setting.value && typeof setting.value === 'object' ? setting.value._value : undefined
+}
+
+export const resolveTemplateSeedCodenameConfig = (settings: MetahubTemplateSeed['settings']): TemplateSeedCodenameConfig => {
+    const rawStyle = readTemplateSeedSettingValue(settings, 'general.codenameStyle')
+    const rawAlphabet = readTemplateSeedSettingValue(settings, 'general.codenameAlphabet')
+    const rawLocalizedEnabled = readTemplateSeedSettingValue(settings, 'general.codenameLocalizedEnabled')
+
+    return {
+        style: rawStyle === 'kebab-case' || rawStyle === 'pascal-case' ? rawStyle : DEFAULT_TEMPLATE_SEED_CODENAME_CONFIG.style,
+        alphabet:
+            rawAlphabet === 'en' || rawAlphabet === 'ru' || rawAlphabet === 'en-ru'
+                ? rawAlphabet
+                : DEFAULT_TEMPLATE_SEED_CODENAME_CONFIG.alphabet,
+        localizedEnabled: rawLocalizedEnabled !== false
+    }
+}
+
+export const buildTemplateSeedEntityCodenameValue = (
+    codename: string,
+    name: VersionedLocalizedContent<string> | null | undefined,
+    config: TemplateSeedCodenameConfig = DEFAULT_TEMPLATE_SEED_CODENAME_CONFIG
+): ReturnType<typeof ensureCodenameValue> => {
+    const baseCodename = ensureCodenameValue(codename)
+
+    if (!config.localizedEnabled || !name?.locales || typeof name.locales !== 'object') {
+        return baseCodename
+    }
+
+    const primaryLocale = typeof baseCodename._primary === 'string' ? normalizeLocaleCode(baseCodename._primary) : 'en'
+    const nextCodename = {
+        ...baseCodename,
+        locales: {
+            ...(baseCodename.locales ?? {})
+        }
+    }
+
+    for (const [locale, entry] of Object.entries(name.locales)) {
+        const normalizedLocale = normalizeLocaleCode(locale)
+        const localizedName = typeof entry?.content === 'string' ? entry.content.trim() : ''
+        if (!localizedName) {
+            continue
+        }
+
+        nextCodename.locales[normalizedLocale] = {
+            content: normalizeCodenameForStyle(localizedName, config.style, config.alphabet),
+            version:
+                typeof nextCodename.locales?.[normalizedLocale]?.version === 'number' ? nextCodename.locales[normalizedLocale].version : 1,
+            isActive: nextCodename.locales?.[normalizedLocale]?.isActive !== false,
+            createdAt: nextCodename.locales?.[normalizedLocale]?.createdAt ?? nextCodename.locales?.[primaryLocale]?.createdAt,
+            updatedAt: nextCodename.locales?.[normalizedLocale]?.updatedAt ?? nextCodename.locales?.[primaryLocale]?.updatedAt
+        }
+    }
+
+    return nextCodename
+}
 
 const resolveEntityIdByCodename = (entityIdMap: Map<string, string>, codename: string, preferredKind?: string): string | null => {
     if (preferredKind) {
@@ -56,6 +133,8 @@ export class TemplateSeedExecutor {
      */
     async apply(seed: MetahubTemplateSeed): Promise<void> {
         await this.knex.transaction(async (trx) => {
+            const codenameConfig = resolveTemplateSeedCodenameConfig(seed.settings)
+
             // 1. Create layouts (generate UUID→codename map)
             const layoutIdMap = await this.createLayouts(trx, seed.layouts)
 
@@ -69,7 +148,7 @@ export class TemplateSeedExecutor {
 
             // 4. Create entities (catalogs, hubs, documents) if any
             if (seed.entities?.length) {
-                const entityIdMap = await this.createEntities(trx, seed.entities)
+                const entityIdMap = await this.createEntities(trx, seed.entities, codenameConfig)
 
                 if (seed.enumerationValues) {
                     await this.createEnumerationValues(trx, seed.enumerationValues, entityIdMap)
@@ -246,7 +325,11 @@ export class TemplateSeedExecutor {
         }
     }
 
-    private async createEntities(qb: Knex, entities: NonNullable<MetahubTemplateSeed['entities']>): Promise<Map<string, string>> {
+    private async createEntities(
+        qb: Knex,
+        entities: NonNullable<MetahubTemplateSeed['entities']>,
+        codenameConfig: TemplateSeedCodenameConfig
+    ): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
         const constantIdMap = new Map<string, string>()
         const now = new Date()
@@ -289,7 +372,7 @@ export class TemplateSeedExecutor {
                 .into('_mhb_objects')
                 .insert({
                     kind: entity.kind,
-                    codename: ensureCodenameValue(entity.codename),
+                    codename: buildTemplateSeedEntityCodenameValue(entity.codename, entity.name, codenameConfig),
                     table_name: null,
                     presentation: { name: entity.name, description: entity.description },
                     config: entityConfig,
@@ -526,9 +609,7 @@ export class TemplateSeedExecutor {
         for (const [enumerationCodename, values] of Object.entries(valuesByEnumeration)) {
             const objectId = resolveEntityIdByCodename(entityIdMap, enumerationCodename, 'enumeration')
             if (!objectId) {
-                log.warn(
-                    `Enumeration codename "${enumerationCodename}" not found or ambiguous, skipping enumeration values`
-                )
+                log.warn(`Enumeration codename "${enumerationCodename}" not found or ambiguous, skipping enumeration values`)
                 continue
             }
 

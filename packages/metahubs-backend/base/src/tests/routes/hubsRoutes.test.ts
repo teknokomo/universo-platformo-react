@@ -206,9 +206,7 @@ describe('Hubs Routes', () => {
         })
 
         it('returns 404 when hub is not found', async () => {
-            mockObjectsService.reorderByKind.mockRejectedValueOnce(
-                new MetahubNotFoundError('hub', '11111111-1111-4111-8111-111111111111')
-            )
+            mockObjectsService.reorderByKind.mockRejectedValueOnce(new MetahubNotFoundError('hub', '11111111-1111-4111-8111-111111111111'))
 
             const app = buildApp()
             const response = await request(app)

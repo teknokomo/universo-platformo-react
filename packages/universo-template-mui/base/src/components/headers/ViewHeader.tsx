@@ -28,6 +28,10 @@ function useSearchShortcut(inputRef: React.RefObject<HTMLInputElement | HTMLText
     }, [inputRef])
 }
 
+const VIEW_HEADER_TITLE_REGION_TEST_ID = 'view-header-title-region'
+const VIEW_HEADER_CONTROLS_REGION_TEST_ID = 'view-header-controls-region'
+const VIEW_HEADER_SEARCH_INPUT_TEST_ID = 'view-header-search-input'
+
 export interface ViewHeaderProps {
     children?: React.ReactNode
     filters?: React.ReactNode
@@ -172,12 +176,13 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                 }}
             >
                 <Box
+                    data-testid={VIEW_HEADER_TITLE_REGION_TEST_ID}
                     sx={{
                         display: 'flex',
                         alignItems: 'flex-start',
                         flexDirection: 'row',
-                        ml: { xs: 0, md: -2 },
                         mt: 0,
+                        minWidth: 0,
                         width: { xs: '100%', sm: 'auto' }
                     }}
                 >
@@ -186,7 +191,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                             <IconArrowLeft />
                         </Fab>
                     )}
-                    <Box sx={{ display: 'flex', alignItems: 'start', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'start', flexDirection: 'column', minWidth: 0 }}>
                         <Typography
                             sx={{
                                 fontSize: '2rem',
@@ -229,27 +234,30 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                     )}
                 </Box>
                 <Box
+                    data-testid={VIEW_HEADER_CONTROLS_REGION_TEST_ID}
                     sx={{
                         height: 40,
                         display: 'flex',
                         alignItems: 'center',
                         gap: 1,
-                        mr: { xs: 0, md: -2 },
                         ml: 0,
                         mt: { xs: 2, sm: 0 },
                         width: { xs: '100%', sm: 'auto' },
-                        position: 'relative'
+                        position: 'relative',
+                        justifyContent: { xs: 'flex-start', sm: 'flex-end' }
                     }}
                 >
                     {search && (
                         <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                             {/* Desktop: normal search field */}
                             <OutlinedInput
+                                data-testid={VIEW_HEADER_SEARCH_INPUT_TEST_ID}
                                 inputRef={desktopSearchRef}
                                 size='small'
                                 sx={{
                                     width: '325px',
-                                    height: '100%',
+                                    height: 40,
+                                    minHeight: 40,
                                     display: { xs: 'none', sm: 'flex' },
                                     borderRadius: 1,
                                     '& .MuiOutlinedInput-notchedOutline': { borderRadius: 1 }

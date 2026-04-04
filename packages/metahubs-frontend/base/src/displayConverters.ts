@@ -112,11 +112,7 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
 export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDisplay {
     return {
         ...constant,
-        codename: getLocalizedContentText(
-            ensureEntityCodenameContent(constant, locale, constant.codename),
-            locale,
-            constant.codename
-        ),
+        codename: getLocalizedContentText(ensureEntityCodenameContent(constant, locale, constant.codename), locale, constant.codename),
         name: getVLCString(constant.name, locale)
     }
 }

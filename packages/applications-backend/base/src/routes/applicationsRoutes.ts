@@ -45,6 +45,7 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
     router.get('/:applicationId/runtime/rows/:rowId', readLimiter, asyncHandler(runtime.getRow))
     router.post('/:applicationId/runtime/rows', writeLimiter, asyncHandler(runtime.createRow))
+    router.post('/:applicationId/runtime/rows/reorder', writeLimiter, asyncHandler(runtime.reorderRows))
     router.post('/:applicationId/runtime/rows/:rowId/copy', writeLimiter, asyncHandler(runtime.copyRow))
     router.patch('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.bulkUpdateRow))
     router.patch('/:applicationId/runtime/:rowId', writeLimiter, asyncHandler(runtime.updateCell))

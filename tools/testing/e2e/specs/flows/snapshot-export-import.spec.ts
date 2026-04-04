@@ -14,6 +14,11 @@ import {
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { toolbarSelectors } from '../../support/selectors/contracts'
 import { createLocalizedContent } from '@universo/utils'
+import {
+    SELF_HOSTED_APP_CANONICAL_METAHUB,
+    SELF_HOSTED_APP_FIXTURE_FILENAME,
+    assertSelfHostedAppEnvelopeContract
+} from '../../support/selfHostedAppFixtureContract.mjs'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -22,7 +27,7 @@ type SnapshotFixture = {
         name?: unknown
     }
     snapshot?: {
-        entities?: Record<string, { kind?: string; presentation?: { name?: unknown } }>
+        entities?: Record<string, { kind?: string; codename?: string; presentation?: { name?: unknown } }>
     }
 }
 
@@ -67,20 +72,24 @@ function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
-async function loadSelfModelFixture(): Promise<{
+async function loadSelfHostedAppFixture(): Promise<{
     fixturePath: string
     metahubName: string
     expectedCounts: { hubs: number; catalogs: number; sets: number; enumerations: number }
     expectedCatalogNames: string[]
 }> {
-    const fixturePath = path.join(process.cwd(), 'tools', 'fixtures', 'self-model-metahub-snapshot.json')
+    const fixturePath = path.join(process.cwd(), 'tools', 'fixtures', SELF_HOSTED_APP_FIXTURE_FILENAME)
     const rawFixture = await fs.readFile(fixturePath, 'utf8')
     const fixture = JSON.parse(rawFixture) as SnapshotFixture
+    assertSelfHostedAppEnvelopeContract(fixture)
     const entities = Object.values(fixture.snapshot?.entities ?? {})
 
     const metahubName = readLocalizedText(fixture.metahub?.name)
     if (!metahubName) {
-        throw new Error('Self-model snapshot fixture does not contain a metahub name')
+        throw new Error('Self-hosted app snapshot fixture does not contain a metahub name')
+    }
+    if (metahubName !== SELF_HOSTED_APP_CANONICAL_METAHUB.name.en) {
+        throw new Error(`Unexpected self-hosted app fixture name: ${metahubName}`)
     }
 
     const expectedCatalogNames = entities
@@ -183,8 +192,8 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect(importResp.status).toBe(400)
     })
 
-    test('@flow self-model snapshot fixture imports through the browser UI and restores MVP structure', async ({ page, runManifest }) => {
-        const fixture = await loadSelfModelFixture()
+    test('@flow self-hosted app snapshot fixture imports through the browser UI and restores MVP structure', async ({ page, runManifest }) => {
+        const fixture = await loadSelfHostedAppFixture()
 
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -207,7 +216,7 @@ test.describe('Snapshot Export/Import Flow', () => {
         await expect(dialog).toBeVisible()
 
         await dialog.locator('input[type="file"]').setInputFiles(fixture.fixturePath)
-        await expect(dialog.getByText('self-model-metahub-snapshot.json')).toBeVisible()
+        await expect(dialog.getByText(SELF_HOSTED_APP_FIXTURE_FILENAME)).toBeVisible()
 
         const importResponsePromise = page.waitForResponse(
             (response) => response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import'),
@@ -222,7 +231,7 @@ test.describe('Snapshot Export/Import Flow', () => {
         const importedId = importBody?.metahub?.id ?? importBody?.data?.id ?? importBody?.id
         expect(typeof importedId).toBe('string')
 
-        await recordCreatedMetahub({ id: importedId, name: fixture.metahubName, codename: 'self-model-imported-fixture' })
+        await recordCreatedMetahub({ id: importedId, name: fixture.metahubName, codename: 'self-hosted-app-imported-fixture' })
         await expect(dialog).toHaveCount(0)
         await expect(page.getByText(fixture.metahubName, { exact: true }).first()).toBeVisible({ timeout: 15_000 })
 

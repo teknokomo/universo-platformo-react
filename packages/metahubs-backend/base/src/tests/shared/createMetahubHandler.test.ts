@@ -84,9 +84,7 @@ describe('createMetahubHandler', () => {
 
         await wrapped(req, res)
 
-        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(
-            mockExec, 'user-1', 'mh-1', 'manageMetahub', mockDbSession
-        )
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'mh-1', 'manageMetahub', mockDbSession)
     })
 
     it('returns 401 when userId is missing', async () => {
@@ -164,8 +162,6 @@ describe('createMetahubHandler', () => {
 
         await wrapped(req, res)
 
-        expect(handler).toHaveBeenCalledWith(
-            expect.objectContaining({ metahubId: 'custom-hub' })
-        )
+        expect(handler).toHaveBeenCalledWith(expect.objectContaining({ metahubId: 'custom-hub' }))
     })
 })

@@ -4,6 +4,8 @@ import type { GridColDef, GridLocaleText, GridPaginationModel } from '@mui/x-dat
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { isPendingInteractionBlocked, makePendingMarkers } from '@universo/utils'
+import { normalizeDashboardLayoutConfig } from '@universo/utils'
+import type { DashboardLayoutConfig } from '@universo/types'
 import type { PendingAction } from '@universo/utils'
 import {
     applyOptimisticCreate,
@@ -17,50 +19,12 @@ import {
     safeInvalidateQueries,
     safeInvalidateQueriesInactive
 } from './optimisticCrud'
-import type { AppDataResponse, DashboardLayoutConfig } from '../api/api'
+import type { AppDataResponse } from '../api/api'
 import type { CrudDataAdapter, CellRendererOverrides } from '../api/types'
 import type { DashboardMenuItem, DashboardMenuSlot } from '../dashboard/Dashboard'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { toGridColumns, toFieldConfigs } from '../utils/columns'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
-
-// ---------------------------------------------------------------------------
-//  Helper: fill missing layout toggles with `true`
-// ---------------------------------------------------------------------------
-
-function withDashboardDefaults(
-    config: DashboardLayoutConfig | Record<string, unknown> | undefined
-): NonNullable<DashboardLayoutConfig> {
-    const c = (config ?? {}) as Record<string, unknown>
-    const bool = (v: unknown, fb = true) => (typeof v === 'boolean' ? v : fb)
-    return {
-        showSideMenu: bool(c.showSideMenu),
-        showAppNavbar: bool(c.showAppNavbar),
-        showHeader: bool(c.showHeader),
-        showBreadcrumbs: bool(c.showBreadcrumbs),
-        showSearch: bool(c.showSearch),
-        showDatePicker: bool(c.showDatePicker),
-        showOptionsMenu: bool(c.showOptionsMenu),
-        showLanguageSwitcher: bool(c.showLanguageSwitcher),
-        showOverviewTitle: bool(c.showOverviewTitle),
-        showOverviewCards: bool(c.showOverviewCards),
-        showSessionsChart: bool(c.showSessionsChart),
-        showPageViewsChart: bool(c.showPageViewsChart),
-        showDetailsTitle: bool(c.showDetailsTitle),
-        showDetailsTable: bool(c.showDetailsTable),
-        showColumnsContainer: bool(c.showColumnsContainer, false),
-        showProductTree: bool(c.showProductTree),
-        showUsersByCountryChart: bool(c.showUsersByCountryChart),
-        showRightSideMenu: bool(c.showRightSideMenu),
-        showFooter: bool(c.showFooter),
-        showViewToggle: bool(c.showViewToggle, false),
-        defaultViewMode: (typeof c.defaultViewMode === 'string' ? c.defaultViewMode : 'table') as 'table' | 'card',
-        showFilterBar: bool(c.showFilterBar, false),
-        enableRowReordering: bool(c.enableRowReordering, false),
-        cardColumns: typeof c.cardColumns === 'number' ? c.cardColumns : 3,
-        rowHeight: c.rowHeight as number | 'auto' | undefined,
-    }
-}
 
 // ---------------------------------------------------------------------------
 //  Stable empty key prefix (avoids new [] allocation on each render)
@@ -341,10 +305,13 @@ export interface CrudDashboardState {
     formInitialData: Record<string, unknown> | undefined
     isFormReady: boolean
     isSubmitting: boolean
+    isReordering: boolean
+    canPersistRowReorder: boolean
     handleOpenCreate: () => void
     handleOpenEdit: (rowId: string) => void
     handleCloseForm: () => void
     handleFormSubmit: (data: Record<string, unknown>) => Promise<void>
+    handlePersistRowReorder: (orderedRowIds: string[]) => Promise<void>
 
     // Delete dialog
     deleteRowId: string | null
@@ -510,6 +477,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             .join(',')
     }, [appData?.columns])
     const fieldConfigs = useMemo(() => (appData ? toFieldConfigs(appData) : []), [appData])
+    const canPersistRowReorder = Boolean(adapter?.reorderRows)
 
     const initialMenuCatalogId = useMemo(() => {
         if (!appData?.menus?.length) return undefined
@@ -655,6 +623,23 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         },
         onSuccess: () => {
             applyWorkspaceLimitDelta(-1)
+        },
+        onSettled: () => {
+            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
+        }
+    })
+
+    const reorderMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'reorder'],
+        mutationFn: async (orderedRowIds: string[]) => {
+            if (!adapter?.reorderRows) {
+                throw new Error('Row reordering is not available for this runtime adapter')
+            }
+
+            await adapter.reorderRows({
+                catalogId: selectedCatalogId ?? activeCatalogId,
+                orderedRowIds
+            })
         },
         onSettled: () => {
             safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
@@ -858,6 +843,27 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         handleCloseForm()
     }, [handleCloseForm])
 
+    const handlePersistRowReorder = useCallback(
+        async (orderedRowIds: string[]) => {
+            if (!adapter?.reorderRows || orderedRowIds.length === 0) return
+
+            try {
+                await reorderMutation.mutateAsync(orderedRowIds)
+            } catch (err) {
+                const msg = extractApiErrorMessage(err)
+                enqueueSnackbar(
+                    t('app.errorReorder', {
+                        defaultValue: 'Reorder failed: {{message}}',
+                        message: msg
+                    }),
+                    { variant: 'error' }
+                )
+                throw err
+            }
+        },
+        [adapter?.reorderRows, enqueueSnackbar, reorderMutation, t]
+    )
+
     // ----- Row actions menu -----
     const handleOpenMenu = useCallback(
         (event: React.MouseEvent<HTMLElement>, rowId: string) => {
@@ -900,7 +906,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const rows = useMemo(() => (appData ? appData.rows : []), [appData])
 
     const rowCount = appData?.pagination.total
-    const layoutConfig = useMemo(() => withDashboardDefaults(appData?.layoutConfig), [appData?.layoutConfig])
+    const layoutConfig = useMemo(() => normalizeDashboardLayoutConfig(appData?.layoutConfig), [appData?.layoutConfig])
     const localeText = useMemo(() => getDataGridLocaleText(locale), [locale])
 
     // ----- Derived: menus -----
@@ -1010,10 +1016,13 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         formInitialData,
         isFormReady,
         isSubmitting: createMutation.isPending || updateMutation.isPending,
+        isReordering: reorderMutation.isPending,
+        canPersistRowReorder,
         handleOpenCreate,
         handleOpenEdit,
         handleCloseForm,
         handleFormSubmit,
+        handlePersistRowReorder,
 
         // Delete dialog
         deleteRowId,

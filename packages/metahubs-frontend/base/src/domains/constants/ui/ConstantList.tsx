@@ -854,7 +854,8 @@ const ConstantList = () => {
                         }
                     }}
                     onOverwrite={async () => {
-                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: ConstantLocalizedPayload } })?.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: ConstantLocalizedPayload } })
+                            ?.pendingUpdate
                         if (!pendingUpdate || !metahubId || !setId) return
                         await updateConstantMutation.mutateAsync({
                             metahubId,

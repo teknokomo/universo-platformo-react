@@ -18,10 +18,7 @@ export const useBranchListData = () => {
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const pendingInteractionMessage = tc(
-        'pendingCreateBlocked',
-        'This item is still being created. Please wait a moment and try again.'
-    )
+    const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     const paginationResult = usePaginated<MetahubBranch, 'name' | 'codename' | 'created' | 'updated'>({
         queryKeyFn: metahubId ? (params) => metahubsQueryKeys.branchesList(metahubId, params) : () => ['empty'],

@@ -75,9 +75,7 @@ export default function CustomizedDataGrid({
             hideFooter={hideFooter}
             disableColumnResize
             density={rowHeight ? undefined : 'compact'}
-            getRowHeight={
-                rowHeight === 'auto' ? () => 'auto' : typeof rowHeight === 'number' ? () => rowHeight : undefined
-            }
+            getRowHeight={rowHeight === 'auto' ? () => 'auto' : typeof rowHeight === 'number' ? () => rowHeight : undefined}
             localeText={localeText}
             sx={{
                 [`& .MuiDataGrid-columnHeader`]: {

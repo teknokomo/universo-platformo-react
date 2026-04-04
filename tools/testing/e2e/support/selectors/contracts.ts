@@ -8,6 +8,12 @@ export const toolbarSelectors = {
     primaryAction: 'toolbar-primary-action'
 } as const
 
+export const viewHeaderSelectors = {
+    titleRegion: 'view-header-title-region',
+    controlsRegion: 'view-header-controls-region',
+    searchInput: 'view-header-search-input'
+} as const
+
 export const entityDialogSelectors = {
     submitButton: 'entity-form-submit',
     cancelButton: 'entity-form-cancel',

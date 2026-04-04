@@ -3,6 +3,8 @@
 
 export * from './protocol/version'
 export * from './common/branding'
+export * from './common/catalogRuntimeConfig'
+export * from './common/dashboardLayout'
 export * from './common/enums'
 export * from './common/roles'
 export * from './common/metahubs'

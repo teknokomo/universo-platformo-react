@@ -1,0 +1,3408 @@
+{
+  "kind": "metahub_snapshot_bundle",
+  "bundleVersion": 1,
+  "exportedAt": "2026-04-04T17:39:19.479Z",
+  "metahub": {
+    "id": "019d5990-01e8-7c47-acd5-d7f3c32a6f86",
+    "name": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "Metahubs Self-Hosted App",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-04T17:35:02.873Z",
+          "updatedAt": "2026-04-04T17:35:02.873Z"
+        },
+        "ru": {
+          "content": "Автономное приложение метахабов",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-04T17:35:02.873Z",
+          "updatedAt": "2026-04-04T17:35:02.873Z"
+        }
+      },
+      "_primary": "en"
+    },
+    "description": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "Reference metahub for the self-hosted application flow with localized metadata, interface settings, migration controls, and snapshot import/export.",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-04T17:35:02.873Z",
+          "updatedAt": "2026-04-04T17:35:02.873Z"
+        },
+        "ru": {
+          "content": "Эталонный метахаб для автономного сценария приложения с локализованными метаданными, настройками интерфейса, управлением миграциями и экспортом/импортом снимков.",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-04T17:35:02.873Z",
+          "updatedAt": "2026-04-04T17:35:02.873Z"
+        }
+      },
+      "_primary": "en"
+    },
+    "codename": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "MetahubsSelfHostedApp",
+          "version": 2,
+          "isActive": true,
+          "createdAt": "2026-04-04T17:35:02.468Z",
+          "updatedAt": "2026-04-04T17:35:02.873Z"
+        },
+        "ru": {
+          "content": "АвтономноеПриложениеМетахабов",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-04T17:35:02.468Z",
+          "updatedAt": "2026-04-04T17:35:02.468Z"
+        }
+      },
+      "_primary": "en"
+    }
+  },
+  "snapshot": {
+    "metahubId": "019d5990-01e8-7c47-acd5-d7f3c32a6f86",
+    "generatedAt": "2026-04-04T17:39:19.087Z",
+    "version": 1,
+    "versionEnvelope": {
+      "structureVersion": "0.1.0",
+      "templateVersion": null,
+      "snapshotFormatVersion": 1
+    },
+    "entities": {
+      "019d5990-25ba-7193-93f9-f577c56c3de5": {
+        "id": "019d5990-25ba-7193-93f9-f577c56c3de5",
+        "kind": "hub",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main hub for organizing metahub content",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной хаб для организации контента метахаба",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "parentHubId": null
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5990-f195-7739-a24a-2f9674088be4": {
+        "id": "019d5990-f195-7739-a24a-2f9674088be4",
+        "kind": "hub",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Hubs",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.498Z",
+              "updatedAt": "2026-04-04T17:39:19.498Z"
+            },
+            "ru": {
+              "content": "Хабы",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.498Z",
+              "updatedAt": "2026-04-04T17:39:19.498Z"
+            }
+          }
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Hubs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:04.083Z",
+                "updatedAt": "2026-04-04T17:36:04.083Z"
+              },
+              "ru": {
+                "content": "Хабы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:04.083Z",
+                "updatedAt": "2026-04-04T17:36:04.083Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Hub hierarchy for navigation, grouping, and scoped content placement.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:04.083Z",
+                "updatedAt": "2026-04-04T17:36:04.083Z"
+              },
+              "ru": {
+                "content": "Иерархия хабов для навигации, группировки и размещения контента по областям.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:04.083Z",
+                "updatedAt": "2026-04-04T17:36:04.083Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 2,
+          "parentHubId": null
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5990-2657-795d-97f3-5ca063c642aa": {
+        "id": "019d5990-2657-795d-97f3-5ca063c642aa",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main catalog for storing records",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной каталог для хранения записей",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5990-39b7-72a9-8f4a-d254239d79d7": {
+        "id": "019d5990-39b7-72a9-8f4a-d254239d79d7",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Metahubs",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.497Z",
+              "updatedAt": "2026-04-04T17:39:19.497Z"
+            },
+            "ru": {
+              "content": "Метахабы",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.497Z",
+              "updatedAt": "2026-04-04T17:39:19.497Z"
+            }
+          }
+        },
+        "tableName": "cat_019d599039b772a98f4ad254239d79d7",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Metahubs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:16.933Z",
+                "updatedAt": "2026-04-04T17:35:16.933Z"
+              },
+              "ru": {
+                "content": "Метахабы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:16.933Z",
+                "updatedAt": "2026-04-04T17:35:16.933Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Metahub records used to configure authoring, publication, and access workflows.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:16.933Z",
+                "updatedAt": "2026-04-04T17:35:16.933Z"
+              },
+              "ru": {
+                "content": "Записи метахабов для настройки сценариев авторинга, публикации и доступа.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:16.933Z",
+                "updatedAt": "2026-04-04T17:35:16.933Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 2,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5990-4c5f-766e-a5ab-92c083219e96",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:21.153Z",
+                    "updatedAt": "2026-04-04T17:35:21.153Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:21.153Z",
+                    "updatedAt": "2026-04-04T17:35:21.153Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5990-5863-7550-bbef-f522f7cb909d",
+            "codename": "Description",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Description",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:24.249Z",
+                    "updatedAt": "2026-04-04T17:35:24.249Z"
+                  },
+                  "ru": {
+                    "content": "Описание",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:24.249Z",
+                    "updatedAt": "2026-04-04T17:35:24.249Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5990-6419-71ee-a445-f50a8966e321",
+            "codename": "Slug",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Slug",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:27.252Z",
+                    "updatedAt": "2026-04-04T17:35:27.252Z"
+                  },
+                  "ru": {
+                    "content": "Слаг",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:27.252Z",
+                    "updatedAt": "2026-04-04T17:35:27.252Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          },
+          {
+            "id": "019d5990-6fb7-72b0-be49-00ab55692f6b",
+            "codename": "IsPublic",
+            "dataType": "BOOLEAN",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Is Public",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:30.220Z",
+                    "updatedAt": "2026-04-04T17:35:30.220Z"
+                  },
+                  "ru": {
+                    "content": "Публичный",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:30.220Z",
+                    "updatedAt": "2026-04-04T17:35:30.220Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 4
+          },
+          {
+            "id": "019d5990-7b73-735d-b140-6141120aaa8a",
+            "codename": "StorageMode",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Storage Mode",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:33.232Z",
+                    "updatedAt": "2026-04-04T17:35:33.232Z"
+                  },
+                  "ru": {
+                    "content": "Режим хранения",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:33.232Z",
+                    "updatedAt": "2026-04-04T17:35:33.232Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 5
+          }
+        ],
+        "hubs": []
+      },
+      "019d5990-879e-735a-a053-dad207112e7a": {
+        "id": "019d5990-879e-735a-a053-dad207112e7a",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Catalogs",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.498Z",
+              "updatedAt": "2026-04-04T17:39:19.498Z"
+            },
+            "ru": {
+              "content": "Каталоги",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.498Z",
+              "updatedAt": "2026-04-04T17:39:19.498Z"
+            }
+          }
+        },
+        "tableName": "cat_019d5990879e735aa053dad207112e7a",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Catalogs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:36.888Z",
+                "updatedAt": "2026-04-04T17:35:36.888Z"
+              },
+              "ru": {
+                "content": "Каталоги",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:36.888Z",
+                "updatedAt": "2026-04-04T17:35:36.888Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Catalog definitions with display settings, editing surfaces, and structure rules.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:36.888Z",
+                "updatedAt": "2026-04-04T17:35:36.888Z"
+              },
+              "ru": {
+                "content": "Определения каталогов с настройками отображения, поверхностями редактирования и правилами структуры.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:36.888Z",
+                "updatedAt": "2026-04-04T17:35:36.888Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 3,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5990-98ef-7680-878b-bcea49edf5b3",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:40.784Z",
+                    "updatedAt": "2026-04-04T17:35:40.784Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:40.784Z",
+                    "updatedAt": "2026-04-04T17:35:40.784Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5990-a471-75b9-9dcd-4493af98bc6c",
+            "codename": "Codename",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Codename",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:43.737Z",
+                    "updatedAt": "2026-04-04T17:35:43.737Z"
+                  },
+                  "ru": {
+                    "content": "Кодовое имя",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:43.737Z",
+                    "updatedAt": "2026-04-04T17:35:43.737Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5990-afe4-71eb-957d-f7553f19bd3c",
+            "codename": "Kind",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Kind",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:46.675Z",
+                    "updatedAt": "2026-04-04T17:35:46.675Z"
+                  },
+                  "ru": {
+                    "content": "Вид",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:46.675Z",
+                    "updatedAt": "2026-04-04T17:35:46.675Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          }
+        ],
+        "hubs": []
+      },
+      "019d5990-bbf3-7713-9ba9-6548a1d16bcb": {
+        "id": "019d5990-bbf3-7713-9ba9-6548a1d16bcb",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Enumerations",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.498Z",
+              "updatedAt": "2026-04-04T17:39:19.498Z"
+            },
+            "ru": {
+              "content": "Перечисления",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.498Z",
+              "updatedAt": "2026-04-04T17:39:19.498Z"
+            }
+          }
+        },
+        "tableName": "cat_019d5990bbf377139ba96548a1d16bcb",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Enumerations",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:50.287Z",
+                "updatedAt": "2026-04-04T17:35:50.287Z"
+              },
+              "ru": {
+                "content": "Перечисления",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:50.287Z",
+                "updatedAt": "2026-04-04T17:35:50.287Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Catalog records that mirror enumeration-driven content in the published self-hosted app.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:50.287Z",
+                "updatedAt": "2026-04-04T17:35:50.287Z"
+              },
+              "ru": {
+                "content": "Записи каталога, отражающие контент на основе перечислений в опубликованном автономном приложении.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:35:50.287Z",
+                "updatedAt": "2026-04-04T17:35:50.287Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 4,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5990-cd82-7e80-99ee-4de325f50471",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:54.234Z",
+                    "updatedAt": "2026-04-04T17:35:54.234Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:54.234Z",
+                    "updatedAt": "2026-04-04T17:35:54.234Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5990-d912-75c1-b2b0-e937589f2974",
+            "codename": "Codename",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Codename",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:57.218Z",
+                    "updatedAt": "2026-04-04T17:35:57.218Z"
+                  },
+                  "ru": {
+                    "content": "Кодовое имя",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:35:57.218Z",
+                    "updatedAt": "2026-04-04T17:35:57.218Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5990-e496-7298-aad2-991ff3b022cd",
+            "codename": "SortOrder",
+            "dataType": "NUMBER",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Sort Order",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:00.156Z",
+                    "updatedAt": "2026-04-04T17:36:00.156Z"
+                  },
+                  "ru": {
+                    "content": "Порядок сортировки",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:00.156Z",
+                    "updatedAt": "2026-04-04T17:36:00.156Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          }
+        ],
+        "hubs": []
+      },
+      "019d5991-1663-782a-8dc9-287736596236": {
+        "id": "019d5991-1663-782a-8dc9-287736596236",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Sets",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Наборы",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "cat_019d59911663782a8dc9287736596236",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Sets",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:13.429Z",
+                "updatedAt": "2026-04-04T17:36:13.429Z"
+              },
+              "ru": {
+                "content": "Наборы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:13.429Z",
+                "updatedAt": "2026-04-04T17:36:13.429Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Catalog records that mirror set-driven content and shared typed references.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:13.429Z",
+                "updatedAt": "2026-04-04T17:36:13.429Z"
+              },
+              "ru": {
+                "content": "Записи каталога, отражающие контент на основе наборов и общие типизированные ссылки.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:13.429Z",
+                "updatedAt": "2026-04-04T17:36:13.429Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 5,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5991-27ef-726e-b0e9-e9d0010fca7c",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:17.390Z",
+                    "updatedAt": "2026-04-04T17:36:17.390Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:17.390Z",
+                    "updatedAt": "2026-04-04T17:36:17.390Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5991-336d-7f74-aa09-72d9b18f4580",
+            "codename": "Codename",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Codename",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:20.342Z",
+                    "updatedAt": "2026-04-04T17:36:20.342Z"
+                  },
+                  "ru": {
+                    "content": "Кодовое имя",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:20.342Z",
+                    "updatedAt": "2026-04-04T17:36:20.342Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5991-3f16-7928-9669-b0ea94e3c36a",
+            "codename": "DataType",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Data Type",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:23.316Z",
+                    "updatedAt": "2026-04-04T17:36:23.316Z"
+                  },
+                  "ru": {
+                    "content": "Тип данных",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:23.316Z",
+                    "updatedAt": "2026-04-04T17:36:23.316Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          }
+        ],
+        "hubs": []
+      },
+      "019d5991-4b3f-795c-b7b0-7164fc92c110": {
+        "id": "019d5991-4b3f-795c-b7b0-7164fc92c110",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Branches",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Ветки",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "cat_019d59914b3f795cb7b07164fc92c110",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Branches",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:26.963Z",
+                "updatedAt": "2026-04-04T17:36:26.963Z"
+              },
+              "ru": {
+                "content": "Ветки",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:26.963Z",
+                "updatedAt": "2026-04-04T17:36:26.963Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Working branches for preparing and comparing publication changes.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:26.963Z",
+                "updatedAt": "2026-04-04T17:36:26.963Z"
+              },
+              "ru": {
+                "content": "Рабочие ветки для подготовки и сравнения изменений перед публикацией.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:26.963Z",
+                "updatedAt": "2026-04-04T17:36:26.963Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 6,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5991-5cca-7c9a-9ca2-f1c963ebdcab",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:30.936Z",
+                    "updatedAt": "2026-04-04T17:36:30.936Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:30.936Z",
+                    "updatedAt": "2026-04-04T17:36:30.936Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5991-6841-730f-aee9-e7189ba5a548",
+            "codename": "Codename",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Codename",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:33.854Z",
+                    "updatedAt": "2026-04-04T17:36:33.854Z"
+                  },
+                  "ru": {
+                    "content": "Кодовое имя",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:33.854Z",
+                    "updatedAt": "2026-04-04T17:36:33.854Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5991-73a2-7ec1-bea4-bcfd7de6de55",
+            "codename": "IsDefault",
+            "dataType": "BOOLEAN",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Is Default",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:36.784Z",
+                    "updatedAt": "2026-04-04T17:36:36.784Z"
+                  },
+                  "ru": {
+                    "content": "По умолчанию",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:36.784Z",
+                    "updatedAt": "2026-04-04T17:36:36.784Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          }
+        ],
+        "hubs": []
+      },
+      "019d5991-7f9a-7609-828e-882912d0be37": {
+        "id": "019d5991-7f9a-7609-828e-882912d0be37",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Publications",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Публикации",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "cat_019d59917f9a7609828e882912d0be37",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Publications",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:40.373Z",
+                "updatedAt": "2026-04-04T17:36:40.373Z"
+              },
+              "ru": {
+                "content": "Публикации",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:40.373Z",
+                "updatedAt": "2026-04-04T17:36:40.373Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Publication records that track application releases, versions, and activation state.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:40.373Z",
+                "updatedAt": "2026-04-04T17:36:40.373Z"
+              },
+              "ru": {
+                "content": "Записи публикаций для релизов, версий и состояния активации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:40.373Z",
+                "updatedAt": "2026-04-04T17:36:40.373Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 7,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5991-90f6-7752-8cad-39ff38b2c06f",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:44.287Z",
+                    "updatedAt": "2026-04-04T17:36:44.287Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:44.287Z",
+                    "updatedAt": "2026-04-04T17:36:44.287Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5991-9c8f-7e8c-9ac4-539eac1e310a",
+            "codename": "VersionNumber",
+            "dataType": "NUMBER",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Version Number",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:47.241Z",
+                    "updatedAt": "2026-04-04T17:36:47.241Z"
+                  },
+                  "ru": {
+                    "content": "Номер версии",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:47.241Z",
+                    "updatedAt": "2026-04-04T17:36:47.241Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5991-a998-7e6b-bad8-9889698bcd27",
+            "codename": "IsActive",
+            "dataType": "BOOLEAN",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Is Active",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:50.591Z",
+                    "updatedAt": "2026-04-04T17:36:50.591Z"
+                  },
+                  "ru": {
+                    "content": "Активна",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:50.591Z",
+                    "updatedAt": "2026-04-04T17:36:50.591Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          }
+        ],
+        "hubs": []
+      },
+      "019d5991-b5bb-7669-b07a-0d005373edd4": {
+        "id": "019d5991-b5bb-7669-b07a-0d005373edd4",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Layouts",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Макеты",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "cat_019d5991b5bb7669b07a0d005373edd4",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Layouts",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:54.220Z",
+                "updatedAt": "2026-04-04T17:36:54.220Z"
+              },
+              "ru": {
+                "content": "Макеты",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:54.221Z",
+                "updatedAt": "2026-04-04T17:36:54.221Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Dashboard layouts, widget zones, and presentation presets for the app.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:54.221Z",
+                "updatedAt": "2026-04-04T17:36:54.221Z"
+              },
+              "ru": {
+                "content": "Макеты панели, зоны виджетов и пресеты представления приложения.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:54.221Z",
+                "updatedAt": "2026-04-04T17:36:54.221Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 8,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5991-c74d-79bc-bfb9-751fa2ae0b63",
+            "codename": "Name",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Name",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:58.204Z",
+                    "updatedAt": "2026-04-04T17:36:58.204Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:36:58.204Z",
+                    "updatedAt": "2026-04-04T17:36:58.204Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5991-d2d7-734a-8266-fbd84eb4f894",
+            "codename": "TemplateKey",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Template Key",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:01.147Z",
+                    "updatedAt": "2026-04-04T17:37:01.147Z"
+                  },
+                  "ru": {
+                    "content": "Ключ шаблона",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:01.147Z",
+                    "updatedAt": "2026-04-04T17:37:01.147Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5991-de5b-7d41-b69d-eda57e8334f8",
+            "codename": "IsDefault",
+            "dataType": "BOOLEAN",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Is Default",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:04.107Z",
+                    "updatedAt": "2026-04-04T17:37:04.107Z"
+                  },
+                  "ru": {
+                    "content": "По умолчанию",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:04.107Z",
+                    "updatedAt": "2026-04-04T17:37:04.107Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          },
+          {
+            "id": "019d5991-ea05-7874-890e-cb289ea42067",
+            "codename": "SortOrder",
+            "dataType": "NUMBER",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Sort Order",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:07.058Z",
+                    "updatedAt": "2026-04-04T17:37:07.058Z"
+                  },
+                  "ru": {
+                    "content": "Порядок сортировки",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:07.058Z",
+                    "updatedAt": "2026-04-04T17:37:07.058Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 4
+          }
+        ],
+        "hubs": []
+      },
+      "019d5991-f604-7496-af90-d6d8bfa32459": {
+        "id": "019d5991-f604-7496-af90-d6d8bfa32459",
+        "kind": "catalog",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Settings",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Настройки",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "cat_019d5991f6047496af90d6d8bfa32459",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Settings",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:37:10.689Z",
+                "updatedAt": "2026-04-04T17:37:10.689Z"
+              },
+              "ru": {
+                "content": "Настройки",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:37:10.689Z",
+                "updatedAt": "2026-04-04T17:37:10.689Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Seeded settings rows derived from the real metahub settings registry defaults.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:37:10.689Z",
+                "updatedAt": "2026-04-04T17:37:10.689Z"
+              },
+              "ru": {
+                "content": "Заполненные настройки на основе текущих значений по умолчанию из реестра настроек метахаба.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:37:10.689Z",
+                "updatedAt": "2026-04-04T17:37:10.689Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [],
+          "sortOrder": 9,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5992-074b-77ac-9911-898cb0181bfc",
+            "codename": "Key",
+            "dataType": "STRING",
+            "isRequired": true,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Key",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:14.567Z",
+                    "updatedAt": "2026-04-04T17:37:14.567Z"
+                  },
+                  "ru": {
+                    "content": "Ключ",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:14.567Z",
+                    "updatedAt": "2026-04-04T17:37:14.567Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          },
+          {
+            "id": "019d5992-12ca-7781-be90-df9d80513734",
+            "codename": "Value",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Value",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:17.518Z",
+                    "updatedAt": "2026-04-04T17:37:17.518Z"
+                  },
+                  "ru": {
+                    "content": "Значение",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:17.518Z",
+                    "updatedAt": "2026-04-04T17:37:17.518Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          },
+          {
+            "id": "019d5992-1e64-7539-90ee-7ffe12b38398",
+            "codename": "Category",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Category",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:20.475Z",
+                    "updatedAt": "2026-04-04T17:37:20.475Z"
+                  },
+                  "ru": {
+                    "content": "Категория",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-04T17:37:20.475Z",
+                    "updatedAt": "2026-04-04T17:37:20.475Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 3
+          }
+        ],
+        "hubs": []
+      },
+      "019d5990-2c6a-7979-b69a-b2290c76b476": {
+        "id": "019d5990-2c6a-7979-b69a-b2290c76b476",
+        "kind": "enumeration",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Основное",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "enum_019d59902c6a7979b69ab2290c76b476",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основное",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main enumeration for fixed values",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основное перечисление для фиксированных значений",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5991-0a8a-7308-8e9a-ad9a6e1f2ffc": {
+        "id": "019d5991-0a8a-7308-8e9a-ad9a6e1f2ffc",
+        "kind": "enumeration",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Enumerations",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Перечисления",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "enum_019d59910a8a73088e9aad9a6e1f2ffc",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Enumerations",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:10.098Z",
+                "updatedAt": "2026-04-04T17:36:10.098Z"
+              },
+              "ru": {
+                "content": "Перечисления",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:10.098Z",
+                "updatedAt": "2026-04-04T17:36:10.098Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Enumeration dictionaries for stable choices in forms and records.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:10.098Z",
+                "updatedAt": "2026-04-04T17:36:10.098Z"
+              },
+              "ru": {
+                "content": "Справочники перечислений для стабильных вариантов выбора в формах и записях.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:10.098Z",
+                "updatedAt": "2026-04-04T17:36:10.098Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [
+            "019d5990-f195-7739-a24a-2f9674088be4"
+          ],
+          "sortOrder": 2,
+          "isSingleHub": true,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": [
+          "019d5990-f195-7739-a24a-2f9674088be4"
+        ]
+      },
+      "019d5990-2bcf-71c9-afe7-ce0bf42a7fa7": {
+        "id": "019d5990-2bcf-71c9-afe7-ce0bf42a7fa7",
+        "kind": "set",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "set_019d59902bcf71c9afe7ce0bf42a7fa7",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main set for storing constants and typed values",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной набор для хранения констант и типизированных значений",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5990-fb75-7fa0-925d-9a51d5e8ec7e": {
+        "id": "019d5990-fb75-7fa0-925d-9a51d5e8ec7e",
+        "kind": "set",
+        "codename": {
+          "_schema": "1",
+          "_primary": "en",
+          "locales": {
+            "en": {
+              "content": "Sets",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            },
+            "ru": {
+              "content": "Наборы",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:39:19.499Z",
+              "updatedAt": "2026-04-04T17:39:19.499Z"
+            }
+          }
+        },
+        "tableName": "set_019d5990fb757fa0925d9a51d5e8ec7e",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Sets",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:06.527Z",
+                "updatedAt": "2026-04-04T17:36:06.527Z"
+              },
+              "ru": {
+                "content": "Наборы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:06.527Z",
+                "updatedAt": "2026-04-04T17:36:06.527Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Reusable typed sets for references, templates, and metadata constraints.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:06.527Z",
+                "updatedAt": "2026-04-04T17:36:06.527Z"
+              },
+              "ru": {
+                "content": "Переиспользуемые типизированные наборы для ссылок, шаблонов и ограничений метаданных.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:36:06.527Z",
+                "updatedAt": "2026-04-04T17:36:06.527Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "hubs": [
+            "019d5990-f195-7739-a24a-2f9674088be4"
+          ],
+          "sortOrder": 2,
+          "isSingleHub": true,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": [
+          "019d5990-f195-7739-a24a-2f9674088be4"
+        ]
+      }
+    },
+    "elements": {
+      "019d5991-f604-7496-af90-d6d8bfa32459": [
+        {
+          "id": "019d5992-26d3-7e10-a785-3bc907869430",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.language",
+            "Value": "system",
+            "Category": "general"
+          },
+          "sortOrder": 1
+        },
+        {
+          "id": "019d5992-2da7-7826-923d-1e3b8057bb97",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.timezone",
+            "Value": "UTC",
+            "Category": "general"
+          },
+          "sortOrder": 2
+        },
+        {
+          "id": "019d5992-3462-7c58-b2f8-6857c8b33cb4",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameStyle",
+            "Value": "pascal-case",
+            "Category": "general"
+          },
+          "sortOrder": 3
+        },
+        {
+          "id": "019d5992-3b3f-73da-9c4d-5033a6796887",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameAlphabet",
+            "Value": "en-ru",
+            "Category": "general"
+          },
+          "sortOrder": 4
+        },
+        {
+          "id": "019d5992-41f7-790b-8487-9ff76b59bd3b",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameAllowMixedAlphabets",
+            "Value": "false",
+            "Category": "general"
+          },
+          "sortOrder": 5
+        },
+        {
+          "id": "019d5992-48d3-711b-a4d7-ddab917f8fe0",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameAutoConvertMixedAlphabets",
+            "Value": "true",
+            "Category": "general"
+          },
+          "sortOrder": 6
+        },
+        {
+          "id": "019d5992-4f84-7a4c-bea4-68f46be0be8e",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameAutoReformat",
+            "Value": "true",
+            "Category": "general"
+          },
+          "sortOrder": 7
+        },
+        {
+          "id": "019d5992-5655-797c-99ba-ca27f84070bb",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameRequireReformat",
+            "Value": "true",
+            "Category": "general"
+          },
+          "sortOrder": 8
+        },
+        {
+          "id": "019d5992-5d1e-7c2f-8869-3a438e1d77c4",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "general.codenameLocalizedEnabled",
+            "Value": "true",
+            "Category": "general"
+          },
+          "sortOrder": 9
+        },
+        {
+          "id": "019d5992-63f8-7103-8247-6f5d9062d995",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "hubs.allowCopy",
+            "Value": "true",
+            "Category": "hubs"
+          },
+          "sortOrder": 10
+        },
+        {
+          "id": "019d5992-6acc-7247-80f1-09dc52b961df",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "hubs.allowDelete",
+            "Value": "true",
+            "Category": "hubs"
+          },
+          "sortOrder": 11
+        },
+        {
+          "id": "019d5992-7194-7b0d-bdc2-169f2f12c015",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "hubs.allowNesting",
+            "Value": "true",
+            "Category": "hubs"
+          },
+          "sortOrder": 12
+        },
+        {
+          "id": "019d5992-7853-7d8b-ad2a-02dad941ce90",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "hubs.resetNestingOnce",
+            "Value": "false",
+            "Category": "hubs"
+          },
+          "sortOrder": 13
+        },
+        {
+          "id": "019d5992-7f2f-7a96-be99-678717e0d7eb",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "hubs.allowAttachExistingEntities",
+            "Value": "true",
+            "Category": "hubs"
+          },
+          "sortOrder": 14
+        },
+        {
+          "id": "019d5992-8610-717c-b0c3-b831b99d35b8",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowCopy",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 15
+        },
+        {
+          "id": "019d5992-8cda-7da8-b189-2e7d535c48c6",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowDelete",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 16
+        },
+        {
+          "id": "019d5992-9389-7486-aecb-a44bed8ea7da",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.attributeCodenameScope",
+            "Value": "per-level",
+            "Category": "catalogs"
+          },
+          "sortOrder": 17
+        },
+        {
+          "id": "019d5992-9a4b-797d-9ae0-e1bee9488688",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowedAttributeTypes",
+            "Value": "[\"STRING\",\"NUMBER\",\"BOOLEAN\",\"DATE\",\"REF\",\"JSON\",\"TABLE\"]",
+            "Category": "catalogs"
+          },
+          "sortOrder": 18
+        },
+        {
+          "id": "019d5992-a102-71e9-912f-8ce1b48a55a8",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowAttributeCopy",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 19
+        },
+        {
+          "id": "019d5992-a7c3-7188-9354-f66629f6c639",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowAttributeDelete",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 20
+        },
+        {
+          "id": "019d5992-aeb2-7103-86b9-28c85b26c8b6",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowDeleteLastDisplayAttribute",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 21
+        },
+        {
+          "id": "019d5992-b57d-771d-8dd7-d9c5be8867a4",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowElementCopy",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 22
+        },
+        {
+          "id": "019d5992-bc3a-7786-be90-3a9e446bb99c",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowElementDelete",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 23
+        },
+        {
+          "id": "019d5992-c31b-7d73-965d-82529df2459a",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowAttributeMoveBetweenRootAndChildren",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 24
+        },
+        {
+          "id": "019d5992-c9d9-76d8-a851-4b68ed10362b",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "catalogs.allowAttributeMoveBetweenChildLists",
+            "Value": "true",
+            "Category": "catalogs"
+          },
+          "sortOrder": 25
+        },
+        {
+          "id": "019d5992-d0c4-7cda-bc5c-cdc42eb78f1c",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "sets.allowCopy",
+            "Value": "true",
+            "Category": "sets"
+          },
+          "sortOrder": 26
+        },
+        {
+          "id": "019d5992-d780-73df-8f96-201c9cfdcf2e",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "sets.allowDelete",
+            "Value": "true",
+            "Category": "sets"
+          },
+          "sortOrder": 27
+        },
+        {
+          "id": "019d5992-de51-727b-be98-a44f8b31dc83",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "sets.constantCodenameScope",
+            "Value": "global",
+            "Category": "sets"
+          },
+          "sortOrder": 28
+        },
+        {
+          "id": "019d5992-e503-757c-b4a2-b13942246df1",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "sets.allowedConstantTypes",
+            "Value": "[\"STRING\",\"NUMBER\",\"BOOLEAN\",\"DATE\"]",
+            "Category": "sets"
+          },
+          "sortOrder": 29
+        },
+        {
+          "id": "019d5992-ebc8-7eea-b236-f9749b59fa2a",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "sets.allowConstantCopy",
+            "Value": "true",
+            "Category": "sets"
+          },
+          "sortOrder": 30
+        },
+        {
+          "id": "019d5992-f2ad-7469-9c52-2effa05ed0bd",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "sets.allowConstantDelete",
+            "Value": "true",
+            "Category": "sets"
+          },
+          "sortOrder": 31
+        },
+        {
+          "id": "019d5992-f96f-76ad-9063-ceaf01a37452",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "enumerations.allowCopy",
+            "Value": "true",
+            "Category": "enumerations"
+          },
+          "sortOrder": 32
+        },
+        {
+          "id": "019d5993-0048-755a-808e-bb21571c9fee",
+          "objectId": "019d5991-f604-7496-af90-d6d8bfa32459",
+          "data": {
+            "Key": "enumerations.allowDelete",
+            "Value": "true",
+            "Category": "enumerations"
+          },
+          "sortOrder": 33
+        }
+      ]
+    },
+    "enumerationValues": {
+      "019d5991-0a8a-7308-8e9a-ad9a6e1f2ffc": [
+        {
+          "id": "019d5993-0d54-7af9-84e6-38ae145a55c6",
+          "objectId": "019d5991-0a8a-7308-8e9a-ad9a6e1f2ffc",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Active",
+                "version": 2,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:38:19.604Z",
+                "updatedAt": "2026-04-04T17:38:21.877Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Active",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-04-04T17:38:21.877Z",
+                  "updatedAt": "2026-04-04T17:38:21.877Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "description": {}
+          },
+          "sortOrder": 1,
+          "isDefault": true
+        }
+      ]
+    },
+    "systemFields": {
+      "019d5990-2657-795d-97f3-5ca063c642aa": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5990-39b7-72a9-8f4a-d254239d79d7": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5990-879e-735a-a053-dad207112e7a": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5990-bbf3-7713-9ba9-6548a1d16bcb": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5991-1663-782a-8dc9-287736596236": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5991-4b3f-795c-b7b0-7164fc92c110": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5991-7f9a-7609-828e-882912d0be37": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5991-b5bb-7669-b07a-0d005373edd4": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019d5991-f604-7496-af90-d6d8bfa32459": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      }
+    },
+    "layouts": [
+      {
+        "id": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+        "templateKey": "dashboard",
+        "name": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Metahubs Self-Hosted Dashboard",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:38:24.952Z",
+              "updatedAt": "2026-04-04T17:38:24.952Z"
+            },
+            "ru": {
+              "content": "Панель автономного приложения метахабов",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:38:24.952Z",
+              "updatedAt": "2026-04-04T17:38:24.952Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "description": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Default dashboard layout for the self-hosted metahub application.",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:38:24.952Z",
+              "updatedAt": "2026-04-04T17:38:24.952Z"
+            },
+            "ru": {
+              "content": "Базовый макет панели для автономного приложения метахабов.",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-04T17:38:24.952Z",
+              "updatedAt": "2026-04-04T17:38:24.952Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "config": {
+          "rowHeight": "auto",
+          "showFooter": false,
+          "showHeader": true,
+          "showSearch": false,
+          "cardColumns": 3,
+          "showSideMenu": true,
+          "showAppNavbar": true,
+          "showFilterBar": true,
+          "showDatePicker": false,
+          "showViewToggle": true,
+          "defaultViewMode": "card",
+          "showBreadcrumbs": false,
+          "showOptionsMenu": false,
+          "showProductTree": false,
+          "showDetailsTable": true,
+          "showDetailsTitle": true,
+          "showOverviewCards": false,
+          "showOverviewTitle": false,
+          "showRightSideMenu": false,
+          "showSessionsChart": false,
+          "showPageViewsChart": false,
+          "enableRowReordering": true,
+          "showColumnsContainer": false,
+          "showLanguageSwitcher": false,
+          "showUsersByCountryChart": false
+        },
+        "isActive": true,
+        "isDefault": true,
+        "sortOrder": 0
+      }
+    ],
+    "defaultLayoutId": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+    "layoutConfig": {
+      "rowHeight": "auto",
+      "showFooter": false,
+      "showHeader": true,
+      "showSearch": false,
+      "cardColumns": 3,
+      "showSideMenu": true,
+      "showAppNavbar": true,
+      "showFilterBar": true,
+      "showDatePicker": false,
+      "showViewToggle": true,
+      "defaultViewMode": "card",
+      "showBreadcrumbs": false,
+      "showOptionsMenu": false,
+      "showProductTree": false,
+      "showDetailsTable": true,
+      "showDetailsTitle": true,
+      "showOverviewCards": false,
+      "showOverviewTitle": false,
+      "showRightSideMenu": false,
+      "showSessionsChart": false,
+      "showPageViewsChart": false,
+      "enableRowReordering": true,
+      "showColumnsContainer": false,
+      "showLanguageSwitcher": false,
+      "showUsersByCountryChart": false
+    },
+    "layoutZoneWidgets": [
+      {
+        "id": "019d5990-1d76-76e7-8410-1351c507da07",
+        "layoutId": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+        "zone": "center",
+        "widgetKey": "detailsTable",
+        "sortOrder": 1,
+        "config": {},
+        "isActive": true
+      },
+      {
+        "id": "019d5990-1cd9-72c3-b953-7bde01f507a2",
+        "layoutId": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+        "zone": "center",
+        "widgetKey": "detailsTitle",
+        "sortOrder": 2,
+        "config": {},
+        "isActive": true
+      },
+      {
+        "id": "019d5993-2075-76cd-a141-cd8b5a795b0e",
+        "layoutId": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+        "zone": "left",
+        "widgetKey": "menuWidget",
+        "sortOrder": 1,
+        "config": {
+          "title": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Catalogs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:38:26.632Z",
+                "updatedAt": "2026-04-04T17:38:26.632Z"
+              },
+              "ru": {
+                "content": "Каталоги",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-04T17:38:26.632Z",
+                "updatedAt": "2026-04-04T17:38:26.632Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "showTitle": true,
+          "autoShowAllCatalogs": true
+        },
+        "isActive": true
+      },
+      {
+        "id": "019d5990-1b9b-7dae-932d-f378fe3e4181",
+        "layoutId": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+        "zone": "top",
+        "widgetKey": "appNavbar",
+        "sortOrder": 1,
+        "config": {},
+        "isActive": true
+      },
+      {
+        "id": "019d5990-1c40-7b47-bab1-9a191f4471b1",
+        "layoutId": "019d5990-1a03-75f6-92f4-28ea08d53fb7",
+        "zone": "top",
+        "widgetKey": "header",
+        "sortOrder": 2,
+        "config": {},
+        "isActive": true
+      }
+    ]
+  },
+  "snapshotHash": "6e69fb47b55438f4d4261c4b93fe79a2a88c24c217a1c4ea24fbb0c6e3035e27"
+}

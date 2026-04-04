@@ -86,9 +86,7 @@ export const normalizeUiLocale = (locale: string) => locale.split(/[-_]/)[0]?.to
 export const getCopySuffixByLocale = (locale: string) => (normalizeUiLocale(locale) === 'ru' ? ' (копия)' : ' (copy)')
 export const getCopyLabelByLocale = (locale: string) => (normalizeUiLocale(locale) === 'ru' ? 'Копия' : 'Copy')
 
-export const isLocalizedContentValue = (
-    value: unknown
-): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
+export const isLocalizedContentValue = (value: unknown): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
     Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
 
 export const applyCopySuffixToFirstStringAttribute = (params: {

@@ -202,7 +202,7 @@ Generator specs live in `specs/generators/` and produce persistent fixture files
 1.  The Playwright config defines a dedicated `generators` project that only matches `specs/generators/*.spec.ts`.
 2.  The `chromium` project explicitly ignores generator files via `testIgnore`, so they never run during `test:e2e:full` or any `--grep @flow`/`@smoke`/etc. command.
 3.  Generator specs write their output to `tools/fixtures/` — this directory is **not** cleaned by the E2E runner and is **not** in `.gitignore`, so fixture files persist until manually deleted and can be committed to the repository.
-4.  Informational screenshots go to `test-results/self-model/` (or similar), which **is** cleaned on the next E2E run — this is expected.
+4.  Informational screenshots go to `test-results/self-hosted-app/` (or a similarly named generator-specific folder), which **is** cleaned on the next E2E run — this is expected.
 
 ### Running Generators
 
@@ -217,7 +217,7 @@ Run a specific generator by name:
 
 ```bash
 pnpm run build:e2e
-node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-model"
+node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"
 ```
 
 If the server is already running (e.g., from a previous E2E run), reuse it:
@@ -230,7 +230,7 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 
 | Generator | Output | Description |
 | --- | --- | --- |
-| `self-model-metahub-export` | `tools/fixtures/self-model-metahub-snapshot.json` | Creates a metahub that models the metahub platform through 13 self-model sections, persists enhanced runtime layout settings, publishes it, and exports the snapshot. |
+| `metahubs-self-hosted-app-export` | `tools/fixtures/metahubs-self-hosted-app-snapshot.json` | Creates the localized Metahubs Self-Hosted App fixture, seeds the runtime settings baseline, publishes it, and exports the snapshot used by the self-hosted parity flows. |
 
 ### Creating New Generators
 

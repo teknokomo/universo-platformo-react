@@ -3,6 +3,7 @@ import type {} from '@mui/material/themeCssVarsAugmentation'
 import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
+import { defaultDashboardLayoutConfig, type DashboardLayoutConfig } from '@universo/types'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
 import MainGrid from './components/MainGrid'
@@ -10,34 +11,7 @@ import SideMenu from './components/SideMenu'
 import SideMenuRight from './components/SideMenuRight'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
 
-export interface DashboardLayoutConfig {
-    showSideMenu?: boolean
-    showRightSideMenu?: boolean
-    showAppNavbar?: boolean
-    showHeader?: boolean
-    showBreadcrumbs?: boolean
-    showSearch?: boolean
-    showDatePicker?: boolean
-    showOptionsMenu?: boolean
-    showLanguageSwitcher?: boolean
-    showOverviewTitle?: boolean
-    showOverviewCards?: boolean
-    showSessionsChart?: boolean
-    showPageViewsChart?: boolean
-    showDetailsTitle?: boolean
-    showDetailsTable?: boolean
-    showColumnsContainer?: boolean
-    showProductTree?: boolean
-    showUsersByCountryChart?: boolean
-    showFooter?: boolean
-    // Enhanced view settings
-    showViewToggle?: boolean
-    defaultViewMode?: 'table' | 'card'
-    showFilterBar?: boolean
-    enableRowReordering?: boolean
-    cardColumns?: number
-    rowHeight?: number | 'auto'
-}
+export type { DashboardLayoutConfig } from '@universo/types'
 
 export interface DashboardDetailsSlot {
     title: string
@@ -53,6 +27,13 @@ export interface DashboardDetailsSlot {
     actions?: React.ReactNode
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
+    /** Search scope contract for the current catalog runtime. */
+    searchMode?: 'server' | 'page-local'
+    /** Optional persisted row-reorder contract for the current catalog runtime. */
+    rowReorder?: {
+        onReorder: (orderedRowIds: string[]) => Promise<void>
+        isPending?: boolean
+    }
 }
 
 export interface DashboardMenuItem {
@@ -101,11 +82,7 @@ export interface DashboardProps {
     menus?: DashboardMenusMap
 }
 
-const DEFAULT_LAYOUT: DashboardLayoutConfig = {
-    showSideMenu: true,
-    showAppNavbar: true,
-    showHeader: true
-}
+const DEFAULT_LAYOUT: DashboardLayoutConfig = defaultDashboardLayoutConfig
 
 const EMPTY_RIGHT_WIDGETS: ZoneWidgetItem[] = []
 const EMPTY_CENTER_WIDGETS: ZoneWidgetItem[] = []

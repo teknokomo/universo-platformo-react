@@ -31,6 +31,7 @@ import ToggleOnRoundedIcon from '@mui/icons-material/ToggleOnRounded'
 import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded'
 
 import { useCommonTranslations } from '@universo/i18n'
+import { defaultDashboardLayoutConfig, type DashboardLayoutConfig } from '@universo/types'
 import {
     TemplateMainCard as MainCard,
     ItemCard,
@@ -63,47 +64,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeLayoutCopyOptions } from '@universo/utils'
 import { isPendingEntity, getPendingAction } from '@universo/utils'
 
-type DashboardLayoutConfig = {
-    showSideMenu: boolean
-    showAppNavbar: boolean
-    showHeader: boolean
-    showBreadcrumbs: boolean
-    showSearch: boolean
-    showDatePicker: boolean
-    showOptionsMenu: boolean
-    showOverviewTitle: boolean
-    showOverviewCards: boolean
-    showSessionsChart: boolean
-    showPageViewsChart: boolean
-    showDetailsTitle: boolean
-    showDetailsTable: boolean
-    showColumnsContainer: boolean
-    showProductTree: boolean
-    showUsersByCountryChart: boolean
-    showRightSideMenu: boolean
-    showFooter: boolean
-}
-
-const DEFAULT_DASHBOARD_CONFIG: DashboardLayoutConfig = {
-    showSideMenu: true,
-    showAppNavbar: true,
-    showHeader: true,
-    showBreadcrumbs: true,
-    showSearch: true,
-    showDatePicker: true,
-    showOptionsMenu: true,
-    showOverviewTitle: true,
-    showOverviewCards: true,
-    showSessionsChart: true,
-    showPageViewsChart: true,
-    showDetailsTitle: true,
-    showDetailsTable: true,
-    showColumnsContainer: false,
-    showProductTree: true,
-    showUsersByCountryChart: true,
-    showRightSideMenu: true,
-    showFooter: true
-}
+const DEFAULT_DASHBOARD_CONFIG: DashboardLayoutConfig = defaultDashboardLayoutConfig
 
 type LayoutFormValues = {
     templateKey: 'dashboard'
@@ -299,7 +260,8 @@ const LayoutList = () => {
 
         const uiLocale = normalizeLocale(i18n.language)
         const sourceName = getVLCString(dialogs.copy.item.name, uiLocale) || getVLCString(dialogs.copy.item.name, 'en') || ''
-        const sourceDescription = getVLCString(dialogs.copy.item.description, uiLocale) || getVLCString(dialogs.copy.item.description, 'en') || ''
+        const sourceDescription =
+            getVLCString(dialogs.copy.item.description, uiLocale) || getVLCString(dialogs.copy.item.description, 'en') || ''
 
         return {
             templateKey: 'dashboard',

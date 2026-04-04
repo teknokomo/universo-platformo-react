@@ -12,22 +12,39 @@ import {
     disposeApiContext,
     getLayout,
     listLayouts,
+    listLayoutZoneWidgets,
     sendWithCsrf,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub, recordCreatedApplication } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { createLocalizedContent } from '@universo/utils'
+import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo/utils'
+import {
+    SELF_HOSTED_APP_CANONICAL_METAHUB,
+    SELF_HOSTED_APP_FIXTURE_FILENAME,
+    SELF_HOSTED_APP_LAYOUT,
+    SELF_HOSTED_APP_PUBLICATION,
+    SELF_HOSTED_APP_SCREENSHOTS_DIRNAME,
+    SELF_HOSTED_APP_SECTIONS,
+    SELF_HOSTED_APP_SETTINGS_BASELINE,
+    assertSelfHostedAppEnvelopeContract,
+    buildSelfHostedAppLiveMetahubCodename,
+    buildSelfHostedAppLiveMetahubName,
+    canonicalizeSelfHostedAppEnvelope,
+    getSelfHostedAppCatalogAttributes
+} from '../../support/selfHostedAppFixtureContract.mjs'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
+type SelfHostedAppSection = (typeof SELF_HOSTED_APP_SECTIONS)[number]
 
-async function waitForLayoutId(api: ApiContext, metahubId: string) {
+async function waitForDefaultLayoutId(api: ApiContext, metahubId: string) {
     let layoutId: string | undefined
 
     await expect
         .poll(async () => {
             const response = await listLayouts(api, metahubId, { limit: 20, offset: 0 })
-            layoutId = response?.items?.[0]?.id
+            const items = Array.isArray(response?.items) ? response.items : []
+            layoutId = items.find((layout) => layout?.isDefault)?.id ?? items[0]?.id
             return typeof layoutId === 'string'
         })
         .toBe(true)
@@ -40,39 +57,71 @@ async function waitForLayoutId(api: ApiContext, metahubId: string) {
 }
 
 async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
-    const layoutId = await waitForLayoutId(api, metahubId)
+    const layoutId = await waitForDefaultLayoutId(api, metahubId)
     const layout = await getLayout(api, metahubId, layoutId)
     const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
 
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
+        name: SELF_HOSTED_APP_LAYOUT.name,
+        namePrimaryLocale: 'en',
+        description: SELF_HOSTED_APP_LAYOUT.description,
+        descriptionPrimaryLocale: 'en',
         config: {
             ...currentConfig,
-            showOverviewTitle: false,
-            showOverviewCards: false,
-            showSessionsChart: false,
-            showPageViewsChart: false,
-            showDetailsTitle: true,
-            showDetailsTable: true,
-            showFooter: false,
-            showViewToggle: true,
-            defaultViewMode: 'card',
-            showFilterBar: true,
-            enableRowReordering: true,
-            cardColumns: 2,
-            rowHeight: 'auto'
+            ...SELF_HOSTED_APP_LAYOUT.runtimeConfig
         }
     })
 
     expect(response.ok).toBe(true)
-    const updatedLayout = await response.json()
-    expect(updatedLayout?.config).toMatchObject({
-        showViewToggle: true,
-        showFilterBar: true,
-        defaultViewMode: 'card',
-        enableRowReordering: true,
-        cardColumns: 2,
-        rowHeight: 'auto'
+    const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+    const menuWidgets = Array.isArray(zoneWidgets) ? zoneWidgets.filter((widget) => widget?.widgetKey === 'menuWidget') : []
+    const primaryMenuWidget = menuWidgets[0]
+
+    if (primaryMenuWidget?.id) {
+        const menuWidgetResponse = await sendWithCsrf(
+            api,
+            'PATCH',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${primaryMenuWidget.id}/config`,
+            {
+                config: {
+                    ...(primaryMenuWidget.config && typeof primaryMenuWidget.config === 'object' ? primaryMenuWidget.config : {}),
+                    autoShowAllCatalogs: true,
+                    showTitle: true,
+                    title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
+                }
+            }
+        )
+        expect(menuWidgetResponse.ok).toBe(true)
+    } else {
+        const menuWidgetResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
+            zone: 'left',
+            widgetKey: 'menuWidget',
+            config: {
+                autoShowAllCatalogs: true,
+                showTitle: true,
+                title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
+            }
+        })
+        expect(menuWidgetResponse.ok).toBe(true)
+    }
+
+    for (const widget of menuWidgets.slice(1)) {
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`
+        )
+        expect(removeResponse.status).toBe(204)
+    }
+
+    const detailsTableResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
+        zone: 'center',
+        widgetKey: 'detailsTable'
     })
+    expect(detailsTableResponse.ok).toBe(true)
+
+    const updatedLayout = await getLayout(api, metahubId, layoutId)
+    expect(updatedLayout?.config).toMatchObject(SELF_HOSTED_APP_LAYOUT.runtimeConfig)
 }
 
 /* ────── Helper: raw GET via cookies ────── */
@@ -91,94 +140,22 @@ async function apiGet(api: ApiContext, urlPath: string) {
     })
 }
 
-/* ────── Self-Model catalog definitions ────── */
+/* ────── Self-hosted fixture catalog definitions ────── */
 
-const SELF_MODEL_SECTIONS = [
-    { codename: 'metahubs', name: 'Metahubs', kind: 'catalog' },
-    { codename: 'catalogs', name: 'Catalogs', kind: 'catalog' },
-    { codename: 'attributes', name: 'Attributes', kind: 'catalog' },
-    { codename: 'elements', name: 'Elements', kind: 'catalog' },
-    { codename: 'hubs', name: 'Hubs', kind: 'hub' },
-    { codename: 'sets', name: 'Sets', kind: 'set' },
-    { codename: 'enumerations', name: 'Enumerations', kind: 'enumeration' },
-    { codename: 'enum_values', name: 'Enum Values', kind: 'catalog' },
-    { codename: 'constants', name: 'Constants', kind: 'catalog' },
-    { codename: 'branches', name: 'Branches', kind: 'catalog' },
-    { codename: 'publications', name: 'Publications', kind: 'catalog' },
-    { codename: 'layouts', name: 'Layouts', kind: 'catalog' },
-    { codename: 'settings', name: 'Settings', kind: 'catalog' },
-] as const
-
-type SelfModelSection = (typeof SELF_MODEL_SECTIONS)[number]
-
-function getAttributesForCatalog(codename: string) {
-    const defs: Record<string, Array<{ codename: string; name: string; dataType: string; isRequired?: boolean }>> = {
-        metahubs: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'description', name: 'Description', dataType: 'STRING' },
-            { codename: 'slug', name: 'Slug', dataType: 'STRING', isRequired: true },
-        ],
-        catalogs: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'codename', name: 'Codename', dataType: 'STRING', isRequired: true },
-            { codename: 'kind', name: 'Kind', dataType: 'STRING' },
-        ],
-        attributes: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'codename', name: 'Codename', dataType: 'STRING', isRequired: true },
-            { codename: 'data_type', name: 'Data Type', dataType: 'STRING', isRequired: true },
-            { codename: 'is_required', name: 'Is Required', dataType: 'BOOLEAN' },
-        ],
-        elements: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'sort_order', name: 'Sort Order', dataType: 'NUMBER' },
-        ],
-        enum_values: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'codename', name: 'Codename', dataType: 'STRING', isRequired: true },
-            { codename: 'sort_order', name: 'Sort Order', dataType: 'NUMBER' },
-        ],
-        constants: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'codename', name: 'Codename', dataType: 'STRING', isRequired: true },
-            { codename: 'data_type', name: 'Data Type', dataType: 'STRING' },
-        ],
-        branches: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'codename', name: 'Codename', dataType: 'STRING', isRequired: true },
-            { codename: 'is_default', name: 'Is Default', dataType: 'BOOLEAN' },
-        ],
-        publications: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'version_number', name: 'Version Number', dataType: 'NUMBER' },
-            { codename: 'is_active', name: 'Is Active', dataType: 'BOOLEAN' },
-        ],
-        layouts: [
-            { codename: 'name', name: 'Name', dataType: 'STRING', isRequired: true },
-            { codename: 'template_key', name: 'Template Key', dataType: 'STRING' },
-            { codename: 'is_default', name: 'Is Default', dataType: 'BOOLEAN' },
-        ],
-        settings: [
-            { codename: 'key', name: 'Key', dataType: 'STRING', isRequired: true },
-            { codename: 'value', name: 'Value', dataType: 'STRING' },
-            { codename: 'category', name: 'Category', dataType: 'STRING' },
-        ],
-    }
-    return defs[codename] ?? []
-}
-
-const getSectionCreatePath = (metahubId: string, section: SelfModelSection): string => {
+const getSectionCreatePath = (metahubId: string, section: SelfHostedAppSection): string => {
     if (section.kind === 'hub') return `/api/v1/metahub/${metahubId}/hubs`
     if (section.kind === 'set') return `/api/v1/metahub/${metahubId}/sets`
     if (section.kind === 'enumeration') return `/api/v1/metahub/${metahubId}/enumerations`
     return `/api/v1/metahub/${metahubId}/catalogs`
 }
 
-const buildSectionCreatePayload = (section: SelfModelSection, hubId?: string) => {
+const buildSectionCreatePayload = (section: SelfHostedAppSection, hubId?: string) => {
     const payload: Record<string, unknown> = {
-        codename: createLocalizedContent('en', section.codename),
-        name: { en: section.name },
+        codename: buildVLC(section.name.en, section.name.ru),
+        name: section.name,
         namePrimaryLocale: 'en',
+        description: section.description,
+        descriptionPrimaryLocale: 'en'
     }
 
     if ((section.kind === 'set' || section.kind === 'enumeration') && hubId) {
@@ -189,18 +166,26 @@ const buildSectionCreatePayload = (section: SelfModelSection, hubId?: string) =>
     return payload
 }
 
+async function seedSettingsBaseline(api: ApiContext, metahubId: string, catalogId: string) {
+    for (const row of SELF_HOSTED_APP_SETTINGS_BASELINE) {
+        const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/catalog/${catalogId}/elements`, {
+            data: row,
+        })
+        expect(response.ok).toBe(true)
+    }
+}
+
 /* ────── Constants ────── */
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
-const SCREENSHOTS_DIR = path.resolve(repoRoot, 'test-results', 'self-model')
-const FIXTURE_FILENAME = 'self-model-metahub-snapshot.json'
+const SCREENSHOTS_DIR = path.resolve(repoRoot, 'test-results', SELF_HOSTED_APP_SCREENSHOTS_DIRNAME)
 
 /* ────── Test ────── */
 
-test.describe('Self-Model Metahub Creation & Export', () => {
+test.describe('Metahubs Self-Hosted App Export', () => {
     let api: ApiContext
 
-    test('@generator create self-model metahub, publish application, export snapshot', async ({ page, runManifest }) => {
+    test('@generator create metahubs self-hosted app, publish application, export snapshot', async ({ page, runManifest }) => {
         test.setTimeout(300_000)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -210,24 +195,29 @@ test.describe('Self-Model Metahub Creation & Export', () => {
         fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
 
         /* ── 1. Create metahub ── */
-        const metahubCodename = `self-model-${runManifest.runId}`
+        const liveMetahubName = buildSelfHostedAppLiveMetahubName(runManifest.runId)
+        const metahubCodename = buildSelfHostedAppLiveMetahubCodename(runManifest.runId)
         const metahubResp = await createMetahub(api, {
-            name: { en: `Self-Model ${runManifest.runId}` },
+            name: liveMetahubName,
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', metahubCodename),
-            description: 'A metahub that models its own complete structure — demonstrates self-referential capability.',
+            codename: metahubCodename,
+            description: SELF_HOSTED_APP_CANONICAL_METAHUB.description,
             descriptionPrimaryLocale: 'en',
         })
         const metahubId = metahubResp?.data?.id ?? metahubResp?.id
         expect(metahubId).toBeTruthy()
-        await recordCreatedMetahub({ id: metahubId, name: `Self-Model ${runManifest.runId}`, codename: metahubCodename })
+        await recordCreatedMetahub({
+            id: metahubId,
+            name: liveMetahubName.en,
+            codename: SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en,
+        })
 
-        /* ── 2. Create the planned 13 self-model sections ── */
+        /* ── 2. Create the planned self-hosted sections ── */
         const sectionMap: Record<string, string> = {}
         let hubSectionId: string | undefined
         let enumerationSectionId: string | undefined
 
-        for (const sectionDef of SELF_MODEL_SECTIONS) {
+        for (const sectionDef of SELF_HOSTED_APP_SECTIONS) {
             const sectionResp = await sendWithCsrf(
                 api,
                 'POST',
@@ -247,18 +237,22 @@ test.describe('Self-Model Metahub Creation & Export', () => {
                 enumerationSectionId = sectionId
             }
 
-            const attrs = sectionDef.kind === 'catalog' ? getAttributesForCatalog(sectionDef.codename) : []
+            const attrs = sectionDef.kind === 'catalog' ? getSelfHostedAppCatalogAttributes(sectionDef.codename) : []
             if (attrs.length > 0) {
                 const catalogId = sectionId
                 for (const attr of attrs) {
                     await createMetahubAttribute(api, metahubId, catalogId, {
                         codename: createLocalizedContent('en', attr.codename),
-                        name: { en: attr.name },
+                        name: attr.name,
                         namePrimaryLocale: 'en',
                         dataType: attr.dataType,
                         isRequired: attr.isRequired ?? false,
                     })
                 }
+            }
+
+            if (sectionDef.codename === 'settings') {
+                await seedSettingsBaseline(api, metahubId, sectionId)
             }
         }
 
@@ -272,7 +266,7 @@ test.describe('Self-Model Metahub Creation & Export', () => {
             expect(valueResp.status).toBeLessThan(300)
         }
 
-        expect(Object.keys(sectionMap).length).toBe(SELF_MODEL_SECTIONS.length)
+        expect(Object.keys(sectionMap).length).toBe(SELF_HOSTED_APP_SECTIONS.length)
 
         await applyEnhancedLayoutConfig(api, metahubId)
 
@@ -291,7 +285,7 @@ test.describe('Self-Model Metahub Creation & Export', () => {
 
         /* ── 4. Create publication ── */
         const pubResp = await createPublication(api, metahubId, {
-            name: { en: 'Self-Model Publication' },
+            name: SELF_HOSTED_APP_PUBLICATION.name,
             namePrimaryLocale: 'en',
         })
         const publicationId = pubResp?.data?.id ?? pubResp?.id
@@ -301,12 +295,12 @@ test.describe('Self-Model Metahub Creation & Export', () => {
         let applicationId: string | undefined
         try {
             const appResp = await createPublicationLinkedApplication(api, metahubId, publicationId, {
-                name: { en: 'Self-Model App' },
+                name: SELF_HOSTED_APP_PUBLICATION.applicationName,
                 namePrimaryLocale: 'en',
             })
             applicationId = appResp?.data?.id ?? appResp?.id
             if (applicationId) {
-                await recordCreatedApplication({ id: applicationId, name: 'Self-Model App' })
+                await recordCreatedApplication({ id: applicationId, name: SELF_HOSTED_APP_PUBLICATION.applicationName.en })
             }
         } catch (e) {
             // Application creation may not be available in all setups
@@ -324,8 +318,10 @@ test.describe('Self-Model Metahub Creation & Export', () => {
         }
 
         const versionResp = await createPublicationVersion(api, metahubId, publicationId, {
-            name: { en: 'Initial self-model snapshot v1' },
+            name: SELF_HOSTED_APP_PUBLICATION.versionName,
             namePrimaryLocale: 'en',
+            description: SELF_HOSTED_APP_PUBLICATION.versionDescription,
+            descriptionPrimaryLocale: 'en',
         })
         const versionId = versionResp?.data?.id ?? versionResp?.id
         expect(versionId).toBeTruthy()
@@ -377,9 +373,13 @@ test.describe('Self-Model Metahub Creation & Export', () => {
         expect((envelope.snapshotHash as string).length).toBe(64)
         expect(envelope.snapshot).toBeTruthy()
 
+        const canonicalEnvelope = canonicalizeSelfHostedAppEnvelope(envelope)
+        validateSnapshotEnvelope(canonicalEnvelope)
+        assertSelfHostedAppEnvelopeContract(canonicalEnvelope)
+
         /* ── 11. Save snapshot to fixtures (persists after test cleanup) ── */
-        const fixturePath = path.join(FIXTURES_DIR, FIXTURE_FILENAME)
-        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
+        const fixturePath = path.join(FIXTURES_DIR, SELF_HOSTED_APP_FIXTURE_FILENAME)
+        fs.writeFileSync(fixturePath, JSON.stringify(canonicalEnvelope, null, 2), 'utf8')
         expect(fs.existsSync(fixturePath)).toBe(true)
 
         const stats = fs.statSync(fixturePath)
@@ -399,7 +399,7 @@ test.describe('Self-Model Metahub Creation & Export', () => {
         }
 
         /* ── Summary log ── */
-        console.log('\n─── Self-Model Metahub Export Complete ───')
+        console.log('\n─── Metahubs Self-Hosted App Export Complete ───')
         console.log(`Metahub ID:    ${metahubId}`)
         console.log(`Publication:   ${publicationId}`)
         console.log(`Version:       ${versionId}`)

@@ -3,6 +3,7 @@ import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import type { GridColDef } from '@mui/x-data-grid'
+import { useTranslation } from 'react-i18next'
 import Copyright from '../internals/components/Copyright'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import HighlightedCard from './HighlightedCard'
@@ -129,11 +130,10 @@ const buildFlowListCellParams = (
     } as FlowListCellParams
 }
 
-const buildFlowListColumns = (columns: GridColDef[], rows: RuntimeDetailsRow[]): TableColumn<RuntimeDetailsRow>[] =>
-    {
-        const rowsById = new Map(rows.map((item) => [String(item.id), item]))
+const buildFlowListColumns = (columns: GridColDef[], rows: RuntimeDetailsRow[]): TableColumn<RuntimeDetailsRow>[] => {
+    const rowsById = new Map(rows.map((item) => [String(item.id), item]))
 
-        return columns
+    return columns
         .filter((column) => column.field !== 'id')
         .map((column) => ({
             id: String(column.field),
@@ -149,14 +149,12 @@ const buildFlowListColumns = (columns: GridColDef[], rows: RuntimeDetailsRow[]):
                 return getSearchableText(value)
             }
         }))
-    }
+}
 
-function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayoutConfig }) {
+function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConfig?: DashboardLayoutConfig; showTitle?: boolean }) {
     const details = useDashboardDetails()
-    const [viewMode, setViewMode] = useViewPreference(
-        'app-details-view',
-        (layoutConfig?.defaultViewMode as 'table' | 'card') ?? 'table'
-    )
+    const { t } = useTranslation('apps')
+    const [viewMode, setViewMode] = useViewPreference('app-details-view', (layoutConfig?.defaultViewMode as 'table' | 'card') ?? 'table')
     const [search, setSearch] = useState('')
     const [orderedRows, setOrderedRows] = useState<RuntimeDetailsRow[]>(() => (details?.rows as RuntimeDetailsRow[] | undefined) ?? [])
     const [clientPage, setClientPage] = useState(0)
@@ -170,6 +168,7 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
         setClientPageSize(details?.paginationModel?.pageSize ?? 20)
     }, [details?.paginationModel?.pageSize])
 
+    const searchMode = details?.searchMode ?? 'page-local'
     const filteredRows = useMemo(() => {
         const rows = orderedRows
         if (!search.trim()) return rows
@@ -178,6 +177,15 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
     }, [orderedRows, search])
 
     const isClientFiltered = search.trim().length > 0
+    const baseCanPersistRowReorder = Boolean(layoutConfig?.enableRowReordering && details?.rowReorder?.onReorder)
+    const knownRowCount = details?.rowCount ?? orderedRows.length
+    const hasCompleteDatasetLoaded = knownRowCount <= orderedRows.length
+    const canPersistRowReorder = baseCanPersistRowReorder && hasCompleteDatasetLoaded && !isClientFiltered
+    const usesLocalSearchScope = searchMode === 'page-local'
+    const showSearchScopeHint = Boolean(
+        layoutConfig?.showFilterBar && usesLocalSearchScope && (details?.rowCount ?? orderedRows.length) > orderedRows.length
+    )
+    const showRowReorderHint = baseCanPersistRowReorder && !canPersistRowReorder
 
     useEffect(() => {
         if (!isClientFiltered) return
@@ -193,13 +201,24 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
     }, [clientPage, clientPageSize, filteredRows.length, isClientFiltered])
 
     const detailsTitle = details?.title ?? 'Details'
+    const headerTitle = showTitle ? detailsTitle : undefined
     const serverPage = details?.paginationModel?.page ?? 0
     const serverPageSize = details?.paginationModel?.pageSize ?? 20
     const page = isClientFiltered ? clientPage : serverPage
     const pageSize = isClientFiltered ? clientPageSize : serverPageSize
     const totalItems = isClientFiltered ? filteredRows.length : details?.rowCount ?? filteredRows.length
-    const visibleRows = isClientFiltered ? paginateRows(filteredRows, page, pageSize) : filteredRows
+    const visibleRows = useMemo(() => {
+        if (viewMode === 'card') {
+            return paginateRows(filteredRows, page, pageSize)
+        }
+        if (canPersistRowReorder) {
+            return filteredRows
+        }
+        return isClientFiltered ? paginateRows(filteredRows, page, pageSize) : filteredRows
+    }, [canPersistRowReorder, filteredRows, isClientFiltered, page, pageSize, viewMode])
     const flowListColumns = useMemo(() => buildFlowListColumns(details?.columns ?? [], orderedRows), [details?.columns, orderedRows])
+    const gridPaginationModel = isClientFiltered ? { page: clientPage, pageSize: clientPageSize } : details?.paginationModel
+    const showHeader = Boolean(details?.actions || layoutConfig?.showFilterBar || layoutConfig?.showViewToggle || headerTitle)
 
     const paginationState: PaginationState = {
         currentPage: page + 1,
@@ -245,26 +264,63 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
     }
 
     const handleSortableDragEnd = (event: DragEndEvent) => {
+        if (!canPersistRowReorder) return
+
         const activeId = String(event.active.id)
         const overId = event.over ? String(event.over.id) : null
-        setOrderedRows((rows) => reorderRowsByIds(rows, activeId, overId))
+        setOrderedRows((rows) => {
+            const nextRows = reorderRowsByIds(rows, activeId, overId)
+            const nextIds = nextRows.map((row) => row.id)
+            void details?.rowReorder?.onReorder(nextIds).catch(() => {
+                setOrderedRows(rows)
+            })
+            return nextRows
+        })
     }
 
     return (
         <>
-            <ViewHeaderMUI
-                title={detailsTitle}
-                search={layoutConfig?.showFilterBar}
-                searchValue={search}
-                onSearchChange={(e) => setSearch(e.target.value)}
-            >
-                <ToolbarControls
-                    viewToggleEnabled={layoutConfig?.showViewToggle}
-                    viewMode={viewMode === 'card' ? 'card' : 'list'}
-                    onViewModeChange={(mode) => setViewMode(mode === 'card' ? 'card' : 'table')}
-                />
-                {details?.actions}
-            </ViewHeaderMUI>
+            {showHeader ? (
+                <Box
+                    sx={{
+                        mb: { xs: 1.5, sm: 2 },
+                        '& .MuiToolbar-root': {
+                            rowGap: 1.5,
+                            columnGap: 2,
+                            alignItems: { xs: 'stretch', sm: 'center' }
+                        }
+                    }}
+                >
+                    <ViewHeaderMUI
+                        title={headerTitle}
+                        search={layoutConfig?.showFilterBar}
+                        searchValue={search}
+                        onSearchChange={(e) => setSearch(e.target.value)}
+                    >
+                        <ToolbarControls
+                            viewToggleEnabled={layoutConfig?.showViewToggle}
+                            viewMode={viewMode === 'card' ? 'card' : 'list'}
+                            onViewModeChange={(mode) => setViewMode(mode === 'card' ? 'card' : 'table')}
+                        />
+                        {details?.actions}
+                    </ViewHeaderMUI>
+                </Box>
+            ) : null}
+
+            {showSearchScopeHint ? (
+                <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1.5 }}>
+                    {t('app.localSearchScope', 'Search applies to loaded rows only.')}
+                </Typography>
+            ) : null}
+
+            {showRowReorderHint ? (
+                <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1.5 }}>
+                    {t(
+                        'app.reorderRequiresCompleteDataset',
+                        'Row reordering is available only when all rows are loaded and search is cleared.'
+                    )}
+                </Typography>
+            ) : null}
 
             {viewMode === 'card' ? (
                 <Grid container spacing={2}>
@@ -284,7 +340,7 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
                         )
                     })}
                 </Grid>
-            ) : layoutConfig?.enableRowReordering ? (
+            ) : canPersistRowReorder ? (
                 <FlowListTable<RuntimeDetailsRow>
                     data={visibleRows}
                     customColumns={flowListColumns}
@@ -298,16 +354,22 @@ function EnhancedDetailsSection({ layoutConfig }: { layoutConfig?: DashboardLayo
                     columns={details?.columns ?? []}
                     loading={details?.loading}
                     rowCount={isClientFiltered ? undefined : details?.rowCount}
-                    paginationModel={isClientFiltered ? undefined : details?.paginationModel}
-                    onPaginationModelChange={isClientFiltered ? undefined : details?.onPaginationModelChange}
+                    paginationModel={gridPaginationModel}
+                    onPaginationModelChange={(model) => {
+                        if (isClientFiltered) {
+                            setClientPage(model.page)
+                            setClientPageSize(model.pageSize)
+                            return
+                        }
+                        details?.onPaginationModelChange?.(model)
+                    }}
                     pageSizeOptions={details?.pageSizeOptions}
                     localeText={details?.localeText}
                     rowHeight={layoutConfig?.rowHeight}
-                    hideFooter
                 />
             )}
 
-            {totalItems > 0 && <PaginationControls pagination={paginationState} actions={paginationActions} />}
+            {viewMode === 'card' && totalItems > 0 ? <PaginationControls pagination={paginationState} actions={paginationActions} /> : null}
         </>
     )
 }
@@ -328,9 +390,6 @@ export default function MainGrid({
     const showDetailsTable = layoutConfig?.showDetailsTable ?? true
     const showColumnsContainer = layoutConfig?.showColumnsContainer ?? false
     const showFooter = layoutConfig?.showFooter ?? true
-
-    const detailsTitle = details?.title ?? 'Details'
-    const isEnhancedMode = layoutConfig?.showViewToggle || layoutConfig?.showFilterBar || layoutConfig?.enableRowReordering
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
     const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
@@ -380,30 +439,7 @@ export default function MainGrid({
                     {/* Data-driven: columnsContainer(s) from center zone widgets */}
                     {columnsContainerWidgets.length > 0
                         ? columnsContainerWidgets.map((w) => <Box key={w.id}>{renderWidget(w)}</Box>)
-                        : showDetailsTable &&
-                          (isEnhancedMode ? (
-                              <EnhancedDetailsSection layoutConfig={layoutConfig} />
-                          ) : (
-                              <>
-                                  {showDetailsTitle && (
-                                      <Typography component='h2' variant='h6' sx={{ mb: 1 }}>
-                                          {detailsTitle}
-                                      </Typography>
-                                  )}
-                                  {details?.actions && <Box sx={{ mb: 2 }}>{details.actions}</Box>}
-                                  {!details?.actions && showDetailsTitle && <Box sx={{ mb: 1 }} />}
-                                  <CustomizedDataGrid
-                                      rows={details?.rows ?? []}
-                                      columns={details?.columns ?? []}
-                                      loading={details?.loading}
-                                      rowCount={details?.rowCount}
-                                      paginationModel={details?.paginationModel}
-                                      onPaginationModelChange={details?.onPaginationModelChange}
-                                      pageSizeOptions={details?.pageSizeOptions}
-                                      localeText={details?.localeText}
-                                  />
-                              </>
-                          ))}
+                        : showDetailsTable && <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} />}
                 </>
             )}
 

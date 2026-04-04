@@ -235,14 +235,23 @@ export class MetahubLayoutsService {
              WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
             [layoutId]
         )
+        const layoutRow = await queryOne<{ config?: unknown }>(
+            db,
+            `SELECT config FROM ${lt} WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
+            [layoutId]
+        )
 
         const activeWidgets = widgets.filter((row) => row.is_active !== false)
-        const nextConfig = buildDashboardLayoutConfig(
-            activeWidgets.map((row) => ({
-                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                zone: String(row.zone) as DashboardLayoutZone
-            }))
-        )
+        const currentConfig = layoutRow?.config && typeof layoutRow.config === 'object' ? layoutRow.config : {}
+        const nextConfig = {
+            ...currentConfig,
+            ...buildDashboardLayoutConfig(
+                activeWidgets.map((row) => ({
+                    widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+                    zone: String(row.zone) as DashboardLayoutZone
+                }))
+            )
+        }
 
         await db.query(
             `UPDATE ${lt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1

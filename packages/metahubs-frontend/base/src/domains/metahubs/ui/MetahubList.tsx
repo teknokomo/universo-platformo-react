@@ -33,6 +33,7 @@ import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from 
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateMetahub, useUpdateMetahub, useDeleteMetahub, useCopyMetahub, useImportMetahubFromSnapshot } from '../hooks/mutations'
+import { exportMetahubSnapshot } from '../api/metahubs'
 import { useMetahubListData } from '../hooks/useMetahubListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
@@ -47,6 +48,8 @@ import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 import type { GenericFormValues, ConfirmSpec, PendingMetahubNavigation, MetahubFormValues, BaseMenuContext } from './metahubListUtils'
 import { extractResponseStatus, extractResponseMessage, extractConflict } from './metahubListUtils'
 import { ImportSnapshotDialog } from '../../publications/ui/ImportSnapshotDialog'
+
+const MANAGE_METAHUB_ACTION_IDS = new Set(['edit', 'delete', 'copy', 'export'])
 
 type GeneralTabFieldsProps = {
     values: GenericFormValues
@@ -228,8 +231,6 @@ const MetahubList = () => {
     const createMetahubMutation = useCreateMetahub()
     const importMutation = useImportMetahubFromSnapshot()
 
-
-
     const { confirm } = useConfirm()
 
     const updateMetahubMutation = useUpdateMetahub()
@@ -401,26 +402,40 @@ const MetahubList = () => {
         openCreate()
     }
 
-    const handleImportConfirm = useCallback(async (file: File) => {
-        let json: unknown
-        try {
-            const text = await file.text()
-            json = JSON.parse(text)
-        } catch {
-            enqueueSnackbar(t('export.invalidJson'), { variant: 'error' })
-            return
-        }
-        importMutation.mutate(json as Record<string, unknown>, {
-            onSuccess: (data: { metahub: { id: string } }) => {
-                setImportDialogOpen(false)
-                enqueueSnackbar(t('export.importSuccess'), { variant: 'success' })
-                navigate(`/metahub/${data.metahub.id}`)
-            },
-            onError: () => {
-                enqueueSnackbar(t('export.importError'), { variant: 'error' })
+    const handleImportConfirm = useCallback(
+        async (file: File) => {
+            let json: unknown
+            try {
+                const text = await file.text()
+                json = JSON.parse(text)
+            } catch {
+                enqueueSnackbar(t('export.invalidJson'), { variant: 'error' })
+                return
             }
-        })
-    }, [importMutation, navigate, enqueueSnackbar, t])
+            importMutation.mutate(json as Record<string, unknown>, {
+                onSuccess: (data: { metahub: { id: string } }) => {
+                    setImportDialogOpen(false)
+                    enqueueSnackbar(t('export.importSuccess'), { variant: 'success' })
+                    navigate(`/metahub/${data.metahub.id}`)
+                },
+                onError: () => {
+                    enqueueSnackbar(t('export.importError'), { variant: 'error' })
+                }
+            })
+        },
+        [importMutation, navigate, enqueueSnackbar, t]
+    )
+
+    const handleExportMetahub = useCallback(
+        async (metahubId: string) => {
+            try {
+                await exportMetahubSnapshot(metahubId)
+            } catch {
+                enqueueSnackbar(t('export.exportError'), { variant: 'error' })
+            }
+        },
+        [enqueueSnackbar, t]
+    )
 
     const handleDialogClose = () => {
         close('create')
@@ -648,6 +663,9 @@ const MetahubList = () => {
                 openDeleteDialog: (metahub: MetahubDisplay) => {
                     openDelete(metahub)
                 }
+            },
+            runtime: {
+                exportMetahub: handleExportMetahub
             }
         }),
         [
@@ -655,6 +673,7 @@ const MetahubList = () => {
             copyMetahubMutation,
             deleteMetahubMutation,
             enqueueSnackbar,
+            handleExportMetahub,
             i18n.language,
             metahubMap,
             queryClient,
@@ -741,7 +760,7 @@ const MetahubList = () => {
                                         {metahubsDisplay.map((metahub: MetahubDisplay) => {
                                             // Filter actions based on permissions (same logic as table view)
                                             const descriptors = metahubActions.filter((descriptor) => {
-                                                if (descriptor.id === 'edit' || descriptor.id === 'delete' || descriptor.id === 'copy') {
+                                                if (MANAGE_METAHUB_ACTION_IDS.has(descriptor.id)) {
                                                     return metahub.permissions?.manageMetahub
                                                 }
                                                 return true
@@ -791,11 +810,7 @@ const MetahubList = () => {
                                             i18nNamespace='flowList'
                                             renderActions={(row: MetahubDisplay) => {
                                                 const descriptors = metahubActions.filter((descriptor) => {
-                                                    if (
-                                                        descriptor.id === 'edit' ||
-                                                        descriptor.id === 'delete' ||
-                                                        descriptor.id === 'copy'
-                                                    ) {
+                                                    if (MANAGE_METAHUB_ACTION_IDS.has(descriptor.id)) {
                                                         return row.permissions?.manageMetahub
                                                     }
                                                     return true
@@ -895,7 +910,8 @@ const MetahubList = () => {
                     }}
                     onOverwrite={async () => {
                         // Force update without version check
-                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: MetahubLocalizedPayload } })?.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: MetahubLocalizedPayload } })
+                            ?.pendingUpdate
                         if (pendingUpdate) {
                             const { id, patch } = pendingUpdate
                             try {

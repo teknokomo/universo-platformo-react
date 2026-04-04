@@ -18,11 +18,7 @@ export function createSetsRoutes(
     const ctrl = createSetsController(createHandler)
 
     // List sets (global or hub-scoped)
-    router.get(
-        ['/metahub/:metahubId/sets', '/metahub/:metahubId/hub/:hubId/sets'],
-        readLimiter,
-        asyncHandler(ctrl.list)
-    )
+    router.get(['/metahub/:metahubId/sets', '/metahub/:metahubId/hub/:hubId/sets'], readLimiter, asyncHandler(ctrl.list))
 
     // Reorder sets
     router.patch(
@@ -32,25 +28,13 @@ export function createSetsRoutes(
     )
 
     // Get set by ID
-    router.get(
-        ['/metahub/:metahubId/set/:setId', '/metahub/:metahubId/hub/:hubId/set/:setId'],
-        readLimiter,
-        asyncHandler(ctrl.getById)
-    )
+    router.get(['/metahub/:metahubId/set/:setId', '/metahub/:metahubId/hub/:hubId/set/:setId'], readLimiter, asyncHandler(ctrl.getById))
 
     // Create set
-    router.post(
-        ['/metahub/:metahubId/sets', '/metahub/:metahubId/hub/:hubId/sets'],
-        writeLimiter,
-        asyncHandler(ctrl.create)
-    )
+    router.post(['/metahub/:metahubId/sets', '/metahub/:metahubId/hub/:hubId/sets'], writeLimiter, asyncHandler(ctrl.create))
 
     // Update set
-    router.patch(
-        ['/metahub/:metahubId/set/:setId', '/metahub/:metahubId/hub/:hubId/set/:setId'],
-        writeLimiter,
-        asyncHandler(ctrl.update)
-    )
+    router.patch(['/metahub/:metahubId/set/:setId', '/metahub/:metahubId/hub/:hubId/set/:setId'], writeLimiter, asyncHandler(ctrl.update))
 
     // Copy set
     router.post('/metahub/:metahubId/set/:setId/copy', writeLimiter, asyncHandler(ctrl.copy))
@@ -59,11 +43,7 @@ export function createSetsRoutes(
     router.get('/metahub/:metahubId/set/:setId/blocking-references', readLimiter, asyncHandler(ctrl.getBlockingReferences))
 
     // Delete set
-    router.delete(
-        ['/metahub/:metahubId/set/:setId', '/metahub/:metahubId/hub/:hubId/set/:setId'],
-        writeLimiter,
-        asyncHandler(ctrl.delete)
-    )
+    router.delete(['/metahub/:metahubId/set/:setId', '/metahub/:metahubId/hub/:hubId/set/:setId'], writeLimiter, asyncHandler(ctrl.delete))
 
     return router
 }

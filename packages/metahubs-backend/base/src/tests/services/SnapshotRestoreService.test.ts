@@ -1,21 +1,21 @@
 const mockReadPlatformSystemAttributesPolicy = jest.fn(async () => ({
     publishEnabled: true,
     archiveEnabled: true,
-    deleteEnabled: true,
+    deleteEnabled: true
 }))
 const mockEnsureCatalogSystemAttributesSeed = jest.fn(async () => undefined)
 
 jest.mock('../../domains/templates/services/systemAttributeSeed', () => ({
     __esModule: true,
     readPlatformSystemAttributesPolicyWithKnex: mockReadPlatformSystemAttributesPolicy,
-    ensureCatalogSystemAttributesSeed: mockEnsureCatalogSystemAttributesSeed,
+    ensureCatalogSystemAttributesSeed: mockEnsureCatalogSystemAttributesSeed
 }))
 
 const mockResolveWidgetTableName = jest.fn(async () => '_mhb_widgets')
 
 jest.mock('../../domains/templates/services/widgetTableResolver', () => ({
     __esModule: true,
-    resolveWidgetTableName: mockResolveWidgetTableName,
+    resolveWidgetTableName: mockResolveWidgetTableName
 }))
 
 import { SnapshotRestoreService } from '../../domains/metahubs/services/SnapshotRestoreService'
@@ -50,7 +50,7 @@ function createMockKnex() {
             const table = this._currentTable || '_unknown'
             deletedTables.push(table)
             return Promise.resolve(1)
-        }),
+        })
     }
 
     const trxFn = jest.fn().mockImplementation(async (cb: (trx: any) => Promise<void>) => {
@@ -58,7 +58,7 @@ function createMockKnex() {
     })
 
     const knex = {
-        transaction: trxFn,
+        transaction: trxFn
     }
 
     return { knex, mockBuilder, insertedRows, deletedTables, trxFn }
@@ -69,36 +69,37 @@ describe('SnapshotRestoreService', () => {
         jest.clearAllMocks()
     })
 
-    const makeMinimalSnapshot = (overrides?: Partial<MetahubSnapshot>): MetahubSnapshot => ({
-        version: '1.0.0',
-        metahubId: '00000000-0000-0000-0000-000000000001',
-        entities: {
-            'old-catalog-id': {
-                kind: 'catalog',
-                codename: 'products',
-                presentation: { name: { en: 'Products' }, description: {} },
-                config: {},
-                fields: [
-                    {
-                        id: 'old-field-id',
-                        codename: 'title',
-                        dataType: 'STRING',
-                        isRequired: false,
-                        isDisplayAttribute: true,
-                        presentation: { name: { en: 'Title' }, description: {} },
-                        validationRules: {},
-                        uiConfig: {},
-                        sortOrder: 1,
-                    },
-                ],
+    const makeMinimalSnapshot = (overrides?: Partial<MetahubSnapshot>): MetahubSnapshot =>
+        ({
+            version: '1.0.0',
+            metahubId: '00000000-0000-0000-0000-000000000001',
+            entities: {
+                'old-catalog-id': {
+                    kind: 'catalog',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: [
+                        {
+                            id: 'old-field-id',
+                            codename: 'title',
+                            dataType: 'STRING',
+                            isRequired: false,
+                            isDisplayAttribute: true,
+                            presentation: { name: { en: 'Title' }, description: {} },
+                            validationRules: {},
+                            uiConfig: {},
+                            sortOrder: 1
+                        }
+                    ]
+                }
             },
-        },
-        constants: {},
-        enumerationValues: {},
-        elements: {},
-        systemFields: {},
-        ...overrides,
-    } as unknown as MetahubSnapshot)
+            constants: {},
+            enumerationValues: {},
+            elements: {},
+            systemFields: {},
+            ...overrides
+        } as unknown as MetahubSnapshot)
 
     it('creates entities and attributes from a minimal snapshot', async () => {
         const { knex, insertedRows } = createMockKnex()
@@ -109,12 +110,12 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_objects']).toHaveLength(1)
         expect(insertedRows['_mhb_objects']![0]).toMatchObject({
             kind: 'catalog',
-            codename: expect.objectContaining({ _schema: '1' }),
+            codename: expect.objectContaining({ _schema: '1' })
         })
         expect(insertedRows['_mhb_attributes']).toHaveLength(1)
         expect(insertedRows['_mhb_attributes']![0]).toMatchObject({
             codename: expect.objectContaining({ _schema: '1' }),
-            data_type: 'STRING',
+            data_type: 'STRING'
         })
         expect(mockEnsureCatalogSystemAttributesSeed).toHaveBeenCalled()
     })
@@ -129,7 +130,7 @@ describe('SnapshotRestoreService', () => {
                     presentation: { name: { en: 'Main Hub' }, description: {} },
                     config: {},
                     fields: [],
-                    hubs: [],
+                    hubs: []
                 },
                 'old-catalog-id': {
                     id: 'old-catalog-id',
@@ -138,9 +139,9 @@ describe('SnapshotRestoreService', () => {
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
                     hubs: ['old-hub-id'],
-                    fields: [],
-                },
-            },
+                    fields: []
+                }
+            }
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
@@ -165,8 +166,8 @@ describe('SnapshotRestoreService', () => {
                     codename: 'sizes',
                     presentation: { name: { en: 'Sizes' }, description: {} },
                     config: {},
-                    fields: [],
-                },
+                    fields: []
+                }
             },
             constants: {
                 'old-set-id': [
@@ -178,10 +179,10 @@ describe('SnapshotRestoreService', () => {
                         validationRules: {},
                         uiConfig: {},
                         value: 'small',
-                        sortOrder: 0,
-                    },
-                ],
-            },
+                        sortOrder: 0
+                    }
+                ]
+            }
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
@@ -192,7 +193,7 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_constants']).toHaveLength(1)
         expect(insertedRows['_mhb_constants']![0]).toMatchObject({
             codename: expect.objectContaining({ _schema: '1' }),
-            data_type: 'STRING',
+            data_type: 'STRING'
         })
     })
 
@@ -207,8 +208,8 @@ describe('SnapshotRestoreService', () => {
                     config: { showHeader: true },
                     isActive: true,
                     isDefault: true,
-                    sortOrder: 0,
-                },
+                    sortOrder: 0
+                }
             ],
             layoutZoneWidgets: [
                 {
@@ -217,9 +218,9 @@ describe('SnapshotRestoreService', () => {
                     widgetKey: 'details-table',
                     sortOrder: 0,
                     config: {},
-                    isActive: true,
-                },
-            ],
+                    isActive: true
+                }
+            ]
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows, deletedTables } = createMockKnex()
@@ -231,12 +232,12 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_layouts']).toHaveLength(1)
         expect(insertedRows['_mhb_layouts']![0]).toMatchObject({
             template_key: 'dashboard',
-            is_default: true,
+            is_default: true
         })
         expect(insertedRows['_mhb_widgets']).toHaveLength(1)
         expect(insertedRows['_mhb_widgets']![0]).toMatchObject({
             zone: 'main',
-            widget_key: 'details-table',
+            widget_key: 'details-table'
         })
     })
 
@@ -265,10 +266,10 @@ describe('SnapshotRestoreService', () => {
                         validationRules: {},
                         uiConfig: {},
                         value: 'x',
-                        sortOrder: 0,
-                    },
-                ],
-            },
+                        sortOrder: 0
+                    }
+                ]
+            }
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
@@ -285,7 +286,7 @@ describe('SnapshotRestoreService', () => {
             entities: {},
             constants: {},
             enumerationValues: {},
-            elements: {},
+            elements: {}
         })
 
         const { knex, insertedRows } = createMockKnex()

@@ -17,10 +17,7 @@ export function useMetahubListData() {
     const showAll = settings.admin?.showAllItems ?? false
 
     // Create query function that includes showAll parameter
-    const queryFnWithShowAll = useCallback(
-        (params: ListMetahubsParams) => metahubsApi.listMetahubs({ ...params, showAll }),
-        [showAll]
-    )
+    const queryFnWithShowAll = useCallback((params: ListMetahubsParams) => metahubsApi.listMetahubs({ ...params, showAll }), [showAll])
 
     // Use paginated hook for metahubs list
     const paginationResult = usePaginated<Metahub, 'name' | 'codename' | 'created' | 'updated'>({
@@ -66,8 +63,7 @@ export function useMetahubListData() {
 
     // Helper to find a resolved metahub by codename (for pending navigation)
     const findResolvedMetahub = useCallback(
-        (codename: string): MetahubDisplay | undefined =>
-            metahubsDisplay.find((m) => !isPendingEntity(m) && m.codename === codename),
+        (codename: string): MetahubDisplay | undefined => metahubsDisplay.find((m) => !isPendingEntity(m) && m.codename === codename),
         [metahubsDisplay]
     )
 

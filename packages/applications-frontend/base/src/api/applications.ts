@@ -186,6 +186,17 @@ export const copyApplicationRuntimeRow = async (params: {
     return response.data
 }
 
+export const reorderApplicationRuntimeRows = async (params: {
+    applicationId: string
+    orderedRowIds: string[]
+    catalogId?: string
+}): Promise<void> => {
+    const { applicationId, orderedRowIds, catalogId } = params
+    const body: Record<string, unknown> = { orderedRowIds }
+    if (catalogId) body.catalogId = catalogId
+    await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body)
+}
+
 // ============ APPLICATION MEMBERS ============
 
 export const listApplicationMembers = async (

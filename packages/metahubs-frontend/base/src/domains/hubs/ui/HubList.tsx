@@ -1242,7 +1242,8 @@ const HubListContent = () => {
                         }
                     }}
                     onOverwrite={async () => {
-                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: HubLocalizedPayload } })?.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: HubLocalizedPayload } })
+                            ?.pendingUpdate
                         if (pendingUpdate && metahubId) {
                             const { id, patch } = pendingUpdate
                             await updateHubMutation.mutateAsync({

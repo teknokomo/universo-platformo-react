@@ -1,5 +1,6 @@
 import { createLocalizedContent } from '@universo/utils'
 import { test, expect } from '../../fixtures/test'
+import { expectHeightsAligned, expectLeftEdgeAligned, expectRightEdgeAligned } from '../../support/browser/spacing'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -17,7 +18,7 @@ import {
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
-import { applicationSelectors, entityDialogSelectors } from '../../support/selectors/contracts'
+import { applicationSelectors, entityDialogSelectors, viewHeaderSelectors } from '../../support/selectors/contracts'
 
 async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
     let layoutId: string | undefined
@@ -223,6 +224,9 @@ test.describe('Application Runtime View Settings', () => {
             await expect(listViewButton).toBeVisible()
             await expect(searchInput).toBeVisible()
             await expect(cardViewButton).toHaveAttribute('aria-pressed', 'true')
+            await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), page.getByTestId(viewHeaderSelectors.searchInput), 2)
+            await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), cardViewButton, 2)
+            await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), listViewButton, 2)
 
             const createAlphaRequest = page.waitForResponse(
                 (response) =>
@@ -249,14 +253,14 @@ test.describe('Application Runtime View Settings', () => {
             await expect(page.getByText(alphaTitle)).toBeVisible({ timeout: 30_000 })
             await expect(page.getByText(betaTitle)).toBeVisible({ timeout: 30_000 })
 
-            await searchInput.fill(alphaTitle)
-            await expect(page.getByText(alphaTitle)).toBeVisible()
-            await expect(page.getByText(betaTitle)).toHaveCount(0)
-
             await listViewButton.click()
             await expect(listViewButton).toHaveAttribute('aria-pressed', 'true')
-            await expect(page.locator('table[aria-label="a dense table"]')).toBeVisible()
-            await expect(page.locator('.MuiDataGrid-root')).toHaveCount(0)
+            const runtimeDetailsTable = page.locator('table[aria-label="a dense table"], [role="grid"]').first()
+            await expect(runtimeDetailsTable).toBeVisible()
+            await expectLeftEdgeAligned(runtimeDetailsTable, page.getByTestId(viewHeaderSelectors.titleRegion), 4)
+            await expectRightEdgeAligned(runtimeDetailsTable, page.getByTestId(applicationSelectors.runtimeCreateButton), 4)
+
+            await searchInput.fill(alphaTitle)
             await expect(page.getByText(alphaTitle)).toBeVisible()
             await expect(page.getByText(betaTitle)).toHaveCount(0)
         } finally {

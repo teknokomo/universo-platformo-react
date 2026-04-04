@@ -71,7 +71,10 @@ const mockExec = { query: jest.fn(), transaction: jest.fn() }
 function buildApp() {
     const app = express()
     app.use(express.json())
-    app.use('/public', createPublicMetahubsRoutes(() => mockExec as never, mockRateLimiter))
+    app.use(
+        '/public',
+        createPublicMetahubsRoutes(() => mockExec as never, mockRateLimiter)
+    )
     app.use(errorHandler)
     return app
 }
@@ -172,9 +175,7 @@ describe('publicMetahubsRoutes', () => {
     it('lists attributes for a catalog', async () => {
         mockAttributesFindAll.mockResolvedValue([ATTRIBUTE])
 
-        const res = await request(buildApp()).get(
-            '/public/my-project/hub/main-hub/catalog/products/attributes'
-        )
+        const res = await request(buildApp()).get('/public/my-project/hub/main-hub/catalog/products/attributes')
         expect(res.status).toBe(200)
         expect(res.body.items).toHaveLength(1)
     })
@@ -183,9 +184,7 @@ describe('publicMetahubsRoutes', () => {
     it('lists elements with pagination', async () => {
         mockElementsFindAllAndCount.mockResolvedValue({ items: [ELEMENT], total: 1 })
 
-        const res = await request(buildApp()).get(
-            '/public/my-project/hub/main-hub/catalog/products/elements?limit=10&offset=0'
-        )
+        const res = await request(buildApp()).get('/public/my-project/hub/main-hub/catalog/products/elements?limit=10&offset=0')
         expect(res.status).toBe(200)
         expect(res.body.items).toHaveLength(1)
         expect(res.body.pagination.total).toBe(1)
@@ -195,9 +194,7 @@ describe('publicMetahubsRoutes', () => {
     it('returns a single element', async () => {
         mockElementsFindById.mockResolvedValue(ELEMENT)
 
-        const res = await request(buildApp()).get(
-            '/public/my-project/hub/main-hub/catalog/products/element/el-1'
-        )
+        const res = await request(buildApp()).get('/public/my-project/hub/main-hub/catalog/products/element/el-1')
         expect(res.status).toBe(200)
         expect(res.body.id).toBe('el-1')
     })
@@ -205,9 +202,7 @@ describe('publicMetahubsRoutes', () => {
     it('returns 404 for missing element', async () => {
         mockElementsFindById.mockResolvedValue(null)
 
-        const res = await request(buildApp()).get(
-            '/public/my-project/hub/main-hub/catalog/products/element/no-such'
-        )
+        const res = await request(buildApp()).get('/public/my-project/hub/main-hub/catalog/products/element/no-such')
         expect(res.status).toBe(404)
     })
 })

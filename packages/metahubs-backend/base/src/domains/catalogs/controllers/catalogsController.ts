@@ -3,10 +3,22 @@ import type { Request, Response } from 'express'
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCatalogCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
+const {
+    normalizeCatalogCopyOptions,
+    normalizeCatalogRuntimeViewConfig,
+    sanitizeCatalogRuntimeViewConfig,
+    normalizeCodenameForStyle,
+    isValidCodenameForStyle
+} = validation
 import { queryMany, queryOne } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
-import { type CatalogCopyOptions, type CatalogSystemFieldState, MetaEntityKind } from '@universo/types'
+import {
+    catalogRuntimeViewConfigSchema,
+    type CatalogCopyOptions,
+    type CatalogRuntimeViewConfig,
+    type CatalogSystemFieldState,
+    MetaEntityKind
+} from '@universo/types'
 import { findMetahubById } from '../../../persistence'
 import { getRequestDbExecutor } from '../../../utils'
 import { getRequestDbSession } from '@universo/utils/database'
@@ -61,6 +73,7 @@ type CatalogObjectRow = {
         isSingleHub?: boolean
         isRequiredHub?: boolean
         sortOrder?: number
+        runtimeConfig?: unknown
     }
     _upl_version?: number
     created_at?: unknown
@@ -78,6 +91,7 @@ type CatalogListItemRow = {
     isSingleHub: boolean
     isRequiredHub: boolean
     sortOrder: number
+    runtimeConfig: CatalogRuntimeViewConfig
     version: number
     createdAt: unknown
     updatedAt: unknown
@@ -124,6 +138,7 @@ type CopiedCatalogRow = {
         isSingleHub?: boolean
         isRequiredHub?: boolean
         sortOrder?: number
+        runtimeConfig?: unknown
     }
     _upl_version?: number
     _upl_created_at?: unknown
@@ -153,6 +168,13 @@ const getCatalogHubIds = (row: CatalogObjectRow): string[] => {
     return rawHubs.filter((hubId): hubId is string => typeof hubId === 'string')
 }
 
+const getCatalogRuntimeConfig = (row: { config?: { runtimeConfig?: unknown } } | null | undefined): CatalogRuntimeViewConfig =>
+    normalizeCatalogRuntimeViewConfig((row?.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined)
+
+const getStoredCatalogRuntimeConfig = (
+    row: { config?: { runtimeConfig?: unknown } } | null | undefined
+): CatalogRuntimeViewConfig | undefined => (row?.config?.runtimeConfig ?? undefined) as CatalogRuntimeViewConfig | undefined
+
 const getLocalizedPrimaryLocale = (value: unknown): string | undefined => {
     if (!value || typeof value !== 'object') return undefined
     const primaryLocale = (value as Record<string, unknown>)._primary
@@ -173,6 +195,7 @@ const mapCatalogListItem = (
     isSingleHub: row.config?.isSingleHub || false,
     isRequiredHub: row.config?.isRequiredHub || false,
     sortOrder: row.config?.sortOrder || 0,
+    runtimeConfig: getCatalogRuntimeConfig(row),
     version: row._upl_version || 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -282,7 +305,8 @@ const createCatalogSchema = z
         sortOrder: z.number().int().optional(),
         isSingleHub: z.boolean().optional(),
         isRequiredHub: z.boolean().optional(),
-        hubIds: z.array(z.string().uuid()).optional()
+        hubIds: z.array(z.string().uuid()).optional(),
+        runtimeConfig: catalogRuntimeViewConfigSchema.optional()
     })
     .strict()
 
@@ -297,6 +321,7 @@ const updateCatalogSchema = z
         isSingleHub: z.boolean().optional(),
         isRequiredHub: z.boolean().optional(),
         hubIds: z.array(z.string().uuid()).optional(),
+        runtimeConfig: catalogRuntimeViewConfigSchema.optional(),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
@@ -308,6 +333,7 @@ const copyCatalogSchema = z
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
+        runtimeConfig: catalogRuntimeViewConfigSchema.optional(),
         copyAttributes: z.boolean().optional(),
         copyElements: z.boolean().optional()
     })
@@ -386,7 +412,6 @@ const createDomainServices = (exec: DbExecutor, schemaService: MetahubSchemaServ
 // ---------------------------------------------------------------------------
 
 export function createCatalogsController(createHandler: ReturnType<typeof createMetahubHandlerFactory>, getDbExecutor: () => DbExecutor) {
-
     // -----------------------------------------------------------------------
     // GET /metahub/:metahubId/catalogs
     // -----------------------------------------------------------------------
@@ -478,7 +503,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 descriptionPrimaryLocale,
                 isSingleHub,
                 isRequiredHub,
-                hubIds
+                hubIds,
+                runtimeConfig
             } = parsed.data
 
             const {
@@ -530,6 +556,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
 
             const effectiveIsRequired = isRequiredHub ?? false
             const targetHubIds: string[] = hubIds ?? []
+            const normalizedRuntimeConfig = sanitizeCatalogRuntimeViewConfig(runtimeConfig)
 
             if ((isSingleHub ?? false) && targetHubIds.length > 1) {
                 return res.status(400).json({ error: 'This catalog is restricted to a single hub' })
@@ -559,7 +586,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                                 isSingleHub: isSingleHub ?? false,
                                 isRequiredHub: effectiveIsRequired,
                                 sortOrder,
-                                hubs: targetHubIds
+                                hubs: targetHubIds,
+                                runtimeConfig: normalizedRuntimeConfig
                             },
                             createdBy: userId
                         },
@@ -589,6 +617,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 isSingleHub: created.config.isSingleHub,
                 isRequiredHub: created.config.isRequiredHub,
                 sortOrder: created.config.sortOrder,
+                runtimeConfig: getCatalogRuntimeConfig(created),
                 version: created._upl_version || 1,
                 createdAt: created.created_at,
                 updatedAt: created.updated_at,
@@ -626,6 +655,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 isSingleHub,
                 isRequiredHub,
                 hubIds,
+                runtimeConfig,
                 expectedVersion
             } = parsed.data
 
@@ -639,6 +669,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
 
             let currentHubIds: string[] = getCatalogHubIds(catalog)
             let targetHubIds = currentHubIds
+            const nextRuntimeConfig =
+                runtimeConfig !== undefined ? sanitizeCatalogRuntimeViewConfig(runtimeConfig) : getStoredCatalogRuntimeConfig(catalog)
 
             if (hubIds !== undefined) {
                 if ((isSingleHub ?? currentConfig.isSingleHub) && hubIds.length > 1) {
@@ -750,7 +782,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                         hubs: targetHubIds,
                         isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
                         isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                        sortOrder: sortOrder ?? currentConfig.sortOrder
+                        sortOrder: sortOrder ?? currentConfig.sortOrder,
+                        runtimeConfig: nextRuntimeConfig
                     },
                     updatedBy: userId,
                     expectedVersion
@@ -769,6 +802,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 isSingleHub: updated.config?.isSingleHub ?? false,
                 isRequiredHub: updated.config?.isRequiredHub ?? false,
                 sortOrder: updated.config?.sortOrder ?? 0,
+                runtimeConfig: getCatalogRuntimeConfig(updated),
                 version: updated._upl_version || 1,
                 createdAt: updated.created_at,
                 updatedAt: updated.updated_at,
@@ -920,6 +954,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             isSingleHub: currentConfig.isSingleHub,
             isRequiredHub: currentConfig.isRequiredHub,
             sortOrder: currentConfig.sortOrder,
+            runtimeConfig: getCatalogRuntimeConfig(catalog),
             version: catalog._upl_version || 1,
             createdAt: catalog.created_at,
             updatedAt: catalog.updated_at,
@@ -962,6 +997,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             isSingleHub: currentConfig.isSingleHub,
             isRequiredHub: currentConfig.isRequiredHub,
             sortOrder: currentConfig.sortOrder,
+            runtimeConfig: getCatalogRuntimeConfig(catalog),
             version: catalog._upl_version || 1,
             createdAt: catalog.created_at,
             updatedAt: catalog.updated_at,
@@ -1086,6 +1122,10 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 const sourceHubIds = Array.isArray(sourceConfig.hubs)
                     ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
                     : []
+                const normalizedRuntimeConfig =
+                    parsed.data.runtimeConfig !== undefined
+                        ? normalizeCatalogRuntimeViewConfig(parsed.data.runtimeConfig)
+                        : getCatalogRuntimeConfig(sourceCatalog)
 
                 const updatedCatalog = (await objectsService.createCatalog(
                     metahubId,
@@ -1095,7 +1135,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                         description: descriptionVlc ?? null,
                         config: {
                             ...sourceConfig,
-                            hubs: sourceHubIds
+                            hubs: sourceHubIds,
+                            runtimeConfig: normalizedRuntimeConfig
                         },
                         createdBy: userId
                     },
@@ -1172,7 +1213,11 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                         }
 
                         if (!progressed) {
-                            throw new MetahubDomainError({ message: 'Failed to copy catalog attributes hierarchy', statusCode: 500, code: 'COPY_ATTRIBUTES_FAILED' })
+                            throw new MetahubDomainError({
+                                message: 'Failed to copy catalog attributes hierarchy',
+                                statusCode: 500,
+                                code: 'COPY_ATTRIBUTES_FAILED'
+                            })
                         }
                     }
                 }
@@ -1293,6 +1338,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             isSingleHub: copiedConfig.isSingleHub ?? false,
             isRequiredHub: copiedConfig.isRequiredHub ?? false,
             sortOrder: copiedConfig.sortOrder ?? 0,
+            runtimeConfig: getCatalogRuntimeConfig(copiedCatalog),
             version: copiedCatalog._upl_version || 1,
             createdAt: copiedCatalog._upl_created_at,
             updatedAt: copiedCatalog._upl_updated_at,
@@ -1330,7 +1376,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 descriptionPrimaryLocale,
                 isSingleHub,
                 isRequiredHub,
-                hubIds
+                hubIds,
+                runtimeConfig
             } = parsed.data
 
             const {
@@ -1382,6 +1429,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
 
             const effectiveIsRequired = isRequiredHub ?? false
             const targetHubIds = hubIds && Array.isArray(hubIds) ? hubIds : [hubId]
+            const normalizedRuntimeConfig = sanitizeCatalogRuntimeViewConfig(runtimeConfig)
 
             if ((isSingleHub ?? false) && targetHubIds.length > 1) {
                 return res.status(400).json({ error: 'This catalog is restricted to a single hub' })
@@ -1405,7 +1453,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                                 hubs: targetHubIds,
                                 isSingleHub: isSingleHub ?? false,
                                 isRequiredHub: effectiveIsRequired,
-                                sortOrder
+                                sortOrder,
+                                runtimeConfig: normalizedRuntimeConfig
                             },
                             createdBy: userId
                         },
@@ -1435,6 +1484,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 isSingleHub: catalog.config.isSingleHub,
                 isRequiredHub: catalog.config.isRequiredHub,
                 sortOrder: catalog.config.sortOrder,
+                runtimeConfig: getCatalogRuntimeConfig(catalog),
                 version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
@@ -1477,6 +1527,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 isSingleHub,
                 isRequiredHub,
                 hubIds,
+                runtimeConfig,
                 expectedVersion
             } = parsed.data
 
@@ -1488,6 +1539,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             let finalCodename: unknown = catalog.codename
             let finalCodenameText = getCatalogCodenameText(catalog.codename)
             let targetHubIds = getCatalogHubIds(catalog)
+            const nextRuntimeConfig =
+                runtimeConfig !== undefined ? sanitizeCatalogRuntimeViewConfig(runtimeConfig) : getStoredCatalogRuntimeConfig(catalog)
 
             if (hubIds !== undefined) {
                 targetHubIds = hubIds
@@ -1567,7 +1620,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                         hubs: targetHubIds,
                         isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
                         isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                        sortOrder: sortOrder ?? currentConfig.sortOrder
+                        sortOrder: sortOrder ?? currentConfig.sortOrder,
+                        runtimeConfig: nextRuntimeConfig
                     },
                     updatedBy: userId,
                     expectedVersion
@@ -1586,6 +1640,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 isSingleHub: updated.config?.isSingleHub ?? false,
                 isRequiredHub: updated.config?.isRequiredHub ?? false,
                 sortOrder: updated.config?.sortOrder ?? 0,
+                runtimeConfig: getCatalogRuntimeConfig(updated),
                 version: updated._upl_version || 1,
                 createdAt: updated.created_at,
                 updatedAt: updated.updated_at,

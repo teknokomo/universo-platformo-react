@@ -16,12 +16,7 @@ import {
 import { getVLCString, makePendingMarkers } from '@universo/utils'
 import { metahubsQueryKeys } from '../../shared'
 import * as publicationsApi from '../api'
-import type {
-    CreatePublicationParams,
-    UpdatePublicationParams,
-    SyncPublicationParams,
-    DeletePublicationParams
-} from './mutationTypes'
+import type { CreatePublicationParams, UpdatePublicationParams, SyncPublicationParams, DeletePublicationParams } from './mutationTypes'
 
 // Applications query keys for cross-domain invalidation
 const applicationsQueryKeys = {

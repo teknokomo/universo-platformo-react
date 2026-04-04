@@ -12,6 +12,7 @@ import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
 import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
+import { buildTemplateSeedEntityCodenameValue, resolveTemplateSeedCodenameConfig } from './TemplateSeedExecutor'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
@@ -88,6 +89,8 @@ export class TemplateSeedMigrator {
         }
 
         await this.knex.transaction(async (trx) => {
+            const codenameConfig = resolveTemplateSeedCodenameConfig(newSeed.settings)
+
             // 1. Migrate layouts → zone widgets (order matters: widgets reference layouts)
             if (newSeed.layouts?.length) {
                 const layoutIdMap = await this.migrateLayouts(trx, newSeed.layouts, result, dryRun)
@@ -104,7 +107,7 @@ export class TemplateSeedMigrator {
 
             // 3. Migrate entities + attributes
             if (newSeed.entities?.length) {
-                const entityIdMap = await this.migrateEntities(trx, newSeed.entities, result, dryRun)
+                const entityIdMap = await this.migrateEntities(trx, newSeed.entities, codenameConfig, result, dryRun)
 
                 if (newSeed.enumerationValues) {
                     result.enumValuesAdded = await this.migrateEnumerationValues(
@@ -394,6 +397,7 @@ export class TemplateSeedMigrator {
     private async migrateEntities(
         trx: Knex,
         entities: NonNullable<MetahubTemplateSeed['entities']>,
+        codenameConfig: ReturnType<typeof resolveTemplateSeedCodenameConfig>,
         result: SeedMigrationResult,
         dryRun: boolean
     ): Promise<Map<string, string>> {
@@ -433,7 +437,7 @@ export class TemplateSeedMigrator {
                     .into('_mhb_objects')
                     .insert({
                         kind: entity.kind,
-                        codename: ensureCodenameValue(entity.codename),
+                        codename: buildTemplateSeedEntityCodenameValue(entity.codename, entity.name, codenameConfig),
                         table_name: null,
                         presentation: { name: entity.name, description: entity.description },
                         config: entity.config ?? {},

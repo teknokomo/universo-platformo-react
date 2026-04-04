@@ -39,75 +39,75 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@universo/template-mui', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@universo/template-mui')>()
     return {
-    TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) =>
-        primaryAction ? (
-            <button type='button' onClick={primaryAction.onClick}>
-                {primaryAction.label}
-            </button>
-        ) : null,
-    EmptyListState: ({ title, action }: { title: string; action?: { label: string; onClick: () => void } }) => (
-        <div>
-            <div>{title}</div>
-            {action ? (
-                <button type='button' onClick={action.onClick}>
-                    {action.label}
+        TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+        ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) =>
+            primaryAction ? (
+                <button type='button' onClick={primaryAction.onClick}>
+                    {primaryAction.label}
                 </button>
-            ) : null}
-        </div>
-    ),
-    APIEmptySVG: 'api-empty',
-    FlowListTable: ({
-        data,
-        renderActions
-    }: {
-        data: Array<Record<string, any>>
-        renderActions: (row: Record<string, any>) => ReactNode
-    }) => (
-        <div>
-            {data.map((row) => (
-                <div key={row.id}>
-                    <span>{row.name}</span>
-                    {renderActions(row)}
-                </div>
-            ))}
-        </div>
-    ),
-    LocalizedInlineField: ({
-        label,
-        onChange
-    }: {
-        label: string
-        onChange: (next: { _schema: 'v1'; _primary: 'en'; locales: { en: { content: string } } }) => void
-    }) => (
-        <button
-            type='button'
-            onClick={() =>
-                onChange({
-                    _schema: 'v1',
-                    _primary: 'en',
-                    locales: {
-                        en: {
-                            content: label.toLowerCase().includes('name') ? 'App From Publication' : 'Generated from publication'
+            ) : null,
+        EmptyListState: ({ title, action }: { title: string; action?: { label: string; onClick: () => void } }) => (
+            <div>
+                <div>{title}</div>
+                {action ? (
+                    <button type='button' onClick={action.onClick}>
+                        {action.label}
+                    </button>
+                ) : null}
+            </div>
+        ),
+        APIEmptySVG: 'api-empty',
+        FlowListTable: ({
+            data,
+            renderActions
+        }: {
+            data: Array<Record<string, any>>
+            renderActions: (row: Record<string, any>) => ReactNode
+        }) => (
+            <div>
+                {data.map((row) => (
+                    <div key={row.id}>
+                        <span>{row.name}</span>
+                        {renderActions(row)}
+                    </div>
+                ))}
+            </div>
+        ),
+        LocalizedInlineField: ({
+            label,
+            onChange
+        }: {
+            label: string
+            onChange: (next: { _schema: 'v1'; _primary: 'en'; locales: { en: { content: string } } }) => void
+        }) => (
+            <button
+                type='button'
+                onClick={() =>
+                    onChange({
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: {
+                            en: {
+                                content: label.toLowerCase().includes('name') ? 'App From Publication' : 'Generated from publication'
+                            }
                         }
-                    }
-                })
-            }
-        >
-            Fill {label}
-        </button>
-    ),
-    useDebouncedSearch: () => ({
-        handleSearchChange: () => undefined
-    }),
-    PaginationControls: () => null,
-    ViewHeaderMUI: ({ title, children }: { title: string; children?: ReactNode }) => (
-        <div>
-            <h1>{title}</h1>
-            {children}
-        </div>
-    ),
-    useListDialogs: actual.useListDialogs
+                    })
+                }
+            >
+                Fill {label}
+            </button>
+        ),
+        useDebouncedSearch: () => ({
+            handleSearchChange: () => undefined
+        }),
+        PaginationControls: () => null,
+        ViewHeaderMUI: ({ title, children }: { title: string; children?: ReactNode }) => (
+            <div>
+                <h1>{title}</h1>
+                {children}
+            </div>
+        ),
+        useListDialogs: actual.useListDialogs
     }
 })
 

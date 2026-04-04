@@ -7,8 +7,7 @@ import { createDomainErrorHandler } from '../../shared'
  * Shared across useCreateAttribute and useCreateChildAttribute.
  */
 export const handleAttributeError = createDomainErrorHandler({
-    ATTRIBUTE_LIMIT_REACHED: (data, t) =>
-        t('attributes.limitReached', { limit: data.limit ?? '—' }),
+    ATTRIBUTE_LIMIT_REACHED: (data, t) => t('attributes.limitReached', { limit: data.limit ?? '—' }),
     TABLE_CHILD_LIMIT_REACHED: (data, t) =>
         t('attributes.tableValidation.maxChildAttributes', 'Maximum {{max}} child attributes per TABLE', {
             max: data.maxChildAttributes ?? '—'
@@ -19,6 +18,5 @@ export const handleAttributeError = createDomainErrorHandler({
         }),
     TABLE_DISPLAY_ATTRIBUTE_FORBIDDEN: (_data, t) =>
         t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute'),
-    NESTED_TABLE_FORBIDDEN: (_data, t) =>
-        t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed')
+    NESTED_TABLE_FORBIDDEN: (_data, t) => t('attributes.tableValidation.nestedTableNotAllowed', 'Nested TABLE attributes are not allowed')
 })

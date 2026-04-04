@@ -181,11 +181,14 @@ export const PublicationVersionList: React.FC = () => {
         setCreateBranchId('')
     }, [close])
 
-    const handleOpenEditDialog = useCallback((version: PublicationVersion) => {
-        openEdit(version)
-        setEditNameVlc(version.name)
-        setEditDescriptionVlc(version.description)
-    }, [openEdit])
+    const handleOpenEditDialog = useCallback(
+        (version: PublicationVersion) => {
+            openEdit(version)
+            setEditNameVlc(version.name)
+            setEditDescriptionVlc(version.description)
+        },
+        [openEdit]
+    )
 
     const handleCloseEditDialog = useCallback(() => {
         close('edit')
@@ -299,41 +302,47 @@ export const PublicationVersionList: React.FC = () => {
         )
     }, [dialogs.delete.item, metahubId, publicationId, deleteMutation, close])
 
-    const handleExportVersion = useCallback(async (versionId: string) => {
-        if (!metahubId || !publicationId) return
-        setExportingVersionId(versionId)
-        try {
-            await exportPublicationVersion(metahubId, publicationId, versionId)
-        } catch {
-            enqueueSnackbar(t('metahubs:export.exportError'), { variant: 'error' })
-        } finally {
-            setExportingVersionId(null)
-        }
-    }, [metahubId, publicationId, enqueueSnackbar, t])
-
-    const handleImportVersionConfirm = useCallback(async (file: File) => {
-        if (!metahubId || !publicationId) return
-        let json: unknown
-        try {
-            const text = await file.text()
-            json = JSON.parse(text)
-        } catch {
-            enqueueSnackbar(t('metahubs:export.invalidJson'), { variant: 'error' })
-            return
-        }
-        importVersionMutation.mutate(
-            { metahubId, publicationId, envelopeJson: json },
-            {
-                onSuccess: () => {
-                    setImportDialogOpen(false)
-                    enqueueSnackbar(t('metahubs:export.importVersionSuccess'), { variant: 'success' })
-                },
-                onError: () => {
-                    enqueueSnackbar(t('metahubs:export.importError'), { variant: 'error' })
-                }
+    const handleExportVersion = useCallback(
+        async (versionId: string) => {
+            if (!metahubId || !publicationId) return
+            setExportingVersionId(versionId)
+            try {
+                await exportPublicationVersion(metahubId, publicationId, versionId)
+            } catch {
+                enqueueSnackbar(t('metahubs:export.exportError'), { variant: 'error' })
+            } finally {
+                setExportingVersionId(null)
             }
-        )
-    }, [metahubId, publicationId, importVersionMutation, enqueueSnackbar, t])
+        },
+        [metahubId, publicationId, enqueueSnackbar, t]
+    )
+
+    const handleImportVersionConfirm = useCallback(
+        async (file: File) => {
+            if (!metahubId || !publicationId) return
+            let json: unknown
+            try {
+                const text = await file.text()
+                json = JSON.parse(text)
+            } catch {
+                enqueueSnackbar(t('metahubs:export.invalidJson'), { variant: 'error' })
+                return
+            }
+            importVersionMutation.mutate(
+                { metahubId, publicationId, envelopeJson: json },
+                {
+                    onSuccess: () => {
+                        setImportDialogOpen(false)
+                        enqueueSnackbar(t('metahubs:export.importVersionSuccess'), { variant: 'success' })
+                    },
+                    onError: () => {
+                        enqueueSnackbar(t('metahubs:export.importError'), { variant: 'error' })
+                    }
+                }
+            )
+        },
+        [metahubId, publicationId, importVersionMutation, enqueueSnackbar, t]
+    )
 
     // Helpers for the row menu
     const menuRow = useMemo(() => (menuRowId ? versions.find((v) => v.id === menuRowId) : null), [menuRowId, versions])

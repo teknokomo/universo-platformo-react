@@ -46,78 +46,79 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('@universo/template-mui', async () => {
     const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
     return {
-    TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    ItemCard: ({ children, headerAction }: { children?: ReactNode; headerAction?: ReactNode }) => (
-        <div>
-            {headerAction}
-            {children}
-        </div>
-    ),
-    ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; disabled?: boolean; onClick: () => void } }) =>
-        primaryAction ? (
-            <button type='button' disabled={primaryAction.disabled} onClick={primaryAction.onClick}>
-                {primaryAction.label}
-            </button>
-        ) : null,
-    EmptyListState: ({ title }: { title: string }) => <div>{title}</div>,
-    SkeletonGrid: () => <div>Loading...</div>,
-    APIEmptySVG: 'api-empty',
-    useDebouncedSearch: () => ({
-        handleSearchChange: () => undefined
-    }),
-    PaginationControls: () => null,
-    FlowListTable: ({
-        data,
-        renderActions
-    }: {
-        data: Array<Record<string, any>>
-        renderActions: (row: Record<string, any>) => React.ReactNode
-    }) => (
-        <div>
-            {data.map((row) => (
-                <div key={row.id}>
-                    <span>{row.name}</span>
-                    {renderActions(row)}
-                </div>
-            ))}
-        </div>
-    ),
-    gridSpacing: 2,
-    useConfirm: () => ({
-        confirm: vi.fn().mockResolvedValue(true)
-    }),
-    LocalizedInlineField: () => null,
-    CollapsibleSection: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    revealPendingEntityFeedback: vi.fn(),
-    createMemberActions: vi.fn(() => []),
-    createEntityActions: vi.fn(() => []),
-    ViewHeaderMUI: ({ title, children }: { title: string; children?: ReactNode }) => (
-        <div>
-            <h1>{title}</h1>
-            {children}
-        </div>
-    ),
-    BaseEntityMenu: ({
-        entity,
-        createContext
-    }: {
-        entity: { id: string }
-        createContext: (baseContext: Record<string, any>) => Record<string, any>
-    }) => {
-        const context = createContext({
+        TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+        ItemCard: ({ children, headerAction }: { children?: ReactNode; headerAction?: ReactNode }) => (
+            <div>
+                {headerAction}
+                {children}
+            </div>
+        ),
+        ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; disabled?: boolean; onClick: () => void } }) =>
+            primaryAction ? (
+                <button type='button' disabled={primaryAction.disabled} onClick={primaryAction.onClick}>
+                    {primaryAction.label}
+                </button>
+            ) : null,
+        EmptyListState: ({ title }: { title: string }) => <div>{title}</div>,
+        SkeletonGrid: () => <div>Loading...</div>,
+        APIEmptySVG: 'api-empty',
+        useDebouncedSearch: () => ({
+            handleSearchChange: () => undefined
+        }),
+        PaginationControls: () => null,
+        FlowListTable: ({
+            data,
+            renderActions
+        }: {
+            data: Array<Record<string, any>>
+            renderActions: (row: Record<string, any>) => React.ReactNode
+        }) => (
+            <div>
+                {data.map((row) => (
+                    <div key={row.id}>
+                        <span>{row.name}</span>
+                        {renderActions(row)}
+                    </div>
+                ))}
+            </div>
+        ),
+        gridSpacing: 2,
+        useConfirm: () => ({
+            confirm: vi.fn().mockResolvedValue(true)
+        }),
+        LocalizedInlineField: () => null,
+        CollapsibleSection: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+        revealPendingEntityFeedback: vi.fn(),
+        createMemberActions: vi.fn(() => []),
+        createEntityActions: vi.fn(() => []),
+        ViewHeaderMUI: ({ title, children }: { title: string; children?: ReactNode }) => (
+            <div>
+                <h1>{title}</h1>
+                {children}
+            </div>
+        ),
+        BaseEntityMenu: ({
             entity,
-            t: (_key: string, fallback?: string) => fallback ?? _key,
-            helpers: {}
-        })
+            createContext
+        }: {
+            entity: { id: string }
+            createContext: (baseContext: Record<string, any>) => Record<string, any>
+        }) => {
+            const context = createContext({
+                entity,
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                helpers: {}
+            })
 
-        return (
-            <button type='button' onClick={() => void context.api.syncEntity(entity.id, true)}>
-                Sync Publication
-            </button>
-        )
-    },
-    useListDialogs: actual.useListDialogs
-}})
+            return (
+                <button type='button' onClick={() => void context.api.syncEntity(entity.id, true)}>
+                    Sync Publication
+                </button>
+            )
+        },
+        useListDialogs: actual.useListDialogs
+    }
+})
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
     EntityFormDialog: ({

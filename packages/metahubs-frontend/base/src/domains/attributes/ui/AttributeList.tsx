@@ -1494,7 +1494,9 @@ const AttributeListContent = () => {
                             }
                         }}
                         onOverwrite={async () => {
-                            const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: AttributeLocalizedPayload } })?.pendingUpdate
+                            const pendingUpdate = (
+                                dialogs.conflict.data as { pendingUpdate?: { id: string; patch: AttributeLocalizedPayload } }
+                            )?.pendingUpdate
                             if (pendingUpdate && metahubId && catalogId) {
                                 const { id, patch } = pendingUpdate
                                 await updateAttributeMutation.mutateAsync({

@@ -2,7 +2,13 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { useAuth } from '@universo/auth-frontend'
-import { createEntityNameHook, createTruncateFunction, useMetaverseName, truncateMetaverseName } from '../useBreadcrumbName'
+import {
+    createEntityNameHook,
+    createTruncateFunction,
+    useMetahubPublicationName,
+    useMetaverseName,
+    truncateMetaverseName
+} from '../useBreadcrumbName'
 
 jest.mock('@universo/auth-frontend', () => ({
     useAuth: jest.fn()
@@ -186,7 +192,7 @@ describe('useBreadcrumbName', () => {
                     ({
                         client: { get: mockClientGet },
                         loading: authLoading
-                    }) as never
+                    } as never)
             )
             mockClientGet.mockResolvedValueOnce({ data: { name: 'After Auth Ready' } })
 
@@ -224,6 +230,39 @@ describe('useBreadcrumbName', () => {
             })
 
             expect(mockClientGet).toHaveBeenCalledWith('/metaverses/mv-123')
+        })
+
+        it('useMetahubPublicationName does not reuse publication detail objects as breadcrumb cache', async () => {
+            queryClient.setQueryData(['metahubs', 'detail', 'mh-1', 'publications', 'detail', 'pub-1'], {
+                id: 'pub-1',
+                name: {
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Detail Object Name' }
+                    }
+                }
+            })
+
+            mockClientGet.mockResolvedValueOnce({
+                data: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Breadcrumb Name' }
+                        }
+                    }
+                }
+            })
+
+            const { result } = renderHook(() => useMetahubPublicationName('mh-1', 'pub-1'), { wrapper })
+
+            expect(result.current).toBeNull()
+
+            await waitFor(() => {
+                expect(result.current).toBe('Breadcrumb Name')
+            })
+
+            expect(mockClientGet).toHaveBeenCalledWith('/metahub/mh-1/publication/pub-1')
         })
     })
 
