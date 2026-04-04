@@ -3,9 +3,14 @@ jest.mock('../../domains/templates/services/widgetTableResolver', () => ({
     resolveWidgetTableName: jest.fn(async () => '_mhb_widgets')
 }))
 
-import { TemplateSeedExecutor } from '../../domains/templates/services/TemplateSeedExecutor'
+import {
+    TemplateSeedExecutor,
+    buildTemplateSeedEntityCodenameValue,
+    resolveTemplateSeedCodenameConfig
+} from '../../domains/templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../domains/templates/services/TemplateSeedMigrator'
 import { resolveWidgetTableName } from '../../domains/templates/services/widgetTableResolver'
+import { basicTemplate } from '../../domains/templates/data/basic.template'
 
 describe('Template seed services transaction scope', () => {
     const mockedResolveWidgetTableName = resolveWidgetTableName as jest.MockedFunction<typeof resolveWidgetTableName>
@@ -73,5 +78,16 @@ describe('Template seed services transaction scope', () => {
         })
 
         expect(mockedResolveWidgetTableName).toHaveBeenCalledWith(trx, 'mhb_tx_scope')
+    })
+
+    it('builds localized codename locales for seeded default entities when localized names exist', () => {
+        const entity = basicTemplate.seed.entities?.find((item) => item.codename === 'MainHub')
+        expect(entity).toBeTruthy()
+
+        const codenameConfig = resolveTemplateSeedCodenameConfig(basicTemplate.seed.settings)
+        const localizedCodename = buildTemplateSeedEntityCodenameValue(entity!.codename, entity!.name, codenameConfig)
+
+        expect(localizedCodename?.locales?.en?.content).toBe('Main')
+        expect(localizedCodename?.locales?.ru?.content).toBe('Основной')
     })
 })

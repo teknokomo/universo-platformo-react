@@ -2017,6 +2017,165 @@ describe('Applications Routes', () => {
         })
     })
 
+    describe('Runtime parent-row permission contract', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334470'
+        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334471'
+        const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334472'
+        const copiedRowId = '018f8a78-7b8f-7c1d-a111-222233334473'
+        const reorderedRowIdA = '018f8a78-7b8f-7c1d-a111-222233334474'
+        const reorderedRowIdB = '018f8a78-7b8f-7c1d-a111-222233334475'
+
+        it('allows editor role to create a parent runtime row because create is governed by create permissions', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows`)
+                .send({
+                    catalogId: runtimeCatalogId,
+                    data: {}
+                })
+                .expect(201)
+
+            expect(response.body).toEqual({ id: runtimeRowId, status: 'created' })
+        })
+
+        it('allows editor role to copy a parent runtime row because copy is governed by create permissions', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                    if (Array.isArray(params) && params[0] === runtimeRowId) {
+                        return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
+                    }
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                    return [{ id: copiedRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                .send({ catalogId: runtimeCatalogId })
+                .expect(201)
+
+            expect(response.body).toEqual({
+                id: copiedRowId,
+                status: 'created',
+                copyOptions: { copyChildTables: true },
+                hasRequiredChildTables: false
+            })
+        })
+
+        it('allows editor role to persist runtime row reorder when the catalog enables it', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeCatalogId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: {
+                                runtimeConfig: {
+                                    enableRowReordering: true,
+                                    reorderPersistenceField: 'sort_order'
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'attr-sort-order',
+                            codename: 'sort_order',
+                            column_name: 'sort_order',
+                            data_type: 'NUMBER',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: {}
+                        }
+                    ]
+                }
+                if (sql.includes('COUNT(*)::int AS total')) {
+                    return [{ total: 2 }]
+                }
+                if (sql.includes('WHERE id = ANY($1::uuid[])')) {
+                    return [{ id: reorderedRowIdA }, { id: reorderedRowIdB }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."orders" AS target')) {
+                    return []
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/reorder`)
+                .send({
+                    catalogId: runtimeCatalogId,
+                    orderedRowIds: [reorderedRowIdA, reorderedRowIdB]
+                })
+                .expect(200)
+
+            expect(response.body).toEqual({ status: 'reordered' })
+        })
+    })
+
     describe('Runtime tabular copy permission contract', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334560'
         const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334561'

@@ -17,6 +17,9 @@ import {
     type VersionedLocalizedContent
 } from '@universo/types'
 import {
+    createCodenameVLC,
+    getCodenamePrimary,
+    normalizeDashboardLayoutConfig,
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig,
     validateNumberOrThrow,
@@ -27,8 +30,6 @@ import type { PublishedApplicationSnapshot } from '../../services/applicationSyn
 import { withWorkspaceContract } from '../../services/applicationWorkspaces'
 import type { ApplicationSyncQueryBuilder } from '../../ddl'
 import {
-    dashboardLayoutConfigSchema,
-    defaultDashboardLayoutConfig,
     EMPTY_VLC,
     RUNTIME_ENTITY_KINDS,
     type SyncableApplicationRecord,
@@ -124,6 +125,24 @@ export function prepareJsonbValue(value: unknown): unknown {
     // Primitives (string, number, boolean): wrap in JSON.stringify for valid JSONB
     // PostgreSQL JSONB requires: '"string"' not just 'string'
     return JSON.stringify(value)
+}
+
+export function normalizeSnapshotCodenameValue(value: unknown, context: string): VersionedLocalizedContent<string> {
+    const codename =
+        typeof value === 'string'
+            ? createCodenameVLC('en', value)
+            : isRecord(value)
+              ? (value as unknown as VersionedLocalizedContent<string>)
+              : null
+    if (!codename) {
+        throw new Error(`[SchemaSync] Invalid ${context} codename in snapshot`)
+    }
+
+    if (getCodenamePrimary(codename).trim().length === 0) {
+        throw new Error(`[SchemaSync] Empty ${context} codename in snapshot`)
+    }
+
+    return codename
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -614,10 +633,6 @@ export function resolveSetConstantPreviewValue(field: EntityField, fallbackRefId
 }
 
 export function buildMergedDashboardLayoutConfig(snapshot: PublishedApplicationSnapshot): Record<string, unknown> {
-    const parsed = dashboardLayoutConfigSchema.safeParse(snapshot.layoutConfig ?? {})
-    return {
-        ...defaultDashboardLayoutConfig,
-        ...(parsed.success ? parsed.data : {})
-    }
+    return normalizeDashboardLayoutConfig(snapshot.layoutConfig as Record<string, unknown> | undefined) as unknown as Record<string, unknown>
 }
 

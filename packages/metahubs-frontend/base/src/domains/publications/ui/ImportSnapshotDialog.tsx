@@ -1,12 +1,5 @@
 import { useState, useCallback, useRef, type ChangeEvent } from 'react'
-import {
-    Button,
-    Alert,
-    Typography,
-    CircularProgress,
-    Stack,
-    Box
-} from '@mui/material'
+import { Button, Alert, Typography, CircularProgress, Stack, Box } from '@mui/material'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import { useTranslation } from 'react-i18next'
 import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo/types'
@@ -34,34 +27,29 @@ interface ImportSnapshotDialogProps {
     confirmLabel?: string
 }
 
-export function ImportSnapshotDialog({
-    open,
-    onClose,
-    onConfirm,
-    isLoading,
-    error,
-    title,
-    confirmLabel,
-}: ImportSnapshotDialogProps) {
+export function ImportSnapshotDialog({ open, onClose, onConfirm, isLoading, error, title, confirmLabel }: ImportSnapshotDialogProps) {
     const { t } = useTranslation('metahubs')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [localError, setLocalError] = useState<string | null>(null)
 
-    const handleFileSelect = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        setLocalError(null)
-        if (file.size > SNAPSHOT_BUNDLE_CONSTRAINTS.MAX_FILE_SIZE_BYTES) {
-            setLocalError(t('export.fileSizeError', { maxMB: 50 }))
-            return
-        }
-        if (!file.name.endsWith('.json')) {
-            setLocalError(t('export.invalidFormat'))
-            return
-        }
-        setSelectedFile(file)
-    }, [t])
+    const handleFileSelect = useCallback(
+        (e: ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            setLocalError(null)
+            if (file.size > SNAPSHOT_BUNDLE_CONSTRAINTS.MAX_FILE_SIZE_BYTES) {
+                setLocalError(t('export.fileSizeError', { maxMB: 50 }))
+                return
+            }
+            if (!file.name.endsWith('.json')) {
+                setLocalError(t('export.invalidFormat'))
+                return
+            }
+            setSelectedFile(file)
+        },
+        [t]
+    )
 
     const handleConfirm = useCallback(async () => {
         if (!selectedFile) return
@@ -99,32 +87,32 @@ export function ImportSnapshotDialog({
                 </>
             }
         >
-                <Stack spacing={2}>
-                    <Typography variant='body2' color='text.secondary'>
-                        {t('export.fileSelectLabel')}
+            <Stack spacing={2}>
+                <Typography variant='body2' color='text.secondary'>
+                    {t('export.fileSelectLabel')}
+                </Typography>
+
+                <Stack direction='row' spacing={1.5} alignItems='center' sx={{ flexWrap: 'wrap' }}>
+                    <Button component='label' variant='outlined' startIcon={<UploadFileRoundedIcon />} disabled={isLoading}>
+                        {t('export.chooseFile')}
+                        <Box
+                            ref={fileInputRef}
+                            component='input'
+                            type='file'
+                            accept='.json'
+                            onChange={handleFileSelect}
+                            disabled={isLoading}
+                            sx={hiddenInputSx}
+                        />
+                    </Button>
+
+                    <Typography variant='body2' color={selectedFile ? 'text.primary' : 'text.secondary'}>
+                        {selectedFile?.name ?? t('export.noFileSelected')}
                     </Typography>
-
-                    <Stack direction='row' spacing={1.5} alignItems='center' sx={{ flexWrap: 'wrap' }}>
-                        <Button component='label' variant='outlined' startIcon={<UploadFileRoundedIcon />} disabled={isLoading}>
-                            {t('export.chooseFile')}
-                            <Box
-                                ref={fileInputRef}
-                                component='input'
-                                type='file'
-                                accept='.json'
-                                onChange={handleFileSelect}
-                                disabled={isLoading}
-                                sx={hiddenInputSx}
-                            />
-                        </Button>
-
-                        <Typography variant='body2' color={selectedFile ? 'text.primary' : 'text.secondary'}>
-                            {selectedFile?.name ?? t('export.noFileSelected')}
-                        </Typography>
-                    </Stack>
-
-                    {(localError || error) && <Alert severity='error'>{localError ?? error}</Alert>}
                 </Stack>
+
+                {(localError || error) && <Alert severity='error'>{localError ?? error}</Alert>}
+            </Stack>
         </StandardDialog>
     )
 }

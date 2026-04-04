@@ -12,7 +12,15 @@ export * as uuid from './uuid'
 export * as localizedContent from './vlc'
 export * as routes from './routes'
 export { UPDLProcessor } from './updl/UPDLProcessor'
-export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction, parsePositiveInt, parseNonNegativeInt } from './env/index.browser'
+export {
+    getApiBaseURL,
+    getUIBaseURL,
+    getEnv,
+    isDevelopment,
+    isProduction,
+    parsePositiveInt,
+    parseNonNegativeInt
+} from './env/index.browser'
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
@@ -66,6 +74,13 @@ export {
     normalizeLayoutCopyOptions,
     normalizeConstantCopyOptions
 } from './validation/copyOptions'
+
+export {
+    normalizeCatalogRuntimeViewConfig,
+    sanitizeCatalogRuntimeViewConfig,
+    resolveCatalogRuntimeDashboardLayoutConfig
+} from './validation/catalogRuntimeConfig'
+export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
 
 export {
     validateNumber,

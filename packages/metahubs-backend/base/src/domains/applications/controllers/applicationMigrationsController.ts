@@ -77,7 +77,11 @@ async function resolveApplicationSchema(
         return { error: 'Application has no connectors configured', status: 400, code: 'NO_CONNECTORS' }
     }
     if (connectors.length > 1) {
-        return { error: 'Application has multiple connectors; schemaName must be set explicitly on the application', status: 400, code: 'MULTIPLE_CONNECTORS' }
+        return {
+            error: 'Application has multiple connectors; schemaName must be set explicitly on the application',
+            status: 400,
+            code: 'MULTIPLE_CONNECTORS'
+        }
     }
     const connector = connectors[0]
 
@@ -447,11 +451,7 @@ export function createApplicationMigrationsController(getDbExecutor: () => DbExe
 // Standalone helpers (pure functions, no closure dependencies)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function applyRollbackChange(
-    schemaName: string,
-    change: MigrationChangeRecord,
-    trx: import('knex').Knex.Transaction
-): Promise<void> {
+async function applyRollbackChange(schemaName: string, change: MigrationChangeRecord, trx: import('knex').Knex.Transaction): Promise<void> {
     log.info(`Rollback: ${change.description}`)
 
     switch (change.type) {

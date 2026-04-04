@@ -75,7 +75,15 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
 
                 {viewToggleEnabled && onViewModeChange && (
                     <ToggleButtonGroup
-                        sx={{ borderRadius: 1, maxHeight: 40 }}
+                        sx={{
+                            borderRadius: 1,
+                            maxHeight: 40,
+                            '& .MuiToggleButton-root': {
+                                height: 40,
+                                minHeight: 40,
+                                minWidth: 40
+                            }
+                        }}
                         value={viewMode}
                         color='primary'
                         exclusive

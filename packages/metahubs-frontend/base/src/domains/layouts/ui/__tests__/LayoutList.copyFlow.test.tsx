@@ -37,35 +37,35 @@ const mockUsePaginated = vi.fn()
 vi.mock('@universo/template-mui', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@universo/template-mui')>()
     return {
-    TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    ItemCard: ({ data, headerAction }: { data: { name?: string }; headerAction?: ReactNode }) => (
-        <div>
-            <div>{data?.name}</div>
-            {headerAction}
-        </div>
-    ),
-    ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) => (
-        <button onClick={primaryAction?.onClick}>{primaryAction?.label ?? 'create'}</button>
-    ),
-    ViewHeaderMUI: ({ children, title }: { children: ReactNode; title?: string }) => (
-        <div>
-            <h1>{title}</h1>
-            {children}
-        </div>
-    ),
-    EmptyListState: () => <div>empty</div>,
-    SkeletonGrid: () => <div>loading</div>,
-    APIEmptySVG: 'svg',
-    usePaginated: (...args: unknown[]) => mockUsePaginated(...args),
-    useDebouncedSearch: () => ({ handleSearchChange: vi.fn() }),
-    PaginationControls: () => null,
-    FlowListTable: () => null,
-    gridSpacing: 2,
-    ConfirmDialog: () => null,
-    useConfirm: () => ({ confirm: vi.fn(async () => true) }),
-    LocalizedInlineField: () => null,
-    notifyError: vi.fn(),
-    useListDialogs: actual.useListDialogs
+        TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+        ItemCard: ({ data, headerAction }: { data: { name?: string }; headerAction?: ReactNode }) => (
+            <div>
+                <div>{data?.name}</div>
+                {headerAction}
+            </div>
+        ),
+        ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) => (
+            <button onClick={primaryAction?.onClick}>{primaryAction?.label ?? 'create'}</button>
+        ),
+        ViewHeaderMUI: ({ children, title }: { children: ReactNode; title?: string }) => (
+            <div>
+                <h1>{title}</h1>
+                {children}
+            </div>
+        ),
+        EmptyListState: () => <div>empty</div>,
+        SkeletonGrid: () => <div>loading</div>,
+        APIEmptySVG: 'svg',
+        usePaginated: (...args: unknown[]) => mockUsePaginated(...args),
+        useDebouncedSearch: () => ({ handleSearchChange: vi.fn() }),
+        PaginationControls: () => null,
+        FlowListTable: () => null,
+        gridSpacing: 2,
+        ConfirmDialog: () => null,
+        useConfirm: () => ({ confirm: vi.fn(async () => true) }),
+        LocalizedInlineField: () => null,
+        notifyError: vi.fn(),
+        useListDialogs: actual.useListDialogs
     }
 })
 

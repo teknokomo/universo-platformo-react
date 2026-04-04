@@ -20,11 +20,7 @@ export * as optimistic from './optimistic'
 export * as rateLimiting from './rate-limiting'
 
 // Snapshot archive utilities (server-side only — uses node:crypto)
-export {
-    computeSnapshotHash,
-    buildSnapshotEnvelope,
-    validateSnapshotEnvelope
-} from './snapshot/snapshotArchive'
+export { computeSnapshotHash, buildSnapshotEnvelope, validateSnapshotEnvelope } from './snapshot/snapshotArchive'
 
 // Export all net utilities including Node.js-only ensurePortAvailable
 // Browser builds use index.browser.ts which stubs ensurePortAvailable
@@ -192,6 +188,13 @@ export {
     normalizeLayoutCopyOptions,
     normalizeConstantCopyOptions
 } from './validation/copyOptions'
+
+export {
+    normalizeCatalogRuntimeViewConfig,
+    sanitizeCatalogRuntimeViewConfig,
+    resolveCatalogRuntimeDashboardLayoutConfig
+} from './validation/catalogRuntimeConfig'
+export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
 
 export {
     validateNumber,

@@ -6,7 +6,8 @@ import {
     createApplicationRuntimeRow,
     updateApplicationRuntimeRow,
     deleteApplicationRuntimeRow,
-    copyApplicationRuntimeRow
+    copyApplicationRuntimeRow,
+    reorderApplicationRuntimeRows
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
 
@@ -52,6 +53,13 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 rowId,
                 catalogId: data?.catalogId,
                 copyChildTables: data?.copyChildTables
+            }),
+
+        reorderRows: ({ catalogId, orderedRowIds }) =>
+            reorderApplicationRuntimeRows({
+                applicationId,
+                catalogId,
+                orderedRowIds
             })
     }
 }

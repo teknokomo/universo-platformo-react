@@ -79,6 +79,10 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                 if (c.dataType === 'BOOLEAN') {
                     return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
                 }
+                if (c.dataType === 'STRING' && c.uiConfig?.widget === 'textarea') {
+                    if (params.value === null || params.value === undefined) return ''
+                    return <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{String(params.value)}</Box>
+                }
                 if (c.dataType === 'REF' && refOptionLabels) {
                     let value = ''
                     if (typeof params.value === 'string') {
@@ -158,6 +162,11 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
         id: c.field,
         label: c.headerName,
         type: c.dataType as FieldConfig['type'],
+        widget: c.uiConfig?.widget === 'textarea' ? 'textarea' : c.uiConfig?.widget === 'text' ? 'text' : undefined,
+        multilineRows:
+            c.uiConfig?.widget === 'textarea' && typeof c.uiConfig?.rows === 'number' && Number.isInteger(c.uiConfig.rows)
+                ? c.uiConfig.rows
+                : undefined,
         required: c.isRequired,
         validationRules: (c.validationRules ?? {}) as FieldValidationRules,
         refTargetEntityId: c.refTargetEntityId ?? null,

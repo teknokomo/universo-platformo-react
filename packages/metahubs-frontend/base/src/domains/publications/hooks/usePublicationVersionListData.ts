@@ -42,8 +42,9 @@ export function usePublicationVersionListData() {
             if (!branchId) return ''
             const branch = branches.find((b) => b.id === branchId)
             if (!branch) return 'Deleted branch'
-            const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || branch.codename
-            return `${name} (${branch.codename})`
+            const codename = getVLCString(branch.codename, i18n.language) || getVLCString(branch.codename, 'en') || ''
+            const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || codename || branchId
+            return codename ? `${name} (${codename})` : name
         },
         [branches, i18n.language]
     )

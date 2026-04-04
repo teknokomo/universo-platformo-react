@@ -91,6 +91,13 @@ if (!userId) return
 -   **Frontend VLC mapping**: `mapBaseVlcFields(entity, locale)` in `@universo/utils` extracts localized name/description/codename from VLC containers for display.
 -   **Test coverage**: domainErrors, queryParams (paginateItems + validateListQuery), asyncHandler, createDomainErrorHandler, mapBaseVlcFields — all tested.
 
+#### 3.2.5 Self-Hosted Fixture Contract And Regeneration
+-   **Canonical source**: `tools/testing/e2e/support/selfHostedAppFixtureContract.mjs` is the single source of truth for the committed self-hosted snapshot identity, localized copy, layout metadata, section metadata, and settings baseline.
+-   **Regeneration path**: regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the contract/canonicalizer rather than hand-editing the committed JSON.
+-   **Validation seam**: `assertSelfHostedAppEnvelopeContract(...)` must fail closed on stale self-model markers, mixed-language drift, missing `Settings`, or layout/menu-widget metadata drift.
+-   **Consumer seam**: downstream E2E flows must not introduce legacy `self-model` markers when recording imported self-hosted fixtures.
+-   **Migrations parity note**: self-hosted migrations parity is represented by real frontend navigation/pages/guards, not by synthetic migration entities in the fixture.
+
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.

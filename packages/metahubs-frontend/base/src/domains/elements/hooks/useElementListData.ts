@@ -11,10 +11,7 @@ import { getCatalogById } from '../../catalogs'
 import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys } from '../../shared'
 import { getVLCString } from '../../../types'
-import type {
-    Constant,
-    HubElement
-} from '../../../types'
+import type { Constant, HubElement } from '../../../types'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import { useMetahubHubs } from '../../hubs/hooks'
 import { resolveSetConstantLabel } from '../ui/elementListUtils'
@@ -30,9 +27,7 @@ export function useElementListData() {
         error: catalogResolutionError
     } = useQuery({
         queryKey:
-            metahubId && catalogId
-                ? metahubsQueryKeys.catalogDetail(metahubId, catalogId)
-                : ['metahubs', 'catalogs', 'detail', 'empty'],
+            metahubId && catalogId ? metahubsQueryKeys.catalogDetail(metahubId, catalogId) : ['metahubs', 'catalogs', 'detail', 'empty'],
         queryFn: async () => {
             if (!metahubId || !catalogId) throw new Error('metahubId and catalogId are required')
             return getCatalogById(metahubId, catalogId)
@@ -117,11 +112,7 @@ export function useElementListData() {
                             .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
                             .map((item) => ({
                                 id: item.id,
-                                label:
-                                    getVLCString(item.name, i18n.language) ||
-                                    getVLCString(item.name, 'en') ||
-                                    item.codename ||
-                                    item.id,
+                                label: getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename || item.id,
                                 codename: item.codename,
                                 isDefault: Boolean(item.isDefault),
                                 sortOrder: item.sortOrder
@@ -298,7 +289,15 @@ export function useElementListData() {
 
     // Ref target display map
     const refTargetByAttribute = useMemo(() => {
-        const map: Record<string, { kind: 'catalog' | 'enumeration' | 'set'; targetId: string; targetConstantId?: string | null; setConstantLabel?: string | null }> = {}
+        const map: Record<
+            string,
+            {
+                kind: 'catalog' | 'enumeration' | 'set'
+                targetId: string
+                targetConstantId?: string | null
+                setConstantLabel?: string | null
+            }
+        > = {}
         visibleRefAttributesForColumns.forEach((attr) => {
             const targetKind = attr.targetEntityKind ?? null
             const targetId = attr.targetEntityId ?? null
@@ -338,9 +337,9 @@ export function useElementListData() {
                     typeof rawValue === 'string' && rawValue.length > 0
                         ? rawValue
                         : rawValue && typeof rawValue === 'object'
-                        ? (typeof (rawValue as Record<string, unknown>).id === 'string'
-                              ? ((rawValue as Record<string, unknown>).id as string)
-                              : null)
+                        ? typeof (rawValue as Record<string, unknown>).id === 'string'
+                            ? ((rawValue as Record<string, unknown>).id as string)
+                            : null
                         : null
                 if (resolvedId) map[mapKey].add(resolvedId)
             })
@@ -400,8 +399,7 @@ export function useElementListData() {
                 const valuesResponse = await listEnumerationValues(metahubId, targetId)
                 const valuesDisplayMap: Record<string, string> = {}
                 valuesResponse.items.forEach((item) => {
-                    valuesDisplayMap[item.id] =
-                        getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename
+                    valuesDisplayMap[item.id] = getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename
                 })
                 result[entry.targetKey] = valuesDisplayMap
             }

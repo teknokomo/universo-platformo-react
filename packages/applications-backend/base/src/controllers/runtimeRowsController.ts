@@ -2,6 +2,8 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
 import {
+  normalizeCatalogRuntimeViewConfig,
+  resolveCatalogRuntimeDashboardLayoutConfig,
   resolveApplicationLifecycleContractFromConfig
 } from '@universo/utils'
 import { generateChildTableName } from '@universo/schema-ddl'
@@ -82,6 +84,11 @@ const runtimeCopyBodySchema = z.object({
   copyChildTables: z.boolean().optional()
 })
 
+const runtimeReorderBodySchema = z.object({
+  catalogId: z.string().uuid().optional(),
+  orderedRowIds: z.array(z.string().uuid()).min(1).max(1000)
+})
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -151,6 +158,52 @@ const resolveRuntimeCatalog = async (
   }>
 
   return { catalog, attrs, error: null } as const
+}
+
+const resolveRuntimeReorderField = (
+  attrs: Array<{ codename: unknown; column_name: string; data_type: string }>,
+  reorderPersistenceField: string | null
+) => {
+  if (!reorderPersistenceField) return null
+
+  const target = reorderPersistenceField.trim().toLowerCase()
+  if (!target) return null
+
+  return (
+    attrs.find(
+      (attr) =>
+        attr.data_type === 'NUMBER' &&
+        IDENTIFIER_REGEX.test(attr.column_name) &&
+        (attr.column_name.toLowerCase() === target || String(attr.codename ?? '').trim().toLowerCase() === target)
+    ) ?? null
+  )
+}
+
+const buildRuntimeRowsOrderBy = (reorderColumnName: string | null) => {
+  if (!reorderColumnName || !IDENTIFIER_REGEX.test(reorderColumnName)) {
+    return '_upl_created_at ASC NULLS LAST, id ASC'
+  }
+
+  return `${quoteIdentifier(reorderColumnName)} ASC NULLS LAST, _upl_created_at ASC NULLS LAST, id ASC`
+}
+
+const getNextRuntimeSortValue = async (params: {
+  manager: DbExecutor
+  dataTableIdent: string
+  runtimeRowCondition: string
+  reorderColumnName: string
+}) => {
+  const { manager, dataTableIdent, runtimeRowCondition, reorderColumnName } = params
+  const [row] = (await manager.query(
+    `
+      SELECT COALESCE(MAX(${quoteIdentifier(reorderColumnName)}), -1) AS value
+      FROM ${dataTableIdent}
+      WHERE ${runtimeRowCondition}
+    `
+  )) as Array<{ value: unknown }>
+
+  const maxValue = pgNumericToNumber(row?.value)
+  return typeof maxValue === 'number' && Number.isFinite(maxValue) ? maxValue + 1 : 0
 }
 
 // ---------------------------------------------------------------------------
@@ -609,6 +662,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       )
     }
 
+    const activeCatalogRuntimeConfig = normalizeCatalogRuntimeViewConfig(
+      (activeCatalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
+    )
+    const reorderFieldAttr = resolveRuntimeReorderField(
+      safeAttributes,
+      activeCatalogRuntimeConfig.enableRowReordering
+        ? activeCatalogRuntimeConfig.reorderPersistenceField
+        : null
+    )
+
     const [{ total }] = (await manager.query(
       `
         SELECT COUNT(*)::int AS total
@@ -622,11 +685,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         SELECT ${selectColumns.join(', ')}
         FROM ${dataTableIdent}
         WHERE ${activeCatalogRowCondition}
-        ORDER BY _upl_created_at ASC NULLS LAST, id ASC
+        ORDER BY ${buildRuntimeRowsOrderBy(reorderFieldAttr?.column_name ?? null)}
         LIMIT $1 OFFSET $2
       `,
       [limit, offset]
     )) as Array<Record<string, unknown>>
+
+    const canPersistRowReordering =
+      activeCatalogRuntimeConfig.enableRowReordering &&
+      Boolean(reorderFieldAttr) &&
+      offset === 0 &&
+      total <= limit
 
     const rows = rawRows.map((row) => {
       const mappedRow: Record<string, unknown> & { id: string } = {
@@ -738,10 +807,22 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       )
     }
 
+    layoutConfig = resolveCatalogRuntimeDashboardLayoutConfig({
+      layoutConfig,
+      catalogRuntimeConfig: activeCatalogRuntimeConfig
+    })
+    layoutConfig = {
+      ...layoutConfig,
+      enableRowReordering: canPersistRowReordering
+    }
+
     const catalogsForRuntime = runtimeCatalogs.map((catalogRow) => ({
       id: catalogRow.id,
       codename: catalogRow.codename,
       tableName: catalogRow.table_name,
+      runtimeConfig: normalizeCatalogRuntimeViewConfig(
+        (catalogRow.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
+      ),
       name: resolvePresentationName(
         catalogRow.presentation,
         requestedLocale,
@@ -1305,6 +1386,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         id: activeCatalog.id,
         codename: activeCatalog.codename,
         tableName: activeCatalog.table_name,
+        runtimeConfig: {
+          ...activeCatalogRuntimeConfig,
+          enableRowReordering: canPersistRowReordering
+        },
         name: resolvePresentationName(
           activeCatalog.presentation,
           requestedLocale,
@@ -2071,7 +2156,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
     const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
     if (!ctx) return
-    if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
+    if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
     const parsedBody = runtimeCreateBodySchema.safeParse(req.body)
     if (!parsedBody.success) {
@@ -2099,6 +2184,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       undefined,
       ctx.currentWorkspaceId
     )
+    const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
     // Build column→value pairs from input data
     const columnValues: Array<{ column: string; value: unknown }> = []
     const safeAttrs = attrs.filter(
@@ -2224,7 +2310,29 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       }
     }
 
-    const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+    const runtimeConfig = normalizeCatalogRuntimeViewConfig(
+      (catalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
+    )
+    const reorderFieldAttr = resolveRuntimeReorderField(
+      safeAttrs,
+      runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
+    )
+    if (
+      reorderFieldAttr &&
+      !columnValues.some((item) => item.column === reorderFieldAttr.column_name)
+    ) {
+      const nextSortValue = await getNextRuntimeSortValue({
+        manager: ctx.manager,
+        dataTableIdent,
+        runtimeRowCondition,
+        reorderColumnName: reorderFieldAttr.column_name
+      })
+      columnValues.push({
+        column: reorderFieldAttr.column_name,
+        value: nextSortValue
+      })
+    }
+
     const colNames = columnValues.map((cv) =>
       quoteIdentifier(cv.column)
     )
@@ -2633,7 +2741,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
     const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
     if (!ctx) return
-    if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
+    if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
     const {
       catalog,
@@ -2677,6 +2785,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       undefined,
       ctx.currentWorkspaceId
     )
+    const runtimeConfig = normalizeCatalogRuntimeViewConfig(
+      (catalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
+    )
+    const reorderFieldAttr = resolveRuntimeReorderField(
+      nonTableAttrs,
+      runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
+    )
 
     const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
     const sourceRows = (await ctx.manager.query(
@@ -2699,7 +2814,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       quoteIdentifier(attr.column_name)
     )
     const insertValuesArr = nonTableAttrs.map(
-      (attr) => sourceRow[attr.column_name] ?? null
+      (attr) =>
+        reorderFieldAttr?.column_name === attr.column_name
+          ? null
+          : sourceRow[attr.column_name] ?? null
     )
     const placeholders = insertValuesArr.map(
       (_, index) => `$${index + 1}`
@@ -2733,6 +2851,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             error: 'Workspace catalog row limit reached',
             code: 'WORKSPACE_LIMIT_REACHED',
             details: limitState
+          })
+        }
+      }
+
+      if (reorderFieldAttr) {
+        const reorderFieldIndex = nonTableAttrs.findIndex(
+          (attr) => attr.column_name === reorderFieldAttr.column_name
+        )
+        if (reorderFieldIndex >= 0) {
+          insertValuesArr[reorderFieldIndex] = await getNextRuntimeSortValue({
+            manager: mgr,
+            dataTableIdent,
+            runtimeRowCondition,
+            reorderColumnName: reorderFieldAttr.column_name
           })
         }
       }
@@ -3100,6 +3232,94 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     }
   }
 
+  const reorderRows = async (req: Request, res: Response) => {
+    const { applicationId } = req.params
+
+    const parsedBody = runtimeReorderBodySchema.safeParse(req.body)
+    if (!parsedBody.success) {
+      return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+    }
+
+    const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+    if (!ctx) return
+    if (!ensureRuntimePermission(res, ctx, 'editContent')) return
+
+    const { orderedRowIds, catalogId: requestedCatalogId } = parsedBody.data
+    const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
+    if (!catalog) {
+      return res.status(404).json({ error: catalogError })
+    }
+
+    const runtimeConfig = normalizeCatalogRuntimeViewConfig(
+      (catalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
+    )
+    const reorderFieldAttr = resolveRuntimeReorderField(attrs, runtimeConfig.reorderPersistenceField)
+
+    if (!runtimeConfig.enableRowReordering || !reorderFieldAttr) {
+      return res.status(409).json({ error: 'Persisted row reordering is not enabled for this catalog' })
+    }
+
+    const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+    const runtimeRowCondition = buildRuntimeActiveRowCondition(
+      catalog.lifecycleContract,
+      catalog.config,
+      undefined,
+      ctx.currentWorkspaceId
+    )
+
+    const [{ total }] = (await ctx.manager.query(
+      `
+        SELECT COUNT(*)::int AS total
+        FROM ${dataTableIdent}
+        WHERE ${runtimeRowCondition}
+      `
+    )) as Array<{ total: number }>
+
+    if (total !== orderedRowIds.length) {
+      return res.status(409).json({
+        error: 'Persisted row reordering requires the complete loaded dataset',
+        details: { total, received: orderedRowIds.length }
+      })
+    }
+
+    const matchedRows = (await ctx.manager.query(
+      `
+        SELECT id
+        FROM ${dataTableIdent}
+        WHERE id = ANY($1::uuid[])
+          AND ${runtimeRowCondition}
+      `,
+      [orderedRowIds]
+    )) as Array<{ id: string }>
+
+    if (matchedRows.length !== orderedRowIds.length) {
+      return res.status(404).json({ error: 'One or more rows could not be reordered' })
+    }
+
+    const valuesSql = orderedRowIds
+      .map((_, index) => `($${index * 2 + 1}::uuid, $${index * 2 + 2}::numeric)`)
+      .join(', ')
+    const parameters = orderedRowIds.flatMap((rowId, index) => [rowId, index])
+
+    await ctx.manager.query(
+      `
+        WITH incoming(id, sort_order) AS (
+          VALUES ${valuesSql}
+        )
+        UPDATE ${dataTableIdent} AS target
+        SET ${quoteIdentifier(reorderFieldAttr.column_name)} = incoming.sort_order,
+            _upl_updated_by = $${parameters.length + 1},
+            _upl_version = COALESCE(target._upl_version, 1) + 1
+        FROM incoming
+        WHERE target.id = incoming.id
+          AND ${runtimeRowCondition}
+      `,
+      [...parameters, ctx.userId]
+    )
+
+    return res.json({ status: 'reordered' })
+  }
+
   return {
     getRuntime,
     updateCell,
@@ -3107,6 +3327,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     createRow,
     copyRow,
     getRow,
-    deleteRow
+    deleteRow,
+    reorderRows
   }
 }

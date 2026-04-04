@@ -31,6 +31,9 @@ export interface CrudDataAdapter {
 
     /** Copy a row. */
     copyRow(rowId: string, data?: { copyChildTables?: boolean; catalogId?: string }): Promise<Record<string, unknown>>
+
+    /** Persist a complete runtime row order for catalogs that explicitly support reordering. */
+    reorderRows?(params: { catalogId?: string; orderedRowIds: string[] }): Promise<void>
 }
 
 /**

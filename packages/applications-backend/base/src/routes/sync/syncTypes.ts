@@ -4,7 +4,13 @@
 
 import { z } from 'zod'
 import type { EntityDefinition, SchemaSnapshot, SchemaDiff } from '@universo/schema-ddl'
-import { AttributeDataType, type ApplicationLifecycleContract, type VersionedLocalizedContent } from '@universo/types'
+import {
+    AttributeDataType,
+    dashboardLayoutConfigSchema,
+    defaultDashboardLayoutConfig,
+    type ApplicationLifecycleContract,
+    type VersionedLocalizedContent
+} from '@universo/types'
 import type { ApplicationRecord, ApplicationCopySourceRecord } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import type {
@@ -19,46 +25,6 @@ export const UI_LAYOUT_DIFF_MARKER = 'ui.layout.update'
 export const UI_LAYOUTS_DIFF_MARKER = 'ui.layouts.update'
 export const UI_LAYOUT_ZONES_DIFF_MARKER = 'ui.layout.zones.update'
 export const SYSTEM_METADATA_DIFF_MARKER = 'schema.metadata.update'
-
-// --- Dashboard layout config ---
-
-// Dashboard layout config (MVP) - show/hide template sections.
-export const dashboardLayoutConfigSchema = z.object({
-    showSideMenu: z.boolean().optional(),
-    showAppNavbar: z.boolean().optional(),
-    showHeader: z.boolean().optional(),
-    showBreadcrumbs: z.boolean().optional(),
-    showSearch: z.boolean().optional(),
-    showDatePicker: z.boolean().optional(),
-    showOptionsMenu: z.boolean().optional(),
-    showOverviewTitle: z.boolean().optional(),
-    showOverviewCards: z.boolean().optional(),
-    showSessionsChart: z.boolean().optional(),
-    showPageViewsChart: z.boolean().optional(),
-    showDetailsTitle: z.boolean().optional(),
-    showDetailsTable: z.boolean().optional(),
-    showColumnsContainer: z.boolean().optional(),
-    showFooter: z.boolean().optional()
-})
-
-export const defaultDashboardLayoutConfig = {
-    showSideMenu: true,
-    showAppNavbar: true,
-    showHeader: true,
-    showBreadcrumbs: true,
-    showSearch: true,
-    showDatePicker: true,
-    showOptionsMenu: true,
-    showOverviewTitle: true,
-    showOverviewCards: true,
-    showSessionsChart: true,
-    showPageViewsChart: true,
-    showDetailsTitle: true,
-    showDetailsTable: true,
-    showColumnsContainer: false,
-    showFooter: true
-} as const
-
 
 // --- Exported types ---
 
@@ -207,7 +173,7 @@ export type RuntimeApplicationWidgetRow = {
 export type EnumerationSyncRow = {
     id: string
     object_id: string
-    codename: string
+    codename: VersionedLocalizedContent<string>
     presentation: { name?: unknown; description?: unknown }
     sort_order: number
     is_default: boolean

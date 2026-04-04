@@ -76,6 +76,18 @@ export const sanitizeAttributeUiConfig = (
     const nextUiConfig = { ...sourceUiConfig }
     const isEnumerationRef = dataType === 'REF' && targetEntityKind === 'enumeration'
 
+    if (dataType !== 'STRING') {
+        if (nextUiConfig.widget === 'textarea') {
+            delete nextUiConfig.widget
+        }
+        delete nextUiConfig.rows
+    } else if (nextUiConfig.widget === 'textarea') {
+        const rows = nextUiConfig.rows
+        nextUiConfig.rows = typeof rows === 'number' && Number.isInteger(rows) && rows >= 2 && rows <= 12 ? rows : 4
+    } else {
+        delete nextUiConfig.rows
+    }
+
     if (!isEnumerationRef) {
         delete nextUiConfig.enumPresentationMode
         delete nextUiConfig.defaultEnumValueId

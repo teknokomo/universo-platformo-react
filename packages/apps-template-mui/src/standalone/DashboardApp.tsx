@@ -29,14 +29,24 @@ export default function DashboardApp(props: DashboardAppProps) {
     const state = useCrudDashboard({ adapter, locale: props.locale })
 
     const detailsTitle = state.appData?.catalog.name ?? 'Details'
+    const showCreateButton = state.appData?.catalog.runtimeConfig?.showCreateButton !== false
+    const activeCatalogRuntimeConfig = state.appData?.catalog.runtimeConfig
+    const activeFormSurface = !state.formOpen
+        ? 'dialog'
+        : state.copyRowId
+        ? activeCatalogRuntimeConfig?.copySurface ?? 'dialog'
+        : state.editRowId
+        ? activeCatalogRuntimeConfig?.editSurface ?? 'dialog'
+        : activeCatalogRuntimeConfig?.createSurface ?? 'dialog'
 
     const createActions = useMemo(
-        () => (
-            <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
-                {t('app.createRow', 'Create')}
-            </Button>
-        ),
-        [state.handleOpenCreate, t]
+        () =>
+            showCreateButton ? (
+                <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                    {t('app.createRow', 'Create')}
+                </Button>
+            ) : null,
+        [showCreateButton, state.handleOpenCreate, t]
     )
 
     const details = useMemo<DashboardDetailsSlot>(
@@ -50,13 +60,24 @@ export default function DashboardApp(props: DashboardAppProps) {
             onPaginationModelChange: state.setPaginationModel,
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
-            actions: createActions
+            actions: createActions,
+            searchMode: state.appData?.catalog.runtimeConfig?.searchMode ?? 'page-local',
+            rowReorder: state.canPersistRowReorder
+                ? {
+                      onReorder: state.handlePersistRowReorder,
+                      isPending: state.isReordering
+                  }
+                : undefined
         }),
         [
             detailsTitle,
+            state.appData?.catalog.runtimeConfig?.searchMode,
+            state.canPersistRowReorder,
             state.rows,
             state.columns,
             state.isLoading,
+            state.handlePersistRowReorder,
+            state.isReordering,
             state.rowCount,
             state.paginationModel,
             state.setPaginationModel,
@@ -84,6 +105,7 @@ export default function DashboardApp(props: DashboardAppProps) {
                 apiBaseUrl={props.apiBaseUrl}
                 applicationId={props.applicationId}
                 catalogId={state.selectedCatalogId ?? state.activeCatalogId}
+                surface={activeFormSurface}
                 labels={{
                     editTitle: t('app.editRow', 'Edit element'),
                     createTitle: t('app.createRecordTitle', 'Create element'),

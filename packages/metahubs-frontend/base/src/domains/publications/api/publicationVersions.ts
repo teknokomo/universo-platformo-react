@@ -100,15 +100,10 @@ export const deletePublicationVersion = async (metahubId: string, publicationId:
 /**
  * Export a publication version as a snapshot bundle (triggers file download)
  */
-export const exportPublicationVersion = async (
-    metahubId: string,
-    publicationId: string,
-    versionId: string,
-): Promise<void> => {
-    const response = await apiClient.get(
-        `/metahub/${metahubId}/publication/${publicationId}/versions/${versionId}/export`,
-        { responseType: 'blob' }
-    )
+export const exportPublicationVersion = async (metahubId: string, publicationId: string, versionId: string): Promise<void> => {
+    const response = await apiClient.get(`/metahub/${metahubId}/publication/${publicationId}/versions/${versionId}/export`, {
+        responseType: 'blob'
+    })
     const blob = new Blob([response.data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -128,7 +123,7 @@ export const exportPublicationVersion = async (
 export const importSnapshotVersion = async (
     metahubId: string,
     publicationId: string,
-    envelopeJson: unknown,
+    envelopeJson: unknown
 ): Promise<{ version: PublicationVersion }> => {
     const response = await apiClient.post<{ version: PublicationVersion }>(
         `/metahub/${metahubId}/publication/${publicationId}/versions/import`,

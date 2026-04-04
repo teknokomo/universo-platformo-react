@@ -5,11 +5,7 @@ jest.mock('../../domains/metahubs/services/schemaSync', () => ({
     syncMetahubSchema: (...args) => mockSyncMetahubSchema(...args)
 }))
 
-import {
-    isSchemaSyncFailure,
-    syncMetahubSchemaOrThrow,
-    isUniqueViolation
-} from '../../domains/shared/errorGuards'
+import { isSchemaSyncFailure, syncMetahubSchemaOrThrow, isUniqueViolation } from '../../domains/shared/errorGuards'
 import { MetahubSchemaSyncError } from '../../domains/shared/domainErrors'
 
 // ─── isSchemaSyncFailure ───

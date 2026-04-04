@@ -4,6 +4,8 @@ import type { ReactNode } from 'react'
 
 vi.mock('@universo/template-mui', () => ({
     TemplateMainCard: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    PAGE_CONTENT_GUTTER_MX: 2,
+    PAGE_TAB_BAR_SX: {},
     ViewHeaderMUI: ({ title, description }: { title: string; description?: string }) => (
         <div>
             <h1>{title}</h1>
@@ -116,6 +118,7 @@ describe('ApplicationSettings', () => {
         )
 
         expect(screen.getByText('Application Settings')).toBeInTheDocument()
+        expect(screen.queryByText('Workspace Demo')).not.toBeInTheDocument()
         expect(screen.getByText('General application settings will be available in future versions.')).toBeInTheDocument()
 
         await userEvent.click(screen.getByRole('tab', { name: 'Limits' }))
@@ -191,6 +194,7 @@ describe('ApplicationSettings', () => {
             </I18nextProvider>
         )
 
+        expect(screen.queryByText('Draft App')).not.toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Limits' })).toBeInTheDocument()
         expect(
             screen.getByText('Application settings that depend on runtime schema will become available after the schema is created.')

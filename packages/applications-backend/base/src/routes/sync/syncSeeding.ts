@@ -39,6 +39,7 @@ import {
     resolveCatalogSeedingOrder,
     validateNumericValue,
     resolveFieldDefaultEnumValueId,
+    normalizeSnapshotCodenameValue,
 } from './syncHelpers'
 
 // --- Element seeding ---
@@ -318,7 +319,7 @@ export async function syncEnumerationValues(
                 ? (value.presentation as { name?: unknown; description?: unknown })
                 : {}
             const id = typeof value.id === 'string' ? value.id : ''
-            const codename = typeof value.codename === 'string' ? value.codename : ''
+            const codename = normalizeSnapshotCodenameValue(value.codename, `enumeration value "${id || objectId}"`)
 
             return {
                 id,

@@ -17,12 +17,7 @@ import {
 import { getVLCString, makePendingMarkers } from '@universo/utils'
 import { metahubsQueryKeys } from '../../shared'
 import * as layoutsApi from '../api'
-import type {
-    CreateLayoutParams,
-    UpdateLayoutParams,
-    DeleteLayoutParams,
-    CopyLayoutParams
-} from './mutationTypes'
+import type { CreateLayoutParams, UpdateLayoutParams, DeleteLayoutParams, CopyLayoutParams } from './mutationTypes'
 
 export function useCreateLayout() {
     const queryClient = useQueryClient()

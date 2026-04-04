@@ -16,6 +16,14 @@ const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn((value: string) => value)
 const mockSoftDelete = jest.fn(async () => true)
 const mockRestoreFromSnapshot = jest.fn(async () => undefined)
+const mockSerializeMetahub = jest.fn(async () => ({
+    version: 1,
+    generatedAt: '2026-04-04T00:00:00.000Z',
+    metahubId: 'new-metahub-id',
+    entities: {}
+}))
+const mockCalculateSnapshotHash = jest.fn(() => 'canonical-snapshot-hash')
+const mockAttachLayoutsToSnapshot = jest.fn(async () => undefined)
 const mockCreateInitialBranch = jest.fn(async () => ({
     id: 'branch-main',
     metahubId: 'metahub-1',
@@ -59,6 +67,19 @@ jest.mock('../../domains/branches/services/MetahubBranchesService', () => ({
     MetahubBranchesService: jest.fn().mockImplementation(() => ({
         createInitialBranch: (...args: unknown[]) => mockCreateInitialBranch(...args)
     }))
+}))
+
+jest.mock('../../domains/publications/services/SnapshotSerializer', () => ({
+    __esModule: true,
+    SnapshotSerializer: jest.fn().mockImplementation(() => ({
+        serializeMetahub: (...args: unknown[]) => mockSerializeMetahub(...args),
+        calculateHash: (...args: unknown[]) => mockCalculateSnapshotHash(...args)
+    }))
+}))
+
+jest.mock('../../domains/shared/snapshotLayouts', () => ({
+    __esModule: true,
+    attachLayoutsToSnapshot: (...args: unknown[]) => mockAttachLayoutsToSnapshot(...args)
 }))
 
 const mockEnsureMetahubAccess = jest.fn(async () => ({
@@ -148,7 +169,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
-import { buildSnapshotEnvelope } from '@universo/utils'
+import { buildSnapshotEnvelope, buildVLC } from '@universo/utils'
 import { createLocalizedContent } from '@universo/utils/vlc'
 
 describe('Metahubs Routes', () => {
@@ -199,6 +220,14 @@ describe('Metahubs Routes', () => {
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
         mockSoftDelete.mockResolvedValue(true)
+        mockSerializeMetahub.mockResolvedValue({
+            version: 1,
+            generatedAt: '2026-04-04T00:00:00.000Z',
+            metahubId: 'new-metahub-id',
+            entities: {}
+        })
+        mockCalculateSnapshotHash.mockReturnValue('canonical-snapshot-hash')
+        mockAttachLayoutsToSnapshot.mockResolvedValue(undefined)
         mockCreateInitialBranch.mockResolvedValue({
             id: 'branch-main',
             metahubId: 'metahub-1',
@@ -1511,7 +1540,7 @@ describe('Metahubs Routes', () => {
                 snapshot: snapshot as Record<string, unknown>,
                 metahub: {
                     id: metahubId,
-                    name: createLocalizedContent('en', 'Test Metahub') as unknown as Record<string, unknown>,
+                    name: buildVLC('Test Metahub', 'Тестовый метахаб') as unknown as Record<string, unknown>,
                     description: createLocalizedContent('en', 'Description') as unknown as Record<string, unknown>,
                     codename: testCodenameVlc('test-codename') as unknown as Record<string, unknown>,
                     slug: 'test-slug'
@@ -1532,28 +1561,19 @@ describe('Metahubs Routes', () => {
             )
             app.use(errorHandler)
 
-            await request(app)
-                .post('/metahubs/import')
-                .send(makeTestEnvelope())
-                .expect(401)
+            await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(401)
         })
 
         it('should return 400 on invalid envelope (missing required fields)', async () => {
             const app = buildApp()
-            await request(app)
-                .post('/metahubs/import')
-                .send({ kind: 'not_a_snapshot' })
-                .expect(400)
+            await request(app).post('/metahubs/import').send({ kind: 'not_a_snapshot' }).expect(400)
         })
 
         it('should return 400 on hash mismatch', async () => {
             const envelope = makeTestEnvelope()
             envelope.snapshotHash = 'a'.repeat(64)
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(envelope)
-                .expect(400)
+            const res = await request(app).post('/metahubs/import').send(envelope).expect(400)
             expect(res.body.details).toContain('hash mismatch')
         })
 
@@ -1589,10 +1609,7 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(makeTestEnvelope())
-                .expect(201)
+            const res = await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(201)
 
             expect(res.body).toMatchObject({
                 metahub: { id: 'new-metahub-id' },
@@ -1607,11 +1624,37 @@ describe('Metahubs Routes', () => {
             )
             expect(mockCreatePublicationVersion).toHaveBeenLastCalledWith(
                 transactionExecutors[1],
-                expect.objectContaining({ publicationId: 'pub-1', isActive: true, versionNumber: 1 })
+                expect.objectContaining({
+                    publicationId: 'pub-1',
+                    isActive: true,
+                    versionNumber: 1,
+                    branchId: 'branch-main',
+                    snapshotHash: 'canonical-snapshot-hash',
+                    snapshotJson: expect.objectContaining({
+                        metahubId: 'new-metahub-id',
+                        generatedAt: '2026-04-04T00:00:00.000Z'
+                    })
+                })
+            )
+            expect(mockSerializeMetahub).toHaveBeenCalledWith('new-metahub-id', expect.any(Object))
+            expect(mockAttachLayoutsToSnapshot).toHaveBeenCalledWith(
+                expect.objectContaining({ metahubId: 'new-metahub-id', userId: 'test-user-id' })
             )
             expect(transactionExecutors[1].query).toHaveBeenCalledWith(
                 'UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2',
                 ['version-1', 'pub-1']
+            )
+            expect(mockCreateMetahub).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    codename: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'TestMetahub' }),
+                            ru: expect.objectContaining({ content: 'ТестовыйМетахаб' })
+                        })
+                    })
+                })
             )
         })
 
@@ -1647,18 +1690,12 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(envelope)
-                .expect(201)
+            const res = await request(app).post('/metahubs/import').send(envelope).expect(201)
 
             expect(res.body).toMatchObject({
                 version: { id: 'version-1', versionNumber: 7 }
             })
-            expect(mockCreatePublicationVersion).toHaveBeenCalledWith(
-                expect.anything(),
-                expect.objectContaining({ versionNumber: 7 })
-            )
+            expect(mockCreatePublicationVersion).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ versionNumber: 7 }))
         })
 
         it('rolls back imported metahub artifacts when snapshot restore fails', async () => {
@@ -1699,10 +1736,7 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(makeTestEnvelope())
-                .expect(500)
+            const res = await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(500)
 
             expect(res.body).toMatchObject({
                 error: 'Snapshot import failed and created resources were cleaned up',
@@ -1713,7 +1747,13 @@ describe('Metahubs Routes', () => {
                 }
             })
             expect(mockCreatePublication).not.toHaveBeenCalled()
-            expect(mockSoftDelete).toHaveBeenCalledWith(transactionExecutors[1], 'metahubs', 'cat_metahubs', 'new-metahub-id', 'test-user-id')
+            expect(mockSoftDelete).toHaveBeenCalledWith(
+                transactionExecutors[1],
+                'metahubs',
+                'cat_metahubs',
+                'new-metahub-id',
+                'test-user-id'
+            )
             expect(transactionExecutors[1].query).toHaveBeenCalledWith(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`)
         })
 
@@ -1748,10 +1788,7 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(makeTestEnvelope())
-                .expect(500)
+            const res = await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(500)
 
             expect(res.body).toMatchObject({
                 error: 'Snapshot import failed and created resources were cleaned up',
@@ -1763,7 +1800,13 @@ describe('Metahubs Routes', () => {
             })
             expect(mockRestoreFromSnapshot).not.toHaveBeenCalled()
             expect(mockCreatePublication).not.toHaveBeenCalled()
-            expect(mockSoftDelete).toHaveBeenCalledWith(transactionExecutors[1], 'metahubs', 'cat_metahubs', 'new-metahub-id', 'test-user-id')
+            expect(mockSoftDelete).toHaveBeenCalledWith(
+                transactionExecutors[1],
+                'metahubs',
+                'cat_metahubs',
+                'new-metahub-id',
+                'test-user-id'
+            )
         })
 
         it('rolls back imported metahub artifacts when the created branch has no schema', async () => {
@@ -1802,10 +1845,7 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(makeTestEnvelope())
-                .expect(500)
+            const res = await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(500)
 
             expect(res.body).toMatchObject({
                 error: 'Snapshot import failed and created resources were cleaned up',
@@ -1817,7 +1857,13 @@ describe('Metahubs Routes', () => {
             })
             expect(mockRestoreFromSnapshot).not.toHaveBeenCalled()
             expect(mockCreatePublication).not.toHaveBeenCalled()
-            expect(mockSoftDelete).toHaveBeenCalledWith(transactionExecutors[1], 'metahubs', 'cat_metahubs', 'new-metahub-id', 'test-user-id')
+            expect(mockSoftDelete).toHaveBeenCalledWith(
+                transactionExecutors[1],
+                'metahubs',
+                'cat_metahubs',
+                'new-metahub-id',
+                'test-user-id'
+            )
         })
 
         it('returns explicit cleanup failure details when import compensation also fails', async () => {
@@ -1859,10 +1905,7 @@ describe('Metahubs Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .post('/metahubs/import')
-                .send(makeTestEnvelope())
-                .expect(500)
+            const res = await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(500)
 
             expect(res.body).toMatchObject({
                 error: 'Snapshot import failed and cleanup did not complete',
@@ -1890,17 +1933,32 @@ describe('Metahubs Routes', () => {
             )
             app.use(errorHandler)
 
-            await request(app)
-                .get('/metahub/00000000-0000-0000-0000-000000000001/export')
-                .expect(401)
+            await request(app).get('/metahub/00000000-0000-0000-0000-000000000001/export').expect(401)
         })
 
         it('should return 404 if metahub not found', async () => {
             mockFindMetahubById.mockResolvedValueOnce(null)
             const app = buildApp()
-            await request(app)
-                .get('/metahub/00000000-0000-0000-0000-000000000001/export')
-                .expect(404)
+            await request(app).get('/metahub/00000000-0000-0000-0000-000000000001/export').expect(404)
+
+            expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(
+                mockExec,
+                'test-user-id',
+                '00000000-0000-0000-0000-000000000001',
+                'manageMetahub',
+                undefined
+            )
+        })
+
+        it('should return 403 if user cannot manage the metahub export', async () => {
+            const forbidden = Object.assign(new Error('Access denied to this metahub'), { status: 403 })
+            mockEnsureMetahubAccess.mockRejectedValueOnce(forbidden)
+
+            const app = buildApp()
+            const response = await request(app).get('/metahub/00000000-0000-0000-0000-000000000001/export').expect(403)
+
+            expect(response.body.error).toBe('Access denied to this metahub')
+            expect(mockFindMetahubById).not.toHaveBeenCalled()
         })
 
         it('should return 400 if metahub has no default branch', async () => {
@@ -1911,9 +1969,15 @@ describe('Metahubs Routes', () => {
                 defaultBranchId: null
             })
             const app = buildApp()
-            await request(app)
-                .get('/metahub/00000000-0000-0000-0000-000000000001/export')
-                .expect(400)
+            await request(app).get('/metahub/00000000-0000-0000-0000-000000000001/export').expect(400)
+
+            expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(
+                mockExec,
+                'test-user-id',
+                '00000000-0000-0000-0000-000000000001',
+                'manageMetahub',
+                undefined
+            )
         })
     })
 })

@@ -897,14 +897,14 @@ const EnumerationListContent = () => {
 
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
+        const codenameValue = data.codename as VersionedLocalizedContent<string> | null | undefined
         const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
-    const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
-    const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+        const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? 'en'
+        const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+        const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         const isSingleHub = Boolean(data.isSingleHub)
-    const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, normalizedCodename || '')
+        const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, normalizedCodename || '')
 
         // Confirm dialog for detached enumeration (async — throws DIALOG_SAVE_CANCEL if cancelled)
         if (isHubScoped && hubId && !hubIds.includes(hubId)) {
@@ -1438,7 +1438,11 @@ const EnumerationListContent = () => {
                     open={dialogs.conflict.open}
                     conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                     onOverwrite={async () => {
-                        const conflictData = dialogs.conflict.data as { conflict?: ConflictInfo; pendingData?: EnumerationLocalizedPayload; enumerationId?: string } | null
+                        const conflictData = dialogs.conflict.data as {
+                            conflict?: ConflictInfo
+                            pendingData?: EnumerationLocalizedPayload
+                            enumerationId?: string
+                        } | null
                         if (!metahubId || !conflictData?.enumerationId || !conflictData?.pendingData) return
                         try {
                             const enumeration = enumerationMap.get(conflictData.enumerationId)

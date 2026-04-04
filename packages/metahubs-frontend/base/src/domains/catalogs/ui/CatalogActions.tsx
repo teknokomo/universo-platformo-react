@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
-import { Checkbox, Divider, FormControlLabel, Stack } from '@mui/material'
+import { Checkbox, Divider, FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFillVlc, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
-import type { VersionedLocalizedContent } from '@universo/types'
-import { normalizeCatalogCopyOptions } from '@universo/utils'
+import type { CatalogRuntimeViewConfig, VersionedLocalizedContent } from '@universo/types'
+import { normalizeCatalogCopyOptions, normalizeCatalogRuntimeViewConfig, sanitizeCatalogRuntimeViewConfig } from '@universo/utils'
 import type { Catalog, CatalogDisplay, CatalogLocalizedPayload, Hub } from '../../../types'
 import { getVLCString } from '../../../types'
 import { CatalogWithHubs } from '../api'
@@ -55,6 +55,192 @@ export type CatalogDialogTabArgs = {
     errors?: Record<string, string>
 }
 
+const getCatalogRuntimeFormValue = (values: CatalogFormValues): CatalogRuntimeViewConfig =>
+    normalizeCatalogRuntimeViewConfig(values.runtimeConfig as Record<string, unknown> | undefined)
+
+const getCatalogRuntimeRawValue = (values: CatalogFormValues): CatalogRuntimeViewConfig =>
+    (values.runtimeConfig as CatalogRuntimeViewConfig | undefined) ?? {}
+
+export const CatalogLayoutTabFields = ({
+    values,
+    setValue,
+    isLoading,
+    t
+}: {
+    values: CatalogFormValues
+    setValue: CatalogFormSetValue
+    isLoading: boolean
+    t: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>['t']
+}) => {
+    const runtimeConfig = getCatalogRuntimeFormValue(values)
+    const rawRuntimeConfig = getCatalogRuntimeRawValue(values)
+    const updateRuntimeConfig = (patch: Partial<CatalogRuntimeViewConfig>) => {
+        setValue('runtimeConfig', sanitizeCatalogRuntimeViewConfig({ ...rawRuntimeConfig, ...patch }) ?? {})
+    }
+    const layoutOverridesEnabled = Boolean(runtimeConfig.useLayoutOverrides)
+
+    return (
+        <Stack spacing={2}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={runtimeConfig.showCreateButton}
+                        onChange={(_, checked) => updateRuntimeConfig({ showCreateButton: checked })}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('catalogs.runtime.showCreateButton', 'Show create button')}
+            />
+            <FormControl fullWidth size='small' disabled={isLoading}>
+                <InputLabel>{t('catalogs.runtime.createSurface', 'Create form type')}</InputLabel>
+                <Select
+                    value={runtimeConfig.createSurface}
+                    label={t('catalogs.runtime.createSurface', 'Create form type')}
+                    onChange={(event) =>
+                        updateRuntimeConfig({ createSurface: event.target.value as CatalogRuntimeViewConfig['createSurface'] })
+                    }
+                >
+                    <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                    <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                </Select>
+            </FormControl>
+            <FormControl fullWidth size='small' disabled={isLoading}>
+                <InputLabel>{t('catalogs.runtime.editSurface', 'Edit form type')}</InputLabel>
+                <Select
+                    value={runtimeConfig.editSurface}
+                    label={t('catalogs.runtime.editSurface', 'Edit form type')}
+                    onChange={(event) =>
+                        updateRuntimeConfig({ editSurface: event.target.value as CatalogRuntimeViewConfig['editSurface'] })
+                    }
+                >
+                    <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                    <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                </Select>
+            </FormControl>
+            <FormControl fullWidth size='small' disabled={isLoading}>
+                <InputLabel>{t('catalogs.runtime.copySurface', 'Copy form type')}</InputLabel>
+                <Select
+                    value={runtimeConfig.copySurface}
+                    label={t('catalogs.runtime.copySurface', 'Copy form type')}
+                    onChange={(event) =>
+                        updateRuntimeConfig({ copySurface: event.target.value as CatalogRuntimeViewConfig['copySurface'] })
+                    }
+                >
+                    <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                    <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                </Select>
+            </FormControl>
+
+            <Divider />
+
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={layoutOverridesEnabled}
+                        onChange={(_, checked) => updateRuntimeConfig({ useLayoutOverrides: checked })}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('catalogs.runtime.useLayoutOverrides', 'Override application layout settings')}
+            />
+            <Typography variant='body2' color='text.secondary'>
+                {t(
+                    'catalogs.runtime.useLayoutOverridesHelper',
+                    'When disabled, this catalog inherits search, view, card, and row layout settings from the application layout.'
+                )}
+            </Typography>
+
+            <Stack spacing={2} sx={{ opacity: layoutOverridesEnabled ? 1 : 0.6 }}>
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={runtimeConfig.showSearch}
+                            onChange={(_, checked) => updateRuntimeConfig({ showSearch: checked })}
+                            disabled={isLoading || !layoutOverridesEnabled}
+                        />
+                    }
+                    label={t('catalogs.runtime.showSearch', 'Search/filter bar')}
+                />
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={runtimeConfig.showViewToggle}
+                            onChange={(_, checked) => updateRuntimeConfig({ showViewToggle: checked })}
+                            disabled={isLoading || !layoutOverridesEnabled}
+                        />
+                    }
+                    label={t('catalogs.runtime.showViewToggle', 'Card/table view toggle')}
+                />
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={runtimeConfig.enableRowReordering}
+                            onChange={(_, checked) => updateRuntimeConfig({ enableRowReordering: checked })}
+                            disabled={isLoading || !layoutOverridesEnabled}
+                        />
+                    }
+                    label={t('catalogs.runtime.enableRowReordering', 'Enable row reordering')}
+                />
+                <TextField
+                    fullWidth
+                    size='small'
+                    disabled={isLoading || !layoutOverridesEnabled || !runtimeConfig.enableRowReordering}
+                    label={t('catalogs.runtime.reorderPersistenceField', 'Reorder persistence field')}
+                    helperText={t(
+                        'catalogs.runtime.reorderPersistenceFieldHelper',
+                        'Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.'
+                    )}
+                    value={runtimeConfig.reorderPersistenceField ?? ''}
+                    onChange={(event) =>
+                        updateRuntimeConfig({
+                            reorderPersistenceField: event.target.value.trim().length > 0 ? event.target.value.trim() : null
+                        })
+                    }
+                />
+                <FormControl fullWidth size='small' disabled={isLoading || !layoutOverridesEnabled}>
+                    <InputLabel>{t('catalogs.runtime.defaultViewMode', 'Default view mode')}</InputLabel>
+                    <Select
+                        value={runtimeConfig.defaultViewMode}
+                        label={t('catalogs.runtime.defaultViewMode', 'Default view mode')}
+                        onChange={(event) =>
+                            updateRuntimeConfig({ defaultViewMode: event.target.value as CatalogRuntimeViewConfig['defaultViewMode'] })
+                        }
+                    >
+                        <MenuItem value='table'>{t('catalogs.runtime.viewModeTable', 'Table')}</MenuItem>
+                        <MenuItem value='card'>{t('catalogs.runtime.viewModeCard', 'Card')}</MenuItem>
+                    </Select>
+                </FormControl>
+                <FormControl fullWidth size='small' disabled={isLoading || !layoutOverridesEnabled}>
+                    <InputLabel>{t('catalogs.runtime.cardColumns', 'Card columns')}</InputLabel>
+                    <Select
+                        value={String(runtimeConfig.cardColumns)}
+                        label={t('catalogs.runtime.cardColumns', 'Card columns')}
+                        onChange={(event) => updateRuntimeConfig({ cardColumns: Number(event.target.value) })}
+                    >
+                        <MenuItem value='2'>2</MenuItem>
+                        <MenuItem value='3'>3</MenuItem>
+                        <MenuItem value='4'>4</MenuItem>
+                    </Select>
+                </FormControl>
+                <FormControl fullWidth size='small' disabled={isLoading || !layoutOverridesEnabled}>
+                    <InputLabel>{t('catalogs.runtime.rowHeight', 'Row height')}</InputLabel>
+                    <Select
+                        value={runtimeConfig.rowHeight}
+                        label={t('catalogs.runtime.rowHeight', 'Row height')}
+                        onChange={(event) =>
+                            updateRuntimeConfig({ rowHeight: event.target.value as CatalogRuntimeViewConfig['rowHeight'] })
+                        }
+                    >
+                        <MenuItem value='compact'>{t('catalogs.runtime.rowHeightCompact', 'Compact (default)')}</MenuItem>
+                        <MenuItem value='normal'>{t('catalogs.runtime.rowHeightNormal', 'Normal (52px)')}</MenuItem>
+                        <MenuItem value='auto'>{t('catalogs.runtime.rowHeightAuto', 'Auto (multi-line)')}</MenuItem>
+                    </Select>
+                </FormControl>
+            </Stack>
+        </Stack>
+    )
+}
+
 export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>) => {
     const catalogMap = ctx.catalogMap as Map<string, Catalog | CatalogWithHubs> | undefined
     const raw = catalogMap?.get(ctx.entity.id)
@@ -81,6 +267,7 @@ export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, Cat
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
+        runtimeConfig: (raw?.runtimeConfig as Record<string, unknown> | undefined) ?? {},
         hubIds,
         isSingleHub,
         isRequiredHub
@@ -230,7 +417,8 @@ export const toPayload = (
         descriptionPrimaryLocale,
         hubIds,
         isSingleHub,
-        isRequiredHub
+        isRequiredHub,
+        runtimeConfig: sanitizeCatalogRuntimeViewConfig(values.runtimeConfig as Record<string, unknown> | undefined)
     }
 }
 
@@ -428,6 +616,12 @@ export const buildFormTabs = (
                         currentHubId={currentHubId}
                     />
                 )
+            })
+
+            tabs.push({
+                id: 'layout',
+                label: ctx.t('catalogs.tabs.layout', 'Layout'),
+                content: <CatalogLayoutTabFields values={values} setValue={setValue} isLoading={isFormLoading} t={ctx.t} />
             })
         }
 

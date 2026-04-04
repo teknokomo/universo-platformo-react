@@ -161,6 +161,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const [name, setName] = useState(initialName)
     const [description, setDescription] = useState(initialDescription)
     const [extraValues, setExtraValues] = useState<Record<string, any>>(normalizedInitialExtraValues)
+    const [hasTouchedExtraValues, setHasTouchedExtraValues] = useState(false)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [activeTab, setActiveTab] = useState(initialTabIndex)
@@ -171,6 +172,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         if (open) {
             setName(initialName)
             setDescription(initialDescription)
+            setHasTouchedExtraValues(false)
             setFieldErrors({})
             setActiveTab(initialTabIndex)
         }
@@ -182,14 +184,15 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         }
     }, [open, hideDefaultFields])
 
-    // Set initial extra values only on first open
+    // Keep async-loaded dialog state in sync until the user starts editing extra fields.
     useEffect(() => {
-        if (open) {
+        if (open && !hasTouchedExtraValues) {
             setExtraValues(normalizedInitialExtraValues)
         }
-    }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [open, normalizedInitialExtraValues, hasTouchedExtraValues])
 
     const handleExtraValueChange = useCallback((fieldName: string, value: any) => {
+        setHasTouchedExtraValues(true)
         setExtraValues((prev) => ({ ...prev, [fieldName]: value }))
     }, [])
 

@@ -202,7 +202,7 @@ Generator specs живут в `specs/generators/` и создают persistent f
 1.  Конфигурация Playwright определяет выделенный `generators` проект, который матчит только `specs/generators/*.spec.ts`.
 2.  Проект `chromium` явно игнорирует generator файлы через `testIgnore`, поэтому они никогда не запускаются при `test:e2e:full` или любой команде `--grep @flow`/`@smoke`/и т.д.
 3.  Generator specs записывают свой output в `tools/fixtures/` — эта директория **не** очищается E2E runner'ом и **не** находится в `.gitignore`, поэтому fixture файлы сохраняются до ручного удаления и могут быть закоммичены в репозиторий.
-4.  Информационные скриншоты попадают в `test-results/self-model/` (или аналогичную), которая **очищается** при следующем E2E прогоне — это ожидаемое поведение.
+4.  Информационные скриншоты попадают в `test-results/self-hosted-app/` (или аналогичную generator-specific директорию), которая **очищается** при следующем E2E прогоне — это ожидаемое поведение.
 
 ### Запуск генераторов
 
@@ -217,7 +217,7 @@ pnpm run test:e2e:generators
 
 ```bash
 pnpm run build:e2e
-node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-model"
+node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"
 ```
 
 Если сервер уже запущен (например, от предыдущего E2E прогона), переиспользовать его:
@@ -230,7 +230,7 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 
 | Генератор | Output | Описание |
 | --- | --- | --- |
-| `self-model-metahub-export` | `tools/fixtures/self-model-metahub-snapshot.json` | Создаёт метахаб, моделирующий платформу через 13 self-model sections, сохраняет enhanced runtime layout settings, публикует его и экспортирует snapshot. |
+| `metahubs-self-hosted-app-export` | `tools/fixtures/metahubs-self-hosted-app-snapshot.json` | Создаёт локализованный fixture Metahubs Self-Hosted App, сажает baseline runtime settings, публикует его и экспортирует snapshot для self-hosted parity flows. |
 
 ### Создание новых генераторов
 

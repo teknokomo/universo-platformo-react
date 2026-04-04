@@ -73,6 +73,22 @@ export const copyMetahub = (id: string, data: MetahubCopyInput = {}) => apiClien
 export const importMetahubFromSnapshot = (envelopeJson: unknown) =>
     apiClient.post<{ metahub: Metahub; publication: { id: string }; version: { id: string } }>('/metahubs/import', envelopeJson)
 
+export const exportMetahubSnapshot = async (metahubId: string): Promise<void> => {
+    const response = await apiClient.get(`/metahub/${metahubId}/export`, { responseType: 'blob' })
+    const blob = new Blob([response.data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const disposition = response.headers['content-disposition'] ?? ''
+    const filenameMatch = disposition.match(/filename\*?="?(?:UTF-8'')?([^";]+)"?/)
+
+    anchor.href = url
+    anchor.download = filenameMatch?.[1] ? decodeURIComponent(filenameMatch[1]) : 'metahub-snapshot.json'
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    URL.revokeObjectURL(url)
+}
+
 // ============ METAHUB MEMBERS ============
 
 export const listMetahubMembers = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetahubMember>> => {

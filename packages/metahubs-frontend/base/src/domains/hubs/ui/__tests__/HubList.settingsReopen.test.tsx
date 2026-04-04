@@ -92,7 +92,13 @@ vi.mock('@universo/template-mui', () => ({
     ViewHeaderMUI: () => null,
     BaseEntityMenu: () => null,
     useListDialogs: () => ({
-        dialogs: { create: { open: false }, edit: { open: false, item: null }, copy: { open: false, item: null }, delete: { open: false, item: null }, conflict: { open: false, data: null } },
+        dialogs: {
+            create: { open: false },
+            edit: { open: false, item: null },
+            copy: { open: false, item: null },
+            delete: { open: false, item: null },
+            conflict: { open: false, data: null }
+        },
         openCreate: vi.fn(),
         openEdit: vi.fn(),
         openCopy: vi.fn(),

@@ -48,10 +48,9 @@ export function createDomainErrorHandler(errorCodeMap: Record<string, ErrorCodeH
         }
 
         const backendMessage = responseData?.message || responseData?.error
-        enqueueSnackbar(
-            (typeof backendMessage === 'string' ? backendMessage : undefined) || error.message || t(fallbackKey),
-            { variant: 'error' }
-        )
+        enqueueSnackbar((typeof backendMessage === 'string' ? backendMessage : undefined) || error.message || t(fallbackKey), {
+            variant: 'error'
+        })
     }
 }
 

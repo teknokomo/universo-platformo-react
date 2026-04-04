@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
@@ -179,7 +179,6 @@ function LayoutZoneColumn({ zone, title, children }: { zone: DashboardLayoutZone
 }
 
 export default function LayoutDetails() {
-    const navigate = useNavigate()
     const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { enqueueSnackbar } = useSnackbar()
@@ -480,8 +479,6 @@ export default function LayoutDetails() {
                     title={layoutName || t('layouts.details.title', 'Layout')}
                     description={t('layouts.details.description', 'Configure dashboard zones and widgets.')}
                     search={false}
-                    isBackButton
-                    onBack={() => navigate(`/metahub/${metahubId}/layouts`)}
                 />
 
                 <Box data-testid='metahub-layout-details-content' sx={{ pb: 2, width: '100%' }}>

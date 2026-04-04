@@ -712,264 +712,258 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
     )
 
     const copy = async (req: Request, res: Response) => {
-            const { metahubId, hubId } = req.params
-            const exec = getRequestDbExecutor(req, getDbExecutor())
-            const dbSession = getRequestDbSession(req)
+        const { metahubId, hubId } = req.params
+        const exec = getRequestDbExecutor(req, getDbExecutor())
+        const dbSession = getRequestDbSession(req)
 
-            const metahub = await findMetahubById(exec, metahubId)
-            if (!metahub) {
-                res.status(404).json({ error: 'Metahub not found' })
-                return
+        const metahub = await findMetahubById(exec, metahubId)
+        if (!metahub) {
+            res.status(404).json({ error: 'Metahub not found' })
+            return
+        }
+
+        const userId = resolveUserId(req)
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return
+        }
+        await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
+
+        const schemaService = new MetahubSchemaService(exec)
+        const { hubsService, settingsService } = createDomainServices(exec, schemaService)
+
+        // Check allowCopy setting
+        const allowCopyRow = await settingsService.findByKey(metahubId, 'hubs.allowCopy', userId)
+        const allowCopy = allowCopyRow ? (allowCopyRow.value as { _value: boolean })._value !== false : true
+        if (!allowCopy) {
+            return res.status(403).json({ error: 'Copying hubs is disabled by metahub settings' })
+        }
+
+        const sourceHub = await hubsService.findById(metahubId, hubId, userId)
+        if (!sourceHub) {
+            throw new MetahubNotFoundError('hub', hubId)
+        }
+
+        const parsed = copyHubSchema.safeParse(req.body ?? {})
+        if (!parsed.success) {
+            return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+        }
+
+        const requestedName = parsed.data.name ? sanitizeLocalizedInput(parsed.data.name) : buildDefaultCopyNameInput(sourceHub.name)
+        if (Object.keys(requestedName).length === 0) {
+            return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+        }
+
+        const sourceNamePrimary = (sourceHub.name as { _primary?: string } | undefined)?._primary ?? 'en'
+        const nameVlc = buildLocalizedContent(requestedName, parsed.data.namePrimaryLocale, sourceNamePrimary)
+        if (!nameVlc) {
+            return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+        }
+
+        let descriptionVlc: unknown = sourceHub.description ?? null
+        if (parsed.data.description !== undefined) {
+            const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
+            if (Object.keys(sanitizedDescription).length > 0) {
+                descriptionVlc = buildLocalizedContent(
+                    sanitizedDescription,
+                    parsed.data.descriptionPrimaryLocale,
+                    parsed.data.namePrimaryLocale ?? sourceNamePrimary
+                )
+            } else {
+                descriptionVlc = null
             }
+        }
 
-            const userId = resolveUserId(req)
-            if (!userId) {
-                res.status(401).json({ error: 'Unauthorized' })
-                return
-            }
-            await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
-
-            const schemaService = new MetahubSchemaService(exec)
-            const { hubsService, settingsService } = createDomainServices(exec, schemaService)
-
-            // Check allowCopy setting
-            const allowCopyRow = await settingsService.findByKey(metahubId, 'hubs.allowCopy', userId)
-            const allowCopy = allowCopyRow ? (allowCopyRow.value as { _value: boolean })._value !== false : true
-            if (!allowCopy) {
-                return res.status(403).json({ error: 'Copying hubs is disabled by metahub settings' })
-            }
-
-            const sourceHub = await hubsService.findById(metahubId, hubId, userId)
-            if (!sourceHub) {
-                throw new MetahubNotFoundError('hub', hubId)
-            }
-
-            const parsed = copyHubSchema.safeParse(req.body ?? {})
-            if (!parsed.success) {
-                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
-            }
-
-            const requestedName = parsed.data.name ? sanitizeLocalizedInput(parsed.data.name) : buildDefaultCopyNameInput(sourceHub.name)
-            if (Object.keys(requestedName).length === 0) {
-                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
-            }
-
-            const sourceNamePrimary = (sourceHub.name as { _primary?: string } | undefined)?._primary ?? 'en'
-            const nameVlc = buildLocalizedContent(requestedName, parsed.data.namePrimaryLocale, sourceNamePrimary)
-            if (!nameVlc) {
-                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
-            }
-
-            let descriptionVlc: unknown = sourceHub.description ?? null
-            if (parsed.data.description !== undefined) {
-                const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
-                if (Object.keys(sanitizedDescription).length > 0) {
-                    descriptionVlc = buildLocalizedContent(
-                        sanitizedDescription,
-                        parsed.data.descriptionPrimaryLocale,
-                        parsed.data.namePrimaryLocale ?? sourceNamePrimary
-                    )
-                } else {
-                    descriptionVlc = null
-                }
-            }
-
-            const {
-                style: codenameStyle,
-                alphabet: codenameAlphabet,
-                allowMixed
-            } = await getCodenameSettings(settingsService, metahubId, userId)
-            const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
-            const normalizedBaseCodename = normalizeCodenameForStyle(
-                parsed.data.codename
-                    ? getCodenamePayloadText(parsed.data.codename)
-                    : `${getHubCodenameText(sourceHub.codename)}${copySuffix}`,
-                codenameStyle,
-                codenameAlphabet
-            )
-            if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
-                return res.status(400).json({
-                    error: 'Validation failed',
-                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
-                })
-            }
-
-            const copyOptions: HubCopyOptions = normalizeHubCopyOptions({
-                copyAllRelations: parsed.data.copyAllRelations,
-                copyCatalogRelations: parsed.data.copyCatalogRelations,
-                copySetRelations: parsed.data.copySetRelations,
-                copyEnumerationRelations: parsed.data.copyEnumerationRelations
+        const {
+            style: codenameStyle,
+            alphabet: codenameAlphabet,
+            allowMixed
+        } = await getCodenameSettings(settingsService, metahubId, userId)
+        const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
+        const normalizedBaseCodename = normalizeCodenameForStyle(
+            parsed.data.codename ? getCodenamePayloadText(parsed.data.codename) : `${getHubCodenameText(sourceHub.codename)}${copySuffix}`,
+            codenameStyle,
+            codenameAlphabet
+        )
+        if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
             })
+        }
 
-            const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
-            const sourceParentHubId = resolveParentHubId(sourceHub as Record<string, unknown>)
-            const requestedParentHubId = parsed.data.parentHubId
-            const targetParentHubId = allowHubNesting
-                ? requestedParentHubId !== undefined
-                    ? requestedParentHubId
-                    : sourceParentHubId
-                : null
+        const copyOptions: HubCopyOptions = normalizeHubCopyOptions({
+            copyAllRelations: parsed.data.copyAllRelations,
+            copyCatalogRelations: parsed.data.copyCatalogRelations,
+            copySetRelations: parsed.data.copySetRelations,
+            copyEnumerationRelations: parsed.data.copyEnumerationRelations
+        })
 
-            if (!allowHubNesting && requestedParentHubId) {
-                return res.status(400).json({ error: 'Hub nesting is disabled by metahub settings' })
+        const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
+        const sourceParentHubId = resolveParentHubId(sourceHub as Record<string, unknown>)
+        const requestedParentHubId = parsed.data.parentHubId
+        const targetParentHubId = allowHubNesting ? (requestedParentHubId !== undefined ? requestedParentHubId : sourceParentHubId) : null
+
+        if (!allowHubNesting && requestedParentHubId) {
+            return res.status(400).json({ error: 'Hub nesting is disabled by metahub settings' })
+        }
+
+        if (targetParentHubId) {
+            const parentMap = await loadHubParentMap(metahubId, schemaService, userId, exec)
+            if (!parentMap.has(targetParentHubId)) {
+                return res.status(400).json({ error: 'Parent hub not found' })
             }
+        }
 
-            if (targetParentHubId) {
-                const parentMap = await loadHubParentMap(metahubId, schemaService, userId, exec)
-                if (!parentMap.has(targetParentHubId)) {
-                    return res.status(400).json({ error: 'Parent hub not found' })
-                }
-            }
+        const schemaName = await schemaService.ensureSchema(metahubId, userId)
+        const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
-            const schemaName = await schemaService.ensureSchema(metahubId, userId)
-            const objQt = qSchemaTable(schemaName, '_mhb_objects')
+        const createHubCopy = async (codename: string) => {
+            return exec.transaction(async (trx: SqlQueryable) => {
+                const codenamePayloadForCopy =
+                    parsed.data.codename === undefined
+                        ? syncCodenamePayloadText(
+                              undefined,
+                              parsed.data.namePrimaryLocale ?? sourceNamePrimary,
+                              codename,
+                              codenameStyle,
+                              codenameAlphabet
+                          )
+                        : syncCodenamePayloadText(
+                              parsed.data.codename,
+                              parsed.data.namePrimaryLocale ?? sourceNamePrimary,
+                              codename,
+                              codenameStyle,
+                              codenameAlphabet
+                          )
 
-            const createHubCopy = async (codename: string) => {
-                return exec.transaction(async (trx: SqlQueryable) => {
-                    const codenamePayloadForCopy =
-                        parsed.data.codename === undefined
-                            ? syncCodenamePayloadText(
-                                  undefined,
-                                  parsed.data.namePrimaryLocale ?? sourceNamePrimary,
-                                  codename,
-                                  codenameStyle,
-                                  codenameAlphabet
-                              )
-                            : syncCodenamePayloadText(
-                                  parsed.data.codename,
-                                  parsed.data.namePrimaryLocale ?? sourceNamePrimary,
-                                  codename,
-                                  codenameStyle,
-                                  codenameAlphabet
-                              )
+                const copiedHub = (await hubsService.create(
+                    metahubId,
+                    {
+                        codename: codenamePayloadForCopy ?? codename,
+                        name: nameVlc as unknown as Record<string, unknown>,
+                        description: (descriptionVlc as unknown as Record<string, unknown> | undefined) ?? undefined,
+                        parentHubId: targetParentHubId ?? null,
+                        createdBy: userId
+                    },
+                    userId,
+                    trx
+                )) as CopiedHubRow
 
-                    const copiedHub = (await hubsService.create(
-                        metahubId,
-                        {
-                            codename: codenamePayloadForCopy ?? codename,
-                            name: nameVlc as unknown as Record<string, unknown>,
-                            description: (descriptionVlc as unknown as Record<string, unknown> | undefined) ?? undefined,
-                            parentHubId: targetParentHubId ?? null,
-                            createdBy: userId
-                        },
-                        userId,
-                        trx
-                    )) as CopiedHubRow
+                const now = new Date()
 
-                    const now = new Date()
+                const relationKinds: MetaEntityKind[] = []
+                if (copyOptions.copyCatalogRelations) relationKinds.push(MetaEntityKind.CATALOG)
+                if (copyOptions.copySetRelations) relationKinds.push(MetaEntityKind.SET)
+                if (copyOptions.copyEnumerationRelations) relationKinds.push(MetaEntityKind.ENUMERATION)
 
-                    const relationKinds: MetaEntityKind[] = []
-                    if (copyOptions.copyCatalogRelations) relationKinds.push(MetaEntityKind.CATALOG)
-                    if (copyOptions.copySetRelations) relationKinds.push(MetaEntityKind.SET)
-                    if (copyOptions.copyEnumerationRelations) relationKinds.push(MetaEntityKind.ENUMERATION)
-
-                    if (relationKinds.length > 0) {
-                        const kindPlaceholders = relationKinds.map((_, i) => `$${i + 1}`).join(', ')
-                        const hubsJsonIdx = relationKinds.length + 1
-                        const relatedObjects = await queryMany<{
-                            id: string
-                            kind: MetaEntityKind
-                            config?: Record<string, unknown>
-                            _upl_version: number
-                        }>(
-                            trx,
-                            `SELECT id, kind, config, _upl_version FROM ${objQt}
+                if (relationKinds.length > 0) {
+                    const kindPlaceholders = relationKinds.map((_, i) => `$${i + 1}`).join(', ')
+                    const hubsJsonIdx = relationKinds.length + 1
+                    const relatedObjects = await queryMany<{
+                        id: string
+                        kind: MetaEntityKind
+                        config?: Record<string, unknown>
+                        _upl_version: number
+                    }>(
+                        trx,
+                        `SELECT id, kind, config, _upl_version FROM ${objQt}
                              WHERE kind IN (${kindPlaceholders})
                                AND _upl_deleted = false AND _mhb_deleted = false
                                AND config->'hubs' @> $${hubsJsonIdx}::jsonb
                              FOR UPDATE`,
-                            [...relationKinds, JSON.stringify([hubId])]
-                        )
+                        [...relationKinds, JSON.stringify([hubId])]
+                    )
 
-                        const eligibleRelatedObjects = relatedObjects.filter((row) => {
-                            const rowConfig = row.config ?? {}
-                            // Skip entities that are restricted to exactly one hub.
-                            return rowConfig.isSingleHub !== true
-                        })
+                    const eligibleRelatedObjects = relatedObjects.filter((row) => {
+                        const rowConfig = row.config ?? {}
+                        // Skip entities that are restricted to exactly one hub.
+                        return rowConfig.isSingleHub !== true
+                    })
 
-                        for (const row of eligibleRelatedObjects) {
-                            const rowConfig = row.config ?? {}
-                            const currentHubIds = Array.isArray(rowConfig.hubs)
-                                ? rowConfig.hubs.filter((value): value is string => typeof value === 'string')
-                                : []
+                    for (const row of eligibleRelatedObjects) {
+                        const rowConfig = row.config ?? {}
+                        const currentHubIds = Array.isArray(rowConfig.hubs)
+                            ? rowConfig.hubs.filter((value): value is string => typeof value === 'string')
+                            : []
 
-                            if (currentHubIds.includes(copiedHub.id)) {
-                                continue
-                            }
+                        if (currentHubIds.includes(copiedHub.id)) {
+                            continue
+                        }
 
-                            const nextHubIds = Array.from(new Set([...currentHubIds, copiedHub.id]))
-                            const updatedRows = await queryMany<{ id: string }>(
-                                trx,
-                                `UPDATE ${objQt}
+                        const nextHubIds = Array.from(new Set([...currentHubIds, copiedHub.id]))
+                        const updatedRows = await queryMany<{ id: string }>(
+                            trx,
+                            `UPDATE ${objQt}
                                  SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
                                  WHERE id = $4 AND _upl_version = $5
                                  RETURNING id`,
-                                [JSON.stringify({ ...rowConfig, hubs: nextHubIds }), now, userId ?? null, row.id, row._upl_version]
-                            )
+                            [JSON.stringify({ ...rowConfig, hubs: nextHubIds }), now, userId ?? null, row.id, row._upl_version]
+                        )
 
-                            if (updatedRows.length === 0) {
-                                throw new HubCopyConcurrentUpdateError()
-                            }
+                        if (updatedRows.length === 0) {
+                            throw new HubCopyConcurrentUpdateError()
                         }
                     }
+                }
 
-                    return copiedHub
-                })
-            }
+                return copiedHub
+            })
+        }
 
-            let copiedHub: CopiedHubRow | null = null
-            for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
-                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
-                let shouldTryNextCodename = false
+        let copiedHub: CopiedHubRow | null = null
+        for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
+            const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
+            let shouldTryNextCodename = false
 
-                for (let concurrentRetry = 0; concurrentRetry <= CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT; concurrentRetry += 1) {
-                    try {
-                        copiedHub = await createHubCopy(codenameCandidate)
+            for (let concurrentRetry = 0; concurrentRetry <= CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT; concurrentRetry += 1) {
+                try {
+                    copiedHub = await createHubCopy(codenameCandidate)
+                    break
+                } catch (error) {
+                    if (error instanceof HubCopyConcurrentUpdateError) {
+                        if (concurrentRetry < CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT) {
+                            continue
+                        }
+                        shouldTryNextCodename = true
                         break
-                    } catch (error) {
-                        if (error instanceof HubCopyConcurrentUpdateError) {
-                            if (concurrentRetry < CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT) {
-                                continue
-                            }
+                    }
+
+                    if (database.isUniqueViolation(error)) {
+                        const constraint = database.getDbErrorConstraint(error) ?? ''
+                        if (constraint === 'idx_mhb_objects_kind_codename_active') {
                             shouldTryNextCodename = true
                             break
                         }
-
-                        if (database.isUniqueViolation(error)) {
-                            const constraint = database.getDbErrorConstraint(error) ?? ''
-                            if (constraint === 'idx_mhb_objects_kind_codename_active') {
-                                shouldTryNextCodename = true
-                                break
-                            }
-                        }
-
-                        throw error
                     }
-                }
 
-                if (copiedHub) {
-                    break
-                }
-                if (!shouldTryNextCodename) {
-                    break
+                    throw error
                 }
             }
 
-            if (!copiedHub) {
-                return res.status(409).json({ error: 'Unable to generate unique codename for hub copy' })
+            if (copiedHub) {
+                break
             }
+            if (!shouldTryNextCodename) {
+                break
+            }
+        }
 
-            return res.status(201).json({
-                id: copiedHub.id,
-                codename: copiedHub.codename,
-                name: copiedHub.name ?? {},
-                description: copiedHub.description ?? null,
-                sortOrder: copiedHub.sort_order ?? 0,
-                parentHubId: copiedHub.parent_hub_id ?? null,
-                version: copiedHub._upl_version || 1,
-                createdAt: copiedHub.created_at,
-                updatedAt: copiedHub.updated_at
-            })
+        if (!copiedHub) {
+            return res.status(409).json({ error: 'Unable to generate unique codename for hub copy' })
+        }
+
+        return res.status(201).json({
+            id: copiedHub.id,
+            codename: copiedHub.codename,
+            name: copiedHub.name ?? {},
+            description: copiedHub.description ?? null,
+            sortOrder: copiedHub.sort_order ?? 0,
+            parentHubId: copiedHub.parent_hub_id ?? null,
+            version: copiedHub._upl_version || 1,
+            createdAt: copiedHub.created_at,
+            updatedAt: copiedHub.updated_at
+        })
     }
 
     const update = createHandler(

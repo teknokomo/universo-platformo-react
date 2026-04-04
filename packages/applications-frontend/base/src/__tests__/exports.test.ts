@@ -66,6 +66,7 @@ describe('applications-frontend entry exports', () => {
         expect(applicationDashboard.type).toBe('group')
         expect(Array.isArray(applicationDashboard.children)).toBe(true)
         expect(applicationDashboard.children?.length).toBeGreaterThan(0)
+        expect(applicationDashboard.children?.some((item) => item.id === 'migrations' && item.url === '/migrations')).toBe(true)
     })
 
     it('applications translations helper returns en/ru and falls back', async () => {

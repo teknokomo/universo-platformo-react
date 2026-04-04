@@ -35,7 +35,13 @@ import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../uti
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import { extractLocalizedInput, hasPrimaryContent, ensureEntityCodenameContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
+import {
+    extractLocalizedInput,
+    hasPrimaryContent,
+    ensureEntityCodenameContent,
+    ensureLocalizedContent,
+    normalizeLocale
+} from '../../../utils/localizedInput'
 import * as attributesApi from '../api'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import {

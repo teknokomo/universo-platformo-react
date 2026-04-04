@@ -22,6 +22,11 @@ import {
     entitySelectionSelectors,
     toolbarSelectors
 } from '../../support/selectors/contracts'
+import {
+    SELF_HOSTED_APP_CANONICAL_METAHUB,
+    SELF_HOSTED_APP_FIXTURE_FILENAME,
+    assertSelfHostedAppEnvelopeContract
+} from '../../support/selfHostedAppFixtureContract.mjs'
 
 type ConnectorRecord = {
     id?: string
@@ -36,8 +41,8 @@ type ConnectorLinkListResponse = {
     }>
 }
 
-async function loadSelfModelSnapshotEnvelope() {
-    const fixturePath = `${process.cwd()}/tools/fixtures/self-model-metahub-snapshot.json`
+async function loadSelfHostedAppSnapshotEnvelope() {
+    const fixturePath = `${process.cwd()}/tools/fixtures/${SELF_HOSTED_APP_FIXTURE_FILENAME}`
     const raw = await readFile(fixturePath, 'utf8')
     const envelope = JSON.parse(raw) as {
         metahub?: {
@@ -46,7 +51,16 @@ async function loadSelfModelSnapshotEnvelope() {
                 locales?: Record<string, { content?: string }>
             }
         }
+        snapshot?: {
+            entities?: Record<string, { kind?: string; codename?: string }>
+        }
     }
+
+    const metahubName = envelope.metahub?.name?.locales?.en?.content ?? ''
+    if (metahubName !== SELF_HOSTED_APP_CANONICAL_METAHUB.name.en) {
+        throw new Error(`Unexpected self-hosted app fixture name: ${metahubName || '<missing>'}`)
+    }
+    assertSelfHostedAppEnvelopeContract(envelope)
 
     return { fixturePath, envelope }
 }
@@ -309,7 +323,7 @@ test('@flow imported snapshot publication creates schema on first connector atte
     })
 
     try {
-        const { envelope } = await loadSelfModelSnapshotEnvelope()
+        const { envelope } = await loadSelfHostedAppSnapshotEnvelope()
         const importResponse = await sendWithCsrf(api, 'POST', '/api/v1/metahubs/import', envelope)
 
         if (!importResponse.ok) {
@@ -334,7 +348,7 @@ test('@flow imported snapshot publication creates schema on first connector atte
         await recordCreatedMetahub({
             id: importedMetahubId,
             name: importedMetahubName,
-            codename: 'imported-self-model-fixture'
+            codename: 'imported-self-hosted-fixture'
         })
         await recordCreatedPublication({
             id: importedPublicationId,

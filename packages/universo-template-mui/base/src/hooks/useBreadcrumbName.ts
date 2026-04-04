@@ -356,7 +356,10 @@ export function useAttributeName(
         queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId, language],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId || !attributeId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`)
+            const entity = await loadBreadcrumbEntity(
+                client,
+                `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`
+            )
             return resolveEntityDisplayName(entity)
         },
         enabled: Boolean(metahubId && hubId && catalogId && attributeId) && !authLoading,
@@ -380,8 +383,8 @@ export function useMetahubPublicationName(metahubId: string | null, publicationI
     const query = useQuery({
         queryKey:
             metahubId && publicationId
-                ? ['metahubs', 'detail', metahubId, 'publications', 'detail', publicationId]
-                : ['metahubs', 'detail', 'missing-id', 'publications', 'detail', 'missing-id'],
+                ? ['breadcrumb', 'metahub-publication', metahubId, publicationId, language]
+                : ['breadcrumb', 'metahub-publication', 'missing-id', 'missing-id', language],
         queryFn: async () => {
             if (!metahubId || !publicationId) return null
             const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/publication/${publicationId}`)

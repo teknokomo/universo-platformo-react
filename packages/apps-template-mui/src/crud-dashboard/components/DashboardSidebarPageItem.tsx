@@ -12,7 +12,7 @@ import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import type {} from '@mui/material/themeCssVarsAugmentation'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import DashboardSidebarContext from '../context/DashboardSidebarContext'
 import { MINI_DRAWER_WIDTH } from '../constants'
 

@@ -14,7 +14,15 @@ import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 
 // project imports
-import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
+import {
+    TemplateMainCard as MainCard,
+    EmptyListState,
+    APIEmptySVG,
+    useDebouncedSearch,
+    useConfirm,
+    PAGE_CONTENT_GUTTER_MX,
+    PAGE_TAB_BAR_SX
+} from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { useSettings, useUpdateSettings, useResetSetting } from '../hooks/useSettings'

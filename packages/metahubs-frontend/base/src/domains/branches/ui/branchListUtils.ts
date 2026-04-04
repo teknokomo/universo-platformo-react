@@ -123,9 +123,7 @@ export const appendLocalizedCopySuffix = (
         }
     }
 
-    const hasAnyContent = Object.values(nextLocales).some(
-        (entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0
-    )
+    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
     if (!hasAnyContent) {
         const locale = normalizeLocale(uiLocale)
         const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
@@ -158,10 +156,7 @@ export const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, 
     }
 }
 
-export const validateBranchForm = (
-    ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>,
-    values: GenericFormValues
-) => {
+export const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>, values: GenericFormValues) => {
     const cc = getCodenameConfigFromValues(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined

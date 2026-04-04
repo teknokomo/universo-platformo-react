@@ -33,6 +33,7 @@ import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { TabularPartEditor } from '../TabularPartEditor'
 import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
 import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
+import PageContainer from '../../crud-dashboard/components/PageContainer'
 
 export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
@@ -66,6 +67,8 @@ export interface FieldConfig {
     id: string
     label: string
     type: FieldType
+    widget?: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'date' | 'datetime' | 'reference'
+    multilineRows?: number
     required?: boolean
     /** @deprecated Use validationRules.localized instead */
     localized?: boolean
@@ -117,6 +120,7 @@ export interface FieldConfig {
 export interface FormDialogProps {
     open: boolean
     title: string
+    surface?: 'dialog' | 'page'
     fields: FieldConfig[]
     locale: string
     initialData?: Record<string, unknown>
@@ -220,6 +224,7 @@ const normalizeDateValue = (value: string, inputType: 'date' | 'time' | 'datetim
 export const FormDialog: React.FC<FormDialogProps> = ({
     open,
     title,
+    surface = 'dialog',
     fields,
     locale,
     initialData,
@@ -575,9 +580,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     )
                 }
 
+                const isMultiline = field.widget === 'textarea'
                 return (
                     <TextField
                         fullWidth
+                        multiline={isMultiline}
+                        rows={isMultiline ? field.multilineRows ?? 4 : undefined}
                         label={field.label}
                         value={typeof value === 'string' ? value : value == null ? '' : String(value)}
                         onChange={(event) => handleFieldChange(field.id, event.target.value)}
@@ -1243,50 +1251,68 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const hasTableFields = fields.some((f) => f.type === 'TABLE')
     const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
 
+    const formBody = (
+        <Stack spacing={2} sx={surface === 'page' ? undefined : { mt: 1 }}>
+            {error && <Alert severity='error'>{error}</Alert>}
+            {!isReady ? (
+                <Stack alignItems='center' justifyContent='center' sx={{ py: 3 }}>
+                    <CircularProgress size={20} />
+                </Stack>
+            ) : fields.length === 0 ? (
+                <Typography color='text.secondary'>{emptyStateText}</Typography>
+            ) : (
+                fields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
+            )}
+        </Stack>
+    )
+
+    const actionButtons = (
+        <>
+            {showDeleteButton ? (
+                <Button
+                    data-testid='entity-form-delete'
+                    onClick={deleteButtonDisabled ? undefined : onDelete}
+                    disabled={isSubmitting || deleteButtonDisabled}
+                    variant='outlined'
+                    startIcon={<DeleteIcon />}
+                    sx={surface === 'page' ? undefined : { borderRadius: 1, mr: 'auto' }}
+                >
+                    {deleteButtonText}
+                </Button>
+            ) : null}
+            <Box sx={{ display: 'flex', gap: 1, ml: surface === 'page' ? 'auto' : 0 }}>
+                <Button data-testid='entity-form-cancel' onClick={onClose} disabled={isSubmitting}>
+                    {cancelButtonText}
+                </Button>
+                <Button
+                    data-testid='entity-form-submit'
+                    onClick={handleSubmit}
+                    variant='contained'
+                    disabled={isSubmitDisabled}
+                    startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
+                >
+                    {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}
+                </Button>
+            </Box>
+        </>
+    )
+
+    if (!open) return null
+
+    if (surface === 'page') {
+        return (
+            <PageContainer title={title} actions={actionButtons}>
+                <Box sx={{ maxWidth: hasTableFields ? 1100 : 820 }}>{formBody}</Box>
+            </PageContainer>
+        )
+    }
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth={dialogMaxWidth} fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
             <DialogTitle>{title}</DialogTitle>
-            <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                    {error && <Alert severity='error'>{error}</Alert>}
-                    {!isReady ? (
-                        <Stack alignItems='center' justifyContent='center' sx={{ py: 3 }}>
-                            <CircularProgress size={20} />
-                        </Stack>
-                    ) : fields.length === 0 ? (
-                        <Typography color='text.secondary'>{emptyStateText}</Typography>
-                    ) : (
-                        fields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
-                    )}
-                </Stack>
-            </DialogContent>
+            <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>{formBody}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
-                {showDeleteButton ? (
-                    <Button
-                        data-testid='entity-form-delete'
-                        onClick={deleteButtonDisabled ? undefined : onDelete}
-                        disabled={isSubmitting || deleteButtonDisabled}
-                        variant='outlined'
-                        startIcon={<DeleteIcon />}
-                        sx={{ borderRadius: 1, mr: 'auto' }}
-                    >
-                        {deleteButtonText}
-                    </Button>
-                ) : null}
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button data-testid='entity-form-cancel' onClick={onClose} disabled={isSubmitting}>
-                        {cancelButtonText}
-                    </Button>
-                    <Button
-                        data-testid='entity-form-submit'
-                        onClick={handleSubmit}
-                        variant='contained'
-                        disabled={isSubmitDisabled}
-                        startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
-                    >
-                        {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}
-                    </Button>
-                </Box>
+                {actionButtons}
             </DialogActions>
         </Dialog>
     )

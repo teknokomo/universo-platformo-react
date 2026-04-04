@@ -171,43 +171,43 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
         ...templateMuiMock,
         useListDialogs: actual.useListDialogs,
         FlowListTable: ({
-        data,
-        renderActions
-    }: {
-        data: Array<Record<string, unknown>>
-        renderActions?: (row: Record<string, unknown>) => ReactNode
-    }) => (
-        <div>
-            {data.map((row) => (
-                <div key={String(row.id)}>
-                    <span>{String(row.name ?? row.codename ?? row.id)}</span>
-                    {renderActions?.(row)}
-                </div>
-            ))}
-        </div>
-    ),
-    BaseEntityMenu: ({
-        entity,
-        descriptors,
-        createContext
-    }: {
-        entity: Record<string, unknown>
-        descriptors: Array<{ id: string; onSelect?: (ctx: Record<string, unknown>) => void }>
-        createContext: (ctx: Record<string, unknown>) => Record<string, unknown>
-    }) => {
-        const editDescriptor = descriptors.find((descriptor) => descriptor.id === 'edit')
-        const context = createContext({
+            data,
+            renderActions
+        }: {
+            data: Array<Record<string, unknown>>
+            renderActions?: (row: Record<string, unknown>) => ReactNode
+        }) => (
+            <div>
+                {data.map((row) => (
+                    <div key={String(row.id)}>
+                        <span>{String(row.name ?? row.codename ?? row.id)}</span>
+                        {renderActions?.(row)}
+                    </div>
+                ))}
+            </div>
+        ),
+        BaseEntityMenu: ({
             entity,
-            t: (_key: string, fallback?: string) => fallback ?? _key,
-            helpers: {}
-        })
+            descriptors,
+            createContext
+        }: {
+            entity: Record<string, unknown>
+            descriptors: Array<{ id: string; onSelect?: (ctx: Record<string, unknown>) => void }>
+            createContext: (ctx: Record<string, unknown>) => Record<string, unknown>
+        }) => {
+            const editDescriptor = descriptors.find((descriptor) => descriptor.id === 'edit')
+            const context = createContext({
+                entity,
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                helpers: {}
+            })
 
-        return (
-            <button onClick={() => editDescriptor?.onSelect?.(context)} type='button'>
-                edit-enumeration-value
-            </button>
-        )
-    }
+            return (
+                <button onClick={() => editDescriptor?.onSelect?.(context)} type='button'>
+                    edit-enumeration-value
+                </button>
+            )
+        }
     }
 })
 

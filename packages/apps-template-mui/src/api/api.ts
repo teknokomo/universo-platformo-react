@@ -1,37 +1,7 @@
 import { z } from 'zod'
+import { catalogRuntimeViewConfigSchema, dashboardLayoutConfigSchema, type DashboardLayoutConfig } from '@universo/types'
 
-export const dashboardLayoutConfigSchema = z
-    .object({
-        showSideMenu: z.boolean().optional(),
-        showAppNavbar: z.boolean().optional(),
-        showHeader: z.boolean().optional(),
-        showBreadcrumbs: z.boolean().optional(),
-        showSearch: z.boolean().optional(),
-        showDatePicker: z.boolean().optional(),
-        showOptionsMenu: z.boolean().optional(),
-        showLanguageSwitcher: z.boolean().optional(),
-        showOverviewTitle: z.boolean().optional(),
-        showOverviewCards: z.boolean().optional(),
-        showSessionsChart: z.boolean().optional(),
-        showPageViewsChart: z.boolean().optional(),
-        showDetailsTitle: z.boolean().optional(),
-        showDetailsTable: z.boolean().optional(),
-        showColumnsContainer: z.boolean().optional(),
-        showProductTree: z.boolean().optional(),
-        showUsersByCountryChart: z.boolean().optional(),
-        showRightSideMenu: z.boolean().optional(),
-        showFooter: z.boolean().optional(),
-        // Enhanced view settings
-        showViewToggle: z.boolean().optional(),
-        defaultViewMode: z.enum(['table', 'card']).optional(),
-        showFilterBar: z.boolean().optional(),
-        enableRowReordering: z.boolean().optional(),
-        cardColumns: z.number().int().min(2).max(4).optional(),
-        rowHeight: z.union([z.number().int().min(36).max(200), z.literal('auto')]).optional()
-    })
-    .optional()
-
-export type DashboardLayoutConfig = z.infer<typeof dashboardLayoutConfigSchema>
+export type { DashboardLayoutConfig } from '@universo/types'
 
 /**
  * Extract a human-readable error message from an HTTP response body.
@@ -59,7 +29,8 @@ export const appDataResponseSchema = z.object({
         id: z.string(),
         codename: z.string(),
         tableName: z.string(),
-        name: z.string()
+        name: z.string(),
+        runtimeConfig: catalogRuntimeViewConfigSchema.optional()
     }),
     catalogs: z
         .array(
@@ -67,7 +38,8 @@ export const appDataResponseSchema = z.object({
                 id: z.string(),
                 codename: z.string(),
                 tableName: z.string(),
-                name: z.string()
+                name: z.string(),
+                runtimeConfig: catalogRuntimeViewConfigSchema.optional()
             })
         )
         .optional()

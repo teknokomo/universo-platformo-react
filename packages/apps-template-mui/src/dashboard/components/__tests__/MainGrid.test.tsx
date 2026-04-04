@@ -93,19 +93,17 @@ describe('MainGrid enhanced runtime details', () => {
 
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '2')
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-row-count', '5')
-        expect(screen.getByTestId('pagination-controls')).toHaveTextContent('1:5')
 
         fireEvent.change(screen.getByLabelText('search'), { target: { value: 'alpha' } })
 
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '1')
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-row-count', 'undefined')
-        expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-hide-footer', 'true')
-        expect(screen.getByTestId('pagination-controls')).toHaveTextContent('1:1')
+        expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-hide-footer', 'false')
     })
 
     it('switches table mode to FlowListTable when row reordering is enabled', () => {
         render(
-            <DashboardDetailsProvider value={details}>
+            <DashboardDetailsProvider value={{ ...details, rowCount: 2, rowReorder: { onReorder: vi.fn() } }}>
                 <MainGrid layoutConfig={{ ...baseLayoutConfig, enableRowReordering: true }} />
             </DashboardDetailsProvider>
         )
@@ -113,6 +111,17 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('flow-list-table')).toHaveAttribute('data-rows', '2')
         expect(screen.getByTestId('flow-list-table')).toHaveAttribute('data-sortable', 'true')
         expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
+    })
+
+    it('fails closed to the DataGrid when reorder is configured but only a partial dataset is loaded', () => {
+        render(
+            <DashboardDetailsProvider value={{ ...details, rowCount: 5, rowReorder: { onReorder: vi.fn() } }}>
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, enableRowReordering: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '2')
+        expect(screen.queryByTestId('flow-list-table')).not.toBeInTheDocument()
     })
 
     it('passes a minimal Grid API shim into FlowListTable renderCell callbacks', () => {
@@ -125,6 +134,8 @@ describe('MainGrid enhanced runtime details', () => {
             <DashboardDetailsProvider
                 value={{
                     ...details,
+                    rowCount: 2,
+                    rowReorder: { onReorder: vi.fn() },
                     columns: [
                         { field: 'name', headerName: 'Name', renderCell },
                         { field: 'status', headerName: 'Status' }

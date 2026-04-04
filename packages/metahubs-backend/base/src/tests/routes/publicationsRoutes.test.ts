@@ -641,9 +641,7 @@ describe('Publications Routes', () => {
             })
 
             const app = buildApp()
-            const res = await request(app)
-                .get('/metahub/metahub-1/publication/publication-1/versions/version-1/export')
-                .expect(200)
+            const res = await request(app).get('/metahub/metahub-1/publication/publication-1/versions/version-1/export').expect(200)
 
             expect(res.headers['content-type']).toMatch(/json/)
             expect(res.body).toHaveProperty('kind', 'metahub_snapshot_bundle')
@@ -660,9 +658,7 @@ describe('Publications Routes', () => {
             mockFindPublicationVersionById.mockResolvedValue(null)
 
             const app = buildApp()
-            await request(app)
-                .get('/metahub/metahub-1/publication/publication-1/versions/version-missing/export')
-                .expect(404)
+            await request(app).get('/metahub/metahub-1/publication/publication-1/versions/version-missing/export').expect(404)
         })
     })
 

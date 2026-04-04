@@ -470,10 +470,7 @@ export class MetahubSchemaService {
                 try {
                     return validateTemplateManifest(version.manifestJson)
                 } catch (error) {
-                    log.warn(
-                        `Invalid manifest in template version ${version.id}, falling back to default:`,
-                        error
-                    )
+                    log.warn(`Invalid manifest in template version ${version.id}, falling back to default:`, error)
                 }
             }
         }
@@ -598,16 +595,11 @@ export class MetahubSchemaService {
                 })
             }
             log.error(`Structure migration failed for ${schemaName}:`, result.error)
-            throw new MetahubSchemaSyncError(
-                `Structure migration V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}`,
-                result.error
-            )
+            throw new MetahubSchemaSyncError(`Structure migration V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}`, result.error)
         }
 
         if (result.applied.length > 0) {
-            log.info(
-                `Migrated ${schemaName} V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}: ${result.applied.length} changes applied`
-            )
+            log.info(`Migrated ${schemaName} V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}: ${result.applied.length} changes applied`)
         }
 
         if (result.skippedDestructive.length > 0) {

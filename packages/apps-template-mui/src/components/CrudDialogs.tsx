@@ -15,6 +15,8 @@ export interface CrudDialogsProps {
     applicationId?: string
     /** Catalog ID for TABLE (tabular part) CRUD operations. */
     catalogId?: string
+    /** Surface used for create/edit/copy forms. */
+    surface?: 'dialog' | 'page'
 }
 
 export interface CrudDialogsLabels {
@@ -41,12 +43,13 @@ export interface CrudDialogsLabels {
  * Extracts the duplicated dialog JSX from both `DashboardApp` and
  * `ApplicationRuntime`. Connect it to the `CrudDashboardState`.
  */
-export function CrudDialogs({ state, locale, labels, apiBaseUrl, applicationId, catalogId }: CrudDialogsProps) {
+export function CrudDialogs({ state, locale, labels, apiBaseUrl, applicationId, catalogId, surface = 'dialog' }: CrudDialogsProps) {
     return (
         <>
             <FormDialog
                 open={state.formOpen && state.isFormReady}
                 title={state.copyRowId ? labels.copyTitle : state.editRowId ? labels.editTitle : labels.createTitle}
+                surface={surface}
                 fields={state.fieldConfigs}
                 locale={locale}
                 initialData={state.formInitialData}

@@ -12,9 +12,7 @@ import { getCodenamePrimary } from '@universo/utils'
 import type { ExistingCodenameEntity } from './ExistingCodenamesContext'
 import { ensureEntityCodenameContent } from '../utils/localizedInput'
 
-const getCanonicalCodenameValue = (
-    codename: VersionedLocalizedContent<string> | null
-): { original: string; lower: string } | null => {
+const getCanonicalCodenameValue = (codename: VersionedLocalizedContent<string> | null): { original: string; lower: string } | null => {
     const primary = getCodenamePrimary(codename).trim()
     if (!primary) {
         return null

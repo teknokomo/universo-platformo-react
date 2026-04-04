@@ -11,6 +11,17 @@ vi.mock('@universo/template-mui', async () => {
 
     return {
         ...actual,
+        StandardDialog: ({ open, title, actions, children }: any) => {
+            if (!open) return null
+
+            return (
+                <div role='dialog' aria-label={title}>
+                    <h2>{title}</h2>
+                    <div>{children}</div>
+                    <div>{actions}</div>
+                </div>
+            )
+        },
         LocalizedInlineField: ({ label, value, onChange }: any) => {
             const currentValue = value?._primary ? value?.locales?.[value._primary]?.content ?? '' : ''
 
@@ -42,6 +53,7 @@ vi.mock('@universo/template-mui', async () => {
             const edit = descriptors.find((descriptor: any) => descriptor?.id === 'edit')
             const del = descriptors.find((descriptor: any) => descriptor?.id === 'delete')
             const copy = descriptors.find((descriptor: any) => descriptor?.id === 'copy')
+            const exportAction = descriptors.find((descriptor: any) => descriptor?.id === 'export')
 
             return (
                 <div data-testid='entity-menu'>
@@ -108,6 +120,16 @@ vi.mock('@universo/template-mui', async () => {
                             }}
                         >
                             copy
+                        </button>
+                    ) : null}
+                    {exportAction ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                void exportAction.onSelect?.(ctx)
+                            }}
+                        >
+                            export
                         </button>
                     ) : null}
                     {del ? (
@@ -213,6 +235,7 @@ import { configureStore } from '@reduxjs/toolkit'
 
 import MetahubList from '../MetahubList'
 import * as metahubsApi from '../../api'
+import * as metahubsSnapshotApi from '../../api/metahubs'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metahubsEn from '../../../../i18n/locales/en/metahubs.json'
@@ -227,6 +250,10 @@ vi.mock('../../api', () => ({
     updateMetahub: vi.fn(),
     deleteMetahub: vi.fn(),
     copyMetahub: vi.fn()
+}))
+
+vi.mock('../../api/metahubs', () => ({
+    exportMetahubSnapshot: vi.fn()
 }))
 
 // Mock useAuth hook
@@ -913,6 +940,71 @@ describe('MetahubList', () => {
 
             await waitFor(() => {
                 expect(metahubsApi.deleteMetahub).toHaveBeenCalledWith('deletable-metahub')
+            })
+        })
+    })
+
+    describe('Export Metahub', () => {
+        it('hides export when the current user cannot manage the metahub', async () => {
+            vi.mocked(metahubsApi.listMetahubs).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'readonly-metahub',
+                            codename: 'ReadonlyMetahub',
+                            name: 'Readonly Metahub',
+                            description: 'No export access',
+                            role: 'editor',
+                            permissions: { manageMetahub: false },
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+
+            renderWithProviders(<MetahubList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Readonly Metahub')).toBeInTheDocument()
+            })
+
+            expect(screen.queryByRole('button', { name: 'export' })).not.toBeInTheDocument()
+        })
+
+        it('exports snapshots only for metahub managers', async () => {
+            vi.mocked(metahubsApi.listMetahubs).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'exportable-metahub',
+                            codename: 'ExportableMetahub',
+                            name: 'Exportable Metahub',
+                            description: 'Ready for snapshot export',
+                            role: 'admin',
+                            permissions: { manageMetahub: true },
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(metahubsSnapshotApi.exportMetahubSnapshot).mockResolvedValue(undefined)
+
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Exportable Metahub')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: 'export' }))
+
+            await waitFor(() => {
+                expect(metahubsSnapshotApi.exportMetahubSnapshot).toHaveBeenCalledWith('exportable-metahub')
             })
         })
     })

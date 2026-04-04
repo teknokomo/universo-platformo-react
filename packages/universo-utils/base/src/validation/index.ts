@@ -42,6 +42,12 @@ export {
     normalizeConstantCopyOptions
 } from './copyOptions'
 export {
+    normalizeCatalogRuntimeViewConfig,
+    sanitizeCatalogRuntimeViewConfig,
+    resolveCatalogRuntimeDashboardLayoutConfig
+} from './catalogRuntimeConfig'
+export { normalizeDashboardLayoutConfig } from './dashboardLayout'
+export {
     validateNumber,
     validateNumberOrThrow,
     getMaxValueForPrecision,

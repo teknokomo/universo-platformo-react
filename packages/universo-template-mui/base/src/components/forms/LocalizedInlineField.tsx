@@ -575,7 +575,9 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             <MenuItem onClick={() => setMenuMode('change')}>{t('changeLanguage', 'Change language')}</MenuItem>
                         )}
                         {isPrimaryLocale ? (
-                            <MenuItem disabled tabIndex={-1}>{t('primaryVariant', 'Primary variant')}</MenuItem>
+                            <MenuItem disabled tabIndex={-1}>
+                                {t('primaryVariant', 'Primary variant')}
+                            </MenuItem>
                         ) : (
                             <MenuItem onClick={handleMakePrimary}>{t('makePrimary', 'Make primary')}</MenuItem>
                         )}
@@ -606,7 +608,9 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             </MenuItem>
                         ))}
                         {menuLocalesAvailable.length === 0 && (
-                            <MenuItem disabled tabIndex={-1}>{t('noLanguagesAvailable', 'No languages available')}</MenuItem>
+                            <MenuItem disabled tabIndex={-1}>
+                                {t('noLanguagesAvailable', 'No languages available')}
+                            </MenuItem>
                         )}
                     </>
                 )}

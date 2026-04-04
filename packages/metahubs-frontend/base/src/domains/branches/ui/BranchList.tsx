@@ -890,7 +890,8 @@ const BranchList = () => {
                         }
                     }}
                     onOverwrite={async () => {
-                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: BranchLocalizedPayload } })?.pendingUpdate
+                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: BranchLocalizedPayload } })
+                            ?.pendingUpdate
                         if (pendingUpdate && metahubId) {
                             const { id, patch } = pendingUpdate
                             await updateBranchMutation.mutateAsync({

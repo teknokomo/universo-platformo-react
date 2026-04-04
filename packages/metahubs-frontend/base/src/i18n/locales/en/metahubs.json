@@ -595,7 +595,31 @@
         "tabs": {
             "general": "General",
             "hubs": "Hubs",
+            "layout": "Layout",
             "options": "Options"
+        },
+        "runtime": {
+            "showSearch": "Search/filter bar",
+            "showCreateButton": "Show create button",
+            "showViewToggle": "Card/table view toggle",
+            "enableRowReordering": "Enable row reordering",
+            "reorderPersistenceField": "Reorder persistence field",
+            "reorderPersistenceFieldHelper": "Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.",
+            "useLayoutOverrides": "Override application layout settings",
+            "useLayoutOverridesHelper": "When disabled, this catalog inherits search, view, card, and row layout settings from the application layout.",
+            "defaultViewMode": "Default view mode",
+            "viewModeTable": "Table",
+            "viewModeCard": "Card",
+            "cardColumns": "Card columns",
+            "rowHeight": "Row height",
+            "rowHeightCompact": "Compact (default)",
+            "rowHeightNormal": "Normal (52px)",
+            "rowHeightAuto": "Auto (multi-line)",
+            "createSurface": "Create form type",
+            "editSurface": "Edit form type",
+            "copySurface": "Copy form type",
+            "surfaceDialog": "Dialog",
+            "surfacePage": "Page"
         },
         "copy": {
             "action": "Copy",
@@ -1053,6 +1077,10 @@
         "presentation": {
             "headerAsCheckbox": "Display header as checkbox",
             "headerAsCheckboxHelper": "Show a checkbox in the column header instead of the text label (only for Boolean type)",
+            "multilineEditor": "Use multiline editor",
+            "multilineEditorHelper": "Renders this STRING field as a textarea in published runtime forms.",
+            "multilineRows": "Textarea rows",
+            "multilineRowsHelper": "Choose between 2 and 12 rows.",
             "enumMode": "Enumeration view mode",
             "enumModeHelper": "Applies to references that point to an enumeration in runtime forms.",
             "enumModeOptions": {

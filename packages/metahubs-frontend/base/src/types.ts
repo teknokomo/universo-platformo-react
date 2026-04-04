@@ -10,6 +10,7 @@
 import type {
     MetahubRole,
     GlobalRole,
+    CatalogRuntimeViewConfig,
     CodenameVLC,
     VersionedLocalizedContent,
     AttributeDataType,
@@ -333,6 +334,7 @@ export interface Catalog {
     createdAt: string
     updatedAt: string
     version?: number
+    runtimeConfig?: CatalogRuntimeViewConfig
     hubs?: HubRef[]
     attributesCount?: number
     elementsCount?: number
@@ -628,6 +630,7 @@ export interface CatalogLocalizedPayload {
     isSingleHub?: boolean
     isRequiredHub?: boolean
     hubIds?: string[]
+    runtimeConfig?: CatalogRuntimeViewConfig
 }
 
 /** Payload for creating/updating Set. */
