@@ -47,7 +47,7 @@ import {
 } from '@universo/template-mui'
 import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
-import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 
 import { usePublicationApplications } from '../hooks/usePublicationApplications'
 import { useCreatePublicationApplication } from '../hooks/applicationMutations'
@@ -79,6 +79,18 @@ interface ApplicationTableRow extends FlowListTableData {
     slug: string
     createdAt: string
 }
+
+const renderDialogTitle = (title: React.ReactNode, actions: React.ReactNode | null) =>
+    actions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, pr: 1 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {actions}
+        </Box>
+    ) : (
+        title
+    )
 
 // ────────────────────────────────────────────────────────────────────────────
 // Component
@@ -266,6 +278,12 @@ export const PublicationApplicationList: React.FC = () => {
         setIsPublic(false)
         setWorkspacesEnabled(false)
     }, [])
+    const createDialogPresentation = useDialogPresentation({
+        open: dialogs.create.open,
+        onClose: handleCloseCreateDialog,
+        fallbackMaxWidth: 'sm',
+        isBusy: createMutation.isPending
+    })
 
     const handleCreate = useCallback(() => {
         if (!metahubId || !publicationId) return
@@ -407,9 +425,21 @@ export const PublicationApplicationList: React.FC = () => {
             )}
 
             {/* ── Create Application Dialog ─────────────────────────────── */}
-            <Dialog open={dialogs.create.open} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
-                <DialogTitle>{t('metahubs:publications.applications.createTitle', 'Create Application')}</DialogTitle>
-                <DialogContent sx={{ overflow: 'visible' }}>
+            <Dialog
+                open={dialogs.create.open}
+                onClose={createDialogPresentation.dialogProps.onClose}
+                maxWidth={resolveDialogMaxWidth(createDialogPresentation.dialogProps.maxWidth, 'sm')}
+                fullWidth={createDialogPresentation.dialogProps.fullWidth ?? true}
+                disableEscapeKeyDown={createDialogPresentation.dialogProps.disableEscapeKeyDown}
+                PaperProps={mergeDialogPaperProps(undefined, createDialogPresentation.dialogProps.PaperProps)}
+            >
+                <DialogTitle>
+                    {renderDialogTitle(
+                        t('metahubs:publications.applications.createTitle', 'Create Application'),
+                        createDialogPresentation.titleActions
+                    )}
+                </DialogTitle>
+                <DialogContent sx={mergeDialogSx({ overflow: 'visible' }, createDialogPresentation.contentSx)}>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <LocalizedInlineField
                             mode='localized'
@@ -495,6 +525,7 @@ export const PublicationApplicationList: React.FC = () => {
                         {tc('create')}
                     </Button>
                 </DialogActions>
+                {createDialogPresentation.resizeHandle}
             </Dialog>
 
             {/* ── Row Actions Menu ──────────────────────────────────────── */}

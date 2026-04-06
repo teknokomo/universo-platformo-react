@@ -112,6 +112,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
+                    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
                     slug VARCHAR(100),
                     is_public BOOLEAN NOT NULL DEFAULT false,
                     workspaces_enabled BOOLEAN NOT NULL DEFAULT false,
@@ -747,4 +748,33 @@ export const finalizeApplicationsSchemaSupportMigrationDefinition: SqlMigrationD
     summary: 'Finalize applications fixed-schema support objects after definition-driven table generation',
     up: applicationsSchemaPostStatements,
     down: [] as const
+}
+
+export const addApplicationSettingsMigrationDefinition: SqlMigrationDefinition = {
+    id: 'AddApplicationSettings1800000000100',
+    version: '1800000000100',
+    summary: 'Add persisted application settings storage for control-panel dialog configuration',
+    up: [
+        {
+            sql: `
+ALTER TABLE applications.cat_applications
+ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;
+            `
+        },
+        {
+            sql: `
+UPDATE applications.cat_applications
+SET settings = '{}'::jsonb
+WHERE settings IS NULL;
+            `
+        }
+    ] as const,
+    down: [
+        {
+            sql: `
+ALTER TABLE applications.cat_applications
+DROP COLUMN IF EXISTS settings;
+            `
+        }
+    ] as const
 }

@@ -53,6 +53,7 @@
         "@universo/migrations-platform": "workspace:*",
         "@universo/metahubs-backend": "workspace:*",
         "@universo/profile-backend": "workspace:*",
+        "@universo/scripting-engine": "workspace:*",
         "@universo/start-backend": "workspace:*",
         "@universo/utils": "workspace:*",
         "@universo/core-frontend": "workspace:^",

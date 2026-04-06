@@ -59,6 +59,7 @@ import { MetahubAttributesService } from '../services/MetahubAttributesService'
 import { MetahubElementsService } from '../services/MetahubElementsService'
 import { MetahubEnumerationValuesService } from '../services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../services/MetahubConstantsService'
+import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
 import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import { createPoolSnapshotRestoreService } from '../../ddl'
@@ -1897,13 +1898,15 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const hubsService = new MetahubHubsService(exec, schemaService)
             const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
             const constantsService = new MetahubConstantsService(exec, schemaService)
+            const scriptsService = new MetahubScriptsService(exec, schemaService)
             const serializer = new SnapshotSerializer(
                 objectsService,
                 attributesService,
                 elementsService,
                 hubsService,
                 enumerationValuesService,
-                constantsService
+                constantsService,
+                scriptsService
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
@@ -2034,6 +2037,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const hubsService = new MetahubHubsService(exec, schemaService)
         const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
         const constantsService = new MetahubConstantsService(exec, schemaService)
+        const scriptsService = new MetahubScriptsService(exec, schemaService)
 
         const serializer = new SnapshotSerializer(
             objectsService,
@@ -2041,7 +2045,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             elementsService,
             hubsService,
             enumerationValuesService,
-            constantsService
+            constantsService,
+            scriptsService
         )
 
         const snapshot = await serializer.serializeMetahub(metahubId, {
@@ -2050,8 +2055,22 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
 
+        const exportedScripts = Array.isArray(snapshot.scripts) ? snapshot.scripts : []
+        const liveScripts = exportedScripts.length > 0 ? await scriptsService.listScripts(metahubId, { onlyActive: true }, userId) : []
+        const liveScriptById = new Map(liveScripts.filter((script) => script.isActive).map((script) => [script.id, script]))
+        const exportSnapshot = {
+            ...snapshot,
+            scripts:
+                exportedScripts.length > 0
+                    ? exportedScripts.map((script) => {
+                          const liveScript = liveScriptById.get(script.id)
+                          return liveScript?.sourceCode ? { ...script, sourceCode: liveScript.sourceCode } : script
+                      })
+                    : snapshot.scripts
+        }
+
         const envelope = buildSnapshotEnvelope({
-            snapshot: snapshot as unknown as MetahubSnapshotTransportEnvelope['snapshot'],
+            snapshot: exportSnapshot as unknown as MetahubSnapshotTransportEnvelope['snapshot'],
             metahub: {
                 id: metahub.id,
                 name: metahub.name as unknown as Record<string, unknown>,

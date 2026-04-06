@@ -18,6 +18,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 ## Main Responsibilities
 
 - Экспортировать authenticated CRUD routes для design-time metahub resources.
+- Держать design-time surfaces исходников и bundle-артефактов scripts за permission `manageMetahub`, а не за широкими member-level reads.
 - Экспортировать public read-only routes для опубликованных данных metahub.
 - Инициализировать rate limiters и собирать полное дерево маршрутов metahubs.
 - Выполнять seed встроенных templates через unified platform migration flow.
@@ -30,6 +31,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 - Динамические identifiers схем, таблиц и колонок проходят через shared quoting helpers.
 - Доменный SQL остаётся schema-qualified и parameterized с PostgreSQL-style bindings.
 - Потоки copy, delete, restore и reorder обязаны сохранять active-row и fail-closed contracts.
+- Активные design-time script codenames уникальны только внутри scope tuple `(attached_to_kind, attached_to_id, module_role)`.
 - Package-local DDL helpers являются единственным допустимым местом для raw Knex и transport wiring schema-ddl.
 
 ## DDL And Publication Boundaries

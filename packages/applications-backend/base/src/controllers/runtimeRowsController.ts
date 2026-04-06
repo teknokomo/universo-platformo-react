@@ -12,6 +12,8 @@ import {
   getCatalogWorkspaceUsage,
   enforceCatalogWorkspaceLimit
 } from '../services/applicationWorkspaces'
+import { RuntimeScriptsService } from '../services/runtimeScriptsService'
+import type { RolePermission } from '../routes/guards'
 import { getRequestDbExecutor } from '../utils'
 import {
   UpdateFailure,
@@ -204,6 +206,98 @@ const getNextRuntimeSortValue = async (params: {
 
   const maxValue = pgNumericToNumber(row?.value)
   return typeof maxValue === 'number' && Number.isFinite(maxValue) ? maxValue + 1 : 0
+}
+
+const loadRuntimeRowById = async (
+  manager: DbExecutor,
+  dataTableIdent: string,
+  rowId: string,
+  runtimeRowCondition = 'TRUE'
+) => {
+  const rows = (await manager.query(
+    `
+      SELECT *
+      FROM ${dataTableIdent}
+      WHERE id = $1
+        AND ${runtimeRowCondition}
+      LIMIT 1
+    `,
+    [rowId]
+  )) as Array<Record<string, unknown>>
+
+  return rows[0] ?? null
+}
+
+const collectTouchedAttributeIds = (
+  attrs: Array<{ id: string; codename: unknown; column_name: string }>,
+  payload: Record<string, unknown>
+) => {
+  const touched = new Set<string>()
+
+  for (const attr of attrs) {
+    const { hasUserValue } = getRuntimeInputValue(payload, attr.column_name, attr.codename)
+    if (hasUserValue) {
+      touched.add(attr.id)
+    }
+  }
+
+  return [...touched]
+}
+
+const dispatchRuntimeLifecycle = async (params: {
+  manager: DbExecutor
+  applicationId: string
+  schemaName: string
+  catalog: { id: string; codename: unknown }
+  currentWorkspaceId?: string | null
+  currentUserId?: string | null
+  permissions?: Record<RolePermission, boolean>
+  attributeIds?: string[]
+  payload: {
+    eventName: 'beforeCreate' | 'afterCreate' | 'beforeUpdate' | 'afterUpdate' | 'beforeDelete' | 'afterDelete' | 'beforeCopy' | 'afterCopy'
+    row?: Record<string, unknown> | null
+    previousRow?: Record<string, unknown> | null
+    patch?: Record<string, unknown> | null
+    metadata?: Record<string, unknown>
+  }
+}) => {
+  const scriptsService = new RuntimeScriptsService()
+
+  await scriptsService.dispatchLifecycleEvent({
+    executor: params.manager,
+    applicationId: params.applicationId,
+    schemaName: params.schemaName,
+    attachmentKind: 'catalog',
+    attachmentId: params.catalog.id,
+    entityCodename: resolveRuntimeCodenameText(params.catalog.codename),
+    currentWorkspaceId: params.currentWorkspaceId ?? null,
+    currentUserId: params.currentUserId ?? null,
+    permissions: params.permissions ?? null,
+    attributeIds: params.attributeIds,
+    payload: params.payload
+  })
+}
+
+type RuntimeLifecycleDispatchRequest = Omit<
+  Parameters<typeof dispatchRuntimeLifecycle>[0],
+  'manager'
+>
+
+const dispatchRuntimeLifecycleAfterCommit = (
+  manager: DbExecutor,
+  request: RuntimeLifecycleDispatchRequest | null
+) => {
+  if (!request) return
+
+  void dispatchRuntimeLifecycle({
+    manager,
+    ...request
+  }).catch((error) => {
+    console.error(
+      `[runtimeRowsController] ${request.payload.eventName} lifecycle hook failed`,
+      error
+    )
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -1548,50 +1642,107 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       expectedVersion !== undefined
         ? 'AND COALESCE(_upl_version, 1) = $4'
         : ''
-    const updated = (await ctx.manager.query(
-      `
-        UPDATE ${dataTableIdent}
-        SET ${quoteIdentifier(field)} = $1,
-            _upl_updated_at = NOW(),
-            _upl_updated_by = $2,
-            _upl_version = COALESCE(_upl_version, 1) + 1
-        WHERE id = $3
-          AND ${runtimeRowCondition}
-          AND COALESCE(_upl_locked, false) = false
-          ${versionCheckClause}
-        RETURNING id
-      `,
-      expectedVersion !== undefined
-        ? [coerced, ctx.userId, rowId, expectedVersion]
-        : [coerced, ctx.userId, rowId]
-    )) as Array<{ id: string }>
 
-    if (updated.length === 0) {
-      const exists = (await ctx.manager.query(
-        `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND ${runtimeRowCondition}`,
-        [rowId]
-      )) as Array<{
-        id: string
-        _upl_locked?: boolean
-        _upl_version?: number
-      }>
-      if (exists.length > 0 && exists[0]._upl_locked) {
-        return res.status(423).json({ error: 'Record is locked' })
-      }
-      if (exists.length > 0 && expectedVersion !== undefined) {
-        const actualVersion = Number(exists[0]._upl_version ?? 1)
-        if (actualVersion !== expectedVersion) {
-          return res.status(409).json({
-            error: 'Version mismatch',
-            expectedVersion,
-            actualVersion
-          })
+    let afterUpdateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
+
+    try {
+      await ctx.manager.transaction(async (txManager) => {
+        const previousRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)
+        if (!previousRow || !previousRow.id) {
+          throw new UpdateFailure(404, { error: 'Row not found' })
         }
-      }
-      return res.status(404).json({ error: 'Row not found' })
-    }
+        if (previousRow._upl_locked) {
+          throw new UpdateFailure(423, { error: 'Record is locked' })
+        }
 
-    return res.json({ status: 'ok' })
+        await dispatchRuntimeLifecycle({
+          manager: txManager,
+          applicationId,
+          schemaName: ctx.schemaName,
+          catalog,
+          currentWorkspaceId: ctx.currentWorkspaceId,
+          currentUserId: ctx.userId,
+          permissions: ctx.permissions,
+          attributeIds: [attr.id],
+          payload: {
+            eventName: 'beforeUpdate',
+            previousRow,
+            patch: { [field]: coerced }
+          }
+        })
+
+        const updated = (await txManager.query(
+          `
+            UPDATE ${dataTableIdent}
+            SET ${quoteIdentifier(field)} = $1,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $2,
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            WHERE id = $3
+              AND ${runtimeRowCondition}
+              AND COALESCE(_upl_locked, false) = false
+              ${versionCheckClause}
+            RETURNING id
+          `,
+          expectedVersion !== undefined
+            ? [coerced, ctx.userId, rowId, expectedVersion]
+            : [coerced, ctx.userId, rowId]
+        )) as Array<{ id: string }>
+
+        if (updated.length === 0) {
+          const exists = (await txManager.query(
+            `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND ${runtimeRowCondition}`,
+            [rowId]
+          )) as Array<{
+            id: string
+            _upl_locked?: boolean
+            _upl_version?: number
+          }>
+
+          if (exists.length > 0 && exists[0]._upl_locked) {
+            throw new UpdateFailure(423, { error: 'Record is locked' })
+          }
+
+          if (exists.length > 0 && expectedVersion !== undefined) {
+            const actualVersion = Number(exists[0]._upl_version ?? 1)
+            if (actualVersion !== expectedVersion) {
+              throw new UpdateFailure(409, {
+                error: 'Version mismatch',
+                expectedVersion,
+                actualVersion
+              })
+            }
+          }
+
+          throw new UpdateFailure(404, { error: 'Row not found' })
+        }
+
+        const nextRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)
+        afterUpdateLifecycleRequest = {
+          applicationId,
+          schemaName: ctx.schemaName,
+          catalog,
+          currentWorkspaceId: ctx.currentWorkspaceId,
+          currentUserId: ctx.userId,
+          permissions: ctx.permissions,
+          attributeIds: [attr.id],
+          payload: {
+            eventName: 'afterUpdate',
+            row: nextRow,
+            previousRow,
+            patch: { [field]: coerced }
+          }
+        }
+      })
+
+      dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterUpdateLifecycleRequest)
+      return res.json({ status: 'ok' })
+    } catch (e) {
+      if (e instanceof UpdateFailure) {
+        return res.status(e.statusCode).json(e.body)
+      }
+      throw e
+    }
   }
 
   // ============ BULK UPDATE ROW ============
@@ -1647,6 +1798,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const setClauses: string[] = []
     const values: unknown[] = []
     let paramIndex = 1
+    const touchedAttributeIds = collectTouchedAttributeIds(attrs, data)
 
     const safeAttrs = attrs.filter(
       (a) =>
@@ -1679,7 +1831,6 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           error: `Field is read-only: ${attrLabel}`
         })
       }
-
       const setConstantConfig =
         attr.data_type === 'REF' && attr.target_object_kind === 'set'
           ? getSetConstantConfig(attr.ui_config)
@@ -1990,7 +2141,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       versionCheckClause = `AND COALESCE(_upl_version, 1) = $${rowIdParamIndex + 1}`
     }
 
-    const hasTableUpdates = tableDataEntries.length > 0
+    let afterUpdateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
     const performBulkUpdate = async (mgr: DbExecutor) => {
       const updated = (await mgr.query(
@@ -2134,13 +2285,56 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     }
 
     try {
-      if (hasTableUpdates) {
-        await ctx.manager.transaction(async (txManager) => {
-          await performBulkUpdate(txManager)
+      await ctx.manager.transaction(async (txManager) => {
+        const previousRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)
+        if (!previousRow || !previousRow.id) {
+          throw new UpdateFailure(404, {
+            error: 'Row not found'
+          })
+        }
+        if (previousRow._upl_locked) {
+          throw new UpdateFailure(423, {
+            error: 'Record is locked'
+          })
+        }
+
+        await dispatchRuntimeLifecycle({
+          manager: txManager,
+          applicationId,
+          schemaName: ctx.schemaName,
+          catalog,
+          currentWorkspaceId: ctx.currentWorkspaceId,
+          currentUserId: ctx.userId,
+          permissions: ctx.permissions,
+          attributeIds: touchedAttributeIds,
+          payload: {
+            eventName: 'beforeUpdate',
+            previousRow,
+            patch: data
+          }
         })
-      } else {
-        await performBulkUpdate(ctx.manager)
-      }
+
+        await performBulkUpdate(txManager)
+
+        const nextRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)
+        afterUpdateLifecycleRequest = {
+          applicationId,
+          schemaName: ctx.schemaName,
+          catalog,
+          currentWorkspaceId: ctx.currentWorkspaceId,
+          currentUserId: ctx.userId,
+          permissions: ctx.permissions,
+          attributeIds: touchedAttributeIds,
+          payload: {
+            eventName: 'afterUpdate',
+            row: nextRow,
+            previousRow,
+            patch: data
+          }
+        }
+      })
+
+      dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterUpdateLifecycleRequest)
       return res.json({ status: 'ok' })
     } catch (e) {
       if (e instanceof UpdateFailure) {
@@ -2357,6 +2551,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       colNames.length > 0
         ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
         : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
+    const touchedAttributeIds = collectTouchedAttributeIds(attrs, data)
 
     // Collect TABLE-type data from request body for child row insertion
     const tableAttrsForCreate = attrs.filter(
@@ -2586,6 +2781,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       }
     }
 
+    let afterCreateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
+
     const performCreate = async (
       mgr: DbExecutor
     ): Promise<string> => {
@@ -2609,6 +2806,21 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           })
         }
       }
+
+      await dispatchRuntimeLifecycle({
+        manager: mgr,
+        applicationId,
+        schemaName: ctx.schemaName,
+        catalog,
+        currentWorkspaceId: ctx.currentWorkspaceId,
+        currentUserId: ctx.userId,
+        permissions: ctx.permissions,
+        attributeIds: touchedAttributeIds,
+        payload: {
+          eventName: 'beforeCreate',
+          patch: data
+        }
+      })
 
       const [inserted] = (await mgr.query(
         insertSql,
@@ -2685,40 +2897,41 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         )
       }
 
+      const nextRow = await loadRuntimeRowById(mgr, dataTableIdent, parentId)
+      afterCreateLifecycleRequest = {
+        applicationId,
+        schemaName: ctx.schemaName,
+        catalog,
+        currentWorkspaceId: ctx.currentWorkspaceId,
+        currentUserId: ctx.userId,
+        permissions: ctx.permissions,
+        attributeIds: touchedAttributeIds,
+        payload: {
+          eventName: 'afterCreate',
+          row: nextRow,
+          patch: data
+        }
+      }
+
       return parentId
     }
 
     let parentId: string
-    if (
-      tableDataEntries.length > 0 ||
-      (ctx.workspacesEnabled && ctx.currentWorkspaceId)
-    ) {
-      try {
-        parentId = await ctx.manager.transaction(
-          async (txManager) => {
-            return performCreate(txManager)
-          }
-        )
-      } catch (error) {
-        if (error instanceof UpdateFailure) {
-          return res
-            .status(error.statusCode)
-            .json(error.body)
+    try {
+      parentId = await ctx.manager.transaction(
+        async (txManager) => {
+          return performCreate(txManager)
         }
-        throw error
+      )
+    } catch (error) {
+      if (error instanceof UpdateFailure) {
+        return res
+          .status(error.statusCode)
+          .json(error.body)
       }
-    } else {
-      try {
-        parentId = await performCreate(ctx.manager)
-      } catch (error) {
-        if (error instanceof UpdateFailure) {
-          return res
-            .status(error.statusCode)
-            .json(error.body)
-        }
-        throw error
-      }
+      throw error
     }
+    dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterCreateLifecycleRequest)
     return res
       .status(201)
       .json({ id: parentId, status: 'created' })
@@ -2833,6 +3046,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       placeholders.push(`$${insertValuesArr.length}`)
     }
 
+    let afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
+
     const performCopy = async (mgr: DbExecutor) => {
       if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
         const limitState = await enforceCatalogWorkspaceLimit(
@@ -2854,6 +3069,23 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           })
         }
       }
+
+      await dispatchRuntimeLifecycle({
+        manager: mgr,
+        applicationId,
+        schemaName: ctx.schemaName,
+        catalog,
+        currentWorkspaceId: ctx.currentWorkspaceId,
+        currentUserId: ctx.userId,
+        permissions: ctx.permissions,
+        payload: {
+          eventName: 'beforeCopy',
+          previousRow: sourceRow,
+          metadata: {
+            copyChildTables
+          }
+        }
+      })
 
       if (reorderFieldAttr) {
         const reorderFieldIndex = nonTableAttrs.findIndex(
@@ -2990,17 +3222,32 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
       }
 
+      const nextRow = await loadRuntimeRowById(mgr, dataTableIdent, insertedParent.id)
+      afterCopyLifecycleRequest = {
+        applicationId,
+        schemaName: ctx.schemaName,
+        catalog,
+        currentWorkspaceId: ctx.currentWorkspaceId,
+        currentUserId: ctx.userId,
+        permissions: ctx.permissions,
+        payload: {
+          eventName: 'afterCopy',
+          row: nextRow,
+          previousRow: sourceRow,
+          metadata: {
+            copyChildTables
+          }
+        }
+      }
+
       return insertedParent.id
     }
 
     try {
-      const copiedId =
-        tableAttrsForCopy.length > 0 ||
-        (ctx.workspacesEnabled && ctx.currentWorkspaceId)
-          ? await ctx.manager.transaction((tx) =>
-              performCopy(tx)
-            )
-          : await performCopy(ctx.manager)
+      const copiedId = await ctx.manager.transaction((tx) =>
+        performCopy(tx)
+      )
+      dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterCopyLifecycleRequest)
       return res.status(201).json({
         id: copiedId,
         status: 'created',
@@ -3139,11 +3386,36 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const tableAttrsForDelete = attrs.filter(
       (a) => a.data_type === 'TABLE'
     )
-    const needsTransaction =
-      isSoftDeleteLifecycle(catalog.lifecycleContract) &&
-      tableAttrsForDelete.length > 0
+
+    let afterDeleteLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
     const performDelete = async (mgr: DbExecutor) => {
+      const sourceRow = await loadRuntimeRowById(mgr, dataTableIdent, rowId, runtimeRowCondition)
+      if (!sourceRow || !sourceRow.id) {
+        throw new UpdateFailure(404, {
+          error: 'Row not found'
+        })
+      }
+      if (sourceRow._upl_locked) {
+        throw new UpdateFailure(423, {
+          error: 'Record is locked'
+        })
+      }
+
+      await dispatchRuntimeLifecycle({
+        manager: mgr,
+        applicationId,
+        schemaName: ctx.schemaName,
+        catalog,
+        currentWorkspaceId: ctx.currentWorkspaceId,
+        currentUserId: ctx.userId,
+        permissions: ctx.permissions,
+        payload: {
+          eventName: 'beforeDelete',
+          previousRow: sourceRow
+        }
+      })
+
       const deleted = runtimeDeleteSetClause
         ? ((await mgr.query(
             `
@@ -3169,60 +3441,58 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           )) as Array<{ id: string }>)
 
       if (deleted.length === 0) {
-        const exists = (await mgr.query(
-          `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND ${runtimeRowCondition}`,
-          [rowId]
-        )) as Array<{
-          id: string
-          _upl_locked?: boolean
-        }>
-        if (exists.length > 0 && exists[0]._upl_locked) {
-          throw new UpdateFailure(423, {
-            error: 'Record is locked'
-          })
-        }
         throw new UpdateFailure(404, {
           error: 'Row not found'
         })
       }
 
-      if (!runtimeDeleteSetClause) {
-        return
+      if (runtimeDeleteSetClause) {
+        // Soft-delete child rows in TABLE child tables
+        for (const tAttr of tableAttrsForDelete) {
+          const fallbackTabTableName = generateChildTableName(
+            tAttr.id
+          )
+          const tabTableName =
+            typeof tAttr.column_name === 'string' &&
+            IDENTIFIER_REGEX.test(tAttr.column_name)
+              ? tAttr.column_name
+              : fallbackTabTableName
+          if (!IDENTIFIER_REGEX.test(tabTableName)) continue
+          const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+          await mgr.query(
+            `
+              UPDATE ${tabTableIdent}
+              SET ${runtimeDeleteSetClause},
+                  _upl_version = COALESCE(_upl_version, 1) + 1
+              WHERE _tp_parent_id = $2
+                AND ${runtimeRowCondition}
+            `,
+            [ctx.userId, rowId]
+          )
+        }
       }
 
-      // Soft-delete child rows in TABLE child tables
-      for (const tAttr of tableAttrsForDelete) {
-        const fallbackTabTableName = generateChildTableName(
-          tAttr.id
-        )
-        const tabTableName =
-          typeof tAttr.column_name === 'string' &&
-          IDENTIFIER_REGEX.test(tAttr.column_name)
-            ? tAttr.column_name
-            : fallbackTabTableName
-        if (!IDENTIFIER_REGEX.test(tabTableName)) continue
-        const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
-        await mgr.query(
-          `
-            UPDATE ${tabTableIdent}
-            SET ${runtimeDeleteSetClause},
-                _upl_version = COALESCE(_upl_version, 1) + 1
-            WHERE _tp_parent_id = $2
-              AND ${runtimeRowCondition}
-          `,
-          [ctx.userId, rowId]
-        )
+      const nextRow = runtimeDeleteSetClause ? await loadRuntimeRowById(mgr, dataTableIdent, rowId, runtimeRowCondition) : null
+      afterDeleteLifecycleRequest = {
+        applicationId,
+        schemaName: ctx.schemaName,
+        catalog,
+        currentWorkspaceId: ctx.currentWorkspaceId,
+        currentUserId: ctx.userId,
+        permissions: ctx.permissions,
+        payload: {
+          eventName: 'afterDelete',
+          row: nextRow,
+          previousRow: sourceRow
+        }
       }
     }
 
     try {
-      if (needsTransaction) {
-        await ctx.manager.transaction(async (txManager) => {
-          await performDelete(txManager)
-        })
-      } else {
-        await performDelete(ctx.manager)
-      }
+      await ctx.manager.transaction(async (txManager) => {
+        await performDelete(txManager)
+      })
+      dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterDeleteLifecycleRequest)
       return res.json({ status: 'deleted' })
     } catch (e) {
       if (e instanceof UpdateFailure) {

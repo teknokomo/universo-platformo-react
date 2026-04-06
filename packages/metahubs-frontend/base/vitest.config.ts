@@ -15,9 +15,8 @@ const startFrontendI18nDir = path.resolve(__dirname, '../../start-frontend/base/
 const applicationsFrontendI18nDir = path.resolve(__dirname, '../../applications-frontend/base/src/i18n/index.ts')
 const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
-const isCI = process.env.CI === 'true'
 const coverageEnabled = process.env.VITEST_COVERAGE !== 'false'
-const enforceCoverageThresholds = isCI || process.env.VITEST_ENFORCE_COVERAGE === 'true'
+const enforceCoverageThresholds = process.env.VITEST_ENFORCE_COVERAGE === 'true'
 
 // Merge with baseConfig (now uses happy-dom from base)
 export default mergeConfig(

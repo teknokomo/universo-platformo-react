@@ -119,18 +119,23 @@ describe('adminSettingsRoutes', () => {
 
     // ── PUT /:category/:key ────────────────────────────────────
     it('upserts a single setting', async () => {
-        mockUpsertSetting.mockResolvedValue({ id: '1', category: 'general', key: 'siteName', value: 'Test' } as never)
+        mockUpsertSetting.mockResolvedValue({ id: '1', category: 'general', key: 'dialogSizePreset', value: 'large' } as never)
 
-        const res = await request(buildApp()).put('/settings/general/siteName').send({ value: 'Test' })
+        const res = await request(buildApp()).put('/settings/general/dialogSizePreset').send({ value: 'large' })
 
         expect(res.status).toBe(200)
-        expect(mockUpsertSetting).toHaveBeenCalledWith(expect.anything(), 'general', 'siteName', 'Test')
+        expect(mockUpsertSetting).toHaveBeenCalledWith(expect.anything(), 'general', 'dialogSizePreset', 'large')
     })
 
     it('validates metahubs-specific setting key', async () => {
         const res = await request(buildApp()).put('/settings/metahubs/unknownKey').send({ value: true })
         expect(res.status).toBe(400)
         expect(res.body.error).toContain('Unknown metahubs setting key')
+    })
+
+    it('validates general dialog setting values', async () => {
+        const res = await request(buildApp()).put('/settings/general/dialogSizePreset').send({ value: 'huge' })
+        expect(res.status).toBe(400)
     })
 
     // ── DELETE /:category/:key ─────────────────────────────────

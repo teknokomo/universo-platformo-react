@@ -77,6 +77,7 @@ import {
     normalizeLocale
 } from '../../../utils/localizedInput'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 const ATTRIBUTE_DATA_TYPES = new Set<Attribute['dataType']>(['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'])
 
@@ -436,7 +437,13 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                         isRequired={Boolean(values.isRequired)}
                                     />
                                 )
-                            }
+                            },
+                            createScriptsTab({
+                                t: ctx.t,
+                                metahubId: contextExtras.metahubId,
+                                attachedToKind: 'attribute',
+                                attachedToId: ctx.entity.id
+                            })
                         ]
                     },
                     validate: (values: GenericFormValues) => validateAttributeForm(ctx, values),

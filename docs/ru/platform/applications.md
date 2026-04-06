@@ -1,43 +1,73 @@
 ---
-description: Описывает applications как исполняемые модули поверх общей платформенной оболочки.
+description: Описывает, как applications потребляют publications, открывают настройки панели управления и отдают финальный runtime.
 ---
 
 # Приложения
 
-Applications — это исполняемые модули, построенные поверх общей платформенной оболочки.
-Здесь они рассматриваются как управляемые поверхности исполнения, связанные с членством, схемами,
-publications и общими сервисами.
+Applications — это исполняемая поверхность доставки платформы.
+Metahub подготавливает исходную модель, publication фиксирует release candidate, а application превращает этот опубликованный контракт в управляемый runtime.
 
-## Текущая реализация
+## Чем владеет application
 
-Репозиторий уже включает бэкенд- и фронтенд-модули домена applications,
-connector-связи, членство, логику жизненного цикла схем и точки
-интеграции с admin и publication-потоками.
+- linked publication reference, которая используется для доставки runtime;
+- состояние connector и schema sync;
+- runtime members и граница доступа;
+- настройки панели управления application;
+- финальный runtime route по адресу `/a/:applicationId`.
 
-Теперь сюда также входят:
+## Основные поверхности
 
-- неизменяемая после создания видимость приложения (`closed` или `public`);
-- опциональный workspace-режим, при этом в UI создания для публичных приложений рекомендуется включать рабочие пространства;
-- публичное обнаружение приложения и явные сценарии `join / leave`;
-- настройки приложения для лимитов строк по каталогам на уровне рабочего пространства;
-- bootstrap runtime-схемы, который сохраняет workspace-подсистему внутри канонического sync lineage.
+| Surface | Purpose |
+| --- | --- |
+| Overview | Карточки состояния и общая health-сводка для linked runtime. |
+| Connectors | Управляют связью с publication и schema sync. |
+| Migrations | Показывают состояние и историю runtime schema. |
+| Settings | Настраивают поведение панели управления application и workspace limits. |
+| Runtime | Отдаёт опубликованную пользовательскую поверхность. |
 
-## Направление проектирования
+## Настройки панели управления
 
-- Держать метаданные приложений в управляемых структурах платформы.
-- Использовать контролируемое создание схем для рабочих данных при необходимости.
-- Связывать applications с publications и metahubs без схлопывания границ.
-- Сохранять переносимость между будущими технологическими стеками.
+Страница application settings теперь содержит реальный contract для General settings вместо временного placeholder copy.
+Эти settings хранятся в `applications.cat_applications.settings` и возвращаются через flows списка, деталей и обновления application.
 
-## Workspace-aware модель рантайма
+| Setting | Meaning |
+| --- | --- |
+| Dialog size preset | Базовая ширина dialog в application-admin surface. |
+| Allow fullscreen | Можно ли разворачивать dialog в fullscreen. |
+| Allow resize | Доступен ли resize handle. |
+| Close behavior | Остаются ли dialog strict-modal или разрешают закрытие по клику вне окна. |
+| Workspace limits | Лимиты строк по рабочим пространствам для поддерживаемых catalog. |
 
-Когда включён `workspacesEnabled`, рабочие данные рантайма привязываются к персональному рабочему пространству:
+## Граница области действия
 
-- владелец и все текущие участники получают `Main` workspace во время первого bootstrap схемы;
-- новые участники получают персональный workspace при выдаче доступа;
-- catalog tables и TABLE child tables получают `workspace_id`;
-- runtime CRUD сначала разрешает default workspace пользователя, а потом работает со строками;
-- выход из приложения архивирует personal workspace вместо жёсткого удаления всех строк;
-- лимиты каталогов применяются на уровне рабочего пространства, а не глобально на всё приложение.
+Application dialog settings влияют на application control panel под `/a/:applicationId/admin`.
+Они не меняют публичный runtime на `/a/:applicationId`.
+Также они не заменяют metahub authoring settings и глобальные dialog settings на `/admin`.
 
-Так applications остаются частью ERP/CMS-логики платформы и общего управления.
+## Workspace-aware runtime model
+
+Когда `workspacesEnabled` включён, рабочие данные runtime привязываются к personal workspace.
+Owner и member получают workspace во время bootstrap или выдачи доступа, runtime rows разрешаются внутри этого workspace, а поддерживаемые catalog limits применяются на уровне workspace, а не глобально.
+Так applications остаются частью общей платформенной модели совместной ERP- и CMS-подобной работы с runtime data.
+
+## Порядок поставки
+
+1. Свяжите application с publication.
+2. Запустите schema sync или создайте runtime schema, если она ещё не готова.
+3. Откройте Application Settings, чтобы настроить поведение панели управления и workspace limits.
+4. Используйте Connectors, Migrations и другие диалоги панели управления с сохранённым presentation contract.
+5. Откройте финальный runtime route, чтобы проверить опубликованный пользовательский опыт.
+
+## Пример с квизом
+
+В сценарии с квизом metahub владеет скриптом виджета и его размещением в layout, а application отвечает за доставку runtime и поведение панели управления.
+Это значит, что вопросы квиза и размещение виджета приходят из publication, а размер и поведение закрытия диалога connector задаются записью настроек application.
+Сценарий копирования сохраняет эти настройки application, поэтому скопированные applications получают то же поведение диалогов панели управления.
+
+## Связь с админкой
+
+Раздел admin может задавать глобальные политики платформы, но настройки application остаются локальными для каждого application.
+Используйте admin, когда нужно платформенное управление на общем уровне.
+Используйте настройки application, когда одна панель управления application должна вести себя иначе, чем другая.
+
+Продолжайте с [туториалом по приложению-квизу](../guides/quiz-application-tutorial.md), чтобы пройти конкретный сквозной сценарий в браузере.

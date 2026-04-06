@@ -1,5 +1,14 @@
 export { EntityFormDialog } from './EntityFormDialog'
 export type { EntityFormDialogProps, TabConfig } from './EntityFormDialog'
+export {
+    DialogPresentationProvider,
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation,
+    useDialogPresentationContext
+} from './dialogPresentation'
+export type { DialogPresentationContextValue, DialogPresentationHookOptions, DialogPresentationHookResult } from './dialogPresentation'
 
 export { DynamicEntityFormDialog } from './DynamicEntityFormDialog'
 export type {

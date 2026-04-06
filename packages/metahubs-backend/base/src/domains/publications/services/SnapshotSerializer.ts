@@ -3,6 +3,7 @@ import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import {
     MetaEntityKind,
+    type ApplicationScriptDefinition,
     type CatalogSystemFieldsSnapshot,
     type EnumerationValueDefinition,
     type MetahubSnapshotVersionEnvelope,
@@ -15,6 +16,7 @@ import { MetahubElementsService } from '../../metahubs/services/MetahubElementsS
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
+import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
 import { getCodenameText } from '../../shared/codename'
@@ -32,6 +34,7 @@ export interface MetahubSnapshot {
     enumerationValues?: Record<string, EnumerationValueDefinition[]>
     constants?: Record<string, MetaConstantSnapshot[]>
     systemFields?: Record<string, CatalogSystemFieldsSnapshot>
+    scripts?: ApplicationScriptDefinition[]
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -158,7 +161,8 @@ export class SnapshotSerializer {
         private readonly elementsService?: MetahubElementsService,
         private readonly hubsService?: MetahubHubsService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
         private readonly enumerationValuesService?: MetahubEnumerationValuesService,
-        private readonly constantsService?: MetahubConstantsService
+        private readonly constantsService?: MetahubConstantsService,
+        private readonly scriptsService?: MetahubScriptsService
     ) {}
 
     /**
@@ -182,6 +186,7 @@ export class SnapshotSerializer {
         const enumerationValuesByObject: Record<string, EnumerationValueDefinition[]> = {}
         const constantsByObject: Record<string, MetaConstantSnapshot[]> = {}
         const systemFieldsByObject: Record<string, CatalogSystemFieldsSnapshot> = {}
+        const publishedScripts = this.scriptsService ? await this.scriptsService.listPublishedScripts(metahubId) : []
 
         const objectIds = catalogs.map((catalog) => catalog.id)
         const allElements =
@@ -418,7 +423,8 @@ export class SnapshotSerializer {
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
             enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined,
             constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined,
-            systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined
+            systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
+            scripts: publishedScripts.length > 0 ? publishedScripts : undefined
         }
     }
 

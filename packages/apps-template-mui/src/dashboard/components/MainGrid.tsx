@@ -393,6 +393,9 @@ export default function MainGrid({
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
     const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
+    const standaloneCenterWidgets =
+        centerWidgets?.filter((widget) => !['columnsContainer', 'detailsTable', 'detailsTitle'].includes(widget.widgetKey)) ?? []
+    const showCenterContent = showDetailsTitle || showColumnsContainer || showDetailsTable || standaloneCenterWidgets.length > 0
 
     return (
         <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -432,14 +435,36 @@ export default function MainGrid({
             )}
 
             {/* Details section */}
-            {(showDetailsTitle || showColumnsContainer || showDetailsTable) && (
+            {showCenterContent && (
                 <>
                     {details?.banner ? <Box sx={{ mb: 2 }}>{details.banner}</Box> : null}
 
                     {/* Data-driven: columnsContainer(s) from center zone widgets */}
-                    {columnsContainerWidgets.length > 0
-                        ? columnsContainerWidgets.map((w) => <Box key={w.id}>{renderWidget(w)}</Box>)
-                        : showDetailsTable && <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} />}
+                    {columnsContainerWidgets.length > 0 ? columnsContainerWidgets.map((widget) => <Box key={widget.id}>{renderWidget(widget)}</Box>) : null}
+
+                    {standaloneCenterWidgets.length > 0 ? (
+                        <Box sx={{ display: 'grid', gap: 2 }}>
+                            {standaloneCenterWidgets.map((widget) => (
+                                <Box
+                                    key={widget.id}
+                                    data-testid={`center-zone-widget-${widget.widgetKey}`}
+                                    sx={
+                                        widget.widgetKey === 'quizWidget'
+                                            ? {
+                                                  width: '100%',
+                                                  maxWidth: 960,
+                                                  mx: 'auto'
+                                              }
+                                            : undefined
+                                    }
+                                >
+                                    {renderWidget(widget)}
+                                </Box>
+                            ))}
+                        </Box>
+                    ) : null}
+
+                    {showDetailsTable ? <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} /> : null}
                 </>
             )}
 

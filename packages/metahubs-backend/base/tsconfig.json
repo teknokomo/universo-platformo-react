@@ -9,7 +9,11 @@
             "@universo/admin-backend": ["../../admin-backend/base/dist/index.d.ts"],
             "@universo/applications-backend": ["../../applications-backend/base/dist/index.d.ts"],
             "@universo/migrations-catalog": ["../../universo-migrations-catalog/base/dist/index.d.ts"],
-            "@universo/schema-ddl": ["../../schema-ddl/base/dist/index.d.ts"]
+            "@universo/schema-ddl": ["../../schema-ddl/base/dist/index.d.ts"],
+            "@universo/scripting-engine": [
+                "../../scripting-engine/base/dist/index.d.ts",
+                "../../scripting-engine/base/src/index.ts"
+            ]
         },
         "strict": true,
         "esModuleInterop": true,

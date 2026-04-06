@@ -504,6 +504,28 @@ export async function listMetahubCatalogs(api, metahubId, params = {}) {
     return response.json()
 }
 
+export async function listMetahubScripts(api, metahubId, params = {}) {
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/scripts${suffix}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Listing scripts for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function listMetahubHubs(api, metahubId, params = {}) {
     const query = new URLSearchParams()
 

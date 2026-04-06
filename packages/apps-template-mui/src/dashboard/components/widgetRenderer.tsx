@@ -13,6 +13,7 @@ import OptionsMenu from './OptionsMenu'
 import CustomizedTreeView from './CustomizedTreeView'
 import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedDataGrid from './CustomizedDataGrid'
+import QuizWidget from './QuizWidget'
 import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 
@@ -117,6 +118,8 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <ChartUserByCountry key={widget.id} />
         case 'detailsTable':
             return <DetailsTableWidget key={widget.id} />
+        case 'quizWidget':
+            return <QuizWidget key={widget.id} config={widget.config} />
         case 'columnsContainer': {
             // Guard against infinite recursion if a columnsContainer nests another
             if (depth >= MAX_CONTAINER_DEPTH) return null

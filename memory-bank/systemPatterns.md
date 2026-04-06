@@ -1,14 +1,96 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
----
-## Shared Browser/Main Entrypoint Parity Pattern (IMPORTANT)
-**Rule**: When a shared package exposes both a Node/main entrypoint and a browser-specific entrypoint, every browser-safe helper consumed by frontend bundles must be exported from both surfaces.
+## MUI Select JSDOM Geometry Pattern (IMPORTANT)
+**Rule**: Frontend jsdom tests that open MUI `Select` / `Menu` / `Popover` surfaces must provide a stable non-zero anchor geometry instead of tolerating noisy `anchorEl` warnings.
 **Required**:
-- Keep `src/index.browser.ts` aligned with `src/index.ts` for browser-safe validation/runtime helpers such as dashboard layout normalization, catalog runtime-config normalization, and other pure utilities used by frontend packages.
-- Fix missing exports at the shared package boundary rather than working around them in downstream apps-template or shell packages.
-- Revalidate the original failing consumer package after the shared export fix, then rerun the canonical root build.
-**Detection**: `rg "index.browser|normalizeDashboardLayoutConfig|normalizeCatalogRuntimeViewConfig|resolveCatalogRuntimeDashboardLayoutConfig" packages/universo-utils packages/apps-template-mui packages/universo-core-frontend`
-**Why**: The final self-hosting parity build failed only in the browser bundle because `@universo/utils` exported `normalizeDashboardLayoutConfig` from the Node entrypoint but not from `index.browser.ts`. Fixing the shared export surface removed the drift for every browser consumer instead of hiding it in one package.
+- Mock `HTMLElement.prototype.getBoundingClientRect` (or an equivalent narrow seam) with a non-zero rectangle inside the affected test scope.
+- Keep the existing stable user interaction path if it already proves the behavior correctly; do not rewrite passing tests to a different interaction pattern unless the interaction itself is broken.
+- Confirm that the warning string `anchorEl` no longer appears in the captured test output after the fix.
+- Prefer test-harness stabilization over production component changes when the warning is jsdom-specific.
+**Detection**: `rg "anchorEl|getBoundingClientRect" packages/metahubs-frontend/base/src/**/__tests__/**`
+**Why**: MUI `Popover` validates that the anchor is part of the visible document layout, while jsdom returns zero rectangles by default. Leaving the warning in place makes the suite noisy and can hide future real UI regressions.
+## Embedded Script Import Boundary Pattern (IMPORTANT)
+**Rule**: Embedded metahub scripts are single-file SDK consumers, not general workspace module entrypoints.
+**Required**:
+- Allow imports only from `@universo/extension-sdk` during script compilation.
+- Reject unsupported static imports, `require()`, dynamic `import()`, and `import.meta` before esbuild bundling begins.
+- Keep this validation in the compiler/analyzer layer so unsupported module loading never reaches runtime bundles.
+**Detection**: `rg "Only @universo/extension-sdk imports are supported|dynamic import expressions|CommonJS require\(\) calls|import\.meta" packages/scripting-engine`
+**Why**: With `bundle: true` and `resolveDir: process.cwd()`, embedded script compilation can silently widen into arbitrary workspace module loading unless the compiler enforces the intended SDK-only boundary explicitly.
+## Restricted Browser Worker Script Surface Pattern (IMPORTANT)
+**Rule**: Client script bundles must execute against a restricted worker/global surface, not the raw ambient Worker environment.
+**Required**:
+- Keep runtime bridge internals on private host aliases before disabling globals used by script bundles.
+- Disable ambient network, nested-worker, storage, and dynamic-code globals in the worker before importing the client bundle.
+- Shadow the same globals inside the generated bundle module source so non-browser/test execution follows the same deny-by-default contract.
+- Preserve the existing fail-closed requirement when a Worker-capable browser runtime is unavailable.
+- Bound each Worker execution with an explicit timeout budget and terminate/revoke the worker on timeout; hanging client bundles must fail closed instead of leaving the widget in an unbounded pending state.
+**Detection**: `rg "private host aliases|RESTRICTED_WORKER_GLOBALS|Client script execution requires a Worker-capable browser runtime|shadows restricted globals" packages/apps-template-mui`
+**Why**: A raw Worker environment still exposes more browser APIs than the scripting contract intends. Restricting the worker surface keeps client execution aligned with the safe host-bridge model instead of relying only on convention.
+## Capability-Gated Scripting Runtime Pattern (IMPORTANT)
+**Rule**: Script execution contexts must preserve the shared SDK surface while failing closed per normalized manifest capability and module-role rules.
+**Required**:
+- Normalize `moduleRole`, `sourceKind`, and `capabilities` through the shared helpers in `@universo/types` before persistence, publication, or execution.
+- Validate design-time capabilities against the selected module-role allowlist; undeclared or disallowed capabilities must not be silently widened at runtime.
+- Inject explicit fail-closed stubs for unavailable APIs instead of omitting fields entirely, so the runtime SDK shape remains predictable while unauthorized calls still throw.
+- Require the `lifecycle` capability before dispatching runtime lifecycle hooks.
+**Detection**: `rg "normalizeScriptCapabilities|hasScriptCapability|resolveAllowedScriptCapabilities|dispatchLifecycleEvent" packages`
+**Why**: The scripting wave originally left capability gating incomplete, which made the runtime surface depend on implicit assumptions instead of the manifest contract. Central normalization plus fail-closed stubs keeps authoring, persistence, and execution aligned.
+## Explicit Dual-Target Script Exposure Pattern (IMPORTANT)
+**Rule**: Script methods stay private unless they are explicitly decorated, and `@AtServerAndClient()` is the only supported opt-in for a method that must remain available in both bundles.
+**Required**:
+- Preserve the stable root `@universo/extension-sdk` import while the SDK stays split into modular source files internally.
+- Treat `server_and_client` as a first-class shared method target in compiler manifests plus runtime client-list and public-RPC filtering helpers.
+- Do not treat undecorated helper methods as runtime entrypoints; shared exposure must remain explicit.
+- Keep lifecycle handlers server-only even after adding dual-target support.
+**Detection**: `rg "AtServerAndClient|server_and_client|isClientScriptMethodTarget|isServerScriptMethodTarget" packages`
+**Why**: The early scripting draft implied that undecorated methods might run on both targets, but the shipped contract intentionally keeps helper methods private to avoid accidental runtime exposure while still allowing deliberate shared methods.
+## Untouched Draft Module-Role Default Reapplication Pattern (IMPORTANT)
+**Rule**: When a new script draft changes `moduleRole` before the user edits role-sensitive capabilities, reapply the target-role defaults instead of intersecting the previous-role capability set.
+**Required**:
+- Track whether the current capabilities are still pristine/default-derived.
+- On a pristine role switch, replace capabilities with `resolveDefaultScriptCapabilities(nextRole)`.
+- Preserve explicit user-edited capability choices on later role switches; only untouched drafts are auto-reset.
+- Widget drafts must retain widget-default `rpc.client` after a `module` -> `widget` switch.
+**Detection**: `rg "resolveDefaultScriptCapabilities|moduleRole|EntityScriptsTab" packages/metahubs-frontend packages/universo-types`
+**Why**: Overlap-only role switching made fresh widget drafts lose required default capabilities and forced manual correction or browser-test workarounds.
+## Public Runtime RPC Boundary Pattern (IMPORTANT)
+**Rule**: Public runtime script call routes must fail closed at the real backend service/controller seam, not only inside internal execution-context helpers.
+**Required**:
+- Enforce public callability before runtime engine execution begins for both the direct HTTP `/runtime/scripts/:scriptId/call` route and any shared runtime bridge that reaches the same service method.
+- Allow only server methods from scripts that declare `rpc.client`; lifecycle handlers (`eventName`) are event-only hooks and must never be callable from the public RPC surface.
+- Return an explicit client-facing authorization/forbidden error for public-RPC boundary violations instead of falling through to runtime execution.
+- Keep the public-callability decision on shared `@universo/types` helpers so authoring/runtime/docs stay aligned on the same boundary.
+**Detection**: `rg "callServerMethod|public RPC|rpc.client|eventName" packages/applications-backend packages/universo-types`
+**Why**: The earlier guard lived only inside the execution-context bridge, which left the direct runtime route weaker than the documented contract. Enforcing the rule at the service seam removes that bypass.
+## Enforced Script SDK Compatibility Pattern (IMPORTANT)
+**Rule**: `sdkApiVersion` is a real compatibility contract and must be validated consistently anywhere scripts are compiled, persisted, normalized, or executed.
+**Required**:
+- Keep the supported SDK-version allowlist in shared `@universo/types` helpers and treat it as the single source of truth.
+- Validate both record-level and manifest-level SDK metadata during compiler analysis, metahub authoring create/update flows, publication/runtime snapshot normalization, and runtime script loading.
+- Reject unsupported versions and record/manifest mismatches fail-closed instead of silently carrying the metadata forward.
+- After changing exported SDK helpers in `@universo/types`, rebuild that package before downstream focused validation because some consumers still resolve built exports on disk.
+**Detection**: `rg "sdkApiVersion|assertSupportedScriptSdkApiVersion|resolveScriptSdkApiVersion" packages`
+**Why**: Treating `sdkApiVersion` as informational metadata allowed incompatible scripts to appear valid until much later in the flow. Shared fail-closed validation turns compatibility drift into an early, direct failure.
+## Runtime Script Sync Fail-Closed Pattern (IMPORTANT)
+**Rule**: Publication-to-runtime script persistence must never report sync success while silently skipping `_app_scripts` data.
+**Required**:
+- Treat `_app_scripts` bootstrap errors as real sync failures.
+- Throw if `_app_scripts` is still unavailable after bootstrap rather than skipping script persistence.
+- Normalize snapshot and persisted script metadata, including SDK compatibility, before diffing or persisting rows.
+- Treat the legacy `idx_app_scripts_codename_active` index as compatible only when it preserves the full runtime uniqueness shape: `attached_to_kind`, `COALESCE(attached_to_id, null-scope uuid)`, `module_role`, `codename`, and the active-row predicate on `_upl_deleted` / `_app_deleted`.
+- Let the higher-level sync engine surface the persistence error as an application sync failure instead of downgrading it to a warning.
+**Detection**: `rg "persistPublishedScripts|_app_scripts|ensureSystemTables|normalizeSnapshotScripts" packages/applications-backend`
+**Why**: A fail-open sync path can make runtime applications look healthy while published scripts never reach `_app_scripts`. Fail-closed persistence preserves the real publication/runtime contract.
+## Dedicated Client Bundle Delivery Pattern (IMPORTANT)
+**Rule**: Runtime script list surfaces must never expose executable bundle bodies; client code is delivered through a dedicated cacheable bundle endpoint.
+**Required**:
+- Strip `serverBundle` and `clientBundle` from runtime list payloads returned to client-facing consumers.
+- Serve client bundles from a dedicated applications-backend route with `ETag` / cache validators instead of piggybacking on the manifest list response.
+- Keep `serverBundle` backend-only at all times.
+- Update widget/runtime bridges to fetch client bundles separately before execution.
+**Detection**: `rg "getClientScriptBundle|clientBundle|serverBundle|If-None-Match|ETag" packages/applications-backend packages/apps-template-mui`
+**Why**: Inline bundle payloads widened the runtime surface and mixed metadata delivery with executable content. The dedicated endpoint keeps the contract smaller, cacheable, and fail-closed.
 ## Metahub Export Authorization Pattern (IMPORTANT)
 **Rule**: Direct metahub snapshot export is a management action, not a membership-level read action.
 **Required**:
@@ -17,6 +99,15 @@
 - Keep a direct route-level forbidden regression test for export so permission drift fails closed.
 **Detection**: `rg "exportMetahub|manageMetahub|/export" packages/metahubs-backend packages/metahubs-frontend`
 **Why**: QA found that export had been left on bare membership access even after the frontend started exposing it as a user-facing action. Export now has to stay aligned with the explicit management contract on both sides.
+## Metahub Snapshot Script Round-Trip Pattern (IMPORTANT)
+**Rule**: Metahub snapshot export/import must preserve design-time script authoring state, not only publication/runtime bundles.
+**Required**:
+- `GET /metahub/:metahubId/export` must augment exported `snapshot.scripts` with live `sourceCode` before envelope hashing so committed metahub fixtures can restore the authoring script, not only the compiled bundles.
+- `SnapshotRestoreService.restoreFromSnapshot(...)` must clear and restore `_mhb_scripts`, remapping entity- and attribute-scoped attachment ids from snapshot ids to the newly inserted branch ids.
+- When older snapshots do not embed `sourceCode`, restore must still keep manifest/bundle/checksum data and write a valid placeholder authoring source instead of silently dropping the script.
+- E2E fixture validation should assert both restored design-time scripts on the imported metahub and runtime client/server bundle delivery from the application created from that import.
+**Detection**: `rg "sourceCode: liveScript.sourceCode|restoreScripts\(|_mhb_scripts|snapshot-import-quiz-runtime" packages tools/testing/e2e`
+**Why**: Export already carried `snapshot.scripts` bundles, but import previously skipped `_mhb_scripts`, which made imported scripting metahubs appear valid while losing the script before republishing.
 ## Self-Hosted Migrations Surface Documentation Pattern (IMPORTANT)
 **Rule**: Self-hosted migrations parity must be documented as a real navigation/page/guard surface, not as a synthetic snapshot section.
 **Required**:
@@ -113,7 +204,6 @@
 - Cover this contract in migration-level tests and in at least one live bootstrap path that exercises the existing-user branch.
 **Detection**: `rg "Authenticated sessions may inspect only their own|get_user_permissions|get_user_global_roles|has_admin_permission|is_superuser" packages/admin-backend packages/auth-backend`
 **Why**: Without a self-scope guard, helper functions granted to `authenticated` can leak cross-user role and permission state even when the surrounding backend routes remain correctly authorized.
-
 ## Controller–Service–Store Backend Pattern (IMPORTANT)
 **Rule**: Backend route files must stay thin (~30–80 lines of route registrations); all handler logic lives in domain controllers, which delegate to services and stores.
 **Required**:
@@ -125,7 +215,6 @@
 - `asyncHandler(fn)` wraps async Express handlers to forward rejected promises to `next()`.
 **Detection**: `rg "createMetahubHandler|asyncHandler" packages/metahubs-backend packages/applications-backend`
 **Why**: 13 metahubs route files (15,000+ → ~700 lines) and 3 applications route files (5,700+ → ~140 lines) were refactored to this pattern, preventing inline handler bloat.
-
 ## Frontend List Component Decomposition Pattern (IMPORTANT)
 **Rule**: Large list page components (~1,000–2,500 lines) must be split into a data hook + utils module + presentation component.
 **Required**:
@@ -135,7 +224,6 @@
 - `useMetahubHubs(metahubId)` shared hook: centralizes hub list queries with `staleTime: 5min` and automatic React Query deduplication.
 **Detection**: `rg "useMetahubHubs|ListData|ListUtils" packages/metahubs-frontend/base/src`
 **Why**: 11 list components decomposed; replaced 8 duplicate hub query implementations with one shared hook.
-
 ## Domain Error Handler Factory Pattern (IMPORTANT)
 **Rule**: Frontend mutation error handling must use `createDomainErrorHandler(config)` factory instead of inline switch/if chains.
 **Required**:
@@ -145,44 +233,22 @@
 - Backend domain errors extend `MetahubDomainError` base class with typed `statusCode` and `code`.
 **Detection**: `rg "createDomainErrorHandler|MetahubDomainError" packages/metahubs-frontend packages/metahubs-backend`
 **Why**: 6+ mutation files shared nearly identical error handling; the factory eliminates ~20 lines of boilerplate per mutation file.
-
 ---
 ## Public Routes & 401 Redirect Pattern (CRITICAL)
-**Rule**: All public route constants live in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.
-**Required**: `API_WHITELIST_URLS`, `PUBLIC_UI_ROUTES`, `isPublicRoute()`.
-**Detection**: `rg "isPublicRoute" packages` (avoid local copies).
-**Symptoms**:
-- 401 loops after token expiry.
-- Public routes redirect to /auth unexpectedly.
-**Fix**:
-```typescript
-const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' })
-```
-**Why**: Centralized public routes prevent drift across frontends.
+**Rule**: Keep public UI/API allowlists in `@universo/utils/routes` and use `createAuthClient({ redirectOn401: 'auto' })` so public routes do not redirect into auth flows accidentally.
+**Detection**: `rg "isPublicRoute" packages`
+**Why**: Centralized public-route ownership prevents 401-loop and public-route drift across frontends.
 ## CSRF Token Lifecycle + HTTP 419 Contract (CRITICAL)
-**Rule**: Backend maps `EBADCSRFTOKEN` -> HTTP 419; frontend retries exactly once.
-**Required**: clear cached CSRF after login; logout is idempotent.
-**Detection**: `rg "419" packages`.
-**Symptoms**:
-- Infinite retry loops.
-- Random 403 after successful login.
-**Fix**: Retry once, then surface error to user.
-**Why**: Consistent contract avoids ghost failures on stale tokens.
+**Rule**: Backend maps `EBADCSRFTOKEN` to HTTP `419`; frontend clears cached CSRF state, fetches a fresh token, and retries at most one safe protected request.
+**Detection**: `rg "419|EBADCSRFTOKEN" packages`
+**Why**: Consistent retry-once behavior avoids stale-token ghost failures and infinite retry loops.
 ## Backend Status Codes + PII-safe Logging (CRITICAL)
-**Rule**: Preserve 400/403/404 status codes; never log PII or captcha tokens.
-**Required**: log only `hasField`, `tokenLength`, or booleans.
-**Detection**: `rg "console\.log\(.*token" packages`.
-**Symptoms**:
-- Logs contain emails/tokens.
-- Status code mismatch between backend and frontend.
-**Fix**: Sanitize logs; map errors without altering HTTP status.
+**Rule**: Preserve intended `400` / `403` / `404` codes and keep logs free of emails, tokens, captcha payloads, or other PII.
+**Detection**: `rg "console\.log\(.*token" packages`
+**Why**: Sanitized logs and stable status codes keep frontend error handling and operational diagnostics trustworthy.
 ## ENV Feature Flags + Public Config Endpoint Pattern
-**Rule**: Parse env flags in `@universo/utils` and expose via dedicated endpoints.
-**Required**: `/auth/auth-config` and `/auth/captcha-config`.
-**Detection**: `rg "AUTH_.*ENABLED" packages`.
-**Symptoms**:
-- Frontend toggles diverge from backend.
-**Fix**: Fetch both configs via `Promise.allSettled`.
+**Rule**: Parse auth feature flags in shared utils and expose them through dedicated config endpoints so frontend toggles consume backend truth instead of hardcoded env reads.
+**Detection**: `rg "AUTH_.*ENABLED|auth-config|captcha-config" packages`
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 **Rule**: Source-only packages (no dist/) must use `peerDependencies`.
 **Required**: no `"main"` field in source-only packages.
@@ -314,26 +380,14 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 **Detection**:
 - `rg "calculateCanonicalApplicationReleaseSnapshotHash|resolveApplicationReleaseSnapshotHash|validateApplicationReleaseBundleArtifacts" packages/applications-backend/base/src`
 **Why**: `manifest.snapshotHash` drives idempotency and release lineage. Trusting it without recomputation allows a structurally valid but semantically tampered bundle to alter no-op decisions and stored release provenance.
-## Publication Snapshot Hash Parity Pattern (CRITICAL)
-**Rule**: Publication snapshot hash verification in `@universo/applications-backend` must normalize the same structural payload as `SnapshotSerializer.normalizeSnapshotForHash(...)` in `@universo/metahubs-backend`.
+## Shared Publication Snapshot Hash Pattern (CRITICAL)
+**Rule**: Publication snapshot hash normalization must live in one shared helper in `@universo/utils`, and both producer and consumer packages must use that helper for canonical verification.
 **Required**:
-- Keep publication hash normalization aligned across both packages whenever publication snapshots add new top-level metadata or per-entity metadata.
-- Include `systemFields` both per entity and as normalized top-level metadata when hashing publication snapshots for release-bundle validation.
-- Preserve serializer omission semantics for optional publication/layout keys; do not coerce absent keys like `templateKey`, `widgetKey`, or missing top-level publication metadata to `null` during verification if the producer omitted them.
-- Add direct regression coverage whenever publication snapshot structure changes, so an explicit stored publication hash remains acceptable during application sync and connector schema creation.
-**Detection**:
-- `rg "normalizePublicationSnapshotForHash|normalizeSnapshotForHash|systemFields" packages/applications-backend/base/src packages/metahubs-backend/base/src`
-**Why**: The publication version hash is produced on the metahubs side, but connector schema creation validates it on the applications side. If the two normalization contracts drift, including subtle `undefined` vs `null` differences, valid publications start failing at runtime with a false snapshot-hash mismatch.
-## Shared Publication Snapshot Hash Helper Pattern (IMPORTANT)
-**Rule**: Publication snapshot hash normalization must live in one shared helper in `@universo/utils`, not in duplicated package-local implementations on the producer and consumer sides.
-**Required**:
-- Keep `packages/universo-utils/base/src/serialization/publicationSnapshotHash.ts` as the only canonical normalization implementation for publication snapshot hashing.
-- Make both `@universo/metahubs-backend` and `@universo/applications-backend` call the shared helper rather than re-encoding the same entity/field/layout/systemFields normalization rules locally.
-- Preserve caller-specific fallback behavior through helper options, for example the metahub-side default version-envelope fallback, instead of forking the normalization body.
-- Add or update direct regression coverage in the shared utils helper whenever publication snapshot structure changes.
-**Detection**:
-- `rg "publicationSnapshotHash|normalizePublicationSnapshotForHash\(" packages/universo-utils/base/src packages/applications-backend/base/src packages/metahubs-backend/base/src`
-**Why**: This seam already regressed once because producer and consumer each carried their own near-identical normalization code. Centralizing the implementation removes one of the easiest ways to reintroduce false snapshot-hash mismatches during future publication-shape changes.
+- Keep publication hash normalization aligned with `SnapshotSerializer.normalizeSnapshotForHash(...)`, including `systemFields` and omission semantics for absent optional keys.
+- Make both `@universo/metahubs-backend` and `@universo/applications-backend` call the shared helper instead of maintaining package-local copies.
+- Add direct shared regression coverage whenever publication snapshot structure changes.
+**Detection**: `rg "publicationSnapshotHash|normalizePublicationSnapshotForHash|normalizeSnapshotForHash" packages/universo-utils/base/src packages/applications-backend/base/src packages/metahubs-backend/base/src`
+**Why**: Producer/consumer drift already caused false snapshot-hash mismatches during application sync; one shared normalization seam keeps publication export and runtime validation aligned.
 ## Scoped Paginated View Isolation Pattern (IMPORTANT)
 **Rule**: Screens that switch between semantically different paginated scopes inside the same component instance must not reuse previous-query placeholder data across query-key changes.
 **Required**:
@@ -342,7 +396,6 @@ const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' }
 - Keep this opt-out local to truly scope-changing screens; ordinary page/sort transitions may still keep previous data when the UX benefits from it.
 **Detection**:
 - `rg "keepPreviousDataOnQueryKeyChange|activeCatalogTab|scope: isSystemView" packages/metahubs-frontend/base/src`
-
 ## Publication Executable Payload Lifecycle Hydration Pattern (CRITICAL)
 **Rule**: Publication-driven application release bundles must hydrate top-level `snapshot.systemFields` back into each executable entity config before schema snapshot generation or runtime schema apply.
 **Required**:
@@ -536,10 +589,6 @@ return applicationsStore.listApplications(executor, userId)
 - Knex: attach pool error listener and log `used/free/pending` metrics.
 - Default pool max comes from `DATABASE_POOL_MAX` and currently defaults to 15.
 **Why**: Prevent pool exhaustion and provide actionable diagnostics during incidents.
-## DynamicEntityFormDialog Custom Field Rendering
-**Rule**: Use `renderField` override to render domain-specific inputs (e.g., REF element selector) without changing default dialog behavior.
-**Usage**: Return `undefined` to fall back to the built-in renderer; return a React node to override.
-**Why**: Keeps the dialog generic while enabling custom widgets for special field types.
 ## Headless Controller Hook + Adapter Pattern (IMPORTANT)
 **Rule**: CRUD dashboard views must use the shared `useCrudDashboard(adapter)` hook from `apps-template-mui`. Each deployment context (standalone dev, production runtime) provides its own `CrudDataAdapter` implementation.
 **Components**:
@@ -585,83 +634,27 @@ return applicationsStore.listApplications(executor, userId)
 **Symptoms**:
 - Permission checks outside RLS context.
 **Fix**: fallback to a neutral executor or session derived from `@universo/database` only if the request DB session is missing.
-## Template Seed Identity Pattern (IMPORTANT)
-**Rule**: Widget identity in template seeds is `{layout_id, zone, widget_key, sort_order}`.
-**Risk**: When a template update removes or reorders widgets, `sort_order` shifts cause the Migrator to see relocated widgets as "new" (different key) while old positions become orphans.
-**Mitigation (current)**: `TemplateSeedMigrator` inherits `is_active` from existing peers with same `zone + widget_key` and auto-cleans orphan duplicates (system-created only, `_upl_created_by IS NULL`).
-**Future improvement**: Consider using `{layout_id, zone, widget_key}` as the stable identity (without `sort_order`) to make template reordering transparent.
-**Detection**: Duplicate widgets in same zone — `SELECT zone, widget_key, count(*) FROM _mhb_widgets WHERE _mhb_deleted = false GROUP BY zone, widget_key HAVING count(*) > 1`.
-## Structured Blocker Pattern (IMPORTANT)
-**Rule**: Migration/cleanup blockers must use `StructuredBlocker` type from `@universo/types` instead of plain strings.
-**Interface**: `{ code: string, params: Record<string, string>, message: string }`
-**Backend**: Services (`TemplateSeedCleanupService`, `metahubMigrationsRoutes`) create blockers with code + params + fallback message.
-**Frontend**: `MetahubMigrationGuard.tsx` renders blockers using `t(\`migrations.blockers.\${blocker.code}\`, blocker.params)` with `<ul>/<li>` markup.
-**i18n**: 15 blocker keys in EN/RU locales under `migrations.blockers.*` namespace.
-**Detection**: `rg "StructuredBlocker" packages`.
-**Why**: Type-safe, i18n-ready error reporting. Backend provides structured context, frontend localizes using standard i18n infrastructure.
-
 ---
 ## i18n Architecture (CRITICAL)
-**Rule**: Core namespaces in `@universo/i18n`; feature packages use `registerNamespace()`.
-**Required**: feature registration called before app render.
-**Detection**: `rg "i18next\.use" packages` (antipattern).
-**Symptoms**:
-- Missing translations after lazy load.
-**Fix**: register namespaces in entrypoints and consolidate bundles.
+**Rule**: Core namespaces live in `@universo/i18n`; feature packages register namespaces before render and must not call `i18next.use()` locally.
+**Detection**: `rg "i18next\.use" packages`
 ## Canonical Types Pattern (CRITICAL)
-**Rule**: Shared types live in `@universo/types` and are re-exported downstream.
-**Required**: pagination/filter types in `@universo/types`, UI packages re-export only.
-**Detection**: `rg "PaginationMeta|FilterType" packages/*/src/types`.
-**Symptoms**:
-- Divergent shapes across frontends.
-**Fix**: replace local types with `@universo/types` imports.
+**Rule**: Shared list, filter, and pagination types live in `@universo/types`; downstream packages re-export or consume them instead of redefining local variants.
+**Detection**: `rg "PaginationMeta|FilterType" packages/*/src/types`
 ## Universal List Pattern (CRITICAL)
-**Rule**: Entity lists use `usePaginated` + `useDebouncedSearch` + card/table toggle.
-**Required**: ViewHeader, ItemCard, FlowListTable, PaginationControls, localStorage persistence.
-**Detection**: `rg "usePaginated" packages`.
-**Symptoms**:
-- Inconsistent pagination behavior across modules.
-**Fix**: adopt shared list components from template-mui.
-
+**Rule**: Large entity lists use `usePaginated`, `useDebouncedSearch`, shared card/table toggle components, and persistent view state through the template-mui list stack.
+**Detection**: `rg "usePaginated" packages`
 ## Page Spacing Contract (IMPORTANT)
-**Rule**: Non-list pages (settings, migrations) must use shared spacing constants from `@universo/template-mui`.
-- `PAGE_CONTENT_GUTTER_MX` (`{ xs: -1.5, md: -2 }`) as `mx` on content sections below ViewHeader.
-- `PAGE_TAB_BAR_SX` (`{ borderBottom: 1, borderColor: 'divider', mb: 2 }`) for tab bars — NO `px`.
-- `MainLayoutMUI` provides `px: { xs: 2, md: 3 }`; `ViewHeader` compensates internally with `ml/mr: { xs: 0, md: -2 }`.
-**Detection**: `rg "px: 2.*Tabs\|borderBottom.*px" packages/*/base/src` (antipattern: tabs with `px`).
-**Symptoms**:
-- Tabs indented from content edges; settings/form content narrower than list tables on same pages.
-**Fix**: import `PAGE_CONTENT_GUTTER_MX` / `PAGE_TAB_BAR_SX` from `@universo/template-mui`.
-## Dual Sidebar Menu Config (IMPORTANT)
-**Rule**: There are TWO sidebar menu configurations that must be kept in sync:
-1. **`metahubDashboard.ts`** (`packages/metahubs-frontend/base/src/menu-items/`) — Legacy config used by the older shared menu layer
-2. **`menuConfigs.ts`** (`packages/universo-template-mui/base/src/navigation/`) — **PRODUCTION config** consumed by `MenuContent.tsx` via `getMetahubMenuItems()`.
-**When modifying sidebar items**: Always update BOTH files. The production app uses `menuConfigs.ts`.
+**Rule**: Non-list pages must use `PAGE_CONTENT_GUTTER_MX` and `PAGE_TAB_BAR_SX` from `@universo/template-mui`; avoid local tab/content `px` overrides that make headers and content widths drift.
+**Detection**: `rg "px: 2.*Tabs\|borderBottom.*px" packages/*/base/src`
 ## React StrictMode Pattern (CRITICAL)
-**Rule**: StrictMode enabled only in DEV builds.
-**Fix**:
-```tsx
-const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragment
-```
-**Why**: Prevent double-render issues in production.
+**Rule**: Enable `React.StrictMode` only in development builds; production entrypoints must render without the double-render wrapper.
 ## Rate Limiting Pattern (CRITICAL)
-**Rule**: Redis-based rate limiting for all public API endpoints.
-**Required**: `RATE_LIMIT_ENABLED`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`.
-**Detection**: `rg "rateLimit" packages/*/src`.
-**Symptoms**:
-- 429 missing under load.
-**Fix**: apply middleware per router.
+**Rule**: Public API routers use the shared Redis-backed rate limiting contract and its env-driven thresholds rather than package-local limiter variants.
+**Detection**: `rg "rateLimit" packages/*/src`
 ## Testing Environment Pattern (CRITICAL)
-**Rule**: Vitest + Testing Library; Playwright for E2E. No Jest.
-**Required**: use shared test utils packages.
-**Detection**: `rg "jest" packages/*/package.json`.
-**Fix**: migrate Jest tests to Vitest equivalents.
-## Service Factory + NodeProvider Pattern (CRITICAL)
-**Rule**: Services are factories to inject neutral dependencies (`DbExecutor`, `DbSession`, telemetry, config).
-**Fix**:
-```typescript
-export const createXService = ({ getDbExecutor, telemetryProvider }) => ({ ... })
-```
+**Rule**: Use Vitest + Testing Library for package tests and Playwright for E2E; do not introduce new Jest-based package test stacks.
+**Detection**: `rg "jest" packages/*/package.json`
 ## Runtime Migration Pattern (CRITICAL)
 **Rule**: All schema changes must be recorded in `_sys_migrations` table within Application schema.
 **Required**: Use `MigrationManager.recordMigration()` after applying DDL changes via `SchemaMigrator`.
@@ -675,36 +668,11 @@ export const createXService = ({ getDbExecutor, telemetryProvider }) => ({ ... }
 - Schema changes not tracked.
 - Rollback fails silently.
 **Fix**: Always pass `recordMigration: true` when applying schema changes that should be reversible.
-## Applications Runtime Update Targeting (MVP)
-**Rule**: Runtime cell updates should include `catalogId` when the application has multiple catalogs.
-**Why**: Backend defaults to the first catalog by codename; without `catalogId`, updates can target the wrong table and return 404 (row not found).
 ## TanStack Query Cache Correctness + v5 Patterns (CRITICAL)
 **Rule**: Query key factories must be used for invalidation.
 **Required**: `lists()` and `detail(id)` keys; invalidate aggregates explicitly.
 **Detection**: `rg "invalidateQueries\(" packages`.
 **Fix**: call `invalidateQueries(metaversesQueryKeys.lists())` after mutations.
-## Focus-Refetch for Open Dialog Data (No Polling)
-**Rule**: `useQuery` with `enabled: open` + `refetchOnWindowFocus: 'always'`.
-**Why**: ensures dialog data fresh without polling.
-## Reusable Compact List Table Pattern (Dialogs)
-**Rule**: Use `CompactListTable` in modal dialogs with sticky header + bounded scroll.
-**Required**: `renderRowAction`, `actionColumnWidth` for action column.
-**Detection**: `rg "<Table" packages/*/dialogs`.
-## Data Modeling + UI Runtime Patterns
-**Applications config/data split**: Metahubs store configuration; Applications store runtime data in PostgreSQL schemas. Use `SchemaGenerator` + `SchemaMigrator` with shared `@universo/database` Knex runtime. Naming stays canonical: schema `app_<uuid32>`, table `cat_<uuid32>`, column `attr_<uuid32>`, TABLE-child `tbl_<uuid32>`.
-**Attribute types**: `_mhb_attributes.data_type` stores the logical enum and `validation_rules` stores type-specific settings. Canonical mapping is `STRING -> TEXT/VARCHAR/JSONB`, `NUMBER -> NUMERIC`, `DATE -> DATE/TIME/TIMESTAMPTZ`, `BOOLEAN -> BOOLEAN`, `REF -> UUID`, `JSON -> JSONB`; compute physical types through `SchemaGenerator.mapDataType(...)` / `getPhysicalDataType(...)` and surface the resolved PostgreSQL type in the UI.
-**Shared UI/data rules**:
-- Pagination uses backend `limit/offset/sortBy/sortOrder` plus frontend `usePaginated<T, SortFields>` and `PaginationControls`.
-- Error handling uses centralized backend errors (`ValidationError`, `NotFoundError`, `ForbiddenError`) plus frontend boundaries/toasts/Sentry.
-- Env access goes through `@universo/utils/env`; migrations stay consolidated/idempotent with RLS policies and no destructive `down()`.
-- VLC uses shared `sanitizeLocalizedInput`, `buildLocalizedContent`, and `normalizeCodename`; frontend keeps `slugifyCodename()` for user input.
-- Build/naming remain `tsdown` dual output, `pnpm --filter` for package builds, PascalCase/camelCase/kebab-case naming, snake_case DB objects, and dot-notation i18n keys.
-**Access/guard rules**:
-- RBAC stays hybrid DB + CASL; `module='*'` + `action='*'` maps to `manage/all`, and route protection uses `ensureGlobalAccess(...)`.
-- Parent-scoped endpoints carry RLS context where needed; public execution uses `/execution/:id` with `GET /public-executions/:id`.
-- Guard redirects stay `AuthGuard -> /auth`, `AdminGuard -> /`, `ResourceGuard -> /`; ReactFlow node dialogs open from canvas events (`onNodeDoubleClick`), not node DOM handlers.
-- Public UI routes and API whitelist entries must stay synchronized across packages.
-**Antipatterns to avoid**: direct Supabase client access, hardcoded roles, `dependencies` in source-only packages, raw SQL in routes/services, `i18next.use()` inside packages, StrictMode in production, large-list client-side pagination, and duplicate client state stores.
 ## Metahub Template + Definition Model
 **Metahub template/versioning**: Structure versions own system-table DDL in `structureVersions.ts`, while semver template versions own JSON/TS seed manifests under `templates/data/`. Seeds reference entities by codenames, generate UUIDs at apply time, stay idempotent through manifest hashing, keep template entities platform-level (`_upl_*` only), and load from `metahubs.templates` / `metahubs.templates_versions` with DB manifest override support.
 **Application-definition model**: Metahubs are one specialization of the generic definition system. `DefinitionArtifact` payloads are stored through `upl_migrations.definition_registry`, immutable `definition_revisions`, optional lifecycle drafts, and export provenance rows in `definition_exports`. `registerDefinition(...)` stays idempotent, `exportDefinitions()` / `importDefinitions()` preserve round-trip storage, template `definition_type` differentiates `metahub_template`, `application_template`, or `custom`, and dependency direction remains `@universo/migrations-catalog` -> `@universo/migrations-core` only.

@@ -23,21 +23,11 @@ if (!userId) return
 **CRITICAL**: All Unik-scoped routes MUST use `ensureUnikMembershipResponse` or `requireUnikRole` middleware.
 
 #### 2. Uniks (Workspace) System
--   **Purpose**: Multi-tenant workspace isolation (enterprise feature simulation)
--   **Implementation**: Schema-isolated entities with request-scoped DB access control
--   **Database Schema**: 
-    - `uniks.uniks` - Workspace entities
-    - `uniks.uniks_users` - Membership relationships with roles
-    - Cross-references from dependent modules (finance, spaces, resources)
--   **Access Model**: Application-level enforcement via `WorkspaceAccessService`
--   **UI Components**: Custom workspace selection and management pages
--   **Risk**: High - Core business logic that must be preserved
--   **Role Hierarchy**: `owner` (4) > `admin` (3) > `editor` (2) > `member` (1)
--   **Key Operations**:
-    - Create workspace → Auto-assign owner role
-    - Invite members → Owner/admin privilege required  
-    - Update/delete → Role-based restrictions
-    - Data access → Membership validation required
+-   **Purpose**: Multi-tenant workspace isolation.
+-   **Implementation**: schema-isolated entities plus request-scoped DB access control through `WorkspaceAccessService`.
+-   **Database schema**: `uniks.uniks` for workspace rows and `uniks.uniks_users` for membership/role links consumed by dependent modules.
+-   **Role hierarchy**: `owner` (4) > `admin` (3) > `editor` (2) > `member` (1).
+-   **Key rule**: create, invite, update, delete, and data-access flows remain membership-gated and must keep the current application-level enforcement model.
 
 #### 3. Internationalization (i18n)
 
@@ -98,6 +88,43 @@ if (!userId) return
 -   **Consumer seam**: downstream E2E flows must not introduce legacy `self-model` markers when recording imported self-hosted fixtures.
 -   **Migrations parity note**: self-hosted migrations parity is represented by real frontend navigation/pages/guards, not by synthetic migration entities in the fixture.
 
+#### 3.2.6 Metahub Scripting Runtime Contract (2026-04-05)
+-   **Shared source of truth**: `@universo/types` owns script roles, source kinds, capability enums, role-based allowlists/defaults, and normalization helpers used by compiler, design-time validation, runtime persistence, and execution-context gating.
+-   **SDK surface layout**: `@universo/extension-sdk` now keeps a stable root authoring import while physically splitting the source-only SDK into `types`, `decorators`, `ExtensionScript`, `registry`, `widget`, and `apis/*` modules.
+-   **Explicit dual-target rule**: shared script methods use the explicit `server_and_client` target via `@AtServerAndClient()`; undecorated helpers stay private, lifecycle handlers remain server-only, and runtime client/public-RPC filtering must use the shared target helpers instead of direct `'client'` / `'server'` equality checks.
+-   **Authoring scope**: v1 authoring is limited to `embedded` sources. Future `external` and `visual` seams remain explicit but are not enabled in the design-time UI or backend validation path.
+-   **Compiler boundary**: embedded script compilation is SDK-only. `@universo/scripting-engine` now rejects unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling, leaving `@universo/extension-sdk` as the only supported authoring import surface.
+-   **SDK compatibility boundary**: `sdkApiVersion` is enforced as a real shared contract rather than informational metadata. The current supported set is explicitly `1.0.0`, and unsupported or mismatched record/manifest metadata now fails during compilation, metahub authoring, publication/runtime normalization, and runtime script loading.
+-   **Benchmark seam**: reproducible benchmark evidence now lives in `@universo/scripting-engine`; the latest recorded proof is `coldStartMs 7.13`, `meanMs 1.596`, `p95Ms 2.127`.
+-   **Payload contract**: runtime script list payloads must not expose executable bundle bodies. Applications backend serves client bundles through a dedicated cacheable endpoint, while `serverBundle` remains backend-only.
+-   **Public RPC boundary**: public runtime `/runtime/scripts/:scriptId/call` access is restricted to non-lifecycle server methods from scripts that declare `rpc.client`; the applications-backend service/controller seam enforces this before any runtime engine execution begins.
+-   **Browser runtime**: real browser execution requires a Worker-capable runtime and fails closed without it; the worker runtime now uses private host aliases, disables ambient network, nested-worker, storage, and dynamic-code globals before importing the client bundle, and enforces a bounded execution timeout so hanging bundles are terminated instead of pending forever.
+-   **Server runtime**: `@universo/scripting-engine` executes server bundles through pooled `isolated-vm` isolates with health monitoring / circuit-breaker behavior instead of per-call isolate churn.
+-   **Startup compatibility seam**: core-backend startup validates `isolated-vm` availability and the required `--no-node-snapshot` re-exec contract before serving, and startup regressions must keep that path green.
+-   **Runtime sync seam**: publication/runtime script persistence must fail closed when `_app_scripts` bootstrap fails or the table remains unavailable after bootstrap; script sync is not allowed to silently degrade into metadata-only success, and scoped codename-index repair must validate the full `(attached_to_kind, COALESCE(attached_to_id, null-scope uuid), module_role, codename)` plus soft-delete predicate shape before treating an existing index as compatible.
+-   **Vitest coverage contract**: the touched runtime/frontend packages now enable coverage by default, allow explicit opt-out only through `VITEST_COVERAGE=false`, and reserve threshold enforcement for the explicit shared opt-in seam (`VITEST_ENFORCE_COVERAGE=true`) rather than ambient CI detection.
+-   **Legacy snapshot seam**: publication/runtime normalization treats missing legacy `snapshot.scripts` as an empty scripts set and keeps direct regression coverage for that compatibility path.
+-   **Authoring role-switch seam**: untouched draft module-role switches must reapply target-role default capabilities so widget drafts keep default `rpc.client` unless the user already edited capabilities.
+-   **Layout authoring seam**: `quizWidget` layout details authoring exposes `scriptCodename`, and the browser-authored Playwright flow depends on that real UI seam end to end.
+-   **Testing seam**: backend Jest must map `@universo/types` and `@universo/scripting-engine` to workspace source when validating the scripting surface, but downstream focused validation can still consume built exports; after changing exported helpers in `@universo/types`, rebuild that package before downstream test/build runs.
+-   **Bootstrap validity seam**: server isolate runtime tests now parse the generated bootstrap source itself, which protects the runtime against strict-mode-invalid global-blocking code such as `const eval = undefined`.
+
+#### 3.2.7 Quiz Snapshot Fixture And Script Round-Trip Contract (2026-04-05)
+-   **Canonical source**: `tools/testing/e2e/support/quizFixtureContract.ts` is the single source of truth for the committed quiz snapshot identity, bilingual quiz content, canonical widget script source, and fixture assertions.
+-   **Committed artifact**: `tools/fixtures/metahubs-quiz-app-snapshot.json` is generated from the dedicated Playwright generator `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts`; it should be regenerated through that path instead of hand-editing the JSON.
+-   **Consumer proof**: `tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts` is the durable import proof. It validates browser-UI import, restored design-time metahub scripts, application creation from the imported publication, and the full EN/RU quiz runtime contract.
+-   **Snapshot round-trip seam**: metahub export now augments `snapshot.scripts` with `sourceCode`, and `SnapshotRestoreService` restores `_mhb_scripts` with attachment remapping so imported metahubs remain republishable and not only publication-runnable.
+-   **Product contract**: the canonical quiz fixture keeps 10 questions per locale, 4 answers per question, sequential question/answer cards, `+1` only for correct answers, no score increment for wrong answers, a final total-score summary, and restart/back navigation.
+
+#### 3.2.8 Metahub Dialog Presentation And Responsive Scripts Tab Contract (2026-04-05)
+-   **Settings source of truth**: metahub-wide dialog behavior is registry-driven through `@universo/types` common settings keys `common.dialogSizePreset`, `common.dialogAllowFullscreen`, `common.dialogAllowResize`, and `common.dialogCloseBehavior`.
+-   **Shared runtime seam**: `@universo/template-mui` owns the reusable `DialogPresentationProvider` / `useDialogPresentation(...)` contract, including preset width handling, fullscreen toggle, resize persistence, reset-to-default control, and strict-modal backdrop/Escape blocking.
+-   **Metahub bridge**: `@universo/metahubs-frontend` injects settings into that shared seam through `MetahubDialogSettingsProvider` and wraps page exports with `withMetahubDialogSettings(...)`; direct MUI dialogs that bypass shared template dialogs must still use the same presentation contract explicitly.
+-   **Persistence rule**: dialog resize state is stored in localStorage and scoped by metahub id so one metahub does not overwrite another metahub's authoring dialog size.
+-   **Responsive Scripts-tab rule**: `EntityScriptsTab` uses `ResizeObserver` on the rendered container, not viewport breakpoints, to switch between compact and split layouts; on narrow dialogs it collapses the attached-scripts list and keeps horizontal overflow isolated to the editor shell only.
+-   **JSDOM validation note**: scripting/dialog tests that open MUI `Select` / `Popover` surfaces may need a non-zero `HTMLElement.prototype.getBoundingClientRect` mock while keeping the stable `user.click(...)` interaction path; otherwise jsdom-only `anchorEl` warnings can appear even when the product behavior is correct.
+-   **Validation seam**: this contract is considered closed only when focused unit tests plus targeted real-browser Playwright flows prove the dialog controls, settings persistence, compact layout behavior, and absence of page-level horizontal overflow.
+
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
@@ -123,24 +150,11 @@ if (!userId) return
 -   **Definition lifecycle execution**: `@universo/migrations-catalog` now routes active `importDefinitions()` calls through draft/review/publish helpers and keeps lifecycle provenance merged on unchanged revisions, so file/bundle imports and platform sync share the same approval-oriented lifecycle contract.
 -   **Definition drift detection**: platform/catalog no-op detection now compares stable artifact payload signatures, not only SQL checksum parity, so dependency-only changes re-run the canonical import/export path.
 
-#### 4. UPDL Nodes & Multi-Technology Export
+#### 4. UPDL And Template Export Surface
 
--   **Location**: `packages/` directory (custom application layer)
--   **Purpose**: Universal high-level logic nodes for AR.js and PlayCanvas scene generation
--   **Integration**: Custom nodes within the inherited canvas system
--   **Components**: Publisher UI, Builder logic, API integration
--   **Templates**: Quiz (AR.js), MMOOMM (PlayCanvas) with template-first architecture
-
-#### 5. PlayCanvas MMOOMM Template (Recent Stabilization)
--   **Purpose**: Space MMO foundation with ship movement and physics
--   **Key Features**: WASD+QZ controls, physics fallback system, optimized logging
--   **Technical Implementation**:
-    -   Physics body initialization with direct movement fallback
-    -   Global flags to prevent console spam during gameplay
-    -   WebSocket connection optimization for local development
-    -   Transparent rigidbody → direct position movement transition
--   **Status**: Production-ready with clean console output and reliable ship movement
--   **Risk**: Medium - Isolated from core shell changes but needs verification
+-   **Location**: `packages/`.
+-   **Purpose**: UPDL nodes and template-driven export remain the high-level authoring layer for AR.js, PlayCanvas, and related generated experiences.
+-   **Constraint**: keep this surface isolated from core shell/auth/runtime changes; it is durable product scope, not the current platform-foundation seam.
 
 ## Platform Foundation
 **Legacy upstream shell 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
@@ -188,7 +202,7 @@ if (!userId) return
 ### Authentication Architecture
 **Current**: Passport.js session auth (Express) integrated with Supabase identity; clients use cookie/session + CSRF protection.
 
-- **CSRF contract**: `EBADCSRFTOKEN` → HTTP 419; clients clear cached CSRF token and retry once when safe.
+- **CSRF contract**: `EBADCSRFTOKEN` → HTTP 419; `auth-frontend` clears cached CSRF state, fetches a fresh token, and retries one protected request once before surfacing the error.
 - **Public routes**: centralized allowlists in `@universo/utils/routes` (`PUBLIC_UI_ROUTES`, `API_WHITELIST_URLS`).
 - **Admin SQL helper boundary**: request-scoped authenticated sessions may call admin helper functions only for their own `auth.uid()`; cross-user permission/role introspection is reserved for pool/service-role style backend execution where no request JWT user is present.
 
@@ -207,11 +221,7 @@ if (!userId) return
 -   **Uniks Frontend/Backend**: Workspace functionality with modular architecture
 
 ### Key Architecture Benefits
--   **Workspace Packages**: `@universo/profile-backend`, `@universo/resources-backend` with clean imports and professional structure
--   **Template-First**: Reusable export templates across multiple technologies
--   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
--   **Data Isolation**: Complete cluster-based data separation with neutral DB contracts and a shared Knex runtime
--   **Future-Ready**: Prepared for plugin extraction and microservices evolution
+-   Workspace packages, template-first exports, interface separation, and neutral DB contracts remain the durable app-level design principles across the platform packages.
 
 ## Build System Architecture (Updated 2025-10-18)
 **Primary Tool**: tsdown v0.15.7 (Rolldown + Oxc), 100% coverage (15 custom packages).  
@@ -236,35 +246,11 @@ if (!userId) return
 
 ## UPDL Core System (v0.21.0-alpha)
 ### High-Level Abstract Nodes ✅ **COMPLETE**
-**7 Core Nodes:** Space, Entity, Component, Event, Action, Data, Universo
 
-**Key Features:**
-
--   Universal cross-platform description layer
--   Template-based export to multiple technologies (AR.js, PlayCanvas)
--   Hierarchical structure with typed connections
--   JSON serialization with version compatibility
-
-**Export Process:** UPDL Graph → Template System → Technology-specific code → Published applications
-
-**Architecture Details:** See [systemPatterns.md](systemPatterns.md) for comprehensive patterns and design principles.
-
-### Multi-Technology Export Architecture
-**Template-Based System** with clear technology separation:
-
--   **AR.js**: Production-ready with iframe-based rendering and quiz functionality
--   **PlayCanvas**: Complete integration with MMOOMM template for MMO development
--   **Naming Convention**: Technology-specific prefixes (ARJS, PlayCanvas)
--   **API Structure**: Clean endpoints (`/api/updl/publish/{technology}`)
--   **Future-Ready**: Extensible for additional technologies (Babylon.js, Three.js)
-
-### Publication System ✅ **COMPLETE**
-**Template-First Architecture** with reusable templates across technologies:
-
--   **Quiz Template**: Educational AR experiences with scoring and lead collection
--   **MMOOMM Template**: MMO gaming experiences with PlayCanvas integration
--   **URL Scheme**: `/p/{uuid}` for public view, `/e/p/{uuid}` for embedding
--   **Multi-Technology**: AR.js (production), PlayCanvas (ready), extensible system
+-   **Core model**: 7 nodes (`Space`, `Entity`, `Component`, `Event`, `Action`, `Data`, `Universo`) still define the high-level cross-platform authoring graph.
+-   **Export process**: UPDL graph -> template system -> technology-specific code -> published application.
+-   **Technology scope**: AR.js is the production path today, PlayCanvas remains the secondary ready path, and the template architecture stays extensible for future runtimes.
+-   **Reference**: reusable architecture details live in [systemPatterns.md](systemPatterns.md) rather than this file.
 
 ## Development Environment
 **Package Management**: PNPM 10.33.0 workspaces with monorepo architecture

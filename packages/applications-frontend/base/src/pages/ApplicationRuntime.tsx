@@ -260,6 +260,10 @@ const ApplicationRuntime = () => {
     const details = useMemo<DashboardDetailsSlot>(
         () => ({
             title: detailsTitle,
+            applicationId,
+            catalogId: state.selectedCatalogId ?? state.activeCatalogId ?? null,
+            catalogCodename: state.appData?.catalog?.codename ?? null,
+            apiBaseUrl: '/api/v1',
             banner: workspaceLimitBanner,
             rows: state.rows,
             columns: state.columns,

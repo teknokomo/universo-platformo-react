@@ -228,7 +228,7 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_widgets', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toHaveLength(1)
         expect(insertedRows['_mhb_layouts']![0]).toMatchObject({
             template_key: 'dashboard',
@@ -241,6 +241,105 @@ describe('SnapshotRestoreService', () => {
         })
     })
 
+    it('restores scripts with sourceCode and remaps attachment ids', async () => {
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                'old-catalog-id': {
+                    id: 'old-catalog-id',
+                    kind: 'catalog',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: [
+                        {
+                            id: 'old-field-id',
+                            codename: 'title',
+                            dataType: 'STRING',
+                            isRequired: false,
+                            isDisplayAttribute: true,
+                            presentation: { name: { en: 'Title' }, description: {} },
+                            validationRules: {},
+                            uiConfig: {},
+                            sortOrder: 1
+                        }
+                    ]
+                }
+            },
+            scripts: [
+                {
+                    id: 'script-metahub-id',
+                    codename: 'quiz-widget',
+                    presentation: { name: { en: 'Quiz widget' } },
+                    attachedToKind: 'metahub',
+                    attachedToId: null,
+                    moduleRole: 'widget',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    manifest: {
+                        className: 'QuizWidget',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'widget',
+                        sourceKind: 'embedded',
+                        capabilities: ['metadata.read', 'rpc.client'],
+                        methods: []
+                    },
+                    serverBundle: 'server bundle',
+                    clientBundle: 'client bundle',
+                    checksum: 'checksum-metahub',
+                    isActive: true,
+                    config: { scriptCodename: 'quiz-widget' },
+                    sourceCode:
+                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class QuizWidget extends ExtensionScript {}"
+                },
+                {
+                    id: 'script-attribute-id',
+                    codename: 'attribute-hook',
+                    presentation: { name: { en: 'Attribute hook' } },
+                    attachedToKind: 'attribute',
+                    attachedToId: 'old-field-id',
+                    moduleRole: 'lifecycle',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    manifest: {
+                        className: 'AttributeHook',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'lifecycle',
+                        sourceKind: 'embedded',
+                        capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
+                        methods: []
+                    },
+                    serverBundle: 'attribute server bundle',
+                    clientBundle: null,
+                    checksum: 'checksum-attribute',
+                    isActive: true,
+                    config: {},
+                    sourceCode:
+                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class AttributeHook extends ExtensionScript {}"
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows, deletedTables } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(deletedTables).toContain('_mhb_scripts')
+        expect(insertedRows['_mhb_scripts']).toHaveLength(2)
+        expect(insertedRows['_mhb_scripts']![0]).toMatchObject({
+            attached_to_kind: 'metahub',
+            attached_to_id: null,
+            source_code: expect.stringContaining('QuizWidget extends ExtensionScript'),
+            _mhb_published: true
+        })
+        expect(insertedRows['_mhb_scripts']![1]).toMatchObject({
+            attached_to_kind: 'attribute',
+            attached_to_id: 'generated-id-2',
+            source_code: expect.stringContaining('AttributeHook extends ExtensionScript'),
+            server_bundle: 'attribute server bundle'
+        })
+    })
+
     it('clears seeded layouts even when snapshot has no layouts', async () => {
         const snapshot = makeMinimalSnapshot({ layouts: [], layoutZoneWidgets: [] } as unknown as Partial<MetahubSnapshot>)
 
@@ -249,7 +348,7 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_widgets', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
     })

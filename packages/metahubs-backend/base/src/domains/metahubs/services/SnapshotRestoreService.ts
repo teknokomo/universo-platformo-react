@@ -7,8 +7,7 @@ import type {
     MetaFieldSnapshot,
     MetaElementSnapshot,
     MetaConstantSnapshot,
-    MetahubLayoutSnapshot,
-    MetahubLayoutZoneWidgetSnapshot
+    MetahubLayoutSnapshot
 } from '../../publications/services/SnapshotSerializer'
 import { ensureCodenameValue } from '../../shared/codename'
 import { toJsonbValue } from '../../shared/jsonb'
@@ -17,6 +16,10 @@ import { resolveWidgetTableName } from '../../templates/services/widgetTableReso
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotRestoreService')
+
+type SnapshotScript = NonNullable<MetahubSnapshot['scripts']>[number] & {
+    sourceCode?: string
+}
 
 const getEntityCodenameText = (codename: MetaEntitySnapshot['codename']): string => {
     if (typeof codename === 'string') return codename
@@ -45,9 +48,10 @@ export class SnapshotRestoreService {
             // oldConstantId → newConstantId
             const constantIdMap = await this.restoreConstants(trx, snapshot, entityIdMap, userId)
 
-            await this.restoreAttributes(trx, snapshot, entityIdMap, constantIdMap, userId)
+            const attributeIdMap = await this.restoreAttributes(trx, snapshot, entityIdMap, constantIdMap, userId)
             await this.restoreEnumerationValues(trx, snapshot, entityIdMap, userId)
             await this.restoreElements(trx, snapshot, entityIdMap, userId)
+            await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, attributeIdMap, userId)
             await this.restoreLayouts(trx, snapshot, userId)
         })
     }
@@ -197,16 +201,27 @@ export class SnapshotRestoreService {
         entityIdMap: Map<string, string>,
         constantIdMap: Map<string, string>,
         userId: string
-    ): Promise<void> {
+    ): Promise<Map<string, string>> {
         const entities = snapshot.entities ?? {}
         const now = new Date()
+        const attributeIdMap = new Map<string, string>()
 
         for (const [oldEntityId, entity] of Object.entries(entities)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId || !entity.fields?.length) continue
 
             for (const field of entity.fields) {
-                const parentId = await this.insertAttribute(qb, newEntityId, null, field, entityIdMap, constantIdMap, userId, now)
+                const parentId = await this.insertAttribute(
+                    qb,
+                    newEntityId,
+                    null,
+                    field,
+                    entityIdMap,
+                    constantIdMap,
+                    attributeIdMap,
+                    userId,
+                    now
+                )
 
                 // Insert child attributes for TABLE data type
                 if (field.dataType === 'TABLE' && field.childFields?.length && parentId) {
@@ -218,6 +233,7 @@ export class SnapshotRestoreService {
                             child as MetaFieldSnapshot,
                             entityIdMap,
                             constantIdMap,
+                            attributeIdMap,
                             userId,
                             now
                         )
@@ -225,6 +241,8 @@ export class SnapshotRestoreService {
                 }
             }
         }
+
+        return attributeIdMap
     }
 
     private async insertAttribute(
@@ -234,6 +252,7 @@ export class SnapshotRestoreService {
         field: MetaFieldSnapshot,
         entityIdMap: Map<string, string>,
         constantIdMap: Map<string, string>,
+        attributeIdMap: Map<string, string>,
         userId: string,
         now: Date
     ): Promise<string | null> {
@@ -284,7 +303,12 @@ export class SnapshotRestoreService {
             })
             .returning('id')
 
-        return inserted?.id ?? null
+        const insertedId = inserted?.id ?? null
+        if (insertedId && typeof field.id === 'string' && field.id.length > 0) {
+            attributeIdMap.set(field.id, insertedId)
+        }
+
+        return insertedId
     }
 
     // ── Pass 3b: Enumeration values ───────────────────────────────────────
@@ -372,6 +396,107 @@ export class SnapshotRestoreService {
                     })
             }
         }
+    }
+
+    // ── Pass 3d: Scripts ──────────────────────────────────────────────────
+
+    private async restoreScripts(
+        qb: Knex.Transaction,
+        metahubId: string,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        attributeIdMap: Map<string, string>,
+        userId: string
+    ): Promise<void> {
+        const scripts = (snapshot.scripts ?? []) as SnapshotScript[]
+        const now = new Date()
+
+        await qb.withSchema(this.schemaName).from('_mhb_scripts').del()
+
+        if (!scripts.length) return
+
+        for (const script of scripts) {
+            const attachedToId = this.resolveScriptAttachmentId(script, metahubId, entityIdMap, attributeIdMap)
+
+            if (script.attachedToKind !== 'metahub' && !attachedToId) {
+                log.warn(
+                    `Script attachment ${script.attachedToKind}:${script.attachedToId ?? '[null]'} not found during snapshot restore, skipping script ${script.codename}`
+                )
+                continue
+            }
+
+            await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_scripts')
+                .insert({
+                    codename: ensureCodenameValue(script.codename),
+                    presentation: script.presentation ?? { name: {} },
+                    attached_to_kind: script.attachedToKind,
+                    attached_to_id: attachedToId,
+                    module_role: script.moduleRole,
+                    source_kind: script.sourceKind,
+                    sdk_api_version: script.sdkApiVersion,
+                    source_code: this.resolveScriptSourceCode(script),
+                    manifest: script.manifest ?? {},
+                    server_bundle: script.serverBundle ?? null,
+                    client_bundle: script.clientBundle ?? null,
+                    checksum: script.checksum,
+                    is_active: script.isActive !== false,
+                    config: script.config ?? {},
+                    _upl_created_at: now,
+                    _upl_created_by: userId,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+        }
+    }
+
+    private resolveScriptAttachmentId(
+        script: SnapshotScript,
+        metahubId: string,
+        entityIdMap: Map<string, string>,
+        attributeIdMap: Map<string, string>
+    ): string | null {
+        if (script.attachedToKind === 'metahub') {
+            return null
+        }
+
+        if (typeof script.attachedToId !== 'string' || script.attachedToId.length === 0) {
+            return null
+        }
+
+        if (script.attachedToKind === 'attribute') {
+            return attributeIdMap.get(script.attachedToId) ?? null
+        }
+
+        if (script.attachedToId === metahubId) {
+            return null
+        }
+
+        return entityIdMap.get(script.attachedToId) ?? null
+    }
+
+    private resolveScriptSourceCode(script: SnapshotScript): string {
+        if (typeof script.sourceCode === 'string' && script.sourceCode.trim().length > 0) {
+            return script.sourceCode
+        }
+
+        const normalizedCodename = script.codename.replace(/[^a-zA-Z0-9]/g, '_') || 'ImportedSnapshotScript'
+
+        return [
+            '// Imported from metahub snapshot.',
+            '// Original authoring source was not embedded in this snapshot export.',
+            "import { ExtensionScript } from '@universo/extension-sdk'",
+            '',
+            `export default class ${normalizedCodename}ImportedSnapshot extends ExtensionScript {}`
+        ].join('\n')
     }
 
     // ── Final pass: Layouts + zone widgets ────────────────────────────────

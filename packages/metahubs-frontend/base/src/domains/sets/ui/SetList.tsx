@@ -631,6 +631,7 @@ const SetListContent = () => {
         (baseContext: SetMenuBaseContext) => ({
             ...baseContext,
             setMap,
+            metahubId,
             uiLocale: preferredVlcLocale,
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             currentHubId: isHubScoped ? hubId ?? null : null,

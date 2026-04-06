@@ -9,8 +9,22 @@ const RETRYABLE_STATUSES = new Set([503, 504])
 const DEFAULT_TRANSIENT_RETRY_ATTEMPTS = 0
 const BASE_BACKOFF_MS = 300
 const CSRF_REQUIRED_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+const MAX_CSRF_RETRY_ATTEMPTS = 1
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const clearCsrfHeaders = (headers: unknown) => {
+    if (!headers) return
+
+    if (typeof (headers as { delete?: (name: string) => void }).delete === 'function') {
+        ;(headers as { delete: (name: string) => void }).delete('X-CSRF-Token')
+        ;(headers as { delete: (name: string) => void }).delete('x-csrf-token')
+        return
+    }
+
+    delete (headers as Record<string, unknown>)['X-CSRF-Token']
+    delete (headers as Record<string, unknown>)['x-csrf-token']
+}
 
 const parseRetryAfter = (value: unknown): number | null => {
     if (!value) return null
@@ -145,11 +159,19 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
         async (error) => {
             const status = error?.response?.status
             const config: Record<string, any> = error?.config ?? {}
+            const method = typeof config?.method === 'string' ? config.method.toLowerCase() : ''
 
             // Handle CSRF token expiration
             if (status === 419) {
                 const storage = getSessionStorage()
                 storage?.removeItem(mergedOptions.csrfStorageKey)
+
+                const csrfRetryCount = Number(config.__csrfRetryCount ?? 0)
+                if (CSRF_REQUIRED_METHODS.has(method) && csrfRetryCount < MAX_CSRF_RETRY_ATTEMPTS) {
+                    config.__csrfRetryCount = csrfRetryCount + 1
+                    clearCsrfHeaders(config.headers)
+                    return instance(config)
+                }
             }
 
             // Handle 401 Unauthorized - redirect to auth if configured
@@ -175,7 +197,6 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
                 }
             }
 
-            const method = typeof config?.method === 'string' ? config.method.toLowerCase() : ''
             const shouldRetry = RETRYABLE_METHODS.has(method) && typeof status === 'number' && RETRYABLE_STATUSES.has(status)
 
             if (shouldRetry && mergedOptions.transientRetryAttempts > 0) {

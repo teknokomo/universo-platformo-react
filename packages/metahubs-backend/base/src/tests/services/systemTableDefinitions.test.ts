@@ -6,6 +6,7 @@ import {
     buildSystemStructureSnapshot,
     buildIndexSQL
 } from '../../domains/metahubs/services/systemTableDefinitions'
+import { codenamePrimaryTextSql } from '../../domains/shared/codename'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
 
 describe('systemTableDefinitions', () => {
@@ -21,6 +22,7 @@ describe('systemTableDefinitions', () => {
             expect(tableNames).toContain('_mhb_layouts')
             expect(tableNames).toContain('_mhb_widgets')
             expect(tableNames).toContain('_mhb_migrations')
+            expect(tableNames).toContain('_mhb_scripts')
         })
 
         it('has no duplicate table names', () => {
@@ -137,8 +139,33 @@ describe('systemTableDefinitions', () => {
             expect(defs).toBe(SYSTEM_TABLES)
         })
 
+        it('keeps the previous script-table definition for version 2', () => {
+            const previousDefs = SYSTEM_TABLE_VERSIONS.get(2)
+            const previousScripts = previousDefs?.find((table) => table.name === '_mhb_scripts')
+            const scopedIndex = previousScripts?.indexes?.find((index) => index.name === 'idx_mhb_scripts_codename_active_unique')
+
+            expect(previousScripts).toBeDefined()
+            expect(scopedIndex?.columns).toEqual([codenamePrimaryTextSql('codename')])
+        })
+
         it('returns undefined for unknown version', () => {
             expect(SYSTEM_TABLE_VERSIONS.get(999)).toBeUndefined()
+        })
+    })
+
+    describe('script scoped codename indexes', () => {
+        it('scopes active script codename uniqueness by attachment and module role', () => {
+            const scriptsTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_scripts')
+            const scopedIndex = scriptsTable?.indexes?.find((index) => index.name === 'idx_mhb_scripts_codename_active_unique')
+
+            expect(scopedIndex).toBeDefined()
+            expect(scopedIndex?.columns).toEqual([
+                'attached_to_kind',
+                "COALESCE(attached_to_id, '00000000-0000-0000-0000-000000000000'::uuid)",
+                'module_role',
+                codenamePrimaryTextSql('codename')
+            ])
+            expect(scopedIndex?.unique).toBe(true)
         })
     })
 

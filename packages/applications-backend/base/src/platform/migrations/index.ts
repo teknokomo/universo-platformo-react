@@ -1,5 +1,6 @@
 export {
     createApplicationsSchemaMigrationDefinition,
     prepareApplicationsSchemaSupportMigrationDefinition,
-    finalizeApplicationsSchemaSupportMigrationDefinition
+    finalizeApplicationsSchemaSupportMigrationDefinition,
+    addApplicationSettingsMigrationDefinition
 } from './1800000000000-CreateApplicationsSchema.sql'

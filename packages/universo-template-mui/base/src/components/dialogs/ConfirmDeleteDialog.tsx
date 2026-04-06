@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, CircularProgress, Box, Alert } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 /**
  * Props for the ConfirmDeleteDialog component
@@ -86,20 +87,36 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
 
     // Combine external and internal loading states
     const isLoading = loading || isDeleting
+    const handleCancel = () => {
+        if (!isLoading) onCancel()
+    }
+    const presentation = useDialogPresentation({ open, onClose: handleCancel, fallbackMaxWidth: 'sm', isBusy: isLoading })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        title
+    )
 
     return (
         <Dialog
             open={open}
-            onClose={isLoading ? undefined : onCancel}
-            maxWidth='sm'
-            fullWidth
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
             aria-labelledby='confirm-delete-dialog-title'
             aria-describedby='confirm-delete-dialog-description'
             disableEnforceFocus
             disableRestoreFocus
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
         >
-            <DialogTitle id='confirm-delete-dialog-title'>{title}</DialogTitle>
-            <DialogContent>
+            <DialogTitle id='confirm-delete-dialog-title'>{titleNode}</DialogTitle>
+            <DialogContent sx={mergeDialogSx(presentation.contentSx)}>
                 <DialogContentText id='confirm-delete-dialog-description' sx={{ mb: error ? 2 : 0 }}>
                     {description}
                 </DialogContentText>
@@ -110,7 +127,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                 )}
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={onCancel} disabled={isLoading} color='inherit' data-testid='confirm-delete-cancel'>
+                <Button onClick={handleCancel} disabled={isLoading} color='inherit' data-testid='confirm-delete-cancel'>
                     {cancelButtonText}
                 </Button>
                 <Button
@@ -136,6 +153,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     )}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

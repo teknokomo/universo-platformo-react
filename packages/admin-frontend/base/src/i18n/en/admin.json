@@ -454,8 +454,19 @@
         "save": "Save Changes",
         "noChanges": "No changes to save",
         "tabs": {
+            "general": "General",
             "metahubs": "Metahubs",
             "applications": "Applications"
+        },
+        "general": {
+            "dialogSizePreset": "Dialog size preset",
+            "dialogSizePresetDescription": "Default size for admin and global-control-surface popup windows. Users can still expand or resize dialogs when those options are enabled.",
+            "dialogAllowFullscreen": "Allow fullscreen expansion",
+            "dialogAllowFullscreenDescription": "Show a header action that expands admin popup windows almost to the full viewport while keeping standard page margins.",
+            "dialogAllowResize": "Allow popup resize",
+            "dialogAllowResizeDescription": "Show a resize handle in the bottom-right corner and remember the custom dialog size in this browser for admin surfaces.",
+            "dialogCloseBehavior": "Popup window type",
+            "dialogCloseBehaviorDescription": "Choose whether admin popup windows stay modal or can close when the user clicks outside the window."
         },
         "metahubs": {
             "codenameStyle": "Codename Style",
@@ -497,8 +508,23 @@
                 }
             }
         },
+        "dialogSizePresets": {
+            "small": "Small (about 480 px)",
+            "medium": "Medium (about 600 px)",
+            "large": "Large (about 800 px)"
+        },
+        "dialogCloseBehaviors": {
+            "strict-modal": "Modal windows",
+            "backdrop-close": "Non-modal windows"
+        },
+        "dialogActionTooltips": {
+            "resetSize": "Reset dialog size",
+            "expand": "Expand dialog",
+            "restoreSize": "Restore dialog size",
+            "resizeHandle": "Resize dialog"
+        },
         "applications": {
-            "placeholder": "Application settings will be available in future versions."
+            "placeholder": "Application-specific popup settings are configured inside each application control panel."
         }
     }
 }

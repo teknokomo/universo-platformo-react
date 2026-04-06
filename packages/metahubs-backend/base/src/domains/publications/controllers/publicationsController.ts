@@ -44,6 +44,7 @@ import { MetahubElementsService } from '../../metahubs/services/MetahubElementsS
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
+import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
 import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
@@ -628,13 +629,15 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const hubsService = new MetahubHubsService(exec, schemaService)
         const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
         const constantsService = new MetahubConstantsService(exec, schemaService)
+        const scriptsService = new MetahubScriptsService(exec, schemaService)
         const serializer = new SnapshotSerializer(
             objectsService,
             attributesService,
             elementsService,
             hubsService,
             enumerationValuesService,
-            constantsService
+            constantsService,
+            scriptsService
         )
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
         const snapshot = await serializer.serializeMetahub(metahubId, {
@@ -1534,13 +1537,15 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const hubsService = new MetahubHubsService(exec, schemaService)
         const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
         const constantsService = new MetahubConstantsService(exec, schemaService)
+        const scriptsService = new MetahubScriptsService(exec, schemaService)
         const serializer = new SnapshotSerializer(
             objectsService,
             attributesService,
             elementsService,
             hubsService,
             enumerationValuesService,
-            constantsService
+            constantsService,
+            scriptsService
         )
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
         const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId, {

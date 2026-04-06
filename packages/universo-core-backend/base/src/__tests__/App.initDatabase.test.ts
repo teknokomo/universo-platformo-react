@@ -23,6 +23,7 @@ const mockValidateRegisteredSystemAppCompiledDefinitions = jest.fn(() => ({
     issues: [],
     artifactSets: []
 }))
+const mockAssertIsolatedVmRuntimeAvailable = jest.fn().mockResolvedValue(undefined)
 const mockInspectLegacyFixedSchemaTables = jest.fn().mockResolvedValue({
     ok: true,
     leftovers: [],
@@ -155,6 +156,14 @@ jest.mock(
 )
 
 jest.mock(
+    '@universo/scripting-engine',
+    () => ({
+        assertIsolatedVmRuntimeAvailable: (...args: unknown[]) => mockAssertIsolatedVmRuntimeAvailable(...args)
+    }),
+    { virtual: true }
+)
+
+jest.mock(
     '@universo/migrations-platform',
     () => ({
         validateRegisteredPlatformMigrations: mockValidateRegisteredPlatformMigrations,
@@ -186,6 +195,7 @@ import { App } from '../index'
 describe('App.initDatabase', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        mockAssertIsolatedVmRuntimeAvailable.mockResolvedValue(undefined)
         mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
         mockValidateRegisteredPlatformMigrations.mockReturnValue({
             ok: true,
@@ -263,6 +273,10 @@ describe('App.initDatabase', () => {
 
         await app.initDatabase()
 
+        expect(mockAssertIsolatedVmRuntimeAvailable).toHaveBeenCalledTimes(1)
+        expect(mockValidateRegisteredPlatformMigrations.mock.invocationCallOrder[0]).toBeGreaterThan(
+            mockAssertIsolatedVmRuntimeAvailable.mock.invocationCallOrder[0]
+        )
         expect(mockValidateRegisteredPlatformMigrations).toHaveBeenCalledTimes(1)
         expect(mockValidateRegisteredSystemAppDefinitions).toHaveBeenCalledTimes(1)
         expect(mockValidateRegisteredSystemAppSchemaGenerationPlans).toHaveBeenCalledTimes(1)
@@ -303,6 +317,19 @@ describe('App.initDatabase', () => {
             mockSyncRegisteredPlatformDefinitionsToCatalog.mock.invocationCallOrder[0]
         )
         expect(mockDestroyKnex).not.toHaveBeenCalled()
+    })
+
+    it('fails fast when scripting runtime compatibility validation fails', async () => {
+        mockAssertIsolatedVmRuntimeAvailable.mockRejectedValueOnce(new Error('isolated-vm bootstrap failed'))
+        const app = new App()
+
+        await expect(app.initDatabase()).rejects.toThrow('isolated-vm bootstrap failed')
+
+        expect(mockValidateRegisteredPlatformMigrations).not.toHaveBeenCalled()
+        expect(mockGetKnex).not.toHaveBeenCalled()
+        expect(mockRunRegisteredPlatformPreludeMigrations).not.toHaveBeenCalled()
+        expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
+        expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
 
     it('fails fast when platform migration validation is not ok', async () => {

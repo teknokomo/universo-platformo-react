@@ -2,6 +2,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, 
 import { WarningAmber as WarningIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import type { ConflictInfo } from '@universo/utils'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 export interface ConflictResolutionDialogProps {
     open: boolean
@@ -32,14 +33,28 @@ export function ConflictResolutionDialog({
     const updatedByEmail = (conflict as any).updatedByEmail
     const updatedByUuid = conflict.updatedBy
     const updatedBy = updatedByEmail ? `${updatedByEmail} (${updatedByUuid})` : updatedByUuid || t('common:unknown', 'Unknown')
+    const presentation = useDialogPresentation({ open, onClose: onCancel, fallbackMaxWidth: 'sm', isBusy: isLoading })
+    const titleNode = (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                <WarningIcon color='warning' />
+                <Box component='span'>{t('conflict.title')}</Box>
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    )
 
     return (
-        <Dialog open={open} onClose={onCancel} maxWidth='sm' fullWidth>
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WarningIcon color='warning' />
-                {t('conflict.title')}
-            </DialogTitle>
-            <DialogContent>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+            <DialogContent sx={mergeDialogSx(presentation.contentSx)}>
                 <Alert severity='warning' sx={{ mb: 2 }}>
                     {t('conflict.description')}
                 </Alert>
@@ -72,6 +87,7 @@ export function ConflictResolutionDialog({
                     {t('conflict.overwrite')}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

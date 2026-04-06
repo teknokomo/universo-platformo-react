@@ -69,6 +69,7 @@ import {
     hasPublishedLayoutsChanges,
     hasPublishedWidgetsChanges,
 } from './syncLayoutPersistence'
+import { hasPublishedScriptsChanges, persistPublishedScripts } from './syncScriptPersistence'
 
 // --- Connector sync touch ---
 
@@ -139,7 +140,12 @@ export async function syncApplicationSchemaFromSource(options: {
                 schemaName: application.schemaName,
                 snapshot: source.snapshot
             })
+            const scriptsNeedUpdate = await hasPublishedScriptsChanges({
+                schemaName: application.schemaName,
+                snapshot: source.snapshot
+            })
             const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
+            const hasRuntimeMetadataChanges = hasUiChanges || scriptsNeedUpdate
 
             const schemaSyncedAt = new Date()
             const installedReleaseMetadata = buildInstalledReleaseMetadataFromBundle(
@@ -200,8 +206,12 @@ export async function syncApplicationSchemaFromSource(options: {
             return {
                 statusCode: 200,
                 body: {
-                    status: hasUiChanges || seedWarnings.length > 0 ? 'ui_updated' : 'no_changes',
-                    message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date',
+                    status: hasRuntimeMetadataChanges || seedWarnings.length > 0 ? 'ui_updated' : 'no_changes',
+                    message: hasUiChanges
+                        ? 'UI layout settings updated'
+                        : scriptsNeedUpdate
+                        ? 'Runtime scripts updated'
+                        : 'Schema is already up to date',
                     ...(seedWarnings.length > 0 ? { seedWarnings } : {})
                 }
             }
@@ -362,7 +372,12 @@ export async function syncApplicationSchemaFromSource(options: {
                 schemaName: application.schemaName!,
                 snapshot: source.snapshot
             })
+            const scriptsNeedUpdate = await hasPublishedScriptsChanges({
+                schemaName: application.schemaName!,
+                snapshot: source.snapshot
+            })
             const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
+            const hasRuntimeMetadataChanges = hasUiChanges || scriptsNeedUpdate
 
             const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
             const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
@@ -455,9 +470,11 @@ export async function syncApplicationSchemaFromSource(options: {
             return {
                 statusCode: 200,
                 body: {
-                    status: hasUiChanges || hasElementChanges ? 'ui_updated' : 'no_changes',
+                    status: hasRuntimeMetadataChanges || hasElementChanges ? 'ui_updated' : 'no_changes',
                     message: hasUiChanges
                         ? 'UI layout settings updated'
+                        : scriptsNeedUpdate
+                        ? 'Runtime scripts updated'
                         : hasElementChanges
                         ? 'Predefined elements updated'
                         : 'Schema is already up to date',
@@ -774,6 +791,12 @@ export async function runPublishedApplicationRuntimeSync(options: {
     const { trx, applicationId, schemaName, snapshot, entities, migrationManager, migrationId, userId } = options
 
     await persistPublishedLayouts({
+        schemaName,
+        snapshot,
+        userId,
+        trx
+    })
+    await persistPublishedScripts({
         schemaName,
         snapshot,
         userId,

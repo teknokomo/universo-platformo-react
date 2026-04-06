@@ -16,7 +16,8 @@ export type { ApplicationRole } from './routes/guards'
 export {
     createApplicationsSchemaMigrationDefinition,
     prepareApplicationsSchemaSupportMigrationDefinition,
-    finalizeApplicationsSchemaSupportMigrationDefinition
+    finalizeApplicationsSchemaSupportMigrationDefinition,
+    addApplicationSettingsMigrationDefinition
 } from './platform/migrations'
 export { applicationsSystemAppDefinition } from './platform/systemAppDefinition'
 

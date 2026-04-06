@@ -19,6 +19,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { useTranslation } from 'react-i18next'
+import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 import { usePublicationDiff, type Publication } from '../domains/publications'
 import { getVLCString } from '../types'
 
@@ -69,18 +70,33 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
     }
 
     const publicationName = publication ? getVLCString(publication.name, uiLocale) : ''
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth aria-labelledby='publication-diff-dialog-title'>
-            <DialogTitle id='publication-diff-dialog-title'>
-                {t('publications.diffDialog.title', 'Schema Changes')}
+    const presentation = useDialogPresentation({ open, onClose, fallbackMaxWidth: 'md', isBusy: isSyncing })
+    const titleNode = (
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, pr: 1 }}>
+            <Box sx={{ minWidth: 0 }}>
+                <Box component='span'>{t('publications.diffDialog.title', 'Schema Changes')}</Box>
                 {publicationName && (
                     <Typography variant='subtitle2' color='text.secondary'>
                         {publicationName}
                     </Typography>
                 )}
-            </DialogTitle>
-            <DialogContent dividers>
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    )
+
+    return (
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'md')}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            aria-labelledby='publication-diff-dialog-title'
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle id='publication-diff-dialog-title'>{titleNode}</DialogTitle>
+            <DialogContent dividers sx={mergeDialogSx(presentation.contentSx)}>
                 {isDiffLoading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                         <CircularProgress />
@@ -198,9 +214,9 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
                     </>
                 )}
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }
-
 export { PublicationDiffDialog }
 export default PublicationDiffDialog

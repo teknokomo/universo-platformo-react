@@ -558,6 +558,7 @@ const HubListContent = () => {
             ...baseContext,
             hubMap,
             hubs: allHubs,
+            metahubId,
             currentHubId: isHubScoped ? hubId ?? null : null,
             allowHubNesting,
             uiLocale: preferredVlcLocale,

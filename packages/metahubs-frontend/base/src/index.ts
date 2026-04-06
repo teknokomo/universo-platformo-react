@@ -1,35 +1,55 @@
 // Register i18n namespace (side-effect import must come first)
 import './i18n'
+import MetahubListComponent from './domains/metahubs/ui/MetahubList'
+import MetahubBoardComponent from './domains/metahubs/ui/MetahubBoard'
+import MetahubMembersComponent from './domains/metahubs/ui/MetahubMembers'
+import PublicationListComponent from './domains/publications/ui/PublicationList'
+import { PublicationVersionList as PublicationVersionListComponent } from './domains/publications/ui/PublicationVersionList'
+import { PublicationApplicationList as PublicationApplicationListComponent } from './domains/publications/ui/PublicationApplicationList'
+import BranchListComponent from './domains/branches/ui/BranchList'
+import MetahubMigrationsComponent from './domains/migrations/ui/MetahubMigrations'
+import HubListComponent from './domains/hubs/ui/HubList'
+import CatalogListComponent from './domains/catalogs/ui/CatalogList'
+import EnumerationListComponent from './domains/enumerations/ui/EnumerationList'
+import EnumerationValueListComponent from './domains/enumerations/ui/EnumerationValueList'
+import AttributeListComponent from './domains/attributes/ui/AttributeList'
+import ElementListComponent from './domains/elements/ui/ElementList'
+import SetListComponent from './domains/sets/ui/SetList'
+import ConstantListComponent from './domains/constants/ui/ConstantList'
+import MetahubLayoutsComponent from './domains/layouts/ui/LayoutList'
+import MetahubLayoutDetailsComponent from './domains/layouts/ui/LayoutDetails'
+import SettingsPageComponent from './domains/settings/ui/SettingsPage'
+import { withMetahubDialogSettings } from './domains/settings/ui/MetahubDialogSettingsProvider'
 
 // Main page exports
-export { default as MetahubList } from './domains/metahubs/ui/MetahubList'
-export { default as MetahubBoard } from './domains/metahubs/ui/MetahubBoard'
-export { default as MetahubMembers } from './domains/metahubs/ui/MetahubMembers'
+export const MetahubList = withMetahubDialogSettings(MetahubListComponent)
+export const MetahubBoard = withMetahubDialogSettings(MetahubBoardComponent)
+export const MetahubMembers = withMetahubDialogSettings(MetahubMembersComponent)
 
 // Publication (Information Base) pages
-export { default as PublicationList } from './domains/publications/ui/PublicationList'
-export { PublicationVersionList } from './domains/publications/ui/PublicationVersionList'
-export { PublicationApplicationList } from './domains/publications/ui/PublicationApplicationList'
+export const PublicationList = withMetahubDialogSettings(PublicationListComponent)
+export const PublicationVersionList = withMetahubDialogSettings(PublicationVersionListComponent)
+export const PublicationApplicationList = withMetahubDialogSettings(PublicationApplicationListComponent)
 
 // Branches
-export { default as BranchList } from './domains/branches/ui/BranchList'
-export { default as MetahubMigrations } from './domains/migrations/ui/MetahubMigrations'
+export const BranchList = withMetahubDialogSettings(BranchListComponent)
+export const MetahubMigrations = withMetahubDialogSettings(MetahubMigrationsComponent)
 export { default as MetahubMigrationGuard } from './domains/migrations/ui/MetahubMigrationGuard'
 
 // New Hub/Catalog/Attribute/Element pages
-export { default as HubList } from './domains/hubs/ui/HubList'
-export { default as CatalogList } from './domains/catalogs/ui/CatalogList'
-export { default as EnumerationList } from './domains/enumerations/ui/EnumerationList'
-export { default as EnumerationValueList } from './domains/enumerations/ui/EnumerationValueList'
-export { default as AttributeList } from './domains/attributes/ui/AttributeList'
-export { default as ElementList } from './domains/elements/ui/ElementList'
-export { default as SetList } from './domains/sets/ui/SetList'
-export { default as ConstantList } from './domains/constants/ui/ConstantList'
-export { default as MetahubLayouts } from './domains/layouts/ui/LayoutList'
-export { default as MetahubLayoutDetails } from './domains/layouts/ui/LayoutDetails'
+export const HubList = withMetahubDialogSettings(HubListComponent)
+export const CatalogList = withMetahubDialogSettings(CatalogListComponent)
+export const EnumerationList = withMetahubDialogSettings(EnumerationListComponent)
+export const EnumerationValueList = withMetahubDialogSettings(EnumerationValueListComponent)
+export const AttributeList = withMetahubDialogSettings(AttributeListComponent)
+export const ElementList = withMetahubDialogSettings(ElementListComponent)
+export const SetList = withMetahubDialogSettings(SetListComponent)
+export const ConstantList = withMetahubDialogSettings(ConstantListComponent)
+export const MetahubLayouts = withMetahubDialogSettings(MetahubLayoutsComponent)
+export const MetahubLayoutDetails = withMetahubDialogSettings(MetahubLayoutDetailsComponent)
 
 // Settings
-export { default as MetahubSettings } from './domains/settings/ui/SettingsPage'
+export const MetahubSettings = withMetahubDialogSettings(SettingsPageComponent)
 export { useEntityPermissions } from './domains/settings/hooks/useEntityPermissions'
 
 export { default as metahubsDashboard } from './menu-items/metahubDashboard'

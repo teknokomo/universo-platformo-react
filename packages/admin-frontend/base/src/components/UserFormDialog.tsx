@@ -4,6 +4,7 @@ import {
     Button,
     CircularProgress,
     Dialog,
+    type DialogProps,
     DialogActions,
     DialogContent,
     DialogTitle,
@@ -17,6 +18,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { resolveLocalizedContent, getCodenamePrimary } from '@universo/utils'
 import { isValidLocaleCode } from '@universo/types'
 import { EntitySelectionPanel } from '@universo/template-mui'
+import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 
 import type { RoleListItem } from '../api/rolesApi'
 
@@ -222,10 +224,32 @@ export default function UserFormDialog({
         await onSubmit(payload)
     }, [onSubmit, validate])
 
+    const handleClose = useCallback(() => {
+        if (!loading) onClose()
+    }, [loading, onClose])
+
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: loading })
+
     return (
-        <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogContent sx={{ pt: '8px !important' }}>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm') as DialogProps['maxWidth']}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>
+                {presentation.titleActions ? (
+                    <Stack direction='row' alignItems='center' justifyContent='space-between' spacing={2}>
+                        <span>{title}</span>
+                        {presentation.titleActions}
+                    </Stack>
+                ) : (
+                    title
+                )}
+            </DialogTitle>
+            <DialogContent sx={mergeDialogSx(presentation.contentSx, { pt: '8px !important' })}>
                 <Stack spacing={2.5}>
                     {(error || validationError) && (
                         <Alert severity='error' onClose={() => setValidationError(null)}>
@@ -300,7 +324,7 @@ export default function UserFormDialog({
                 </Stack>
             </DialogContent>
             <DialogActions sx={{ p: 3, pt: 2 }}>
-                <Button onClick={onClose} disabled={loading}>
+                <Button onClick={handleClose} disabled={loading}>
                     {tc('actions.cancel')}
                 </Button>
                 <Button
@@ -312,6 +336,7 @@ export default function UserFormDialog({
                     {submitLabel}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

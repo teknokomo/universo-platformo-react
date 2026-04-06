@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
+    Box,
     Dialog,
+    type DialogProps,
     DialogTitle,
     DialogContent,
     DialogActions,
@@ -19,6 +21,7 @@ import { createLocalizedContent, filterLocalizedContent } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 
 import { LocalizedInlineField } from '@universo/template-mui'
+import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 
 import * as localesApi from '../api/localesApi'
 import type { LocaleItem, CreateLocalePayload, UpdateLocalePayload } from '../api/localesApi'
@@ -173,11 +176,35 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
         }
     }, [isEditMode, locale, code, name, nativeName, isEnabledContent, isEnabledUi, sortOrder, createMutation, updateMutation, t])
 
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{isEditMode ? t('locales.editTitle', 'Edit Locale') : t('locales.createTitle', 'Add Locale')}</DialogTitle>
+    const handleClose = useCallback(() => {
+        if (!isLoading) onClose()
+    }, [isLoading, onClose])
 
-            <DialogContent>
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: isLoading })
+    const dialogTitle = isEditMode ? t('locales.editTitle', 'Edit Locale') : t('locales.createTitle', 'Add Locale')
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {dialogTitle}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        dialogTitle
+    )
+
+    return (
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm') as DialogProps['maxWidth']}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+
+            <DialogContent sx={mergeDialogSx(presentation.contentSx)}>
                 <Stack spacing={3} sx={{ mt: 1 }}>
                     {error && (
                         <Alert severity='error' onClose={() => setError(null)}>
@@ -271,7 +298,7 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={onClose} disabled={isLoading}>
+                <Button onClick={handleClose} disabled={isLoading}>
                     {t('common.cancel', 'Cancel')}
                 </Button>
                 <Button
@@ -283,6 +310,7 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
                     {isEditMode ? t('common.save', 'Save') : t('common.create', 'Create')}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

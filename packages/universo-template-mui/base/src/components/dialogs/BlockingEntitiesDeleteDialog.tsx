@@ -3,6 +3,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, 
 import { useQuery } from '@tanstack/react-query'
 import { CompactListTable } from '../table/CompactListTable'
 import type { TableColumn } from '../table/FlowListTable'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 /**
  * Base entity interface for the entity being deleted.
@@ -125,13 +126,34 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
     }
 
     const canDelete = blockingEntities.length === 0 && !isLoading && !error
+    const handleDialogClose = () => {
+        if (!isDeleting) onClose()
+    }
+    const presentation = useDialogPresentation({ open, onClose: handleDialogClose, fallbackMaxWidth: 'sm', isBusy: isDeleting })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {labels.title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        labels.title
+    )
 
     if (!entity) return null
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{labels.title}</DialogTitle>
-            <DialogContent dividers>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+            <DialogContent dividers sx={mergeDialogSx(presentation.contentSx)}>
                 {isLoading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                         <CircularProgress />
@@ -161,13 +183,14 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
                 )}
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={isDeleting}>
+                <Button onClick={handleDialogClose} disabled={isDeleting}>
                     {labels.cancelButton}
                 </Button>
                 <Button onClick={handleConfirm} color='error' variant='contained' disabled={!canDelete || isDeleting}>
                     {isDeleting ? labels.deletingButton : labels.deleteButton}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

@@ -110,6 +110,7 @@
         "@uiw/react-codemirror": "catalog:",
         "@uiw/codemirror-theme-vscode": "catalog:",
         "@uiw/codemirror-theme-sublime": "catalog:",
+        "@codemirror/autocomplete": "^6.20.1",
         "@codemirror/lang-javascript": "catalog:",
         "@codemirror/lang-json": "catalog:",
         "@codemirror/view": "catalog:",

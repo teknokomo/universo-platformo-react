@@ -16,6 +16,7 @@ import {
     useTheme
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 /**
  * Configuration for a single tab in the EntityFormDialog.
@@ -258,6 +259,18 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         setActiveTab(newValue)
     }
 
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: isLoading })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        title
+    )
+
     // Build helpers object for extraFields and tabs
     const formHelpers = {
         values: extraValues,
@@ -338,9 +351,16 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogContent sx={{ overflowY: 'visible' }}>{renderContent()}</DialogContent>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+            <DialogContent sx={mergeDialogSx({ overflowY: 'visible' }, presentation.contentSx)}>{renderContent()}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'space-between' }}>
                 {/* Delete button - shown in edit/copy mode when showDeleteButton is true */}
                 {(mode === 'edit' || mode === 'copy') && showDeleteButton ? (
@@ -408,6 +428,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                     </Button>
                 </Box>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

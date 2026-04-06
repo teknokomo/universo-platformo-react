@@ -4,7 +4,11 @@ import {
     type SystemAppDefinition
 } from '@universo/migrations-core'
 import { AttributeDataType } from '@universo/types'
-import { finalizeApplicationsSchemaSupportMigrationDefinition, prepareApplicationsSchemaSupportMigrationDefinition } from './migrations'
+import {
+    addApplicationSettingsMigrationDefinition,
+    finalizeApplicationsSchemaSupportMigrationDefinition,
+    prepareApplicationsSchemaSupportMigrationDefinition
+} from './migrations'
 
 const p = createSystemAppManifestPresentation
 
@@ -29,6 +33,14 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 physicalColumnName: 'description',
                 dataType: AttributeDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
+            },
+            {
+                codename: 'settings',
+                physicalColumnName: 'settings',
+                dataType: AttributeDataType.JSON,
+                isRequired: true,
+                defaultSqlExpression: `'{}'::jsonb`,
+                presentation: p('Application Settings', 'Persisted UI and behavior settings for the application control panel')
             },
             { codename: 'slug', physicalColumnName: 'slug', dataType: AttributeDataType.STRING, physicalDataType: 'VARCHAR(100)' },
             {
@@ -242,6 +254,11 @@ export const applicationsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: finalizeApplicationsSchemaSupportMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: addApplicationSettingsMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

@@ -15,6 +15,10 @@ export type { DashboardLayoutConfig } from '@universo/types'
 
 export interface DashboardDetailsSlot {
     title: string
+    applicationId?: string
+    catalogId?: string | null
+    catalogCodename?: string | null
+    apiBaseUrl?: string
     banner?: React.ReactNode
     rows: Array<Record<string, unknown> & { id: string }>
     columns: GridColDef[]

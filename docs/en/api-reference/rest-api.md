@@ -29,3 +29,11 @@ aligned with the repository after refactors.
 
 For the run-and-use workflow, continue to the Interactive OpenAPI Docs page in
 this section.
+
+## Runtime Script Endpoints
+
+- `GET /applications/{applicationId}/runtime/scripts` lists published client-visible runtime scripts without embedding bundle bodies.
+- `GET /applications/{applicationId}/runtime/scripts/{scriptId}/client` returns the JavaScript client bundle with `ETag` and `304 Not Modified` support.
+- `POST /applications/{applicationId}/runtime/scripts/{scriptId}/call` executes only non-lifecycle published server methods from scripts that declare `rpc.client`, and preserves fail-closed capability/error codes.
+
+Use these endpoints together when a runtime surface needs script metadata, bundle delivery, and RPC execution.

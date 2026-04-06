@@ -1,0 +1,36 @@
+{
+    "name": "@universo/extension-sdk",
+    "version": "0.1.0",
+    "description": "Scripting SDK primitives for Universo metahub extensions",
+    "main": "./src/index.ts",
+    "module": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts",
+            "require": "./src/index.ts"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
+    "files": [
+        "src"
+    ],
+    "scripts": {
+        "build": "tsc --noEmit -p tsconfig.json",
+        "lint": "eslint --ext .ts src/"
+    },
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/types": "workspace:*"
+    },
+    "peerDependencies": {
+        "typescript": ">=5.8.0"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "typescript": "catalog:"
+    }
+}

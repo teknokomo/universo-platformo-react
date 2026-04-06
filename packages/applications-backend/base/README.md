@@ -20,6 +20,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Manage applications, connectors, memberships, and publication links.
 - Enforce immutable application parameters for visibility and workspace mode.
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
+- Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
 - Persist schema sync state in `applications.cat_applications` through SQL-first stores.
 - Keep runtime release metadata in the same central sync-state surface.
 - Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
@@ -46,6 +47,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Publication-driven sync and file-bundle install share the same schema sync engine.
 - Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.cat_applications`.
 - Workspace-enabled applications also persist a workspace contract marker inside the canonical runtime snapshot lineage so incremental sync keeps workspace DDL intact.
+- Active runtime script codenames are unique per `(attached_to_kind, attached_to_id, module_role, codename)` scope, and sync repairs the scoped index for existing schemas.
 - Advisory locking serializes sync work per application before schema changes begin.
 - Maintenance and error states are persisted through the same central store contract.
 

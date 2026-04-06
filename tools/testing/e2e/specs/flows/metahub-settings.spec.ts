@@ -75,3 +75,74 @@ test('@flow metahub settings persist codename style updates from the browser set
         await disposeApiContext(api)
     }
 })
+
+test('@flow metahub settings expose and persist common dialog preferences', async ({ page, runManifest }) => {
+    const api = await createLoggedInApiContext({
+        email: runManifest.testUser.email,
+        password: runManifest.testUser.password
+    })
+
+    const metahubName = `E2E ${runManifest.runId} dialog settings metahub`
+    const metahubCodename = `${runManifest.runId}-dialog-settings-metahub`
+
+    try {
+        const metahub = await createMetahub(api, {
+            name: { en: metahubName },
+            namePrimaryLocale: 'en',
+            codename: createLocalizedContent('en', metahubCodename)
+        })
+
+        if (!metahub?.id) {
+            throw new Error('Metahub creation did not return an id for common dialog settings coverage')
+        }
+
+        await recordCreatedMetahub({
+            id: metahub.id,
+            name: metahubName,
+            codename: metahubCodename
+        })
+
+        await page.goto(`/metahub/${metahub.id}/settings`)
+        await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+        await page.getByRole('tab', { name: 'Common' }).click()
+
+        await expect(page.getByRole('heading', { name: 'Dialog size preset' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Allow fullscreen expansion' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Allow dialog resize' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Dialog close behavior' })).toBeVisible()
+
+        await page.getByLabel('Dialog size preset').click()
+        await page.getByRole('option', { name: 'Large (about 800 px)' }).click()
+
+        await page.getByLabel('Dialog close behavior').click()
+        await page.getByRole('option', { name: 'Outside click closes the dialog' }).click()
+
+        const saveButton = page.getByRole('button', { name: 'Save' })
+        await expect(saveButton).toBeVisible()
+        await expect(saveButton).toBeEnabled()
+
+        const saveRequest = page.waitForResponse(
+            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/settings`)
+        )
+
+        await saveButton.click()
+
+        const saveResponse = await saveRequest
+        expect(saveResponse.ok()).toBe(true)
+        await expect(saveButton).toHaveCount(0)
+
+        const settingsResponse = await listMetahubSettings(api, metahub.id)
+        const dialogSizeSetting = (settingsResponse?.settings ?? []).find(
+            (setting: { key?: string }) => setting.key === 'common.dialogSizePreset'
+        )
+        const closeBehaviorSetting = (settingsResponse?.settings ?? []).find(
+            (setting: { key?: string }) => setting.key === 'common.dialogCloseBehavior'
+        )
+
+        expect(extractWrappedValue(dialogSizeSetting)).toBe('large')
+        expect(extractWrappedValue(closeBehaviorSetting)).toBe('backdrop-close')
+    } finally {
+        await disposeApiContext(api)
+    }
+})

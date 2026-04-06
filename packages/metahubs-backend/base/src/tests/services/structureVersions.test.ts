@@ -8,12 +8,12 @@ import {
 } from '../../domains/metahubs/services/structureVersions'
 
 describe('structureVersions registry', () => {
-    it('exposes v1 as current structure revision', () => {
-        expect(CURRENT_STRUCTURE_VERSION).toBe(1)
+    it('exposes v3 as current structure revision', () => {
+        expect(CURRENT_STRUCTURE_VERSION).toBe(3)
     })
 
     it('exposes current semver label', () => {
-        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.1.0')
+        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.3.0')
     })
 
     it('exposes enumeration values table in current structure version', () => {
@@ -66,12 +66,16 @@ describe('structureVersionToSemver', () => {
         expect(structureVersionToSemver('0.1.0')).toBe('0.1.0')
     })
 
+    it('converts previous numeric version to historical semver', () => {
+        expect(structureVersionToSemver(2)).toBe('0.2.0')
+    })
+
     it('returns current semver for empty string', () => {
         expect(structureVersionToSemver('')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
 
     it('converts numeric string to semver', () => {
-        expect(structureVersionToSemver('1')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+        expect(structureVersionToSemver('1')).toBe('0.1.0')
     })
 
     it('returns current semver for non-numeric string', () => {
@@ -104,6 +108,10 @@ describe('semverToStructureVersion', () => {
         expect(semverToStructureVersion(1)).toBe(1)
     })
 
+    it('converts previous semver to numeric version', () => {
+        expect(semverToStructureVersion('0.2.0')).toBe(2)
+    })
+
     it('clamps future semver to CURRENT + 1', () => {
         expect(semverToStructureVersion('99.0.0')).toBe(CURRENT_STRUCTURE_VERSION + 1)
     })
@@ -127,7 +135,7 @@ describe('normalizeStoredStructureVersion', () => {
     })
 
     it('normalizes numeric version to semver', () => {
-        expect(normalizeStoredStructureVersion(1)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+        expect(normalizeStoredStructureVersion(1)).toBe('0.1.0')
     })
 
     it('normalizes null to current semver', () => {

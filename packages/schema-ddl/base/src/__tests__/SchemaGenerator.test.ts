@@ -544,6 +544,19 @@ describe('SchemaGenerator', () => {
             expect(createdTables).not.toContain('_app_values')
         })
 
+        it('creates a scoped active codename index for runtime scripts', async () => {
+            await generator.ensureSystemTables('metahubs')
+
+            const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
+            const scopedIndexSql = rawSqlCalls.find((sql) => sql.includes('idx_app_scripts_codename_active'))
+
+            expect(scopedIndexSql).toBeDefined()
+            expect(scopedIndexSql).toContain('attached_to_kind')
+            expect(scopedIndexSql).toContain('COALESCE(attached_to_id')
+            expect(scopedIndexSql).toContain('module_role')
+            expect(scopedIndexSql).toContain('codename')
+        })
+
         it('rejects invalid capability combinations where widgets are enabled without layouts', async () => {
             await expect(
                 generator.ensureSystemTables('metahubs', undefined, {

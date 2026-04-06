@@ -24,4 +24,6 @@ Read [Optional Global Catalog](optional-global-catalog.md) for the disabled-by-d
 
 Read [System App Migration Lifecycle](system-app-migration-lifecycle.md) for how system app schemas are generated, upgraded, and tracked at runtime.
 
+Read [Scripting System](scripting-system.md) for the design-time, publication, and runtime boundaries of metahub-authored scripts.
+
 Read the pages below for structure, backend, frontend, database, and auth details.

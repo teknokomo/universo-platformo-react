@@ -34,6 +34,7 @@ import {
     normalizeLocale
 } from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 /**
  * Extended SetDisplay type that includes hubId for AllSetsList context
@@ -47,6 +48,7 @@ export type SetFormSetValue = (name: string, value: unknown) => void
 export type SetActionContext = ActionContext<SetDisplayWithHub, SetLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
+    metahubId?: string | null
 }
 export type SetDialogTabArgs = {
     values: SetFormValues
@@ -364,6 +366,7 @@ export const buildFormTabs = (ctx: ActionContext<SetDisplayWithHub, SetLocalized
         isLoading: boolean
         errors: Record<string, string>
     }): TabConfig[] => {
+        const metahubId = (ctx as SetActionContext).metahubId ?? null
         const tabs: TabConfig[] = [
             {
                 id: 'general',
@@ -408,6 +411,17 @@ export const buildFormTabs = (ctx: ActionContext<SetDisplayWithHub, SetLocalized
                     />
                 )
             })
+        }
+
+        if (editingEntityId && metahubId) {
+            tabs.push(
+                createScriptsTab({
+                    t: ctx.t,
+                    metahubId,
+                    attachedToKind: 'set',
+                    attachedToId: editingEntityId
+                })
+            )
         }
 
         return tabs
