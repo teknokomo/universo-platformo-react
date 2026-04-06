@@ -1005,6 +1005,72 @@ export class SchemaGenerator {
             `)
         }
 
+        const hasScripts = await knex.schema.withSchema(schemaName).hasTable('_app_scripts')
+        console.log(`[SchemaGenerator] _app_scripts exists: ${hasScripts}`)
+
+        if (!hasScripts) {
+            console.log(`[SchemaGenerator] Creating _app_scripts...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_scripts', (table) => {
+                table.uuid('id').primary()
+                table.string('codename', 100).notNullable()
+                table.jsonb('presentation').notNullable().defaultTo('{}')
+                table.string('attached_to_kind', 40).notNullable()
+                table.uuid('attached_to_id').nullable()
+                table.string('module_role', 40).notNullable()
+                table.string('source_kind', 40).notNullable()
+                table.string('sdk_api_version', 40).notNullable()
+                table.jsonb('manifest').notNullable().defaultTo('{}')
+                table.text('server_bundle').nullable()
+                table.text('client_bundle').nullable()
+                table.string('checksum', 128).notNullable()
+                table.boolean('is_active').notNullable().defaultTo(true)
+                table.jsonb('config').notNullable().defaultTo('{}')
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['attached_to_kind', 'attached_to_id'], 'idx_app_scripts_attachment')
+                table.index(['module_role'], 'idx_app_scripts_module_role')
+                table.index(['checksum'], 'idx_app_scripts_checksum')
+            })
+
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_scripts_codename_active
+                ON "${schemaName}"._app_scripts (
+                    attached_to_kind,
+                    COALESCE(attached_to_id, '00000000-0000-0000-0000-000000000000'::uuid),
+                    module_role,
+                    codename
+                )
+                WHERE _upl_deleted = false AND _app_deleted = false
+            `)
+            console.log(`[SchemaGenerator] _app_scripts created`)
+        }
+
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
             await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {

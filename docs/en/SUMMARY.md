@@ -16,6 +16,7 @@
 * [Knowledge Spaces](platform/spaces.md)
 * [Metahubs](platform/metahubs.md)
 * [Applications](platform/applications.md)
+* [Admin](platform/admin.md)
 * [Publications](platform/publications.md)
 * [UPDL](platform/updl/README.md)
   * [Space Nodes](platform/updl/space-nodes.md)
@@ -31,6 +32,7 @@
 ## Architecture
 
 * [Overview](architecture/README.md)
+* [Scripting System](architecture/scripting-system.md)
 * [Fixed System-App Convergence](architecture/system-app-convergence.md)
 * [Optional Global Catalog](architecture/optional-global-catalog.md)
 * [Monorepo Structure](architecture/monorepo-structure.md)
@@ -59,6 +61,8 @@
 ## Guides
 
 * [Overview](guides/README.md)
+* [Metahub Scripting](guides/metahub-scripting.md)
+* [Quiz Application Tutorial](guides/quiz-application-tutorial.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Updating System App Schemas](guides/updating-system-app-schemas.md)
 * [Snapshot Export & Import](guides/snapshot-export-import.md)

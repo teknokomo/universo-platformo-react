@@ -4,9 +4,55 @@
 ---
 ## ⚠️ IMPORTANT: Version History Table
 
+
+## 2026-04-06 Final QA Debt Closure For Runtime Sync Coverage And Docs
+
+Closed the last remaining technical-debt items that the final QA pass had left open after the earlier scripting/dialog/tutorial implementation wave. This pass stayed intentionally narrow: harden the browser Worker runtime against hangs, tighten `_app_scripts` scoped-index compatibility repair, make the touched Vitest coverage contract explicit and predictable, and finish the remaining bilingual docs polish.
+
+| Area | Resolution |
+| --- | --- |
+| Browser runtime fail-closed behavior | `packages/apps-template-mui/src/dashboard/runtime/browserScriptRuntime.ts` now enforces a bounded Worker execution timeout with cleanup, and focused runtime coverage adds a hanging-worker regression so stalled client bundles fail closed instead of leaving widgets pending indefinitely. |
+| Runtime sync index hardening | `packages/applications-backend/base/src/routes/sync/syncScriptPersistence.ts` now treats an existing `idx_app_scripts_codename_active` index as compatible only when it preserves the full scoped uniqueness shape, including the null-attachment `COALESCE(...)` and active-row predicate; focused sync persistence coverage now proves malformed legacy definitions are repaired while already-correct ones are preserved. |
+| Coverage governance | The touched runtime/frontend Vitest packages now enable coverage by default, allow explicit opt-out only through `VITEST_COVERAGE=false`, and reserve threshold enforcement for the explicit `VITEST_ENFORCE_COVERAGE=true` seam instead of ambient CI detection. |
+| GitBook closure | The touched EN/RU `metahub-scripting.md` and `quiz-application-tutorial.md` pages now document the Worker-timeout fail-closed contract, the remaining mixed-language Russian phrasing was removed, and exact EN/RU line parity was preserved (`97/97`, `89/89`). |
+| Validation | Focused apps-template (`7/7`), applications-backend (`8/8`), applications-frontend (`3/3`), auth-frontend (`2/2`), scripting-engine (`11/11`), and metahubs-frontend (`2/2`) suites all passed, and the canonical root `pnpm build` finished green with `30 successful`, `14 cached`, and `2m54.285s`. |
+
+### Validation
+
+- `pnpm --filter @universo/apps-template-mui test -- src/dashboard/runtime/__tests__/browserScriptRuntime.test.ts`
+- `pnpm --filter @universo/applications-backend test -- src/tests/services/syncScriptPersistence.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- src/pages/__tests__/ApplicationSettings.test.tsx`
+- `cd packages/auth-frontend/base && pnpm exec vitest run --config vitest.config.ts src/api/__tests__/client.test.ts`
+- `pnpm --filter @universo/scripting-engine test -- src/compiler.test.ts src/runtime.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/publications/ui/__tests__/PublicationVersionList.test.tsx`
+- `wc -l docs/en/guides/metahub-scripting.md docs/ru/guides/metahub-scripting.md docs/en/guides/quiz-application-tutorial.md docs/ru/guides/quiz-application-tutorial.md`
+- `pnpm build` passed successfully.
+
+
+## 2026-04-06 Admin And Application Dialog Settings GitBook Closure
+
+Closed the documentation/tutorial closure for the admin and application dialog settings wave after the earlier product implementation was already complete. This pass finished the missing GitBook coverage, added a reproducible Playwright screenshot generator for the quiz tutorial, fixed the real build defects that surfaced during that browser/docs validation path, and ended with the canonical full-root build.
+
+| Area | Resolution |
+| --- | --- |
+| GitBook coverage | Rewrote the EN/RU `metahub-scripting.md`, `platform/metahubs.md`, and `platform/applications.md` pages; added new EN/RU `platform/admin.md` and `guides/quiz-application-tutorial.md`; and updated both `docs/*/SUMMARY.md` files so the new pages are part of the GitBook navigation. |
+| EN/RU parity | The touched EN/RU page pairs were kept in structural parity, and the docs diagnostics pass reported no file-level errors on the rewritten pages. |
+| Tutorial screenshots | Added `tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts`, which provisions the quiz tutorial state through API helpers and captures `metahub-scripts.png`, `layout-quiz-widget.png`, `application-settings-general.png`, and `runtime-quiz.png` into `docs/assets/quiz-tutorial/`. |
+| Build-fix cleanup | The screenshot/doc validation wave exposed real defects that were then fixed in the shipped branch: a missing SQL-parameter comma in `applicationsStore.ts`, the missing `settings` field in the applications update schema, shared dialog `maxWidth` typing/export drift in `@universo/template-mui`, and broken publication-dialog JSX in metahubs frontend consumers. |
+| Validation | Focused package builds passed for the touched backend/frontend/shared-dialog seams, `pnpm run build:e2e` finished green with `30 successful`, the final quiz tutorial screenshot generator passed with `2 passed`, all four screenshot assets were written to `docs/assets/quiz-tutorial/`, and the canonical root `pnpm build` finished green with `30 successful`, `17 cached`, and `3m15.638s`. |
+
+### Validation
+
+- Docs parity check on the touched EN/RU pages completed successfully.
+- Docs diagnostics on the rewritten pages reported no errors.
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts --project generators`
+- Verified the four generated files under `docs/assets/quiz-tutorial/`.
+- `pnpm build` passed successfully.
 **The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
 | Release      | Date       | Codename                                           | Highlights                                                                                          |
 | ------------ | ---------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 0.57.0-alpha | 2026-04-03 | 0.57.0 Alpha — 2026-04-03                          | QA remediation, controller extraction, domain-error cleanup, Playwright CLI hardening              |
 | 0.56.0-alpha | 2026-03-27 | 0.56.0 Alpha — 2026-03-27 (Cured Disease) 🤒      | Entity-display fixes, codename JSONB/VLC convergence, security hardening, csurf replacement        |
 | 0.55.0-alpha | 2026-03-19 | 0.55.0 Alpha — 2026-03-19 (Best Role) 🎬          | DB access standard, start app, platform attributes, admin roles/metapanel, application workspaces, bootstrap superuser |
 | 0.54.0-alpha | 2026-03-13 | 0.54.0 Alpha — 2026-03-13 (Beaver Migration) 🦫   | MetaHub drag-and-drop ordering, nested hubs, create options/settings UX, optimistic CRUD, SQL-first convergence |
@@ -43,6 +89,177 @@
 | 0.23.0-alpha | 2025-08-05 | 0.23.0 Alpha — 2025-08-05 (Vanishing Asteroid) ☄️ | Russian docs, UPDL node params                                                                      |
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
+
+## 2026-04-06 QA Remediation Closure For Dialog Settings And GitBook Coverage
+
+Closed the only confirmed residual QA debt that remained after the admin/application dialog settings and GitBook documentation wave had already shipped. This pass stayed intentionally narrow: align stale targeted test expectations with the working production contracts, clean the remaining mixed-language prose from the touched Russian docs, and end with fresh green validation evidence.
+
+| Area | Resolution |
+| --- | --- |
+| Frontend regression closure | `ApplicationSettings.test.tsx` now asserts the shipped UI through stable selectors and the current limits-copy contract, removing the stale `Popup window size` text ambiguity and the outdated limits-availability expectations. |
+| Backend regression closure | `applicationsRoutes.test.ts` now asserts the real copy insert order where `settings` is persisted before `slug`, so the slug-collision regressions match the current production contract instead of the pre-settings test assumptions. |
+| RU GitBook cleanup | The touched Russian `applications`, `metahubs`, `metahub-scripting`, and `quiz-application-tutorial` pages were rewritten to remove the mixed-language prose while preserving the shipped EN/RU documentation structure. |
+| Validation | Focused `@universo/applications-frontend` Vitest passed (`3/3`), focused `@universo/applications-backend` Jest route coverage passed (`51/51`), and the canonical root `pnpm build` finished green with `30 successful`, `30 cached`, and `287ms`. |
+
+### Validation
+
+- `pnpm --filter @universo/applications-frontend test -- --run src/pages/__tests__/ApplicationSettings.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Final QA Remediation For Publication Versions And Docs Polish
+
+Closed the last confirmed QA findings that remained after the renewed final QA sweep for the dialog-settings, scripting, and quiz tutorial wave. This pass fixed the real browser crash on the publication versions route, added the missing focused frontend coverage, cleaned the remaining mixed-language prose from the touched Russian docs, and ended with fresh browser/runtime/build validation.
+
+| Area | Resolution |
+| --- | --- |
+| Publication versions browser regression | `PublicationVersionList.tsx` now gates the publication settings dialog behind loaded `publicationData`, preventing the `/metahub/:metahubId/publication/:publicationId/versions` crash that previously broke the browser-authoring quiz flow. |
+| Focused regression coverage | Added `packages/metahubs-frontend/base/src/domains/publications/ui/__tests__/PublicationVersionList.test.tsx` to prove the versions page stays stable before publication details load and still opens the settings dialog once details exist. Added `packages/admin-frontend/base/src/pages/AdminSettings.test.tsx` to lock the shipped admin General-tab dialog settings save path. |
+| RU docs polish | Cleaned the remaining mixed EN/RU prose in the touched Russian `quiz-application-tutorial`, `metahub-scripting`, `platform/applications`, and `platform/metahubs` pages without changing links, asset paths, or page structure. |
+| Browser validation | The requested Playwright reruns all completed successfully: `application-runtime-scripting-quiz-browser-authoring.spec.ts`, `application-runtime-scripting-quiz.spec.ts`, and `docs-quiz-tutorial-screenshots.spec.ts` each exited with code `0`. |
+| Environment hygiene | `pnpm run test:e2e:cleanup && pnpm run test:e2e:doctor -- --assert-empty` finished clean after the targeted browser runs, confirming there were no leftover project-owned schemas, auth users, or local E2E artifacts. |
+| Final repository validation | The canonical root `pnpm build` finished green with `30 successful`, `21 cached`, and `2m50.684s`. |
+
+### Validation
+
+- `VITEST_COVERAGE=false pnpm --filter @universo/metahubs-frontend test -- --run src/domains/publications/ui/__tests__/PublicationVersionList.test.tsx`
+- `pnpm --filter @universo/admin-frontend test -- --run src/pages/AdminSettings.test.tsx`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/application-runtime-scripting-quiz-browser-authoring.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/application-runtime-scripting-quiz.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts`
+- `pnpm run test:e2e:cleanup && pnpm run test:e2e:doctor -- --assert-empty`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Dialog Header Polish And Quiz Script Discoverability
+
+Closed the follow-up UX polish requested immediately after the shared dialog and centered-quiz delivery. This pass stayed narrow: remove the remaining oversized right gap around the shared dialog fullscreen button, localize the top-right header icon tooltips, rename the dialog close setting to popup-window wording, and repair the metahub Scripts-tab scope mismatch that hid the imported quiz script from the user.
+
+| Area | Resolution |
+| --- | --- |
+| Shared dialog header polish | The shared title-action group now sits tighter to the right edge because the dialog title wrappers no longer add extra right padding and the shared action stack applies the stronger right-edge compensation. |
+| Header tooltip localization | `DialogPresentationProvider` now accepts localized reset/expand/restore/resize labels, and `MetahubDialogSettingsProvider` supplies them from the metahubs i18n bundle so the top-right icon tooltips follow the current UI language. |
+| Settings wording | The metahub common setting now shows `Popup window type` / `Тип всплывающих окон` with `Modal windows` / `Модальные окна` and `Non-modal windows` / `Немодальные окна`, while preserving the existing `strict-modal` and `backdrop-close` stored values. |
+| Quiz script discoverability | The committed quiz fixture stores `quiz-widget` as a metahub-level script with `attachedToId = null`; the metahub edit dialog previously opened the Scripts tab with `attachedToId = metahubId`, so imported quiz scripts disappeared from the list. `MetahubActions` now opens the Scripts tab in true metahub-level scope, making the imported quiz questions editable again through the UI. |
+| Validation | Focused `@universo/template-mui` Jest passed (`6/6`), focused `@universo/metahubs-frontend` Vitest passed (`6/6`), and the final root `pnpm build` verification finished green with `30 successful`, `30 cached`, and `286ms`. |
+
+### Validation
+
+- `pnpm --filter @universo/template-mui test -- --runInBand src/components/dialogs/__tests__/EntityFormDialog.test.tsx`
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/actionsFactories.test.ts`
+- `pnpm build` passed successfully.
+
+## 2026-04-05 Dialog UX And Centered Quiz Layout Refresh
+
+Closed the dialog UX and centered quiz layout wave that was still active in the memory-bank context. The shared dialog seam now matches the requested fullscreen/resize/strict-modal behavior, and the canonical quiz snapshot/runtime path is aligned around a standalone centered `quizWidget` instead of the legacy left-menu plus details-table plus right-sidebar layout.
+
+| Area | Resolution |
+| --- | --- |
+| Shared dialog UX | The shared dialog presentation seam now keeps the requested fullscreen/reset affordances, visible strict-modal outside-click feedback, and reliable resize cursor/user-select cleanup with persisted custom sizing. |
+| Dialog regression coverage | Focused `EntityFormDialog` coverage now locks fullscreen/reset controls, strict-modal attention feedback, and resize lifecycle cleanup so the shared modal seam cannot silently drift. |
+| Centered quiz contract | The canonical quiz layout contract disables the side menu, details table/title, and right-side widgets so `quizWidget` renders as a standalone centered center-zone widget. |
+| Generator and fixture | The real Playwright generator rewrote `tools/fixtures/metahubs-quiz-app-snapshot.json` from the centered-quiz contract rather than from a hand-edited artifact path. |
+| Browser/runtime proof | Targeted Playwright flows now prove browser authoring, published runtime execution on `/a/...`, and snapshot import/runtime behavior for the centered quiz contract. |
+| Validation | Focused dialog and apps-template tests passed, `pnpm run build:e2e` passed, the quiz generator passed with `2 passed`, the targeted quiz Playwright rerun passed with `4 passed` (setup + 3 targeted flows), and the final root `pnpm build` finished green with `30 successful`, `30 cached`, and `599ms`. |
+
+### Validation
+
+- Focused shared dialog regression test passed.
+- Focused apps-template `MainGrid` quiz-center regression test passed.
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical quiz metahub"`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "completed through browser surfaces before runtime verification|execute through the real /a browser surface|publication/application/runtime behavior"`
+- `pnpm build` passed successfully.
+
+## 2026-04-05 Frontend Test Warning Remediation
+
+Closed the only confirmed residual QA debt left after the 2026-04-05 scripting/dialog closure. The product/runtime/security plan was already complete; this final remediation was intentionally limited to noisy MUI `anchorEl` warnings inside the scripting-related frontend jsdom suites plus the small formatting drift needed to keep the touched package lint-clean at the error level.
+
+| Area | Resolution |
+| --- | --- |
+| MUI test warning closure | The affected metahubs frontend dialog/script tests now mock a stable non-zero `HTMLElement.prototype.getBoundingClientRect`, which satisfies MUI `Popover` anchor layout validation in jsdom without changing production code. |
+| Interaction stability | The tests keep the existing `user.click(...)` interaction path for `Select` controls, so the warning cleanup does not change the behavior being proved. |
+| Package hygiene | Touched formatting drift in the same `@universo/metahubs-frontend` scope was cleaned so package lint no longer fails with error-level issues after the remediation. |
+| Validation | Focused `@universo/metahubs-frontend` dialog/script tests passed (`9/9`), the warning string `anchorEl` no longer appeared in the captured test log, package lint finished without errors, and the final root `pnpm build` passed with `30 successful`, `27 cached`, and `56.386s`. |
+
+### Validation
+
+- Focused `@universo/metahubs-frontend` dialog/script test run passed (`9/9`).
+- Captured frontend test log no longer contained the warning string `anchorEl`.
+- `pnpm --filter @universo/metahubs-frontend lint` finished without error-level failures.
+- `pnpm build` passed successfully.
+
+## 2026-04-05 Metahub Dialog Settings And Scripts Tab Responsiveness
+
+Closed the metahub dialog/settings/scripts UX wave requested after the earlier scripting closure. The repository now exposes global metahub dialog presentation settings, applies them through one shared presentation seam across shared and direct dialogs, removes the false Turbo warning from the typecheck-only extension SDK package, and keeps the Scripts tab usable on narrow dialogs without page-level horizontal overflow.
+
+| Area | Resolution |
+| --- | --- |
+| Turbo warning cleanup | `@universo/extension-sdk` now carries a package-level Turbo override with `build.outputs = []`, which matches its intentional `tsc --noEmit` contract and removes the false "no output files found" warning without generating fake artifacts. |
+| Shared settings contract | Added the metahub common settings `common.dialogSizePreset`, `common.dialogAllowFullscreen`, `common.dialogAllowResize`, and `common.dialogCloseBehavior`, with registry/UI/i18n support and defaults `medium`, `true`, `true`, and `strict-modal`. |
+| Shared dialog runtime | `@universo/template-mui` now owns the reusable dialog presentation provider/hook, including preset sizing, fullscreen expand/collapse, resize handle with localStorage persistence, reset-to-default affordance, and strict-modal close blocking. |
+| Metahub integration | `@universo/metahubs-frontend` now bridges settings into dialog behavior through `MetahubDialogSettingsProvider` / `withMetahubDialogSettings(...)`, and both shared dialogs plus direct MUI dialogs were aligned to the same presentation contract. |
+| Scripts tab redesign | `EntityScriptsTab` now uses `ResizeObserver` container-width logic instead of viewport breakpoints, switches between compact/split layouts, collapses the attached-scripts list on narrow dialogs, and confines horizontal overflow to the editor shell only. |
+| Regression coverage | Added focused unit coverage for dialog controls and Scripts-tab responsiveness, plus targeted Playwright flows that prove dialog fullscreen/resize/strict-modal behavior, settings persistence, compact layout behavior, and no page-level horizontal overflow in a real browser. |
+| Validation | Focused template-mui dialog tests passed, focused metahubs-frontend Scripts-tab tests passed, the targeted Playwright dialog/scripts flow passed, the targeted Playwright settings flow passed, and the final root `pnpm build` finished green after fixing one MUI-compatible `onClose` typing issue in `dialogPresentation.tsx`. |
+
+### Validation
+
+- Focused template-mui dialog control test passed.
+- Focused metahubs-frontend Scripts-tab responsiveness test passed.
+- Targeted Playwright dialog/scripts regression flow passed.
+- Targeted Playwright metahub settings persistence flow passed.
+- `pnpm build` passed successfully.
+
+## 2026-04-05 Quiz Snapshot Fixture Export And Import Validation
+
+Closed the durable fixture wave requested after the scripting/runtime closure: the repository now ships a committed snapshot artifact for the full quiz metahub, the snapshot export/import path preserves design-time scripts instead of only publication bundles, and the imported artifact is proven to create a real application whose runtime still matches the final quiz product contract.
+
+| Area | Resolution |
+| --- | --- |
+| Snapshot script round-trip | `SnapshotRestoreService` now restores `_mhb_scripts` with attachment-id remapping, and metahub export augments `snapshot.scripts` with live `sourceCode` before hashing so imported scripting metahubs remain republishable. |
+| Canonical fixture contract | Added `tools/testing/e2e/support/quizFixtureContract.ts` as the single source of truth for the bilingual 10-question quiz content, canonical widget script source, fixture identity, and fail-closed snapshot assertions. |
+| Committed fixture artifact | Added the Playwright generator `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` and generated the committed artifact `tools/fixtures/metahubs-quiz-app-snapshot.json` through the real export pipeline instead of hand-editing JSON. |
+| Import/application/runtime proof | Added `tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts`, which proves browser-UI import, restored design-time metahub scripts, application creation from the imported publication, and the full EN/RU quiz contract: 10 questions, 4 answers each, +1 only for correct answers, no score increment for wrong answers, final score summary, and restart/back navigation. |
+| Validation | Focused metahubs-backend Jest passed, `pnpm run build:e2e` passed, the quiz generator passed with `2 passed`, the quiz import/runtime flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `23.399s`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts -t "SnapshotRestoreService|GET /metahub/:metahubId/export"`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts --project generators`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts --grep "quiz snapshot fixture imports through the browser UI and preserves publication/application/runtime behavior"`
+- `pnpm build` passed successfully
+
+## 2026-04-05 Scripting QA Gap Closure And Final Plan Completion
+
+Closed the previously identified QA gaps and the remaining final-plan completion debt for the metahub scripting wave. This last 2026-04-05 pass stayed intentionally narrow: add durable benchmark evidence, harden startup/runtime compatibility proof, finish the missing browser authoring seam, close the real auth and authoring UX defects found by browser validation, and rerun the final validation stack.
+
+| Area | Resolution |
+| --- | --- |
+| Benchmark proof | `@universo/scripting-engine` now ships reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127` from the verified session run. |
+| Startup compatibility proof | Core-backend startup now validates the `isolated-vm` / `--no-node-snapshot` contract explicitly before serving, and startup regression coverage locks that compatibility seam. |
+| Legacy publication compatibility | Publication/runtime normalization now treats missing legacy `snapshot.scripts` as a supported path instead of assuming modern snapshots only, and regression coverage proves that fallback. |
+| Browser authoring surface | Layout details now expose `quizWidget` `scriptCodename` so the authoring UI matches the runtime widget contract without manual data patching. |
+| Real browser proof | Added the browser-authored Playwright flow that creates a metahub, authors a script in the browser, configures a widget, publishes, creates an application, and performs runtime smoke verification on the real `/a/...` surface. |
+| Shared auth defect closure | `auth-frontend` now retries one CSRF-protected request once after HTTP `419` with a fresh token, which fixed the real shared defect exposed by the browser-authored flow. |
+| Authoring UX defect closure | `EntityScriptsTab` now reapplies target-role default capabilities for untouched drafts when switching from `module` to `widget`, so widget drafts retain default `rpc.client` instead of keeping only the overlapping `metadata.read` capability. |
+| Final validation | Focused auth-frontend Vitest passed, focused metahubs-frontend `EntityScriptsTab` coverage passed, the browser-authored Playwright flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `3m54.625s`. |
+
+### Validation
+
+- Focused auth-frontend CSRF retry regression passed.
+- Focused metahubs-frontend `EntityScriptsTab` regression passed.
+- Browser-authored Playwright flow passed with `2 passed`.
+- Final root `pnpm build` passed with `30 successful`, `27 cached`, `3m54.625s`.
+
+## 2026-04-05 Earlier Scripting Closure Archive
+
+The earlier same-day scripting entries are intentionally condensed here so the file keeps one durable closure trail for the whole wave instead of six overlapping records.
+
+- Runtime hardening is complete: SDK-only compiler imports, restricted Worker execution, pooled `isolated-vm` server runtime, dedicated client-bundle delivery, fail-closed `_app_scripts` sync, and fail-closed public RPC boundaries are all shipped.
+- Product delivery is complete: the Space Quiz starter contract, `quizWidget` runtime UX, design-time CRUD coverage, direct publish/runtime proof, and EN/RU plan/doc parity all landed before the final QA-gap pass.
+- Reusable scripting contracts now stay aligned across authoring, publication, runtime, and validation through shared role/capability normalization, explicit dual-target support, and enforced `sdkApiVersion` compatibility (`1.0.0`).
+- Earlier same-day focused backend/frontend/runtime suites and root-build validation stayed green before the final closure rerun above.
 
 ## 2026-04-04 QA Remediation Closure For Self-Hosted Parity Lint Debt
 
@@ -94,9 +311,9 @@ Closed the next concrete self-hosted drift cluster that became visible only afte
 
 | Area | Resolution |
 | --- | --- |
-| Imported metahub codename contract | `importFromSnapshot` now derives the imported metahub codename from the localized imported metahub name, producing canonical EN/RU codename locales under the active codename policy. Deterministic `Imported` / `Импорт` suffixes are used only when a real codename collision already exists, replacing the old timestamp/random-noise strategy. |
+| Imported metahub codename contract | `importFromSnapshot` now derives the imported metahub codename from the localized imported metahub name, producing canonical EN/RU codename locales under the active codename policy. Deterministic localized imported suffixes are used only when a real codename collision already exists, replacing the old timestamp/random-noise strategy. |
 | Default `Main` entity codename contract | `buildTemplateSeedEntityCodenameValue()` now normalizes the primary English codename from the localized entity name instead of preserving raw template seed keys like `MainHub` / `MainCatalog`, and `TemplateSeedMigrator` now reuses the same logic for incremental seed application. |
-| Self-hosted fixture contract | The canonical self-hosted section list no longer defines the deprecated standalone `Enumeration Values` / `Значения перечислений` catalog, and the shared contract assertions now fail loudly if either that catalog or the legacy type-suffixed `Main*` codenames reappear in the committed snapshot. |
+| Self-hosted fixture contract | The canonical self-hosted section list no longer defines the deprecated standalone `Enumeration Values` catalog, and the shared contract assertions now fail loudly if either that catalog or the legacy type-suffixed `Main*` codenames reappear in the committed snapshot. |
 | Committed fixture regeneration | The real self-hosted Playwright generator reran successfully and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`; the regenerated artifact now exports plain `Main` codenames for the default entities and 11 canonical self-hosted sections without the deprecated enumeration-values catalog. |
 | Browser-flow validation | The targeted Playwright browser flow `self-hosted app snapshot fixture imports through the browser UI and restores MVP structure` passed against the regenerated committed snapshot, confirming that the new codename/section contract remains valid in the real import path. |
 | Final validation | Focused metahubs-backend route/template tests passed, `pnpm run build:e2e` passed, the real self-hosted generator rerun passed (`2 passed`), the targeted browser import flow passed (`2 passed`), and the canonical root `pnpm build` finished green with `28/28` successful tasks. |
@@ -106,7 +323,7 @@ Closed the next concrete self-hosted drift cluster that became visible only afte
 - `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/metahubsRoutes.test.ts src/tests/services/templateSeedTransactionScope.test.ts`
 - `pnpm run build:e2e`
 - `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
-- targeted sanity check on `tools/fixtures/metahubs-self-hosted-app-snapshot.json` confirmed the absence of `MainHub` / `MainCatalog` / `MainSet` / `MainEnumeration` and `Enumeration Values` / `Значения перечислений`
+- targeted sanity check on `tools/fixtures/metahubs-self-hosted-app-snapshot.json` confirmed the absence of `MainHub` / `MainCatalog` / `MainSet` / `MainEnumeration` and the standalone `Enumeration Values` catalog
 - `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --grep "self-hosted app snapshot fixture imports through the browser UI and restores MVP structure"`
 - `pnpm build` passed successfully
 
@@ -119,7 +336,7 @@ Closed the next honest defect cluster found only after the user did a full rebui
 | Publication cache-shape collision | `useMetahubPublicationName()` now uses its own breadcrumb query key instead of reusing publication detail cache storage, eliminating the object/string collision that could surface as an empty publication settings name or `[object Object]` breadcrumbs after repeated navigation. |
 | Application settings header chrome | `ApplicationSettings` no longer passes the application display name as `ViewHeader.description`, so the page renders only the intended main title instead of a duplicated subtitle. |
 | Self-hosted live codename contract | The shared self-hosted generator builder now returns a valid CodenameVLC payload for live metahub creation, matching the backend `requiredCodenamePayloadSchema` instead of posting a plain locale map. |
-| Committed fixture regeneration | The Playwright self-hosted generator reran successfully and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`; the committed artifact now contains the stable canonical EN/RU metahub codename locales and exactly one canonical left-side `menuWidget` (`Catalogs` / `Каталоги`). |
+| Committed fixture regeneration | The Playwright self-hosted generator reran successfully and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`; the committed artifact now contains the stable canonical EN/RU metahub codename locales and exactly one canonical left-side `Catalogs` menuWidget. |
 | Real consumer validation | The targeted browser import flow for `self-hosted app snapshot fixture imports through the browser UI and restores MVP structure` passed against the regenerated committed fixture, confirming the export/import consumer path stays green after the codename/menu-widget corrections. |
 | Final validation | Targeted `applications-frontend` and `template-mui` regression tests passed, `pnpm run build:e2e` remained green, the Playwright generator rerun passed (`2 passed`), the targeted browser import flow passed (`2 passed`), and the final root `pnpm build` finished green with `28/28` successful tasks. |
 
@@ -595,263 +812,24 @@ Introduced one shared spacing contract for non-list pages and migrated the known
 - `pnpm build` passed (`28/28`).
 - Latest full browser suite stayed green (`42/42`).
 
-## 2026-04-02 Final E2E Hardening Closure and Full-Suite Green
+## 2026-04-02 To 2026-03-11 Condensed Archive
 
-Closed the last helper and route-timing regressions in the Playwright suite without weakening assertions.
+Earlier April and late-March closures remain part of the durable project history, but they are intentionally compressed here so `progress.md` keeps the current scripting and self-hosted context readable.
 
-| Area | Resolution |
-| --- | --- |
-| Create/copy determinism | Replaced brittle `waitForResponse(...)` timing dependencies with backend-persistence confirmation in the touched metahub flows. |
-| Guarded routes | Direct navigation to guarded metahub pages now waits through the transient migration-guard shell before steady-state assertions. |
-| Regression contract | Publication variants, admin RBAC, metahub create/copy/delete, and branch flows remained green after the last fixes. |
-| Validation | Targeted reruns stayed green before the final full suite. |
-
-### Validation
-- `pnpm run test:e2e:full` finished at `42 passed`.
-- Targeted route-flow reruns stayed green on the same wave.
-
-## 2026-04-02 Extended Playwright Coverage, Restart-Safe Validation, and Diagnostics
-
-Expanded browser acceptance coverage around locale/theme, restart-safe startup, diagnostics, publication variants, codename UX, and workspace isolation.
-
-| Area | Resolution |
-| --- | --- |
-| Locale/theme matrix | Added focused Russian and dark-theme coverage without cloning the entire CRUD surface. |
-| Restart-safe checks | Added sequential start-stop-start validation against the same e2e environment. |
-| Diagnostics | Added bounded browser diagnostics and artifact capture for long-lived dialog investigation. |
-| Product flows | Covered publication create variants, metahub create options, codename autofill/reset, dialog regressions, pre-schema limits, and workspace isolation. |
+| Date | Theme | Durable outcome |
+| --- | --- | --- |
+| 2026-04-02 | Playwright full-suite hardening | Closed the route-timing, determinism, restart-safe, diagnostics, locale/theme, and route-surface browser-testing waves; the full suite stayed green at `42/42`. |
+| 2026-04-01 | Supabase auth + E2E QA | Unified HS256/JWKS verification, kept RLS cleanup correct, hardened the E2E runner/cleanup contract, and closed the cross-package QA bug/dead-code/public-route wave. |
+| 2026-03-31 | Breadcrumbs + security | Stabilized breadcrumb/query restore behavior, fixed JSONB/text selector drift, and closed the late-March dependency/security hardening tail. |
+| 2026-03-30 | Metahubs/applications refactor | Completed the 9-phase backend/frontend decomposition into thin routes, controllers/services/stores, shared hooks, and shared mutation/error helpers. |
+| 2026-03-28 to 2026-03-27 | CSRF + vulnerability cleanup | Replaced `csurf`, removed dead dependency/override debt, and closed the March CVE batch while keeping the build/test surface green. |
+| 2026-03-25 to 2026-03-24 | Codename/VLC convergence | Finished admin-role codename VLC enablement and the broader codename JSONB single-field contract across schemas, routes, copy flows, and frontend authoring. |
+| 2026-03-19 | Bootstrap + application workspaces | Closed bootstrap superuser startup plus the application workspaces UX, breadcrumb, seed-data, and limits follow-through. |
+| 2026-03-14 to 2026-03-11 | SQL-first platform foundation | Standardized request/pool/DDL DB access tiers, stabilized optional global-catalog lifecycle behavior, converged fixed system apps, expanded acceptance coverage, and finalized runtime-sync ownership plus managed naming helpers. |
 
 ### Validation
-- `test:e2e:restart-safe` and diagnostics commands verified on the same remediation wave.
-- Flow inventory and full-suite verification stayed aligned with the documented README state.
 
-## 2026-04-02 Playwright Full-Suite Closure and Route-Surface Completion
-
-Finished the remaining route-surface coverage planned for the browser-testing program.
-
-| Area | Resolution |
-| --- | --- |
-| Linked-application stability | Removed retry masking and stabilized the linked application creation path through real publication readiness checks. |
-| Board and route surfaces | Added browser coverage for board pages, admin role-users, application lists, layouts, connectors, migration history, and runtime CRUD through existing UI surfaces only. |
-| Documentation parity | README and browser-testing guidance now reflect the validated route inventory and suite contract. |
-
-### Validation
-- Full route-surface coverage passed on the owned server.
-- Flow inventory and suite counts were refreshed in docs during the same closure wave.
-
-## 2026-04-01 Playwright Determinism and Linked Application Stability Hardening
-
-Stabilized the Playwright runtime contract and the publication-linked application path under full-suite load.
-
-| Area | Resolution |
-| --- | --- |
-| Runtime determinism | Pinned browser defaults, artifact cleanup, and timeout/motion behavior. |
-| Linked application flow | Added publication-ready polling and bounded retry only for the known narrow generic-500 seam. |
-| Suite reliability | The full flow slice and the full suite stopped relying on transport timing luck. |
-
-### Validation
-- Full flow slice green.
-- Full browser suite green after the hardening pass.
-
-## 2026-04-01 Supabase JWT/JWKS Compatibility Remediation — COMPLETE
-
-Resolved the auth/runtime incompatibility between legacy HS256 projects and modern Supabase JWKS-backed JWT projects.
-
-| Area | Resolution |
-| --- | --- |
-| Shared verification contract | Added one shared verifier that supports legacy `SUPABASE_JWT_SECRET` and modern JWKS validation. |
-| RLS parity | Request auth and RLS setup now reuse the same verification path and no longer diverge on token shape. |
-| Startup/env contract | Startup validation now accepts JWKS-era Supabase projects without forcing deprecated secret-only configuration. |
-| Cleanup ordering | `ensureAuthWithRls` no longer releases the request session too early on aborted requests. |
-| Docs | Backend docs and env guidance now explain JWKS support and pooler expectations for RLS workloads. |
-
-### Validation
-- Focused auth/core tests passed for both HS256 and JWKS paths.
-- Build and browser validation passed against the updated Supabase test project.
-
-## 2026-04-01 E2E Browser Testing QA Remediation — COMPLETE
-
-Closed the foundational QA debt in the browser-testing stack.
-
-| Area | Resolution |
-| --- | --- |
-| Cleanup safety | Retained manifests on partial teardown and made repeated cleanup idempotent enough to recover orphaned resources. |
-| Runtime boundary | Separated backend-only env loading from frontend e2e env overrides. |
-| Runner safety | Locked suite execution and stopped silently reusing stale servers by default. |
-| Access defaults | Moved the default browser persona away from `Superuser` to least-privilege coverage where possible. |
-| Visual layer | Added and documented committed Playwright snapshots with an explicit refresh workflow. |
-
-### Validation
-- End-to-end browser foundation validated against the real workspace runtime.
-
-## 2026-04-01 Comprehensive QA Fix — ALL 16 ISSUES RESOLVED
-
-Closed the broad cross-package QA report that covered bugs, architecture drift, public routes, and dead code.
-
-| Area | Resolution |
-| --- | --- |
-| Product bugs | Fixed dialog-open state, breadcrumb fallback handling, and Metahub schema-sync response shape. |
-| Backend architecture | Replaced remaining raw controller errors with domain errors and extracted the large public routes controller. |
-| Public-route hardening | Added limit/offset validation and DTO filtering on the public metahubs surface. |
-| Frontend cleanup | Removed dead hooks and migrated the touched list pages to `useListDialogs`. |
-| Validation | Full workspace build plus full Jest/Vitest validation stayed green. |
-
-## 2026-03-31 Late-March QA, Breadcrumbs, And Security Summary
-
-The late-March wave focused on two threads: repository hardening and the large breadcrumb/query-state cleanup.
-
-| Theme | Resolution |
-| --- | --- |
-| Breadcrumb refresh | Fixed the final root cause in `queryClient.clear()` during initial auth restore, then aligned retry/refetch behavior and authenticated client usage across breadcrumb hooks. |
-| Attribute/codename UX | Restored the attribute-create button after VLC codename typing drift and fixed connector/metahub selector failures caused by JSONB/text SQL mismatches. |
-| Security hardening | Upgraded/patched vulnerable dependency chains, removed hardcoded-secret fallbacks, and improved supply-chain policy (`minimumReleaseAge`, trust settings, exotic subdep blocking). |
-| Cleanup | Removed dead hooks, dead comments, and remaining pre-refactor debt uncovered by the QA passes. |
-
-### Representative validated outcomes
-- Full build stayed green across the security and breadcrumb waves.
-- Touched Jest/Vitest suites were rerun on each closure wave.
-- The browser suite stayed green after the final breadcrumb/query fix.
-
-## 2026-03-30 Metahubs & Applications Refactoring — ALL 9 PHASES COMPLETE
-
-Completed the main structural refactor that split oversized route and frontend list surfaces into reusable abstractions.
-
-| Phase | Resolution |
-| --- | --- |
-| Backend | Route files became thin registrations; controllers/services/stores and `asyncHandler` / `createMetahubHandler` became the default pattern. |
-| Frontend | Large list pages were split into data hooks, utils, and presentation layers; shared mutation/error helpers were introduced. |
-| Performance | Reused shared hub queries and batch child-attribute loading to remove repeated query work. |
-| Testing and docs | Added direct tests for the new abstractions and updated package READMEs plus memory-bank context. |
-
-### Validation
-- Workspace build green.
-- Touched backend/frontend test suites green.
-
-## 2026-03-28 Comprehensive Cleanup & csurf Replacement
-
-Replaced deprecated `csurf` with a local CSRF middleware and removed a large dead-dependency tail.
-
-| Area | Resolution |
-| --- | --- |
-| CSRF contract | Preserved session-secret storage, `req.csrfToken()`, header/body/query token handling, and the existing 419 error mapping. |
-| Dependency cleanup | Removed dead frontend devDependencies, stale Babel/browserlist config, and orphan root overrides. |
-| Validation | Full build, lint, and large test surface stayed green after lockfile regeneration. |
-
-## 2026-03-27 Security Vulnerability Fixes (3 CVEs)
-
-Closed the initial late-March security batch.
-
-| CVE Theme | Resolution |
-| --- | --- |
-| `SESSION_SECRET` | Moved to fail-fast outside development and auto-generated only for local dev. |
-| `flatted` | Forced a patched transitive version through root overrides. |
-| `happy-dom` | Upgraded the testing environment package and catalog version to a safe release line. |
-
-### Validation
-- Build green.
-- Workspace tests green.
-
-## 2026-03-25 Admin Role Codename VLC Enablement
-
-Closed the last major admin-surface seam that still edited codenames as plain text.
-
-| Area | Resolution |
-| --- | --- |
-| Backend | Roles persistence now treats codename as VLC/JSONB at the store boundary while text comparisons use extracted primary text. |
-| Frontend | `RoleFormDialog` now uses `CodenameField` plus VLC-aware autofill and validation. |
-| Shared types | Role payloads and admin-facing role shapes now carry canonical codename VLC values instead of strings. |
-| QA follow-through | Fixed codename-specific validation wiring, copy truncation, route logging, and migration SQL parameter safety. |
-
-### Validation
-- Admin backend/frontend tests green.
-- Root build green.
-
-## 2026-03-24 Codename JSONB Final Contract Closure
-
-Closed the codename migration so the live architecture now treats codename as one canonical JSONB/VLC field across fixed schemas, snapshots, runtime metadata, backend routes, and touched frontend flows.
-
-| Area | Resolution |
-| --- | --- |
-| Fixed schemas and runtime metadata | Admin/metahubs fixed schemas plus runtime `_app_*` metadata now use one codename JSONB contract with extracted-primary text for lookup/order/uniqueness. |
-| Backend route contract | Touched metahubs/admin routes stopped exchanging split codename payloads and now normalize canonical VLC payloads through shared helpers. |
-| Frontend authoring | Touched metahubs/admin dialogs now use one canonical VLC codename value instead of split string/localized state. |
-| Copy/seeding flows | Template seed, copy, retry, and duplicate-check flows now derive uniqueness from primary text but persist through canonical VLC helpers. |
-| Browser export parity | Restored browser-safe export parity in `@universo/utils` so downstream dist consumers resolve the same codename helpers. |
-
-### Related closures on the same wave
-- Admin SQL helper security tightened for self-scoped authenticated introspection only.
-- PL/pgSQL `RETURN QUERY` strict-type issues fixed with explicit `::TEXT` casts.
-- Fixed-system metadata inspectors updated to understand JSONB codename rows.
-- Idempotent metahubs auth FK and quoting fixes closed fresh-bootstrap failures in the same time window.
-
-### Validation
-- Focused admin/metahubs/utils/frontend builds and tests green.
-- Final root build green.
-
-## 2026-03-19 Bootstrap Superuser Startup Closure
-
-Added automatic first-start bootstrap for the initial platform superuser.
-
-| Area | Resolution |
-| --- | --- |
-| Shared provisioning | Startup bootstrap and admin create-user reuse one canonical provisioning/rollback pipeline. |
-| Safe startup behavior | Bootstrap runs after migrations under advisory-lock protection and refuses unsafe elevation/reset scenarios. |
-| Env/CLI parity | Added the required bootstrap env flags and service-role requirements to backend runtime/docs. |
-| Follow-through | Later March follow-ups hardened rollback, protected-role mutation rules, and live integration coverage against real Supabase. |
-
-### Validation
-- Focused admin/core tests green.
-- Final root build green after the follow-up QA closures.
-
-## 2026-03-19 Application Workspaces UX, Breadcrumbs, Seed Data, And Limits Closure
-
-Closed the largest application workspaces follow-through wave after the public-access implementation landed.
-
-| Area | Resolution |
-| --- | --- |
-| Runtime limits | Moved limit state to a forward-compatible runtime table shape and fixed pre-schema/info-state UX. |
-| Workspace seed propagation | Publication seed data now materializes into personal workspaces instead of leaking into workspace-less rows. |
-| Breadcrumb/admin refresh | Cold reloads on application/publication/admin surfaces keep detail labels and menu visibility stable. |
-| Access model | Public discovery, join/leave, member access, and runtime/admin role boundaries were hardened across backend and frontend paths. |
-| UI polish | Start page offsets, onboarding progress, admin-entry routing, and runtime-limit banners were corrected across the same wave. |
-
-### Validation
-- Focused applications backend/frontend/template packages green.
-- Final root build green.
-
-## 2026-03-14 Unified Database Access Standardization
-
-| Area | Resolution |
-| --- | --- |
-| Three-tier contract | Standardized backend DB access around request-scoped RLS executors, pool executors, and explicit Tier 3 DDL boundaries. |
-| Enforcement | Added `tools/lint-db-access.mjs` as the policy gate for domain packages. |
-| Identifier safety | Hardened shared identifier helpers and optimistic-lock boundaries for SQL-first paths. |
-| Documentation | Synced READMEs, docs, and memory-bank architecture notes to the SQL-first contract. |
-
-## 2026-03-13 Optional Global Catalog, Metahub QA, And Definition Lifecycle
-
-| Area | Resolution |
-| --- | --- |
-| Optional catalog modes | The platform now supports catalog-enabled and catalog-disabled operation without forcing full definition-registry bootstrap on every startup. |
-| Lifecycle integrity | Imports/exports and doctor checks now rely on real lifecycle provenance instead of checksum parity alone. |
-| Metahub QA | Active-row parity, repeated-start stability, and sorting/filtering regressions were closed through focused QA reopens. |
-| Validation | Platform/backend/workspace validation remained green through the closure waves. |
-
-## 2026-03-12 System-App Structural Convergence And Acceptance Coverage
-
-| Area | Resolution |
-| --- | --- |
-| Structural convergence | Admin, profile, applications, and metahubs fixed schemas moved onto one application-like model. |
-| Metadata/compiler foundation | Added metadata observability, compiler artifact preservation, and fail-fast startup checks. |
-| Acceptance proof | Added direct frontend acceptance coverage for CRUD, sync dialogs, migration guards, runtime shells, and publication-linked flows. |
-
-## 2026-03-11 Registry, Naming, And Runtime Ownership Foundation
-
-| Area | Resolution |
-| --- | --- |
-| Runtime ownership | Application runtime sync ownership moved decisively into `@universo/applications-backend`. |
-| Managed naming | Shared schema-name helpers replaced local naming logic across bootstrap/runtime paths. |
-| Registry foundation | Definition lifecycle and export-health checks received their first stable baseline. |
+- Representative full-browser, focused Jest/Vitest, and root-build validations stayed green across these archived waves; see the original dated entries in repository history for the full command inventory.
 
 ## Older 2025-07 To 2026-02 Summary
 

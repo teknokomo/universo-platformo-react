@@ -48,5 +48,6 @@ export type { UseRolesOptions, UseRolesResult, UseAssignableGlobalRolesResult, U
 
 // Components
 export { ColorPicker, PermissionMatrix } from './components'
+export { AdminDialogSettingsProvider, withAdminDialogSettings } from './settings/AdminDialogSettingsProvider'
 
 // Pages are exported via package.json exports field: ./pages/*

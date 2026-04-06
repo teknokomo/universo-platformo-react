@@ -18,6 +18,7 @@
 ## Main Responsibilities
 
 - Управлять applications, connectors, memberships и publication links.
+- Выполнять опубликованные runtime scripts через fail-closed server bridge, который переиспользует runtime row helpers, workspace context и permission maps.
 - Экспортировать runtime sync, diff и release-bundle routes для managed application schemas.
 - Сохранять schema sync state в `applications.cat_applications` через SQL-first stores.
 - Хранить runtime release metadata в той же центральной sync-state surface.
@@ -35,6 +36,7 @@
 
 - Publication-driven sync и file-bundle install разделяют один и тот же schema sync engine.
 - Успешный sync записывает `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.cat_applications`.
+- Активные runtime script codenames уникальны в scope `(attached_to_kind, attached_to_id, module_role, codename)`, а sync чинит scoped index для существующих схем.
 - Advisory locking сериализует sync work для каждого application до начала schema changes.
 - Состояния maintenance и error сохраняются через тот же центральный store contract.
 

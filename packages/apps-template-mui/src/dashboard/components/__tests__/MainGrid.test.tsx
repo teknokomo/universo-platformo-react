@@ -22,7 +22,9 @@ vi.mock('../HighlightedCard', () => ({ default: () => <div /> }))
 vi.mock('../PageViewsBarChart', () => ({ default: () => <div /> }))
 vi.mock('../SessionsChart', () => ({ default: () => <div /> }))
 vi.mock('../StatCard', () => ({ default: () => <div /> }))
-vi.mock('../widgetRenderer', () => ({ renderWidget: () => <div /> }))
+vi.mock('../widgetRenderer', () => ({
+    renderWidget: (widget: { widgetKey: string }) => <div data-testid={`rendered-widget-${widget.widgetKey}`}>{widget.widgetKey}</div>
+}))
 
 vi.mock('@universo/template-mui', async () => {
     const React = await import('react')
@@ -148,5 +150,28 @@ describe('MainGrid enhanced runtime details', () => {
 
         expect(renderCell).toHaveBeenCalled()
         expect(screen.getByTestId('flow-list-table-first-cell')).toHaveTextContent('Alpha:Open')
+    })
+
+    it('renders standalone center-zone quiz widgets without requiring the details table', () => {
+        render(
+            <DashboardDetailsProvider value={details}>
+                <MainGrid
+                    layoutConfig={{ ...baseLayoutConfig, showDetailsTable: false, showDetailsTitle: false }}
+                    centerWidgets={[
+                        {
+                            id: 'quiz-widget-1',
+                            zone: 'center',
+                            widgetKey: 'quizWidget',
+                            sortOrder: 1,
+                            config: { scriptCodename: 'quiz-widget' }
+                        }
+                    ]}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('center-zone-widget-quizWidget')).toBeInTheDocument()
+        expect(screen.getByTestId('rendered-widget-quizWidget')).toBeInTheDocument()
+        expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
     })
 })

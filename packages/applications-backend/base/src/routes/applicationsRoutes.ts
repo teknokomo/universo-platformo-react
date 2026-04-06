@@ -5,6 +5,7 @@ import { asyncHandler } from '../shared/asyncHandler'
 import { createApplicationsController } from '../controllers/applicationsController'
 import { createRuntimeRowsController } from '../controllers/runtimeRowsController'
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
+import { createRuntimeScriptsController } from '../controllers/runtimeScriptsController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -18,6 +19,7 @@ export function createApplicationsRoutes(
     const app = createApplicationsController(getDbExecutor)
     const runtime = createRuntimeRowsController(getDbExecutor)
     const childRows = createRuntimeChildRowsController(getDbExecutor)
+    const runtimeScripts = createRuntimeScriptsController(getDbExecutor)
 
     // ── Application CRUD ──
     router.get('/', readLimiter, asyncHandler(app.list))
@@ -50,6 +52,9 @@ export function createApplicationsRoutes(
     router.patch('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.bulkUpdateRow))
     router.patch('/:applicationId/runtime/:rowId', writeLimiter, asyncHandler(runtime.updateCell))
     router.delete('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.deleteRow))
+    router.get('/:applicationId/runtime/scripts', readLimiter, asyncHandler(runtimeScripts.listScripts))
+    router.get('/:applicationId/runtime/scripts/:scriptId/client', readLimiter, asyncHandler(runtimeScripts.getClientBundle))
+    router.post('/:applicationId/runtime/scripts/:scriptId/call', writeLimiter, asyncHandler(runtimeScripts.callMethod))
 
     // ── Runtime child rows (tabular) ──
     router.get('/:applicationId/runtime/rows/:recordId/tabular/:attributeId', readLimiter, asyncHandler(childRows.listChildRows))

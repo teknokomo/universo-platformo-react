@@ -3,6 +3,7 @@ import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogCont
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CompactListTable, type TableColumn } from '@universo/template-mui'
+import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 import type { Hub } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingCatalogs, type BlockingHubObject } from '../domains/hubs'
@@ -118,6 +119,20 @@ export const HubDeleteDialog = ({
     const isLoading = blockingQuery.isLoading || blockingQuery.isFetching
     const error = blockingQuery.isError ? t('hubs.deleteDialog.fetchError', 'Failed to check for blocking entities') : null
     const canDelete = !isLoading && !error && totalBlocking === 0
+    const handleDialogClose = () => {
+        if (!isDeleting) onClose()
+    }
+    const presentation = useDialogPresentation({ open, onClose: handleDialogClose, fallbackMaxWidth: 'sm', isBusy: isDeleting })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, pr: 1 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {t('hubs.deleteDialog.title', 'Удалить хаб')}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        t('hubs.deleteDialog.title', 'Удалить хаб')
+    )
 
     const handleConfirm = () => {
         if (hub && canDelete) {
@@ -134,9 +149,16 @@ export const HubDeleteDialog = ({
     if (!hub) return null
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{t('hubs.deleteDialog.title', 'Удалить хаб')}</DialogTitle>
-            <DialogContent dividers>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm')}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+            <DialogContent dividers sx={mergeDialogSx(presentation.contentSx)}>
                 {isLoading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                         <CircularProgress />
@@ -228,13 +250,14 @@ export const HubDeleteDialog = ({
                 )}
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={isDeleting}>
+                <Button onClick={handleDialogClose} disabled={isDeleting}>
                     {t('common:actions.cancel', 'Отмена')}
                 </Button>
                 <Button onClick={handleConfirm} color='error' variant='contained' disabled={!canDelete || isDeleting}>
                     {isDeleting ? t('common:actions.deleting', 'Удаление...') : t('common:actions.delete', 'Удалить')}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

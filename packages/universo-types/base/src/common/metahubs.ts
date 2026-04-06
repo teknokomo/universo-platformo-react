@@ -2,6 +2,7 @@
 // Keep runtime-safe values for validation and enum-like usage.
 
 import type { VersionedLocalizedContent } from './admin'
+import type { ScriptAttachmentKind } from './scripts'
 
 /**
  * Supported attribute data types.
@@ -39,6 +40,12 @@ export type CodenameStyle = 'kebab-case' | 'pascal-case'
 
 /** Codename alphabet — which character sets are allowed in codenames. */
 export type CodenameAlphabet = 'en' | 'ru' | 'en-ru'
+
+/** Global metahub dialog width presets for modal editing surfaces. */
+export type DialogSizePreset = 'small' | 'medium' | 'large'
+
+/** How modal dialogs can be dismissed in metahub authoring surfaces. */
+export type DialogCloseBehavior = 'strict-modal' | 'backdrop-close'
 
 /** Tab groups for the Settings UI. */
 export type SettingsTab = 'general' | 'common' | 'hubs' | 'catalogs' | 'sets' | 'enumerations'
@@ -161,6 +168,37 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 9
+    },
+    // ── Common ──
+    {
+        key: 'common.dialogSizePreset',
+        tab: 'common',
+        valueType: 'select',
+        defaultValue: 'medium',
+        options: ['small', 'medium', 'large'] as const,
+        sortOrder: 1
+    },
+    {
+        key: 'common.dialogAllowFullscreen',
+        tab: 'common',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
+    },
+    {
+        key: 'common.dialogAllowResize',
+        tab: 'common',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 3
+    },
+    {
+        key: 'common.dialogCloseBehavior',
+        tab: 'common',
+        valueType: 'select',
+        defaultValue: 'strict-modal',
+        options: ['strict-modal', 'backdrop-close'] as const,
+        sortOrder: 4
     },
     // ── Hubs ──
     {
@@ -676,6 +714,7 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
     { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },
@@ -751,6 +790,17 @@ export interface ColumnsContainerColumn {
 export interface ColumnsContainerConfig {
     /** Ordered array of columns. Widths should sum to 12 for a balanced row. */
     columns: ColumnsContainerColumn[]
+}
+
+export interface QuizWidgetConfig {
+    title?: string
+    description?: string
+    scriptCodename?: string | null
+    attachedToKind?: Extract<ScriptAttachmentKind, 'metahub' | 'catalog'>
+    mountMethodName?: string
+    submitMethodName?: string
+    emptyStateTitle?: string
+    emptyStateDescription?: string
 }
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========

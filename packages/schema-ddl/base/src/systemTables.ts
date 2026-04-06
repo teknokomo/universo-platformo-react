@@ -13,6 +13,7 @@ const SYSTEM_TABLE_ORDER = [
     '_app_objects',
     '_app_attributes',
     '_app_values',
+    '_app_scripts',
     '_app_layouts',
     '_app_widgets'
 ] as const

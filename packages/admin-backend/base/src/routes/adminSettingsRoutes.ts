@@ -62,18 +62,29 @@ const METAHUB_SETTING_VALUE_SCHEMAS: Record<string, z.ZodTypeAny> = {
     [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings]: z.boolean()
 }
 
-const METAHUB_ALLOWED_SETTING_KEYS = new Set(Object.keys(METAHUB_SETTING_VALUE_SCHEMAS))
+const GENERAL_SETTING_VALUE_SCHEMAS: Record<string, z.ZodTypeAny> = {
+    dialogSizePreset: z.enum(['small', 'medium', 'large']),
+    dialogAllowFullscreen: z.boolean(),
+    dialogAllowResize: z.boolean(),
+    dialogCloseBehavior: z.enum(['strict-modal', 'backdrop-close'])
+}
+
+const ADMIN_SETTINGS_SCHEMAS_BY_CATEGORY: Record<string, Record<string, z.ZodTypeAny>> = {
+    metahubs: METAHUB_SETTING_VALUE_SCHEMAS,
+    general: GENERAL_SETTING_VALUE_SCHEMAS
+}
 
 const validateSettingValueByCategory = (category: string, key: string, value: unknown): string | null => {
-    if (category !== 'metahubs') return null
+    const schemas = ADMIN_SETTINGS_SCHEMAS_BY_CATEGORY[category]
+    if (!schemas) return null
 
-    if (!METAHUB_ALLOWED_SETTING_KEYS.has(key)) {
-        return `Unknown metahubs setting key: ${key}`
+    if (!(key in schemas)) {
+        return `Unknown ${category} setting key: ${key}`
     }
 
-    const schema = METAHUB_SETTING_VALUE_SCHEMAS[key]
+    const schema = schemas[key]
     if (!schema) {
-        return `Unknown metahubs setting key: ${key}`
+        return `Unknown ${category} setting key: ${key}`
     }
 
     const parsed = schema.safeParse(value)

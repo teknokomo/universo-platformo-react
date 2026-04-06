@@ -7,6 +7,7 @@ export interface ApplicationRecord {
     id: string
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
+    settings: Record<string, unknown> | null
     slug: string | null
     isPublic: boolean
     workspacesEnabled: boolean
@@ -103,6 +104,7 @@ const APPLICATION_SELECT = `
     a.id,
     a.name,
     a.description,
+    a.settings,
     a.slug,
     a.is_public AS "isPublic",
     a.workspaces_enabled AS "workspacesEnabled",
@@ -126,6 +128,7 @@ const APPLICATION_RETURNING = `
     id,
     name,
     description,
+    settings,
     slug,
     is_public AS "isPublic",
     workspaces_enabled AS "workspacesEnabled",
@@ -678,6 +681,7 @@ export async function copyApplicationWithOptions(
         sourceApplication: ApplicationCopySourceRecord
         copiedName: VersionedLocalizedContent<string>
         copiedDescription: VersionedLocalizedContent<string> | null
+        settings: Record<string, unknown> | null
         slug: string | null
         isPublic: boolean
         workspacesEnabled: boolean
@@ -695,6 +699,7 @@ export async function copyApplicationWithOptions(
                 id,
                 name,
                 description,
+                settings,
                 slug,
                 is_public,
                 workspaces_enabled,
@@ -708,13 +713,14 @@ export async function copyApplicationWithOptions(
                 _upl_created_by,
                 _upl_updated_by
             )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $9, $10)
+            VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7, $8, $9::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $10, $11)
             RETURNING ${APPLICATION_RETURNING}
             `,
             [
                 input.newApplicationId,
                 JSON.stringify(input.copiedName),
                 JSON.stringify(input.copiedDescription),
+                JSON.stringify(input.settings ?? {}),
                 input.slug,
                 input.isPublic,
                 input.workspacesEnabled,
@@ -841,6 +847,7 @@ export async function updateApplication(
         applicationId: string
         name?: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
+        settings?: Record<string, unknown> | null
         slug?: string | null
         userId: string
         expectedVersion?: number
@@ -857,6 +864,11 @@ export async function updateApplication(
     if (input.description !== undefined) {
         parameters.push(JSON.stringify(input.description))
         assignments.push(`description = $${parameters.length}::jsonb`)
+    }
+
+    if (input.settings !== undefined) {
+        parameters.push(JSON.stringify(input.settings ?? {}))
+        assignments.push(`settings = $${parameters.length}::jsonb`)
     }
 
     if (input.slug !== undefined) {

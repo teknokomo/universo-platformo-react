@@ -145,12 +145,77 @@
         },
         "tabs": {
             "general": "General",
-            "storage": "Storage"
+            "storage": "Storage",
+            "scripts": "Scripts"
         },
         "storage": {
             "mainDb": "Create schema in main database",
             "externalDb": "Create schema in external database",
             "externalDbDisabled": "Coming soon"
+        },
+        "scripts": {
+            "saveEntityFirst": "Save this entity first, then scripts can be attached from this tab.",
+            "listTitle": "Attached scripts",
+            "currentSelection": "Selected",
+            "noneSelected": "No script selected",
+            "listToggle": {
+                "show": "Show scripts",
+                "hide": "Hide scripts"
+            },
+            "new": "New",
+            "active": "Active",
+            "inactive": "Inactive",
+            "empty": "No scripts are attached to this entity yet.",
+            "loading": "Loading attached scripts...",
+            "save": "Save script",
+            "create": "Create script",
+            "delete": "Delete",
+            "fields": {
+                "name": "Name",
+                "codename": "Codename",
+                "description": "Description",
+                "moduleRole": "Module role",
+                "sourceKind": "Source kind",
+                "capabilities": "Capabilities",
+                "sdkApiVersion": "SDK API version",
+                "isActive": "Script is active",
+                "sourceCode": "Source code"
+            },
+            "moduleRoles": {
+                "module": "Module",
+                "lifecycle": "Lifecycle",
+                "widget": "Widget",
+                "global": "Global"
+            },
+            "sourceKinds": {
+                "embedded": "Embedded"
+            },
+            "capabilities": {
+                "help": "Only declared capabilities are injected into the runtime. External and visual sources remain reserved for later phases.",
+                "recordsRead": "Read records",
+                "recordsWrite": "Write records",
+                "metadataRead": "Read metadata",
+                "rpcClient": "Call server methods from client code",
+                "lifecycle": "Receive lifecycle events"
+            },
+            "guidance": {
+                "title": "Authoring guidance",
+                "effectiveCapabilities": "Effective capabilities for this role",
+                "recommendedEntryPoints": "Recommended entry points",
+                "editorHelp": "Start typing ExtensionScript, @AtClient, @AtServer, or @OnEvent to use SDK completions.",
+                "roleSummaries": {
+                    "module": "General modules can mix record and metadata operations and may also subscribe to lifecycle hooks when needed.",
+                    "lifecycle": "Lifecycle modules are optimized for before/after entity events and usually validate, enrich, or veto record mutations.",
+                    "widget": "Widget modules should expose a client mount() method and can optionally proxy submit(payload) to the server through callServerMethod().",
+                    "global": "Global modules are best for metahub-wide helpers that only need read-only metadata access."
+                }
+            },
+            "errors": {
+                "required": "Codename, name, and source code are required",
+                "save": "Failed to save script",
+                "delete": "Failed to delete script",
+                "load": "Failed to load scripts"
+            }
         }
     },
     "layouts": {
@@ -306,6 +371,7 @@
             "pageViewsChart": "Page views chart",
             "detailsTitle": "Details title",
             "detailsTable": "Details table",
+            "quizWidget": "Quiz widget",
             "detailsSidePanel": "Details side panel",
             "productTree": "Product tree",
             "usersByCountryChart": "Users by country chart",
@@ -322,6 +388,29 @@
             "addWidget": "Add widget",
             "widthWarning": "Total width is {{total}}/12. Recommended: 12.",
             "widthError": "Total width {{total}}/12 exceeds the grid. Reduce column widths to save."
+        },
+        "quizEditor": {
+            "title": "Quiz widget",
+            "description": "Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-catalog scripts by codename.",
+            "loadError": "Failed to load available quiz scripts for this metahub.",
+            "noScripts": "No active widget scripts with client methods are available for the selected attachment kind yet.",
+            "widgetTitle": "Widget title override",
+            "widgetDescription": "Widget description override",
+            "attachmentKind": "Script attachment kind",
+            "attachmentKindHelp": "Catalog-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.",
+            "attachmentKinds": {
+                "metahub": "Metahub",
+                "catalog": "Current catalog"
+            },
+            "scriptCodename": "Script codename",
+            "scriptCodenameHelp": "Leave this empty only if the selected attachment kind has a single obvious quiz widget script.",
+            "useFirstAvailable": "Use the first available script",
+            "mountMethodName": "Mount method",
+            "mountMethodHelp": "Optional override. Default: mount",
+            "submitMethodName": "Submit method",
+            "submitMethodHelp": "Optional override. Default: submit",
+            "emptyStateTitle": "Empty state title",
+            "emptyStateDescription": "Empty state description"
         },
         "zoneErrors": {
             "load": "Failed to load layout zones",
@@ -1614,6 +1703,14 @@
             "general.codenameRequireReformat.description": "Block saving until the codename is updated to the current format (only when auto-reformat is disabled)",
             "general.codenameLocalizedEnabled": "Enable Localized Codenames (VLC)",
             "general.codenameLocalizedEnabled.description": "Allow entering codename alternatives per language and selecting the primary codename locale",
+            "common.dialogSizePreset": "Dialog size preset",
+            "common.dialogSizePreset.description": "Default size for metahub modal windows. Users can still expand or resize dialogs when those options are enabled.",
+            "common.dialogAllowFullscreen": "Allow fullscreen expansion",
+            "common.dialogAllowFullscreen.description": "Show a header button that expands a dialog to almost the full viewport with standard margins.",
+            "common.dialogAllowResize": "Allow dialog resize",
+            "common.dialogAllowResize.description": "Show a resize handle in the bottom-right corner and remember the custom dialog size in this browser for the current metahub.",
+            "common.dialogCloseBehavior": "Popup window type",
+            "common.dialogCloseBehavior.description": "Choose whether metahub popup windows stay modal or can also close when the user clicks outside the window.",
             "hubs.allowCopy": "Allow Copy",
             "hubs.allowCopy.description": "Allow copying hubs within this metahub",
             "hubs.allowDelete": "Allow Delete",
@@ -1665,6 +1762,21 @@
         },
         "languages": {
             "system": "System"
+        },
+        "dialogSizePresets": {
+            "small": "Small (about 480 px)",
+            "medium": "Medium (about 600 px)",
+            "large": "Large (about 800 px)"
+        },
+        "dialogCloseBehaviors": {
+            "strict-modal": "Modal windows",
+            "backdrop-close": "Non-modal windows"
+        },
+        "dialogActionTooltips": {
+            "resetSize": "Reset dialog size",
+            "expand": "Expand dialog",
+            "restoreSize": "Restore dialog size",
+            "resizeHandle": "Resize dialog"
         },
         "codenameStyles": {
             "kebab-case": "kebab-case (my-catalog-name)",

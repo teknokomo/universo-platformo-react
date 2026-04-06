@@ -33,6 +33,7 @@ import {
     normalizeLocale
 } from '../../../utils/localizedInput'
 import { CodenameField, HubParentSelectionPanel } from '../../../components'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 export type HubFormValues = Record<string, unknown>
 export type HubFormSetValue = (name: string, value: unknown) => void
@@ -47,6 +48,7 @@ export type HubActionContext = ActionContext<HubDisplay, HubLocalizedPayload> & 
     hubs?: Hub[]
     currentHubId?: string | null
     allowHubNesting?: boolean
+    metahubId?: string | null
 }
 
 export const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
@@ -402,6 +404,7 @@ export const buildFormTabs = (
         const editingEntityId = options?.editingEntityId
         const allowHubNesting = options?.allowHubNesting !== false
         const mode = options?.mode ?? 'edit'
+        const metahubId = (ctx as HubActionContext).metahubId ?? null
         const parentHubId = typeof values.parentHubId === 'string' ? values.parentHubId : null
         const currentParentHub = parentHubId ? hubs.find((hub) => hub.id === parentHubId) : undefined
         const excludedParentHubIds = (() => {
@@ -455,6 +458,17 @@ export const buildFormTabs = (
                 />
             )
         })
+
+        if (editingEntityId && metahubId) {
+            baseTabs.push(
+                createScriptsTab({
+                    t: ctx.t,
+                    metahubId,
+                    attachedToKind: 'hub',
+                    attachedToId: editingEntityId
+                })
+            )
+        }
 
         return baseTabs
     }

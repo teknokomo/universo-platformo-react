@@ -101,6 +101,7 @@
     },
     "pnpm": {
         "onlyBuiltDependencies": [
+            "isolated-vm",
             "sqlite3"
         ],
         "overrides": {

@@ -50,7 +50,7 @@ import {
     useListDialogs
 } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
-import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 
 import { usePublicationVersionListData } from '../hooks/usePublicationVersionListData'
 import type { VersionTableRow } from '../hooks/usePublicationVersionListData'
@@ -84,6 +84,18 @@ import { ImportSnapshotDialog } from './ImportSnapshotDialog'
 // ────────────────────────────────────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────────────────────────────────────
+
+const renderDialogTitle = (title: React.ReactNode, actions: React.ReactNode | null) =>
+    actions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, pr: 1 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {actions}
+        </Box>
+    ) : (
+        title
+    )
 
 export const PublicationVersionList: React.FC = () => {
     const navigate = useNavigate()
@@ -195,6 +207,40 @@ export const PublicationVersionList: React.FC = () => {
         setEditNameVlc(null)
         setEditDescriptionVlc(null)
     }, [close])
+    const handleCloseActivateDialog = useCallback(() => {
+        if (!activateMutation.isPending) {
+            setActivateDialogOpen(null)
+        }
+    }, [activateMutation.isPending])
+    const handleCloseDeleteDialog = useCallback(() => {
+        if (!deleteMutation.isPending) {
+            close('delete')
+        }
+    }, [close, deleteMutation.isPending])
+    const createDialogPresentation = useDialogPresentation({
+        open: dialogs.create.open,
+        onClose: handleCloseCreateDialog,
+        fallbackMaxWidth: 'sm',
+        isBusy: createMutation.isPending
+    })
+    const activateDialogPresentation = useDialogPresentation({
+        open: Boolean(activateDialogOpen),
+        onClose: handleCloseActivateDialog,
+        fallbackMaxWidth: 'sm',
+        isBusy: activateMutation.isPending
+    })
+    const editDialogPresentation = useDialogPresentation({
+        open: dialogs.edit.open,
+        onClose: handleCloseEditDialog,
+        fallbackMaxWidth: 'sm',
+        isBusy: updateMutation.isPending
+    })
+    const deleteDialogPresentation = useDialogPresentation({
+        open: dialogs.delete.open,
+        onClose: handleCloseDeleteDialog,
+        fallbackMaxWidth: 'sm',
+        isBusy: deleteMutation.isPending
+    })
 
     // ── Columns ────────────────────────────────────────────────────────
     const versionColumns = useMemo(
@@ -461,9 +507,18 @@ export const PublicationVersionList: React.FC = () => {
             )}
 
             {/* ── Create Version Dialog ─────────────────────────────────── */}
-            <Dialog open={dialogs.create.open} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
-                <DialogTitle>{t('metahubs:publications.versions.create', 'Create version')}</DialogTitle>
-                <DialogContent sx={{ overflow: 'visible' }}>
+            <Dialog
+                open={dialogs.create.open}
+                onClose={createDialogPresentation.dialogProps.onClose}
+                maxWidth={resolveDialogMaxWidth(createDialogPresentation.dialogProps.maxWidth, 'sm')}
+                fullWidth={createDialogPresentation.dialogProps.fullWidth ?? true}
+                disableEscapeKeyDown={createDialogPresentation.dialogProps.disableEscapeKeyDown}
+                PaperProps={mergeDialogPaperProps(undefined, createDialogPresentation.dialogProps.PaperProps)}
+            >
+                <DialogTitle>
+                    {renderDialogTitle(t('metahubs:publications.versions.create', 'Create version'), createDialogPresentation.titleActions)}
+                </DialogTitle>
+                <DialogContent sx={mergeDialogSx({ overflow: 'visible' }, createDialogPresentation.contentSx)}>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <LocalizedInlineField
                             mode='localized'
@@ -508,28 +563,51 @@ export const PublicationVersionList: React.FC = () => {
                         {tc('create')}
                     </Button>
                 </DialogActions>
+                {createDialogPresentation.resizeHandle}
             </Dialog>
 
             {/* ── Activate Confirm Dialog ───────────────────────────────── */}
-            <Dialog open={!!activateDialogOpen} onClose={() => setActivateDialogOpen(null)}>
-                <DialogTitle>{t('metahubs:publications.versions.activate', 'Activate version')}</DialogTitle>
-                <DialogContent>
+            <Dialog
+                open={!!activateDialogOpen}
+                onClose={activateDialogPresentation.dialogProps.onClose}
+                maxWidth={resolveDialogMaxWidth(activateDialogPresentation.dialogProps.maxWidth, 'sm')}
+                fullWidth={activateDialogPresentation.dialogProps.fullWidth ?? true}
+                disableEscapeKeyDown={activateDialogPresentation.dialogProps.disableEscapeKeyDown}
+                PaperProps={mergeDialogPaperProps(undefined, activateDialogPresentation.dialogProps.PaperProps)}
+            >
+                <DialogTitle>
+                    {renderDialogTitle(
+                        t('metahubs:publications.versions.activate', 'Activate version'),
+                        activateDialogPresentation.titleActions
+                    )}
+                </DialogTitle>
+                <DialogContent sx={mergeDialogSx(activateDialogPresentation.contentSx)}>
                     <DialogContentText>
                         {t('metahubs:publications.versions.activateConfirm', 'Are you sure you want to activate this version?')}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setActivateDialogOpen(null)}>{tc('cancel')}</Button>
+                    <Button onClick={handleCloseActivateDialog}>{tc('cancel')}</Button>
                     <Button onClick={handleActivate} variant='contained' color='primary' disabled={activateMutation.isPending}>
                         {t('metahubs:publications.versions.activate', 'Activate')}
                     </Button>
                 </DialogActions>
+                {activateDialogPresentation.resizeHandle}
             </Dialog>
 
             {/* ── Edit Version Dialog ───────────────────────────────────── */}
-            <Dialog open={dialogs.edit.open} onClose={handleCloseEditDialog} maxWidth='sm' fullWidth>
-                <DialogTitle>{t('metahubs:publications.versions.edit', 'Edit version')}</DialogTitle>
-                <DialogContent sx={{ overflow: 'visible' }}>
+            <Dialog
+                open={dialogs.edit.open}
+                onClose={editDialogPresentation.dialogProps.onClose}
+                maxWidth={resolveDialogMaxWidth(editDialogPresentation.dialogProps.maxWidth, 'sm')}
+                fullWidth={editDialogPresentation.dialogProps.fullWidth ?? true}
+                disableEscapeKeyDown={editDialogPresentation.dialogProps.disableEscapeKeyDown}
+                PaperProps={mergeDialogPaperProps(undefined, editDialogPresentation.dialogProps.PaperProps)}
+            >
+                <DialogTitle>
+                    {renderDialogTitle(t('metahubs:publications.versions.edit', 'Edit version'), editDialogPresentation.titleActions)}
+                </DialogTitle>
+                <DialogContent sx={mergeDialogSx({ overflow: 'visible' }, editDialogPresentation.contentSx)}>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <LocalizedInlineField
                             mode='localized'
@@ -562,6 +640,7 @@ export const PublicationVersionList: React.FC = () => {
                         {tc('actions.save')}
                     </Button>
                 </DialogActions>
+                {editDialogPresentation.resizeHandle}
             </Dialog>
 
             {/* ── Row Actions Menu ──────────────────────────────────────── */}
@@ -627,9 +706,18 @@ export const PublicationVersionList: React.FC = () => {
             </Menu>
 
             {/* ── Delete Confirm Dialog ─────────────────────────────────── */}
-            <Dialog open={dialogs.delete.open} onClose={() => close('delete')}>
-                <DialogTitle>{t('metahubs:publications.versions.delete', 'Delete version')}</DialogTitle>
-                <DialogContent>
+            <Dialog
+                open={dialogs.delete.open}
+                onClose={deleteDialogPresentation.dialogProps.onClose}
+                maxWidth={resolveDialogMaxWidth(deleteDialogPresentation.dialogProps.maxWidth, 'sm')}
+                fullWidth={deleteDialogPresentation.dialogProps.fullWidth ?? true}
+                disableEscapeKeyDown={deleteDialogPresentation.dialogProps.disableEscapeKeyDown}
+                PaperProps={mergeDialogPaperProps(undefined, deleteDialogPresentation.dialogProps.PaperProps)}
+            >
+                <DialogTitle>
+                    {renderDialogTitle(t('metahubs:publications.versions.delete', 'Delete version'), deleteDialogPresentation.titleActions)}
+                </DialogTitle>
+                <DialogContent sx={mergeDialogSx(deleteDialogPresentation.contentSx)}>
                     <DialogContentText>
                         {t(
                             'metahubs:publications.versions.deleteConfirm',
@@ -638,11 +726,12 @@ export const PublicationVersionList: React.FC = () => {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => close('delete')}>{tc('cancel')}</Button>
+                    <Button onClick={handleCloseDeleteDialog}>{tc('cancel')}</Button>
                     <Button onClick={handleDelete} variant='contained' color='error' disabled={deleteMutation.isPending}>
                         {tc('actions.delete')}
                     </Button>
                 </DialogActions>
+                {deleteDialogPresentation.resizeHandle}
             </Dialog>
 
             {/* ── Publication Settings edit dialog ────────────────────── */}

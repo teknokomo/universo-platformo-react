@@ -20,7 +20,8 @@ vi.mock('../../api/useApplicationDetails', () => ({
 
 vi.mock('../../api/applications', () => ({
     getApplicationWorkspaceLimits: vi.fn(),
-    updateApplicationWorkspaceLimits: vi.fn()
+    updateApplicationWorkspaceLimits: vi.fn(),
+    updateApplication: vi.fn()
 }))
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -38,10 +39,11 @@ import applicationsEn from '../../i18n/locales/en/applications.json'
 import applicationsRu from '../../i18n/locales/ru/applications.json'
 import ApplicationSettings from '../ApplicationSettings'
 import { useApplicationDetails } from '../../api/useApplicationDetails'
-import { getApplicationWorkspaceLimits, updateApplicationWorkspaceLimits } from '../../api/applications'
+import { getApplicationWorkspaceLimits, updateApplication, updateApplicationWorkspaceLimits } from '../../api/applications'
 
 const mockedUseApplicationDetails = vi.mocked(useApplicationDetails)
 const mockedGetApplicationWorkspaceLimits = vi.mocked(getApplicationWorkspaceLimits)
+const mockedUpdateApplication = vi.mocked(updateApplication)
 const mockedUpdateApplicationWorkspaceLimits = vi.mocked(updateApplicationWorkspaceLimits)
 
 describe('ApplicationSettings', () => {
@@ -91,6 +93,37 @@ describe('ApplicationSettings', () => {
                 maxRows: 3
             }
         ])
+        mockedUpdateApplication.mockResolvedValue({
+            data: {
+                id: 'app-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Workspace Demo' }
+                    }
+                },
+                description: null,
+                settings: {
+                    dialogSizePreset: 'medium',
+                    dialogAllowFullscreen: false,
+                    dialogAllowResize: true,
+                    dialogCloseBehavior: 'strict-modal'
+                },
+                slug: 'workspace-demo',
+                isPublic: false,
+                workspacesEnabled: true,
+                schemaName: 'app_workspace_demo',
+                schemaStatus: 'synced',
+                schemaSyncedAt: null,
+                schemaError: null,
+                connectorsCount: 0,
+                membersCount: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                version: 2
+            }
+        } as never)
         mockedUpdateApplicationWorkspaceLimits.mockResolvedValue([])
     })
 
@@ -119,7 +152,27 @@ describe('ApplicationSettings', () => {
 
         expect(screen.getByText('Application Settings')).toBeInTheDocument()
         expect(screen.queryByText('Workspace Demo')).not.toBeInTheDocument()
-        expect(screen.getByText('General application settings will be available in future versions.')).toBeInTheDocument()
+        expect(screen.getByTestId('application-setting-dialogSizePreset')).toBeInTheDocument()
+
+        const fullscreenToggle = screen
+            .getByTestId('application-setting-dialogAllowFullscreen')
+            .querySelector('input[type="checkbox"]') as HTMLInputElement | null
+
+        expect(fullscreenToggle).not.toBeNull()
+        await userEvent.click(fullscreenToggle!)
+        await userEvent.click(screen.getByTestId('application-settings-general-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    settings: expect.objectContaining({
+                        dialogAllowFullscreen: false
+                    })
+                })
+            )
+        })
 
         await userEvent.click(screen.getByRole('tab', { name: 'Limits' }))
 
@@ -196,15 +249,17 @@ describe('ApplicationSettings', () => {
 
         expect(screen.queryByText('Draft App')).not.toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Limits' })).toBeInTheDocument()
-        expect(
-            screen.getByText('Application settings that depend on runtime schema will become available after the schema is created.')
-        ).toBeInTheDocument()
-        expect(
-            screen.getByText('Workspace-specific settings are available only for applications created with workspace mode enabled.')
-        ).toBeInTheDocument()
 
         await userEvent.click(screen.getByRole('tab', { name: 'Limits' }))
+        expect(
+            screen.getByText(
+                'Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.'
+            )
+        ).toBeInTheDocument()
         expect(screen.getByText('Limits settings will become available after the application schema is created.')).toBeInTheDocument()
+        expect(
+            screen.queryByText('Limits are available only for applications created with workspace mode enabled.')
+        ).not.toBeInTheDocument()
         expect(mockedGetApplicationWorkspaceLimits).not.toHaveBeenCalled()
     })
 

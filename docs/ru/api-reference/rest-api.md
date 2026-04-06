@@ -29,3 +29,11 @@ onboarding, applications, connectors, admin, public metahub и metahub design-ti
 
 Для сценария запуска и использования переходите к странице Interactive OpenAPI Docs
 внутри этого раздела.
+
+## Runtime Script Endpoints
+
+- `GET /applications/{applicationId}/runtime/scripts` перечисляет опубликованные runtime scripts, видимые клиенту, без встраивания bundle bodies.
+- `GET /applications/{applicationId}/runtime/scripts/{scriptId}/client` возвращает JavaScript client bundle с поддержкой `ETag` и `304 Not Modified`.
+- `POST /applications/{applicationId}/runtime/scripts/{scriptId}/call` выполняет только не-lifecycle опубликованные server-методы у скриптов с `rpc.client` и сохраняет fail-closed capability/error codes.
+
+Используйте эти endpoints вместе, когда runtime-поверхности нужны metadata скриптов, доставка bundle и RPC-вызовы.

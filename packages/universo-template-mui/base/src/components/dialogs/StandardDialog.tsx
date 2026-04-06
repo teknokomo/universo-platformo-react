@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import {
+    Box,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -9,6 +10,7 @@ import {
     type DialogContentProps,
     type DialogActionsProps
 } from '@mui/material'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 export interface StandardDialogProps {
     open: boolean
@@ -37,17 +39,34 @@ export function StandardDialog({
     dialogContentProps,
     dialogActionsProps
 }: StandardDialogProps) {
-    const paperSx = Array.isArray(paperProps?.sx)
-        ? [{ borderRadius: 1 }, ...paperProps.sx]
-        : paperProps?.sx
-        ? [{ borderRadius: 1 }, paperProps.sx]
-        : [{ borderRadius: 1 }]
+    const presentation = useDialogPresentation({ open, onClose: onClose ?? (() => undefined), fallbackMaxWidth: maxWidth })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        title
+    )
+    const mergedPaperProps = mergeDialogPaperProps({ sx: { borderRadius: 1 } }, mergeDialogPaperProps(paperProps, presentation.dialogProps.PaperProps))
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth={maxWidth} fullWidth={fullWidth} PaperProps={{ ...paperProps, sx: paperSx }}>
-            <DialogTitle {...dialogTitleProps}>{title}</DialogTitle>
-            <DialogContent {...dialogContentProps}>{children}</DialogContent>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? maxWidth}
+            fullWidth={presentation.dialogProps.fullWidth ?? fullWidth}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergedPaperProps}
+        >
+            <DialogTitle {...dialogTitleProps}>{titleNode}</DialogTitle>
+            <DialogContent {...dialogContentProps} sx={mergeDialogSx(presentation.contentSx, dialogContentProps?.sx)}>
+                {children}
+            </DialogContent>
             {actions ? <DialogActions {...dialogActionsProps}>{actions}</DialogActions> : null}
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

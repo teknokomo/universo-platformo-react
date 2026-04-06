@@ -383,12 +383,67 @@ const mhbWidgets: SystemTableDef = {
     ]
 }
 
+const SCRIPT_SCOPE_NULL_ATTACHMENT_UUID = '00000000-0000-0000-0000-000000000000'
+
+const mhbScriptsV2: SystemTableDef = {
+    name: '_mhb_scripts',
+    description: 'Compiled extension scripts attached to metahub entities',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'codename', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'attached_to_kind', type: 'string', length: 40, nullable: false },
+        { name: 'attached_to_id', type: 'uuid', nullable: true },
+        { name: 'module_role', type: 'string', length: 40, nullable: false },
+        { name: 'source_kind', type: 'string', length: 40, nullable: false },
+        { name: 'sdk_api_version', type: 'string', length: 40, nullable: false },
+        { name: 'source_code', type: 'text', nullable: false },
+        { name: 'manifest', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'server_bundle', type: 'text', nullable: true },
+        { name: 'client_bundle', type: 'text', nullable: true },
+        { name: 'checksum', type: 'string', length: 128, nullable: false },
+        { name: 'is_active', type: 'boolean', nullable: false, defaultTo: true },
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_scripts_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
+        { name: 'idx_mhb_scripts_module_role', columns: ['module_role'] },
+        { name: 'idx_mhb_scripts_checksum', columns: ['checksum'] },
+        {
+            name: 'idx_mhb_scripts_codename_active_unique',
+            columns: [codenamePrimaryTextSql('codename')],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbScripts: SystemTableDef = {
+    ...mhbScriptsV2,
+    indexes: [
+        { name: 'idx_mhb_scripts_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
+        { name: 'idx_mhb_scripts_module_role', columns: ['module_role'] },
+        { name: 'idx_mhb_scripts_checksum', columns: ['checksum'] },
+        {
+            name: 'idx_mhb_scripts_codename_active_unique',
+            columns: [
+                'attached_to_kind',
+                `COALESCE(attached_to_id, '${SCRIPT_SCOPE_NULL_ATTACHMENT_UUID}'::uuid)`,
+                'module_role',
+                codenamePrimaryTextSql('codename')
+            ],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
 // ─── Version registry ────────────────────────────────────────────────────────
 
 /**
  * System tables with JSONB codename columns and full feature set.
  */
-export const SYSTEM_TABLES: SystemTableDef[] = [
+export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbObjects,
     mhbConstants,
     mhbAttributesV2,
@@ -400,11 +455,18 @@ export const SYSTEM_TABLES: SystemTableDef[] = [
     mhbMigrations
 ]
 
+export const SYSTEM_TABLES_V2: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScriptsV2]
+export const SYSTEM_TABLES: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScripts]
+
 /**
  * Maps a structure version number to its table definitions.
  * Single-version registry — all schemas use the current table definitions.
  */
-export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([[1, SYSTEM_TABLES]])
+export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
+    [1, SYSTEM_TABLES_V1],
+    [2, SYSTEM_TABLES_V2],
+    [3, SYSTEM_TABLES]
+])
 
 export interface SystemStructureSnapshotTable {
     name: string

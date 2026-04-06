@@ -16,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useUserSettings, type UserSettingsData } from '../../hooks/useUserSettings'
 import { useHasGlobalAccess } from '@universo/store'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 export interface SettingsDialogProps {
     open: boolean
@@ -80,11 +81,31 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
         onClose()
     }
 
-    return (
-        <Dialog open={open} onClose={handleCancel} maxWidth='sm' fullWidth>
-            <DialogTitle>{t('dialog.title', 'Settings')}</DialogTitle>
+    const isBusy = loading || saving
+    const presentation = useDialogPresentation({ open, onClose: handleCancel, fallbackMaxWidth: 'sm', isBusy })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {t('dialog.title', 'Settings')}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        t('dialog.title', 'Settings')
+    )
 
-            <DialogContent>
+    return (
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+
+            <DialogContent sx={mergeDialogSx(presentation.contentSx)}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                         <CircularProgress />
@@ -154,6 +175,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                     {saving ? <CircularProgress size={20} /> : t('common:save', 'Save')}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

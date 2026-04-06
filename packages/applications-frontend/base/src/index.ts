@@ -27,12 +27,14 @@ export { ApplicationGuard } from './components/ApplicationGuard'
 export { ApplicationAdminGuard } from './components/ApplicationAdminGuard'
 export { ConnectorDeleteDialog } from './components/ConnectorDeleteDialog'
 export { default as ApplicationMigrationGuard } from './components/ApplicationMigrationGuard'
+export { ApplicationDialogSettingsProvider, withApplicationDialogSettings } from './settings/ApplicationDialogSettingsProvider'
 
 // Types
 export type {
     Connector,
     ConnectorDisplay,
     Application,
+    ApplicationDialogSettings,
     ApplicationDisplay,
     VersatileLocalizedContent,
     SimpleLocalizedInput,

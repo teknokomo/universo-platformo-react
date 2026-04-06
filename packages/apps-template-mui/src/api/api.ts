@@ -3,6 +3,97 @@ import { catalogRuntimeViewConfigSchema, dashboardLayoutConfigSchema, type Dashb
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
+const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
+
+let csrfTokenPromise: Promise<string> | null = null
+
+const getSessionStorage = (): Storage | null => {
+    try {
+        return typeof window !== 'undefined' ? window.sessionStorage : null
+    } catch {
+        return null
+    }
+}
+
+function buildApiUrl(apiBaseUrl: string, path: string): string {
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const apiPath = `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
+
+    if (/^https?:\/\//i.test(normalizedBase)) {
+        return new URL(apiPath).toString()
+    }
+
+    return new URL(apiPath, window.location.origin).toString()
+}
+
+const getStoredCsrfToken = (): string | null => getSessionStorage()?.getItem(AUTH_CSRF_STORAGE_KEY) ?? null
+
+const clearStoredCsrfToken = (): void => {
+    getSessionStorage()?.removeItem(AUTH_CSRF_STORAGE_KEY)
+}
+
+const storeCsrfToken = (token: string): void => {
+    getSessionStorage()?.setItem(AUTH_CSRF_STORAGE_KEY, token)
+}
+
+async function resolveCsrfToken(apiBaseUrl: string): Promise<string> {
+    const stored = getStoredCsrfToken()
+    if (stored) {
+        return stored
+    }
+
+    if (!csrfTokenPromise) {
+        csrfTokenPromise = (async () => {
+            const response = await fetch(buildApiUrl(apiBaseUrl, '/auth/csrf'), { credentials: 'include' })
+            if (!response.ok) {
+                throw new Error(await extractErrorMessage(response, 'CSRF token request failed'))
+            }
+
+            const payload = (await response.json()) as { csrfToken?: unknown }
+            if (typeof payload?.csrfToken !== 'string' || payload.csrfToken.trim().length === 0) {
+                throw new Error('CSRF token response is invalid')
+            }
+
+            storeCsrfToken(payload.csrfToken)
+            return payload.csrfToken
+        })().finally(() => {
+            csrfTokenPromise = null
+        })
+    }
+
+    return csrfTokenPromise
+}
+
+export async function fetchWithCsrf(apiBaseUrl: string, input: string, init: RequestInit = {}): Promise<Response> {
+    const method = (init.method ?? 'GET').toUpperCase()
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        return fetch(input, {
+            ...init,
+            credentials: init.credentials ?? 'include'
+        })
+    }
+
+    const applyRequest = async (csrfToken: string): Promise<Response> => {
+        const headers = new Headers(init.headers ?? {})
+        headers.set('X-CSRF-Token', csrfToken)
+
+        return fetch(input, {
+            ...init,
+            credentials: init.credentials ?? 'include',
+            headers
+        })
+    }
+
+    let response = await applyRequest(await resolveCsrfToken(apiBaseUrl))
+    if (response.status !== 419) {
+        return response
+    }
+
+    clearStoredCsrfToken()
+    response = await applyRequest(await resolveCsrfToken(apiBaseUrl))
+    return response
+}
+
 /**
  * Extract a human-readable error message from an HTTP response body.
  * Tries to parse JSON and pull `error` / `message` fields; falls back to raw text.
@@ -244,11 +335,7 @@ export async function fetchAppData(options: {
 
 /** Build the base API URL for a given application's runtime endpoint. */
 function buildAppApiUrl(apiBaseUrl: string, applicationId: string, path = ''): string {
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const apiPath = `${normalizedBase}/applications/${applicationId}/runtime${path}`
-    const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase)
-    if (isAbsoluteBase) return new URL(apiPath).toString()
-    return new URL(apiPath, window.location.origin).toString()
+    return buildApiUrl(apiBaseUrl, `/applications/${applicationId}/runtime${path}`)
 }
 
 /** Fetch a single row (raw data, VLC not resolved — for edit forms). */
@@ -284,9 +371,8 @@ export async function createAppRow(options: {
     const body: Record<string, unknown> = { data }
     if (catalogId) body.catalogId = catalogId
 
-    const res = await fetch(url, {
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     })
@@ -310,9 +396,8 @@ export async function updateAppRow(options: {
     const body: Record<string, unknown> = { data }
     if (catalogId) body.catalogId = catalogId
 
-    const res = await fetch(url, {
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     })
@@ -335,10 +420,7 @@ export async function deleteAppRow(options: {
         url += `?catalogId=${encodeURIComponent(catalogId)}`
     }
 
-    const res = await fetch(url, {
-        method: 'DELETE',
-        credentials: 'include'
-    })
+    const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Delete row failed'))
     }
@@ -357,9 +439,8 @@ export async function copyAppRow(options: {
     const body: Record<string, unknown> = { copyChildTables }
     if (catalogId) body.catalogId = catalogId
 
-    const res = await fetch(url, {
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     })
@@ -418,9 +499,8 @@ export async function createTabularRow(options: {
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
     url += `?catalogId=${encodeURIComponent(catalogId)}`
 
-    const res = await fetch(url, {
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data })
     })
@@ -444,9 +524,8 @@ export async function updateTabularRow(options: {
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
     url += `?catalogId=${encodeURIComponent(catalogId)}`
 
-    const res = await fetch(url, {
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data })
     })
@@ -469,10 +548,7 @@ export async function deleteTabularRow(options: {
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
     url += `?catalogId=${encodeURIComponent(catalogId)}`
 
-    const res = await fetch(url, {
-        method: 'DELETE',
-        credentials: 'include'
-    })
+    const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Delete tabular row failed'))
     }
@@ -495,10 +571,7 @@ export async function copyTabularRow(options: {
     )
     url += `?catalogId=${encodeURIComponent(catalogId)}`
 
-    const res = await fetch(url, {
-        method: 'POST',
-        credentials: 'include'
-    })
+    const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'POST' })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Copy tabular row failed'))
     }

@@ -20,6 +20,8 @@ import {
 } from '@universo/template-mui'
 
 import { createAppRuntimeRoute } from '@universo/apps-template-mui'
+import { AdminDialogSettingsProvider } from '@universo/admin-frontend'
+import { ApplicationDialogSettingsProvider } from '@universo/applications-frontend'
 
 const StartPage = Loadable(lazy(() => import('@universo/start-frontend/views/StartPage')))
 const TermsPage = Loadable(lazy(() => import('@universo/start-frontend/views/LegalPage').then((m) => ({ default: m.TermsPage }))))
@@ -77,6 +79,18 @@ const GuardedApplicationRuntime = () => (
             <ApplicationsApplicationRuntime />
         </ApplicationsMigrationGuard>
     </ApplicationsApplicationGuard>
+)
+
+const AdminDialogScope = () => (
+    <AdminDialogSettingsProvider>
+        <Outlet />
+    </AdminDialogSettingsProvider>
+)
+
+const ApplicationDialogScope = () => (
+    <ApplicationDialogSettingsProvider>
+        <Outlet />
+    </ApplicationDialogSettingsProvider>
 )
 
 const HomeRoute = {
@@ -178,7 +192,7 @@ const MainRoutes = {
             path: 'a/:applicationId/admin',
             element: (
                 <ApplicationsApplicationAdminGuard>
-                    <Outlet />
+                    <ApplicationDialogScope />
                 </ApplicationsApplicationAdminGuard>
             ),
             children: [
@@ -242,7 +256,7 @@ const MainRoutes = {
             path: 'admin',
             element: (
                 <AdminGuard>
-                    <Outlet />
+                    <AdminDialogScope />
                 </AdminGuard>
             ),
             children: [

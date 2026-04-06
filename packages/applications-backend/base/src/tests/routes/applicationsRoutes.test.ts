@@ -23,6 +23,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
+import { RuntimeScriptsService } from '../../services/runtimeScriptsService'
 
 describe('Applications Routes', () => {
     interface TestDataSource {
@@ -123,12 +124,15 @@ describe('Applications Routes', () => {
 
         return {
             dataSource,
+            executor,
+            txExecutor,
             applicationRepo,
             applicationUserRepo
         }
     }
 
     beforeEach(() => {
+        jest.restoreAllMocks()
         jest.clearAllMocks()
         mockCloneSchemaWithExecutor.mockClear()
         mockGenerateSchemaName.mockClear()
@@ -323,6 +327,447 @@ describe('Applications Routes', () => {
             expect(response.body.catalog).toMatchObject({
                 id: runtimeCatalogId,
                 codename: 'orders'
+            })
+        })
+    })
+
+    describe('GET /applications/:applicationId/runtime/scripts', () => {
+        it('filters runtime scripts by attachment and strips bundle bodies from the list surface', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334479'
+            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-22223333447a'
+            const otherCatalogId = '018f8a78-7b8f-7c1d-a111-22223333447b'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+
+            const originalQueryImpl = (dataSource.query as jest.Mock).getMockImplementation()
+            const originalManagerQueryImpl = (dataSource.manager.query as jest.Mock).getMockImplementation()
+            const runtimeQueryImpl = async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT to_regclass($1) AS table_name')) {
+                    return [{ table_name: 'app_runtime_test._app_scripts' }]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_scripts')) {
+                    return [
+                        {
+                            id: 'script-1',
+                            codename: 'quiz-widget',
+                            presentation: {
+                                name: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Quiz widget' } }
+                                }
+                            },
+                            attached_to_kind: 'catalog',
+                            attached_to_id: runtimeCatalogId,
+                            module_role: 'widget',
+                            source_kind: 'embedded',
+                            sdk_api_version: '1.0.0',
+                            manifest: {
+                                className: 'QuizWidgetScript',
+                                sdkApiVersion: '1.0.0',
+                                moduleRole: 'widget',
+                                sourceKind: 'embedded',
+                                capabilities: ['rpc.client'],
+                                methods: [{ name: 'mount', target: 'client' }]
+                            },
+                            server_bundle: 'module.exports = class ServerWidget {}',
+                            client_bundle: 'module.exports = class ClientWidget {}',
+                            checksum: 'catalog-checksum',
+                            is_active: true,
+                            config: {}
+                        },
+                        {
+                            id: 'script-2',
+                            codename: 'metahub-widget',
+                            presentation: {
+                                name: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Metahub widget' } }
+                                }
+                            },
+                            attached_to_kind: 'metahub',
+                            attached_to_id: null,
+                            module_role: 'widget',
+                            source_kind: 'embedded',
+                            sdk_api_version: '1.0.0',
+                            manifest: {
+                                className: 'MetahubWidgetScript',
+                                sdkApiVersion: '1.0.0',
+                                moduleRole: 'widget',
+                                sourceKind: 'embedded',
+                                capabilities: ['rpc.client'],
+                                methods: [{ name: 'mount', target: 'client' }]
+                            },
+                            server_bundle: 'module.exports = class ServerWidget {}',
+                            client_bundle: 'module.exports = class ClientWidget {}',
+                            checksum: 'metahub-checksum',
+                            is_active: true,
+                            config: {}
+                        },
+                        {
+                            id: 'script-3',
+                            codename: 'server-only-widget',
+                            presentation: {
+                                name: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Server only widget' } }
+                                }
+                            },
+                            attached_to_kind: 'catalog',
+                            attached_to_id: runtimeCatalogId,
+                            module_role: 'widget',
+                            source_kind: 'embedded',
+                            sdk_api_version: '1.0.0',
+                            manifest: {
+                                className: 'ServerOnlyWidgetScript',
+                                sdkApiVersion: '1.0.0',
+                                moduleRole: 'widget',
+                                sourceKind: 'embedded',
+                                capabilities: ['rpc.client'],
+                                methods: [{ name: 'submit', target: 'server' }]
+                            },
+                            server_bundle: 'module.exports = class ServerWidget {}',
+                            client_bundle: null,
+                            checksum: 'server-only-checksum',
+                            is_active: true,
+                            config: {}
+                        },
+                        {
+                            id: 'script-4',
+                            codename: 'other-catalog-widget',
+                            presentation: {
+                                name: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Other catalog widget' } }
+                                }
+                            },
+                            attached_to_kind: 'catalog',
+                            attached_to_id: otherCatalogId,
+                            module_role: 'widget',
+                            source_kind: 'embedded',
+                            sdk_api_version: '1.0.0',
+                            manifest: {
+                                className: 'OtherCatalogWidgetScript',
+                                sdkApiVersion: '1.0.0',
+                                moduleRole: 'widget',
+                                sourceKind: 'embedded',
+                                capabilities: ['rpc.client'],
+                                methods: [{ name: 'mount', target: 'client' }]
+                            },
+                            server_bundle: 'module.exports = class ServerWidget {}',
+                            client_bundle: 'module.exports = class ClientWidget {}',
+                            checksum: 'other-catalog-checksum',
+                            is_active: true,
+                            config: {}
+                        }
+                    ]
+                }
+
+                return originalQueryImpl ? originalQueryImpl(sql, params) : []
+            }
+
+            const runtimeManagerQueryImpl = async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT to_regclass($1) AS table_name')) {
+                    return [{ table_name: 'app_runtime_test._app_scripts' }]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_scripts')) {
+                    return [
+                        {
+                            id: 'script-server-only',
+                            codename: 'server-only-widget',
+                            presentation: {
+                                name: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Server only widget' } }
+                                }
+                            },
+                            attached_to_kind: 'catalog',
+                            attached_to_id: runtimeCatalogId,
+                            module_role: 'module',
+                            source_kind: 'embedded',
+                            sdk_api_version: '1.0.0',
+                            manifest: {
+                                className: 'ServerOnlyWidgetScript',
+                                sdkApiVersion: '1.0.0',
+                                moduleRole: 'module',
+                                sourceKind: 'embedded',
+                                capabilities: [],
+                                methods: [{ name: 'submit', target: 'server' }]
+                            },
+                            server_bundle: 'module.exports = class ServerWidget {}',
+                            client_bundle: null,
+                            checksum: 'server-only-checksum',
+                            is_active: true,
+                            config: {}
+                        }
+                    ]
+                }
+
+                return originalManagerQueryImpl ? originalManagerQueryImpl(sql, params) : []
+            }
+
+            ;(dataSource.query as jest.Mock).mockImplementation(runtimeQueryImpl)
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(runtimeManagerQueryImpl)
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime/scripts`)
+                .query({ attachedToKind: 'catalog', attachedToId: runtimeCatalogId })
+                .expect(200)
+
+            expect(response.body.items).toEqual([
+                expect.objectContaining({
+                    id: 'script-1',
+                    codename: 'quiz-widget',
+                    attachedToKind: 'catalog',
+                    attachedToId: runtimeCatalogId,
+                    clientBundle: null,
+                    serverBundle: null
+                })
+            ])
+        })
+    })
+
+    describe('GET /applications/:applicationId/runtime/scripts/:scriptId/client', () => {
+        it('returns the client bundle body with cache validators', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334480'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+
+            jest.spyOn(RuntimeScriptsService.prototype, 'getClientScriptBundle').mockResolvedValue({
+                bundle: 'export default class RuntimeQuizWidget {}',
+                checksum: 'bundle-checksum'
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime/scripts/script-1/client`).expect(200)
+
+            expect(response.text).toBe('export default class RuntimeQuizWidget {}')
+            expect(response.headers['content-type']).toContain('application/javascript')
+            expect(response.headers['etag']).toBe('"bundle-checksum"')
+            expect(response.headers['cache-control']).toBe('private, max-age=0, must-revalidate')
+            expect(response.headers['vary']).toBe('Cookie')
+        })
+
+        it('returns 304 when the client bundle checksum matches if-none-match', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334481'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+
+            jest.spyOn(RuntimeScriptsService.prototype, 'getClientScriptBundle').mockResolvedValue({
+                bundle: 'export default class RuntimeQuizWidget {}',
+                checksum: 'bundle-checksum-304'
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime/scripts/script-2/client`)
+                .set('If-None-Match', '"bundle-checksum-304"')
+                .expect(304)
+
+            expect(response.text).toBe('')
+            expect(response.headers['etag']).toBe('"bundle-checksum-304"')
+        })
+    })
+
+    describe('POST /applications/:applicationId/runtime/scripts/:scriptId/call', () => {
+        const buildRuntimeScriptsRouteDataSource = (applicationId: string, scriptRow: Record<string, unknown>) => {
+            const managerQuery = jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT to_regclass($1) AS table_name')) {
+                    return [{ table_name: 'app_runtime_test._app_scripts' }]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_scripts')) {
+                    return [scriptRow]
+                }
+
+                return []
+            })
+
+            const txExecutor = {
+                query: managerQuery,
+                transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(txExecutor)),
+                isReleased: jest.fn(() => false)
+            }
+
+            const dataSource = {
+                query: jest.fn(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('FROM applications.rel_application_users')) {
+                        return [
+                            {
+                                id: 'membership-id',
+                                applicationId,
+                                userId: 'test-user-id',
+                                role: 'member',
+                                _uplCreatedAt: new Date()
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                        return [{ id: applicationId, schemaName: 'app_runtime_test' }]
+                    }
+
+                    return managerQuery(sql, params)
+                }),
+                transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(txExecutor)),
+                isReleased: jest.fn(() => false),
+                manager: {
+                    query: managerQuery
+                }
+            }
+
+            return dataSource as TestDataSource
+        }
+
+        it('maps capability failures to HTTP 403', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334482'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+
+            jest.spyOn(RuntimeScriptsService.prototype, 'callServerMethod').mockRejectedValue(
+                new Error('Script capability "rpc.client" is not enabled for this module')
+            )
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/scripts/script-3/call`)
+                .send({ methodName: 'submit', args: [] })
+                .expect(403)
+
+            expect(response.body).toEqual({
+                error: 'Script capability "rpc.client" is not enabled for this module'
+            })
+        })
+
+        it('rejects real runtime RPC calls when the script does not declare rpc.client', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334483'
+            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334483'
+            const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
+                id: 'script-server-only',
+                codename: 'server-only-widget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: { en: { content: 'Server only widget' } }
+                    }
+                },
+                attached_to_kind: 'catalog',
+                attached_to_id: runtimeCatalogId,
+                module_role: 'module',
+                source_kind: 'embedded',
+                sdk_api_version: '1.0.0',
+                manifest: {
+                    className: 'ServerOnlyWidgetScript',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'module',
+                    sourceKind: 'embedded',
+                    capabilities: [],
+                    methods: [{ name: 'submit', target: 'server' }]
+                },
+                server_bundle: 'module.exports = class ServerWidget {}',
+                client_bundle: null,
+                checksum: 'server-only-checksum',
+                is_active: true,
+                config: {}
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/scripts/script-server-only/call`)
+                .send({ methodName: 'submit', args: [] })
+                .expect(403)
+
+            expect(response.body).toEqual({
+                error: 'Script capability "rpc.client" is not enabled for this module'
+            })
+        })
+
+        it('rejects lifecycle handlers on the public runtime RPC route', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334484'
+            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334484'
+            const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
+                id: 'script-lifecycle',
+                codename: 'catalog-lifecycle',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: { en: { content: 'Catalog lifecycle' } }
+                    }
+                },
+                attached_to_kind: 'catalog',
+                attached_to_id: runtimeCatalogId,
+                module_role: 'lifecycle',
+                source_kind: 'embedded',
+                sdk_api_version: '1.0.0',
+                manifest: {
+                    className: 'CatalogLifecycleScript',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'lifecycle',
+                    sourceKind: 'embedded',
+                    capabilities: ['lifecycle'],
+                    methods: [{ name: 'afterCreate', target: 'server', eventName: 'afterCreate' }]
+                },
+                server_bundle: 'module.exports = class LifecycleScript {}',
+                client_bundle: null,
+                checksum: 'lifecycle-checksum',
+                is_active: true,
+                config: {}
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/scripts/script-lifecycle/call`)
+                .send({ methodName: 'afterCreate', args: [] })
+                .expect(403)
+
+            expect(response.body).toEqual({
+                error: 'Runtime script lifecycle handlers are not callable through public RPC'
             })
         })
     })
@@ -699,7 +1144,7 @@ describe('Applications Routes', () => {
             const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
                 sql.includes('INSERT INTO applications.cat_applications (')
             )
-            expect(insertApplicationCall?.[1]?.[3]).toBe('source-app-copy-2')
+            expect(insertApplicationCall?.[1]?.[4]).toBe('source-app-copy-2')
         })
 
         it('should retry with next generated slug when insert fails with concurrent slug conflict', async () => {
@@ -771,8 +1216,8 @@ describe('Applications Routes', () => {
                 sql.includes('INSERT INTO applications.cat_applications (')
             )
             expect(insertCalls).toHaveLength(2)
-            expect(insertCalls[0][1][3]).toBe('source-app-copy')
-            expect(insertCalls[1][1][3]).toBe('source-app-copy-2')
+            expect(insertCalls[0][1][4]).toBe('source-app-copy')
+            expect(insertCalls[1][1][4]).toBe('source-app-copy-2')
         })
 
         it('should ignore legacy createSchema flag and still copy without connectors when copyConnector=false', async () => {
@@ -1850,6 +2295,7 @@ describe('Applications Routes', () => {
 
         it('uses physical DELETE when lifecycle contract is hard delete', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -1880,6 +2326,9 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return []
                 }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false }]
+                }
                 if (sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
@@ -1899,6 +2348,16 @@ describe('Applications Routes', () => {
             expect(deleteCall).toBeDefined()
             expect(String(deleteCall?.[0])).not.toContain('_app_deleted = false')
             expect(String(deleteCall?.[0])).not.toContain('SET _upl_deleted = true')
+            expect(dispatchLifecycleEventSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    payload: expect.objectContaining({ eventName: 'beforeDelete' })
+                })
+            )
+            expect(dispatchLifecycleEventSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    payload: expect.objectContaining({ eventName: 'afterDelete' })
+                })
+            )
         })
 
         it('omits optional app delete audit columns when lifecycle contract disables them', async () => {
@@ -1932,6 +2391,9 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return []
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false }]
                 }
                 if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
                     return [{ id: runtimeRowId }]
@@ -1993,6 +2455,9 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return []
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false }]
                 }
                 if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
                     return [{ id: runtimeRowId }]
@@ -2107,6 +2572,82 @@ describe('Applications Routes', () => {
                 copyOptions: { copyChildTables: true },
                 hasRequiredChildTables: false
             })
+        })
+
+        it('dispatches beforeCopy inside the transaction and afterCopy after commit', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo, txExecutor } = buildDataSource()
+            const dispatchLifecycleEventSpy = jest
+                .spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent')
+                .mockResolvedValue(undefined)
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                    if (Array.isArray(params) && params[0] === runtimeRowId) {
+                        return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
+                    }
+                    if (Array.isArray(params) && params[0] === copiedRowId) {
+                        return [{ id: copiedRowId, title: 'Source row (copy)', _upl_locked: false }]
+                    }
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                    return [{ id: copiedRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                .send({ catalogId: runtimeCatalogId })
+                .expect(201)
+
+            expect(response.body).toEqual({
+                id: copiedRowId,
+                status: 'created',
+                copyOptions: { copyChildTables: true },
+                hasRequiredChildTables: false
+            })
+            expect(dispatchLifecycleEventSpy).toHaveBeenCalledTimes(2)
+            expect(dispatchLifecycleEventSpy).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({
+                    executor: txExecutor,
+                    payload: expect.objectContaining({
+                        eventName: 'beforeCopy',
+                        previousRow: expect.objectContaining({ id: runtimeRowId }),
+                        metadata: { copyChildTables: true }
+                    })
+                })
+            )
+            expect(dispatchLifecycleEventSpy).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({
+                    executor: dataSource,
+                    payload: expect.objectContaining({
+                        eventName: 'afterCopy',
+                        previousRow: expect.objectContaining({ id: runtimeRowId }),
+                        row: expect.objectContaining({ id: copiedRowId }),
+                        metadata: { copyChildTables: true }
+                    })
+                })
+            )
         })
 
         it('allows editor role to persist runtime row reorder when the catalog enables it', async () => {

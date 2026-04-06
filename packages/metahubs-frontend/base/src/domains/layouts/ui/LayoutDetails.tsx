@@ -29,7 +29,13 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import { DndContext, DragEndEvent, PointerSensor, useDroppable, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { DashboardLayoutZone, DashboardLayoutWidgetKey, MenuWidgetConfig, ColumnsContainerConfig } from '@universo/types'
+import type {
+    DashboardLayoutZone,
+    DashboardLayoutWidgetKey,
+    MenuWidgetConfig,
+    ColumnsContainerConfig,
+    QuizWidgetConfig
+} from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError, PAGE_CONTENT_GUTTER_MX } from '@universo/template-mui'
 
@@ -39,6 +45,7 @@ import type { MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetCatal
 import { getVLCString, normalizeLocale } from '../../../types'
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
+import QuizWidgetEditorDialog from './QuizWidgetEditorDialog'
 
 type AddWidgetMenuState = {
     anchorEl: HTMLElement | null
@@ -59,6 +66,13 @@ type ColumnsEditorState = {
     /** widgetId when editing existing columnsContainer, null when creating new */
     widgetId: string | null
     config: ColumnsContainerConfig | null
+}
+
+type QuizEditorState = {
+    open: boolean
+    zone: DashboardLayoutZone | null
+    widgetId: string | null
+    config: QuizWidgetConfig | null
 }
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
@@ -186,6 +200,7 @@ export default function LayoutDetails() {
     const [addWidgetMenu, setAddWidgetMenu] = useState<AddWidgetMenuState>({ anchorEl: null, zone: null })
     const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
+    const [quizEditor, setQuizEditor] = useState<QuizEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [viewSettingsSaving, setViewSettingsSaving] = useState(false)
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
@@ -270,6 +285,11 @@ export default function LayoutDetails() {
                 .flatMap((col) => (col.widgets ?? []).map((w) => widgetLabelByKey[w.widgetKey] || w.widgetKey))
                 .join(', ')
             return `${base}: ${innerNames}`
+        }
+        if (widget.widgetKey === 'quizWidget') {
+            const cfg = widget.config as QuizWidgetConfig | undefined
+            const configuredScriptCodename = typeof cfg?.scriptCodename === 'string' ? cfg.scriptCodename.trim() : ''
+            return configuredScriptCodename ? `${base}: ${configuredScriptCodename}` : base
         }
         return base
     }
@@ -608,6 +628,7 @@ export default function LayoutDetails() {
                                                             {zoneItems.map((item) => {
                                                                 const isMenuWidget = item.widgetKey === 'menuWidget'
                                                                 const isColumnsContainer = item.widgetKey === 'columnsContainer'
+                                                                const isQuizWidget = item.widgetKey === 'quizWidget'
                                                                 const openEditor = isMenuWidget
                                                                     ? () =>
                                                                           setMenuEditor({
@@ -624,6 +645,14 @@ export default function LayoutDetails() {
                                                                               widgetId: item.id,
                                                                               config: (item.config as ColumnsContainerConfig) ?? null
                                                                           })
+                                                                    : isQuizWidget
+                                                                    ? () =>
+                                                                          setQuizEditor({
+                                                                              open: true,
+                                                                              zone,
+                                                                              widgetId: item.id,
+                                                                              config: (item.config as QuizWidgetConfig) ?? null
+                                                                          })
                                                                     : undefined
                                                                 return (
                                                                     <SortableWidgetChip
@@ -638,7 +667,7 @@ export default function LayoutDetails() {
                                                                             void handleToggleWidgetActive(item.id, active)
                                                                         }
                                                                         editTooltip={
-                                                                            isMenuWidget || isColumnsContainer
+                                                                            isMenuWidget || isColumnsContainer || isQuizWidget
                                                                                 ? t('common:actions.edit')
                                                                                 : undefined
                                                                         }
@@ -691,6 +720,10 @@ export default function LayoutDetails() {
                             // For columnsContainer, open editor dialog instead of adding directly
                             if (widgetItem.key === 'columnsContainer') {
                                 setColumnsEditor({ open: true, zone, widgetId: null, config: null })
+                                return
+                            }
+                            if (widgetItem.key === 'quizWidget') {
+                                setQuizEditor({ open: true, zone, widgetId: null, config: null })
                                 return
                             }
                             void handleAddWidget(zone, widgetItem.key)
@@ -774,6 +807,42 @@ export default function LayoutDetails() {
                     }
                 }}
                 onCancel={() => setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })}
+            />
+
+            <QuizWidgetEditorDialog
+                open={quizEditor.open}
+                metahubId={metahubId}
+                config={quizEditor.config ?? undefined}
+                onSave={async (config) => {
+                    const zone = quizEditor.zone
+                    const widgetId = quizEditor.widgetId
+                    if (!zone || !metahubId || !layoutId) return
+                    try {
+                        let savedWidget: MetahubLayoutZoneWidget
+                        if (widgetId) {
+                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
+                                metahubId,
+                                layoutId,
+                                widgetId,
+                                config as Record<string, unknown>
+                            )
+                            savedWidget = response.data.item
+                        } else {
+                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
+                                zone,
+                                widgetKey: 'quizWidget',
+                                config: config as Record<string, unknown>
+                            })
+                            savedWidget = response.data
+                        }
+                        upsertZoneWidgetInCache(savedWidget)
+                        await persistAndRefresh()
+                        setQuizEditor({ open: false, zone: null, widgetId: null, config: null })
+                    } catch (e: unknown) {
+                        notifyError(t, enqueueSnackbar, e)
+                    }
+                }}
+                onCancel={() => setQuizEditor({ open: false, zone: null, widgetId: null, config: null })}
             />
         </MainCard>
     )

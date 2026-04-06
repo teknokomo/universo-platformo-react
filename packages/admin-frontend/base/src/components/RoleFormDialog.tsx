@@ -7,6 +7,7 @@ import {
     CircularProgress,
     Divider,
     Dialog,
+    type DialogProps,
     DialogActions,
     DialogContent,
     DialogTitle,
@@ -31,6 +32,7 @@ import {
 
 import { ColorPicker } from './ColorPicker'
 import { usePlatformCodenameConfig } from '../hooks/usePlatformCodenameConfig'
+import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
 
 export interface RoleFormDialogSubmitData {
     codename: VersionedLocalizedContent<string>
@@ -339,10 +341,33 @@ export default function RoleFormDialog({
         </Stack>
     )
 
+    const handleClose = useCallback(() => {
+        if (!loading) onClose()
+    }, [loading, onClose])
+
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: loading })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        title
+    )
+
     return (
-        <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogContent sx={{ mt: 1, pt: '16px !important' }}>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm') as DialogProps['maxWidth']}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+            <DialogContent sx={mergeDialogSx(presentation.contentSx, { mt: 1, pt: '16px !important' })}>
                 {showCopyPermissions ? (
                     <>
                         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
@@ -368,7 +393,7 @@ export default function RoleFormDialog({
                 )}
             </DialogContent>
             <DialogActions sx={{ p: 3, pt: 2 }}>
-                <Button onClick={onClose} disabled={loading}>
+                <Button onClick={handleClose} disabled={loading}>
                     {tc('actions.cancel')}
                 </Button>
                 <Button
@@ -380,6 +405,7 @@ export default function RoleFormDialog({
                     {submitLabel}
                 </Button>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

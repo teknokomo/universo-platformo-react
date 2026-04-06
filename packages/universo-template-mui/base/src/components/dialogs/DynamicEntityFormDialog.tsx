@@ -30,6 +30,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
@@ -1482,11 +1483,33 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const hasTableFields = fields.some((f) => f.type === 'TABLE')
     const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
+    const handleClose = () => {
+        if (isSubmitting) return
+        onClose()
+    }
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: dialogMaxWidth, isBusy: isSubmitting })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        title
+    )
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth={dialogMaxWidth} fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? dialogMaxWidth}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
+            <DialogContent sx={mergeDialogSx({ overflowY: 'visible', overflowX: 'hidden' }, presentation.contentSx)}>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     {error && <Alert severity='error'>{error}</Alert>}
                     {!isReady ? (
@@ -1513,7 +1536,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     </Button>
                 ) : null}
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button onClick={onClose} disabled={isSubmitting}>
+                    <Button onClick={handleClose} disabled={isSubmitting}>
                         {cancelButtonText}
                     </Button>
                     <Button
@@ -1526,6 +1549,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     </Button>
                 </Box>
             </DialogActions>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

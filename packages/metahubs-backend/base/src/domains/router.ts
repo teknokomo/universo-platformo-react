@@ -13,6 +13,7 @@ import { createElementsRoutes } from './elements/routes/elementsRoutes'
 import { createSetsRoutes } from './sets/routes/setsRoutes'
 import { createConstantsRoutes } from './constants/routes/constantsRoutes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
+import { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
@@ -87,6 +88,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createConstantsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createElementsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createScriptsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Settings (metahub-level configuration)
     router.use('/', createSettingsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -157,6 +159,7 @@ export { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 export { createConstantsRoutes } from './constants/routes/constantsRoutes'
 export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
+export { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
 export { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'

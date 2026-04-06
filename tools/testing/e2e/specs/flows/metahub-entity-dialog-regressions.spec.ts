@@ -126,6 +126,30 @@ async function waitForFirstEntityId<T extends { id?: string }>(loader: () => Pro
     return firstId
 }
 
+async function expectNoHorizontalOverflow(locator: Locator, label: string) {
+    const metrics = await locator.evaluate((node) => {
+        const element = node as HTMLElement
+        return {
+            clientWidth: Math.ceil(element.clientWidth),
+            scrollWidth: Math.ceil(element.scrollWidth)
+        }
+    })
+
+    expect(metrics.scrollWidth, `${label} should not exceed its own width`).toBeLessThanOrEqual(metrics.clientWidth + 1)
+}
+
+async function expectViewportWithoutHorizontalOverflow(page: Page) {
+    const metrics = await page.evaluate(() => {
+        const scrollingRoot = document.scrollingElement ?? document.documentElement
+        return {
+            clientWidth: Math.ceil(scrollingRoot.clientWidth),
+            scrollWidth: Math.ceil(scrollingRoot.scrollWidth)
+        }
+    })
+
+    expect(metrics.scrollWidth, 'Viewport should not gain horizontal overflow').toBeLessThanOrEqual(metrics.clientWidth + 1)
+}
+
 test('@flow metahub entity dialogs cover constant edit, enumeration value edit-copy fields, and localized attribute copy codename generation', async ({
     page,
     runManifest
@@ -182,9 +206,38 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(editSetDialog).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'General' })).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
+        await expect(editSetDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
         await expect(editSetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Description').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Codename').first()).toBeVisible()
+        await expect(editSetDialog.getByTestId('dialog-toggle-fullscreen')).toBeVisible()
+        await expect(editSetDialog.getByTestId('dialog-resize-handle')).toBeVisible()
+
+        const initialDialogBox = await editSetDialog.boundingBox()
+        if (!initialDialogBox) {
+            throw new Error('Edit Set dialog bounding box is unavailable')
+        }
+
+        await page.mouse.click(12, 12)
+        await expect(editSetDialog).toBeVisible()
+
+        await editSetDialog.getByTestId('dialog-toggle-fullscreen').click()
+        await expect
+            .poll(async () => {
+                const fullscreenBox = await editSetDialog.boundingBox()
+                return fullscreenBox?.width ?? 0
+            })
+            .toBeGreaterThan(initialDialogBox.width + 100)
+
+        await editSetDialog.getByTestId('dialog-toggle-fullscreen').click()
+        await editSetDialog.getByRole('tab', { name: 'Scripts' }).click()
+        await expect(editSetDialog.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'compact')
+        await expect(editSetDialog.getByTestId('entity-scripts-list-toggle')).toBeVisible()
+        await expect(editSetDialog.getByTestId('entity-scripts-editor-shell')).toBeVisible()
+        await expectNoHorizontalOverflow(editSetDialog, 'Edit Set dialog')
+        await expectViewportWithoutHorizontalOverflow(page)
+
+        await editSetDialog.getByRole('tab', { name: 'General' }).click()
         await editSetDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(editSetDialog).toHaveCount(0)
 

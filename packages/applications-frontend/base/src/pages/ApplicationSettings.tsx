@@ -1,15 +1,33 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Box, Button, CircularProgress, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
+import {
+    Alert,
+    Box,
+    Button,
+    CircularProgress,
+    Divider,
+    FormControl,
+    FormControlLabel,
+    InputLabel,
+    MenuItem,
+    Select,
+    Stack,
+    Switch,
+    Tab,
+    Tabs,
+    TextField,
+    Typography
+} from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
-import { getApplicationWorkspaceLimits, updateApplicationWorkspaceLimits } from '../api/applications'
-import { toApplicationDisplay, type ApplicationWorkspaceLimitItem, type SchemaStatus } from '../types'
+import { getApplicationWorkspaceLimits, updateApplication, updateApplicationWorkspaceLimits } from '../api/applications'
+import { DEFAULT_APPLICATION_DIALOG_SETTINGS } from '../settings/dialogSettings'
+import { toApplicationDisplay, type ApplicationDialogSettings, type ApplicationWorkspaceLimitItem, type SchemaStatus } from '../types'
 
 type SettingsTab = 'general' | 'limits'
 
@@ -40,6 +58,7 @@ const ApplicationSettings = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+    const [generalChanges, setGeneralChanges] = useState<Partial<ApplicationDialogSettings>>({})
     const [localLimits, setLocalLimits] = useState<Record<string, string>>({})
 
     const applicationQuery = useApplicationDetails(applicationId || '', {
@@ -83,6 +102,38 @@ const ApplicationSettings = () => {
         }
     })
 
+    const effectiveGeneralSettings = useMemo<ApplicationDialogSettings>(
+        () => ({
+            ...DEFAULT_APPLICATION_DIALOG_SETTINGS,
+            ...(applicationQuery.data?.settings ?? {}),
+            ...generalChanges
+        }),
+        [applicationQuery.data?.settings, generalChanges]
+    )
+
+    const saveGeneralMutation = useMutation({
+        mutationKey: ['applications', 'settings', 'general', 'update'],
+        mutationFn: async (settings: ApplicationDialogSettings) => {
+            const response = await updateApplication(applicationId!, {
+                settings,
+                expectedVersion: applicationQuery.data?.version ?? 1
+            })
+            return response.data
+        },
+        onSuccess: async (saved) => {
+            if (!applicationId) return
+            queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), saved)
+            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(applicationId) })
+            enqueueSnackbar(t('settings.generalSaved', 'Popup settings saved'), { variant: 'success' })
+            setGeneralChanges({})
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('settings.generalSaveError', 'Failed to save popup settings'), {
+                variant: 'error'
+            })
+        }
+    })
+
     const effectiveLimits = useMemo(
         () =>
             (limitsQuery.data ?? []).map((item) => ({
@@ -108,6 +159,8 @@ const ApplicationSettings = () => {
         return <Alert severity='error'>{t('settings.loadError', 'Failed to load application settings')}</Alert>
     }
 
+    const hasGeneralChanges = Object.keys(generalChanges).length > 0
+
     return (
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
             <ViewHeader title={t('settings.title', 'Application Settings')} search={false} />
@@ -121,27 +174,154 @@ const ApplicationSettings = () => {
 
             <Box data-testid='application-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
                 {activeTab === 'general' ? (
-                    <Stack spacing={2}>
-                        {!runtimeSchemaReady ? (
-                            <Alert severity='info'>
-                                {t(
-                                    'settings.requiresSchema',
-                                    'Application settings that depend on runtime schema will become available after the schema is created.'
-                                )}
-                            </Alert>
+                    <>
+                        <Stack spacing={0} divider={<Divider />}>
+                            <Box
+                                data-testid='application-setting-dialogSizePreset'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>{t('settings.dialogSizePreset', 'Popup window size')}</Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.dialogSizePresetDescription',
+                                            'Default size for popup windows in this application control panel.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControl size='small' sx={{ minWidth: 250 }}>
+                                    <InputLabel>{t('settings.dialogSizePreset', 'Popup window size')}</InputLabel>
+                                    <Select
+                                        value={effectiveGeneralSettings.dialogSizePreset}
+                                        label={t('settings.dialogSizePreset', 'Popup window size')}
+                                        onChange={(event) =>
+                                            setGeneralChanges((prev) => ({
+                                                ...prev,
+                                                dialogSizePreset: event.target.value as ApplicationDialogSettings['dialogSizePreset']
+                                            }))
+                                        }
+                                    >
+                                        <MenuItem value='small'>{t('settings.dialogSizePresets.small', 'Small (about 480 px)')}</MenuItem>
+                                        <MenuItem value='medium'>{t('settings.dialogSizePresets.medium', 'Medium (about 600 px)')}</MenuItem>
+                                        <MenuItem value='large'>{t('settings.dialogSizePresets.large', 'Large (about 800 px)')}</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
+                            <Box
+                                data-testid='application-setting-dialogAllowFullscreen'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.dialogAllowFullscreen', 'Allow fullscreen expansion')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.dialogAllowFullscreenDescription',
+                                            'Show a header action that expands application popup windows almost to the full viewport.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={effectiveGeneralSettings.dialogAllowFullscreen}
+                                            onChange={(event) =>
+                                                setGeneralChanges((prev) => ({
+                                                    ...prev,
+                                                    dialogAllowFullscreen: event.target.checked
+                                                }))
+                                            }
+                                        />
+                                    }
+                                    label=''
+                                />
+                            </Box>
+
+                            <Box
+                                data-testid='application-setting-dialogAllowResize'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.dialogAllowResize', 'Allow popup resize')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.dialogAllowResizeDescription',
+                                            'Show a resize handle and remember the custom popup size in this browser for this application.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={effectiveGeneralSettings.dialogAllowResize}
+                                            onChange={(event) =>
+                                                setGeneralChanges((prev) => ({
+                                                    ...prev,
+                                                    dialogAllowResize: event.target.checked
+                                                }))
+                                            }
+                                        />
+                                    }
+                                    label=''
+                                />
+                            </Box>
+
+                            <Box
+                                data-testid='application-setting-dialogCloseBehavior'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.dialogCloseBehavior', 'Popup window type')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.dialogCloseBehaviorDescription',
+                                            'Choose whether application popup windows stay modal or can close when the user clicks outside the window.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControl size='small' sx={{ minWidth: 250 }}>
+                                    <InputLabel>{t('settings.dialogCloseBehavior', 'Popup window type')}</InputLabel>
+                                    <Select
+                                        value={effectiveGeneralSettings.dialogCloseBehavior}
+                                        label={t('settings.dialogCloseBehavior', 'Popup window type')}
+                                        onChange={(event) =>
+                                            setGeneralChanges((prev) => ({
+                                                ...prev,
+                                                dialogCloseBehavior: event.target.value as ApplicationDialogSettings['dialogCloseBehavior']
+                                            }))
+                                        }
+                                    >
+                                        <MenuItem value='strict-modal'>
+                                            {t('settings.dialogCloseBehaviors.strict-modal', 'Modal windows')}
+                                        </MenuItem>
+                                        <MenuItem value='backdrop-close'>
+                                            {t('settings.dialogCloseBehaviors.backdrop-close', 'Non-modal windows')}
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        </Stack>
+
+                        {hasGeneralChanges ? (
+                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button
+                                    data-testid='application-settings-general-save'
+                                    variant='contained'
+                                    startIcon={<SaveIcon />}
+                                    onClick={() => saveGeneralMutation.mutate(effectiveGeneralSettings)}
+                                    disabled={saveGeneralMutation.isPending}
+                                >
+                                    {t('settings.save', 'Save')}
+                                </Button>
+                            </Box>
                         ) : null}
-                        {applicationQuery.data?.workspacesEnabled !== true ? (
-                            <Alert severity='info'>
-                                {t(
-                                    'settings.requiresWorkspaces',
-                                    'Workspace-specific settings are available only for applications created with workspace mode enabled.'
-                                )}
-                            </Alert>
-                        ) : null}
-                        <Alert severity='info'>
-                            {t('settings.generalPlaceholder', 'General application settings will be available in future versions.')}
-                        </Alert>
-                    </Stack>
+                    </>
                 ) : (
                     <Stack spacing={2}>
                         <Alert severity='info'>

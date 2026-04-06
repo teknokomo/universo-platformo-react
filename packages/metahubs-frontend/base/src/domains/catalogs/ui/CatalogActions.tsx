@@ -34,6 +34,7 @@ import {
     normalizeLocale
 } from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 /**
  * Extended CatalogDisplay type that includes hubId for AllCatalogsList context
@@ -47,6 +48,7 @@ export type CatalogFormSetValue = (name: string, value: unknown) => void
 export type CatalogActionContext = ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
+    metahubId?: string | null
 }
 export type CatalogDialogTabArgs = {
     values: CatalogFormValues
@@ -573,6 +575,7 @@ export const buildFormTabs = (
         isLoading: boolean
         errors: Record<string, string>
     }): TabConfig[] => {
+        const metahubId = (ctx as CatalogActionContext).metahubId ?? null
         const tabs: TabConfig[] = [
             {
                 id: 'general',
@@ -623,6 +626,17 @@ export const buildFormTabs = (
                 label: ctx.t('catalogs.tabs.layout', 'Layout'),
                 content: <CatalogLayoutTabFields values={values} setValue={setValue} isLoading={isFormLoading} t={ctx.t} />
             })
+        }
+
+        if (editingEntityId && metahubId) {
+            tabs.push(
+                createScriptsTab({
+                    t: ctx.t,
+                    metahubId,
+                    attachedToKind: 'catalog',
+                    attachedToId: editingEntityId
+                })
+            )
         }
 
         return tabs

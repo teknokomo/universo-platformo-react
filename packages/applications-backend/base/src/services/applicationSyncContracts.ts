@@ -1,6 +1,6 @@
 import type { DbExecutor } from '@universo/utils'
 import type { EntityDefinition } from '@universo/schema-ddl'
-import type { MetahubSnapshotVersionEnvelope } from '@universo/types'
+import type { ApplicationScriptDefinition, MetahubSnapshotVersionEnvelope } from '@universo/types'
 
 export interface PublishedApplicationSnapshot {
     versionEnvelope?: MetahubSnapshotVersionEnvelope
@@ -8,6 +8,7 @@ export interface PublishedApplicationSnapshot {
     elements?: Record<string, unknown[]>
     enumerationValues?: Record<string, unknown[]>
     constants?: Record<string, unknown[]>
+    scripts?: ApplicationScriptDefinition[]
     layouts?: unknown[]
     layoutZoneWidgets?: unknown[]
     defaultLayoutId?: string | null

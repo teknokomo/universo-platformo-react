@@ -18,6 +18,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 ## Main Responsibilities
 
 - Expose authenticated CRUD routes for design-time metahub resources.
+- Keep design-time script source and bundle surfaces behind `manageMetahub` permission instead of broad member-level reads.
 - Expose public read-only routes for published metahub data.
 - Initialize rate limiters and assemble the full metahubs router tree.
 - Seed built-in templates through the unified platform migration flow.
@@ -30,6 +31,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 - Dynamic schema, table, and column identifiers go through shared quoting helpers.
 - Domain SQL is schema-qualified and parameterized with PostgreSQL-style bindings.
 - Copy, delete, restore, and reorder flows must preserve active-row and fail-closed contracts.
+- Active design-time script codenames are unique only inside the attachment scope tuple `(attached_to_kind, attached_to_id, module_role)`.
 - Package-local DDL helpers are the only valid place for raw Knex and schema-ddl transport wiring.
 
 ## DDL And Publication Boundaries

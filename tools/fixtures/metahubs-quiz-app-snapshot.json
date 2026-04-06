@@ -1,0 +1,605 @@
+{
+  "kind": "metahub_snapshot_bundle",
+  "bundleVersion": 1,
+  "exportedAt": "2026-04-05T19:46:11.850Z",
+  "metahub": {
+    "id": "019d5f2d-f652-7ab3-bf12-078e7345dcec",
+    "name": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "Space Quiz Metahub",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-05T19:45:40.659Z",
+          "updatedAt": "2026-04-05T19:45:40.659Z"
+        },
+        "ru": {
+          "content": "Метахаб космической викторины",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-05T19:45:40.659Z",
+          "updatedAt": "2026-04-05T19:45:40.659Z"
+        }
+      },
+      "_primary": "en"
+    },
+    "description": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "Canonical metahub fixture for the full scripting-powered Space Quiz experience with 10 questions, scoring, and restart flow.",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-05T19:45:40.659Z",
+          "updatedAt": "2026-04-05T19:45:40.659Z"
+        },
+        "ru": {
+          "content": "Канонический fixture метахаба для полноценной космической викторины на скриптах: 10 вопросов, подсчёт баллов и перезапуск.",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-05T19:45:40.659Z",
+          "updatedAt": "2026-04-05T19:45:40.659Z"
+        }
+      },
+      "_primary": "en"
+    },
+    "codename": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "SpaceQuizMetahub",
+          "version": 2,
+          "isActive": true,
+          "createdAt": "2026-04-05T19:45:40.070Z",
+          "updatedAt": "2026-04-05T19:45:40.659Z"
+        },
+        "ru": {
+          "content": "МетахабКосмическойВикторины",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-04-05T19:45:40.070Z",
+          "updatedAt": "2026-04-05T19:45:40.070Z"
+        }
+      },
+      "_primary": "en"
+    }
+  },
+  "snapshot": {
+    "metahubId": "019d5f2d-f652-7ab3-bf12-078e7345dcec",
+    "generatedAt": "2026-04-05T19:46:11.176Z",
+    "version": 1,
+    "versionEnvelope": {
+      "structureVersion": "0.3.0",
+      "templateVersion": null,
+      "snapshotFormatVersion": 1
+    },
+    "entities": {
+      "019d5f2e-1d8d-706c-9789-dff2b59fe3d5": {
+        "id": "019d5f2e-1d8d-706c-9789-dff2b59fe3d5",
+        "kind": "hub",
+        "codename": "Main",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main hub for organizing metahub content",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной хаб для организации контента метахаба",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "parentHubId": null
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5f2e-1e25-7f4c-bba6-b33333d1587e": {
+        "id": "019d5f2e-1e25-7f4c-bba6-b33333d1587e",
+        "kind": "catalog",
+        "codename": "Main",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main catalog for storing records",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной каталог для хранения записей",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [
+          {
+            "id": "019d5f2e-394d-79d5-b01c-71b66692d6dc",
+            "codename": "Title",
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Title",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-04-05T19:45:57.065Z",
+                    "updatedAt": "2026-04-05T19:45:57.065Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 1
+          }
+        ],
+        "hubs": []
+      },
+      "019d5f2e-2415-7783-954f-788f8d288bf4": {
+        "id": "019d5f2e-2415-7783-954f-788f8d288bf4",
+        "kind": "enumeration",
+        "codename": "Main",
+        "tableName": "enum_019d5f2e24157783954f788f8d288bf4",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основное",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main enumeration for fixed values",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основное перечисление для фиксированных значений",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019d5f2e-237b-7af0-8ef9-c4c48c36c7b4": {
+        "id": "019d5f2e-237b-7af0-8ef9-c4c48c36c7b4",
+        "kind": "set",
+        "codename": "Main",
+        "tableName": "set_019d5f2e237b7af08ef9c4c48c36c7b4",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main set for storing constants and typed values",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной набор для хранения констант и типизированных значений",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "sortOrder": 1,
+          "isSingleHub": false,
+          "isRequiredHub": false
+        },
+        "fields": [],
+        "hubs": []
+      }
+    },
+    "systemFields": {
+      "019d5f2e-1e25-7f4c-bba6-b33333d1587e": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      }
+    },
+    "scripts": [
+      {
+        "id": "019d5f2e-59d5-783a-b11f-58d6f80eece4",
+        "codename": "quiz-widget",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Space quiz widget",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-05T19:46:05.806Z",
+                "updatedAt": "2026-04-05T19:46:05.806Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Canonical Space Quiz widget script for snapshot export",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-05T19:46:05.806Z",
+                "updatedAt": "2026-04-05T19:46:05.806Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "attachedToKind": "metahub",
+        "attachedToId": null,
+        "moduleRole": "widget",
+        "sourceKind": "embedded",
+        "sdkApiVersion": "1.0.0",
+        "manifest": {
+          "className": "SpaceQuizWidget",
+          "sdkApiVersion": "1.0.0",
+          "moduleRole": "widget",
+          "sourceKind": "embedded",
+          "capabilities": [
+            "rpc.client"
+          ],
+          "methods": [
+            {
+              "name": "mount",
+              "target": "client",
+              "eventName": null
+            },
+            {
+              "name": "getQuiz",
+              "target": "server",
+              "eventName": null
+            },
+            {
+              "name": "submit",
+              "target": "server",
+              "eventName": null
+            }
+          ],
+          "checksum": "518ce5f136a48346144d96dde2171981daac334ebeb6c05bef07615872bfd02c"
+        },
+        "serverBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => SpaceQuizWidget\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar QUIZ_DATA = { \"en\": { \"title\": \"Space Quiz\", \"description\": \"Answer ten astronomy questions one by one. Correct answers move you forward automatically.\", \"submitLabel\": \"Check answer\", \"nextLabel\": \"Next question\", \"questions\": [{ \"id\": \"q1\", \"prompt\": \"Which planet is known as the Red Planet?\", \"description\": \"Think about the rusty world explored by many rovers.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Venus\" }, { \"id\": \"b\", \"label\": \"Mars\" }, { \"id\": \"c\", \"label\": \"Mercury\" }, { \"id\": \"d\", \"label\": \"Jupiter\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Mars looks red because iron-rich dust on its surface oxidizes like rust.\" }, { \"id\": \"q2\", \"prompt\": \"Where is Olympus Mons located?\", \"description\": \"It is the tallest volcano known in the Solar System.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Earth\" }, { \"id\": \"b\", \"label\": \"The Moon\" }, { \"id\": \"c\", \"label\": \"Mars\" }, { \"id\": \"d\", \"label\": \"Io\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"Olympus Mons is a giant shield volcano on Mars, towering far above Everest.\" }, { \"id\": \"q3\", \"prompt\": \"The Great Red Spot is a storm on which planet?\", \"description\": \"This world is the largest planet in the Solar System.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Saturn\" }, { \"id\": \"b\", \"label\": \"Jupiter\" }, { \"id\": \"c\", \"label\": \"Neptune\" }, { \"id\": \"d\", \"label\": \"Uranus\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"The Great Red Spot is a long-lived storm system in Jupiter's atmosphere.\" }, { \"id\": \"q4\", \"prompt\": \"Which mission first landed humans on the Moon?\", \"description\": \"It carried Neil Armstrong and Buzz Aldrin to the lunar surface.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Apollo 8\" }, { \"id\": \"b\", \"label\": \"Apollo 11\" }, { \"id\": \"c\", \"label\": \"Apollo 13\" }, { \"id\": \"d\", \"label\": \"Gemini 4\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Apollo 11 completed the first crewed lunar landing in July 1969.\" }, { \"id\": \"q5\", \"prompt\": \"What is at the center of our Solar System?\", \"description\": \"Every planet in our system orbits this star.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"The Moon\" }, { \"id\": \"b\", \"label\": \"Polaris\" }, { \"id\": \"c\", \"label\": \"The Sun\" }, { \"id\": \"d\", \"label\": \"Sagittarius A*\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"The Sun contains almost all of the Solar System's mass and anchors its orbits.\" }, { \"id\": \"q6\", \"prompt\": \"Which planet is most famous for its bright ring system?\", \"description\": \"Several gas giants have rings, but one is the classic example.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Jupiter\" }, { \"id\": \"b\", \"label\": \"Saturn\" }, { \"id\": \"c\", \"label\": \"Mars\" }, { \"id\": \"d\", \"label\": \"Mercury\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Saturn's icy rings are the most extensive and visually striking in the Solar System.\" }, { \"id\": \"q7\", \"prompt\": \"What protects Earth from much of the solar wind?\", \"description\": \"Without it, charged particles would strip away much more of our atmosphere.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"Its magnetic field\" }, { \"id\": \"b\", \"label\": \"The asteroid belt\" }, { \"id\": \"c\", \"label\": \"Ocean tides\" }, { \"id\": \"d\", \"label\": \"The Moon's gravity\" }], \"correctOptionIds\": [\"a\"], \"explanation\": \"Earth's magnetosphere deflects many charged particles streaming from the Sun.\" }, { \"id\": \"q8\", \"prompt\": \"Which space observatory primarily studies the universe in infrared light?\", \"description\": \"Its segmented mirror was designed to see through cosmic dust.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"Hubble Space Telescope\" }, { \"id\": \"b\", \"label\": \"James Webb Space Telescope\" }, { \"id\": \"c\", \"label\": \"Chandra X-ray Observatory\" }, { \"id\": \"d\", \"label\": \"Kepler Space Telescope\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"The James Webb Space Telescope is optimized for infrared observations.\" }, { \"id\": \"q9\", \"prompt\": \"Which spacecraft is widely recognized as the first human-made object to enter interstellar space?\", \"description\": \"It launched in 1977 and still sends data today.\", \"difficulty\": 3, \"options\": [{ \"id\": \"a\", \"label\": \"Pioneer 10\" }, { \"id\": \"b\", \"label\": \"Voyager 2\" }, { \"id\": \"c\", \"label\": \"Voyager 1\" }, { \"id\": \"d\", \"label\": \"New Horizons\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"Voyager 1 crossed into interstellar space in 2012, ahead of Voyager 2.\" }, { \"id\": \"q10\", \"prompt\": \"Which two planets are classified as ice giants?\", \"description\": \"Select two answers.\", \"difficulty\": 3, \"multiple\": true, \"options\": [{ \"id\": \"a\", \"label\": \"Jupiter\" }, { \"id\": \"b\", \"label\": \"Saturn\" }, { \"id\": \"c\", \"label\": \"Uranus\" }, { \"id\": \"d\", \"label\": \"Neptune\" }], \"correctOptionIds\": [\"c\", \"d\"], \"explanation\": \"Uranus and Neptune are called ice giants because their interiors contain more water, ammonia, and methane ices than Jupiter or Saturn.\" }] }, \"ru\": { \"title\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0430\\u044F \\u0432\\u0438\\u043A\\u0442\\u043E\\u0440\\u0438\\u043D\\u0430\", \"description\": \"\\u041E\\u0442\\u0432\\u0435\\u0442\\u044C\\u0442\\u0435 \\u043F\\u043E \\u043E\\u0447\\u0435\\u0440\\u0435\\u0434\\u0438 \\u043D\\u0430 \\u0434\\u0435\\u0441\\u044F\\u0442\\u044C \\u0432\\u043E\\u043F\\u0440\\u043E\\u0441\\u043E\\u0432 \\u043F\\u043E \\u0430\\u0441\\u0442\\u0440\\u043E\\u043D\\u043E\\u043C\\u0438\\u0438. \\u041F\\u043E\\u0441\\u043B\\u0435 \\u043F\\u0440\\u0430\\u0432\\u0438\\u043B\\u044C\\u043D\\u043E\\u0433\\u043E \\u043E\\u0442\\u0432\\u0435\\u0442\\u0430 \\u0432\\u0438\\u0434\\u0436\\u0435\\u0442 \\u0430\\u0432\\u0442\\u043E\\u043C\\u0430\\u0442\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438 \\u043F\\u0435\\u0440\\u0435\\u0439\\u0434\\u0451\\u0442 \\u0434\\u0430\\u043B\\u044C\\u0448\\u0435.\", \"submitLabel\": \"\\u041F\\u0440\\u043E\\u0432\\u0435\\u0440\\u0438\\u0442\\u044C \\u043E\\u0442\\u0432\\u0435\\u0442\", \"nextLabel\": \"\\u0421\\u043B\\u0435\\u0434\\u0443\\u044E\\u0449\\u0438\\u0439 \\u0432\\u043E\\u043F\\u0440\\u043E\\u0441\", \"questions\": [{ \"id\": \"q1\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0443\\u044E \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0443 \\u043D\\u0430\\u0437\\u044B\\u0432\\u0430\\u044E\\u0442 \\u041A\\u0440\\u0430\\u0441\\u043D\\u043E\\u0439 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u043E\\u0439?\", \"description\": \"\\u041F\\u043E\\u0434\\u0443\\u043C\\u0430\\u0439\\u0442\\u0435 \\u043E \\u0440\\u0436\\u0430\\u0432\\u043E-\\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u043C \\u043C\\u0438\\u0440\\u0435, \\u043A\\u043E\\u0442\\u043E\\u0440\\u044B\\u0439 \\u0438\\u0441\\u0441\\u043B\\u0435\\u0434\\u0443\\u044E\\u0442 \\u043C\\u0430\\u0440\\u0441\\u043E\\u0445\\u043E\\u0434\\u044B.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u0412\\u0435\\u043D\\u0435\\u0440\\u0430\" }, { \"id\": \"b\", \"label\": \"\\u041C\\u0430\\u0440\\u0441\" }, { \"id\": \"c\", \"label\": \"\\u041C\\u0435\\u0440\\u043A\\u0443\\u0440\\u0438\\u0439\" }, { \"id\": \"d\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u041C\\u0430\\u0440\\u0441 \\u043A\\u0430\\u0436\\u0435\\u0442\\u0441\\u044F \\u043A\\u0440\\u0430\\u0441\\u043D\\u044B\\u043C \\u0438\\u0437-\\u0437\\u0430 \\u0431\\u043E\\u0433\\u0430\\u0442\\u043E\\u0439 \\u0436\\u0435\\u043B\\u0435\\u0437\\u043E\\u043C \\u043F\\u044B\\u043B\\u0438 \\u043D\\u0430 \\u043F\\u043E\\u0432\\u0435\\u0440\\u0445\\u043D\\u043E\\u0441\\u0442\\u0438, \\u043A\\u043E\\u0442\\u043E\\u0440\\u0430\\u044F \\u043E\\u043A\\u0438\\u0441\\u043B\\u044F\\u0435\\u0442\\u0441\\u044F \\u043A\\u0430\\u043A \\u0440\\u0436\\u0430\\u0432\\u0447\\u0438\\u043D\\u0430.\" }, { \"id\": \"q2\", \"prompt\": \"\\u0413\\u0434\\u0435 \\u043D\\u0430\\u0445\\u043E\\u0434\\u0438\\u0442\\u0441\\u044F \\u041E\\u043B\\u0438\\u043C\\u043F \\u041C\\u043E\\u043D\\u0441?\", \"description\": \"\\u042D\\u0442\\u043E \\u0441\\u0430\\u043C\\u044B\\u0439 \\u0432\\u044B\\u0441\\u043E\\u043A\\u0438\\u0439 \\u0438\\u0437\\u0432\\u0435\\u0441\\u0442\\u043D\\u044B\\u0439 \\u0432\\u0443\\u043B\\u043A\\u0430\\u043D \\u0432 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u0435.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041D\\u0430 \\u0417\\u0435\\u043C\\u043B\\u0435\" }, { \"id\": \"b\", \"label\": \"\\u041D\\u0430 \\u041B\\u0443\\u043D\\u0435\" }, { \"id\": \"c\", \"label\": \"\\u041D\\u0430 \\u041C\\u0430\\u0440\\u0441\\u0435\" }, { \"id\": \"d\", \"label\": \"\\u041D\\u0430 \\u0418\\u043E\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"\\u041E\\u043B\\u0438\\u043C\\u043F \\u041C\\u043E\\u043D\\u0441 \\u2014 \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u0441\\u043A\\u0438\\u0439 \\u0449\\u0438\\u0442\\u043E\\u0432\\u043E\\u0439 \\u0432\\u0443\\u043B\\u043A\\u0430\\u043D \\u043D\\u0430 \\u041C\\u0430\\u0440\\u0441\\u0435, \\u043D\\u0430\\u043C\\u043D\\u043E\\u0433\\u043E \\u0432\\u044B\\u0448\\u0435 \\u042D\\u0432\\u0435\\u0440\\u0435\\u0441\\u0442\\u0430.\" }, { \"id\": \"q3\", \"prompt\": \"\\u041D\\u0430 \\u043A\\u0430\\u043A\\u043E\\u0439 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0435 \\u043D\\u0430\\u0445\\u043E\\u0434\\u0438\\u0442\\u0441\\u044F \\u0411\\u043E\\u043B\\u044C\\u0448\\u043E\\u0435 \\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u0435 \\u043F\\u044F\\u0442\\u043D\\u043E?\", \"description\": \"\\u042D\\u0442\\u043E \\u043A\\u0440\\u0443\\u043F\\u043D\\u0435\\u0439\\u0448\\u0430\\u044F \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0430 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u044B.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\" }, { \"id\": \"b\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }, { \"id\": \"c\", \"label\": \"\\u041D\\u0435\\u043F\\u0442\\u0443\\u043D\" }, { \"id\": \"d\", \"label\": \"\\u0423\\u0440\\u0430\\u043D\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u0411\\u043E\\u043B\\u044C\\u0448\\u043E\\u0435 \\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u0435 \\u043F\\u044F\\u0442\\u043D\\u043E \\u2014 \\u044D\\u0442\\u043E \\u0434\\u043E\\u043B\\u0433\\u043E\\u0436\\u0438\\u0432\\u0443\\u0449\\u0438\\u0439 \\u0448\\u0442\\u043E\\u0440\\u043C \\u0432 \\u0430\\u0442\\u043C\\u043E\\u0441\\u0444\\u0435\\u0440\\u0435 \\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\\u0430.\" }, { \"id\": \"q4\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0430\\u044F \\u043C\\u0438\\u0441\\u0441\\u0438\\u044F \\u043F\\u0435\\u0440\\u0432\\u043E\\u0439 \\u0432\\u044B\\u0441\\u0430\\u0434\\u0438\\u043B\\u0430 \\u043B\\u044E\\u0434\\u0435\\u0439 \\u043D\\u0430 \\u041B\\u0443\\u043D\\u0443?\", \"description\": \"\\u0418\\u043C\\u0435\\u043D\\u043D\\u043E \\u043E\\u043D\\u0430 \\u0434\\u043E\\u0441\\u0442\\u0430\\u0432\\u0438\\u043B\\u0430 \\u041D\\u0438\\u043B\\u0430 \\u0410\\u0440\\u043C\\u0441\\u0442\\u0440\\u043E\\u043D\\u0433\\u0430 \\u0438 \\u0411\\u0430\\u0437\\u0437\\u0430 \\u041E\\u043B\\u0434\\u0440\\u0438\\u043D\\u0430 \\u043D\\u0430 \\u043B\\u0443\\u043D\\u043D\\u0443\\u044E \\u043F\\u043E\\u0432\\u0435\\u0440\\u0445\\u043D\\u043E\\u0441\\u0442\\u044C.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Apollo 8\" }, { \"id\": \"b\", \"label\": \"Apollo 11\" }, { \"id\": \"c\", \"label\": \"Apollo 13\" }, { \"id\": \"d\", \"label\": \"Gemini 4\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Apollo 11 \\u0441\\u043E\\u0432\\u0435\\u0440\\u0448\\u0438\\u043B\\u0430 \\u043F\\u0435\\u0440\\u0432\\u0443\\u044E \\u043F\\u0438\\u043B\\u043E\\u0442\\u0438\\u0440\\u0443\\u0435\\u043C\\u0443\\u044E \\u043F\\u043E\\u0441\\u0430\\u0434\\u043A\\u0443 \\u043D\\u0430 \\u041B\\u0443\\u043D\\u0443 \\u0432 \\u0438\\u044E\\u043B\\u0435 1969 \\u0433\\u043E\\u0434\\u0430.\" }, { \"id\": \"q5\", \"prompt\": \"\\u0427\\u0442\\u043E \\u043D\\u0430\\u0445\\u043E\\u0434\\u0438\\u0442\\u0441\\u044F \\u0432 \\u0446\\u0435\\u043D\\u0442\\u0440\\u0435 \\u043D\\u0430\\u0448\\u0435\\u0439 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u044B?\", \"description\": \"\\u0412\\u0441\\u0435 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u044B \\u043E\\u0431\\u0440\\u0430\\u0449\\u0430\\u044E\\u0442\\u0441\\u044F \\u0432\\u043E\\u043A\\u0440\\u0443\\u0433 \\u044D\\u0442\\u043E\\u0439 \\u0437\\u0432\\u0435\\u0437\\u0434\\u044B.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041B\\u0443\\u043D\\u0430\" }, { \"id\": \"b\", \"label\": \"\\u041F\\u043E\\u043B\\u044F\\u0440\\u043D\\u0430\\u044F \\u0437\\u0432\\u0435\\u0437\\u0434\\u0430\" }, { \"id\": \"c\", \"label\": \"\\u0421\\u043E\\u043B\\u043D\\u0446\\u0435\" }, { \"id\": \"d\", \"label\": \"\\u0421\\u0442\\u0440\\u0435\\u043B\\u0435\\u0446 A*\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"\\u0421\\u043E\\u043B\\u043D\\u0446\\u0435 \\u0441\\u043E\\u0434\\u0435\\u0440\\u0436\\u0438\\u0442 \\u043F\\u043E\\u0447\\u0442\\u0438 \\u0432\\u0441\\u044E \\u043C\\u0430\\u0441\\u0441\\u0443 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u044B \\u0438 \\u0443\\u0434\\u0435\\u0440\\u0436\\u0438\\u0432\\u0430\\u0435\\u0442 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u044B \\u043D\\u0430 \\u043E\\u0440\\u0431\\u0438\\u0442\\u0430\\u0445.\" }, { \"id\": \"q6\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0430\\u044F \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0430 \\u0431\\u043E\\u043B\\u044C\\u0448\\u0435 \\u0432\\u0441\\u0435\\u0433\\u043E \\u0438\\u0437\\u0432\\u0435\\u0441\\u0442\\u043D\\u0430 \\u0441\\u0432\\u043E\\u0435\\u0439 \\u044F\\u0440\\u043A\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u043E\\u0439 \\u043A\\u043E\\u043B\\u0435\\u0446?\", \"description\": \"\\u041A\\u043E\\u043B\\u044C\\u0446\\u0430 \\u0435\\u0441\\u0442\\u044C \\u0443 \\u043D\\u0435\\u0441\\u043A\\u043E\\u043B\\u044C\\u043A\\u0438\\u0445 \\u0433\\u0430\\u0437\\u043E\\u0432\\u044B\\u0445 \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u043E\\u0432, \\u043D\\u043E \\u0438\\u043C\\u0435\\u043D\\u043D\\u043E \\u044D\\u0442\\u0430 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0430 \\u0441\\u0442\\u0430\\u043B\\u0430 \\u043A\\u043B\\u0430\\u0441\\u0441\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u043C \\u043F\\u0440\\u0438\\u043C\\u0435\\u0440\\u043E\\u043C.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }, { \"id\": \"b\", \"label\": \"\\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\" }, { \"id\": \"c\", \"label\": \"\\u041C\\u0430\\u0440\\u0441\" }, { \"id\": \"d\", \"label\": \"\\u041C\\u0435\\u0440\\u043A\\u0443\\u0440\\u0438\\u0439\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u041B\\u0435\\u0434\\u044F\\u043D\\u044B\\u0435 \\u043A\\u043E\\u043B\\u044C\\u0446\\u0430 \\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\\u0430 \\u2014 \\u0441\\u0430\\u043C\\u044B\\u0435 \\u043E\\u0431\\u0448\\u0438\\u0440\\u043D\\u044B\\u0435 \\u0438 \\u0437\\u0430\\u043C\\u0435\\u0442\\u043D\\u044B\\u0435 \\u0432 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u0435.\" }, { \"id\": \"q7\", \"prompt\": \"\\u0427\\u0442\\u043E \\u0437\\u0430\\u0449\\u0438\\u0449\\u0430\\u0435\\u0442 \\u0417\\u0435\\u043C\\u043B\\u044E \\u043E\\u0442 \\u0437\\u043D\\u0430\\u0447\\u0438\\u0442\\u0435\\u043B\\u044C\\u043D\\u043E\\u0439 \\u0447\\u0430\\u0441\\u0442\\u0438 \\u0441\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0433\\u043E \\u0432\\u0435\\u0442\\u0440\\u0430?\", \"description\": \"\\u0411\\u0435\\u0437 \\u044D\\u0442\\u043E\\u0433\\u043E \\u0441\\u043B\\u043E\\u044F \\u0437\\u0430\\u0440\\u044F\\u0436\\u0451\\u043D\\u043D\\u044B\\u0435 \\u0447\\u0430\\u0441\\u0442\\u0438\\u0446\\u044B \\u0433\\u043E\\u0440\\u0430\\u0437\\u0434\\u043E \\u0441\\u0438\\u043B\\u044C\\u043D\\u0435\\u0435 \\u0440\\u0430\\u0437\\u0440\\u0443\\u0448\\u0430\\u043B\\u0438 \\u0431\\u044B \\u0430\\u0442\\u043C\\u043E\\u0441\\u0444\\u0435\\u0440\\u0443.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041C\\u0430\\u0433\\u043D\\u0438\\u0442\\u043D\\u043E\\u0435 \\u043F\\u043E\\u043B\\u0435\" }, { \"id\": \"b\", \"label\": \"\\u041F\\u043E\\u044F\\u0441 \\u0430\\u0441\\u0442\\u0435\\u0440\\u043E\\u0438\\u0434\\u043E\\u0432\" }, { \"id\": \"c\", \"label\": \"\\u041E\\u043A\\u0435\\u0430\\u043D\\u0441\\u043A\\u0438\\u0435 \\u043F\\u0440\\u0438\\u043B\\u0438\\u0432\\u044B\" }, { \"id\": \"d\", \"label\": \"\\u0413\\u0440\\u0430\\u0432\\u0438\\u0442\\u0430\\u0446\\u0438\\u044F \\u041B\\u0443\\u043D\\u044B\" }], \"correctOptionIds\": [\"a\"], \"explanation\": \"\\u041C\\u0430\\u0433\\u043D\\u0438\\u0442\\u043E\\u0441\\u0444\\u0435\\u0440\\u0430 \\u0417\\u0435\\u043C\\u043B\\u0438 \\u043E\\u0442\\u043A\\u043B\\u043E\\u043D\\u044F\\u0435\\u0442 \\u0437\\u043D\\u0430\\u0447\\u0438\\u0442\\u0435\\u043B\\u044C\\u043D\\u0443\\u044E \\u0447\\u0430\\u0441\\u0442\\u044C \\u0437\\u0430\\u0440\\u044F\\u0436\\u0451\\u043D\\u043D\\u044B\\u0445 \\u0447\\u0430\\u0441\\u0442\\u0438\\u0446, \\u043B\\u0435\\u0442\\u044F\\u0449\\u0438\\u0445 \\u043E\\u0442 \\u0421\\u043E\\u043B\\u043D\\u0446\\u0430.\" }, { \"id\": \"q8\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0430\\u044F \\u043A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0430\\u044F \\u043E\\u0431\\u0441\\u0435\\u0440\\u0432\\u0430\\u0442\\u043E\\u0440\\u0438\\u044F \\u0432 \\u043E\\u0441\\u043D\\u043E\\u0432\\u043D\\u043E\\u043C \\u0438\\u0437\\u0443\\u0447\\u0430\\u0435\\u0442 \\u0412\\u0441\\u0435\\u043B\\u0435\\u043D\\u043D\\u0443\\u044E \\u0432 \\u0438\\u043D\\u0444\\u0440\\u0430\\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u043C \\u0434\\u0438\\u0430\\u043F\\u0430\\u0437\\u043E\\u043D\\u0435?\", \"description\": \"\\u0415\\u0451 \\u0441\\u0435\\u0433\\u043C\\u0435\\u043D\\u0442\\u0438\\u0440\\u043E\\u0432\\u0430\\u043D\\u043D\\u043E\\u0435 \\u0437\\u0435\\u0440\\u043A\\u0430\\u043B\\u043E \\u0441\\u043E\\u0437\\u0434\\u0430\\u043D\\u043E \\u0434\\u043B\\u044F \\u043D\\u0430\\u0431\\u043B\\u044E\\u0434\\u0435\\u043D\\u0438\\u0439 \\u0441\\u043A\\u0432\\u043E\\u0437\\u044C \\u043A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0443\\u044E \\u043F\\u044B\\u043B\\u044C.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u0442\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u0425\\u0430\\u0431\\u0431\\u043B\" }, { \"id\": \"b\", \"label\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u0442\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u0414\\u0436\\u0435\\u0439\\u043C\\u0441\\u0430 \\u0423\\u044D\\u0431\\u0431\\u0430\" }, { \"id\": \"c\", \"label\": \"\\u0420\\u0435\\u043D\\u0442\\u0433\\u0435\\u043D\\u043E\\u0432\\u0441\\u043A\\u0430\\u044F \\u043E\\u0431\\u0441\\u0435\\u0440\\u0432\\u0430\\u0442\\u043E\\u0440\\u0438\\u044F \\u0427\\u0430\\u043D\\u0434\\u0440\\u0430\" }, { \"id\": \"d\", \"label\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u0442\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u041A\\u0435\\u043F\\u043B\\u0435\\u0440\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u0422\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u0414\\u0436\\u0435\\u0439\\u043C\\u0441\\u0430 \\u0423\\u044D\\u0431\\u0431\\u0430 \\u043E\\u043F\\u0442\\u0438\\u043C\\u0438\\u0437\\u0438\\u0440\\u043E\\u0432\\u0430\\u043D \\u0438\\u043C\\u0435\\u043D\\u043D\\u043E \\u0434\\u043B\\u044F \\u0438\\u043D\\u0444\\u0440\\u0430\\u043A\\u0440\\u0430\\u0441\\u043D\\u044B\\u0445 \\u043D\\u0430\\u0431\\u043B\\u044E\\u0434\\u0435\\u043D\\u0438\\u0439.\" }, { \"id\": \"q9\", \"prompt\": \"\\u041A\\u0430\\u043A\\u043E\\u0439 \\u0430\\u043F\\u043F\\u0430\\u0440\\u0430\\u0442 \\u043E\\u0431\\u044B\\u0447\\u043D\\u043E \\u0441\\u0447\\u0438\\u0442\\u0430\\u044E\\u0442 \\u043F\\u0435\\u0440\\u0432\\u044B\\u043C \\u0440\\u0443\\u043A\\u043E\\u0442\\u0432\\u043E\\u0440\\u043D\\u044B\\u043C \\u043E\\u0431\\u044A\\u0435\\u043A\\u0442\\u043E\\u043C, \\u0432\\u043E\\u0448\\u0435\\u0434\\u0448\\u0438\\u043C \\u0432 \\u043C\\u0435\\u0436\\u0437\\u0432\\u0451\\u0437\\u0434\\u043D\\u043E\\u0435 \\u043F\\u0440\\u043E\\u0441\\u0442\\u0440\\u0430\\u043D\\u0441\\u0442\\u0432\\u043E?\", \"description\": \"\\u041E\\u043D \\u0431\\u044B\\u043B \\u0437\\u0430\\u043F\\u0443\\u0449\\u0435\\u043D \\u0432 1977 \\u0433\\u043E\\u0434\\u0443 \\u0438 \\u0434\\u043E \\u0441\\u0438\\u0445 \\u043F\\u043E\\u0440 \\u043F\\u0435\\u0440\\u0435\\u0434\\u0430\\u0451\\u0442 \\u0434\\u0430\\u043D\\u043D\\u044B\\u0435.\", \"difficulty\": 3, \"options\": [{ \"id\": \"a\", \"label\": \"Pioneer 10\" }, { \"id\": \"b\", \"label\": \"Voyager 2\" }, { \"id\": \"c\", \"label\": \"Voyager 1\" }, { \"id\": \"d\", \"label\": \"New Horizons\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"Voyager 1 \\u043F\\u0435\\u0440\\u0435\\u0441\\u0451\\u043A \\u0433\\u0440\\u0430\\u043D\\u0438\\u0446\\u0443 \\u043C\\u0435\\u0436\\u0437\\u0432\\u0451\\u0437\\u0434\\u043D\\u043E\\u0433\\u043E \\u043F\\u0440\\u043E\\u0441\\u0442\\u0440\\u0430\\u043D\\u0441\\u0442\\u0432\\u0430 \\u0432 2012 \\u0433\\u043E\\u0434\\u0443, \\u0440\\u0430\\u043D\\u044C\\u0448\\u0435 Voyager 2.\" }, { \"id\": \"q10\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0438\\u0435 \\u0434\\u0432\\u0435 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u044B \\u043E\\u0442\\u043D\\u043E\\u0441\\u044F\\u0442\\u0441\\u044F \\u043A \\u043B\\u0435\\u0434\\u044F\\u043D\\u044B\\u043C \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u0430\\u043C?\", \"description\": \"\\u0412\\u044B\\u0431\\u0435\\u0440\\u0438\\u0442\\u0435 \\u0434\\u0432\\u0430 \\u043E\\u0442\\u0432\\u0435\\u0442\\u0430.\", \"difficulty\": 3, \"multiple\": true, \"options\": [{ \"id\": \"a\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }, { \"id\": \"b\", \"label\": \"\\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\" }, { \"id\": \"c\", \"label\": \"\\u0423\\u0440\\u0430\\u043D\" }, { \"id\": \"d\", \"label\": \"\\u041D\\u0435\\u043F\\u0442\\u0443\\u043D\" }], \"correctOptionIds\": [\"c\", \"d\"], \"explanation\": \"\\u0423\\u0440\\u0430\\u043D \\u0438 \\u041D\\u0435\\u043F\\u0442\\u0443\\u043D \\u043D\\u0430\\u0437\\u044B\\u0432\\u0430\\u044E\\u0442 \\u043B\\u0435\\u0434\\u044F\\u043D\\u044B\\u043C\\u0438 \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u0430\\u043C\\u0438, \\u043F\\u043E\\u0442\\u043E\\u043C\\u0443 \\u0447\\u0442\\u043E \\u0432 \\u0438\\u0445 \\u043D\\u0435\\u0434\\u0440\\u0430\\u0445 \\u0431\\u043E\\u043B\\u044C\\u0448\\u0435 \\u0432\\u043E\\u0434\\u044B, \\u0430\\u043C\\u043C\\u0438\\u0430\\u043A\\u0430 \\u0438 \\u043C\\u0435\\u0442\\u0430\\u043D\\u043E\\u0432\\u044B\\u0445 \\u043B\\u044C\\u0434\\u043E\\u0432, \\u0447\\u0435\\u043C \\u0443 \\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\\u0430 \\u0438\\u043B\\u0438 \\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\\u0430.\" }] } };\nvar normalizeLocale = (locale) => typeof locale === \"string\" && locale.toLowerCase().startsWith(\"ru\") ? \"ru\" : \"en\";\nvar sortSelection = (value) => Array.isArray(value) ? value.map((item) => String(item)).sort() : [];\nvar isSameSelection = (selected, correct) => {\n  if (selected.length !== correct.length) {\n    return false;\n  }\n  return selected.every((item, index) => item === correct[index]);\n};\nvar buildQuizDefinition = (localeInput) => {\n  const locale = normalizeLocale(localeInput);\n  return QUIZ_DATA[locale] || QUIZ_DATA.en;\n};\nvar SpaceQuizWidget = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    throw new Error('Client-only method \"mount\" is unavailable in the server bundle');\n  }\n  async getQuiz(payload) {\n    const quiz = buildQuizDefinition(payload?.locale);\n    return {\n      title: quiz.title,\n      description: quiz.description,\n      submitLabel: quiz.submitLabel,\n      nextLabel: quiz.nextLabel,\n      questions: quiz.questions.map((question) => ({\n        id: question.id,\n        prompt: question.prompt,\n        description: question.description,\n        multiple: Boolean(question.multiple),\n        difficulty: question.difficulty,\n        options: question.options\n      }))\n    };\n  }\n  async submit(payload) {\n    const quiz = buildQuizDefinition(payload?.locale);\n    const locale = normalizeLocale(payload?.locale);\n    const questionId = typeof payload?.questionId === \"string\" ? payload.questionId : \"\";\n    const question = quiz.questions.find((item) => item.id === questionId);\n    if (!question) {\n      return {\n        questionId,\n        correct: false,\n        score: 0,\n        total: quiz.questions.length,\n        completed: false,\n        message: locale === \"ru\" ? \"\\u0412\\u043E\\u043F\\u0440\\u043E\\u0441 \\u043D\\u0435 \\u043D\\u0430\\u0439\\u0434\\u0435\\u043D. \\u041E\\u0431\\u043D\\u043E\\u0432\\u0438\\u0442\\u0435 \\u043A\\u0432\\u0438\\u0437 \\u0438 \\u043F\\u043E\\u043F\\u0440\\u043E\\u0431\\u0443\\u0439\\u0442\\u0435 \\u0441\\u043D\\u043E\\u0432\\u0430.\" : \"Question not found. Refresh the quiz and try again.\",\n        correctOptionIds: {}\n      };\n    }\n    const responses = payload?.responses && typeof payload.responses === \"object\" ? payload.responses : {};\n    const selectedAnswerIds = sortSelection(payload?.answerIds);\n    const normalizedCorrect = sortSelection(question.correctOptionIds);\n    const correct = isSameSelection(selectedAnswerIds, normalizedCorrect);\n    let score = 0;\n    let answeredCount = 0;\n    for (const candidate of quiz.questions) {\n      const submitted = sortSelection(responses[candidate.id]);\n      if (submitted.length > 0) {\n        answeredCount += 1;\n      }\n      if (isSameSelection(submitted, sortSelection(candidate.correctOptionIds))) {\n        score += 1;\n      }\n    }\n    return {\n      questionId,\n      correct,\n      score,\n      total: quiz.questions.length,\n      completed: answeredCount >= quiz.questions.length,\n      message: correct ? locale === \"ru\" ? \"\\u0412\\u0435\\u0440\\u043D\\u043E!\" : \"Correct!\" : locale === \"ru\" ? \"\\u041F\\u043E\\u043A\\u0430 \\u043D\\u0435\\u0432\\u0435\\u0440\\u043D\\u043E.\" : \"Not quite yet.\",\n      explanation: question.explanation,\n      correctOptionIds: {\n        [question.id]: normalizedCorrect\n      }\n    };\n  }\n};\n__decorateClass([\n  AtClient()\n], SpaceQuizWidget.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"getQuiz\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"submit\", 1);\n",
+        "clientBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => SpaceQuizWidget\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar SpaceQuizWidget = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    return this.ctx.callServerMethod(\"getQuiz\", [{ locale }]);\n  }\n  async getQuiz(payload) {\n    return this.ctx.callServerMethod(\"getQuiz\", Array.from(arguments));\n  }\n  async submit(payload) {\n    return this.ctx.callServerMethod(\"submit\", Array.from(arguments));\n  }\n};\n__decorateClass([\n  AtClient()\n], SpaceQuizWidget.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"getQuiz\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"submit\", 1);\n",
+        "checksum": "518ce5f136a48346144d96dde2171981daac334ebeb6c05bef07615872bfd02c",
+        "isActive": true,
+        "config": {},
+        "sourceCode": "const AtClient = () => () => undefined\nconst AtServer = () => () => undefined\n\nclass ExtensionScript {}\n\nconst QUIZ_DATA = {\"en\":{\"title\":\"Space Quiz\",\"description\":\"Answer ten astronomy questions one by one. Correct answers move you forward automatically.\",\"submitLabel\":\"Check answer\",\"nextLabel\":\"Next question\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Which planet is known as the Red Planet?\",\"description\":\"Think about the rusty world explored by many rovers.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Venus\"},{\"id\":\"b\",\"label\":\"Mars\"},{\"id\":\"c\",\"label\":\"Mercury\"},{\"id\":\"d\",\"label\":\"Jupiter\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Mars looks red because iron-rich dust on its surface oxidizes like rust.\"},{\"id\":\"q2\",\"prompt\":\"Where is Olympus Mons located?\",\"description\":\"It is the tallest volcano known in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Earth\"},{\"id\":\"b\",\"label\":\"The Moon\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Io\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Olympus Mons is a giant shield volcano on Mars, towering far above Everest.\"},{\"id\":\"q3\",\"prompt\":\"The Great Red Spot is a storm on which planet?\",\"description\":\"This world is the largest planet in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Saturn\"},{\"id\":\"b\",\"label\":\"Jupiter\"},{\"id\":\"c\",\"label\":\"Neptune\"},{\"id\":\"d\",\"label\":\"Uranus\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The Great Red Spot is a long-lived storm system in Jupiter's atmosphere.\"},{\"id\":\"q4\",\"prompt\":\"Which mission first landed humans on the Moon?\",\"description\":\"It carried Neil Armstrong and Buzz Aldrin to the lunar surface.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 completed the first crewed lunar landing in July 1969.\"},{\"id\":\"q5\",\"prompt\":\"What is at the center of our Solar System?\",\"description\":\"Every planet in our system orbits this star.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"The Moon\"},{\"id\":\"b\",\"label\":\"Polaris\"},{\"id\":\"c\",\"label\":\"The Sun\"},{\"id\":\"d\",\"label\":\"Sagittarius A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"The Sun contains almost all of the Solar System's mass and anchors its orbits.\"},{\"id\":\"q6\",\"prompt\":\"Which planet is most famous for its bright ring system?\",\"description\":\"Several gas giants have rings, but one is the classic example.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Mercury\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Saturn's icy rings are the most extensive and visually striking in the Solar System.\"},{\"id\":\"q7\",\"prompt\":\"What protects Earth from much of the solar wind?\",\"description\":\"Without it, charged particles would strip away much more of our atmosphere.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Its magnetic field\"},{\"id\":\"b\",\"label\":\"The asteroid belt\"},{\"id\":\"c\",\"label\":\"Ocean tides\"},{\"id\":\"d\",\"label\":\"The Moon's gravity\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Earth's magnetosphere deflects many charged particles streaming from the Sun.\"},{\"id\":\"q8\",\"prompt\":\"Which space observatory primarily studies the universe in infrared light?\",\"description\":\"Its segmented mirror was designed to see through cosmic dust.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Hubble Space Telescope\"},{\"id\":\"b\",\"label\":\"James Webb Space Telescope\"},{\"id\":\"c\",\"label\":\"Chandra X-ray Observatory\"},{\"id\":\"d\",\"label\":\"Kepler Space Telescope\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The James Webb Space Telescope is optimized for infrared observations.\"},{\"id\":\"q9\",\"prompt\":\"Which spacecraft is widely recognized as the first human-made object to enter interstellar space?\",\"description\":\"It launched in 1977 and still sends data today.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 crossed into interstellar space in 2012, ahead of Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Which two planets are classified as ice giants?\",\"description\":\"Select two answers.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Uranus\"},{\"id\":\"d\",\"label\":\"Neptune\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Uranus and Neptune are called ice giants because their interiors contain more water, ammonia, and methane ices than Jupiter or Saturn.\"}]},\"ru\":{\"title\":\"Космическая викторина\",\"description\":\"Ответьте по очереди на десять вопросов по астрономии. После правильного ответа виджет автоматически перейдёт дальше.\",\"submitLabel\":\"Проверить ответ\",\"nextLabel\":\"Следующий вопрос\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Какую планету называют Красной планетой?\",\"description\":\"Подумайте о ржаво-красном мире, который исследуют марсоходы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Венера\"},{\"id\":\"b\",\"label\":\"Марс\"},{\"id\":\"c\",\"label\":\"Меркурий\"},{\"id\":\"d\",\"label\":\"Юпитер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Марс кажется красным из-за богатой железом пыли на поверхности, которая окисляется как ржавчина.\"},{\"id\":\"q2\",\"prompt\":\"Где находится Олимп Монс?\",\"description\":\"Это самый высокий известный вулкан в Солнечной системе.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"На Земле\"},{\"id\":\"b\",\"label\":\"На Луне\"},{\"id\":\"c\",\"label\":\"На Марсе\"},{\"id\":\"d\",\"label\":\"На Ио\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Олимп Монс — гигантский щитовой вулкан на Марсе, намного выше Эвереста.\"},{\"id\":\"q3\",\"prompt\":\"На какой планете находится Большое красное пятно?\",\"description\":\"Это крупнейшая планета Солнечной системы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Сатурн\"},{\"id\":\"b\",\"label\":\"Юпитер\"},{\"id\":\"c\",\"label\":\"Нептун\"},{\"id\":\"d\",\"label\":\"Уран\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Большое красное пятно — это долгоживущий шторм в атмосфере Юпитера.\"},{\"id\":\"q4\",\"prompt\":\"Какая миссия первой высадила людей на Луну?\",\"description\":\"Именно она доставила Нила Армстронга и Базза Олдрина на лунную поверхность.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 совершила первую пилотируемую посадку на Луну в июле 1969 года.\"},{\"id\":\"q5\",\"prompt\":\"Что находится в центре нашей Солнечной системы?\",\"description\":\"Все планеты обращаются вокруг этой звезды.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Луна\"},{\"id\":\"b\",\"label\":\"Полярная звезда\"},{\"id\":\"c\",\"label\":\"Солнце\"},{\"id\":\"d\",\"label\":\"Стрелец A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Солнце содержит почти всю массу Солнечной системы и удерживает планеты на орбитах.\"},{\"id\":\"q6\",\"prompt\":\"Какая планета больше всего известна своей яркой системой колец?\",\"description\":\"Кольца есть у нескольких газовых гигантов, но именно эта планета стала классическим примером.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Марс\"},{\"id\":\"d\",\"label\":\"Меркурий\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Ледяные кольца Сатурна — самые обширные и заметные в Солнечной системе.\"},{\"id\":\"q7\",\"prompt\":\"Что защищает Землю от значительной части солнечного ветра?\",\"description\":\"Без этого слоя заряжённые частицы гораздо сильнее разрушали бы атмосферу.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Магнитное поле\"},{\"id\":\"b\",\"label\":\"Пояс астероидов\"},{\"id\":\"c\",\"label\":\"Океанские приливы\"},{\"id\":\"d\",\"label\":\"Гравитация Луны\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Магнитосфера Земли отклоняет значительную часть заряжённых частиц, летящих от Солнца.\"},{\"id\":\"q8\",\"prompt\":\"Какая космическая обсерватория в основном изучает Вселенную в инфракрасном диапазоне?\",\"description\":\"Её сегментированное зеркало создано для наблюдений сквозь космическую пыль.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Космический телескоп Хаббл\"},{\"id\":\"b\",\"label\":\"Космический телескоп Джеймса Уэбба\"},{\"id\":\"c\",\"label\":\"Рентгеновская обсерватория Чандра\"},{\"id\":\"d\",\"label\":\"Космический телескоп Кеплер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Телескоп Джеймса Уэбба оптимизирован именно для инфракрасных наблюдений.\"},{\"id\":\"q9\",\"prompt\":\"Какой аппарат обычно считают первым рукотворным объектом, вошедшим в межзвёздное пространство?\",\"description\":\"Он был запущен в 1977 году и до сих пор передаёт данные.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 пересёк границу межзвёздного пространства в 2012 году, раньше Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Какие две планеты относятся к ледяным гигантам?\",\"description\":\"Выберите два ответа.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Уран\"},{\"id\":\"d\",\"label\":\"Нептун\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Уран и Нептун называют ледяными гигантами, потому что в их недрах больше воды, аммиака и метановых льдов, чем у Юпитера или Сатурна.\"}]}}\n\nconst normalizeLocale = (locale) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')\n\nconst sortSelection = (value) => (Array.isArray(value) ? value.map((item) => String(item)).sort() : [])\n\nconst isSameSelection = (selected, correct) => {\n    if (selected.length !== correct.length) {\n        return false\n    }\n\n    return selected.every((item, index) => item === correct[index])\n}\n\nconst buildQuizDefinition = (localeInput) => {\n    const locale = normalizeLocale(localeInput)\n\n    return QUIZ_DATA[locale] || QUIZ_DATA.en\n}\n\nexport default class SpaceQuizWidget extends ExtensionScript {\n    @AtClient()\n    async mount(locale = 'en') {\n        return this.ctx.callServerMethod('getQuiz', [{ locale }])\n    }\n\n    @AtServer()\n    async getQuiz(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n\n        return {\n            title: quiz.title,\n            description: quiz.description,\n            submitLabel: quiz.submitLabel,\n            nextLabel: quiz.nextLabel,\n            questions: quiz.questions.map((question) => ({\n                id: question.id,\n                prompt: question.prompt,\n                description: question.description,\n                multiple: Boolean(question.multiple),\n                difficulty: question.difficulty,\n                options: question.options\n            }))\n        }\n    }\n\n    @AtServer()\n    async submit(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n        const locale = normalizeLocale(payload?.locale)\n        const questionId = typeof payload?.questionId === 'string' ? payload.questionId : ''\n        const question = quiz.questions.find((item) => item.id === questionId)\n\n        if (!question) {\n            return {\n                questionId,\n                correct: false,\n                score: 0,\n                total: quiz.questions.length,\n                completed: false,\n                message: locale === 'ru' ? 'Вопрос не найден. Обновите квиз и попробуйте снова.' : 'Question not found. Refresh the quiz and try again.',\n                correctOptionIds: {}\n            }\n        }\n\n        const responses = payload?.responses && typeof payload.responses === 'object' ? payload.responses : {}\n        const selectedAnswerIds = sortSelection(payload?.answerIds)\n        const normalizedCorrect = sortSelection(question.correctOptionIds)\n        const correct = isSameSelection(selectedAnswerIds, normalizedCorrect)\n\n        let score = 0\n        let answeredCount = 0\n\n        for (const candidate of quiz.questions) {\n            const submitted = sortSelection(responses[candidate.id])\n            if (submitted.length > 0) {\n                answeredCount += 1\n            }\n\n            if (isSameSelection(submitted, sortSelection(candidate.correctOptionIds))) {\n                score += 1\n            }\n        }\n\n        return {\n            questionId,\n            correct,\n            score,\n            total: quiz.questions.length,\n            completed: answeredCount >= quiz.questions.length,\n            message: correct ? (locale === 'ru' ? 'Верно!' : 'Correct!') : locale === 'ru' ? 'Пока неверно.' : 'Not quite yet.',\n            explanation: question.explanation,\n            correctOptionIds: {\n                [question.id]: normalizedCorrect\n            }\n        }\n    }\n}\n"
+      }
+    ],
+    "layouts": [
+      {
+        "id": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "templateKey": "dashboard",
+        "name": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-05T19:46:00.132Z",
+              "updatedAt": "2026-04-05T19:46:00.132Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-05T19:46:00.132Z",
+              "updatedAt": "2026-04-05T19:46:00.132Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "description": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main layout for published applications",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-05T19:46:00.132Z",
+              "updatedAt": "2026-04-05T19:46:00.132Z"
+            },
+            "ru": {
+              "content": "Основной макет для опубликованных приложений",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-05T19:46:00.132Z",
+              "updatedAt": "2026-04-05T19:46:00.132Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "config": {
+          "showFooter": false,
+          "showHeader": true,
+          "showSearch": false,
+          "showSideMenu": false,
+          "showAppNavbar": true,
+          "showDatePicker": false,
+          "showBreadcrumbs": false,
+          "showOptionsMenu": false,
+          "showProductTree": false,
+          "showDetailsTable": false,
+          "showDetailsTitle": false,
+          "showOverviewCards": false,
+          "showOverviewTitle": false,
+          "showRightSideMenu": false,
+          "showSessionsChart": false,
+          "showPageViewsChart": false,
+          "showColumnsContainer": false,
+          "showLanguageSwitcher": false,
+          "showUsersByCountryChart": false
+        },
+        "isActive": true,
+        "isDefault": true,
+        "sortOrder": 0
+      }
+    ],
+    "defaultLayoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+    "layoutConfig": {
+      "showFooter": false,
+      "showHeader": true,
+      "showSearch": false,
+      "showSideMenu": false,
+      "showAppNavbar": true,
+      "showDatePicker": false,
+      "showBreadcrumbs": false,
+      "showOptionsMenu": false,
+      "showProductTree": false,
+      "showDetailsTable": false,
+      "showDetailsTitle": false,
+      "showOverviewCards": false,
+      "showOverviewTitle": false,
+      "showRightSideMenu": false,
+      "showSessionsChart": false,
+      "showPageViewsChart": false,
+      "showColumnsContainer": false,
+      "showLanguageSwitcher": false,
+      "showUsersByCountryChart": false
+    },
+    "layoutZoneWidgets": [
+      {
+        "id": "019d5f2e-5e58-779c-8ea2-580020411e47",
+        "layoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "zone": "center",
+        "widgetKey": "quizWidget",
+        "sortOrder": 1,
+        "config": {
+          "attachedToKind": "metahub",
+          "scriptCodename": "quiz-widget"
+        },
+        "isActive": true
+      },
+      {
+        "id": "019d5f2e-13bd-7850-ba0f-40b52071726f",
+        "layoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "zone": "top",
+        "widgetKey": "appNavbar",
+        "sortOrder": 1,
+        "config": {},
+        "isActive": true
+      },
+      {
+        "id": "019d5f2e-1450-7c0c-bf97-2ff72c9be1ea",
+        "layoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "zone": "top",
+        "widgetKey": "header",
+        "sortOrder": 2,
+        "config": {},
+        "isActive": true
+      }
+    ]
+  },
+  "snapshotHash": "12d07b3203decf697792bec64936fc475334d695d31ae087675ea6368f457e5b"
+}

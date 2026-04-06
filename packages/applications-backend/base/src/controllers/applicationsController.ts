@@ -152,6 +152,15 @@ const optionalLocalizedInputSchema = z
   .union([z.string(), z.record(z.string())])
   .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
+const applicationDialogSettingsSchema = z
+  .object({
+    dialogSizePreset: z.enum(['small', 'medium', 'large']).optional(),
+    dialogAllowFullscreen: z.boolean().optional(),
+    dialogAllowResize: z.boolean().optional(),
+    dialogCloseBehavior: z.enum(['strict-modal', 'backdrop-close']).optional()
+  })
+  .strict()
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
@@ -244,6 +253,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         id: a.id,
         name: a.name,
         description: a.description,
+        settings: a.settings ?? {},
         slug: a.slug,
         isPublic: a.isPublic,
         workspacesEnabled: a.workspacesEnabled,
@@ -293,6 +303,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
       id: application.id,
       name: application.name,
       description: application.description,
+      settings: application.settings ?? {},
       slug: application.slug,
       isPublic: application.isPublic,
       workspacesEnabled: application.workspacesEnabled,
@@ -424,6 +435,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
       id: saved.id,
       name: saved.name,
       description: saved.description,
+      settings: saved.settings ?? {},
       slug: saved.slug,
       isPublic: saved.isPublic,
       workspacesEnabled: saved.workspacesEnabled,
@@ -454,6 +466,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
     const schema = z.object({
       name: localizedInputSchema.optional(),
       description: optionalLocalizedInputSchema.optional(),
+      settings: applicationDialogSettingsSchema.optional(),
       namePrimaryLocale: z.string().optional(),
       descriptionPrimaryLocale: z.string().optional(),
       slug: z
@@ -598,6 +611,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         sourceApplication,
         copiedName: nameVlc,
         copiedDescription: descriptionVlc ?? null,
+        settings: sourceApplication.settings ?? {},
         slug: slugCandidate ?? null,
         isPublic: resolvedIsPublic,
         workspacesEnabled: resolvedWorkspacesEnabled,
@@ -646,6 +660,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
       id: copied.id,
       name: copied.name,
       description: copied.description,
+      settings: copied.settings ?? {},
       slug: copied.slug,
       isPublic: copied.isPublic,
       workspacesEnabled: copied.workspacesEnabled,
@@ -685,6 +700,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
     const schema = z.object({
       name: localizedInputSchema.optional(),
       description: optionalLocalizedInputSchema.optional(),
+      settings: applicationDialogSettingsSchema.optional(),
       namePrimaryLocale: z.string().optional(),
       descriptionPrimaryLocale: z.string().optional(),
       slug: z
@@ -707,6 +723,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
     const {
       name,
       description,
+      settings,
       slug,
       isPublic,
       workspacesEnabled,
@@ -790,6 +807,8 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
       nextSlug = slug ?? null
     }
 
+    const nextSettings = settings !== undefined ? settings : application.settings ?? {}
+
     let saved = await updateApplication(
       {
         query: <TRow = unknown>(sql: string, parameters?: unknown[]) =>
@@ -799,6 +818,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         applicationId,
         name: name !== undefined ? nextName : undefined,
         description: description !== undefined ? nextDescription : undefined,
+        settings: settings !== undefined ? nextSettings : undefined,
         slug: slug !== undefined ? nextSlug : undefined,
         userId,
         expectedVersion
@@ -842,6 +862,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
       id: saved.id,
       name: saved.name,
       description: saved.description,
+      settings: saved.settings ?? {},
       slug: saved.slug,
       isPublic: saved.isPublic,
       workspacesEnabled: saved.workspacesEnabled,

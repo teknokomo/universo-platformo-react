@@ -200,6 +200,12 @@ function getOptionLabelKey(settingKey: string, option: string): string {
     if (settingKey === 'general.language') {
         return `settings.languages.${option}`
     }
+    if (settingKey === 'common.dialogSizePreset') {
+        return `settings.dialogSizePresets.${option}`
+    }
+    if (settingKey === 'common.dialogCloseBehavior') {
+        return `settings.dialogCloseBehaviors.${option}`
+    }
     return option
 }
 

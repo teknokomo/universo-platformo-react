@@ -61,9 +61,31 @@
                 "general": "General",
                 "limits": "Limits"
             },
-            "requiresSchema": "Application settings that depend on runtime schema will become available after the schema is created.",
-            "requiresWorkspaces": "Workspace-specific settings are available only for applications created with workspace mode enabled.",
-            "generalPlaceholder": "General application settings will be available in future versions.",
+            "dialogSizePreset": "Popup window size",
+            "dialogSizePresetDescription": "Default size for popup windows in this application control panel.",
+            "dialogAllowFullscreen": "Allow fullscreen expansion",
+            "dialogAllowFullscreenDescription": "Show a header action that expands application popup windows almost to the full viewport.",
+            "dialogAllowResize": "Allow popup resize",
+            "dialogAllowResizeDescription": "Show a resize handle and remember the custom popup size in this browser for this application.",
+            "dialogCloseBehavior": "Popup window type",
+            "dialogCloseBehaviorDescription": "Choose whether application popup windows stay modal or can close when the user clicks outside the window.",
+            "dialogSizePresets": {
+                "small": "Small (about 480 px)",
+                "medium": "Medium (about 600 px)",
+                "large": "Large (about 800 px)"
+            },
+            "dialogCloseBehaviors": {
+                "strict-modal": "Modal windows",
+                "backdrop-close": "Non-modal windows"
+            },
+            "dialogActionTooltips": {
+                "resetSize": "Reset dialog size",
+                "expand": "Expand dialog",
+                "restoreSize": "Restore dialog size",
+                "resizeHandle": "Resize dialog"
+            },
+            "generalSaved": "Popup settings saved",
+            "generalSaveError": "Failed to save popup settings",
             "limitsHint": "Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.",
             "limitsRequiresSchema": "Limits settings will become available after the application schema is created.",
             "limitsRequiresWorkspaces": "Limits are available only for applications created with workspace mode enabled.",

@@ -1,0 +1,38 @@
+{
+    "name": "@universo/scripting-engine",
+    "version": "0.1.0",
+    "description": "Compiler and runtime host for Universo metahub scripts",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown",
+        "benchmark": "pnpm run build && node ./scripts/benchmark-runtime.mjs",
+        "lint": "eslint --ext .ts src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/types": "workspace:*",
+        "acorn": "^8.16.0",
+        "esbuild": "^0.21.5",
+        "isolated-vm": "5.0.4",
+        "typescript": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:"
+    }
+}

@@ -16,6 +16,7 @@
 * [Пространства знаний](platform/spaces.md)
 * [Метахабы](platform/metahubs.md)
 * [Приложения](platform/applications.md)
+* [Администрирование](platform/admin.md)
 * [Публикации](platform/publications.md)
 * [UPDL](platform/updl/README.md)
   * [Узлы пространств](platform/updl/space-nodes.md)
@@ -31,6 +32,7 @@
 ## Архитектура
 
 * [Обзор](architecture/README.md)
+* [Scripting System](architecture/scripting-system.md)
 * [Конвергенция системных приложений](architecture/system-app-convergence.md)
 * [Optional Global Catalog](architecture/optional-global-catalog.md)
 * [Структура монорепозитория](architecture/monorepo-structure.md)
@@ -59,6 +61,8 @@
 ## Руководства
 
 * [Обзор](guides/README.md)
+* [Metahub Scripting](guides/metahub-scripting.md)
+* [Туториал: приложение-квиз](guides/quiz-application-tutorial.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Обновление схем системных приложений](guides/updating-system-app-schemas.md)
 * [Экспорт и импорт снимков](guides/snapshot-export-import.md)

@@ -34,6 +34,7 @@ import {
     normalizeLocale
 } from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 /**
  * Extended EnumerationDisplay type that includes hubId for AllEnumerationsList context
@@ -47,6 +48,7 @@ export type EnumerationFormSetValue = (name: string, value: unknown) => void
 export type EnumerationActionContext = ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload> & {
     hubs?: Hub[]
     currentHubId?: string | null
+    metahubId?: string | null
 }
 export type EnumerationDialogTabArgs = {
     values: EnumerationFormValues
@@ -372,6 +374,7 @@ export const buildFormTabs = (
         isLoading: boolean
         errors: Record<string, string>
     }): TabConfig[] => {
+        const metahubId = (ctx as EnumerationActionContext).metahubId ?? null
         const tabs: TabConfig[] = [
             {
                 id: 'general',
@@ -416,6 +419,17 @@ export const buildFormTabs = (
                     />
                 )
             })
+        }
+
+        if (editingEntityId && metahubId) {
+            tabs.push(
+                createScriptsTab({
+                    t: ctx.t,
+                    metahubId,
+                    attachedToKind: 'enumeration',
+                    attachedToId: editingEntityId
+                })
+            )
         }
 
         return tabs

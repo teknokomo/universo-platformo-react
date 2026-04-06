@@ -1,4 +1,4 @@
-import type { ApplicationMembershipState, VersionedLocalizedContent } from '@universo/types'
+import type { ApplicationMembershipState, DialogCloseBehavior, DialogSizePreset, VersionedLocalizedContent } from '@universo/types'
 // Re-export centralized VLC utilities
 export {
     getVLCString,
@@ -28,6 +28,13 @@ export interface ApplicationPermissions {
     deleteContent: boolean
 }
 
+export interface ApplicationDialogSettings {
+    dialogSizePreset: DialogSizePreset
+    dialogAllowFullscreen: boolean
+    dialogAllowResize: boolean
+    dialogCloseBehavior: DialogCloseBehavior
+}
+
 export interface ApplicationMember {
     id: string
     userId: string
@@ -53,6 +60,7 @@ export interface Application {
     version?: number
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
+    settings?: ApplicationDialogSettings | null
     slug?: string
     isPublic: boolean
     workspacesEnabled: boolean
@@ -81,6 +89,7 @@ export interface ApplicationDisplay {
     id: string
     name: string
     description: string
+    settings?: ApplicationDialogSettings | null
     slug?: string
     isPublic: boolean
     workspacesEnabled: boolean
@@ -99,6 +108,7 @@ export interface ApplicationDisplay {
 export interface ApplicationLocalizedPayload {
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
+    settings?: Partial<ApplicationDialogSettings>
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     slug?: string

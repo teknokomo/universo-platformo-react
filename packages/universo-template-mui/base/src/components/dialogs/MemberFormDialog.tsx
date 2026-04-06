@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { memberFormSchema, type MemberFormData, type MemberRole, type VersionedLocalizedContent } from '@universo/types'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
 export interface MemberFormDialogProps {
     open: boolean
@@ -193,15 +194,34 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
         onClose()
     }
 
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: isLoading })
+    const titleNode = presentation.titleActions ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box component='span' sx={{ minWidth: 0 }}>
+                {title}
+            </Box>
+            {presentation.titleActions}
+        </Box>
+    ) : (
+        title
+    )
+
     const localizedCharacterCountText = commentCharacterCountFormatter
         ? commentCharacterCountFormatter(localizedMaxLength, 500)
         : `${localizedMaxLength}/500 characters (after trim)`
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
-            <DialogTitle>{title}</DialogTitle>
+        <Dialog
+            open={open}
+            onClose={presentation.dialogProps.onClose}
+            maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
+            fullWidth={presentation.dialogProps.fullWidth ?? true}
+            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
+            PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
+        >
+            <DialogTitle>{titleNode}</DialogTitle>
             <form onSubmit={handleSubmit(onSubmit)}>
-                <DialogContent sx={{ overflowY: 'visible' }}>
+                <DialogContent sx={mergeDialogSx({ overflowY: 'visible' }, presentation.contentSx)}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         {/* Self-action warning */}
                         {selfActionWarning && (
@@ -335,6 +355,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                     </Button>
                 </DialogActions>
             </form>
+            {presentation.resizeHandle}
         </Dialog>
     )
 }

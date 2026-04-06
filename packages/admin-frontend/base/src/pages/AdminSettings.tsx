@@ -2,7 +2,6 @@
  * Universo Platformo | Admin Settings Page
  *
  * Platform-wide configuration settings organized by category.
- * Tabs: Metahubs (codename defaults), Applications (future).
  * Reads/writes admin.cfg_settings table via admin settings API.
  */
 
@@ -29,17 +28,19 @@ import SaveIcon from '@mui/icons-material/Save'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY, PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS } from '@universo/types'
-
+import {
+    DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY,
+    PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS,
+    type DialogCloseBehavior,
+    type DialogSizePreset
+} from '@universo/types'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
-
 import * as settingsApi from '../api/settingsApi'
 import type { AdminSettingItem } from '../api/settingsApi'
 import { settingsQueryKeys } from '../api/queryKeys'
+import { DEFAULT_ADMIN_DIALOG_SETTINGS, type AdminDialogSettings } from '../settings/dialogSettings'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type SettingTab = 'metahubs' | 'applications'
+type SettingTab = 'general' | 'metahubs' | 'applications'
 type CodenameStyle = 'pascal-case' | 'kebab-case'
 type CodenameAlphabet = 'en' | 'ru' | 'en-ru'
 
@@ -74,7 +75,6 @@ interface CodenamePreviewProps {
 
 const CodenamePreview = ({ style, alphabet, allowMixed, showMixedPreviewOnly = false }: CodenamePreviewProps) => {
     const { t } = useTranslation('admin')
-
     const variants = alphabet === 'en-ru' ? (showMixedPreviewOnly && allowMixed ? ['mixed'] : ['en', 'ru']) : [alphabet]
 
     return (
@@ -95,71 +95,67 @@ const CodenamePreview = ({ style, alphabet, allowMixed, showMixedPreviewOnly = f
     )
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Extract the effective value from the `{ _value: ... }` envelope. */
 function extractValue(setting: AdminSettingItem): unknown {
     const raw = setting.value
     return '_value' in raw ? raw._value : raw
 }
 
-/** Build settings map keyed by `key` */
 function buildSettingsMap(items: AdminSettingItem[]): Map<string, AdminSettingItem> {
-    return new Map(items.map((s) => [s.key, s]))
+    return new Map(items.map((item) => [item.key, item]))
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 const AdminSettings = () => {
     const { t } = useTranslation('admin')
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
 
-    // Tabs
-    const [activeTab, setActiveTab] = useState<SettingTab>('metahubs')
+    const [activeTab, setActiveTab] = useState<SettingTab>('general')
+    const [generalChanges, setGeneralChanges] = useState<Partial<AdminDialogSettings>>({})
+    const [metahubsChanges, setMetahubsChanges] = useState<Partial<MetahubDefaults>>({})
+
     const handleTabChange = useCallback((_: React.SyntheticEvent, newValue: SettingTab) => {
         setActiveTab(newValue)
     }, [])
 
-    // Fetch metahubs settings
-    const {
-        data: metahubsData,
-        isLoading,
-        isError
-    } = useQuery({
+    const generalQuery = useQuery({
+        queryKey: settingsQueryKeys.byCategory('general'),
+        queryFn: () => settingsApi.listSettingsByCategory('general')
+    })
+
+    const metahubsQuery = useQuery({
         queryKey: settingsQueryKeys.byCategory('metahubs'),
         queryFn: () => settingsApi.listSettingsByCategory('metahubs')
     })
 
-    const settingsMap = useMemo(() => buildSettingsMap(metahubsData?.items || []), [metahubsData])
+    const generalSettingsMap = useMemo(() => buildSettingsMap(generalQuery.data?.items ?? []), [generalQuery.data?.items])
+    const metahubsSettingsMap = useMemo(() => buildSettingsMap(metahubsQuery.data?.items ?? []), [metahubsQuery.data?.items])
 
-    // Local form state for metahubs tab
-    const [localChanges, setLocalChanges] = useState<Partial<MetahubDefaults>>({})
+    const getGeneralEffective = useCallback(
+        <K extends keyof AdminDialogSettings>(key: K): AdminDialogSettings[K] => {
+            if (key in generalChanges) return generalChanges[key] as AdminDialogSettings[K]
+            const setting = generalSettingsMap.get(key)
+            if (setting) return extractValue(setting) as AdminDialogSettings[K]
+            return DEFAULT_ADMIN_DIALOG_SETTINGS[key]
+        },
+        [generalChanges, generalSettingsMap]
+    )
 
-    /** Get effective value: local change → DB value → default */
-    const getEffective = useCallback(
+    const getMetahubsEffective = useCallback(
         <K extends keyof MetahubDefaults>(key: K): MetahubDefaults[K] => {
-            if (key in localChanges) return localChanges[key] as MetahubDefaults[K]
-            const setting = settingsMap.get(key)
+            if (key in metahubsChanges) return metahubsChanges[key] as MetahubDefaults[K]
+            const setting = metahubsSettingsMap.get(key)
             if (setting) return extractValue(setting) as MetahubDefaults[K]
             return DEFAULT_METAHUB_SETTINGS[key]
         },
-        [localChanges, settingsMap]
+        [metahubsChanges, metahubsSettingsMap]
     )
 
-    const hasChanges = Object.keys(localChanges).length > 0
-
-    // Save mutation
-    const saveMutation = useMutation({
-        mutationFn: async (changes: Partial<MetahubDefaults>) => {
-            return settingsApi.upsertSettingsBatch('metahubs', changes)
-        },
+    const saveGeneralMutation = useMutation({
+        mutationFn: async (changes: Partial<AdminDialogSettings>) => settingsApi.upsertSettingsBatch('general', changes),
         onSuccess: (data) => {
-            // Update cache immediately with server response to prevent flicker
-            queryClient.setQueryData(settingsQueryKeys.byCategory('metahubs'), data)
-            // Then invalidate for full consistency
-            queryClient.invalidateQueries({ queryKey: settingsQueryKeys.byCategory('metahubs') })
-            setLocalChanges({})
+            queryClient.setQueryData(settingsQueryKeys.byCategory('general'), data)
+            queryClient.invalidateQueries({ queryKey: settingsQueryKeys.byCategory('general') })
+            setGeneralChanges({})
             enqueueSnackbar(t('settings.saved'), { variant: 'success' })
         },
         onError: () => {
@@ -167,18 +163,40 @@ const AdminSettings = () => {
         }
     })
 
-    const handleSave = useCallback(() => {
-        if (!hasChanges) return
-        saveMutation.mutate(localChanges)
-    }, [hasChanges, localChanges, saveMutation])
+    const saveMetahubsMutation = useMutation({
+        mutationFn: async (changes: Partial<MetahubDefaults>) => settingsApi.upsertSettingsBatch('metahubs', changes),
+        onSuccess: (data) => {
+            queryClient.setQueryData(settingsQueryKeys.byCategory('metahubs'), data)
+            queryClient.invalidateQueries({ queryKey: settingsQueryKeys.byCategory('metahubs') })
+            setMetahubsChanges({})
+            enqueueSnackbar(t('settings.saved'), { variant: 'success' })
+        },
+        onError: () => {
+            enqueueSnackbar(t('settings.saveError'), { variant: 'error' })
+        }
+    })
 
-    const handleChange = useCallback(<K extends keyof MetahubDefaults>(key: K, value: MetahubDefaults[K]) => {
-        setLocalChanges((prev) => ({ ...prev, [key]: value }))
+    const handleGeneralChange = useCallback(<K extends keyof AdminDialogSettings>(key: K, value: AdminDialogSettings[K]) => {
+        setGeneralChanges((prev) => ({ ...prev, [key]: value }))
     }, [])
 
-    // ── Render ───────────────────────────────────────────────────────────
+    const handleMetahubsChange = useCallback(<K extends keyof MetahubDefaults>(key: K, value: MetahubDefaults[K]) => {
+        setMetahubsChanges((prev) => ({ ...prev, [key]: value }))
+    }, [])
 
-    if (isError) {
+    const handleSaveGeneral = useCallback(() => {
+        if (Object.keys(generalChanges).length === 0) return
+        saveGeneralMutation.mutate(generalChanges)
+    }, [generalChanges, saveGeneralMutation])
+
+    const handleSaveMetahubs = useCallback(() => {
+        if (Object.keys(metahubsChanges).length === 0) return
+        saveMetahubsMutation.mutate(metahubsChanges)
+    }, [metahubsChanges, saveMetahubsMutation])
+
+    const activeTabHasError = (activeTab === 'general' && generalQuery.isError) || (activeTab === 'metahubs' && metahubsQuery.isError)
+
+    if (activeTabHasError) {
         return (
             <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
                 <Alert severity='error' sx={{ m: 2 }}>
@@ -188,62 +206,173 @@ const AdminSettings = () => {
         )
     }
 
-    const effectiveStyle = getEffective('codenameStyle')
-    const effectiveAlphabet = getEffective('codenameAlphabet')
-    const effectiveAllowMixed = getEffective('codenameAllowMixedAlphabets')
-    const effectiveAutoConvertMixed = getEffective('codenameAutoConvertMixedAlphabets')
-    const effectiveLocalizedEnabled = getEffective('codenameLocalizedEnabled')
-    const effectivePlatformSystemAttributesConfigurable = getEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration)
-    const effectivePlatformSystemAttributesRequired = getEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate)
-    const effectivePlatformSystemAttributesIgnoreMetahubSettings = getEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings)
+    const effectiveDialogSizePreset = getGeneralEffective('dialogSizePreset')
+    const effectiveDialogAllowFullscreen = getGeneralEffective('dialogAllowFullscreen')
+    const effectiveDialogAllowResize = getGeneralEffective('dialogAllowResize')
+    const effectiveDialogCloseBehavior = getGeneralEffective('dialogCloseBehavior')
+
+    const effectiveStyle = getMetahubsEffective('codenameStyle')
+    const effectiveAlphabet = getMetahubsEffective('codenameAlphabet')
+    const effectiveAllowMixed = getMetahubsEffective('codenameAllowMixedAlphabets')
+    const effectiveAutoConvertMixed = getMetahubsEffective('codenameAutoConvertMixedAlphabets')
+    const effectiveLocalizedEnabled = getMetahubsEffective('codenameLocalizedEnabled')
+    const effectivePlatformSystemAttributesConfigurable = getMetahubsEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration)
+    const effectivePlatformSystemAttributesRequired = getMetahubsEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate)
+    const effectivePlatformSystemAttributesIgnoreMetahubSettings = getMetahubsEffective(
+        PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings
+    )
+
+    const hasGeneralChanges = Object.keys(generalChanges).length > 0
+    const hasMetahubsChanges = Object.keys(metahubsChanges).length > 0
 
     return (
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
-            {/* Header */}
             <ViewHeader title={t('settings.title')} />
 
-            {/* Tabs */}
             <Box data-testid='admin-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={handleTabChange}>
+                    <Tab label={t('settings.tabs.general')} value='general' />
                     <Tab label={t('settings.tabs.metahubs')} value='metahubs' />
                     <Tab label={t('settings.tabs.applications')} value='applications' />
                 </Tabs>
             </Box>
 
-            {/* Content */}
             <Box data-testid='admin-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
-                {activeTab === 'metahubs' && (
+                {activeTab === 'general' ? (
                     <>
-                        {isLoading ? (
+                        {generalQuery.isLoading ? (
                             <Stack spacing={2}>
-                                {[1, 2, 3].map((i) => (
-                                    <Skeleton key={i} variant='rectangular' height={60} sx={{ borderRadius: 1 }} />
+                                {[1, 2, 3, 4].map((index) => (
+                                    <Skeleton key={index} variant='rectangular' height={60} sx={{ borderRadius: 1 }} />
                                 ))}
                             </Stack>
                         ) : (
                             <Stack spacing={0} divider={<Divider />}>
-                                {/* Codename Style */}
+                                <Box data-testid='admin-setting-dialogSizePreset' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>{t('settings.general.dialogSizePreset')}</Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.general.dialogSizePresetDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControl size='small' sx={{ minWidth: 250 }}>
+                                        <InputLabel>{t('settings.general.dialogSizePreset')}</InputLabel>
+                                        <Select
+                                            value={effectiveDialogSizePreset}
+                                            label={t('settings.general.dialogSizePreset')}
+                                            onChange={(event) =>
+                                                handleGeneralChange('dialogSizePreset', event.target.value as DialogSizePreset)
+                                            }
+                                        >
+                                            <MenuItem value='small'>{t('settings.dialogSizePresets.small')}</MenuItem>
+                                            <MenuItem value='medium'>{t('settings.dialogSizePresets.medium')}</MenuItem>
+                                            <MenuItem value='large'>{t('settings.dialogSizePresets.large')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+
                                 <Box
-                                    data-testid='admin-setting-codenameStyle'
+                                    data-testid='admin-setting-dialogAllowFullscreen'
                                     sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
                                 >
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>{t('settings.general.dialogAllowFullscreen')}</Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.general.dialogAllowFullscreenDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={effectiveDialogAllowFullscreen}
+                                                onChange={(event) => handleGeneralChange('dialogAllowFullscreen', event.target.checked)}
+                                            />
+                                        }
+                                        label=''
+                                    />
+                                </Box>
+
+                                <Box data-testid='admin-setting-dialogAllowResize' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>{t('settings.general.dialogAllowResize')}</Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.general.dialogAllowResizeDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={effectiveDialogAllowResize}
+                                                onChange={(event) => handleGeneralChange('dialogAllowResize', event.target.checked)}
+                                            />
+                                        }
+                                        label=''
+                                    />
+                                </Box>
+
+                                <Box data-testid='admin-setting-dialogCloseBehavior' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant='subtitle2'>{t('settings.general.dialogCloseBehavior')}</Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t('settings.general.dialogCloseBehaviorDescription')}
+                                        </Typography>
+                                    </Box>
+                                    <FormControl size='small' sx={{ minWidth: 250 }}>
+                                        <InputLabel>{t('settings.general.dialogCloseBehavior')}</InputLabel>
+                                        <Select
+                                            value={effectiveDialogCloseBehavior}
+                                            label={t('settings.general.dialogCloseBehavior')}
+                                            onChange={(event) =>
+                                                handleGeneralChange('dialogCloseBehavior', event.target.value as DialogCloseBehavior)
+                                            }
+                                        >
+                                            <MenuItem value='strict-modal'>{t('settings.dialogCloseBehaviors.strict-modal')}</MenuItem>
+                                            <MenuItem value='backdrop-close'>{t('settings.dialogCloseBehaviors.backdrop-close')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            </Stack>
+                        )}
+
+                        {hasGeneralChanges ? (
+                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button
+                                    variant='contained'
+                                    startIcon={<SaveIcon />}
+                                    onClick={handleSaveGeneral}
+                                    disabled={saveGeneralMutation.isPending}
+                                >
+                                    {t('settings.save')}
+                                </Button>
+                            </Box>
+                        ) : null}
+                    </>
+                ) : null}
+
+                {activeTab === 'metahubs' ? (
+                    <>
+                        {metahubsQuery.isLoading ? (
+                            <Stack spacing={2}>
+                                {[1, 2, 3].map((index) => (
+                                    <Skeleton key={index} variant='rectangular' height={60} sx={{ borderRadius: 1 }} />
+                                ))}
+                            </Stack>
+                        ) : (
+                            <Stack spacing={0} divider={<Divider />}>
+                                <Box data-testid='admin-setting-codenameStyle' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameStyle')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t('settings.metahubs.codenameStyleDescription')}
                                         </Typography>
-                                        <CodenamePreview
-                                            style={effectiveStyle}
-                                            alphabet={effectiveAlphabet}
-                                            allowMixed={effectiveAllowMixed}
-                                        />
+                                        <CodenamePreview style={effectiveStyle} alphabet={effectiveAlphabet} allowMixed={effectiveAllowMixed} />
                                     </Box>
                                     <FormControl size='small' sx={{ minWidth: 250 }}>
                                         <InputLabel>{t('settings.metahubs.codenameStyle')}</InputLabel>
                                         <Select
                                             value={effectiveStyle}
                                             label={t('settings.metahubs.codenameStyle')}
-                                            onChange={(e) => handleChange('codenameStyle', e.target.value as CodenameStyle)}
+                                            onChange={(event) => handleMetahubsChange('codenameStyle', event.target.value as CodenameStyle)}
                                         >
                                             <MenuItem value='pascal-case'>{t('settings.metahubs.styleOptions.pascal-case')}</MenuItem>
                                             <MenuItem value='kebab-case'>{t('settings.metahubs.styleOptions.kebab-case')}</MenuItem>
@@ -251,7 +380,6 @@ const AdminSettings = () => {
                                     </FormControl>
                                 </Box>
 
-                                {/* Codename Alphabet */}
                                 <Box
                                     data-testid='admin-setting-codenameAlphabet'
                                     sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
@@ -261,18 +389,16 @@ const AdminSettings = () => {
                                         <Typography variant='body2' color='text.secondary'>
                                             {t('settings.metahubs.codenameAlphabetDescription')}
                                         </Typography>
-                                        <CodenamePreview
-                                            style={effectiveStyle}
-                                            alphabet={effectiveAlphabet}
-                                            allowMixed={effectiveAllowMixed}
-                                        />
+                                        <CodenamePreview style={effectiveStyle} alphabet={effectiveAlphabet} allowMixed={effectiveAllowMixed} />
                                     </Box>
                                     <FormControl size='small' sx={{ minWidth: 250 }}>
                                         <InputLabel>{t('settings.metahubs.codenameAlphabet')}</InputLabel>
                                         <Select
                                             value={effectiveAlphabet}
                                             label={t('settings.metahubs.codenameAlphabet')}
-                                            onChange={(e) => handleChange('codenameAlphabet', e.target.value as CodenameAlphabet)}
+                                            onChange={(event) =>
+                                                handleMetahubsChange('codenameAlphabet', event.target.value as CodenameAlphabet)
+                                            }
                                         >
                                             <MenuItem value='en'>{t('settings.metahubs.alphabetOptions.en')}</MenuItem>
                                             <MenuItem value='ru'>{t('settings.metahubs.alphabetOptions.ru')}</MenuItem>
@@ -281,8 +407,7 @@ const AdminSettings = () => {
                                     </FormControl>
                                 </Box>
 
-                                {/* Allow Mixed Alphabets (only visible when alphabet is en-ru) */}
-                                {effectiveAlphabet === 'en-ru' && (
+                                {effectiveAlphabet === 'en-ru' ? (
                                     <Box
                                         data-testid='admin-setting-codenameAllowMixedAlphabets'
                                         sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
@@ -305,16 +430,17 @@ const AdminSettings = () => {
                                             control={
                                                 <Switch
                                                     checked={effectiveAllowMixed}
-                                                    onChange={(e) => handleChange('codenameAllowMixedAlphabets', e.target.checked)}
+                                                    onChange={(event) =>
+                                                        handleMetahubsChange('codenameAllowMixedAlphabets', event.target.checked)
+                                                    }
                                                 />
                                             }
                                             label=''
                                         />
                                     </Box>
-                                )}
+                                ) : null}
 
-                                {/* Auto-convert mixed alphabets (only visible when alphabet is en-ru and mixed is disabled) */}
-                                {effectiveAlphabet === 'en-ru' && !effectiveAllowMixed && (
+                                {effectiveAlphabet === 'en-ru' && !effectiveAllowMixed ? (
                                     <Box
                                         data-testid='admin-setting-codenameAutoConvertMixedAlphabets'
                                         sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
@@ -331,19 +457,17 @@ const AdminSettings = () => {
                                             control={
                                                 <Switch
                                                     checked={effectiveAutoConvertMixed}
-                                                    onChange={(e) => handleChange('codenameAutoConvertMixedAlphabets', e.target.checked)}
+                                                    onChange={(event) =>
+                                                        handleMetahubsChange('codenameAutoConvertMixedAlphabets', event.target.checked)
+                                                    }
                                                 />
                                             }
                                             label=''
                                         />
                                     </Box>
-                                )}
+                                ) : null}
 
-                                {/* Enable Localized Codenames (VLC) */}
-                                <Box
-                                    data-testid='admin-setting-codenameLocalizedEnabled'
-                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                                >
+                                <Box data-testid='admin-setting-codenameLocalizedEnabled' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameLocalizedEnabled')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -354,7 +478,7 @@ const AdminSettings = () => {
                                         control={
                                             <Switch
                                                 checked={effectiveLocalizedEnabled}
-                                                onChange={(e) => handleChange('codenameLocalizedEnabled', e.target.checked)}
+                                                onChange={(event) => handleMetahubsChange('codenameLocalizedEnabled', event.target.checked)}
                                             />
                                         }
                                         label=''
@@ -374,8 +498,8 @@ const AdminSettings = () => {
                                         control={
                                             <Switch
                                                 checked={effectivePlatformSystemAttributesConfigurable}
-                                                onChange={(e) =>
-                                                    handleChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration, e.target.checked)
+                                                onChange={(event) =>
+                                                    handleMetahubsChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration, event.target.checked)
                                                 }
                                             />
                                         }
@@ -396,8 +520,8 @@ const AdminSettings = () => {
                                         control={
                                             <Switch
                                                 checked={effectivePlatformSystemAttributesRequired}
-                                                onChange={(e) =>
-                                                    handleChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate, e.target.checked)
+                                                onChange={(event) =>
+                                                    handleMetahubsChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate, event.target.checked)
                                                 }
                                             />
                                         }
@@ -418,10 +542,10 @@ const AdminSettings = () => {
                                         control={
                                             <Switch
                                                 checked={effectivePlatformSystemAttributesIgnoreMetahubSettings}
-                                                onChange={(e) =>
-                                                    handleChange(
+                                                onChange={(event) =>
+                                                    handleMetahubsChange(
                                                         PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings,
-                                                        e.target.checked
+                                                        event.target.checked
                                                     )
                                                 }
                                             />
@@ -432,22 +556,26 @@ const AdminSettings = () => {
                             </Stack>
                         )}
 
-                        {/* Save button */}
-                        {hasChanges && (
+                        {hasMetahubsChanges ? (
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button variant='contained' startIcon={<SaveIcon />} onClick={handleSave} disabled={saveMutation.isPending}>
+                                <Button
+                                    variant='contained'
+                                    startIcon={<SaveIcon />}
+                                    onClick={handleSaveMetahubs}
+                                    disabled={saveMetahubsMutation.isPending}
+                                >
                                     {t('settings.save')}
                                 </Button>
                             </Box>
-                        )}
+                        ) : null}
                     </>
-                )}
+                ) : null}
 
-                {activeTab === 'applications' && (
+                {activeTab === 'applications' ? (
                     <Alert severity='info' sx={{ mt: 1 }}>
                         {t('settings.applications.placeholder')}
                     </Alert>
-                )}
+                ) : null}
             </Box>
         </MainCard>
     )

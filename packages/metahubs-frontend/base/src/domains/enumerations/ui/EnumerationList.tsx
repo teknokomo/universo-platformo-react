@@ -627,6 +627,7 @@ const EnumerationListContent = () => {
         (baseContext: EnumerationMenuBaseContext) => ({
             ...baseContext,
             enumerationMap,
+            metahubId,
             uiLocale: preferredVlcLocale,
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             currentHubId: isHubScoped ? hubId ?? null : null,

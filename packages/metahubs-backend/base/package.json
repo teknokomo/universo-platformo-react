@@ -54,6 +54,7 @@
         "@universo/migrations-core": "workspace:*",
         "@universo/profile-backend": "workspace:*",
         "@universo/schema-ddl": "workspace:*",
+        "@universo/scripting-engine": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",

@@ -1,4 +1,4 @@
-import type { AppDataResponse } from './api'
+import { fetchWithCsrf, type AppDataResponse } from './api'
 import type { CrudDataAdapter } from './types'
 import type { FieldValidationRules } from '../components/dialogs/FormDialog'
 
@@ -180,9 +180,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
 
         async createRow(data: Record<string, unknown>, overrideCatalogId?: string): Promise<Record<string, unknown>> {
             const resolvedCatalogId = overrideCatalogId ?? catalogId
-            const res = await fetch(url(resolvedCatalogId), {
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedCatalogId), {
                 method: 'POST',
-                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data })
             })
@@ -192,9 +191,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
 
         async updateRow(rowId: string, data: Record<string, unknown>, overrideCatalogId?: string): Promise<Record<string, unknown>> {
             const resolvedCatalogId = overrideCatalogId ?? catalogId
-            const res = await fetch(url(resolvedCatalogId, rowId), {
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedCatalogId, rowId), {
                 method: 'PATCH',
-                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data })
             })
@@ -204,20 +202,14 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
 
         async deleteRow(rowId: string, overrideCatalogId?: string): Promise<void> {
             const resolvedCatalogId = overrideCatalogId ?? catalogId
-            const res = await fetch(url(resolvedCatalogId, rowId), {
-                method: 'DELETE',
-                credentials: 'include'
-            })
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedCatalogId, rowId), { method: 'DELETE' })
             if (!res.ok) throw new Error(await extractError(res, 'Delete tabular row failed'))
         },
 
         async copyRow(rowId: string, data?: { catalogId?: string }): Promise<Record<string, unknown>> {
             const resolvedCatalogId = data?.catalogId ?? catalogId
             const copyUrl = `${url(resolvedCatalogId, rowId)}/copy`
-            const res = await fetch(copyUrl, {
-                method: 'POST',
-                credentials: 'include'
-            })
+            const res = await fetchWithCsrf(apiBaseUrl, copyUrl, { method: 'POST' })
             if (!res.ok) throw new Error(await extractError(res, 'Copy tabular row failed'))
             return res.json()
         }

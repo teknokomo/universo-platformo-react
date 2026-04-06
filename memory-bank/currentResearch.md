@@ -1,5 +1,45 @@
 # Current Research
 
+## 2026-04-05: Frontend test warning remediation closure
+
+- Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside scripting-related frontend tests.
+- Implemented fix: the affected metahubs frontend tests now provide a stable non-zero `HTMLElement.prototype.getBoundingClientRect` mock while keeping the existing `user.click(...)` interaction path intact.
+- Validation result: focused `@universo/metahubs-frontend` dialog/script tests passed (`9/9`), the warning string `anchorEl` no longer appeared in the captured test log, package lint no longer had error-level failures on the touched scope, and the final root `pnpm build` finished green.
+- No open research thread remains for this remediation.
+
+## 2026-04-05: Metahub dialog settings and Scripts-tab responsiveness closure
+
+- Research outcome implemented: the narrow-dialog Scripts-tab regression was not a CRUD bug; the real failure was container-width geometry plus missing real-browser overflow assertions.
+- Implemented fix: metahub dialog behavior is now driven by shared settings and one template-mui presentation seam with preset sizing, fullscreen toggle, resize persistence, reset-to-default, and strict-modal close handling.
+- Implemented responsive fix: `EntityScriptsTab` now switches by `ResizeObserver` container width, collapses the attached-scripts list on narrow dialogs, and keeps horizontal overflow inside the editor shell only.
+- Closure validation: focused template-mui dialog tests passed, focused metahubs-frontend Scripts-tab tests passed, targeted Playwright dialog/settings flows passed, and the final root `pnpm build` finished green.
+- No open research thread remains for this wave.
+
+## 2026-04-05: Quiz snapshot fixture export/import closure
+
+- Research outcome implemented: the newly requested durable quiz fixture could not safely ship on top of the existing import path because metahub export already serialized `snapshot.scripts`, but `SnapshotRestoreService` did not restore `_mhb_scripts` at all.
+- Implemented fix: metahub export now augments `snapshot.scripts` with live `sourceCode`, and snapshot restore now recreates `_mhb_scripts` with attachment-id remapping for entity- and attribute-scoped scripts.
+- Implemented durable fixture contract: `tools/testing/e2e/support/quizFixtureContract.ts` now owns the canonical quiz metahub identity, bilingual 10-question content, canonical widget script source, and fail-closed snapshot assertions.
+- Implemented durable proof: the generator `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` rewrites `tools/fixtures/metahubs-quiz-app-snapshot.json`, and `tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts` proves browser import, restored design-time script state, application creation from the imported publication, and the full EN/RU runtime quiz contract.
+- Closure validation: focused metahubs-backend Jest passed, `pnpm run build:e2e` passed, the quiz generator passed with `2 passed`, the quiz import/runtime flow passed with `2 passed`, and the final root `pnpm build` finished green.
+- No open research thread remains for the 2026-04-05 quiz snapshot fixture wave.
+
+## 2026-04-05: Scripting QA gap closure and final plan completion
+
+- Research outcome implemented: the previously identified scripting QA gaps are fully closed, and the final plan-completion wave is now the durable state for the 2026-04-05 scripting track.
+- Implemented proof: `@universo/scripting-engine` now carries reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127`.
+- Implemented compatibility hardening: core-backend startup now validates `isolated-vm` / `--no-node-snapshot` compatibility explicitly, and legacy publication snapshots missing `snapshot.scripts` stay supported through direct regression coverage.
+- Implemented product proof: browser authoring now exposes `quizWidget` `scriptCodename`, the real browser-authored Playwright flow covers authoring -> publication -> application -> runtime smoke, the shared auth `419` retry defect is fixed, and untouched draft role switches now reapply widget defaults so `rpc.client` remains present.
+- Closure validation: focused auth-frontend Vitest passed, focused metahubs-frontend `EntityScriptsTab` coverage passed, the browser-authored Playwright flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `3m54.625s`.
+- No open research thread remains for the 2026-04-05 scripting wave.
+
+## 2026-04-05: Scripting hardening closure follow-up
+
+- Research outcome implemented: the compiler was still acting like a general esbuild entrypoint. Embedded script compilation now enforces an explicit SDK-only boundary by rejecting unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling.
+- Research outcome implemented: browser client scripts were still inheriting too much of the ambient Worker environment. The worker runtime now keeps its bridge internals on private host aliases and disables ambient network, nested-worker, storage, and dynamic-code globals before loading the client bundle.
+- Hidden defect found and fixed during the same pass: the isolated-vm bootstrap source used strict-mode-invalid `const eval = undefined` code. Runtime tests now parse generated bootstrap source so the same issue fails loudly.
+- No open research thread remains for this scripting hardening closure wave.
+
 ## 2026-04-04: Self-hosted post-import schema diff and runtime inheritance regression wave
 
 - Research outcome implemented: the connector destructive-diff bug was caused by identity drift, not by harmless UI-only diff rendering. `@universo/schema-ddl/calculateSchemaDiff(...)` matches physical entities and fields by `entity.id` / `field.id`, not by codename.
@@ -24,9 +64,9 @@
 - Research outcome: the corrected admin-roles/metapanel plan still had hidden integration gaps against the live repository architecture, mainly around root routing, onboarding completion timing, permission refresh ownership, menu section filtering, and dashboard stats contracts.
 - Confirmed root cause: the current app does not use TanStack Query for permission state; `AbilityContextProvider` owns `/auth/permissions` loading and exposes `refreshAbility()`, so query invalidation alone cannot refresh role-driven routing/menu state.
 - Confirmed root cause: `OnboardingWizard` currently calls `completeOnboarding()` before the completion screen is shown, which means a `CompletionStep` CTA must first move the authoritative completion mutation out of the wizard instead of calling it a second time.
-- Confirmed root cause: the current root route `/` bypasses the main shell and always enters the start flow for authenticated users, so `RegisteredUserGuard` alone cannot redirect post-onboarding users into Метапанель; a dedicated `/start` route plus root resolver is required.
+- Confirmed root cause: the current root route `/` bypasses the main shell and always enters the start flow for authenticated users, so `RegisteredUserGuard` alone cannot redirect post-onboarding users into Metapanel; a dedicated `/start` route plus root resolver is required.
 - Confirmed root cause: shell menu rendering is split between `rootMenuItems`, a separate MetaHubs section, and an Admin section derived from `isSuperuser || hasAnyGlobalRole`; filtering only `rootMenuItems` would leave visible sections that the role UX intends to hide.
-- Confirmed root cause: Метапанель currently points at a global-users-specific stats endpoint, while the desired cards aggregate multiple domains; this should be promoted to a dedicated admin dashboard stats contract shared with AdminBoard.
+- Confirmed root cause: Metapanel currently points at a global-users-specific stats endpoint, while the desired cards aggregate multiple domains; this should be promoted to a dedicated admin dashboard stats contract shared with AdminBoard.
 - Planning fix applied: the implementation plan is now v3 and explicitly adds `/start` topology, `AbilityContext` refresh, section-aware menu gating, injected privileged system-role provisioning, and a dedicated admin dashboard stats contract.
 - No open research thread remains before implementation approval; the next action is user approval or another targeted plan QA pass.
 

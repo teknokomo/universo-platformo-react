@@ -66,6 +66,29 @@ describe('Metahubs page action factories', () => {
         expect(del.dialog || del.onSelect).toBeTruthy()
     }, 30000)
 
+    it('Metahub edit dialog opens the scripts tab in metahub-level scope', async () => {
+        const mod = await import('../MetahubActions')
+
+        const descriptors = mod.default as Array<DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } }>
+        const edit = descriptors.find((d) => d.id === 'edit')
+        expect(edit?.dialog?.buildProps).toBeTypeOf('function')
+
+        const props = edit!.dialog!.buildProps!({
+            entity: { id: 'metahub-1', name: 'Metahub 1', codename: 'MetahubOne' },
+            metahubMap: new Map(),
+            uiLocale: 'ru',
+            t: (key: string, fallback?: string) => fallback ?? key
+        })
+
+        const tabs = props.tabs({ values: {}, setValue: vi.fn(), isLoading: false, errors: {} })
+        const scriptsTab = tabs.find((tab: any) => tab.id === 'scripts')
+
+        expect(scriptsTab).toBeTruthy()
+        expect(scriptsTab.content.props.metahubId).toBe('metahub-1')
+        expect(scriptsTab.content.props.attachedToKind).toBe('metahub')
+        expect(scriptsTab.content.props.attachedToId).toBeNull()
+    })
+
     it('HubActions exports edit/copy/delete descriptors for localized forms', async () => {
         const mod = await import('../../../hubs/ui/HubActions')
 
