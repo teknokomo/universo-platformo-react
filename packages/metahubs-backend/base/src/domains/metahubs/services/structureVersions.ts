@@ -17,21 +17,21 @@ export interface StructureVersionSpec {
 }
 
 /** Current numeric structure revision for internal migration engine. */
-export const CURRENT_STRUCTURE_VERSION = 3
+export const CURRENT_STRUCTURE_VERSION = 1
 
 /** Public SemVer label for metahub structure version. */
-export const CURRENT_STRUCTURE_VERSION_SEMVER = '0.3.0'
+export const CURRENT_STRUCTURE_VERSION_SEMVER = '0.1.0'
 
 const STRUCTURE_SEMVER_MAP: Record<number, string> = {
-    1: '0.1.0',
+    1: CURRENT_STRUCTURE_VERSION_SEMVER,
     2: '0.2.0',
-    3: CURRENT_STRUCTURE_VERSION_SEMVER
+    3: '0.3.0'
 }
 
 const SEMVER_TO_STRUCTURE_MAP: Record<string, number> = {
-    '0.1.0': 1,
+    [CURRENT_STRUCTURE_VERSION_SEMVER]: CURRENT_STRUCTURE_VERSION,
     '0.2.0': 2,
-    [CURRENT_STRUCTURE_VERSION_SEMVER]: CURRENT_STRUCTURE_VERSION
+    '0.3.0': 3
 }
 
 const parseSemver = (value: string): [number, number, number] | null => {

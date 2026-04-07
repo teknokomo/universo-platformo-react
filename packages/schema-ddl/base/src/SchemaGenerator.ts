@@ -834,6 +834,7 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] Creating _app_layouts...`)
             await knex.schema.withSchema(schemaName).createTable('_app_layouts', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('catalog_id').nullable().references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
                 table.string('template_key', 100).notNullable().defaultTo('dashboard')
                 table.jsonb('name').notNullable().defaultTo('{}')
                 table.jsonb('description').nullable()
@@ -882,6 +883,7 @@ export class SchemaGenerator {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
                 table.uuid('_app_deleted_by').nullable()
 
+                table.index(['catalog_id'], 'idx_app_layouts_catalog_id')
                 table.index(['template_key'], 'idx_app_layouts_template_key')
                 table.index(['is_active'], 'idx_app_layouts_is_active')
                 table.index(['is_default'], 'idx_app_layouts_is_default')
@@ -890,7 +892,7 @@ export class SchemaGenerator {
 
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_layouts_default_active
-                ON "${schemaName}"._app_layouts (is_default)
+                ON "${schemaName}"._app_layouts (COALESCE(catalog_id, '00000000-0000-0000-0000-000000000000'::uuid))
                 WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
             `)
             console.log(`[SchemaGenerator] _app_layouts created`)

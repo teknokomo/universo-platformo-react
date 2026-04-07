@@ -1,19 +1,29 @@
 import { useEffect } from 'react'
-import { Checkbox, Divider, FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
+import { Checkbox, Divider, FormControlLabel, Stack, Typography } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFillVlc, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
-import type { CatalogRuntimeViewConfig, VersionedLocalizedContent } from '@universo/types'
-import { normalizeCatalogCopyOptions, normalizeCatalogRuntimeViewConfig, sanitizeCatalogRuntimeViewConfig } from '@universo/utils'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { normalizeCatalogCopyOptions } from '@universo/utils'
 import type { Catalog, CatalogDisplay, CatalogLocalizedPayload, Hub } from '../../../types'
 import { getVLCString } from '../../../types'
 import { CatalogWithHubs } from '../api'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import {
+    extractLocalizedInput,
+    ensureLocalizedContent,
+    ensureEntityCodenameContent,
+    hasPrimaryContent,
+    normalizeLocale
+} from '../../../utils/localizedInput'
+import { CodenameField, HubSelectionPanel } from '../../../components'
+import LayoutList from '../../layouts/ui/LayoutList'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 const DEFAULT_CC: CodenameConfig = {
     style: 'pascal-case',
@@ -25,16 +35,6 @@ const DEFAULT_CC: CodenameConfig = {
 }
 const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
-
-import {
-    extractLocalizedInput,
-    ensureLocalizedContent,
-    ensureEntityCodenameContent,
-    hasPrimaryContent,
-    normalizeLocale
-} from '../../../utils/localizedInput'
-import { CodenameField, HubSelectionPanel } from '../../../components'
-import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 
 /**
  * Extended CatalogDisplay type that includes hubId for AllCatalogsList context
@@ -57,192 +57,6 @@ export type CatalogDialogTabArgs = {
     errors?: Record<string, string>
 }
 
-const getCatalogRuntimeFormValue = (values: CatalogFormValues): CatalogRuntimeViewConfig =>
-    normalizeCatalogRuntimeViewConfig(values.runtimeConfig as Record<string, unknown> | undefined)
-
-const getCatalogRuntimeRawValue = (values: CatalogFormValues): CatalogRuntimeViewConfig =>
-    (values.runtimeConfig as CatalogRuntimeViewConfig | undefined) ?? {}
-
-export const CatalogLayoutTabFields = ({
-    values,
-    setValue,
-    isLoading,
-    t
-}: {
-    values: CatalogFormValues
-    setValue: CatalogFormSetValue
-    isLoading: boolean
-    t: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>['t']
-}) => {
-    const runtimeConfig = getCatalogRuntimeFormValue(values)
-    const rawRuntimeConfig = getCatalogRuntimeRawValue(values)
-    const updateRuntimeConfig = (patch: Partial<CatalogRuntimeViewConfig>) => {
-        setValue('runtimeConfig', sanitizeCatalogRuntimeViewConfig({ ...rawRuntimeConfig, ...patch }) ?? {})
-    }
-    const layoutOverridesEnabled = Boolean(runtimeConfig.useLayoutOverrides)
-
-    return (
-        <Stack spacing={2}>
-            <FormControlLabel
-                control={
-                    <Checkbox
-                        checked={runtimeConfig.showCreateButton}
-                        onChange={(_, checked) => updateRuntimeConfig({ showCreateButton: checked })}
-                        disabled={isLoading}
-                    />
-                }
-                label={t('catalogs.runtime.showCreateButton', 'Show create button')}
-            />
-            <FormControl fullWidth size='small' disabled={isLoading}>
-                <InputLabel>{t('catalogs.runtime.createSurface', 'Create form type')}</InputLabel>
-                <Select
-                    value={runtimeConfig.createSurface}
-                    label={t('catalogs.runtime.createSurface', 'Create form type')}
-                    onChange={(event) =>
-                        updateRuntimeConfig({ createSurface: event.target.value as CatalogRuntimeViewConfig['createSurface'] })
-                    }
-                >
-                    <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                    <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
-                </Select>
-            </FormControl>
-            <FormControl fullWidth size='small' disabled={isLoading}>
-                <InputLabel>{t('catalogs.runtime.editSurface', 'Edit form type')}</InputLabel>
-                <Select
-                    value={runtimeConfig.editSurface}
-                    label={t('catalogs.runtime.editSurface', 'Edit form type')}
-                    onChange={(event) =>
-                        updateRuntimeConfig({ editSurface: event.target.value as CatalogRuntimeViewConfig['editSurface'] })
-                    }
-                >
-                    <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                    <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
-                </Select>
-            </FormControl>
-            <FormControl fullWidth size='small' disabled={isLoading}>
-                <InputLabel>{t('catalogs.runtime.copySurface', 'Copy form type')}</InputLabel>
-                <Select
-                    value={runtimeConfig.copySurface}
-                    label={t('catalogs.runtime.copySurface', 'Copy form type')}
-                    onChange={(event) =>
-                        updateRuntimeConfig({ copySurface: event.target.value as CatalogRuntimeViewConfig['copySurface'] })
-                    }
-                >
-                    <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                    <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
-                </Select>
-            </FormControl>
-
-            <Divider />
-
-            <FormControlLabel
-                control={
-                    <Checkbox
-                        checked={layoutOverridesEnabled}
-                        onChange={(_, checked) => updateRuntimeConfig({ useLayoutOverrides: checked })}
-                        disabled={isLoading}
-                    />
-                }
-                label={t('catalogs.runtime.useLayoutOverrides', 'Override application layout settings')}
-            />
-            <Typography variant='body2' color='text.secondary'>
-                {t(
-                    'catalogs.runtime.useLayoutOverridesHelper',
-                    'When disabled, this catalog inherits search, view, card, and row layout settings from the application layout.'
-                )}
-            </Typography>
-
-            <Stack spacing={2} sx={{ opacity: layoutOverridesEnabled ? 1 : 0.6 }}>
-                <FormControlLabel
-                    control={
-                        <Checkbox
-                            checked={runtimeConfig.showSearch}
-                            onChange={(_, checked) => updateRuntimeConfig({ showSearch: checked })}
-                            disabled={isLoading || !layoutOverridesEnabled}
-                        />
-                    }
-                    label={t('catalogs.runtime.showSearch', 'Search/filter bar')}
-                />
-                <FormControlLabel
-                    control={
-                        <Checkbox
-                            checked={runtimeConfig.showViewToggle}
-                            onChange={(_, checked) => updateRuntimeConfig({ showViewToggle: checked })}
-                            disabled={isLoading || !layoutOverridesEnabled}
-                        />
-                    }
-                    label={t('catalogs.runtime.showViewToggle', 'Card/table view toggle')}
-                />
-                <FormControlLabel
-                    control={
-                        <Checkbox
-                            checked={runtimeConfig.enableRowReordering}
-                            onChange={(_, checked) => updateRuntimeConfig({ enableRowReordering: checked })}
-                            disabled={isLoading || !layoutOverridesEnabled}
-                        />
-                    }
-                    label={t('catalogs.runtime.enableRowReordering', 'Enable row reordering')}
-                />
-                <TextField
-                    fullWidth
-                    size='small'
-                    disabled={isLoading || !layoutOverridesEnabled || !runtimeConfig.enableRowReordering}
-                    label={t('catalogs.runtime.reorderPersistenceField', 'Reorder persistence field')}
-                    helperText={t(
-                        'catalogs.runtime.reorderPersistenceFieldHelper',
-                        'Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.'
-                    )}
-                    value={runtimeConfig.reorderPersistenceField ?? ''}
-                    onChange={(event) =>
-                        updateRuntimeConfig({
-                            reorderPersistenceField: event.target.value.trim().length > 0 ? event.target.value.trim() : null
-                        })
-                    }
-                />
-                <FormControl fullWidth size='small' disabled={isLoading || !layoutOverridesEnabled}>
-                    <InputLabel>{t('catalogs.runtime.defaultViewMode', 'Default view mode')}</InputLabel>
-                    <Select
-                        value={runtimeConfig.defaultViewMode}
-                        label={t('catalogs.runtime.defaultViewMode', 'Default view mode')}
-                        onChange={(event) =>
-                            updateRuntimeConfig({ defaultViewMode: event.target.value as CatalogRuntimeViewConfig['defaultViewMode'] })
-                        }
-                    >
-                        <MenuItem value='table'>{t('catalogs.runtime.viewModeTable', 'Table')}</MenuItem>
-                        <MenuItem value='card'>{t('catalogs.runtime.viewModeCard', 'Card')}</MenuItem>
-                    </Select>
-                </FormControl>
-                <FormControl fullWidth size='small' disabled={isLoading || !layoutOverridesEnabled}>
-                    <InputLabel>{t('catalogs.runtime.cardColumns', 'Card columns')}</InputLabel>
-                    <Select
-                        value={String(runtimeConfig.cardColumns)}
-                        label={t('catalogs.runtime.cardColumns', 'Card columns')}
-                        onChange={(event) => updateRuntimeConfig({ cardColumns: Number(event.target.value) })}
-                    >
-                        <MenuItem value='2'>2</MenuItem>
-                        <MenuItem value='3'>3</MenuItem>
-                        <MenuItem value='4'>4</MenuItem>
-                    </Select>
-                </FormControl>
-                <FormControl fullWidth size='small' disabled={isLoading || !layoutOverridesEnabled}>
-                    <InputLabel>{t('catalogs.runtime.rowHeight', 'Row height')}</InputLabel>
-                    <Select
-                        value={runtimeConfig.rowHeight}
-                        label={t('catalogs.runtime.rowHeight', 'Row height')}
-                        onChange={(event) =>
-                            updateRuntimeConfig({ rowHeight: event.target.value as CatalogRuntimeViewConfig['rowHeight'] })
-                        }
-                    >
-                        <MenuItem value='compact'>{t('catalogs.runtime.rowHeightCompact', 'Compact (default)')}</MenuItem>
-                        <MenuItem value='normal'>{t('catalogs.runtime.rowHeightNormal', 'Normal (52px)')}</MenuItem>
-                        <MenuItem value='auto'>{t('catalogs.runtime.rowHeightAuto', 'Auto (multi-line)')}</MenuItem>
-                    </Select>
-                </FormControl>
-            </Stack>
-        </Stack>
-    )
-}
-
 export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>) => {
     const catalogMap = ctx.catalogMap as Map<string, Catalog | CatalogWithHubs> | undefined
     const raw = catalogMap?.get(ctx.entity.id)
@@ -250,18 +64,22 @@ export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, Cat
     const nameFallback = ctx.entity?.name || ctx.entity?.codename || ''
     const descriptionFallback = ctx.entity?.description || ''
 
-    // Extract hubIds from CatalogWithHubs or fallback to single hubId
     let hubIds: string[] = []
     let isSingleHub = false
     let isRequiredHub = false
 
-    if (raw && 'hubs' in raw && Array.isArray((raw as CatalogWithHubs).hubs)) {
-        const catalogWithHubs = raw as CatalogWithHubs
-        hubIds = catalogWithHubs.hubs.map((h) => h.id)
-        isSingleHub = Boolean(catalogWithHubs.isSingleHub)
-        isRequiredHub = Boolean(catalogWithHubs.isRequiredHub)
+    if (raw && Array.isArray(raw.hubs)) {
+        hubIds = raw.hubs.map((hub) => hub.id)
+        isSingleHub = Boolean(raw.isSingleHub)
+        isRequiredHub = Boolean(raw.isRequiredHub)
+    } else if (Array.isArray(ctx.entity.hubs) && ctx.entity.hubs.length > 0) {
+        hubIds = ctx.entity.hubs.map((hub) => hub.id)
+        isSingleHub = Boolean(ctx.entity.isSingleHub)
+        isRequiredHub = Boolean(ctx.entity.isRequiredHub)
     } else if ((ctx.entity as CatalogDisplayWithHub).hubId) {
         hubIds = [(ctx.entity as CatalogDisplayWithHub).hubId as string]
+        isSingleHub = Boolean(ctx.entity.isSingleHub)
+        isRequiredHub = Boolean(ctx.entity.isRequiredHub)
     }
 
     return {
@@ -269,7 +87,6 @@ export const buildInitialValues = (ctx: ActionContext<CatalogDisplayWithHub, Cat
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
-        runtimeConfig: (raw?.runtimeConfig as Record<string, unknown> | undefined) ?? {},
         hubIds,
         isSingleHub,
         isRequiredHub
@@ -296,8 +113,7 @@ const appendLocalizedCopySuffix = (
     }
 
     const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
-    const localeEntries = Object.entries(nextLocales)
-    for (const [locale, localeValue] of localeEntries) {
+    for (const [locale, localeValue] of Object.entries(nextLocales)) {
         const normalizedLocale = normalizeLocale(locale)
         const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
         const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
@@ -348,29 +164,81 @@ export const validateCatalogForm = (ctx: ActionContext<CatalogDisplayWithHub, Ca
     const cc = _cc(values)
     const errors: Record<string, string> = {}
 
-    // Hub validation based on isRequiredHub flag
+    const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
     const isRequiredHub = Boolean(values.isRequiredHub)
-    if (isRequiredHub) {
-        const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
-        if (hubIds.length === 0) {
-            errors.hubIds = ctx.t('catalogs.validation.hubRequired', 'At least one hub is required')
-        }
+    if (isRequiredHub && hubIds.length === 0) {
+        errors.hubIds = ctx.t('catalogs.validation.hubRequired', 'At least one hub is required')
     }
 
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
+
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
     const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? 'en'
     const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+
     if (!normalizedCodename) {
         errors.codename = ctx.t('catalogs.validation.codenameRequired', 'Codename is required')
     } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
         errors.codename = ctx.t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters')
     }
+
     return Object.keys(errors).length > 0 ? errors : null
+}
+
+export const CatalogLayoutTabFields = ({
+    values: _values,
+    setValue: _setValue,
+    isLoading: _isLoading,
+    t,
+    metahubId,
+    catalogId
+}: {
+    values: CatalogFormValues
+    setValue: CatalogFormSetValue
+    isLoading: boolean
+    t: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>['t']
+    metahubId?: string | null
+    catalogId?: string | null
+}) => {
+    const showCatalogLayoutManager = Boolean(metahubId && catalogId)
+
+    return (
+        <Stack spacing={2.5}>
+            {showCatalogLayoutManager ? (
+                <>
+                    <Typography variant='body2' color='text.secondary'>
+                        {t(
+                            'catalogs.layoutTab.catalogLayoutsHelper',
+                            'Catalog layouts own widget composition and catalog runtime behavior. The active global layout continues to work until you create a catalog-specific override.'
+                        )}
+                    </Typography>
+                    <LayoutList
+                        metahubId={metahubId ?? undefined}
+                        catalogId={catalogId ?? undefined}
+                        detailBasePath={metahubId && catalogId ? `/metahub/${metahubId}/catalog/${catalogId}/layout` : undefined}
+                        title={null}
+                        emptyTitle={t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')}
+                        emptyDescription={t(
+                            'catalogs.layoutTab.emptyDescription',
+                            'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
+                        )}
+                        embedded
+                    />
+                </>
+            ) : (
+                <Typography variant='body2' color='text.secondary'>
+                    {t(
+                        'catalogs.layoutTab.unavailable',
+                        'Catalog layouts are available when this catalog is opened inside a metahub context.'
+                    )}
+                </Typography>
+            )}
+        </Stack>
+    )
 }
 
 export const canSaveCatalogForm = (values: CatalogFormValues) => {
@@ -419,8 +287,7 @@ export const toPayload = (
         descriptionPrimaryLocale,
         hubIds,
         isSingleHub,
-        isRequiredHub,
-        runtimeConfig: sanitizeCatalogRuntimeViewConfig(values.runtimeConfig as Record<string, unknown> | undefined)
+        isRequiredHub
     }
 }
 
@@ -575,7 +442,7 @@ export const buildFormTabs = (
         isLoading: boolean
         errors: Record<string, string>
     }): TabConfig[] => {
-        const metahubId = (ctx as CatalogActionContext).metahubId ?? null
+        const metahubId = (ctx as CatalogActionContext).metahubId ?? ctx.entity.metahubId ?? null
         const tabs: TabConfig[] = [
             {
                 id: 'general',
@@ -624,7 +491,16 @@ export const buildFormTabs = (
             tabs.push({
                 id: 'layout',
                 label: ctx.t('catalogs.tabs.layout', 'Layout'),
-                content: <CatalogLayoutTabFields values={values} setValue={setValue} isLoading={isFormLoading} t={ctx.t} />
+                content: (
+                    <CatalogLayoutTabFields
+                        values={values}
+                        setValue={setValue}
+                        isLoading={isFormLoading}
+                        t={ctx.t}
+                        metahubId={metahubId}
+                        catalogId={editingEntityId}
+                    />
+                )
             })
         }
 

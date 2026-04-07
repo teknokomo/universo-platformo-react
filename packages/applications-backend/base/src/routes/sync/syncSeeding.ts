@@ -246,7 +246,7 @@ export async function remapStaleEnumerationReferences(options: {
 
     for (const entity of catalogEntities) {
         const tableName = generateTableName(entity.id, entity.kind)
-        const lifecycleContract = resolveEntityLifecycleContract(entity)
+        const lifecycleContract = resolveEntityLifecycleContract(entity as unknown as EntityDefinition)
         if (!knownTables.has(tableName)) {
             const exists = await trx.schema.withSchema(schemaName).hasTable(tableName)
             knownTables.set(tableName, exists)
@@ -263,7 +263,7 @@ export async function remapStaleEnumerationReferences(options: {
 
             const activeIds = activeValueIdsByObject.get(field.targetEntityId) ?? []
             const activeIdsSet = new Set(activeIds)
-            const uiDefaultValueId = resolveFieldDefaultEnumValueId(field)
+            const uiDefaultValueId = resolveFieldDefaultEnumValueId(field as unknown as EntityField)
             const fallbackValueId =
                 (uiDefaultValueId && activeIdsSet.has(uiDefaultValueId) ? uiDefaultValueId : null) ??
                 defaultValueIdByObject.get(field.targetEntityId) ??

@@ -31,6 +31,7 @@ function useSearchShortcut(inputRef: React.RefObject<HTMLInputElement | HTMLText
 const VIEW_HEADER_TITLE_REGION_TEST_ID = 'view-header-title-region'
 const VIEW_HEADER_CONTROLS_REGION_TEST_ID = 'view-header-controls-region'
 const VIEW_HEADER_SEARCH_INPUT_TEST_ID = 'view-header-search-input'
+const VIEW_HEADER_ACTIONS_REGION_TEST_ID = 'view-header-actions-region'
 
 export interface ViewHeaderProps {
     children?: React.ReactNode
@@ -45,6 +46,8 @@ export interface ViewHeaderProps {
     onBack?: () => void
     isEditButton?: boolean
     onEdit?: () => void
+    controlsWrap?: boolean
+    adaptiveSearch?: boolean
 }
 
 /**
@@ -126,7 +129,9 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
     isBackButton,
     onBack,
     isEditButton,
-    onEdit
+    onEdit,
+    controlsWrap = false,
+    adaptiveSearch = false
 }) => {
     const theme = useTheme()
     const desktopSearchRef = useRef<HTMLInputElement | null>(null)
@@ -153,6 +158,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
     const isMac = os === 'macos'
     const isDesktop = isMac || os === 'windows' || os === 'linux'
     const keyboardShortcut = isMac ? '[ ⌘ + F ]' : '[ Ctrl + F ]'
+    const hasTitleRegion = Boolean(title || description || isBackButton || isEditButton)
 
     return (
         <Box
@@ -171,94 +177,123 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                     alignItems: { xs: 'stretch', sm: 'flex-start' },
                     display: 'flex',
                     flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                    justifyContent: 'space-between',
+                    justifyContent: hasTitleRegion ? 'space-between' : 'flex-start',
                     width: '100%'
                 }}
             >
-                <Box
-                    data-testid={VIEW_HEADER_TITLE_REGION_TEST_ID}
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        flexDirection: 'row',
-                        mt: 0,
-                        minWidth: 0,
-                        width: { xs: '100%', sm: 'auto' }
-                    }}
-                >
-                    {isBackButton && (
-                        <Fab sx={{ mr: 3 }} size='small' color='secondary' aria-label='back' title='Back' onClick={onBack}>
-                            <IconArrowLeft />
-                        </Fab>
-                    )}
-                    <Box sx={{ display: 'flex', alignItems: 'start', flexDirection: 'column', minWidth: 0 }}>
-                        <Typography
-                            sx={{
-                                fontSize: '2rem',
-                                fontWeight: 600,
-                                display: '-webkit-box',
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: 'vertical',
-                                textOverflow: 'ellipsis',
-                                overflow: 'hidden',
-                                flex: 1,
-                                maxWidth: '100%'
-                            }}
-                            variant='h1'
-                        >
-                            {title}
-                        </Typography>
-                        {description && (
-                            <Typography
-                                sx={{
-                                    fontSize: '1rem',
-                                    fontWeight: 500,
-                                    mt: 2,
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 5,
-                                    WebkitBoxOrient: 'vertical',
-                                    textOverflow: 'ellipsis',
-                                    overflow: 'hidden',
-                                    flex: 1,
-                                    maxWidth: '100%'
-                                }}
-                            >
-                                {description}
-                            </Typography>
+                {hasTitleRegion ? (
+                    <Box
+                        data-testid={VIEW_HEADER_TITLE_REGION_TEST_ID}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            flexDirection: 'row',
+                            mt: 0,
+                            minWidth: 0,
+                            width: { xs: '100%', sm: 'auto' }
+                        }}
+                    >
+                        {isBackButton && (
+                            <Fab sx={{ mr: 3 }} size='small' color='secondary' aria-label='back' title='Back' onClick={onBack}>
+                                <IconArrowLeft />
+                            </Fab>
+                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'start', flexDirection: 'column', minWidth: 0 }}>
+                            {title ? (
+                                <Typography
+                                    sx={{
+                                        fontSize: '2rem',
+                                        fontWeight: 600,
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 3,
+                                        WebkitBoxOrient: 'vertical',
+                                        textOverflow: 'ellipsis',
+                                        overflow: 'hidden',
+                                        flex: 1,
+                                        maxWidth: '100%'
+                                    }}
+                                    variant='h1'
+                                >
+                                    {title}
+                                </Typography>
+                            ) : null}
+                            {description && (
+                                <Typography
+                                    sx={{
+                                        fontSize: '1rem',
+                                        fontWeight: 500,
+                                        mt: title ? 2 : 0,
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 5,
+                                        WebkitBoxOrient: 'vertical',
+                                        textOverflow: 'ellipsis',
+                                        overflow: 'hidden',
+                                        flex: 1,
+                                        maxWidth: '100%'
+                                    }}
+                                >
+                                    {description}
+                                </Typography>
+                            )}
+                        </Box>
+                        {isEditButton && (
+                            <IconButton sx={{ ml: 3 }} color='secondary' title='Edit' onClick={onEdit}>
+                                <IconEdit />
+                            </IconButton>
                         )}
                     </Box>
-                    {isEditButton && (
-                        <IconButton sx={{ ml: 3 }} color='secondary' title='Edit' onClick={onEdit}>
-                            <IconEdit />
-                        </IconButton>
-                    )}
-                </Box>
+                ) : null}
                 <Box
                     data-testid={VIEW_HEADER_CONTROLS_REGION_TEST_ID}
                     sx={{
-                        height: 40,
+                        minHeight: 40,
+                        height: controlsWrap ? 'auto' : 40,
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: controlsWrap ? 'flex-start' : 'center',
+                        flexWrap: { xs: 'wrap', sm: controlsWrap ? 'wrap' : 'nowrap' },
+                        rowGap: controlsWrap ? 1 : 0,
                         gap: 1,
                         ml: 0,
                         mt: { xs: 2, sm: 0 },
-                        width: { xs: '100%', sm: 'auto' },
+                        width: { xs: '100%', sm: hasTitleRegion ? 'auto' : '100%' },
                         position: 'relative',
-                        justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+                        justifyContent: {
+                            xs: 'flex-start',
+                            sm: hasTitleRegion ? (controlsWrap ? 'flex-start' : 'flex-end') : 'flex-start'
+                        }
                     }}
                 >
                     {search && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                            {/* Desktop: normal search field */}
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                flexShrink: 0,
+                                flex:
+                                    adaptiveSearch || controlsWrap
+                                        ? { xs: '1 1 auto', sm: adaptiveSearch ? '0 0 auto' : '1 1 220px', md: adaptiveSearch ? '1 1 220px' : undefined }
+                                        : undefined,
+                                minWidth: adaptiveSearch || controlsWrap ? 0 : undefined,
+                                width:
+                                    adaptiveSearch || controlsWrap
+                                        ? { xs: 'auto', sm: adaptiveSearch ? 'auto' : '100%', md: adaptiveSearch ? 'min(100%, 260px)' : 'auto' }
+                                        : undefined
+                            }}
+                        >
                             <OutlinedInput
                                 data-testid={VIEW_HEADER_SEARCH_INPUT_TEST_ID}
                                 inputRef={desktopSearchRef}
                                 size='small'
                                 sx={{
-                                    width: '325px',
+                                    width: {
+                                        xs: '100%',
+                                        sm: controlsWrap ? '100%' : adaptiveSearch ? 'min(100%, 220px)' : '325px',
+                                        md: adaptiveSearch ? 'min(100%, 260px)' : '325px'
+                                    },
+                                    maxWidth: adaptiveSearch ? 260 : 325,
                                     height: 40,
                                     minHeight: 40,
-                                    display: { xs: 'none', sm: 'flex' },
+                                    display: adaptiveSearch ? { xs: 'none', sm: 'none', md: 'flex' } : { xs: 'none', sm: 'flex' },
                                     borderRadius: 1,
                                     '& .MuiOutlinedInput-notchedOutline': { borderRadius: 1 }
                                 }}
@@ -281,8 +316,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                                 type='search'
                             />
 
-                            {/* Mobile: collapsible search icon → full-width overlay */}
-                            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                            <Box sx={{ display: adaptiveSearch ? { xs: 'flex', sm: 'flex', md: 'none' } : { xs: 'flex', sm: 'none' } }}>
                                 <CollapsibleMobileSearch
                                     searchPlaceholder={searchPlaceholder}
                                     searchValue={resolvedSearchValue}
@@ -292,7 +326,19 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                         </Box>
                     )}
                     {(filters || children) && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', flexShrink: 0 }}>
+                        <Box
+                            data-testid={VIEW_HEADER_ACTIONS_REGION_TEST_ID}
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                ml: controlsWrap ? 0 : search || hasTitleRegion ? 'auto' : 0,
+                                flexShrink: 0,
+                                flexWrap: controlsWrap ? 'wrap' : 'nowrap',
+                                justifyContent: controlsWrap ? 'flex-start' : undefined,
+                                width: { xs: '100%', sm: hasTitleRegion ? 'auto' : 'auto' }
+                            }}
+                        >
                             {filters}
                             {children}
                         </Box>

@@ -1,9 +1,9 @@
 {
   "kind": "metahub_snapshot_bundle",
   "bundleVersion": 1,
-  "exportedAt": "2026-04-05T19:46:11.850Z",
+  "exportedAt": "2026-04-06T19:49:37.715Z",
   "metahub": {
-    "id": "019d5f2d-f652-7ab3-bf12-078e7345dcec",
+    "id": "019d6457-6fd1-7c39-b5da-ba506b23d146",
     "name": {
       "_schema": "1",
       "locales": {
@@ -11,15 +11,15 @@
           "content": "Space Quiz Metahub",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-05T19:45:40.659Z",
-          "updatedAt": "2026-04-05T19:45:40.659Z"
+          "createdAt": "2026-04-06T19:49:04.839Z",
+          "updatedAt": "2026-04-06T19:49:04.839Z"
         },
         "ru": {
           "content": "Метахаб космической викторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-05T19:45:40.659Z",
-          "updatedAt": "2026-04-05T19:45:40.659Z"
+          "createdAt": "2026-04-06T19:49:04.839Z",
+          "updatedAt": "2026-04-06T19:49:04.839Z"
         }
       },
       "_primary": "en"
@@ -31,15 +31,15 @@
           "content": "Canonical metahub fixture for the full scripting-powered Space Quiz experience with 10 questions, scoring, and restart flow.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-05T19:45:40.659Z",
-          "updatedAt": "2026-04-05T19:45:40.659Z"
+          "createdAt": "2026-04-06T19:49:04.839Z",
+          "updatedAt": "2026-04-06T19:49:04.839Z"
         },
         "ru": {
           "content": "Канонический fixture метахаба для полноценной космической викторины на скриптах: 10 вопросов, подсчёт баллов и перезапуск.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-05T19:45:40.659Z",
-          "updatedAt": "2026-04-05T19:45:40.659Z"
+          "createdAt": "2026-04-06T19:49:04.839Z",
+          "updatedAt": "2026-04-06T19:49:04.839Z"
         }
       },
       "_primary": "en"
@@ -51,23 +51,23 @@
           "content": "SpaceQuizMetahub",
           "version": 2,
           "isActive": true,
-          "createdAt": "2026-04-05T19:45:40.070Z",
-          "updatedAt": "2026-04-05T19:45:40.659Z"
+          "createdAt": "2026-04-06T19:49:04.404Z",
+          "updatedAt": "2026-04-06T19:49:04.840Z"
         },
         "ru": {
           "content": "МетахабКосмическойВикторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-05T19:45:40.070Z",
-          "updatedAt": "2026-04-05T19:45:40.070Z"
+          "createdAt": "2026-04-06T19:49:04.404Z",
+          "updatedAt": "2026-04-06T19:49:04.404Z"
         }
       },
       "_primary": "en"
     }
   },
   "snapshot": {
-    "metahubId": "019d5f2d-f652-7ab3-bf12-078e7345dcec",
-    "generatedAt": "2026-04-05T19:46:11.176Z",
+    "metahubId": "019d6457-6fd1-7c39-b5da-ba506b23d146",
+    "generatedAt": "2026-04-06T19:49:36.889Z",
     "version": 1,
     "versionEnvelope": {
       "structureVersion": "0.3.0",
@@ -75,10 +75,29 @@
       "snapshotFormatVersion": 1
     },
     "entities": {
-      "019d5f2e-1d8d-706c-9789-dff2b59fe3d5": {
-        "id": "019d5f2e-1d8d-706c-9789-dff2b59fe3d5",
+      "019d6457-9a67-74c0-a07c-ccaca25d9ad9": {
+        "id": "019d6457-9a67-74c0-a07c-ccaca25d9ad9",
         "kind": "hub",
-        "codename": "Main",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:15.967Z",
+              "updatedAt": "2026-04-06T19:49:15.967Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:15.967Z",
+              "updatedAt": "2026-04-06T19:49:15.967Z"
+            }
+          },
+          "_primary": "en"
+        },
         "presentation": {
           "name": {
             "_schema": "1",
@@ -128,10 +147,29 @@
         "fields": [],
         "hubs": []
       },
-      "019d5f2e-1e25-7f4c-bba6-b33333d1587e": {
-        "id": "019d5f2e-1e25-7f4c-bba6-b33333d1587e",
+      "019d6457-9b01-781b-8d62-57bb1e1c80a5": {
+        "id": "019d6457-9b01-781b-8d62-57bb1e1c80a5",
         "kind": "catalog",
-        "codename": "Main",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:16.120Z",
+              "updatedAt": "2026-04-06T19:49:16.120Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:16.120Z",
+              "updatedAt": "2026-04-06T19:49:16.120Z"
+            }
+          },
+          "_primary": "en"
+        },
         "presentation": {
           "name": {
             "_schema": "1",
@@ -181,8 +219,20 @@
         },
         "fields": [
           {
-            "id": "019d5f2e-394d-79d5-b01c-71b66692d6dc",
-            "codename": "Title",
+            "id": "019d6457-b7c6-74fe-9a71-8586a1b81c73",
+            "codename": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Title",
+                  "version": 2,
+                  "isActive": true,
+                  "createdAt": "2026-04-06T19:49:21.213Z",
+                  "updatedAt": "2026-04-06T19:49:22.510Z"
+                }
+              },
+              "_primary": "en"
+            },
             "dataType": "STRING",
             "isRequired": false,
             "isDisplayAttribute": false,
@@ -195,8 +245,8 @@
                     "content": "Title",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-05T19:45:57.065Z",
-                    "updatedAt": "2026-04-05T19:45:57.065Z"
+                    "createdAt": "2026-04-06T19:49:22.510Z",
+                    "updatedAt": "2026-04-06T19:49:22.510Z"
                   }
                 },
                 "_primary": "en"
@@ -210,11 +260,30 @@
         ],
         "hubs": []
       },
-      "019d5f2e-2415-7783-954f-788f8d288bf4": {
-        "id": "019d5f2e-2415-7783-954f-788f8d288bf4",
+      "019d6457-a0f5-7b0b-8627-b2ef30c36bec": {
+        "id": "019d6457-a0f5-7b0b-8627-b2ef30c36bec",
         "kind": "enumeration",
-        "codename": "Main",
-        "tableName": "enum_019d5f2e24157783954f788f8d288bf4",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:17.644Z",
+              "updatedAt": "2026-04-06T19:49:17.644Z"
+            },
+            "ru": {
+              "content": "Основное",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:17.644Z",
+              "updatedAt": "2026-04-06T19:49:17.644Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "enum_019d6457a0f57b0b8627b2ef30c36bec",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -265,11 +334,30 @@
         "fields": [],
         "hubs": []
       },
-      "019d5f2e-237b-7af0-8ef9-c4c48c36c7b4": {
-        "id": "019d5f2e-237b-7af0-8ef9-c4c48c36c7b4",
+      "019d6457-a05e-723a-bf90-1405619f0e5a": {
+        "id": "019d6457-a05e-723a-bf90-1405619f0e5a",
         "kind": "set",
-        "codename": "Main",
-        "tableName": "set_019d5f2e237b7af08ef9c4c48c36c7b4",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:17.492Z",
+              "updatedAt": "2026-04-06T19:49:17.492Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:17.492Z",
+              "updatedAt": "2026-04-06T19:49:17.492Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "set_019d6457a05e723abf901405619f0e5a",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -322,7 +410,7 @@
       }
     },
     "systemFields": {
-      "019d5f2e-1e25-7f4c-bba6-b33333d1587e": {
+      "019d6457-9b01-781b-8d62-57bb1e1c80a5": {
         "fields": [
           {
             "key": "app.published",
@@ -406,8 +494,20 @@
     },
     "scripts": [
       {
-        "id": "019d5f2e-59d5-783a-b11f-58d6f80eece4",
-        "codename": "quiz-widget",
+        "id": "019d6457-d950-7e14-a9c4-fba7829096c0",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "quiz-widget",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-06T19:49:31.930Z",
+              "updatedAt": "2026-04-06T19:49:31.930Z"
+            }
+          },
+          "_primary": "en"
+        },
         "presentation": {
           "name": {
             "_schema": "1",
@@ -416,8 +516,8 @@
                 "content": "Space quiz widget",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-05T19:46:05.806Z",
-                "updatedAt": "2026-04-05T19:46:05.806Z"
+                "createdAt": "2026-04-06T19:49:31.502Z",
+                "updatedAt": "2026-04-06T19:49:31.502Z"
               }
             },
             "_primary": "en"
@@ -429,8 +529,8 @@
                 "content": "Canonical Space Quiz widget script for snapshot export",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-05T19:46:05.806Z",
-                "updatedAt": "2026-04-05T19:46:05.806Z"
+                "createdAt": "2026-04-06T19:49:31.503Z",
+                "updatedAt": "2026-04-06T19:49:31.503Z"
               }
             },
             "_primary": "en"
@@ -441,6 +541,7 @@
         "moduleRole": "widget",
         "sourceKind": "embedded",
         "sdkApiVersion": "1.0.0",
+        "sourceCode": "const AtClient = () => () => undefined\nconst AtServer = () => () => undefined\n\nclass ExtensionScript {}\n\nconst QUIZ_DATA = {\"en\":{\"title\":\"Space Quiz\",\"description\":\"Answer ten astronomy questions one by one. Correct answers move you forward automatically.\",\"submitLabel\":\"Check answer\",\"nextLabel\":\"Next question\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Which planet is known as the Red Planet?\",\"description\":\"Think about the rusty world explored by many rovers.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Venus\"},{\"id\":\"b\",\"label\":\"Mars\"},{\"id\":\"c\",\"label\":\"Mercury\"},{\"id\":\"d\",\"label\":\"Jupiter\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Mars looks red because iron-rich dust on its surface oxidizes like rust.\"},{\"id\":\"q2\",\"prompt\":\"Where is Olympus Mons located?\",\"description\":\"It is the tallest volcano known in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Earth\"},{\"id\":\"b\",\"label\":\"The Moon\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Io\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Olympus Mons is a giant shield volcano on Mars, towering far above Everest.\"},{\"id\":\"q3\",\"prompt\":\"The Great Red Spot is a storm on which planet?\",\"description\":\"This world is the largest planet in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Saturn\"},{\"id\":\"b\",\"label\":\"Jupiter\"},{\"id\":\"c\",\"label\":\"Neptune\"},{\"id\":\"d\",\"label\":\"Uranus\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The Great Red Spot is a long-lived storm system in Jupiter's atmosphere.\"},{\"id\":\"q4\",\"prompt\":\"Which mission first landed humans on the Moon?\",\"description\":\"It carried Neil Armstrong and Buzz Aldrin to the lunar surface.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 completed the first crewed lunar landing in July 1969.\"},{\"id\":\"q5\",\"prompt\":\"What is at the center of our Solar System?\",\"description\":\"Every planet in our system orbits this star.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"The Moon\"},{\"id\":\"b\",\"label\":\"Polaris\"},{\"id\":\"c\",\"label\":\"The Sun\"},{\"id\":\"d\",\"label\":\"Sagittarius A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"The Sun contains almost all of the Solar System's mass and anchors its orbits.\"},{\"id\":\"q6\",\"prompt\":\"Which planet is most famous for its bright ring system?\",\"description\":\"Several gas giants have rings, but one is the classic example.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Mercury\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Saturn's icy rings are the most extensive and visually striking in the Solar System.\"},{\"id\":\"q7\",\"prompt\":\"What protects Earth from much of the solar wind?\",\"description\":\"Without it, charged particles would strip away much more of our atmosphere.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Its magnetic field\"},{\"id\":\"b\",\"label\":\"The asteroid belt\"},{\"id\":\"c\",\"label\":\"Ocean tides\"},{\"id\":\"d\",\"label\":\"The Moon's gravity\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Earth's magnetosphere deflects many charged particles streaming from the Sun.\"},{\"id\":\"q8\",\"prompt\":\"Which space observatory primarily studies the universe in infrared light?\",\"description\":\"Its segmented mirror was designed to see through cosmic dust.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Hubble Space Telescope\"},{\"id\":\"b\",\"label\":\"James Webb Space Telescope\"},{\"id\":\"c\",\"label\":\"Chandra X-ray Observatory\"},{\"id\":\"d\",\"label\":\"Kepler Space Telescope\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The James Webb Space Telescope is optimized for infrared observations.\"},{\"id\":\"q9\",\"prompt\":\"Which spacecraft is widely recognized as the first human-made object to enter interstellar space?\",\"description\":\"It launched in 1977 and still sends data today.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 crossed into interstellar space in 2012, ahead of Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Which two planets are classified as ice giants?\",\"description\":\"Select two answers.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Uranus\"},{\"id\":\"d\",\"label\":\"Neptune\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Uranus and Neptune are called ice giants because their interiors contain more water, ammonia, and methane ices than Jupiter or Saturn.\"}]},\"ru\":{\"title\":\"Космическая викторина\",\"description\":\"Ответьте по очереди на десять вопросов по астрономии. После правильного ответа виджет автоматически перейдёт дальше.\",\"submitLabel\":\"Проверить ответ\",\"nextLabel\":\"Следующий вопрос\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Какую планету называют Красной планетой?\",\"description\":\"Подумайте о ржаво-красном мире, который исследуют марсоходы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Венера\"},{\"id\":\"b\",\"label\":\"Марс\"},{\"id\":\"c\",\"label\":\"Меркурий\"},{\"id\":\"d\",\"label\":\"Юпитер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Марс кажется красным из-за богатой железом пыли на поверхности, которая окисляется как ржавчина.\"},{\"id\":\"q2\",\"prompt\":\"Где находится Олимп Монс?\",\"description\":\"Это самый высокий известный вулкан в Солнечной системе.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"На Земле\"},{\"id\":\"b\",\"label\":\"На Луне\"},{\"id\":\"c\",\"label\":\"На Марсе\"},{\"id\":\"d\",\"label\":\"На Ио\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Олимп Монс — гигантский щитовой вулкан на Марсе, намного выше Эвереста.\"},{\"id\":\"q3\",\"prompt\":\"На какой планете находится Большое красное пятно?\",\"description\":\"Это крупнейшая планета Солнечной системы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Сатурн\"},{\"id\":\"b\",\"label\":\"Юпитер\"},{\"id\":\"c\",\"label\":\"Нептун\"},{\"id\":\"d\",\"label\":\"Уран\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Большое красное пятно — это долгоживущий шторм в атмосфере Юпитера.\"},{\"id\":\"q4\",\"prompt\":\"Какая миссия первой высадила людей на Луну?\",\"description\":\"Именно она доставила Нила Армстронга и Базза Олдрина на лунную поверхность.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 совершила первую пилотируемую посадку на Луну в июле 1969 года.\"},{\"id\":\"q5\",\"prompt\":\"Что находится в центре нашей Солнечной системы?\",\"description\":\"Все планеты обращаются вокруг этой звезды.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Луна\"},{\"id\":\"b\",\"label\":\"Полярная звезда\"},{\"id\":\"c\",\"label\":\"Солнце\"},{\"id\":\"d\",\"label\":\"Стрелец A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Солнце содержит почти всю массу Солнечной системы и удерживает планеты на орбитах.\"},{\"id\":\"q6\",\"prompt\":\"Какая планета больше всего известна своей яркой системой колец?\",\"description\":\"Кольца есть у нескольких газовых гигантов, но именно эта планета стала классическим примером.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Марс\"},{\"id\":\"d\",\"label\":\"Меркурий\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Ледяные кольца Сатурна — самые обширные и заметные в Солнечной системе.\"},{\"id\":\"q7\",\"prompt\":\"Что защищает Землю от значительной части солнечного ветра?\",\"description\":\"Без этого слоя заряжённые частицы гораздо сильнее разрушали бы атмосферу.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Магнитное поле\"},{\"id\":\"b\",\"label\":\"Пояс астероидов\"},{\"id\":\"c\",\"label\":\"Океанские приливы\"},{\"id\":\"d\",\"label\":\"Гравитация Луны\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Магнитосфера Земли отклоняет значительную часть заряжённых частиц, летящих от Солнца.\"},{\"id\":\"q8\",\"prompt\":\"Какая космическая обсерватория в основном изучает Вселенную в инфракрасном диапазоне?\",\"description\":\"Её сегментированное зеркало создано для наблюдений сквозь космическую пыль.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Космический телескоп Хаббл\"},{\"id\":\"b\",\"label\":\"Космический телескоп Джеймса Уэбба\"},{\"id\":\"c\",\"label\":\"Рентгеновская обсерватория Чандра\"},{\"id\":\"d\",\"label\":\"Космический телескоп Кеплер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Телескоп Джеймса Уэбба оптимизирован именно для инфракрасных наблюдений.\"},{\"id\":\"q9\",\"prompt\":\"Какой аппарат обычно считают первым рукотворным объектом, вошедшим в межзвёздное пространство?\",\"description\":\"Он был запущен в 1977 году и до сих пор передаёт данные.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 пересёк границу межзвёздного пространства в 2012 году, раньше Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Какие две планеты относятся к ледяным гигантам?\",\"description\":\"Выберите два ответа.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Уран\"},{\"id\":\"d\",\"label\":\"Нептун\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Уран и Нептун называют ледяными гигантами, потому что в их недрах больше воды, аммиака и метановых льдов, чем у Юпитера или Сатурна.\"}]}}\n\nconst normalizeLocale = (locale) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')\n\nconst sortSelection = (value) => (Array.isArray(value) ? value.map((item) => String(item)).sort() : [])\n\nconst isSameSelection = (selected, correct) => {\n    if (selected.length !== correct.length) {\n        return false\n    }\n\n    return selected.every((item, index) => item === correct[index])\n}\n\nconst buildQuizDefinition = (localeInput) => {\n    const locale = normalizeLocale(localeInput)\n\n    return QUIZ_DATA[locale] || QUIZ_DATA.en\n}\n\nexport default class SpaceQuizWidget extends ExtensionScript {\n    @AtClient()\n    async mount(locale = 'en') {\n        return this.ctx.callServerMethod('getQuiz', [{ locale }])\n    }\n\n    @AtServer()\n    async getQuiz(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n\n        return {\n            title: quiz.title,\n            description: quiz.description,\n            submitLabel: quiz.submitLabel,\n            nextLabel: quiz.nextLabel,\n            questions: quiz.questions.map((question) => ({\n                id: question.id,\n                prompt: question.prompt,\n                description: question.description,\n                multiple: Boolean(question.multiple),\n                difficulty: question.difficulty,\n                options: question.options\n            }))\n        }\n    }\n\n    @AtServer()\n    async submit(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n        const locale = normalizeLocale(payload?.locale)\n        const questionId = typeof payload?.questionId === 'string' ? payload.questionId : ''\n        const question = quiz.questions.find((item) => item.id === questionId)\n\n        if (!question) {\n            return {\n                questionId,\n                correct: false,\n                score: 0,\n                total: quiz.questions.length,\n                completed: false,\n                message: locale === 'ru' ? 'Вопрос не найден. Обновите квиз и попробуйте снова.' : 'Question not found. Refresh the quiz and try again.',\n                correctOptionIds: {}\n            }\n        }\n\n        const responses = payload?.responses && typeof payload.responses === 'object' ? payload.responses : {}\n        const selectedAnswerIds = sortSelection(payload?.answerIds)\n        const normalizedCorrect = sortSelection(question.correctOptionIds)\n        const correct = isSameSelection(selectedAnswerIds, normalizedCorrect)\n\n        let score = 0\n        let answeredCount = 0\n\n        for (const candidate of quiz.questions) {\n            const submitted = sortSelection(responses[candidate.id])\n            if (submitted.length > 0) {\n                answeredCount += 1\n            }\n\n            if (isSameSelection(submitted, sortSelection(candidate.correctOptionIds))) {\n                score += 1\n            }\n        }\n\n        return {\n            questionId,\n            correct,\n            score,\n            total: quiz.questions.length,\n            completed: answeredCount >= quiz.questions.length,\n            message: correct ? (locale === 'ru' ? 'Верно!' : 'Correct!') : locale === 'ru' ? 'Пока неверно.' : 'Not quite yet.',\n            explanation: question.explanation,\n            correctOptionIds: {\n                [question.id]: normalizedCorrect\n            }\n        }\n    }\n}\n",
         "manifest": {
           "className": "SpaceQuizWidget",
           "sdkApiVersion": "1.0.0",
@@ -472,13 +573,12 @@
         "clientBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => SpaceQuizWidget\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar SpaceQuizWidget = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    return this.ctx.callServerMethod(\"getQuiz\", [{ locale }]);\n  }\n  async getQuiz(payload) {\n    return this.ctx.callServerMethod(\"getQuiz\", Array.from(arguments));\n  }\n  async submit(payload) {\n    return this.ctx.callServerMethod(\"submit\", Array.from(arguments));\n  }\n};\n__decorateClass([\n  AtClient()\n], SpaceQuizWidget.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"getQuiz\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"submit\", 1);\n",
         "checksum": "518ce5f136a48346144d96dde2171981daac334ebeb6c05bef07615872bfd02c",
         "isActive": true,
-        "config": {},
-        "sourceCode": "const AtClient = () => () => undefined\nconst AtServer = () => () => undefined\n\nclass ExtensionScript {}\n\nconst QUIZ_DATA = {\"en\":{\"title\":\"Space Quiz\",\"description\":\"Answer ten astronomy questions one by one. Correct answers move you forward automatically.\",\"submitLabel\":\"Check answer\",\"nextLabel\":\"Next question\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Which planet is known as the Red Planet?\",\"description\":\"Think about the rusty world explored by many rovers.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Venus\"},{\"id\":\"b\",\"label\":\"Mars\"},{\"id\":\"c\",\"label\":\"Mercury\"},{\"id\":\"d\",\"label\":\"Jupiter\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Mars looks red because iron-rich dust on its surface oxidizes like rust.\"},{\"id\":\"q2\",\"prompt\":\"Where is Olympus Mons located?\",\"description\":\"It is the tallest volcano known in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Earth\"},{\"id\":\"b\",\"label\":\"The Moon\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Io\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Olympus Mons is a giant shield volcano on Mars, towering far above Everest.\"},{\"id\":\"q3\",\"prompt\":\"The Great Red Spot is a storm on which planet?\",\"description\":\"This world is the largest planet in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Saturn\"},{\"id\":\"b\",\"label\":\"Jupiter\"},{\"id\":\"c\",\"label\":\"Neptune\"},{\"id\":\"d\",\"label\":\"Uranus\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The Great Red Spot is a long-lived storm system in Jupiter's atmosphere.\"},{\"id\":\"q4\",\"prompt\":\"Which mission first landed humans on the Moon?\",\"description\":\"It carried Neil Armstrong and Buzz Aldrin to the lunar surface.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 completed the first crewed lunar landing in July 1969.\"},{\"id\":\"q5\",\"prompt\":\"What is at the center of our Solar System?\",\"description\":\"Every planet in our system orbits this star.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"The Moon\"},{\"id\":\"b\",\"label\":\"Polaris\"},{\"id\":\"c\",\"label\":\"The Sun\"},{\"id\":\"d\",\"label\":\"Sagittarius A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"The Sun contains almost all of the Solar System's mass and anchors its orbits.\"},{\"id\":\"q6\",\"prompt\":\"Which planet is most famous for its bright ring system?\",\"description\":\"Several gas giants have rings, but one is the classic example.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Mercury\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Saturn's icy rings are the most extensive and visually striking in the Solar System.\"},{\"id\":\"q7\",\"prompt\":\"What protects Earth from much of the solar wind?\",\"description\":\"Without it, charged particles would strip away much more of our atmosphere.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Its magnetic field\"},{\"id\":\"b\",\"label\":\"The asteroid belt\"},{\"id\":\"c\",\"label\":\"Ocean tides\"},{\"id\":\"d\",\"label\":\"The Moon's gravity\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Earth's magnetosphere deflects many charged particles streaming from the Sun.\"},{\"id\":\"q8\",\"prompt\":\"Which space observatory primarily studies the universe in infrared light?\",\"description\":\"Its segmented mirror was designed to see through cosmic dust.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Hubble Space Telescope\"},{\"id\":\"b\",\"label\":\"James Webb Space Telescope\"},{\"id\":\"c\",\"label\":\"Chandra X-ray Observatory\"},{\"id\":\"d\",\"label\":\"Kepler Space Telescope\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The James Webb Space Telescope is optimized for infrared observations.\"},{\"id\":\"q9\",\"prompt\":\"Which spacecraft is widely recognized as the first human-made object to enter interstellar space?\",\"description\":\"It launched in 1977 and still sends data today.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 crossed into interstellar space in 2012, ahead of Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Which two planets are classified as ice giants?\",\"description\":\"Select two answers.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Uranus\"},{\"id\":\"d\",\"label\":\"Neptune\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Uranus and Neptune are called ice giants because their interiors contain more water, ammonia, and methane ices than Jupiter or Saturn.\"}]},\"ru\":{\"title\":\"Космическая викторина\",\"description\":\"Ответьте по очереди на десять вопросов по астрономии. После правильного ответа виджет автоматически перейдёт дальше.\",\"submitLabel\":\"Проверить ответ\",\"nextLabel\":\"Следующий вопрос\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Какую планету называют Красной планетой?\",\"description\":\"Подумайте о ржаво-красном мире, который исследуют марсоходы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Венера\"},{\"id\":\"b\",\"label\":\"Марс\"},{\"id\":\"c\",\"label\":\"Меркурий\"},{\"id\":\"d\",\"label\":\"Юпитер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Марс кажется красным из-за богатой железом пыли на поверхности, которая окисляется как ржавчина.\"},{\"id\":\"q2\",\"prompt\":\"Где находится Олимп Монс?\",\"description\":\"Это самый высокий известный вулкан в Солнечной системе.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"На Земле\"},{\"id\":\"b\",\"label\":\"На Луне\"},{\"id\":\"c\",\"label\":\"На Марсе\"},{\"id\":\"d\",\"label\":\"На Ио\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Олимп Монс — гигантский щитовой вулкан на Марсе, намного выше Эвереста.\"},{\"id\":\"q3\",\"prompt\":\"На какой планете находится Большое красное пятно?\",\"description\":\"Это крупнейшая планета Солнечной системы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Сатурн\"},{\"id\":\"b\",\"label\":\"Юпитер\"},{\"id\":\"c\",\"label\":\"Нептун\"},{\"id\":\"d\",\"label\":\"Уран\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Большое красное пятно — это долгоживущий шторм в атмосфере Юпитера.\"},{\"id\":\"q4\",\"prompt\":\"Какая миссия первой высадила людей на Луну?\",\"description\":\"Именно она доставила Нила Армстронга и Базза Олдрина на лунную поверхность.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 совершила первую пилотируемую посадку на Луну в июле 1969 года.\"},{\"id\":\"q5\",\"prompt\":\"Что находится в центре нашей Солнечной системы?\",\"description\":\"Все планеты обращаются вокруг этой звезды.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Луна\"},{\"id\":\"b\",\"label\":\"Полярная звезда\"},{\"id\":\"c\",\"label\":\"Солнце\"},{\"id\":\"d\",\"label\":\"Стрелец A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Солнце содержит почти всю массу Солнечной системы и удерживает планеты на орбитах.\"},{\"id\":\"q6\",\"prompt\":\"Какая планета больше всего известна своей яркой системой колец?\",\"description\":\"Кольца есть у нескольких газовых гигантов, но именно эта планета стала классическим примером.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Марс\"},{\"id\":\"d\",\"label\":\"Меркурий\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Ледяные кольца Сатурна — самые обширные и заметные в Солнечной системе.\"},{\"id\":\"q7\",\"prompt\":\"Что защищает Землю от значительной части солнечного ветра?\",\"description\":\"Без этого слоя заряжённые частицы гораздо сильнее разрушали бы атмосферу.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Магнитное поле\"},{\"id\":\"b\",\"label\":\"Пояс астероидов\"},{\"id\":\"c\",\"label\":\"Океанские приливы\"},{\"id\":\"d\",\"label\":\"Гравитация Луны\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Магнитосфера Земли отклоняет значительную часть заряжённых частиц, летящих от Солнца.\"},{\"id\":\"q8\",\"prompt\":\"Какая космическая обсерватория в основном изучает Вселенную в инфракрасном диапазоне?\",\"description\":\"Её сегментированное зеркало создано для наблюдений сквозь космическую пыль.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Космический телескоп Хаббл\"},{\"id\":\"b\",\"label\":\"Космический телескоп Джеймса Уэбба\"},{\"id\":\"c\",\"label\":\"Рентгеновская обсерватория Чандра\"},{\"id\":\"d\",\"label\":\"Космический телескоп Кеплер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Телескоп Джеймса Уэбба оптимизирован именно для инфракрасных наблюдений.\"},{\"id\":\"q9\",\"prompt\":\"Какой аппарат обычно считают первым рукотворным объектом, вошедшим в межзвёздное пространство?\",\"description\":\"Он был запущен в 1977 году и до сих пор передаёт данные.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 пересёк границу межзвёздного пространства в 2012 году, раньше Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Какие две планеты относятся к ледяным гигантам?\",\"description\":\"Выберите два ответа.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Уран\"},{\"id\":\"d\",\"label\":\"Нептун\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Уран и Нептун называют ледяными гигантами, потому что в их недрах больше воды, аммиака и метановых льдов, чем у Юпитера или Сатурна.\"}]}}\n\nconst normalizeLocale = (locale) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')\n\nconst sortSelection = (value) => (Array.isArray(value) ? value.map((item) => String(item)).sort() : [])\n\nconst isSameSelection = (selected, correct) => {\n    if (selected.length !== correct.length) {\n        return false\n    }\n\n    return selected.every((item, index) => item === correct[index])\n}\n\nconst buildQuizDefinition = (localeInput) => {\n    const locale = normalizeLocale(localeInput)\n\n    return QUIZ_DATA[locale] || QUIZ_DATA.en\n}\n\nexport default class SpaceQuizWidget extends ExtensionScript {\n    @AtClient()\n    async mount(locale = 'en') {\n        return this.ctx.callServerMethod('getQuiz', [{ locale }])\n    }\n\n    @AtServer()\n    async getQuiz(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n\n        return {\n            title: quiz.title,\n            description: quiz.description,\n            submitLabel: quiz.submitLabel,\n            nextLabel: quiz.nextLabel,\n            questions: quiz.questions.map((question) => ({\n                id: question.id,\n                prompt: question.prompt,\n                description: question.description,\n                multiple: Boolean(question.multiple),\n                difficulty: question.difficulty,\n                options: question.options\n            }))\n        }\n    }\n\n    @AtServer()\n    async submit(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n        const locale = normalizeLocale(payload?.locale)\n        const questionId = typeof payload?.questionId === 'string' ? payload.questionId : ''\n        const question = quiz.questions.find((item) => item.id === questionId)\n\n        if (!question) {\n            return {\n                questionId,\n                correct: false,\n                score: 0,\n                total: quiz.questions.length,\n                completed: false,\n                message: locale === 'ru' ? 'Вопрос не найден. Обновите квиз и попробуйте снова.' : 'Question not found. Refresh the quiz and try again.',\n                correctOptionIds: {}\n            }\n        }\n\n        const responses = payload?.responses && typeof payload.responses === 'object' ? payload.responses : {}\n        const selectedAnswerIds = sortSelection(payload?.answerIds)\n        const normalizedCorrect = sortSelection(question.correctOptionIds)\n        const correct = isSameSelection(selectedAnswerIds, normalizedCorrect)\n\n        let score = 0\n        let answeredCount = 0\n\n        for (const candidate of quiz.questions) {\n            const submitted = sortSelection(responses[candidate.id])\n            if (submitted.length > 0) {\n                answeredCount += 1\n            }\n\n            if (isSameSelection(submitted, sortSelection(candidate.correctOptionIds))) {\n                score += 1\n            }\n        }\n\n        return {\n            questionId,\n            correct,\n            score,\n            total: quiz.questions.length,\n            completed: answeredCount >= quiz.questions.length,\n            message: correct ? (locale === 'ru' ? 'Верно!' : 'Correct!') : locale === 'ru' ? 'Пока неверно.' : 'Not quite yet.',\n            explanation: question.explanation,\n            correctOptionIds: {\n                [question.id]: normalizedCorrect\n            }\n        }\n    }\n}\n"
+        "config": {}
       }
     ],
     "layouts": [
       {
-        "id": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "id": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
         "templateKey": "dashboard",
         "name": {
           "_schema": "1",
@@ -487,15 +587,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-05T19:46:00.132Z",
-              "updatedAt": "2026-04-05T19:46:00.132Z"
+              "createdAt": "2026-04-06T19:49:25.520Z",
+              "updatedAt": "2026-04-06T19:49:25.520Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-05T19:46:00.132Z",
-              "updatedAt": "2026-04-05T19:46:00.132Z"
+              "createdAt": "2026-04-06T19:49:25.520Z",
+              "updatedAt": "2026-04-06T19:49:25.520Z"
             }
           },
           "_primary": "en"
@@ -507,15 +607,15 @@
               "content": "Main layout for published applications",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-05T19:46:00.132Z",
-              "updatedAt": "2026-04-05T19:46:00.132Z"
+              "createdAt": "2026-04-06T19:49:25.520Z",
+              "updatedAt": "2026-04-06T19:49:25.520Z"
             },
             "ru": {
               "content": "Основной макет для опубликованных приложений",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-05T19:46:00.132Z",
-              "updatedAt": "2026-04-05T19:46:00.132Z"
+              "createdAt": "2026-04-06T19:49:25.520Z",
+              "updatedAt": "2026-04-06T19:49:25.520Z"
             }
           },
           "_primary": "en"
@@ -546,7 +646,8 @@
         "sortOrder": 0
       }
     ],
-    "defaultLayoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+    "catalogLayouts": [],
+    "defaultLayoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
     "layoutConfig": {
       "showFooter": false,
       "showHeader": true,
@@ -570,8 +671,8 @@
     },
     "layoutZoneWidgets": [
       {
-        "id": "019d5f2e-5e58-779c-8ea2-580020411e47",
-        "layoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "id": "019d6457-ddfd-7072-9642-bce7d603b01b",
+        "layoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
         "zone": "center",
         "widgetKey": "quizWidget",
         "sortOrder": 1,
@@ -582,8 +683,8 @@
         "isActive": true
       },
       {
-        "id": "019d5f2e-13bd-7850-ba0f-40b52071726f",
-        "layoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "id": "019d6457-9027-71a7-8977-c04aa0b1347e",
+        "layoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
         "zone": "top",
         "widgetKey": "appNavbar",
         "sortOrder": 1,
@@ -591,15 +692,16 @@
         "isActive": true
       },
       {
-        "id": "019d5f2e-1450-7c0c-bf97-2ff72c9be1ea",
-        "layoutId": "019d5f2e-1238-703e-af59-20e9642a0197",
+        "id": "019d6457-90bc-7cb6-9beb-f3cf6946bea0",
+        "layoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
         "zone": "top",
         "widgetKey": "header",
         "sortOrder": 2,
         "config": {},
         "isActive": true
       }
-    ]
+    ],
+    "catalogLayoutWidgetOverrides": []
   },
-  "snapshotHash": "12d07b3203decf697792bec64936fc475334d695d31ae087675ea6368f457e5b"
+  "snapshotHash": "37bc102f475a705143a2aa3ebe68c52803effbaad6ff3b6002c2df2d42bb2e14"
 }

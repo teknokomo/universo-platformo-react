@@ -114,6 +114,8 @@ describe('Metahubs page action factories', () => {
         // CatalogActions exports an array of ActionDescriptors directly (not via createEntityActions)
         const descriptors = mod.default as DescriptorLike[]
         expect(Array.isArray(descriptors)).toBe(true)
+        expect(mod.buildInitialValues).toBeTypeOf('function')
+        expect(mod.validateCatalogForm).toBeTypeOf('function')
 
         const edit = descriptors.find((d) => d.id === 'edit')
         const copy = descriptors.find((d) => d.id === 'copy')
@@ -126,6 +128,76 @@ describe('Metahubs page action factories', () => {
         expect(del).toBeTruthy()
         expect(del.dialog || del.onSelect).toBeTruthy()
     }, 30000)
+
+    it('Catalog edit dialog passes metahub and catalog context into the layout tab', async () => {
+        const mod = await import('../../../catalogs/ui/CatalogActions')
+
+        const descriptors = mod.default as Array<DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } }>
+        const edit = descriptors.find((d) => d.id === 'edit')
+        expect(edit?.dialog?.buildProps).toBeTypeOf('function')
+
+        const props = edit!.dialog!.buildProps!({
+            entity: { id: 'catalog-1', name: 'Catalog 1', codename: 'CatalogOne' },
+            catalogMap: new Map(),
+            hubs: [],
+            metahubId: 'metahub-1',
+            uiLocale: 'en',
+            t: (key: string, fallback?: string) => fallback ?? key
+        })
+
+        expect(
+            mod.buildInitialValues({
+                entity: { id: 'catalog-1', name: 'Catalog 1', codename: 'CatalogOne', hubId: 'hub-1' },
+                catalogMap: new Map(),
+                hubs: [],
+                metahubId: 'metahub-1',
+                uiLocale: 'en',
+                t: (key: string, fallback?: string) => fallback ?? key
+            })
+        ).toEqual(
+            expect.objectContaining({
+                codenameTouched: true,
+                hubIds: ['hub-1']
+            })
+        )
+
+        const tabs = props.tabs({
+            values: { hubIds: [], isSingleHub: false, isRequiredHub: false },
+            setValue: vi.fn(),
+            isLoading: false,
+            errors: {}
+        })
+        const layoutTab = tabs.find((tab: any) => tab.id === 'layout')
+
+        expect(layoutTab).toBeTruthy()
+        expect(layoutTab.content.props.metahubId).toBe('metahub-1')
+        expect(layoutTab.content.props.catalogId).toBe('catalog-1')
+    })
+
+    it('Catalog copy dialog build props remain callable for fire-and-forget copy flows', async () => {
+        const mod = await import('../../../catalogs/ui/CatalogActions')
+
+        const descriptors = mod.default as Array<DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } }>
+        const copy = descriptors.find((d) => d.id === 'copy')
+        expect(copy?.dialog?.buildProps).toBeTypeOf('function')
+
+        const props = copy!.dialog!.buildProps!({
+            entity: { id: 'catalog-1', name: 'Catalog 1', codename: 'CatalogOne', hubId: 'hub-1' },
+            catalogMap: new Map(),
+            hubs: [],
+            metahubId: 'metahub-1',
+            uiLocale: 'en',
+            t: (key: string, fallback?: string) => fallback ?? key
+        })
+
+        expect(props.initialExtraValues).toEqual(
+            expect.objectContaining({
+                codename: null,
+                codenameTouched: false,
+                hubIds: ['hub-1']
+            })
+        )
+    })
 
     it('EnumerationActions exports edit/copy/delete descriptors for localized forms', async () => {
         const mod = await import('../../../enumerations/ui/EnumerationActions')

@@ -83,10 +83,12 @@ export default function NavbarBreadcrumbs() {
     const metahubName = metahubDetailQuery.data ?? null
 
     // Extract layoutId from URL for dynamic name loading (under metahub context)
-    // Pattern: /metahub/:metahubId/layouts/:layoutId
-    const layoutIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/layouts\/([^/]+)/)
-    const layoutParentMetahubId = layoutIdMatch ? layoutIdMatch[1] : null
-    const layoutId = layoutIdMatch ? layoutIdMatch[2] : null
+    // Patterns: /metahub/:metahubId/layouts/:layoutId, /metahub/:metahubId/common/layouts/:layoutId,
+    // /metahub/:metahubId/catalog/:catalogId/layout/:layoutId
+    const layoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/(?:common\/layouts|general\/layouts|layouts)\/([^/]+)/)
+    const catalogLayoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalog\/([^/]+)\/layout\/([^/]+)/)
+    const layoutParentMetahubId = layoutDetailMatch ? layoutDetailMatch[1] : catalogLayoutDetailMatch ? catalogLayoutDetailMatch[1] : null
+    const layoutId = layoutDetailMatch ? layoutDetailMatch[2] : catalogLayoutDetailMatch ? catalogLayoutDetailMatch[3] : null
     const layoutName = useLayoutName(layoutParentMetahubId, layoutId)
 
     // Extract applicationId from URL for dynamic name loading (application admin context)
@@ -276,6 +278,11 @@ export default function NavbarBreadcrumbs() {
                             items.push({ label: t('attributes'), to: location.pathname })
                         } else if (segments[4] === 'elements') {
                             items.push({ label: t('elements'), to: location.pathname })
+                        } else if (segments[4] === 'layout' && segments[5]) {
+                            items.push({
+                                label: layoutName ? truncateLayoutName(layoutName) : '...',
+                                to: location.pathname
+                            })
                         }
                     }
                 } else if (segments[2] === 'sets') {
@@ -318,8 +325,19 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
                 } else if (segments[2] === 'settings') {
                     items.push({ label: t('settings'), to: `/metahub/${segments[1]}/settings` })
+                } else if (segments[2] === 'common' || segments[2] === 'general') {
+                    items.push({ label: t('commonSection'), to: `/metahub/${segments[1]}/common` })
+
+                    if (segments[3] === 'layouts') {
+                        items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/common` })
+
+                        if (segments[4]) {
+                            items.push({ label: layoutName ? truncateLayoutName(layoutName) : '...', to: location.pathname })
+                        }
+                    }
                 } else if (segments[2] === 'layouts') {
-                    items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/layouts` })
+                    items.push({ label: t('commonSection'), to: `/metahub/${segments[1]}/common` })
+                    items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/common` })
 
                     if (segments[3]) {
                         items.push({ label: layoutName ? truncateLayoutName(layoutName) : '...', to: location.pathname })

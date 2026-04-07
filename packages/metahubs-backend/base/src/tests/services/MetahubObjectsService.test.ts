@@ -78,4 +78,60 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
         await expect(service.permanentDelete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
+
+    it('omits undefined presentation and config fields when updating a catalog', async () => {
+        const localizedName = {
+            _schema: 'v1',
+            _primary: 'en',
+            locales: { en: { content: 'Products updated' } }
+        }
+
+        jest.spyOn(service, 'findById').mockResolvedValue({
+            id: 'catalog-1',
+            kind: 'catalog',
+            codename: {
+                _schema: 'v1',
+                _primary: 'en',
+                locales: { en: { content: 'Products' } }
+            },
+            presentation: {
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Products' } }
+                },
+                description: undefined
+            },
+            config: {
+                hubs: [],
+                isSingleHub: false,
+                isRequiredHub: false,
+                runtimeConfig: undefined
+            }
+        } as never)
+
+        mockQuery.mockResolvedValueOnce([{ id: 'catalog-1' }])
+
+        await service.updateCatalog(
+            'metahub-1',
+            'catalog-1',
+            {
+                name: localizedName,
+                config: {
+                    hubs: [],
+                    isSingleHub: false,
+                    isRequiredHub: false,
+                    sortOrder: 3,
+                    runtimeConfig: undefined
+                },
+                updatedBy: 'user-1'
+            },
+            'user-1'
+        )
+
+        const [sql, params] = mockQuery.mock.calls[0]
+        expect(sql).toContain('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"')
+        expect(params[2]).toEqual({ name: localizedName })
+        expect(params[3]).toEqual({ hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 })
+    })
 })

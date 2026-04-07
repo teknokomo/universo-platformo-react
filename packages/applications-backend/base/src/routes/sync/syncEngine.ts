@@ -241,34 +241,40 @@ export async function syncApplicationSchemaFromSource(options: {
                 publicationSnapshot: source.publicationSnapshot,
                 userId,
                 afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
-                    await runPublishedApplicationRuntimeSync({
-                        trx,
-                        applicationId: application.id,
-                        schemaName: application.schemaName!,
-                        snapshot: source.snapshot,
-                        entities: source.entities,
-                        migrationManager,
-                        migrationId,
-                        userId,
-                        workspacesEnabled: application.workspacesEnabled
-                    })
+                    await runSchemaSyncStep(`initialSync:${application.id}:runtimeSync`, async () =>
+                        runPublishedApplicationRuntimeSync({
+                            trx,
+                            applicationId: application.id,
+                            schemaName: application.schemaName!,
+                            snapshot: source.snapshot,
+                            entities: source.entities,
+                            migrationManager,
+                            migrationId,
+                            userId,
+                            workspacesEnabled: application.workspacesEnabled
+                        })
+                    )
 
-                    await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
-                        applicationId: application.id,
-                        schemaStatus: ApplicationSchemaStatus.SYNCED,
-                        schemaError: null,
-                        schemaSyncedAt,
-                        schemaSnapshot: toWorkspaceAwareSnapshot(
-                            snapshotAfter as unknown as Record<string, unknown>,
-                            application.workspacesEnabled
-                        ),
-                        lastSyncedPublicationVersionId: source.publicationVersionId,
-                        appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
-                        installedReleaseMetadata,
-                        userId
-                    })
+                    await runSchemaSyncStep(`initialSync:${application.id}:persistSchemaState`, async () =>
+                        persistApplicationSchemaSyncState(createKnexExecutor(trx), {
+                            applicationId: application.id,
+                            schemaStatus: ApplicationSchemaStatus.SYNCED,
+                            schemaError: null,
+                            schemaSyncedAt,
+                            schemaSnapshot: toWorkspaceAwareSnapshot(
+                                snapshotAfter as unknown as Record<string, unknown>,
+                                application.workspacesEnabled
+                            ),
+                            lastSyncedPublicationVersionId: source.publicationVersionId,
+                            appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                            installedReleaseMetadata,
+                            userId
+                        })
+                    )
 
-                    await persistConnectorSyncTouchIfPresent(trx, connectorId, userId)
+                    await runSchemaSyncStep(`initialSync:${application.id}:connectorTouch`, async () =>
+                        persistConnectorSyncTouchIfPresent(trx, connectorId, userId)
+                    )
                 }
             })
 
@@ -663,7 +669,7 @@ export function buildPreviewLabelMaps(
             const presentation = isRecord(value.presentation) ? (value.presentation as Record<string, unknown>) : null
             const localizedName = resolveLocalizedPreviewText(presentation?.name)
             const id = typeof value.id === 'string' ? value.id : null
-            const label = localizedName || (typeof value.codename === 'string' ? value.codename : null) || id
+            const label = localizedName || resolveLocalizedPreviewText(value.codename) || id
             if (id && label) {
                 labels.set(id, label)
             }
@@ -775,6 +781,10 @@ export function mapStructuredChange(change: SchemaChange): DiffStructuredChange 
     }
 }
 
+async function runSchemaSyncStep<T>(_label: string, fn: () => Promise<T>): Promise<T> {
+    return fn()
+}
+
 // --- Runtime sync orchestrator ---
 
 export async function runPublishedApplicationRuntimeSync(options: {
@@ -790,50 +800,70 @@ export async function runPublishedApplicationRuntimeSync(options: {
 }): Promise<{ seedWarnings: string[] }> {
     const { trx, applicationId, schemaName, snapshot, entities, migrationManager, migrationId, userId } = options
 
-    await persistPublishedLayouts({
-        schemaName,
-        snapshot,
-        userId,
-        trx
-    })
-    await persistPublishedScripts({
-        schemaName,
-        snapshot,
-        userId,
-        trx
-    })
-    await persistPublishedWidgets({
-        schemaName,
-        snapshot,
-        userId,
-        trx
-    })
-    await syncEnumerationValues(schemaName, snapshot, userId, trx)
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:layouts`, async () =>
+        persistPublishedLayouts({
+            schemaName,
+            snapshot,
+            userId,
+            trx
+        })
+    )
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:scripts`, async () =>
+        persistPublishedScripts({
+            schemaName,
+            snapshot,
+            userId,
+            trx
+        })
+    )
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:widgets`, async () =>
+        persistPublishedWidgets({
+            schemaName,
+            snapshot,
+            userId,
+            trx
+        })
+    )
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:enumerations`, async () =>
+        syncEnumerationValues(schemaName, snapshot, userId, trx)
+    )
 
     if (options.workspacesEnabled) {
-        await persistWorkspaceSeedTemplate(createKnexExecutor(trx), {
-            schemaName,
-            elements: snapshot.elements ?? {},
-            actorUserId: userId
-        })
+        await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceTemplate`, async () =>
+            persistWorkspaceSeedTemplate(createKnexExecutor(trx), {
+                schemaName,
+                elements: snapshot.elements ?? {},
+                actorUserId: userId
+            })
+        )
 
-        await ensureApplicationRuntimeWorkspaceSchema(createKnexExecutor(trx), {
-            schemaName,
-            applicationId,
-            entities,
-            actorUserId: userId
-        })
-        await syncWorkspaceSeededElementsForAllActiveWorkspaces(createKnexExecutor(trx), {
-            schemaName,
-            actorUserId: userId
-        })
+        await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceSchema`, async () =>
+            ensureApplicationRuntimeWorkspaceSchema(createKnexExecutor(trx), {
+                schemaName,
+                applicationId,
+                entities,
+                actorUserId: userId
+            })
+        )
+        await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceSeededElements`, async () =>
+            syncWorkspaceSeededElementsForAllActiveWorkspaces(createKnexExecutor(trx), {
+                schemaName,
+                actorUserId: userId
+            })
+        )
     }
 
-    const seedWarnings = options.workspacesEnabled ? [] : await seedPredefinedElements(schemaName, snapshot, entities, userId, trx)
-    await persistSeedWarnings(schemaName, migrationManager, seedWarnings, {
-        trx,
-        migrationId
-    })
+    const seedWarnings = options.workspacesEnabled
+        ? []
+        : await runSchemaSyncStep(`runtimeSync:${applicationId}:seedElements`, async () =>
+              seedPredefinedElements(schemaName, snapshot, entities, userId, trx)
+          )
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:seedWarnings`, async () =>
+        persistSeedWarnings(schemaName, migrationManager, seedWarnings, {
+            trx,
+            migrationId
+        })
+    )
 
     return { seedWarnings }
 }

@@ -1,16 +1,44 @@
 import type { DbExecutor } from '@universo/utils'
-import type { EntityDefinition } from '@universo/schema-ddl'
-import type { ApplicationScriptDefinition, MetahubSnapshotVersionEnvelope } from '@universo/types'
+import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
+import type {
+    ApplicationScriptDefinition,
+    EnumerationValueDefinition,
+    MetahubSnapshotVersionEnvelope,
+    VersionedLocalizedContent
+} from '@universo/types'
+
+export type SnapshotCodenameValue = string | VersionedLocalizedContent<string>
+
+export interface SnapshotFieldDefinition extends Omit<FieldDefinition, 'codename' | 'childFields'> {
+    codename: SnapshotCodenameValue
+    childFields?: SnapshotFieldDefinition[]
+}
+
+export interface SnapshotEntityDefinition extends Omit<EntityDefinition, 'codename' | 'fields'> {
+    codename: SnapshotCodenameValue
+    fields: SnapshotFieldDefinition[]
+}
+
+export interface SnapshotEnumerationValueDefinition extends Omit<EnumerationValueDefinition, 'codename'> {
+    codename: SnapshotCodenameValue
+}
+
+export interface SnapshotScriptDefinition extends Omit<ApplicationScriptDefinition, 'codename'> {
+    codename: SnapshotCodenameValue
+    sourceCode?: string
+}
 
 export interface PublishedApplicationSnapshot {
     versionEnvelope?: MetahubSnapshotVersionEnvelope
-    entities: Record<string, EntityDefinition>
+    entities: Record<string, SnapshotEntityDefinition>
     elements?: Record<string, unknown[]>
-    enumerationValues?: Record<string, unknown[]>
+    enumerationValues?: Record<string, SnapshotEnumerationValueDefinition[]>
     constants?: Record<string, unknown[]>
-    scripts?: ApplicationScriptDefinition[]
+    scripts?: SnapshotScriptDefinition[]
     layouts?: unknown[]
     layoutZoneWidgets?: unknown[]
+    catalogLayouts?: unknown[]
+    catalogLayoutWidgetOverrides?: unknown[]
     defaultLayoutId?: string | null
     layoutConfig?: unknown
     [key: string]: unknown

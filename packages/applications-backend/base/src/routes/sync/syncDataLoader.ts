@@ -16,7 +16,10 @@ import {
     validateApplicationReleaseBundleArtifacts,
     type ApplicationReleaseBundle
 } from '../../services/applicationReleaseBundle'
-import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import type {
+    PublishedApplicationSnapshot,
+    SnapshotEnumerationValueDefinition
+} from '../../services/applicationSyncContracts'
 import { TARGET_APP_STRUCTURE_VERSION } from '../../constants'
 import {
     type SyncableApplicationRecord,
@@ -291,7 +294,7 @@ export async function loadApplicationRuntimeEnumerationValues(
     exec: DbExecutor,
     schemaName: string,
     entities: EntityDefinition[]
-): Promise<Record<string, unknown[]>> {
+): Promise<Record<string, SnapshotEnumerationValueDefinition[]>> {
     const enumerationIds = new Set(entities.filter((entity) => entity.kind === 'enumeration').map((entity) => entity.id))
     if (enumerationIds.size === 0) {
         return {}
@@ -314,7 +317,7 @@ export async function loadApplicationRuntimeEnumerationValues(
         return {}
     }
 
-    const result: Record<string, unknown[]> = {}
+    const result: Record<string, SnapshotEnumerationValueDefinition[]> = {}
     for (const row of rows) {
         const objectId = typeof row.object_id === 'string' ? row.object_id : null
         const id = typeof row.id === 'string' ? row.id : null
@@ -326,8 +329,11 @@ export async function loadApplicationRuntimeEnumerationValues(
         const list = result[objectId] ?? []
         list.push({
             id,
+            objectId,
             codename,
-            presentation: isRecord(row.presentation) ? row.presentation : { name: {} },
+            presentation: isRecord(row.presentation)
+                ? (row.presentation as unknown as SnapshotEnumerationValueDefinition['presentation'])
+                : ({ name: {} } as SnapshotEnumerationValueDefinition['presentation']),
             sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
             isDefault: row.is_default === true
         })

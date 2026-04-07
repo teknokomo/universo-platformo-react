@@ -47,15 +47,8 @@ import * as catalogsApi from '../api'
 import type { CatalogWithHubs } from '../api'
 import { invalidateCatalogsQueries, metahubsQueryKeys } from '../../shared'
 import { type VersionedLocalizedContent } from '@universo/types'
-import {
-    isOptimisticLockConflict,
-    extractConflictInfo,
-    isPendingEntity,
-    getPendingAction,
-    sanitizeCatalogRuntimeViewConfig,
-    type ConflictInfo
-} from '@universo/utils'
-import { CatalogLocalizedPayload, getVLCString, toCatalogDisplay } from '../../../types'
+import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
+import { CatalogLocalizedPayload, getVLCString } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
@@ -65,7 +58,6 @@ import catalogActions, { CatalogDisplayWithHub, CatalogLayoutTabFields } from '.
 import {
     type CatalogFormValues,
     type CatalogMenuBaseContext,
-    type CatalogPendingData,
     type ConfirmSpec,
     DIALOG_SAVE_CANCEL,
     extractResponseStatus,
@@ -300,8 +292,7 @@ const CatalogListContent = () => {
             codenameTouched: false,
             hubIds: hubId ? [hubId] : [], // Auto-select current hub
             isSingleHub: false,
-            isRequiredHub: false, // Default: catalog can exist without hubs
-            runtimeConfig: {}
+            isRequiredHub: false // Default: catalog can exist without hubs
         }),
         [hubId]
     )
@@ -419,11 +410,13 @@ const CatalogListContent = () => {
                 {
                     id: 'layout',
                     label: t('catalogs.tabs.layout', 'Layout'),
-                    content: <CatalogLayoutTabFields values={values} setValue={setValue} isLoading={isFormLoading} t={t} />
+                    content: (
+                        <CatalogLayoutTabFields values={values} setValue={setValue} isLoading={isFormLoading} t={t} metahubId={metahubId} />
+                    )
                 }
             ]
         },
-        [hubs, preferredVlcLocale, t, tc, hubId]
+        [hubs, metahubId, preferredVlcLocale, t, tc, hubId]
     )
 
     const catalogColumns = useMemo(() => {
@@ -928,7 +921,6 @@ const CatalogListContent = () => {
         const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
         const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
         const isSingleHub = Boolean(data.isSingleHub)
-        const runtimeConfig = sanitizeCatalogRuntimeViewConfig(data.runtimeConfig as Record<string, unknown> | undefined)
         const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, normalizedCodename || '')
 
         // Confirm dialog for detached catalog (async — throws DIALOG_SAVE_CANCEL if cancelled)
@@ -957,8 +949,7 @@ const CatalogListContent = () => {
             descriptionPrimaryLocale,
             hubIds,
             isSingleHub,
-            isRequiredHub,
-            runtimeConfig
+            isRequiredHub
         }
 
         if (hubIds.length > 0) {

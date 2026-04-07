@@ -19,6 +19,9 @@ interface QueryOptions {
 
 type MetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub' | 'document'
 
+const stripUndefinedEntries = (value: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Record<string, unknown>
+
 export type MetahubObjectRow = {
     id: string
     kind: MetahubObjectKind | string
@@ -320,17 +323,17 @@ export class MetahubObjectsService {
             updateData.codename = ensureCodenameValue(input.codename)
         }
         if (input.name !== undefined || input.description !== undefined) {
-            updateData.presentation = {
-                ...existing.presentation,
+            updateData.presentation = stripUndefinedEntries({
+                ...(existing.presentation && typeof existing.presentation === 'object' ? (existing.presentation as Record<string, unknown>) : {}),
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined ? { description: input.description } : {})
-            }
+            })
         }
         if (input.config !== undefined) {
-            updateData.config = {
-                ...existing.config,
-                ...input.config
-            }
+            updateData.config = stripUndefinedEntries({
+                ...(existing.config && typeof existing.config === 'object' ? (existing.config as Record<string, unknown>) : {}),
+                ...(input.config as Record<string, unknown>)
+            })
         }
 
         if (input.expectedVersion !== undefined) {

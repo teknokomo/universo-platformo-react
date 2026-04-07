@@ -28,7 +28,7 @@ function readLocalizedText(value, locale = 'en') {
     return locales[normalizedLocale]?.content || locales[value._primary || 'en']?.content || locales.en?.content
 }
 
-test('@flow metahub layouts list and layout details load through the existing UI and persist widget toggles', async ({
+test('@flow metahub General layouts tab and layout details load through the shipped route contract and persist widget toggles', async ({
     page,
     runManifest
 }) => {
@@ -89,6 +89,10 @@ test('@flow metahub layouts list and layout details load through the existing UI
         const expectedActiveState = detailsTitleWidget.isActive !== true
 
         await page.goto(`/metahub/${metahub.id}/layouts`)
+        await page.waitForURL(`**/metahub/${metahub.id}/common`)
+        await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
+        await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
+        await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
         await expect(page.getByRole('heading', { name: 'Layouts' })).toBeVisible()
         await expect(page.getByText(layoutName, { exact: true })).toBeVisible()
 
@@ -98,7 +102,7 @@ test('@flow metahub layouts list and layout details load through the existing UI
         )
 
         await page.getByText(layoutName, { exact: true }).click()
-        await page.waitForURL(`**/metahub/${metahub.id}/layouts/${layoutId}`)
+        await page.waitForURL(`**/metahub/${metahub.id}/common/layouts/${layoutId}`)
         await expect(page.getByText('Drag widgets between zones to change runtime composition.')).toBeVisible()
         await expect(page.getByTestId(buildLayoutZoneSelector('left'))).toBeVisible()
         await expect(page.getByTestId(buildLayoutZoneSelector('center'))).toBeVisible()

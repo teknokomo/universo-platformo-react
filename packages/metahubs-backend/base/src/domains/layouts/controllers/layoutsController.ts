@@ -29,11 +29,21 @@ type StoredLocaleEntry = { content?: unknown } | unknown
 type StoredLocaleMap = Record<string, StoredLocaleEntry>
 type StoredPrimary = { _primary?: unknown }
 type SourceWidgetRow = {
+    id?: string
     zone?: string
     widget_key?: string
     sort_order?: number
     config?: unknown
     is_active?: boolean
+}
+
+type SourceCatalogWidgetOverrideRow = {
+    base_widget_id?: string
+    zone?: string | null
+    sort_order?: number | null
+    config?: unknown
+    is_active?: boolean | null
+    is_deleted_override?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +124,7 @@ const listQuerySchema = z.object({
     offset: z.coerce.number().int().min(0).optional(),
     sortBy: z.enum(['name', 'created', 'updated']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional(),
+    catalogId: z.string().uuid().optional(),
     search: z.string().optional()
 })
 
@@ -234,15 +245,19 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
             const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
+            const overridesQt = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
+            const isCatalogLayout = typeof sourceLayout.catalogId === 'string' && typeof sourceLayout.baseLayoutId === 'string'
 
             const created = await exec.transaction(async (trx: SqlQueryable) => {
                 const now = new Date()
 
+                const sourceConfig = sourceLayout.config ?? {}
                 const layoutConfig = copyOptions.copyWidgets
                     ? shouldDeactivateWidgets
-                        ? buildDashboardLayoutConfig([])
-                        : sourceLayout.config ?? {}
+                        ? { ...sourceConfig, ...buildDashboardLayoutConfig([]) }
+                        : sourceConfig
                     : {
+                          ...sourceConfig,
                           ...buildDashboardLayoutConfig([]),
                           [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
                       }
@@ -250,17 +265,19 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 const createdLayout = await queryOne<Record<string, unknown>>(
                     trx,
                     `INSERT INTO ${layoutsQt} (
-            template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+            catalog_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
             _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
             _upl_archived, _upl_deleted, _upl_locked,
             _mhb_published, _mhb_archived, _mhb_deleted
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8,
-            $9, $10, $9, $10, $11,
-            $12, $12, $12,
-            $13, $12, $12
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $11, $12, $13,
+            $14, $14, $14,
+            $15, $14, $14
         ) RETURNING *`,
                     [
+                        isCatalogLayout ? sourceLayout.catalogId : null,
+                        isCatalogLayout ? sourceLayout.baseLayoutId : null,
                         sourceLayout.templateKey ?? 'dashboard',
                         JSON.stringify(nameVlc),
                         descriptionVlc ? JSON.stringify(descriptionVlc) : null,
@@ -289,7 +306,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 if (copyOptions.copyWidgets) {
                     const sourceWidgets = await queryMany<SourceWidgetRow>(
                         trx,
-                        `SELECT zone, widget_key, sort_order, config, is_active
+                        `SELECT id, zone, widget_key, sort_order, config, is_active
            FROM ${widgetsQt}
            WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
            ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
@@ -332,6 +349,112 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                             params
                         )
                     }
+
+                    if (isCatalogLayout) {
+                        const sourceOverrides = await queryMany<SourceCatalogWidgetOverrideRow>(
+                            trx,
+                            `SELECT base_widget_id, zone, sort_order, config, is_active, is_deleted_override
+                             FROM ${overridesQt}
+                             WHERE catalog_layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             ORDER BY _upl_created_at ASC`,
+                            [layoutId]
+                        )
+
+                        const overrideMap = new Map(
+                            sourceOverrides
+                                .filter((row) => typeof row.base_widget_id === 'string' && row.base_widget_id.length > 0)
+                                .map((row) => [String(row.base_widget_id), row])
+                        )
+
+                        const overridesToCopy = shouldDeactivateWidgets
+                            ? (
+                                  await queryMany<{ id: string }>(
+                                      trx,
+                                      `SELECT id FROM ${widgetsQt}
+                                       WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                                       ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
+                                      [sourceLayout.baseLayoutId]
+                                  )
+                              ).map((baseWidget) => {
+                                  const sourceOverride = overrideMap.get(baseWidget.id)
+                                  if (sourceOverride?.is_deleted_override === true) {
+                                      return {
+                                          baseWidgetId: baseWidget.id,
+                                          zone: sourceOverride.zone ?? null,
+                                          sortOrder: sourceOverride.sort_order ?? null,
+                                          config:
+                                              sourceOverride.config && typeof sourceOverride.config === 'object'
+                                                  ? (sourceOverride.config as Record<string, unknown>)
+                                                  : null,
+                                          isActive: null,
+                                          isDeletedOverride: true
+                                      }
+                                  }
+
+                                  return {
+                                      baseWidgetId: baseWidget.id,
+                                      zone: sourceOverride?.zone ?? null,
+                                      sortOrder: sourceOverride?.sort_order ?? null,
+                                      config:
+                                          sourceOverride?.config && typeof sourceOverride.config === 'object'
+                                              ? (sourceOverride.config as Record<string, unknown>)
+                                              : null,
+                                      isActive: false,
+                                      isDeletedOverride: false
+                                  }
+                              })
+                            : sourceOverrides
+                                  .filter((row) => typeof row.base_widget_id === 'string' && row.base_widget_id.length > 0)
+                                  .map((row) => ({
+                                      baseWidgetId: String(row.base_widget_id),
+                                      zone: row.zone ?? null,
+                                      sortOrder: row.sort_order ?? null,
+                                      config: row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : null,
+                                      isActive: typeof row.is_active === 'boolean' ? row.is_active : null,
+                                      isDeletedOverride: row.is_deleted_override === true
+                                  }))
+
+                        if (overridesToCopy.length > 0) {
+                            const placeholders: string[] = []
+                            const params: unknown[] = []
+                            let idx = 1
+
+                            for (const override of overridesToCopy) {
+                                placeholders.push(
+                                    `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${
+                                        idx + 7
+                                    }, $${idx + 8}, $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 10}, $${idx + 10}, $${idx + 10}, $${
+                                        idx + 11
+                                    }, $${idx + 10}, $${idx + 10})`
+                                )
+                                params.push(
+                                    createdLayout.id,
+                                    override.baseWidgetId,
+                                    override.zone,
+                                    override.sortOrder,
+                                    override.config ? JSON.stringify(override.config) : null,
+                                    override.isActive,
+                                    override.isDeletedOverride,
+                                    now,
+                                    userId ?? null,
+                                    1,
+                                    false,
+                                    true
+                                )
+                                idx += 12
+                            }
+
+                            await trx.query(
+                                `INSERT INTO ${overridesQt} (
+                catalog_layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
+                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
+                _upl_archived, _upl_deleted, _upl_locked,
+                _mhb_published, _mhb_archived, _mhb_deleted
+            ) VALUES ${placeholders.join(', ')}`,
+                                params
+                            )
+                        }
+                    }
                 }
 
                 return createdLayout
@@ -339,6 +462,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
 
             return res.status(201).json({
                 id: created.id,
+                catalogId: created.catalog_id ?? null,
+                baseLayoutId: created.base_layout_id ?? null,
                 templateKey: created.template_key ?? 'dashboard',
                 name: created.name ?? {},
                 description: created.description ?? null,

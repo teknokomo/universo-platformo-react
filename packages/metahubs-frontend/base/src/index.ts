@@ -16,6 +16,7 @@ import AttributeListComponent from './domains/attributes/ui/AttributeList'
 import ElementListComponent from './domains/elements/ui/ElementList'
 import SetListComponent from './domains/sets/ui/SetList'
 import ConstantListComponent from './domains/constants/ui/ConstantList'
+import GeneralPageComponent from './domains/general/ui/GeneralPage'
 import MetahubLayoutsComponent from './domains/layouts/ui/LayoutList'
 import MetahubLayoutDetailsComponent from './domains/layouts/ui/LayoutDetails'
 import SettingsPageComponent from './domains/settings/ui/SettingsPage'
@@ -45,6 +46,7 @@ export const AttributeList = withMetahubDialogSettings(AttributeListComponent)
 export const ElementList = withMetahubDialogSettings(ElementListComponent)
 export const SetList = withMetahubDialogSettings(SetListComponent)
 export const ConstantList = withMetahubDialogSettings(ConstantListComponent)
+export const MetahubCommon = withMetahubDialogSettings(GeneralPageComponent)
 export const MetahubLayouts = withMetahubDialogSettings(MetahubLayoutsComponent)
 export const MetahubLayoutDetails = withMetahubDialogSettings(MetahubLayoutDetailsComponent)
 

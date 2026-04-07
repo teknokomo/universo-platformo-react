@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +17,7 @@ import {
     Select,
     Stack,
     Switch,
+    TextField,
     Tooltip,
     Typography
 } from '@mui/material'
@@ -30,6 +31,7 @@ import { DndContext, DragEndEvent, PointerSensor, useDroppable, useSensor, useSe
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type {
+    CatalogRuntimeViewConfig,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
     MenuWidgetConfig,
@@ -38,10 +40,12 @@ import type {
 } from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError, PAGE_CONTENT_GUTTER_MX } from '@universo/template-mui'
+import { extractCatalogLayoutBehaviorConfig, normalizeCatalogRuntimeViewConfig, setCatalogLayoutBehaviorConfig } from '@universo/utils'
 
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
+import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
-import type { MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetCatalogItem } from '../../../types'
+import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetCatalogItem } from '../../../types'
 import { getVLCString, normalizeLocale } from '../../../types'
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
@@ -81,26 +85,33 @@ function SortableWidgetChip({
     id,
     label,
     isActive,
+    draggable = true,
     onRemove,
     onClick,
     onEdit,
     onToggleActive,
     editTooltip,
     removeTooltip,
-    toggleActiveTooltip
+    toggleActiveTooltip,
+    inheritedLabel
 }: {
     id: string
     label: string
     isActive: boolean
-    onRemove: () => void
+    draggable?: boolean
+    onRemove?: () => void
     onClick?: () => void
     onEdit?: () => void
     onToggleActive?: (active: boolean) => void
     editTooltip?: string
     removeTooltip?: string
     toggleActiveTooltip?: string
+    inheritedLabel?: string
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id,
+        disabled: !draggable
+    })
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -124,7 +135,13 @@ function SortableWidgetChip({
                 ...(!isActive && { borderStyle: 'dashed' })
             }}
         >
-            <IconButton size='small' sx={{ cursor: 'grab' }} {...attributes} {...listeners}>
+            <IconButton
+                size='small'
+                disabled={!draggable}
+                sx={{ cursor: draggable ? 'grab' : 'default' }}
+                {...attributes}
+                {...listeners}
+            >
                 <DragIndicatorRoundedIcon fontSize='small' />
             </IconButton>
             <Typography
@@ -138,9 +155,27 @@ function SortableWidgetChip({
             >
                 {label}
             </Typography>
+            {inheritedLabel ? (
+                <Box
+                    component='span'
+                    data-testid={`layout-widget-inherited-${id}`}
+                    sx={{
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 999,
+                        bgcolor: 'action.hover',
+                        color: 'text.secondary',
+                        fontSize: 11,
+                        lineHeight: 1.4,
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    {inheritedLabel}
+                </Box>
+            ) : null}
             {onEdit && (
                 <Tooltip title={editTooltip || ''} arrow>
-                    <IconButton size='small' onClick={onEdit}>
+                    <IconButton size='small' data-testid={`layout-widget-edit-${id}`} onClick={onEdit}>
                         <EditRoundedIcon fontSize='small' />
                     </IconButton>
                 </Tooltip>
@@ -157,11 +192,13 @@ function SortableWidgetChip({
                     </IconButton>
                 </Tooltip>
             )}
-            <Tooltip title={removeTooltip || ''} arrow>
-                <IconButton size='small' onClick={onRemove}>
-                    <CloseRoundedIcon fontSize='small' />
-                </IconButton>
-            </Tooltip>
+            {onRemove ? (
+                <Tooltip title={removeTooltip || ''} arrow>
+                    <IconButton size='small' data-testid={`layout-widget-remove-${id}`} onClick={onRemove}>
+                        <CloseRoundedIcon fontSize='small' />
+                    </IconButton>
+                </Tooltip>
+            ) : null}
         </Paper>
     )
 }
@@ -197,6 +234,7 @@ export default function LayoutDetails() {
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
+    const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const [addWidgetMenu, setAddWidgetMenu] = useState<AddWidgetMenuState>({ anchorEl: null, zone: null })
     const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
@@ -226,11 +264,23 @@ export default function LayoutDetails() {
         queryFn: async () => layoutsApi.getLayoutZoneWidgetsCatalog(String(metahubId), String(layoutId))
     })
 
+    const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
+    const canManageLayouts =
+        (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
     const layout = layoutQuery.data as MetahubLayout | undefined
     const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
     const widgetCatalog = widgetCatalogQuery.data ?? EMPTY_WIDGET_CATALOG
     const uiLocale = normalizeLocale(i18n.language)
     const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
+    const catalogBehaviorConfig = useMemo(
+        () => normalizeCatalogRuntimeViewConfig(extractCatalogLayoutBehaviorConfig(layout?.config)),
+        [layout?.config]
+    )
+    const [reorderPersistenceFieldDraft, setReorderPersistenceFieldDraft] = useState('')
+
+    useEffect(() => {
+        setReorderPersistenceFieldDraft(catalogBehaviorConfig.reorderPersistenceField ?? '')
+    }, [catalogBehaviorConfig.reorderPersistenceField])
 
     const zoneToItems = useMemo(() => {
         const initial = DASHBOARD_LAYOUT_ZONES.reduce((acc, zone) => {
@@ -304,6 +354,10 @@ export default function LayoutDetails() {
 
     const persistAndRefresh = async () => {
         if (!metahubId || !layoutId) return
+        if (layout?.catalogId == null) {
+            await invalidateLayoutsQueries.all(queryClient, metahubId)
+            return
+        }
         await invalidateLayoutsQueries.detail(queryClient, metahubId, layoutId)
         await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId) })
     }
@@ -335,28 +389,68 @@ export default function LayoutDetails() {
         })
     }
 
+    const persistLayoutConfig = useCallback(
+        async (nextConfig: Record<string, unknown>) => {
+            if (!metahubId || !layoutId) return
+            await layoutsApi.updateLayout(metahubId, layoutId, { config: nextConfig })
+            if (layout?.catalogId == null) {
+                await invalidateLayoutsQueries.all(queryClient, metahubId)
+                return
+            }
+            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId) })
+        },
+        [layout?.catalogId, layoutId, metahubId, queryClient]
+    )
+
     const handleViewSettingChange = useCallback(
         async (key: string, value: unknown) => {
-            if (!metahubId || !layoutId || !layout) return
+            if (!layout || !canManageLayouts) return
             setViewSettingsSaving(true)
-            const updatedConfig = { ...layout.config, [key]: value }
             try {
-                await layoutsApi.updateLayout(metahubId, layoutId, { config: updatedConfig })
-                await queryClient.invalidateQueries({
-                    queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId)
-                })
+                await persistLayoutConfig({ ...layout.config, [key]: value })
             } catch (e: unknown) {
                 notifyError(t, enqueueSnackbar, e)
             } finally {
                 setViewSettingsSaving(false)
             }
         },
-        [metahubId, layoutId, layout, queryClient, t, enqueueSnackbar]
+        [canManageLayouts, enqueueSnackbar, layout, persistLayoutConfig, t]
     )
+
+    const handleCatalogBehaviorChange = useCallback(
+        async (patch: Partial<CatalogRuntimeViewConfig>) => {
+            if (!layout || !canManageLayouts) return
+            setViewSettingsSaving(true)
+            try {
+                const currentBehaviorConfig = extractCatalogLayoutBehaviorConfig(layout.config) ?? {}
+                await persistLayoutConfig(setCatalogLayoutBehaviorConfig(layout.config, { ...currentBehaviorConfig, ...patch }))
+            } catch (e: unknown) {
+                notifyError(t, enqueueSnackbar, e)
+            } finally {
+                setViewSettingsSaving(false)
+            }
+        },
+        [canManageLayouts, enqueueSnackbar, layout, persistLayoutConfig, t]
+    )
+
+    const commitReorderPersistenceField = useCallback(async () => {
+        if (!layout || !canManageLayouts) return
+
+        const normalizedValue = reorderPersistenceFieldDraft.trim()
+        const currentValue = catalogBehaviorConfig.reorderPersistenceField ?? ''
+
+        if (normalizedValue === currentValue) {
+            return
+        }
+
+        await handleCatalogBehaviorChange({
+            reorderPersistenceField: normalizedValue || null
+        })
+    }, [canManageLayouts, catalogBehaviorConfig.reorderPersistenceField, handleCatalogBehaviorChange, layout, reorderPersistenceFieldDraft])
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
-        if (!metahubId || !layoutId) return
+        if (!metahubId || !layoutId || !canManageLayouts) return
         if (!active.id || !over?.id) return
 
         const activeWidgetId = String(active.id)
@@ -428,7 +522,7 @@ export default function LayoutDetails() {
     }
 
     const handleRemoveWidget = async (widgetId: string) => {
-        if (!metahubId || !layoutId) return
+        if (!metahubId || !layoutId || !canManageLayouts) return
         try {
             await layoutsApi.removeLayoutZoneWidget(metahubId, layoutId, widgetId)
             await persistAndRefresh()
@@ -438,7 +532,7 @@ export default function LayoutDetails() {
     }
 
     const handleAddWidget = async (zone: DashboardLayoutZone, widgetKey: DashboardLayoutWidgetKey, config?: Record<string, unknown>) => {
-        if (!metahubId || !layoutId) return
+        if (!metahubId || !layoutId || !canManageLayouts) return
         try {
             await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
                 zone,
@@ -452,7 +546,7 @@ export default function LayoutDetails() {
     }
 
     const handleToggleWidgetActive = async (widgetId: string, isActive: boolean) => {
-        if (!metahubId || !layoutId) return
+        if (!metahubId || !layoutId || !canManageLayouts) return
 
         const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
         const previousData = queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
@@ -512,6 +606,132 @@ export default function LayoutDetails() {
                         <Stack spacing={2}>
                             <Paper variant='outlined' sx={{ p: 2 }}>
                                 <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
+                                    {layout?.catalogId
+                                        ? t('layouts.details.catalogBehaviorTitleCatalog', 'Catalog runtime behavior')
+                                        : t('layouts.details.catalogBehaviorTitleGlobal', 'Default catalog runtime behavior')}
+                                </Typography>
+                                <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                                    {layout?.catalogId
+                                        ? t(
+                                              'layouts.details.catalogBehaviorDescriptionCatalog',
+                                              'This catalog layout overrides the create/search behavior inherited from its global base layout.'
+                                          )
+                                        : t(
+                                              'layouts.details.catalogBehaviorDescriptionGlobal',
+                                              'These settings define the default create/search behavior for catalogs that use this global layout until a catalog-specific layout overrides it.'
+                                          )}
+                                </Typography>
+                                <Stack spacing={1.5}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={catalogBehaviorConfig.showCreateButton}
+                                                disabled={viewSettingsSaving || !canManageLayouts}
+                                                onChange={(_, checked) => void handleCatalogBehaviorChange({ showCreateButton: checked })}
+                                            />
+                                        }
+                                        label={t('catalogs.runtime.showCreateButton', 'Show create button')}
+                                    />
+                                    <FormControl size='small' sx={{ minWidth: 220 }}>
+                                        <InputLabel>{t('catalogs.runtime.searchMode', 'Search mode')}</InputLabel>
+                                        <Select
+                                            value={catalogBehaviorConfig.searchMode}
+                                            label={t('catalogs.runtime.searchMode', 'Search mode')}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
+                                            onChange={(event) =>
+                                                void handleCatalogBehaviorChange({
+                                                    searchMode: event.target.value as CatalogRuntimeViewConfig['searchMode']
+                                                })
+                                            }
+                                        >
+                                            <MenuItem value='page-local'>{t('catalogs.runtime.searchModePageLocal', 'Page-local')}</MenuItem>
+                                            <MenuItem value='server'>{t('catalogs.runtime.searchModeServer', 'Server')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size='small' sx={{ minWidth: 220 }}>
+                                        <InputLabel>{t('catalogs.runtime.createSurface', 'Create form type')}</InputLabel>
+                                        <Select
+                                            value={catalogBehaviorConfig.createSurface}
+                                            label={t('catalogs.runtime.createSurface', 'Create form type')}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
+                                            onChange={(event) =>
+                                                void handleCatalogBehaviorChange({
+                                                    createSurface: event.target.value as CatalogRuntimeViewConfig['createSurface']
+                                                })
+                                            }
+                                        >
+                                            <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                            <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size='small' sx={{ minWidth: 220 }}>
+                                        <InputLabel>{t('catalogs.runtime.editSurface', 'Edit form type')}</InputLabel>
+                                        <Select
+                                            value={catalogBehaviorConfig.editSurface}
+                                            label={t('catalogs.runtime.editSurface', 'Edit form type')}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
+                                            onChange={(event) =>
+                                                void handleCatalogBehaviorChange({
+                                                    editSurface: event.target.value as CatalogRuntimeViewConfig['editSurface']
+                                                })
+                                            }
+                                        >
+                                            <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                            <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size='small' sx={{ minWidth: 220 }}>
+                                        <InputLabel>{t('catalogs.runtime.copySurface', 'Copy form type')}</InputLabel>
+                                        <Select
+                                            value={catalogBehaviorConfig.copySurface}
+                                            label={t('catalogs.runtime.copySurface', 'Copy form type')}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
+                                            onChange={(event) =>
+                                                void handleCatalogBehaviorChange({
+                                                    copySurface: event.target.value as CatalogRuntimeViewConfig['copySurface']
+                                                })
+                                            }
+                                        >
+                                            <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                            <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={catalogBehaviorConfig.enableRowReordering}
+                                                disabled={viewSettingsSaving || !canManageLayouts}
+                                                onChange={(_, checked) =>
+                                                    void handleCatalogBehaviorChange({
+                                                        enableRowReordering: checked
+                                                    })
+                                                }
+                                            />
+                                        }
+                                        label={t('catalogs.runtime.enableRowReordering', 'Enable row reordering')}
+                                    />
+                                    <TextField
+                                        size='small'
+                                        label={t('catalogs.runtime.reorderPersistenceField', 'Reorder persistence field')}
+                                        value={reorderPersistenceFieldDraft}
+                                        disabled={viewSettingsSaving || !canManageLayouts || !catalogBehaviorConfig.enableRowReordering}
+                                        helperText={t(
+                                            'catalogs.runtime.reorderPersistenceFieldHelper',
+                                            'Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.'
+                                        )}
+                                        onChange={(event) => setReorderPersistenceFieldDraft(event.target.value)}
+                                        onBlur={() => void commitReorderPersistenceField()}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter') {
+                                                event.preventDefault()
+                                                void commitReorderPersistenceField()
+                                            }
+                                        }}
+                                    />
+                                </Stack>
+                            </Paper>
+                            <Paper variant='outlined' sx={{ p: 2 }}>
+                                <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
                                     {t('layouts.details.viewSettings', 'Application View Settings')}
                                 </Typography>
                                 <Stack spacing={1.5}>
@@ -519,7 +739,7 @@ export default function LayoutDetails() {
                                         control={
                                             <Switch
                                                 checked={Boolean(layout?.config?.showViewToggle)}
-                                                disabled={viewSettingsSaving}
+                                                disabled={viewSettingsSaving || !canManageLayouts}
                                                 onChange={(_, checked) => void handleViewSettingChange('showViewToggle', checked)}
                                             />
                                         }
@@ -530,7 +750,7 @@ export default function LayoutDetails() {
                                         <Select
                                             value={(layout?.config?.defaultViewMode as string) || 'table'}
                                             label={t('layouts.details.defaultViewMode', 'Default view mode')}
-                                            disabled={viewSettingsSaving}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(e) => void handleViewSettingChange('defaultViewMode', e.target.value)}
                                         >
                                             <MenuItem value='table'>{t('layouts.details.viewModeTable', 'Table')}</MenuItem>
@@ -541,28 +761,18 @@ export default function LayoutDetails() {
                                         control={
                                             <Switch
                                                 checked={Boolean(layout?.config?.showFilterBar)}
-                                                disabled={viewSettingsSaving}
+                                                disabled={viewSettingsSaving || !canManageLayouts}
                                                 onChange={(_, checked) => void handleViewSettingChange('showFilterBar', checked)}
                                             />
                                         }
                                         label={t('layouts.details.showFilterBar', 'Search/filter bar')}
-                                    />
-                                    <FormControlLabel
-                                        control={
-                                            <Switch
-                                                checked={Boolean(layout?.config?.enableRowReordering)}
-                                                disabled={viewSettingsSaving}
-                                                onChange={(_, checked) => void handleViewSettingChange('enableRowReordering', checked)}
-                                            />
-                                        }
-                                        label={t('layouts.details.enableRowReordering', 'Enable row reordering')}
                                     />
                                     <FormControl size='small' sx={{ minWidth: 180 }}>
                                         <InputLabel>{t('layouts.details.cardColumns', 'Card columns')}</InputLabel>
                                         <Select
                                             value={Number(layout?.config?.cardColumns) || 3}
                                             label={t('layouts.details.cardColumns', 'Card columns')}
-                                            disabled={viewSettingsSaving}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(e) => void handleViewSettingChange('cardColumns', Number(e.target.value))}
                                         >
                                             <MenuItem value={2}>2</MenuItem>
@@ -575,7 +785,7 @@ export default function LayoutDetails() {
                                         <Select
                                             value={String(layout?.config?.rowHeight ?? 'compact')}
                                             label={t('layouts.details.rowHeight', 'Row height')}
-                                            disabled={viewSettingsSaving}
+                                            disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(e) => {
                                                 const v = e.target.value
                                                 const val = v === 'compact' ? undefined : v === 'auto' ? 'auto' : Number(v)
@@ -609,7 +819,7 @@ export default function LayoutDetails() {
                                                             size='small'
                                                             startIcon={<AddRoundedIcon />}
                                                             onClick={(event) => setAddWidgetMenu({ anchorEl: event.currentTarget, zone })}
-                                                            disabled={availableWidgets.length === 0}
+                                                            disabled={!canManageLayouts || availableWidgets.length === 0}
                                                         >
                                                             {t('layouts.details.addWidget', 'Add widget')}
                                                         </Button>
@@ -629,6 +839,8 @@ export default function LayoutDetails() {
                                                                 const isMenuWidget = item.widgetKey === 'menuWidget'
                                                                 const isColumnsContainer = item.widgetKey === 'columnsContainer'
                                                                 const isQuizWidget = item.widgetKey === 'quizWidget'
+                                                                const isInheritedWidget = item.isInherited === true
+                                                                const canManageWidget = canManageLayouts && !isInheritedWidget
                                                                 const openEditor = isMenuWidget
                                                                     ? () =>
                                                                           setMenuEditor({
@@ -660,22 +872,38 @@ export default function LayoutDetails() {
                                                                         id={item.id}
                                                                         label={getWidgetChipLabel(item)}
                                                                         isActive={item.isActive}
-                                                                        onRemove={() => void handleRemoveWidget(item.id)}
-                                                                        onClick={openEditor}
-                                                                        onEdit={openEditor}
-                                                                        onToggleActive={(active) =>
-                                                                            void handleToggleWidgetActive(item.id, active)
+                                                                        draggable={canManageLayouts}
+                                                                        onRemove={
+                                                                            canManageWidget
+                                                                                ? () => void handleRemoveWidget(item.id)
+                                                                                : undefined
+                                                                        }
+                                                                        onClick={canManageWidget ? openEditor : undefined}
+                                                                        onEdit={canManageWidget ? openEditor : undefined}
+                                                                        onToggleActive={
+                                                                            canManageLayouts
+                                                                                ? (active) => void handleToggleWidgetActive(item.id, active)
+                                                                                : undefined
+                                                                        }
+                                                                        inheritedLabel={
+                                                                            isInheritedWidget
+                                                                                ? t('layouts.details.inheritedBadge', 'Inherited')
+                                                                                : undefined
                                                                         }
                                                                         editTooltip={
-                                                                            isMenuWidget || isColumnsContainer || isQuizWidget
+                                                                            canManageWidget && (isMenuWidget || isColumnsContainer || isQuizWidget)
                                                                                 ? t('common:actions.edit')
                                                                                 : undefined
                                                                         }
-                                                                        removeTooltip={t('common:actions.delete')}
+                                                                        removeTooltip={
+                                                                            canManageWidget ? t('common:actions.delete') : undefined
+                                                                        }
                                                                         toggleActiveTooltip={
-                                                                            item.isActive
+                                                                            canManageLayouts && item.isActive
                                                                                 ? t('layouts.actions.deactivate', 'Deactivate')
-                                                                                : t('layouts.actions.activate', 'Activate')
+                                                                                : canManageLayouts
+                                                                                ? t('layouts.actions.activate', 'Activate')
+                                                                                : undefined
                                                                         }
                                                                     />
                                                                 )

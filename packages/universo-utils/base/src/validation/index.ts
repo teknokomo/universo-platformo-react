@@ -42,8 +42,11 @@ export {
     normalizeConstantCopyOptions
 } from './copyOptions'
 export {
+    extractCatalogLayoutBehaviorConfig,
     normalizeCatalogRuntimeViewConfig,
+    resolveCatalogLayoutBehaviorConfig,
     sanitizeCatalogRuntimeViewConfig,
+    setCatalogLayoutBehaviorConfig,
     resolveCatalogRuntimeDashboardLayoutConfig
 } from './catalogRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './dashboardLayout'

@@ -1,10 +1,15 @@
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
+import { getCodenamePrimary } from '@universo/utils'
 import { AttributeDataType, type CatalogSystemFieldsSnapshot } from '@universo/types'
-import type { PublishedApplicationSnapshot } from './applicationSyncContracts'
+import type {
+    PublishedApplicationSnapshot,
+    SnapshotCodenameValue,
+    SnapshotFieldDefinition
+} from './applicationSyncContracts'
 
 type SnapshotConstantRecord = {
     id: string
-    codename?: string | null
+    codename?: SnapshotCodenameValue | null
     dataType?: string | null
     presentation?: Record<string, unknown> | null
     value?: unknown
@@ -19,6 +24,11 @@ type SetConstantRefPayload = {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+const resolveSnapshotCodenameText = (value: SnapshotCodenameValue | null | undefined): string | null => {
+    const text = getCodenamePrimary(value).trim()
+    return text.length > 0 ? text : null
+}
 
 const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Record<string, CatalogSystemFieldsSnapshot> | null => {
     if (!snapshot.systemFields || typeof snapshot.systemFields !== 'object') {
@@ -60,7 +70,10 @@ const buildSetConstantLookups = (
 
             const normalizedConstant: SnapshotConstantRecord = {
                 id,
-                codename: typeof constant.codename === 'string' ? constant.codename : null,
+                codename:
+                    typeof constant.codename === 'string' || isRecord(constant.codename)
+                        ? (constant.codename as SnapshotCodenameValue)
+                        : null,
                 dataType: typeof constant.dataType === 'string' ? constant.dataType : null,
                 presentation: isRecord(constant.presentation) ? constant.presentation : null,
                 value: Object.prototype.hasOwnProperty.call(constant, 'value') ? constant.value : null
@@ -90,12 +103,18 @@ const toSetConstantRefPayload = (
 
     return {
         id: constant.id,
-        codename: typeof constant.codename === 'string' ? constant.codename : null,
+        codename: resolveSnapshotCodenameText(constant.codename),
         dataType: typeof constant.dataType === 'string' ? constant.dataType : null,
         value: Object.prototype.hasOwnProperty.call(constant, 'value') ? constant.value : null,
         name: presentationName ?? null
     }
 }
+
+const normalizeSnapshotFieldDefinition = (field: SnapshotFieldDefinition): FieldDefinition => ({
+    ...field,
+    codename: resolveSnapshotCodenameText(field.codename) ?? '',
+    childFields: field.childFields?.map((child) => normalizeSnapshotFieldDefinition(child))
+})
 
 const enrichFieldWithSetConstantRef = (
     field: FieldDefinition,
@@ -135,7 +154,7 @@ const enrichFieldWithSetConstantRef = (
 }
 
 const normalizeExecutableEntityFields = (
-    fields: FieldDefinition[],
+    fields: SnapshotFieldDefinition[],
     lookups: {
         bySetId: Map<string, Map<string, SnapshotConstantRecord>>
         byConstantId: Map<string, SnapshotConstantRecord>
@@ -153,7 +172,7 @@ const normalizeExecutableEntityFields = (
     }
 
     for (const field of fields) {
-        const enrichedField = enrichFieldWithSetConstantRef(field, lookups)
+        const enrichedField = enrichFieldWithSetConstantRef(normalizeSnapshotFieldDefinition(field), lookups)
         const normalizedChildren = (enrichedField.childFields ?? []).map((child) => ({
             ...child,
             parentAttributeId: child.parentAttributeId ?? enrichedField.id
@@ -220,6 +239,7 @@ export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationS
             const entityConfig = isRecord(entity.config) ? entity.config : {}
             const normalizedEntity: EntityDefinition = {
                 ...entity,
+                codename: resolveSnapshotCodenameText(entity.codename) ?? '',
                 config: {
                     ...entityConfig,
                     ...(snapshotSystemFields?.[entity.id] ? { systemFields: snapshotSystemFields[entity.id] } : {})

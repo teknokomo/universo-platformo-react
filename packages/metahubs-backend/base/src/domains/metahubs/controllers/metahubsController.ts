@@ -164,6 +164,33 @@ const assertManagedMetahubSchemaName = (schemaName: string): void => {
     }
 }
 
+const loadMetahubObjectCounts = async (exec: SqlQueryable, schemaName: string): Promise<{ hubsCount: number; catalogsCount: number }> => {
+    if (!isManagedMetahubSchemaName(schemaName)) {
+        return { hubsCount: 0, catalogsCount: 0 }
+    }
+
+    const schemaIdent = quoteIdentifier(schemaName)
+
+    try {
+        const countsResult = await exec.query<{ hubsCount: number; catalogsCount: number }>(
+            `SELECT
+                 COUNT(*) FILTER (WHERE kind = 'hub')::int AS "hubsCount",
+                 COUNT(*) FILTER (WHERE kind = 'catalog')::int AS "catalogsCount"
+             FROM ${schemaIdent}._mhb_objects
+             WHERE kind IN ('hub', 'catalog')
+               AND _upl_deleted = false
+               AND _mhb_deleted = false`
+        )
+
+        return {
+            hubsCount: countsResult?.[0]?.hubsCount ?? 0,
+            catalogsCount: countsResult?.[0]?.catalogsCount ?? 0
+        }
+    } catch {
+        return { hubsCount: 0, catalogsCount: 0 }
+    }
+}
+
 const safeErrorMessage = (error: unknown): string => {
     return error instanceof Error ? error.message : String(error)
 }
@@ -599,11 +626,29 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         })
 
         const globalRoleName = isSu ? await getGlobalRoleCodename(q, userId) : null
+        const metahubCounts = await Promise.all(
+            metahubs.map(async (metahub) => {
+                const defaultBranchId = metahub.defaultBranchId ?? null
+                if (!defaultBranchId) {
+                    return { hubsCount: 0, catalogsCount: 0 }
+                }
 
-        const result = metahubs.map((m) => {
+                const branch = await findBranchByIdAndMetahub(exec, defaultBranchId, metahub.id)
+                const schemaName = branch?.schemaName ?? null
+
+                if (!schemaName) {
+                    return { hubsCount: 0, catalogsCount: 0 }
+                }
+
+                return loadMetahubObjectCounts(exec, schemaName)
+            })
+        )
+
+        const result = metahubs.map((m, index) => {
             const role = m.membershipRole ? (m.membershipRole as MetahubRole) : globalRoleName ? 'owner' : 'member'
             const accessType = m.membershipRole ? 'member' : globalRoleName ?? 'member'
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
+            const counts = metahubCounts[index] ?? { hubsCount: 0, catalogsCount: 0 }
 
             return {
                 id: m.id,
@@ -617,8 +662,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 version: m._uplVersion || 1,
                 createdAt: m._uplCreatedAt,
                 updatedAt: m._uplUpdatedAt,
-                hubsCount: 0,
-                catalogsCount: 0,
+                hubsCount: counts.hubsCount,
+                catalogsCount: counts.catalogsCount,
                 membersCount: m.membersCount,
                 role,
                 accessType,
@@ -709,21 +754,10 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const activeBranch = await findBranchByIdAndMetahub(exec, activeBranchId, metahubId)
             const schemaName = activeBranch?.schemaName ?? null
 
-            if (schemaName && isManagedMetahubSchemaName(schemaName)) {
-                const schemaIdent = quoteIdentifier(schemaName)
-                try {
-                    const [hubsResult, catalogsResult] = await Promise.all([
-                        exec.query<{ count: number }>(`SELECT COUNT(*)::int as count FROM ${schemaIdent}._mhb_objects WHERE kind = 'hub'`),
-                        exec.query<{ count: number }>(
-                            `SELECT COUNT(*)::int as count FROM ${schemaIdent}._mhb_objects WHERE kind = 'catalog'`
-                        )
-                    ])
-                    hubsCount = hubsResult?.[0]?.count ?? 0
-                    catalogsCount = catalogsResult?.[0]?.count ?? 0
-                } catch {
-                    hubsCount = 0
-                    catalogsCount = 0
-                }
+            if (schemaName) {
+                const counts = await loadMetahubObjectCounts(exec, schemaName)
+                hubsCount = counts.hubsCount
+                catalogsCount = counts.catalogsCount
             }
         }
 

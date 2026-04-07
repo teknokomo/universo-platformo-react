@@ -3,9 +3,9 @@ import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import {
     MetaEntityKind,
-    type ApplicationScriptDefinition,
     type CatalogSystemFieldsSnapshot,
     type EnumerationValueDefinition,
+    type MetahubScriptDefinition,
     type MetahubSnapshotVersionEnvelope,
     type VersionedLocalizedContent
 } from '@universo/types'
@@ -24,6 +24,8 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
+export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
+
 export interface MetahubSnapshot {
     version: 1
     versionEnvelope: MetahubSnapshotVersionEnvelope
@@ -31,19 +33,21 @@ export interface MetahubSnapshot {
     metahubId: string
     entities: Record<string, MetaEntitySnapshot>
     elements?: Record<string, MetaElementSnapshot[]>
-    enumerationValues?: Record<string, EnumerationValueDefinition[]>
+    enumerationValues?: Record<string, MetaEnumerationValueSnapshot[]>
     constants?: Record<string, MetaConstantSnapshot[]>
     systemFields?: Record<string, CatalogSystemFieldsSnapshot>
-    scripts?: ApplicationScriptDefinition[]
+    scripts?: MetahubSnapshotScript[]
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
      */
     layouts?: MetahubLayoutSnapshot[]
+    catalogLayouts?: MetahubCatalogLayoutSnapshot[]
     /**
      * Zone/widget assignments for layouts.
      */
     layoutZoneWidgets?: MetahubLayoutZoneWidgetSnapshot[]
+    catalogLayoutWidgetOverrides?: MetahubCatalogLayoutWidgetOverrideSnapshot[]
     /**
      * Default layout id (must reference one of `layouts` when present).
      */
@@ -68,6 +72,16 @@ export interface MetahubLayoutSnapshot {
     sortOrder: number
 }
 
+export interface MetahubCatalogLayoutSnapshot extends MetahubLayoutSnapshot {
+    catalogId: string
+    baseLayoutId: string
+}
+
+export interface MetahubSnapshotScript extends Omit<MetahubScriptDefinition, 'codename' | 'sourceCode'> {
+    codename: SnapshotCodenameValue
+    sourceCode?: string
+}
+
 export interface MetahubLayoutZoneWidgetSnapshot {
     id: string
     layoutId: string
@@ -81,7 +95,19 @@ export interface MetahubLayoutZoneWidgetSnapshot {
 /** @deprecated Use MetahubLayoutZoneWidgetSnapshot instead. */
 export type MetahubLayoutZoneModuleSnapshot = MetahubLayoutZoneWidgetSnapshot
 
-export interface MetaEntitySnapshot extends EntityDefinition {
+export interface MetahubCatalogLayoutWidgetOverrideSnapshot {
+    id: string
+    catalogLayoutId: string
+    baseWidgetId: string
+    zone?: string | null
+    sortOrder?: number | null
+    config?: Record<string, unknown> | null
+    isActive?: boolean | null
+    isDeletedOverride?: boolean
+}
+
+export interface MetaEntitySnapshot extends Omit<EntityDefinition, 'codename' | 'fields'> {
+    codename: SnapshotCodenameValue
     fields: MetaFieldSnapshot[]
     hubs: string[]
     tableName?: string
@@ -90,7 +116,7 @@ export interface MetaEntitySnapshot extends EntityDefinition {
 
 type SnapshotAttributeRecord = {
     id: string
-    codename: string
+    codename: SnapshotCodenameValue
     dataType: FieldDefinition['dataType']
     isRequired: boolean
     isDisplayAttribute?: boolean | null
@@ -111,7 +137,7 @@ type SnapshotAttributeRecord = {
 type SnapshotConstantRecord = {
     id: string
     setId?: string | null
-    codename: VersionedLocalizedContent<string>
+    codename: SnapshotCodenameValue
     dataType: string
     name?: VersionedLocalizedContent<string> | null
     validationRules?: Record<string, unknown> | null
@@ -123,7 +149,7 @@ type SnapshotConstantRecord = {
 type SnapshotEnumerationValueRecord = {
     id: string
     objectId?: string | null
-    codename: string
+    codename: SnapshotCodenameValue
     presentation?: EnumerationValueDefinition['presentation'] | null
     name?: VersionedLocalizedContent<string> | null
     description?: VersionedLocalizedContent<string> | null
@@ -131,8 +157,14 @@ type SnapshotEnumerationValueRecord = {
     isDefault?: boolean | null
 }
 
-export interface MetaFieldSnapshot extends FieldDefinition {
+export interface MetaFieldSnapshot extends Omit<FieldDefinition, 'codename' | 'childFields'> {
+    codename: SnapshotCodenameValue
+    childFields?: MetaFieldSnapshot[]
     sortOrder: number
+}
+
+export interface MetaEnumerationValueSnapshot extends Omit<EnumerationValueDefinition, 'codename'> {
+    codename: SnapshotCodenameValue
 }
 
 export interface MetaElementSnapshot {
@@ -145,7 +177,7 @@ export interface MetaElementSnapshot {
 export interface MetaConstantSnapshot {
     id: string
     objectId: string
-    codename: string
+    codename: SnapshotCodenameValue
     dataType: string
     presentation: Record<string, unknown>
     validationRules: Record<string, unknown>
@@ -165,6 +197,10 @@ export class SnapshotSerializer {
         private readonly scriptsService?: MetahubScriptsService
     ) {}
 
+    private static toSnapshotCodenameValue(value: unknown): SnapshotCodenameValue {
+        return typeof value === 'string' || (value && typeof value === 'object') ? (value as SnapshotCodenameValue) : ''
+    }
+
     /**
      * Serializes the entire Metahub metadata tree into a JSON snapshot.
      *
@@ -183,10 +219,30 @@ export class SnapshotSerializer {
 
         const entities: Record<string, MetaEntitySnapshot> = {}
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
-        const enumerationValuesByObject: Record<string, EnumerationValueDefinition[]> = {}
+        const enumerationValuesByObject: Record<string, MetaEnumerationValueSnapshot[]> = {}
         const constantsByObject: Record<string, MetaConstantSnapshot[]> = {}
         const systemFieldsByObject: Record<string, CatalogSystemFieldsSnapshot> = {}
-        const publishedScripts = this.scriptsService ? await this.scriptsService.listPublishedScripts(metahubId) : []
+        const publishedScripts = this.scriptsService
+            ? (await this.scriptsService.listScripts(metahubId, { onlyActive: true }))
+                  .filter((script) => script.isActive)
+                  .map<MetahubSnapshotScript>((script) => ({
+                      id: script.id,
+                      codename: script.codename,
+                      presentation: script.presentation,
+                      attachedToKind: script.attachedToKind,
+                      attachedToId: script.attachedToId,
+                      moduleRole: script.moduleRole,
+                      sourceKind: script.sourceKind,
+                      sdkApiVersion: script.sdkApiVersion,
+                      sourceCode: script.sourceCode,
+                      manifest: script.manifest,
+                      serverBundle: script.serverBundle,
+                      clientBundle: script.clientBundle,
+                      checksum: script.checksum,
+                      isActive: script.isActive,
+                      config: script.config
+                  }))
+            : []
 
         const objectIds = catalogs.map((catalog) => catalog.id)
         const allElements =
@@ -208,7 +264,7 @@ export class SnapshotSerializer {
             entities[hubId] = {
                 id: hubId,
                 kind: 'hub',
-                codename: getCodenameText(hub.codename),
+                codename: SnapshotSerializer.toSnapshotCodenameValue(hub.codename),
                 presentation: {
                     name: hubName,
                     description: hubDescription
@@ -224,7 +280,7 @@ export class SnapshotSerializer {
 
         for (const catalog of catalogs) {
             // Fetch ALL attributes (root + child) for snapshot completeness
-            const allAttributes = (await this.attributesService.findAllFlat(
+            const allAttributes = (await this.attributesService.findAllFlatForSnapshot(
                 metahubId,
                 catalog.id,
                 undefined,
@@ -255,7 +311,7 @@ export class SnapshotSerializer {
             entities[catalog.id] = {
                 id: catalog.id,
                 kind: 'catalog',
-                codename: getCodenameText(catalog.codename),
+                codename: SnapshotSerializer.toSnapshotCodenameValue(catalog.codename),
                 tableName: catalog.table_name,
                 presentation: {
                     name: catalog.presentation?.name || {},
@@ -272,7 +328,7 @@ export class SnapshotSerializer {
 
                     const fieldDef: MetaFieldSnapshot = {
                         id: attr.id,
-                        codename: attr.codename,
+                        codename: SnapshotSerializer.toSnapshotCodenameValue(attr.codename),
                         dataType: attr.dataType,
                         isRequired: attr.isRequired,
                         isDisplayAttribute: attr.isDisplayAttribute ?? false,
@@ -293,7 +349,7 @@ export class SnapshotSerializer {
                         const children = childAttributesByParent.get(attr.id) ?? []
                         fieldDef.childFields = children.map((child) => ({
                             id: child.id,
-                            codename: child.codename,
+                            codename: SnapshotSerializer.toSnapshotCodenameValue(child.codename),
                             dataType: child.dataType,
                             isRequired: child.isRequired,
                             isDisplayAttribute: child.isDisplayAttribute ?? false,
@@ -324,7 +380,7 @@ export class SnapshotSerializer {
                 constantsByObject[set.id] = constants.map((constant) => ({
                     id: constant.id,
                     objectId: constant.setId ?? set.id,
-                    codename: getCodenameText(constant.codename),
+                    codename: SnapshotSerializer.toSnapshotCodenameValue(constant.codename),
                     dataType: constant.dataType,
                     presentation: {
                         name: constant.name ?? {}
@@ -344,10 +400,10 @@ export class SnapshotSerializer {
                         metahubId,
                         enumeration.id
                     )) as unknown as SnapshotEnumerationValueRecord[]
-                    const normalizedValues: EnumerationValueDefinition[] = values.map((value) => ({
+                    const normalizedValues: MetaEnumerationValueSnapshot[] = values.map((value) => ({
                         id: value.id,
                         objectId: value.objectId ?? enumeration.id,
-                        codename: value.codename,
+                        codename: SnapshotSerializer.toSnapshotCodenameValue(value.codename),
                         presentation:
                             value.presentation && typeof value.presentation === 'object'
                                 ? value.presentation
@@ -373,7 +429,7 @@ export class SnapshotSerializer {
             entities[enumeration.id] = {
                 id: enumeration.id,
                 kind: MetaEntityKind.ENUMERATION,
-                codename: getCodenameText(enumeration.codename),
+                codename: SnapshotSerializer.toSnapshotCodenameValue(enumeration.codename),
                 tableName: generateTableName(enumeration.id, MetaEntityKind.ENUMERATION),
                 presentation: {
                     name: enumeration.presentation?.name || {},
@@ -394,7 +450,7 @@ export class SnapshotSerializer {
             entities[set.id] = {
                 id: set.id,
                 kind: MetaEntityKind.SET,
-                codename: getCodenameText(set.codename),
+                codename: SnapshotSerializer.toSnapshotCodenameValue(set.codename),
                 tableName: generateTableName(set.id, MetaEntityKind.SET),
                 presentation: {
                     name: set.presentation?.name || {},
@@ -487,36 +543,29 @@ export class SnapshotSerializer {
      *    (required by SchemaGenerator, SchemaMigrator and diff engine).
      */
     deserializeSnapshot(snapshot: MetahubSnapshot): EntityDefinition[] {
+        const toExecutableField = (field: MetaFieldSnapshot, parentAttributeId = field.parentAttributeId ?? null): FieldDefinition => ({
+            ...field,
+            codename: getCodenameText(field.codename),
+            targetEntityId: field.targetEntityId,
+            targetEntityKind: field.targetEntityKind,
+            targetConstantId: field.targetConstantId,
+            childFields: field.childFields?.map((child) => toExecutableField(child, child.parentAttributeId ?? field.id)),
+            parentAttributeId
+        })
+
         return Object.values(snapshot.entities).map((entity) => ({
             ...entity,
             id: entity.id,
+            codename: getCodenameText(entity.codename),
             config: {
                 ...(entity.config ?? {}),
                 systemFields: snapshot.systemFields?.[entity.id] ?? null
             },
             fields: entity.fields.flatMap((field) => {
-                const mapped = {
-                    ...field,
-                    targetEntityId: field.targetEntityId,
-                    targetEntityKind: field.targetEntityKind,
-                    targetConstantId: field.targetConstantId,
-                    childFields: field.childFields?.map((child) => ({
-                        ...child,
-                        targetEntityId: child.targetEntityId,
-                        targetEntityKind: child.targetEntityKind,
-                        targetConstantId: child.targetConstantId
-                    })),
-                    parentAttributeId: field.parentAttributeId
-                }
+                const mapped = toExecutableField(field)
 
                 // Flatten TABLE child fields into the entity.fields array
-                const children = (field.childFields ?? []).map((child) => ({
-                    ...child,
-                    targetEntityId: child.targetEntityId,
-                    targetEntityKind: child.targetEntityKind,
-                    targetConstantId: child.targetConstantId,
-                    parentAttributeId: field.id
-                }))
+                const children = (field.childFields ?? []).map((child) => toExecutableField(child, child.parentAttributeId ?? field.id))
 
                 return [mapped, ...children]
             })

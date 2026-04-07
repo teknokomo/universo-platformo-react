@@ -614,9 +614,23 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         const persistedAttribute = await getCatalogAttribute(api, metahub.id, catalogId, createdAttribute.id)
         expect(persistedAttribute.id).toBe(createdAttribute.id)
 
+        await page.getByRole('tab', { name: 'Settings' }).click()
+        const attributeSettingsDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
+        await expect(attributeSettingsDialog).toBeVisible()
+        await expect(attributeSettingsDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
+        await attributeSettingsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(attributeSettingsDialog).toHaveCount(0)
+
         await page.goto(`/metahub/${metahub.id}/catalog/${catalogId}/elements`)
         await expect(page.getByRole('heading', { name: 'Elements' })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toBeEnabled()
+
+        await page.getByRole('tab', { name: 'Settings' }).click()
+        const elementSettingsDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
+        await expect(elementSettingsDialog).toBeVisible()
+        await expect(elementSettingsDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
+        await elementSettingsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(elementSettingsDialog).toHaveCount(0)
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
         const elementDialog = page.getByRole('dialog', { name: 'Add Element' })

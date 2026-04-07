@@ -1,5 +1,56 @@
 # Current Research
 
+## 2026-04-07: Layout-owned catalog behavior contract closure
+
+- Research outcome implemented: the reopened QA defect was a contract split, not a runtime-resolution bug. Applications runtime already resolved behavior from layout `catalogBehavior`, but metahubs catalog authoring/API/tests still carried legacy `runtimeConfig`.
+- Implemented fix: metahubs frontend removed `runtimeConfig` from catalog form defaults, payload serializers, and shared catalog types; metahubs backend catalog controller now rejects `runtimeConfig`, strips stale persisted `config.runtimeConfig` on update/copy, and no longer returns it; touched regressions now enforce layout-owned behavior and mock reorder enablement through `_app_layouts.config.catalogBehavior`.
+- Closure validation: focused metahubs frontend/backend/applications backend suites passed, touched-file ESLint recheck had no error-level failures, and the canonical root `pnpm build` finished green (`30 successful`, `28 cached`, `1m8s`).
+- No open research thread remains for this remediation wave.
+
+## 2026-04-07: Snapshot hash integrity and catalog layout docs closure
+
+- Research outcome implemented: the reopened QA defect was a real integrity gap, not a false positive. The shared canonical publication snapshot hash/checksum path had not kept up with the current export surface.
+- Confirmed root cause: `normalizePublicationSnapshotForHash(...)` omitted `scripts`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, even though those sections already participate in snapshot export/import and application release lineage.
+- Implemented fix: the shared normalizer now includes those sections with deterministic ordering, focused `@universo/utils` regressions fail closed on hash drift and envelope tampering across the newly covered sections, and the EN/RU catalog-layout docs now describe inherited widgets as placement/visibility overlays with base-layout config inheritance.
+- Closure validation: focused snapshot/hash tests passed (`22/22`), `pnpm --filter @universo/utils build` completed green, and the canonical root `pnpm build` finished green.
+- No open research thread remains for this remediation wave.
+
+## 2026-04-07: Self-hosted fixture regeneration and current structure baseline closure
+
+- Research outcome implemented: the remaining self-hosted generator failure was split across two seams, not one export bug. The generator spec still expected `showDetailsTitle: false` to persist in Settings layout config, while the live contract keeps that behavior as a widget override.
+- Confirmed root cause: current public structure version `0.1.0` still mapped numeric version `1` to `SYSTEM_TABLES_V1`, so freshly created branch schemas omitted `_mhb_scripts` and publication creation failed during the generator flow.
+- Implemented fix: the generator assertion now follows sparse persisted layout semantics, and `SYSTEM_TABLE_VERSIONS` maps version `1` to `SYSTEM_TABLES`, restoring `_mhb_scripts` to fresh current-version branch schemas.
+- Closure validation: the browser self-hosted generator passed (`2 passed`, `4.7m`), the browser snapshot import/export flow passed (`5 passed`, `1.9m`), focused `systemTableDefinitions` backend tests passed (`27/27`), and the canonical root `pnpm build` finished green.
+- No open research thread remains for this fixture/baseline wave.
+
+## 2026-04-06: Catalog layout QA remediation closure
+
+- Research outcome implemented: the remaining QA defects were real contract mismatches, not just copy or CSS polish. Catalog runtime behavior still resolved partly from legacy catalog settings, catalog layouts still stored copied widget-visibility booleans, and the catalog dialog still exposed a fallback-runtime form.
+- Implemented runtime contract: `catalogRuntimeConfig.ts` and `runtimeRowsController.ts` now resolve active catalog behavior only from layout config, with the global layout acting as the default baseline until a catalog-specific layout exists.
+- Implemented storage/materialization split: design-time catalog layouts now strip dashboard widget-visibility booleans from stored config, while application sync reconstructs those booleans from effective widgets when publishing runtime `_app_layouts` rows.
+- Implemented UI closure: the catalog tab now ships as `Layouts` / `Макеты`, the redundant embedded heading and fallback form are removed, embedded layout content no longer renders extra shell gutters, and the shared header now provides adaptive search in the embedded dialog-width layout manager.
+- Closure validation: focused utils/frontend/backend/shared-header tests passed, `pnpm run build:e2e` completed green (`30 successful`), `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `1.8m`), and the canonical root `pnpm build` remained green.
+- No open research thread remains for this remediation wave.
+
+## 2026-04-06: Inherited catalog widgets closure
+
+- Research outcome implemented: the remaining reopened defect was narrow and contract-level, not a broader failure of the General/catalog-layout architecture.
+- Implemented backend fix: catalog-layout widget payloads now expose `isInherited`, and inherited widgets fail closed on config edit, deletion, and direct reassignment while still supporting move/toggle through sparse override rows.
+- Implemented runtime fix: snapshot export and application sync now ignore inherited override config so inherited widgets always materialize with base widget config instead of freezing stale catalog-specific config.
+- Implemented UI proof: the shared layout editor now renders inherited badges and hides edit/remove affordances for inherited rows while preserving drag and active-state toggles.
+- Closure validation: focused metahubs-backend service tests passed (`7/7`), focused metahubs-frontend layout tests passed (`4 tests total`), focused applications-backend sync tests passed (`2/2`), `pnpm run build:e2e` completed green, `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `1.8m`), and the canonical root `pnpm build` remained green.
+- No open research thread remains for this defect.
+
+## 2026-04-06: Metahub General section plan final contract clarification
+
+- Research outcome: the revised plan still had one residual ambiguity after the second QA pass. It correctly moved create/edit/copy behavior to the catalog-layout level, but it did not yet specify where that behavior should live in the contract/schema.
+- Verified type boundary: `DashboardLayoutConfig` only models dashboard presentation/layout fields, so it should not absorb create/edit/copy or catalog behavior settings.
+- Verified reuse seam: the existing `CatalogRuntimeViewConfig` already defines the relevant catalog runtime behavior fields and enums (`showCreateButton`, `searchMode`, `createSurface`, `editSurface`, `copySurface`).
+- Planning conclusion applied: the plan now treats those fields as a catalog-layout-level nested behavior block inside the existing layout `config` JSONB, reusing the established catalog runtime setting shape/enums instead of introducing a new standalone schema family.
+- Final refinement applied: runtime behavior resolution is now explicit for the no-layout case as well. The selected catalog layout behavior config wins when present; otherwise runtime falls back to the existing catalog runtimeConfig behavior subset. The first catalog layout seeds its behavior config from the current catalog settings when present.
+- Resulting contract split: dashboard presentation stays in `DashboardLayoutConfig`; catalog-specific runtime behavior that is not part of dashboard layout becomes part of the selected catalog layout's nested behavior config.
+- No open research thread remains for this plan QA pass; the next action is user approval or implementation.
+
 ## 2026-04-05: Frontend test warning remediation closure
 
 - Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside scripting-related frontend tests.
@@ -40,6 +91,14 @@
 - Hidden defect found and fixed during the same pass: the isolated-vm bootstrap source used strict-mode-invalid `const eval = undefined` code. Runtime tests now parse generated bootstrap source so the same issue fails loudly.
 - No open research thread remains for this scripting hardening closure wave.
 
+## 2026-04-06: Codename JSONB/VLC contract re-audit
+
+- Research outcome: the live source contract now persists codename through one `codename` JSONB/VLC field across the touched metahubs/admin flows; the older mixed-storage notes below are historical, not current-state guidance.
+- Verified settings seam: `general.codenameLocalizedEnabled` still exists in admin/metahub settings, route helpers, and template-seed config, but it only controls how many locale entries survive into the persisted VLC payload. When false, `enforceSingleLocaleCodename(...)` keeps only the primary locale instead of flattening codename to plain text or reviving `codename_localized` / `presentation.codename`.
+- Verified runtime seam: runtime/application code may still extract primary codename text at request or executable boundaries, but that is a boundary conversion only; it is not a second persisted storage contract.
+- Workspace audit result: no source file under `packages/**/base/src` still persists `codename_localized` or `presentation.codename`, and no workspace artifact named `admin-role-codename-localized-contract-20260323.json` exists.
+- No open research thread remains for this audit.
+
 ## 2026-04-04: Self-hosted post-import schema diff and runtime inheritance regression wave
 
 - Research outcome implemented: the connector destructive-diff bug was caused by identity drift, not by harmless UI-only diff rendering. `@universo/schema-ddl/calculateSchemaDiff(...)` matches physical entities and fields by `entity.id` / `field.id`, not by codename.
@@ -50,13 +109,9 @@
 
 ## 2026-03-23: Unified codename JSONB architecture revalidation
 
-- Research outcome: the user-correct target architecture is not the previously implemented dual-field model. The new target is one field only, `codename JSONB`, across metahubs root entities, child entities, admin roles, and runtime application metadata.
-- Verified repository state: the live branch still contains three codename contracts at once: `codename VARCHAR + codename_localized JSONB`, plain `codename` plus `presentation.codename`, and string-only `codename` in admin/runtime metadata.
-- Verified frontend state: `useCodenameVlcSync` and `general.codenameLocalizedEnabled` exist only because the UI still edits dual codename surfaces. Both become architectural removal targets under the new contract.
-- Verified runtime state: `packages/schema-ddl/base/src/SchemaGenerator.ts` and applications runtime SQL still assume plain text `codename` for `_app_objects` and `_app_attributes`, so runtime metadata must be migrated together with design-time schemas.
-- External PostgreSQL guidance confirmed that JSONB is viable here, but ordering and uniqueness should use immutable expression indexes on extracted text, not whole-document JSONB equality checks.
-- Live Supabase `UP-test` inspection confirmed the mixed contract is not just theoretical code drift; the real test database still stores metahub dual codename columns and string runtime/admin codename columns.
-- Planning conclusion: the safest implementation path is to standardize on the existing VLC `VersionedLocalizedContent<string>` shape, use the extracted `_primary` locale content as the canonical machine identifier, and remove `codename_localized`, `presentation.codename`, and string-only codename storage entirely.
+- Historical note: this section captured the pre-convergence migration gap when the branch still carried mixed codename storage seams.
+- Outcome preserved for traceability: it established the approved target of one `codename JSONB` VLC field plus primary-text machine semantics.
+- Current truth: the live source has since converged on that storage contract for the touched design-time/admin paths; see the 2026-04-06 re-audit above for the current-state summary.
 - Closure update 2026-03-24: the touched backend/frontend request-contract slice is now implemented and validated; no open research thread remains for this specific codename payload seam.
 
 ## 2026-03-17: Admin roles / metapanel live-architecture revalidation

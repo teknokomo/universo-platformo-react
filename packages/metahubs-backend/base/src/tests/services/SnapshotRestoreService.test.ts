@@ -44,6 +44,12 @@ function createMockKnex() {
         }),
         returning: jest.fn().mockImplementation(function (this: any) {
             const newId = `generated-id-${idCounter++}`
+            const table = this._currentTable || '_unknown'
+            const tableRows = insertedRows[table]
+            const lastInsertedRow = Array.isArray(tableRows) ? tableRows[tableRows.length - 1] : null
+            if (lastInsertedRow && typeof lastInsertedRow === 'object') {
+                ;(lastInsertedRow as Record<string, unknown>).id = newId
+            }
             return Promise.resolve([{ id: newId }])
         }),
         del: jest.fn().mockImplementation(function (this: any) {
@@ -228,9 +234,11 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_catalog_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toHaveLength(1)
         expect(insertedRows['_mhb_layouts']![0]).toMatchObject({
+            catalog_id: null,
+            base_layout_id: null,
             template_key: 'dashboard',
             is_default: true
         })
@@ -348,9 +356,119 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_catalog_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
+    })
+
+    it('restores catalog layouts and sparse widget overrides with remapped ids', async () => {
+        const snapshot = makeMinimalSnapshot({
+            layouts: [
+                {
+                    id: 'old-global-layout-id',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: { showHeader: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            catalogLayouts: [
+                {
+                    id: 'old-catalog-layout-id',
+                    catalogId: 'old-catalog-id',
+                    baseLayoutId: 'old-global-layout-id',
+                    templateKey: 'dashboard',
+                    name: { en: 'Catalog override' },
+                    description: null,
+                    config: { showHeader: false },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'old-global-widget-id',
+                    layoutId: 'old-global-layout-id',
+                    zone: 'left',
+                    widgetKey: 'menuWidget',
+                    sortOrder: 1,
+                    config: { showTitle: true },
+                    isActive: true
+                },
+                {
+                    id: 'old-owned-widget-id',
+                    layoutId: 'old-catalog-layout-id',
+                    zone: 'right',
+                    widgetKey: 'statsOverview',
+                    sortOrder: 1,
+                    config: { compact: true },
+                    isActive: true
+                }
+            ],
+            catalogLayoutWidgetOverrides: [
+                {
+                    id: 'old-override-id',
+                    catalogLayoutId: 'old-catalog-layout-id',
+                    baseWidgetId: 'old-global-widget-id',
+                    zone: 'top',
+                    sortOrder: 2,
+                    config: { showTitle: false },
+                    isActive: true,
+                    isDeletedOverride: false
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_layouts']).toHaveLength(2)
+        const globalLayoutRow = insertedRows['_mhb_layouts']![0] as Record<string, unknown>
+        const catalogLayoutRow = insertedRows['_mhb_layouts']![1] as Record<string, unknown>
+        const globalWidgetRow = insertedRows['_mhb_widgets']![0] as Record<string, unknown>
+        const catalogWidgetRow = insertedRows['_mhb_widgets']![1] as Record<string, unknown>
+        const overrideRow = insertedRows['_mhb_catalog_widget_overrides']![0] as Record<string, unknown>
+
+        expect(globalLayoutRow).toMatchObject({
+            catalog_id: null,
+            base_layout_id: null,
+            template_key: 'dashboard',
+            is_default: true
+        })
+        expect(catalogLayoutRow).toMatchObject({
+            catalog_id: 'generated-id-1',
+            base_layout_id: globalLayoutRow.id,
+            template_key: 'dashboard',
+            is_default: true
+        })
+
+        expect(insertedRows['_mhb_widgets']).toHaveLength(2)
+        expect(globalWidgetRow).toMatchObject({
+            layout_id: globalLayoutRow.id,
+            zone: 'left',
+            widget_key: 'menuWidget'
+        })
+        expect(catalogWidgetRow).toMatchObject({
+            layout_id: catalogLayoutRow.id,
+            zone: 'right',
+            widget_key: 'statsOverview'
+        })
+
+        expect(insertedRows['_mhb_catalog_widget_overrides']).toHaveLength(1)
+        expect(overrideRow).toMatchObject({
+            catalog_layout_id: catalogLayoutRow.id,
+            base_widget_id: globalWidgetRow.id,
+            zone: 'top',
+            sort_order: 2,
+            is_active: true,
+            is_deleted_override: false
+        })
     })
 
     it('skips entities with missing entityIdMap (with warning)', async () => {

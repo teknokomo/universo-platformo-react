@@ -265,6 +265,24 @@ export class MetahubAttributesService {
     }
 
     /**
+     * Returns ALL attributes (root + child) while preserving localized codename payloads.
+     * Use this only for snapshot-oriented export flows that must keep raw codename objects.
+     */
+    async findAllFlatForSnapshot(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business') {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const rows = await queryMany(
+            this.exec,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            [objectId]
+        )
+
+        return rows.map((row) => this.mapRowToSnapshotAttribute(row))
+    }
+
+    /**
      * Returns child attributes of a TABLE attribute.
      */
     async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, db?: SqlQueryable) {
@@ -1578,6 +1596,13 @@ export class MetahubAttributesService {
             version: row._upl_version || 1,
             createdAt: row._upl_created_at,
             updatedAt: row._upl_updated_at
+        }
+    }
+
+    private mapRowToSnapshotAttribute = (row: any) => {
+        return {
+            ...this.mapRowToAttribute(row),
+            codename: ensureCodenameValue(row.codename)
         }
     }
 }

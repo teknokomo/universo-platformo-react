@@ -48,6 +48,8 @@
         "connectors": "Коннекторы",
         "migrations": "Миграции",
         "branches": "Ветки",
+        "general": "Основное",
+        "commonSection": "Общие",
         "hubs": "Хабы",
         "catalogs": "Каталоги",
         "sets": "Наборы",

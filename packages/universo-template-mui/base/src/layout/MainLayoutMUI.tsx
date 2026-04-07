@@ -53,7 +53,7 @@ export default function MainLayoutMUI({ disableCustomTheme, children }: MainLayo
                                 width: '100%',
                                 maxWidth: { md: 1700 },
                                 mx: 'auto',
-                                px: { xs: 2, md: 3 },
+                                px: { xs: 1.5, md: 2 },
                                 pb: 2,
                                 mt: { xs: 8, md: 0 }
                             }}

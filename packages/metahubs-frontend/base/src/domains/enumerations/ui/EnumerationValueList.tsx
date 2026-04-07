@@ -1106,6 +1106,7 @@ const EnumerationValueList = () => {
                             entityKind: 'enumeration' as const,
                             t,
                             enumerationMap,
+                            metahubId,
                             currentHubId: enumerationForHubResolution.hubs?.[0]?.id ?? null,
                             uiLocale: preferredVlcLocale,
                             api: {

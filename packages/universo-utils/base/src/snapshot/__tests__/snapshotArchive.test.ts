@@ -3,6 +3,15 @@ import { computeSnapshotHash, buildSnapshotEnvelope, validateSnapshotEnvelope } 
 import type { MetahubSnapshotTransportEnvelope } from '@universo/types'
 import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo/types'
 
+const createCodenameVlc = (primary: string, secondary?: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: primary, version: 1, isActive: true },
+        ...(secondary ? { ru: { content: secondary, version: 1, isActive: true } } : {})
+    }
+})
+
 function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
     return {
         version: '1.0.0',
@@ -11,7 +20,7 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
             'ent-1': {
                 id: 'ent-1',
                 kind: 'catalog',
-                codename: 'test_catalog',
+                codename: createCodenameVlc('test_catalog', 'тестовый_каталог'),
                 fields: []
             }
         },
@@ -23,6 +32,88 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
         layoutZoneWidgets: [],
         defaultLayoutId: null,
         layoutConfig: {}
+    }
+}
+
+function makeSnapshotWithExtendedSections(): Record<string, unknown> {
+    return {
+        ...makeMinimalSnapshot(),
+        scripts: [
+            {
+                id: 'script-1',
+                codename: createCodenameVlc('quiz_script', 'скрипт_викторины'),
+                presentation: { name: { en: 'Quiz Script' } },
+                attachedToKind: 'metahub',
+                attachedToId: null,
+                moduleRole: 'shared',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                sourceCode: 'export const value = 1',
+                manifest: {
+                    className: 'QuizModule',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'shared',
+                    sourceKind: 'embedded',
+                    capabilities: ['rpc.server', 'rpc.client'],
+                    methods: [{ name: 'publish', target: 'server' }],
+                    checksum: 'manifest-1'
+                },
+                serverBundle: 'server-bundle-1',
+                clientBundle: 'client-bundle-1',
+                checksum: 'checksum-1',
+                isActive: true,
+                config: { scope: 'global' }
+            }
+        ],
+        layouts: [
+            {
+                id: 'layout-1',
+                templateKey: 'dashboard',
+                name: { en: 'Default Layout' },
+                description: null,
+                config: { sections: ['hero'] },
+                isDefault: true,
+                isActive: true,
+                sortOrder: 1
+            }
+        ],
+        layoutZoneWidgets: [
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'hero',
+                sortOrder: 1,
+                config: { title: 'Hero' },
+                isActive: true
+            }
+        ],
+        catalogLayouts: [
+            {
+                id: 'catalog-layout-1',
+                catalogId: 'ent-1',
+                baseLayoutId: 'layout-1',
+                templateKey: 'dashboard',
+                name: { en: 'Catalog Layout' },
+                description: null,
+                config: { searchMode: 'advanced' },
+                isDefault: true,
+                isActive: true,
+                sortOrder: 1
+            }
+        ],
+        catalogLayoutWidgetOverrides: [
+            {
+                id: 'override-1',
+                catalogLayoutId: 'catalog-layout-1',
+                baseWidgetId: 'widget-1',
+                zone: 'aside',
+                sortOrder: 3,
+                config: null,
+                isActive: true,
+                isDeletedOverride: false
+            }
+        ]
     }
 }
 
@@ -62,6 +153,33 @@ describe('computeSnapshotHash', () => {
         const snap2 = { ...makeMinimalSnapshot(), version: '2.0.0' }
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
+
+    it('produces different hashes when scripts change', () => {
+        const snap1 = makeSnapshotWithExtendedSections()
+        const snap2 = makeSnapshotWithExtendedSections()
+
+        ;((snap2.scripts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).sourceCode = 'export const value = 2'
+
+        expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
+    })
+
+    it('produces different hashes when catalog layouts change', () => {
+        const snap1 = makeSnapshotWithExtendedSections()
+        const snap2 = makeSnapshotWithExtendedSections()
+
+        ;((snap2.catalogLayouts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).config = { searchMode: 'simple' }
+
+        expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
+    })
+
+    it('produces different hashes when catalog widget overrides change', () => {
+        const snap1 = makeSnapshotWithExtendedSections()
+        const snap2 = makeSnapshotWithExtendedSections()
+
+        ;((snap2.catalogLayoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<string, unknown>).sortOrder = 4
+
+        expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
+    })
 })
 
 describe('buildSnapshotEnvelope', () => {
@@ -99,6 +217,40 @@ describe('validateSnapshotEnvelope', () => {
     it('rejects tampered hash', () => {
         const envelope = makeMinimalEnvelope()
         envelope.snapshotHash = 'a'.repeat(64)
+        expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
+    })
+
+    it('rejects tampered scripts in extended snapshot sections', () => {
+        const snapshot = makeSnapshotWithExtendedSections()
+        const envelope = buildSnapshotEnvelope({
+            snapshot: snapshot as MetahubSnapshotTransportEnvelope['snapshot'],
+            metahub: {
+                id: '00000000-0000-0000-0000-000000000002',
+                name: { en: 'Test Metahub' },
+                codename: { en: 'test-metahub' }
+            }
+        })
+
+        ;(((envelope.snapshot as Record<string, unknown>).scripts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).checksum =
+            'checksum-2'
+
+        expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
+    })
+
+    it('rejects tampered catalog overlay sections', () => {
+        const snapshot = makeSnapshotWithExtendedSections()
+        const envelope = buildSnapshotEnvelope({
+            snapshot: snapshot as MetahubSnapshotTransportEnvelope['snapshot'],
+            metahub: {
+                id: '00000000-0000-0000-0000-000000000002',
+                name: { en: 'Test Metahub' },
+                codename: { en: 'test-metahub' }
+            }
+        })
+
+        ;(((envelope.snapshot as Record<string, unknown>).catalogLayoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<string, unknown>).zone =
+            'footer'
+
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
     })
 

@@ -190,8 +190,11 @@ export {
 } from './validation/copyOptions'
 
 export {
+    extractCatalogLayoutBehaviorConfig,
     normalizeCatalogRuntimeViewConfig,
+    resolveCatalogLayoutBehaviorConfig,
     sanitizeCatalogRuntimeViewConfig,
+    setCatalogLayoutBehaviorConfig,
     resolveCatalogRuntimeDashboardLayoutConfig
 } from './validation/catalogRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'

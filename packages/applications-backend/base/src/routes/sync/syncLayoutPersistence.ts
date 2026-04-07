@@ -73,6 +73,7 @@ export async function persistPublishedLayouts(options: {
 
         for (const row of nextLayouts) {
             const payload = {
+                catalog_id: row.catalogId,
                 template_key: row.templateKey,
                 name: row.name,
                 description: row.description,
@@ -234,7 +235,7 @@ export async function getPersistedDashboardLayoutConfig(options: { schemaName: s
     const preferredDefault = await knex
         .withSchema(schemaName)
         .from('_app_layouts')
-        .where({ is_default: true, _upl_deleted: false, _app_deleted: false })
+        .where({ catalog_id: null, is_default: true, _upl_deleted: false, _app_deleted: false })
         .select(['config'])
         .first()
 
@@ -243,7 +244,7 @@ export async function getPersistedDashboardLayoutConfig(options: { schemaName: s
         : await knex
               .withSchema(schemaName)
               .from('_app_layouts')
-              .where({ is_active: true, _upl_deleted: false, _app_deleted: false })
+              .where({ catalog_id: null, is_active: true, _upl_deleted: false, _app_deleted: false })
               .orderBy([
                   { column: 'sort_order', order: 'asc' },
                   { column: '_upl_created_at', order: 'asc' }
@@ -270,14 +271,16 @@ export async function getPersistedPublishedLayouts(options: {
         .withSchema(schemaName)
         .from('_app_layouts')
         .where({ _upl_deleted: false, _app_deleted: false })
-        .select(['id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
+        .select(['id', 'catalog_id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
         .orderBy([
+            { column: 'catalog_id', order: 'asc', nulls: 'first' },
             { column: 'sort_order', order: 'asc' },
             { column: '_upl_created_at', order: 'asc' }
         ])) as PersistedAppLayoutRowDb[]
 
     const layouts = rows.map((row) => ({
         id: String(row.id),
+        catalogId: typeof row.catalog_id === 'string' && row.catalog_id.length > 0 ? row.catalog_id : null,
         templateKey: typeof row.template_key === 'string' && row.template_key.length > 0 ? row.template_key : 'dashboard',
         name: isRecord(row.name) ? row.name : {},
         description: isRecord(row.description) ? row.description : null,
@@ -286,7 +289,7 @@ export async function getPersistedPublishedLayouts(options: {
         isDefault: Boolean(row.is_default),
         sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
     }))
-    const defaultLayoutId = layouts.find((layout) => layout.isDefault)?.id ?? null
+    const defaultLayoutId = layouts.find((layout) => layout.catalogId === null && layout.isDefault)?.id ?? null
     return { layouts, defaultLayoutId }
 }
 

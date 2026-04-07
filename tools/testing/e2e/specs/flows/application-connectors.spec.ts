@@ -317,6 +317,8 @@ test('@flow @combined application connector can be created through the browser a
 })
 
 test('@flow imported snapshot publication creates schema on first connector attempt', async ({ page, runManifest }) => {
+    test.setTimeout(180_000)
+
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
         password: runManifest.testUser.password

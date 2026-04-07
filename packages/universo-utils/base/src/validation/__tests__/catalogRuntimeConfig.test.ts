@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveCatalogRuntimeDashboardLayoutConfig, sanitizeCatalogRuntimeViewConfig } from '../catalogRuntimeConfig'
+import {
+    extractCatalogLayoutBehaviorConfig,
+    resolveCatalogLayoutBehaviorConfig,
+    resolveCatalogRuntimeDashboardLayoutConfig,
+    sanitizeCatalogRuntimeViewConfig,
+    setCatalogLayoutBehaviorConfig
+} from '../catalogRuntimeConfig'
 
 describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
     it('preserves layout defaults when catalog runtime config omits overrides', () => {
@@ -12,8 +18,7 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
                 enableRowReordering: false,
                 cardColumns: 4,
                 rowHeight: 'auto'
-            },
-            catalogRuntimeConfig: {}
+            }
         })
 
         expect(resolved.showViewToggle).toBe(false)
@@ -26,20 +31,22 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
 
     it('applies explicit catalog overrides without clobbering omitted fields', () => {
         const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
-            layoutConfig: {
-                showViewToggle: false,
-                defaultViewMode: 'table',
-                showFilterBar: false,
-                enableRowReordering: false,
-                cardColumns: 4,
-                rowHeight: 'auto'
-            },
-            catalogRuntimeConfig: {
-                useLayoutOverrides: true,
-                showSearch: true,
-                defaultViewMode: 'card',
-                rowHeight: 'normal'
-            }
+            layoutConfig: setCatalogLayoutBehaviorConfig(
+                {
+                    showViewToggle: false,
+                    defaultViewMode: 'table',
+                    showFilterBar: false,
+                    enableRowReordering: false,
+                    cardColumns: 4,
+                    rowHeight: 'auto'
+                },
+                {
+                    useLayoutOverrides: true,
+                    showSearch: true,
+                    defaultViewMode: 'card',
+                    rowHeight: 'normal'
+                }
+            )
         })
 
         expect(resolved.showViewToggle).toBe(false)
@@ -52,22 +59,24 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
 
     it('ignores layout-like catalog fields until local layout overrides are enabled', () => {
         const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
-            layoutConfig: {
-                showViewToggle: true,
-                defaultViewMode: 'card',
-                showFilterBar: true,
-                enableRowReordering: true,
-                cardColumns: 4,
-                rowHeight: 'auto'
-            },
-            catalogRuntimeConfig: {
-                useLayoutOverrides: false,
-                showSearch: false,
-                defaultViewMode: 'table',
-                enableRowReordering: false,
-                cardColumns: 2,
-                rowHeight: 'compact'
-            }
+            layoutConfig: setCatalogLayoutBehaviorConfig(
+                {
+                    showViewToggle: true,
+                    defaultViewMode: 'card',
+                    showFilterBar: true,
+                    enableRowReordering: true,
+                    cardColumns: 4,
+                    rowHeight: 'auto'
+                },
+                {
+                    useLayoutOverrides: false,
+                    showSearch: false,
+                    defaultViewMode: 'table',
+                    enableRowReordering: false,
+                    cardColumns: 2,
+                    rowHeight: 'compact'
+                }
+            )
         })
 
         expect(resolved.showViewToggle).toBe(true)
@@ -76,6 +85,28 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
         expect(resolved.enableRowReordering).toBe(true)
         expect(resolved.cardColumns).toBe(4)
         expect(resolved.rowHeight).toBe('auto')
+    })
+
+    it('applies behavior config stored inside layout config', () => {
+        const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
+            layoutConfig: setCatalogLayoutBehaviorConfig(
+                {
+                    showDetailsTable: true,
+                    showViewToggle: false
+                },
+                {
+                    useLayoutOverrides: true,
+                    showViewToggle: true,
+                    showSearch: true,
+                    defaultViewMode: 'card'
+                }
+            )
+        })
+
+        expect(resolved.showDetailsTable).toBe(true)
+        expect(resolved.showViewToggle).toBe(true)
+        expect(resolved.showFilterBar).toBe(true)
+        expect(resolved.defaultViewMode).toBe('card')
     })
 })
 
@@ -100,6 +131,32 @@ describe('sanitizeCatalogRuntimeViewConfig', () => {
             useLayoutOverrides: true,
             showViewToggle: false,
             defaultViewMode: 'card'
+        })
+    })
+})
+
+describe('catalog layout behavior helpers', () => {
+    it('uses defaults when layout behavior is absent', () => {
+        expect(
+            resolveCatalogLayoutBehaviorConfig({
+                layoutConfig: {}
+            })
+        ).toMatchObject({
+            showCreateButton: true,
+            editSurface: 'dialog'
+        })
+    })
+
+    it('stores and extracts sparse behavior config inside layout config', () => {
+        const layoutConfig = setCatalogLayoutBehaviorConfig(
+            { showHeader: false },
+            { showCreateButton: false, createSurface: 'page' }
+        )
+
+        expect(layoutConfig).toMatchObject({ showHeader: false })
+        expect(extractCatalogLayoutBehaviorConfig(layoutConfig)).toEqual({
+            showCreateButton: false,
+            createSurface: 'page'
         })
     })
 })

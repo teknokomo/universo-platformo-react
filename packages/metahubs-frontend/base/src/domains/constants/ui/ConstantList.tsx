@@ -897,6 +897,7 @@ const ConstantList = () => {
                             entityKind: 'set' as const,
                             t,
                             setMap,
+                            metahubId,
                             currentHubId: effectiveHubId || null,
                             uiLocale: preferredVlcLocale,
                             api: {

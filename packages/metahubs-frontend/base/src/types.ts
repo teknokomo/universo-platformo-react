@@ -10,7 +10,6 @@
 import type {
     MetahubRole,
     GlobalRole,
-    CatalogRuntimeViewConfig,
     CodenameVLC,
     VersionedLocalizedContent,
     AttributeDataType,
@@ -186,6 +185,8 @@ export type LayoutTemplateKey = 'dashboard'
 
 export interface MetahubLayout {
     id: string
+    catalogId?: string | null
+    baseLayoutId?: string | null
     templateKey: LayoutTemplateKey
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
@@ -224,6 +225,11 @@ export interface MetahubLayoutLocalizedPayload {
     expectedVersion?: number
 }
 
+export interface MetahubCreateLayoutPayload extends MetahubLayoutLocalizedPayload {
+    catalogId?: string
+    baseLayoutId?: string
+}
+
 export interface MetahubLayoutZoneWidget {
     id: string
     layoutId: string
@@ -232,6 +238,7 @@ export interface MetahubLayoutZoneWidget {
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
+    isInherited?: boolean
     createdAt?: string
     updatedAt?: string
 }
@@ -334,7 +341,6 @@ export interface Catalog {
     createdAt: string
     updatedAt: string
     version?: number
-    runtimeConfig?: CatalogRuntimeViewConfig
     hubs?: HubRef[]
     attributesCount?: number
     elementsCount?: number
@@ -630,7 +636,6 @@ export interface CatalogLocalizedPayload {
     isSingleHub?: boolean
     isRequiredHub?: boolean
     hubIds?: string[]
-    runtimeConfig?: CatalogRuntimeViewConfig
 }
 
 /** Payload for creating/updating Set. */

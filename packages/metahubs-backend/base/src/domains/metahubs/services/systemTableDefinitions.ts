@@ -312,6 +312,8 @@ const mhbLayouts: SystemTableDef = {
     description: 'UI layouts for published Applications',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'catalog_id', type: 'uuid', nullable: true },
+        { name: 'base_layout_id', type: 'uuid', nullable: true },
         { name: 'template_key', type: 'string', length: 100, nullable: false, defaultTo: 'dashboard' },
         { name: 'name', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'description', type: 'jsonb', nullable: true },
@@ -321,14 +323,20 @@ const mhbLayouts: SystemTableDef = {
         { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 },
         { name: 'owner_id', type: 'uuid', nullable: true }
     ],
+    foreignKeys: [
+        { column: 'catalog_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'base_layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'RESTRICT' }
+    ],
     indexes: [
+        { name: 'idx_mhb_layouts_catalog_id', columns: ['catalog_id'] },
+        { name: 'idx_mhb_layouts_base_layout_id', columns: ['base_layout_id'] },
         { name: 'idx_mhb_layouts_template_key', columns: ['template_key'] },
         { name: 'idx_mhb_layouts_is_active', columns: ['is_active'] },
         { name: 'idx_mhb_layouts_is_default', columns: ['is_default'] },
         { name: 'idx_mhb_layouts_sort_order', columns: ['sort_order'] },
         {
             name: 'idx_mhb_layouts_default_active',
-            columns: ['is_default'],
+            columns: [`COALESCE(catalog_id, '00000000-0000-0000-0000-000000000000'::uuid)`],
             unique: true,
             where: 'is_default = true AND _upl_deleted = false AND _mhb_deleted = false'
         }
@@ -377,6 +385,35 @@ const mhbWidgets: SystemTableDef = {
         {
             name: 'idx_mhb_widgets_unique_active',
             columns: ['layout_id', 'zone', 'widget_key', 'sort_order'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbCatalogWidgetOverrides: SystemTableDef = {
+    name: '_mhb_catalog_widget_overrides',
+    description: 'Sparse overrides for inherited base-layout widgets in catalog-specific layouts',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'catalog_layout_id', type: 'uuid', nullable: false },
+        { name: 'base_widget_id', type: 'uuid', nullable: false },
+        { name: 'zone', type: 'string', length: 20, nullable: true },
+        { name: 'sort_order', type: 'integer', nullable: true },
+        { name: 'config', type: 'jsonb', nullable: true },
+        { name: 'is_active', type: 'boolean', nullable: true },
+        { name: 'is_deleted_override', type: 'boolean', nullable: false, defaultTo: false }
+    ],
+    foreignKeys: [
+        { column: 'catalog_layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'base_widget_id', referencesTable: '_mhb_widgets', referencesColumn: 'id', onDelete: 'CASCADE' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_catalog_widget_overrides_layout_id', columns: ['catalog_layout_id'] },
+        { name: 'idx_mhb_catalog_widget_overrides_base_widget_id', columns: ['base_widget_id'] },
+        {
+            name: 'idx_mhb_catalog_widget_overrides_unique_active',
+            columns: ['catalog_layout_id', 'base_widget_id'],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
         }
@@ -452,6 +489,7 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbSettings,
     mhbLayouts,
     mhbWidgets,
+    mhbCatalogWidgetOverrides,
     mhbMigrations
 ]
 
@@ -463,7 +501,7 @@ export const SYSTEM_TABLES: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScripts]
  * Single-version registry — all schemas use the current table definitions.
  */
 export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
-    [1, SYSTEM_TABLES_V1],
+    [1, SYSTEM_TABLES],
     [2, SYSTEM_TABLES_V2],
     [3, SYSTEM_TABLES]
 ])

@@ -94,6 +94,13 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'divider'
     },
     {
+        id: 'metahub-common',
+        titleKey: 'commonSection',
+        url: `/metahub/${metahubId}/common`,
+        icon: IconLayoutDashboard,
+        type: 'item'
+    },
+    {
         id: 'metahub-hubs',
         titleKey: 'hubs',
         url: `/metahub/${metahubId}/hubs`,
@@ -124,13 +131,6 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
     {
         id: 'metahub-divider-secondary',
         type: 'divider'
-    },
-    {
-        id: 'metahub-layouts',
-        titleKey: 'layouts',
-        url: `/metahub/${metahubId}/layouts`,
-        icon: IconLayoutDashboard,
-        type: 'item'
     },
     {
         id: 'metahub-publications',

@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { DASHBOARD_VIEW_MODES, type DashboardViewMode } from './dashboardLayout'
 
+export const DASHBOARD_LAYOUT_BEHAVIOR_CONFIG_KEY = 'catalogBehavior'
+
 export const CATALOG_RUNTIME_SEARCH_MODES = ['server', 'page-local'] as const
 export type CatalogRuntimeSearchMode = (typeof CATALOG_RUNTIME_SEARCH_MODES)[number]
 
@@ -27,9 +29,12 @@ const catalogRuntimeViewConfigObjectSchema = z.object({
     copySurface: z.enum(CATALOG_RUNTIME_EDIT_SURFACES).optional()
 })
 
+export const catalogLayoutBehaviorConfigSchema = catalogRuntimeViewConfigObjectSchema.optional()
+
 export const catalogRuntimeViewConfigSchema = catalogRuntimeViewConfigObjectSchema.optional()
 
 export type CatalogRuntimeViewConfig = z.infer<typeof catalogRuntimeViewConfigObjectSchema>
+export type CatalogLayoutBehaviorConfig = CatalogRuntimeViewConfig
 
 export interface ResolvedCatalogRuntimeViewConfig {
     useLayoutOverrides: boolean
@@ -47,6 +52,8 @@ export interface ResolvedCatalogRuntimeViewConfig {
     copySurface: CatalogRuntimeEditSurface
 }
 
+export type ResolvedCatalogLayoutBehaviorConfig = ResolvedCatalogRuntimeViewConfig
+
 export const defaultCatalogRuntimeViewConfig: ResolvedCatalogRuntimeViewConfig = {
     useLayoutOverrides: false,
     showSearch: false,
@@ -62,3 +69,5 @@ export const defaultCatalogRuntimeViewConfig: ResolvedCatalogRuntimeViewConfig =
     editSurface: 'dialog',
     copySurface: 'dialog'
 }
+
+export const defaultCatalogLayoutBehaviorConfig: ResolvedCatalogLayoutBehaviorConfig = defaultCatalogRuntimeViewConfig

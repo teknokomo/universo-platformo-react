@@ -572,6 +572,26 @@ const readLocalizedText = (value: unknown, locale = 'en'): string | undefined =>
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
+const readCodenameText = (value: unknown, locale = 'en'): string | undefined => readLocalizedText(value, locale)
+
+const isLocalizedCodenameObject = (value: unknown): value is { locales: Record<string, { content?: string }> } =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'locales' in value)
+
+const flattenFieldRecords = (fields: unknown): Array<Record<string, any>> => {
+    if (!Array.isArray(fields)) {
+        return []
+    }
+
+    return fields.flatMap((field) => {
+        const normalizedField = field && typeof field === 'object' ? (field as Record<string, any>) : null
+        if (!normalizedField) {
+            return []
+        }
+
+        return [normalizedField, ...flattenFieldRecords(normalizedField.childFields)]
+    })
+}
+
 const setLocalizedContent = (value: Record<string, unknown>, locale: string, content: string) => {
     if (!value.locales || typeof value.locales !== 'object') {
         value.locales = {}
@@ -626,91 +646,6 @@ export function buildQuizLiveMetahubCodename(_suffix?: string) {
 
 export function canonicalizeQuizFixtureEnvelope(envelope: Record<string, any>) {
     const nextEnvelope = JSON.parse(JSON.stringify(envelope))
-
-    if (nextEnvelope?.metahub?.name) {
-        setLocalizedContent(nextEnvelope.metahub.name, 'en', QUIZ_CANONICAL_METAHUB.name.en)
-        setLocalizedContent(nextEnvelope.metahub.name, 'ru', QUIZ_CANONICAL_METAHUB.name.ru)
-    }
-    if (nextEnvelope?.metahub?.description) {
-        setLocalizedContent(nextEnvelope.metahub.description, 'en', QUIZ_CANONICAL_METAHUB.description.en)
-        setLocalizedContent(nextEnvelope.metahub.description, 'ru', QUIZ_CANONICAL_METAHUB.description.ru)
-    }
-    if (nextEnvelope?.metahub?.codename) {
-        setLocalizedContent(nextEnvelope.metahub.codename, 'en', QUIZ_CANONICAL_METAHUB.codename.en)
-        setLocalizedContent(nextEnvelope.metahub.codename, 'ru', QUIZ_CANONICAL_METAHUB.codename.ru)
-    }
-
-    if (Array.isArray(nextEnvelope?.snapshot?.scripts)) {
-        nextEnvelope.snapshot.scripts = [...nextEnvelope.snapshot.scripts]
-            .sort((left, right) => String(left?.codename ?? '').localeCompare(String(right?.codename ?? '')))
-            .map((script) => {
-                if (script?.codename !== QUIZ_SCRIPT_CODENAME) {
-                    return script
-                }
-
-                return {
-                    ...script,
-                    attachedToKind: 'metahub',
-                    attachedToId: null,
-                    sourceKind: 'embedded',
-                    sourceCode: QUIZ_WIDGET_SOURCE,
-                    isActive: true,
-                    config: script?.config && typeof script.config === 'object' ? script.config : {}
-                }
-            })
-    }
-
-    const defaultLayout = findDefaultLayout(nextEnvelope)
-    if (defaultLayout && typeof defaultLayout === 'object') {
-        const currentLayoutConfig = defaultLayout.config && typeof defaultLayout.config === 'object' ? defaultLayout.config : {}
-        defaultLayout.config = {
-            ...currentLayoutConfig,
-            ...QUIZ_CENTERED_LAYOUT_CONFIG
-        }
-    }
-
-    if (nextEnvelope?.snapshot && typeof nextEnvelope.snapshot === 'object') {
-        const currentSnapshotLayoutConfig =
-            nextEnvelope.snapshot.layoutConfig && typeof nextEnvelope.snapshot.layoutConfig === 'object' ? nextEnvelope.snapshot.layoutConfig : {}
-        nextEnvelope.snapshot.layoutConfig = {
-            ...currentSnapshotLayoutConfig,
-            ...QUIZ_CENTERED_LAYOUT_CONFIG
-        }
-    }
-
-    if (defaultLayout && Array.isArray(nextEnvelope?.snapshot?.layoutZoneWidgets)) {
-        const canonicalWidgets = nextEnvelope.snapshot.layoutZoneWidgets.map((widget: Record<string, any>) => {
-            if (widget?.layoutId !== defaultLayout.id || widget?.widgetKey !== 'quizWidget') {
-                return widget
-            }
-
-            return {
-                ...widget,
-                zone: 'center',
-                sortOrder: 1,
-                config: {
-                    ...(widget?.config && typeof widget.config === 'object' ? widget.config : {}),
-                    attachedToKind: 'metahub',
-                    scriptCodename: QUIZ_SCRIPT_CODENAME
-                }
-            }
-        })
-
-        nextEnvelope.snapshot.layoutZoneWidgets = sortQuizWidgets(
-            canonicalWidgets.filter((widget: Record<string, any>) => {
-                if (widget?.layoutId !== defaultLayout.id) {
-                    return true
-                }
-
-                if (QUIZ_REMOVED_LAYOUT_WIDGET_KEY_SET.has(String(widget?.widgetKey ?? ''))) {
-                    return false
-                }
-
-                return widget?.zone !== 'right'
-            })
-        )
-    }
-
     if (nextEnvelope?.snapshot && typeof nextEnvelope.snapshot === 'object') {
         nextEnvelope.snapshotHash = computeSnapshotHash(nextEnvelope.snapshot)
     }
@@ -746,9 +681,39 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
     if (metahubCodenameRu !== QUIZ_CANONICAL_METAHUB.codename.ru) {
         errors.push(`Unexpected Russian quiz fixture codename: ${metahubCodenameRu ?? '<missing>'}`)
     }
+    if (!isLocalizedCodenameObject(envelope?.metahub?.codename)) {
+        errors.push('Quiz fixture metahub codename must be exported as a localized codename object')
+    }
 
     if ([metahubNameEn, metahubNameRu, metahubCodenameEn, metahubCodenameRu].some((value) => typeof value === 'string' && /e2e|runid|imported-/i.test(value))) {
         errors.push('Quiz fixture identity still contains run-specific markers')
+    }
+
+    const entities = Object.values(envelope?.snapshot?.entities ?? {}) as Array<Record<string, any>>
+    for (const entity of entities) {
+        if (!isLocalizedCodenameObject(entity?.codename) || !readCodenameText(entity?.codename, 'en')) {
+            errors.push(`Quiz fixture entity ${String(entity?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    for (const field of entities.flatMap((entity) => flattenFieldRecords(entity?.fields))) {
+        if (!isLocalizedCodenameObject(field?.codename) || !readCodenameText(field?.codename, 'en')) {
+            errors.push(`Quiz fixture field ${String(field?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    const enumerationValues = Object.values(envelope?.snapshot?.enumerationValues ?? {}) as Array<Array<Record<string, any>>>
+    for (const value of enumerationValues.flat()) {
+        if (!isLocalizedCodenameObject(value?.codename) || !readCodenameText(value?.codename, 'en')) {
+            errors.push(`Quiz fixture enumeration value ${String(value?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    const constants = Object.values(envelope?.snapshot?.constants ?? {}) as Array<Array<Record<string, any>>>
+    for (const constant of constants.flat()) {
+        if (!isLocalizedCodenameObject(constant?.codename) || !readCodenameText(constant?.codename, 'en')) {
+            errors.push(`Quiz fixture constant ${String(constant?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)
+        }
     }
 
     const scripts = Array.isArray(envelope?.snapshot?.scripts) ? envelope.snapshot.scripts : []
@@ -756,10 +721,13 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         errors.push(`Quiz fixture must contain exactly one exported script, received ${scripts.length}`)
     }
 
-    const quizScript = scripts.find((script: Record<string, any>) => script?.codename === QUIZ_SCRIPT_CODENAME)
+    const quizScript = scripts.find((script: Record<string, any>) => readCodenameText(script?.codename) === QUIZ_SCRIPT_CODENAME)
     if (!quizScript) {
         errors.push(`Quiz fixture is missing the canonical ${QUIZ_SCRIPT_CODENAME} script`)
     } else {
+        if (!isLocalizedCodenameObject(quizScript.codename)) {
+            errors.push('Quiz fixture script codename must be exported as a localized codename object')
+        }
         if (quizScript.attachedToKind !== 'metahub') {
             errors.push(`Quiz fixture script must attach to metahub, received ${String(quizScript.attachedToKind)}`)
         }

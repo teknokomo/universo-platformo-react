@@ -1662,6 +1662,7 @@ const ElementList = () => {
                         entityKind: 'catalog' as const,
                         t,
                         catalogMap,
+                        metahubId,
                         currentHubId: effectiveHubId || null,
                         uiLocale: preferredVlcLocale,
                         api: {

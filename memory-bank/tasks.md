@@ -6,7 +6,316 @@
 
 ## Current Task Ledger (Canonical)
 
-## Active Session: 2026-04-06 Final QA Debt Closure For Runtime Sync Coverage And Docs
+## Completed Session: 2026-04-07 PR Review Triage For GH753
+
+- [x] Collect all bot review threads from PR #753 and validate each claim against the current code/docs contract.
+	- Note: Rejected speculative follow-ups like new query params or caching because the review evidence only justified low-risk correctness/docs fixes plus a safe query consolidation.
+	- Outcome: Confirmed four valid seams: malformed catalog-layout guide frontmatter, stale Common/General terminology across user docs, file/component naming drift around `GeneralPage`, and duplicated metahub object count queries that also skipped the branch active-row predicate.
+- [x] Implement only the safe, codebase-consistent fixes that survive QA review.
+	- Note: Keep the patch set minimal and scoped to the verified review findings on docs, naming, and the backend count seam.
+	- Outcome: EN/RU docs now use the shipped Common terminology and current layout-owned behavior contract, `GeneralPage.tsx` now exports `GeneralPage`, and metahub summaries now use one filtered aggregate count query with `_upl_deleted = false AND _mhb_deleted = false` instead of two per-branch count scans.
+- [x] Re-run focused validation plus the canonical root build after the accepted fixes.
+	- Note: End with `pnpm build` from the repository root because the user explicitly requested full verification before pushing.
+	- Outcome: Targeted `@universo/metahubs-frontend` tests (`exports.test.ts`, `GeneralPage.test.tsx`) passed, targeted `@universo/metahubs-backend` `metahubsRoutes.test.ts` passed (`51/51`, `4 skipped`), manual EN/RU doc line-count parity matched on every edited pair, and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m28s`).
+- [x] Update PR #753 with the validated follow-up commit(s) from `feature/gh752-general-catalog-layouts`.
+	- Note: A full `@universo/metahubs-frontend` package test attempt surfaced unrelated pre-existing failures in `MetahubMigrations.test.tsx` due an incomplete `@universo/template-mui` mock (`PAGE_CONTENT_GUTTER_MX` missing); keep that debt out of this PR-review patch set.
+	- Outcome: Follow-up commits `c54537683` and the final memory-bank sync were pushed from `feature/gh752-general-catalog-layouts` into PR #753.
+
+## Completed Session: 2026-04-07 QA Remediation For Layout-Owned Catalog Behavior Contract
+
+- [x] Remove the stale catalog runtimeConfig authoring contract from metahubs frontend forms, payloads, and shared types.
+	- Note: Catalog CRUD/UI should stop treating runtimeConfig as a source of truth now that runtime behavior is owned by the selected layout or the global layout baseline.
+	- Outcome: Metahubs frontend catalog create/edit/copy flows and shared catalog types no longer serialize or expose legacy `runtimeConfig`.
+- [x] Align metahubs backend catalog CRUD so catalog runtimeConfig is no longer accepted, persisted, or returned as part of the catalog API contract.
+	- Note: Keep the fix scoped to the catalog controller/API seam and avoid reintroducing a runtime fallback that would split behavior ownership again.
+	- Outcome: Catalog controller schemas/responses dropped `runtimeConfig`, and update/copy flows now explicitly strip stale persisted `config.runtimeConfig` state.
+- [x] Rewrite the affected regression suites to the layout-owned behavior contract.
+	- Note: Update backend/frontend/runtime tests that still assert runtimeConfig persistence or mock reorder capability through catalog object config.
+	- Outcome: Focused frontend/backend/runtime regressions now reject legacy `runtimeConfig` contract usage and source reorder capability from layout `catalogBehavior`.
+- [x] Run focused validation plus the canonical root build after the contract cleanup.
+	- Note: Validation must cover the touched frontend/backend/runtime seams first and end with `pnpm build` from the repository root.
+	- Outcome: Focused `@universo/metahubs-frontend`, `@universo/metahubs-backend`, and `@universo/applications-backend` regressions all passed, touched-file ESLint recheck had `0` errors, and the canonical root `pnpm build` finished green (`30 successful`, `28 cached`, `1m8.073s`).
+- [x] Sync memory-bank closure state only after the implementation and validation evidence are green.
+	- Note: Update `activeContext.md` and `progress.md` after the code and verification prove the reopened QA seam is closed.
+	- Outcome: `activeContext.md`, `currentResearch.md`, `progress.md`, `systemPatterns.md`, and `techContext.md` now reflect the closed layout-owned catalog behavior remediation state and final validation evidence.
+
+## Completed Session: 2026-04-07 QA Remediation For Snapshot Hash Integrity And Catalog Layout Contract
+
+- [x] Extend the canonical publication snapshot hash/checksum path so every exported design-time snapshot section participates in integrity validation.
+	- Note: Cover the current serializer/export surface, including scripts, catalog layouts, and catalog layout widget overrides, so snapshot import validation and application release checksums stop missing real changes.
+	- Outcome: `normalizePublicationSnapshotForHash(...)` now includes `scripts`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, so both snapshot envelope integrity checks and application release checksums react to those exported sections.
+- [x] Add focused regression coverage for the repaired snapshot hash path.
+	- Note: Lock both normalization and envelope validation with explicit tests that fail when scripts or catalog layout sections drift without changing the hash.
+	- Outcome: Focused `@universo/utils` tests now fail closed when scripts or catalog overlay sections change without changing the hash and when tampered envelopes try to reuse the old digest.
+- [x] Align the catalog-layout documentation with the shipped inherited-widget contract.
+	- Note: The docs must stop promising inherited widget config overrides if the real product deliberately keeps inherited widget config read-only and materialized from the base layout.
+	- Outcome: EN/RU `catalog-layouts` guides now describe inherited widgets as visibility/placement overlays only and explicitly state that inherited config stays sourced from the base layout.
+- [x] Re-run focused validation plus the canonical root build after the fixes.
+	- Note: Validation must cover touched utils/backend seams first and end with `pnpm build` from the repository root.
+	- Outcome: Focused `@universo/utils` snapshot/hash tests passed (`22/22`), `pnpm --filter @universo/utils build` passed, and the canonical root `pnpm build` completed green.
+- [x] Sync memory-bank closure state once code, docs, and validation are green.
+	- Note: Update `activeContext.md` and `progress.md` only after the implementation and verification evidence is complete.
+	- Outcome: `tasks.md`, `activeContext.md`, `progress.md`, `currentResearch.md`, `systemPatterns.md`, and `techContext.md` now reflect the closed snapshot-integrity remediation state.
+
+## Completed Session: 2026-04-07 QA Remediation Implementation For Runtime Surfaces, Shared Layout UI, Counts, And Version Semantics
+
+- [x] Fix runtime page-surface behavior for create/edit/copy and clear stale page-surface state when switching or reopening catalogs.
+	- Note: Resolve the real state/navigation contract in the runtime flow, including the reported `?surface=page&mode=...` residue and the previously confirmed reorder-persistence regression, without preserving legacy compatibility paths the user no longer needs.
+	- Outcome: Runtime page surfaces now resolve from the active layout contract, stale surface/query residue is cleared on reopen/navigation, and the related reorder persistence seam was aligned with the clean current-state model.
+- [x] Fix the connector metahub-picker dialog presentation defects.
+	- Note: Remove the extra divider/line artifacts and restore correct bottom/right padding and shared dialog spacing so the picker matches the current dialog presentation system.
+	- Outcome: The connector metahub picker now follows the current shared dialog spacing contract without the extra divider artifacts and clipped right/bottom padding.
+- [x] Restore Common/Layout toolbar alignment and the global page-gutter contract.
+	- Note: Bring Common/Layout controls back to the same right-aligned behavior as Hubs and remove the oversized lateral gutters that appeared across the affected pages.
+	- Outcome: Common -> Layouts now uses the same right-aligned header behavior as the other list surfaces, and the oversized lateral gutter regression was removed.
+- [x] Fix incorrect metahub hub counts and revalidate the list/query contract.
+	- Note: The metahub list must show the real related hubs count instead of `0`; cover the backend/frontend seam that derives the count.
+	- Outcome: The metahub list/query seam now returns and renders the real related hubs count instead of the stale zero-value fallback.
+- [x] Reset migration/version display to `0.1.0` where required and verify the surviving meaning of the `Structure` version surface after the recent refactors.
+	- Note: Keep the fix scoped to the real shipped contract instead of layering more compatibility formatting onto the current UI.
+	- Outcome: The shipped version/migration surfaces were reduced back to the surviving `0.1.0` contract where required, while keeping the remaining Structure meaning tied to the real current code path instead of legacy formatting.
+- [x] Regenerate the self-hosted metahub fixture with the Settings catalog configured for page surfaces and verify the import/runtime flow.
+	- Note: Update `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the real generation path after the runtime/layout fixes are in place.
+	- Outcome: The sparse Settings-layout generator assertion now matches the persisted contract, the current `0.1.0` branch-schema baseline again includes `_mhb_scripts`, the browser self-hosted generator passed (`2 passed`, `4.7m`), and the committed fixture was rewritten with `snapshot.versionEnvelope.structureVersion = 0.1.0`.
+- [x] Run focused validation, then the canonical root build, and only after green results sync `activeContext.md` / `progress.md` closure state.
+	- Note: Validation must cover the touched runtime, layout, dialog, count, fixture, and version seams rather than relying only on static inspection.
+	- Outcome: Focused `systemTableDefinitions` backend coverage passed (`27/27`), `snapshot-export-import.spec.ts` passed (`5 passed`, `1.9m`), and the canonical root `pnpm build` completed green.
+
+## Active Session: 2026-04-06 QA Regression Sweep For Catalog Dialogs, Common Layout Header, And Codename Contract Cleanup
+
+
+- [x] Restore the shared catalog dialog initial-values contract so catalog edit/copy dialogs and catalog settings overlays from attributes/elements routes can open without runtime ReferenceErrors.
+	- Note: Repair the exported helper seam in `CatalogActions.tsx`, verify every importer (`CatalogActions` itself, `AttributeList`, `ElementList`), and fail closed with focused regression coverage.
+	- Outcome: `CatalogActions.tsx` now exports the shared initial-values, copy, and validation helpers expected by catalog edit/copy actions and nested catalog Settings entrypoints from attributes/elements routes.
+- [x] Re-align the Common -> Layouts toolbar/search header with the standard list-page layout while preserving the compact adaptive header only for true dialog-width embedded catalog layout managers.
+	- Note: The Common page should no longer inherit the forced compact embedded-toolbar mode that was introduced for the catalog edit dialog.
+	- Outcome: `LayoutList.tsx` now separates `compactHeader` from generic embedded rendering, and `GeneralPage` forces the standard full-width Common -> Layouts header while true dialog-width catalog layout managers keep the compact adaptive variant.
+- [x] Add focused automated regressions plus browser coverage for the reported breakages.
+	- Note: Cover catalog action build-props/export seams, Common/Layouts header mode selection, catalog edit/copy browser flows, and the attributes/elements Settings continuity path that opens the parent catalog dialog.
+	- Outcome: Focused frontend regressions, expanded Playwright Settings continuity checks, and a backend `MetahubObjectsService` regression now fail closed on the shared dialog/helper seam and the undefined JSON update binding that only surfaced after the browser crash was removed.
+- [x] Audit the current codename storage contract and clean stale documentation/memory references that still imply legacy non-VLC codename storage.
+	- Note: Verify the single JSONB/VLC codename contract in code first, then update docs/memory-bank/repo memory only where the older model is still described.
+	- Outcome: Re-audit confirmed the repository still persists codename through one JSONB/VLC `codename` field; `general.codenameLocalizedEnabled` only trims non-primary locale variants via `enforceSingleLocaleCodename(...)`, stale current-research/docs wording was corrected, and no workspace artifact named `admin-role-codename-localized-contract-20260323.json` exists.
+
+## Active Session: 2026-04-06 VLC Snapshot Contract And Browser-Faithful Fixture Regeneration
+
+- [x] Patch the metahub snapshot contract to preserve VLC codename payloads for entities, constants, enumeration values, and scripts.
+	- Note: Update snapshot-local/shared types, serializer/export, restore/import, and hash normalization so export/import round-trips keep bilingual codename state instead of flattening to primary-text strings.
+	- Outcome: Snapshot-local codename-aware types, serializer/export, restore/import, and hash normalization now preserve VLC payloads across the metahub snapshot path instead of flattening them to strings.
+- [x] Adapt downstream runtime and sync consumers to accept VLC snapshot codename payloads while still flattening only at executable/runtime boundaries.
+	- Note: Cover release-bundle materialization, set-constant enrichment, sync previews, runtime script persistence, and any other touched string-only consumer so object codename input never degrades into `[object Object]` or equivalent corruption.
+	- Outcome: Runtime sync/materialization, script persistence, set-constant refs, and preview consumers now accept VLC snapshot input while preserving string-only executable/runtime boundaries.
+- [x] Update focused snapshot/runtime regression tests to fail closed on legacy string-only codename assumptions.
+	- Note: Lock serializer, restore/import, hash, runtime-materialization, and script-persistence seams before moving on to fixture regeneration.
+	- Outcome: Focused metahubs-backend, applications-backend, and universo-utils regressions now assert VLC snapshot preservation and runtime flattening at the intended boundaries.
+- [x] Rework the committed fixture generators so durable metahub/application fixtures are authored through the real browser flow wherever the repository already has a shipped authoring path.
+	- Note: Reuse existing browser-authoring helpers/spec patterns instead of hand-rolling a second authoring model, and keep any remaining API helpers limited to non-authoring bootstrap seams only when no shipped UI path exists.
+	- Outcome: The quiz and self-hosted generator specs now validate and persist the raw exported envelope from the browser-driven authoring flow instead of canonicalizing codename state after export.
+- [x] Fix the committed fixture contracts so they assert the real VLC snapshot/export shape instead of backfilling missing localized codename state after export.
+	- Note: Remove drift-masking canonicalization for quiz/self-hosted fixtures and keep contract assertions aligned with the new snapshot structure.
+	- Outcome: The quiz and self-hosted fixture contracts now fail closed on missing localized codename objects instead of masking export drift after the fact.
+- [x] Fix the remaining field-level attribute codename read seam so snapshot export receives localized codename objects for fields as well as entities/scripts/constants/enumeration values.
+	- Note: The live quiz generator had isolated the last defect to the metahub attribute read pipeline, where field `codename` was still flattened before snapshot serialization.
+	- Outcome: Snapshot export now uses a dedicated snapshot-oriented attribute read path that preserves localized field codename objects without widening the default UI/API string contract.
+- [x] Regenerate the committed quiz fixture from the corrected browser/export path.
+	- Note: The final JSON must reflect the live snapshot/export contract directly, including preserved localized codename payloads.
+	- Outcome: The browser-authored quiz generator passed after the attribute-read fix and rewrote `tools/fixtures/metahubs-quiz-app-snapshot.json` from the raw exported envelope.
+- [x] Regenerate the committed self-hosted fixture from the corrected browser/export path.
+	- Note: Preserve the existing functional coverage of the self-hosted flow while removing codename-localization drift and contract masking.
+	- Outcome: The self-hosted generator now passes under the stricter raw contract and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, including the catalog-layout override expectations.
+- [x] Re-run focused backend/frontend/generator/import validation plus the canonical root build.
+	- Note: Validation must cover snapshot serializer/restore behavior, touched generator/fixture flows, snapshot import runtime proof, and final `pnpm build` from the repository root.
+	- Outcome: Focused metahubs-backend (`14/14`) and universo-utils (`17/17`) suites passed, the browser `snapshot-export-import.spec.ts` flow passed (`5 passed`, `2.0m`) after aligning the Settings catalog layout assertion with sparse widget-override semantics, and the canonical root `pnpm build` completed green (`30 successful`, `30 cached`).
+- [x] Sync memory-bank closure state after code, fixtures, and validation are green.
+	- Note: Update `activeContext.md`, `progress.md`, and this ledger only after the VLC snapshot contract and regenerated fixtures are fully validated.
+	- Outcome: `tasks.md`, `activeContext.md`, and `progress.md` now reflect the completed VLC snapshot/export closure state and the final validation evidence.
+
+## Completed Session: 2026-04-06 QA Remediation For Snapshot Export And Layout Cache Consistency
+
+- [x] Reopen the General/catalog-layout closure state and align memory-bank status with the new QA remediation scope.
+	- Note: The earlier closeout is no longer fully truthful while snapshot export and cross-layout cache invalidation still carry confirmed QA debt.
+	- Outcome: `tasks.md` and `activeContext.md` now truthfully reflect that the feature is temporarily reopened for two narrow QA remediation seams.
+- [x] Harden the publication snapshot layout contract so layout export/import stays internally consistent and does not drop required authoring state.
+	- Note: Fix `attachLayoutsToSnapshot()` and the related restore/validation coverage so inactive catalog/global layouts and layout-linked override rows round-trip safely without orphaned references.
+	- Outcome: Snapshot export now serializes the full design-time global/catalog layout set, filters override rows to exported catalog layouts, and adds direct backend regression coverage for inactive-layout round-tripping.
+- [x] Repair cross-layout React Query invalidation so catalog layouts refresh after base global layout mutations within one SPA session.
+	- Note: Keep the fix scoped to the layouts domain, avoid broad cache churn where unnecessary, and add a focused regression that covers inherited catalog views after editing the base layout.
+	- Outcome: Global-layout config/widget mutations now invalidate the full layouts root in both detail-view and shared mutation paths, and focused frontend coverage locks the cache invalidation contract.
+- [x] Re-run focused backend/frontend/runtime validation plus the canonical root build, then sync `activeContext.md`, `progress.md`, and the final task closure state.
+	- Note: Validation must cover snapshot/layout backend seams, layout frontend regressions, runtime layout behavior tests, and `pnpm build` from the repository root.
+	- Outcome: Focused metahubs-backend (`18/18`), metahubs-frontend (`10/10`), applications-backend (`2/2`), applications-frontend (`11/11`), and apps-template-mui (`5/5`) suites passed; targeted Playwright flows for `metahub-general-catalog-layouts.spec.ts` and `snapshot-export-import.spec.ts` also passed; touched-file diagnostics stayed clean; and the canonical root `pnpm build` completed green with `30 successful`, `28 cached`, and `1m9.26s`.
+
+## Completed Session: 2026-04-06 Catalog Layout QA Remediation And UI Finalization
+
+- [x] Remove the legacy catalog fallback-behavior model so catalog runtime behavior is driven only by the selected layout or the shared global layout baseline.
+	- Note: The user explicitly does not want to preserve legacy compatibility for old test data. The new clean-db contract should be: global layout works by default, and catalog-specific behavior/layout appears only after creating a catalog layout.
+	- Outcome: Catalog runtime behavior resolution no longer falls back to catalog object `runtimeConfig`; the selected layout owns behavior, while the global layout remains the default baseline until a catalog-specific layout exists.
+- [x] Rename the catalog tab and clean the embedded catalog-layout surface copy.
+	- Note: The tab must use the plural wording (`Layouts` / `Макеты`), the redundant in-body heading must disappear, and the surrounding helper copy must match the no-fallback product contract.
+	- Outcome: The catalog tab now ships as `Layouts` / `Макеты`, the embedded redundant title is removed, and the helper copy now describes the layout-only contract instead of legacy fallback behavior.
+- [x] Rework the embedded catalog layout toolbar to the requested adaptive single-row behavior.
+	- Note: Search, view-toggle, and create must stay on one line while width permits, shrink the search field first, and then switch to the mobile-style icon-triggered full-width search overlay when the minimum width is exceeded.
+	- Outcome: Embedded layout headers now use the shared adaptive-search `ViewHeader` contract with a single-row toolbar that collapses into icon-triggered search when dialog width is constrained.
+- [x] Remove the extra left/right content gutters in the catalog layout tab and make the card grid stretch correctly.
+	- Note: Embedded layout content inside the catalog dialog should use the full available width, and the grid must collapse to one full-width card before leaving a large empty right column.
+	- Outcome: Embedded catalog layout content now renders without the standalone page shell/gutters, and the layout card grid uses `auto-fit` behavior so lone cards stretch to the available width.
+- [x] Reconcile the catalog layout editor/runtime contract with the imported self-hosted fixture and finish any missing implementation from the prior QA pass.
+	- Note: Verify that imported Settings-catalog layouts behave correctly, layout creation/copy/delete remain safe, and the catalog runtime create/edit/copy surfaces still resolve from layout-owned behavior settings.
+	- Outcome: Catalog layout creation/storage now keeps sparse config semantics, published runtime materialization reconstructs widget-visibility booleans from effective widgets, and the imported Settings catalog path follows the same layout-owned runtime behavior contract.
+- [x] Expand and rerun focused automated validation plus real-browser Playwright coverage for the updated catalog layouts flow.
+	- Note: Validation must include touched frontend/backend/runtime tests, the imported self-hosted snapshot path, and the targeted catalog-layout browser scenarios.
+	- Outcome: Focused utils/frontend/backend/shared-header tests passed, `pnpm run build:e2e` completed green (`30 successful`), `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `1.8m`), and the canonical root `pnpm build` stayed green (`30 successful`).
+
+## Completed Session: 2026-04-06 Self-Hosted Connector Sync Hang Investigation
+
+- [x] Reproduce and isolate the remaining imported self-hosted snapshot connector sync timeout.
+	- Note: The browser artifact already proves the POST `/api/v1/application/:id/sync` is sent and the UI enters `Syncing...`, so the focus is the backend sync pipeline for the imported self-hosted fixture.
+	- Outcome: The targeted repro plus temporary step logging proved the backend sync path was not hanging; runtime sync finished in a few seconds and the failure was caused by the Playwright test exhausting the default 60-second budget before it reached `Create Schema`.
+- [x] Identify and fix the backend step that stalls during initial schema creation for the imported self-hosted snapshot.
+	- Note: Narrow the issue inside `runPublishedApplicationRuntimeSync(...)` and keep the fix scoped to the real blocker instead of changing the connector UI or Playwright wait conditions.
+	- Outcome: No backend stall existed. The temporary `SchemaSyncDebug` instrumentation was removed after verification, and the real fix was to give the imported snapshot connector flow an explicit `test.setTimeout(180_000)` budget that matches the cost of metahub import plus application schema creation.
+- [x] Re-run the targeted connector/schema verification and only then sync memory-bank closure state.
+	- Note: Finish with the failing connector flow, any relevant focused validation, and then update `activeContext.md` / `progress.md` with the final result.
+	- Outcome: The targeted imported connector flow passed (`2 passed`, `1.3m` including setup), the full fixture import verification trio passed (`8 passed`, `5.6m`), and the canonical root `pnpm build` remained green after the timeout fix and backend cleanup.
+
+## Completed Session: 2026-04-06 Common Section, Dialog Tabs, And Fixture Regeneration Follow-up
+
+- [x] Rename the General section to the requested Common/Common-like product wording across UI copy, routes/menu labels, and any code-level entity names that still encode the wrong term.
+	- Note: Fix both locales and verify why the current UI surfaced English text in a Russian session instead of the expected localized copy.
+	- Outcome: The metahub section now uses `Common` / `Общие` across menu, breadcrumbs, page header, selectors, and `/common` routes, while the missing `general` i18n block was added back into the metahubs namespace registration so Russian sessions no longer fall back to English defaults.
+- [x] Repair the Common/layouts authoring surface regressions in dialogs and new-layout defaults.
+	- Note: New metahub layouts created manually must start with empty zones, the language badge in the create-layout dialog must stop clipping at the top-right corner, and focused tests must explain why the previous coverage missed both issues.
+	- Outcome: Manually created layouts now start empty instead of seeding dashboard widgets, the localized-field language badge no longer clips in layout dialogs, and focused regressions cover both the empty-layout contract and the field-badge rendering seam.
+- [x] Reconcile entity settings dialogs so every edit entrypoint exposes the same tab contract, including Scripts where supported and the modern catalog Layout tab everywhere.
+	- Note: Audit both list-origin and in-entity Settings entrypoints, fix missing Scripts/Layout tabs, and add regressions for the mismatched dialog variants.
+	- Outcome: Settings-origin entity dialogs now pass the same action context as list-origin dialogs, so Scripts and the modern catalog Layout tab render consistently across all relevant edit entrypoints.
+- [x] Make the catalog Layout tab toolbar adaptive inside edit dialogs.
+	- Note: When the search/view/create controls do not fit the dialog width, the behavior must collapse to the same compact/mobile pattern already used on responsive list surfaces.
+	- Outcome: Embedded layout list headers now wrap controls in dialog-width contexts instead of overflowing the toolbar row, so the catalog layout create action remains reachable at normal desktop dialog widths.
+- [x] Refresh the Playwright authoring/generator sources and regenerate the committed metahub/application fixtures.
+	- Note: Update both exported fixtures under `tools/fixtures`, ensure the self-hosted/metahub fixture demonstrates a catalog-specific layout override on the Settings catalog, regenerate the quiz fixture from the corrected flow, and prove both imports still work.
+	- Outcome: Generator sources were updated, both committed fixtures were regenerated, and the self-hosted fixture now includes a dedicated Settings catalog layout override that demonstrates catalog-specific runtime presentation changes after import/publication/application creation.
+- [x] Re-run focused package validation, full browser verification, fixture import proof, and then sync memory-bank closure state.
+	- Note: Finish with the relevant Vitest/Jest/Playwright/generator/import checks plus the canonical root `pnpm build`, then update memory-bank status files with the final closure evidence.
+	- Outcome: Focused frontend/backend checks passed, layout/browser flows passed, generator specs passed, the fixture import verification trio passed (`8 passed`, `5.6m`), and the canonical root `pnpm build` completed green.
+
+## Completed Session: 2026-04-06 Final QA Closure For General Page Single-Shell Contract
+
+- [x] Extract a shell-less layouts content layer so the General page stops nesting a full standalone Layouts page inside its own header/tab shell.
+	- Note: Keep the public `LayoutList` route contract intact for standalone usage, but let `GeneralPage` reuse the same list logic without rendering a second `MainCard`/`ViewHeader` page shell.
+	- Outcome: `LayoutList.tsx` now exports `LayoutListContent` for shell-less reuse, while the default `LayoutList` component remains the standalone page wrapper for the public route contract.
+- [x] Add focused regression coverage for the General page shell contract.
+	- Note: Lock the `GeneralPage` tab/header surface and the shell-less layouts reuse path so future General tabs cannot silently reintroduce nested page chrome.
+	- Outcome: `GeneralPage.test.tsx` now proves the General header/tab shell is rendered once, `LayoutListContent` is embedded with `renderPageShell={false}`, and the standalone `LayoutList` wrapper is not mounted inside General.
+- [x] Re-run the touched frontend validation plus browser/build proof.
+	- Note: Validation must include the new focused metahubs-frontend regression, the existing layout regressions, the real Playwright General/catalog-layout flows, and the canonical root `pnpm build`.
+	- Outcome: Focused metahubs-frontend Vitest passed (`7/7`), the real Playwright flows passed (`3 passed`, `2.3m`), targeted ESLint on the changed frontend files passed clean after final formatting, and the canonical root `pnpm build` completed green after the refactor.
+- [x] Sync memory-bank closure state only after the refactor and validation are green.
+	- Note: Update `activeContext.md` and `progress.md` so the closure status matches the final QA-correct state.
+	- Outcome: `tasks.md`, `activeContext.md`, `progress.md`, `systemPatterns.md`, and `techContext.md` now reflect the final single-shell General page contract and closure evidence.
+
+## Completed Session: 2026-04-06 Post-QA Completion For General Section + Catalog Layouts
+
+- [x] Fix runtime root-layout selection so startup catalog resolution never derives from a catalog-scoped layout when no catalog is explicitly requested.
+	- Note: Preserve the existing catalog-specific fallback for explicit catalog runtime requests; add direct regression coverage for the root/startup path.
+	- Outcome: Runtime startup menu binding is now resolved from the global default/active layout only, so implicit root catalog selection cannot drift to a catalog-scoped runtime layout.
+- [x] Align layout authoring permissions with the existing metahub management model on the frontend.
+	- Note: Gate create/manage actions in `LayoutList` and catalog-behavior editing in `LayoutDetails` so the UI matches the backend `manageMetahub` contract instead of relying on 403 responses.
+	- Outcome: Read-only users can still inspect layout detail screens, but create/copy/edit/delete/default/toggle/add-widget and catalog behavior mutations are now hidden or disabled unless `permissions.manageMetahub` is true.
+- [x] Expand regression coverage for the post-QA fixes.
+	- Note: Add focused tests for runtime startup layout selection and the new frontend permission-gating behavior while preserving the already-green copy/inheritance/runtime suites.
+	- Outcome: Added a focused applications-backend runtime-controller regression plus new metahubs-frontend read-only layout tests without regressing the existing inherited-widget and copy-flow coverage.
+- [x] Complete Phase 9 documentation exactly as planned in both locales.
+	- Note: Add dedicated EN/RU guide pages for General Section and Catalog Layouts, update both `SUMMARY.md` files, and keep EN/RU structure aligned.
+	- Outcome: Added new EN/RU guide pages, updated guide navigation and summaries, and replaced the stale `Layouts` navigation wording with `General -> Layouts` in the touched authoring guides while preserving EN/RU line parity.
+- [x] Re-run targeted validation plus the canonical root build, then sync memory-bank closure state.
+	- Note: Finish with focused package tests/builds first, then `pnpm build`, and only after green validation update `activeContext.md` and `progress.md`.
+	- Outcome: Focused applications-backend and metahubs-frontend regressions passed, the first root build attempt failed only on a transient `@universo/core-frontend` Vite OOM, and the canonical full root build completed green after rerunning with a larger Node heap budget.
+
+## Completed Session: 2026-04-06 Reopened QA Fix For Inherited Catalog Widgets
+
+- [x] Reopen the General/catalog-layout closure state and realign memory-bank status with the current QA finding.
+	- Note: The feature was intentionally reopened until the inherited-widget read-only contract and validation evidence were truthful again.
+	- Outcome: `tasks.md` and `activeContext.md` no longer claimed full closure while inherited catalog widgets still exposed invalid config editing.
+- [x] Fail closed on backend config edits for inherited catalog widgets while preserving move/toggle support.
+	- Note: The sparse overlay model must keep inherited widget config sourced from the base global widget.
+	- Outcome: `MetahubLayoutsService` now rejects inherited widget config edits, removal, and direct reassignment while keeping move/toggle semantics on sparse override rows.
+- [x] Expose inherited-widget metadata to the frontend and gate edit/remove affordances in the catalog layout editor.
+	- Note: The UI must distinguish inherited vs catalog-owned widgets without regressing global-layout editing or catalog behavior settings.
+	- Outcome: The shared catalog layout editor now receives `isInherited`, renders an inherited badge, preserves drag/toggle, and hides edit/remove actions for inherited rows.
+- [x] Add focused regression coverage for the inherited-widget read-only contract and rerun the feature validation stack.
+	- Note: Validation must include touched backend/frontend suites, the feature Playwright/browser flow, and the canonical root build.
+	- Outcome: Focused metahubs-backend, metahubs-frontend, and applications-backend suites passed; `pnpm run build:e2e` completed green; `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `1.8m`); and the canonical root `pnpm build` remained green.
+- [x] Sync final memory-bank closure state only after the inherited-widget contract and validation evidence are green again.
+	- Note: Close the feature only after code, tests, browser proof, and memory-bank state all agree.
+	- Outcome: `tasks.md`, `activeContext.md`, `progress.md`, `systemPatterns.md`, `techContext.md`, and `currentResearch.md` now reflect the final validated closure state.
+
+## Active Session: 2026-04-06 QA Remediation For General Section + Catalog-Specific Layouts
+
+- [x] Repair catalog-layout copy so scope, base-layout inheritance, sparse overrides, and catalog-owned widgets survive copy flows without leaking into the global-layout scope.
+	- Note: Fix both the backend copy contract and the frontend scope propagation, then add direct regression coverage for catalog-scoped copy.
+	- Outcome: The backend copy controller now preserves `catalog_id`, `base_layout_id`, catalog-owned widgets, and inherited sparse overrides across copy flows, including the deactivate-all path for inherited base widgets.
+- [x] Restore true base-layout inheritance for newly created catalog layouts instead of seeding dashboard defaults that overwrite authored global layout config.
+	- Note: The first catalog layout must start from the selected global base layout config plus seeded catalog behavior config only; do not regress existing global-layout creation semantics.
+	- Outcome: Catalog layout creation now validates the target catalog object and inherits the selected global base layout config, while the frontend create payload sends only the sparse catalog behavior seed instead of full dashboard defaults.
+- [x] Re-harden sparse overlay semantics so reorder/toggle operations persist only the intended deltas and do not freeze inherited widget config unnecessarily.
+	- Note: Non-overridden global widget config must keep flowing into catalog layouts after reorder/add/remove operations.
+	- Outcome: Sparse inherited overrides now persist only zone/order/config/activity deltas, and empty override rows are soft-deleted so future global widget config changes continue to flow into catalog layouts.
+- [x] Tighten catalog-layout data integrity validation so catalog-scoped layouts can only target real catalog objects.
+	- Note: Keep existing RBAC behavior unchanged while preventing invalid object references from being persisted as catalog layouts.
+	- Outcome: Catalog-scoped layouts now fail closed unless `catalog_id` targets a real catalog object in `_mhb_objects`, preventing invalid metahub object references from being stored as catalog layouts.
+- [x] Add focused backend/frontend/runtime regressions for the remediation seam, rerun targeted validation plus the canonical root build, and then sync memory-bank closure state.
+	- Note: Validation must include the touched Jest/Vitest suites, the General/catalog-layout Playwright/browser flow, and final `pnpm build`.
+	- Outcome: Focused backend Jest, focused frontend Vitest, touched-file ESLint, the real General/catalog-layout Playwright flow, and the canonical root `pnpm build` all passed after the remediation patch set.
+
+## Active Session: 2026-04-06 Closure Track — Metahub General Section + Catalog-Specific Layouts
+- [x] VAN assessment: complexity Level 3, multi-package schema/service/UI/test/docs scope.
+- [x] Deep codebase analysis: all layout, catalog, snapshot, runtime, settings, navigation seams mapped.
+- [x] CREATIVE subagent: Option C (Catalog-Owned Layouts, Fork on Create) selected; navigation collapse group approved.
+	- Reference: `memory-bank/creative/creative-general-section-layout-model.md`
+- [x] Detailed 9-phase plan written for discussion.
+	- Reference: `memory-bank/plan/general-section-catalog-layouts-plan-2026-04-06.md`
+- [x] QA review: 3 critical, 3 major, 4 moderate issues found. Plan requires significant revision.
+	- Reference: `memory-bank/plan/general-section-catalog-layouts-QA-2026-04-06.md`
+	- C1: General section = tabbed page, NOT collapse group (two menu systems found)
+	- C2: Catalog layouts = overlay/inheritance model, NOT fork-on-demand
+	- C3: Multiple catalog layouts support needed (plan limits to one)
+	- M1: Surface type E2E verification missing (spec point 7)
+- [x] User approved QA findings → plan revised to overlay/inheritance model.
+	- Reference: `memory-bank/plan/general-section-catalog-layouts-plan-2026-04-06.md` (v2)
+	- All 10 QA issues addressed in revised plan
+	- Architecture changed: tabbed GeneralPage, sparse overlay model with `base_layout_id` + `_mhb_catalog_widget_overrides`, multiple catalog layouts
+	- Runtime simplified in second QA pass: flatten merged catalog layouts into ordinary snapshot / `_app_layouts` / `_app_widgets` rows
+	- Surface settings moved to catalog-layout-level config; plan now explicitly reuses extracted layout list/detail primitives instead of new mini-list UI
+	- Final contract clarification added: catalog-layout behavior config reuses the existing catalog runtime setting shape/enums for `showCreateButton`, `searchMode`, and create/edit/copy surfaces, stored as a nested block inside the layout `config` JSONB instead of a new schema family
+	- Final fallback clarification added: runtime resolves catalog behavior as `selected catalog layout behaviorConfig ?? catalog runtimeConfig subset`, and the first catalog layout seeds its behavior config from the current catalog settings when present
+- [x] User review of revised plan → IMPLEMENT mode.
+
+### Implementation Checklist
+- [x] Phase 1-3 foundation: extend shared types/utils, update metahub schema/system tables, and ship backend catalog-layout overlay CRUD plus snapshot support.
+	- Note: Keep SQL-first store/service patterns, preserve global layout behavior unchanged, and avoid introducing runtime overlay tables.
+- [x] Phase 4 runtime sync: materialize catalog layouts into `_app_layouts` / `_app_widgets` and resolve runtime layout + behavior fallback safely.
+	- Note: Runtime behavior resolution must stay `selected catalog layout behaviorConfig ?? catalog runtimeConfig subset`.
+- [x] Phase 5-6 frontend authoring: add General page/navigation, reuse existing layout list/details primitives, and implement catalog overlay editor UX.
+	- Note: General page/menu/routes/breadcrumb/i18n integration is complete, and the latest pass finished the catalog authoring slice by embedding catalog-scoped `LayoutList` into the catalog edit dialog Layout tab while preserving catalog runtimeConfig fields as the fallback before the first custom layout exists.
+	- Note: The catalog flow now has a dedicated layout-detail route/context (`/metahub/:metahubId/catalog/:catalogId/layout/:layoutId`), catalog-origin breadcrumbs, catalog-only `LayoutDetails` behavior editing for `showCreateButton`, `searchMode`, `createSurface`, `editSurface`, and `copySurface`, plus EN/RU copy for that authoring path.
+- [x] Phase 7-8 verification: finish the remaining browser/runtime closure for the catalog-layout authoring path.
+	- Note: The backend regression seam is repaired, runtime materialization coverage now proves sparse catalog overrides and inherited synthetic widgets, the legacy layouts browser flow follows the shipped General route contract, and the comprehensive Playwright/browser-runtime scenario passed after the final page-surface reopen fix in `ApplicationRuntime`.
+	- Note: Verified behavior includes `/general`, catalog layout authoring, custom-vs-fallback runtime behavior, supported right-zone widget materialization, and authored `createSurface` / `editSurface` / `copySurface` resolution through the real `/a/...` runtime flow.
+- [x] Phase 9-10 closure: finish the final docs, memory-bank, and repository-validation follow-up after the broader browser/runtime verification.
+	- Note: EN/RU `platform/metahubs.md` now document the shipped General-section and catalog-layout contract with exact line parity (`63/63`), the fresh `pnpm run build:e2e` completed green (`30 successful`, `27 cached`, `1m5.436s`), the comprehensive Playwright flow passed again (`2 passed`, `1.9m`), E2E cleanup/doctor ended empty, and the canonical root `pnpm build` finished green (`30 successful`, `24 cached`, `1m11.613s`).
+
+### Final Closure Checklist
+- [x] Repair the failing backend layout-service regression seam and extend backend coverage for catalog-scoped layout behavior, snapshot, and runtime-selection invariants.
+	- Note: `MetahubLayoutsService.test.ts`, `SnapshotRestoreService.test.ts`, and `syncLayoutMaterialization.test.ts` now cover active-base lookup, referenced-global-layout deletion guards, sparse override restore/remap, and catalog runtime materialization invariants.
+- [x] Add and validate the comprehensive Playwright/browser-runtime scenario for General plus catalog-specific layouts.
+	- Note: `metahub-general-catalog-layouts.spec.ts` now proves `/general`, catalog layout authoring, custom-vs-fallback runtime behavior, and authored `createSurface` / `editSurface` / `copySurface` resolution; it passed after the page-surface reopen race was fixed in the runtime page.
+- [x] Refresh the legacy layouts browser flow to follow the shipped General route contract instead of only the redirecting legacy `/layouts` URLs.
+	- Note: The legacy browser regression now asserts the redirect into `/general`, the General heading/tabs contract, and catalog-aware detail navigation under the General surface.
+- [x] Update dedicated EN/RU feature docs and feature-closeout memory-bank records after verification passes.
+	- Note: The touched EN/RU `platform/metahubs.md` pages now describe the General tab, sparse catalog layout overlays, runtime behavior fallback, and runtime materialization flow with verified line parity; `tasks.md`, `activeContext.md`, and `progress.md` were synced in the same closeout pass.
+
+## Completed Session: 2026-04-06 Final QA Debt Closure For Runtime Sync Coverage And Docs
 - [x] Harden the browser runtime worker contract so client script execution fails closed on hangs.
 	- Note: `browserScriptRuntime` now enforces a bounded Worker execution timeout with cleanup, and focused `@universo/apps-template-mui` runtime Vitest passed (`7/7`) including the new hanging-worker regression.
 - [x] Tighten `_app_scripts` scoped-index repair so legacy or malformed unique indexes are replaced only when the exact required scope definition is missing.
@@ -524,125 +833,13 @@
 		- [x] Updated `package.json`: `test:e2e:full` explicitly lists non-generator projects; added `test:e2e:generators` script
 		- [x] Documented Snapshot Generators section in both E2E READMEs (EN + RU, 331/331 lines parity)
 
-## Current Wave Notes — 2026-04-03
-- The repository currently runs the root build through Turbo, but `turbo.json` still uses the legacy `pipeline` key and explicitly disables cache for `build`, so Turbo acts mostly as an orchestrator instead of a cache accelerator.
-- The installed Turbo version is `1.10.16`, while the current stable line is `2.9.3`; the migration must therefore cover both behavior and configuration format changes.
-- The package inventory confirms one special-case override is needed for `packages/apps-template-mui`, whose `build` script is `tsc --noEmit` and should not inherit artifact outputs from the root build task.
-- CI currently caches PNPM dependencies but does not expose any `TURBO_*` remote-cache environment, so remote cache support can be wired safely through optional GitHub secrets without forcing it on contributors.
-- The migration must keep full-build safety first: no pre-release Turbo flags, no speculative package-level overrides, and no weakening of environment correctness just to chase cache hits.
-## Current Wave Notes — 2026-04-02
-- User-provided screenshots show remaining oversized side gutters on metahub settings and metahub layout details after a clean rebuild.
-- The first confirmed offender is `packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx`, which still wraps header and content in ad hoc horizontal padding instead of the shared contract.
-- The final root cause was split between one local layout-details wrapper and the shared tab-bar contract: settings content already widened via `PAGE_CONTENT_GUTTER_MX`, but `PAGE_TAB_BAR_SX` still left tab rows 16px narrower than the content below.
-- The follow-up closure updated the shared tab-bar contract, fixed the admin test to use the real instance settings route, and revalidated with `pnpm run build:e2e`, targeted Playwright flows, and a full `pnpm build`.
-- The layouts detail page needed one extra follow-up: the shared MUI surfaces theme applies `padding: 16px` to every `MuiCard`, so `LayoutDetails` still rendered 16px narrower than the already-correct layouts list until the page locally zeroed card `p` and `gap`.
-## Recently Completed Work (Compact)
-## Unified Page Padding Remediation — 2026-04-02
-> Status: COMPLETE — the shared page-spacing contract is now the canonical non-list layout rule.
-- [x] Added `PAGE_CONTENT_GUTTER_MX` and `PAGE_TAB_BAR_SX` to `@universo/template-mui`.
-- [x] Migrated the known drifted pages in admin, applications, and metahubs frontends.
-- [x] Removed ad hoc tab/content padding that made settings and migration pages narrower than their sibling screens.
-- [x] Captured before/after screenshots for visual verification.
-- [x] Revalidated via full build and the latest green E2E suite.
-## Manual Playwright Artifact Capture Documentation — 2026-04-02
-> Status: COMPLETE — screenshot/video capture is documented and mirrored in both E2E READMEs.
-- [x] Documented manual screenshot capture and artifact locations in `tools/testing/e2e/README.md`.
-- [x] Mirrored the same content in `tools/testing/e2e/README-RU.md`.
-- [x] Recorded a real `.webm` demo artifact for manual review.
-- [x] Rechecked README parity after the update.
-## E2E Guard Loading-Shell Flake Fix — 2026-04-02
-> Status: COMPLETE — direct navigation to `/metahubs` no longer flakes on the transient migration-guard shell.
-- [x] Isolated the real failure from noisy cleanup logs.
-- [x] Reused the existing guarded-route wait pattern instead of introducing a new timing hack.
-- [x] Patched both affected specs that asserted the final heading too early.
-- [x] Revalidated with a targeted Playwright rerun.
-## E2E Hardening Follow-up Closure — 2026-04-02
-> Status: COMPLETE — the final helper and backend timing races are closed; the browser suite is green.
-- [x] Moved publication/application metadata creation for combined bootstrap into a committed pool transaction visible to DDL callbacks.
-- [x] Reused committed compensation cleanup so rollback paths no longer depend on uncommitted request state.
-- [x] Updated publication route tests for the committed metadata transaction and RLS reapplication path.
-- [x] Replaced the last fragile publication persistence poll with response-id-based or persisted-state confirmation.
-- [x] Hardened the remaining metahub create flow against optimistic `waitForResponse(...)` races.
-- [x] Fixed admin access smoke locator ambiguity and the constant-edit dialog regression discovered by the full rerun.
-- [x] Extended matrix coverage to Russian and dark-theme authenticated surfaces.
-- [x] Revalidated publication variants, restart-safe behavior, diagnostics, codename UX, metahub create options, limits info-state, and workspace isolation.
-- [x] Reran the full E2E suite to a green state.
-## Extended Playwright Coverage, Restart-Safe Validation, And Diagnostics — 2026-04-02
-> Status: COMPLETE — the acceptance surface now covers more real product behavior without introducing test-only UI.
-- [x] Added locale/theme matrix coverage for Russian and dark mode.
-- [x] Added restart-safe fresh-db validation with sequential starts.
-- [x] Added bounded browser diagnostics for long-lived dialogs.
-- [x] Added browser coverage for publication variants, metahub create options, codename autofill/reset, and dialog regressions.
-- [x] Added application limits pre-schema info-state and workspace-isolation browser coverage.
-- [x] Refreshed docs and memory-bank state to the validated inventory.
-## Playwright Route-Surface Completion — 2026-04-02
-> Status: COMPLETE — the planned board, connector, runtime, and route-surface coverage is complete.
-- [x] Covered the remaining application/admin/metahub routes through existing UI surfaces.
-- [x] Stabilized linked-application setup without masking real errors.
-- [x] Added board-level coverage for backend-driven counters.
-- [x] Added connector, migration-history, and runtime-row browser scenarios.
-- [x] Refreshed route-inventory documentation after the validation pass.
-## Full Business Scenario Playwright Coverage — 2026-04-01
-> Status: COMPLETE — the browser-testing foundation now covers the planned scenario matrix.
-- [x] Closed the flaky metahub list/browser contract after create-copy-delete.
-- [x] Expanded helpers and manifest tracking for admin, locales, publications, applications, and cleanup.
-- [x] Added admin smoke/RBAC/global-user coverage.
-- [x] Added metahub/application board, members, access, connectors, runtime rows, settings, publication, and chained-flow coverage.
-- [x] Added the publishable-key alias needed for modern Supabase configuration compatibility.
-- [x] Updated README and docs to the expanded workflow.
-## Supabase JWT/JWKS Compatibility Remediation — 2026-04-01
-> Status: COMPLETE — backend auth and RLS now support both legacy HS256 and modern Supabase JWKS projects.
-- [x] Replaced symmetric-only verification with dual-mode JWT verification.
-- [x] Updated startup validation to accept JWKS-backed projects.
-- [x] Preserved backward compatibility for existing secret-based environments.
-- [x] Fixed the `ensureAuthWithRls` aborted-request lifecycle race.
-- [x] Updated docs and env examples for the new contract.
-- [x] Revalidated with focused tests, build, and browser suites.
-## E2E Browser Testing QA Remediation — 2026-03-31
-> Status: COMPLETE — the browser-testing stack is now cleanup-safe, portable, and validated end-to-end.
-- [x] Made cleanup retain recovery state on partial teardown.
-- [x] Separated backend-only env loading from frontend e2e overrides.
-- [x] Pinned runner/runtime behavior for safer repeated execution.
-- [x] Switched the default e2e persona to a least-privilege role where possible.
-- [x] Added reviewed visual baselines and an explicit snapshot-update workflow.
-- [x] Closed the remaining QA debt in docs and memory-bank state.
-## QA Audit Remediation: Test Coverage & TypeORM Cleanup — 2026-04-03
-> Status: COMPLETE — route coverage gaps and residual TypeORM comments were closed.
-- [x] Added admin-backend route tests for settings, instances, locales/public locales, and roles.
-- [x] Added metahubs-backend public route coverage for the public metahub hierarchy.
-- [x] Removed residual TypeORM comments from touched source files.
-- [x] Revalidated admin-backend, metahubs-backend, and the root build.
-## Deep Domain Error Cleanup & Hardening — 2026-04-03
-> Status: COMPLETE — remaining domain-error, response-shape, and cleanup debt is closed.
-- [x] Converted remaining generic service errors to typed domain errors.
-- [x] Unified handler response details at the root error payload level.
-- [x] Removed duplicate error guards and stale helper code.
-- [x] Updated affected route/service/helper tests to the canonical contract.
-- [x] Revalidated with build, Jest, and Vitest.
-## Late-March Technical Closure Summary — 2026-03-31 To 2026-03-24
-## Late-March Technical Closure Summary — 2026-03-31 To 2026-03-24
-> Status: COMPLETE — detailed implementation logs from the late-March closures were moved to progress.md.
-### QA And Refactoring
-- [x] Closed the comprehensive QA fix wave across bugs, architecture debt, public routes, and dead code.
-- [x] Finished the metahubs/applications 9-phase refactor and the related follow-up QA passes.
-- [x] Added direct coverage for shared abstractions such as `createMetahubHandler`, `useListDialogs`, and error guards.
-- [x] Details: progress.md#2026-04-01-comprehensive-qa-fix--all-16-issues-resolved
-- [x] Details: progress.md#2026-03-30-metahubs--applications-refactoring--all-9-phases-complete
-### Security And Dependency Hardening
-- [x] Replaced deprecated `csurf` with the local CSRF middleware.
-- [x] Closed the late-March dependency/CVE hardening waves.
-- [x] Reduced dead dependency and override noise in the workspace.
-- [x] Details: progress.md#2026-03-28-comprehensive-cleanup--csurf-replacement
-- [x] Details: progress.md#2026-03-27-security-vulnerability-fixes-3-cves
-### Codename JSONB Closure
-- [x] Closed the codename JSONB/VLC convergence across fixed schemas, runtime metadata, backend routes, and touched frontend flows.
-- [x] Fixed template seeding, copy flows, and admin role codename editing to obey the same canonical contract.
-- [x] Details: progress.md#2026-03-24-codename-jsonb-final-contract-closure
-- [x] Details: progress.md#2026-03-25-admin-role-codename-vlc-enablement
-### Admin, Start, And Application Workspaces
-- [x] Closed bootstrap-superuser startup and follow-up QA hardening.
-- [x] Closed application workspaces/public-access follow-through around limits, breadcrumbs, seed propagation, and access rules.
-- [x] Details: progress.md#2026-03-19-bootstrap-superuser-startup-closure
-- [x] Details: progress.md#2026-03-19-application-workspaces-ux-breadcrumbs-seed-data-and-limits-closure
-## Historical Archive — 2026-03-17 To 2026-03-11
-> Status: ARCHIVED — durable detail for the older March closures now lives only in progress.md; keep this file focused on active and recent work.
+## Completed Archive — 2026-04-03 To 2026-03-24
+
+- [x] The 2026-04-03 snapshot/export-import, Turbo cache hardening, review-remediation, and hosted E2E reset waves remain complete.
+	- Note: Durable detail, validation logs, and release-aligned outcomes now live in `progress.md` under the dated 2026-04-03 entries.
+- [x] The 2026-04-02 page-spacing and Playwright route-surface/browser-hardening closures remain complete.
+	- Note: Shared spacing contracts, targeted Playwright proof, and documentation updates are archived in `progress.md`.
+- [x] The 2026-04-01 to 2026-03-31 browser-auth/RLS/QA hardening closures remain complete.
+	- Note: Keep `tasks.md` focused on active work and the recent completion trail rather than duplicating the permanent validation history.
+- [x] The late-March QA, security, codename, bootstrap-superuser, and application-workspaces closures remain archived.
+	- Note: See `progress.md` for the preserved durable outcome summaries.

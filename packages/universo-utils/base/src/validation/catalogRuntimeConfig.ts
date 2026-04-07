@@ -1,5 +1,7 @@
 import {
+    DASHBOARD_LAYOUT_BEHAVIOR_CONFIG_KEY,
     defaultCatalogRuntimeViewConfig,
+    type CatalogLayoutBehaviorConfig,
     type CatalogRuntimeEditSurface,
     type CatalogRuntimeRowHeight,
     type CatalogRuntimeSearchMode,
@@ -133,6 +135,42 @@ const mapCatalogRowHeightToDashboard = (rowHeight: CatalogRuntimeRowHeight): Das
     return undefined
 }
 
+export function extractCatalogLayoutBehaviorConfig(
+    layoutConfig: Record<string, unknown> | undefined | null
+): CatalogLayoutBehaviorConfig | undefined {
+    if (!layoutConfig || typeof layoutConfig !== 'object') {
+        return undefined
+    }
+
+    const value = layoutConfig[DASHBOARD_LAYOUT_BEHAVIOR_CONFIG_KEY]
+    return value && typeof value === 'object' ? sanitizeCatalogRuntimeViewConfig(value as Record<string, unknown>) : undefined
+}
+
+export function setCatalogLayoutBehaviorConfig(
+    layoutConfig: Record<string, unknown> | undefined,
+    behaviorConfig: CatalogLayoutBehaviorConfig | Record<string, unknown> | undefined
+): Record<string, unknown> {
+    const nextLayoutConfig = { ...((layoutConfig ?? {}) as Record<string, unknown>) }
+    const sanitizedBehaviorConfig = sanitizeCatalogRuntimeViewConfig(behaviorConfig)
+
+    if (!sanitizedBehaviorConfig) {
+        delete nextLayoutConfig[DASHBOARD_LAYOUT_BEHAVIOR_CONFIG_KEY]
+        return nextLayoutConfig
+    }
+
+    nextLayoutConfig[DASHBOARD_LAYOUT_BEHAVIOR_CONFIG_KEY] = sanitizedBehaviorConfig
+    return nextLayoutConfig
+}
+
+export function resolveCatalogLayoutBehaviorConfig(params: {
+    layoutConfig: Record<string, unknown> | undefined
+}): ResolvedCatalogRuntimeViewConfig {
+    const { layoutConfig } = params
+    const layoutBehaviorConfig = extractCatalogLayoutBehaviorConfig(layoutConfig)
+
+    return normalizeCatalogRuntimeViewConfig(layoutBehaviorConfig)
+}
+
 const resolveCatalogRuntimeLayoutOverrides = (
     config: CatalogRuntimeViewConfig | Record<string, unknown> | undefined
 ): Partial<DashboardLayoutConfig> => {
@@ -168,13 +206,15 @@ const resolveCatalogRuntimeLayoutOverrides = (
 
 export function resolveCatalogRuntimeDashboardLayoutConfig(params: {
     layoutConfig: DashboardLayoutConfig | Record<string, unknown> | undefined
-    catalogRuntimeConfig: CatalogRuntimeViewConfig | Record<string, unknown> | undefined
 }): DashboardLayoutConfig {
-    const { layoutConfig, catalogRuntimeConfig } = params
+    const { layoutConfig } = params
     const layout = (layoutConfig ?? {}) as Record<string, unknown>
+    const { [DASHBOARD_LAYOUT_BEHAVIOR_CONFIG_KEY]: _behaviorConfig, ...layoutWithoutBehaviorConfig } = layout
+    void _behaviorConfig
+    const sparseBehaviorSource = extractCatalogLayoutBehaviorConfig(layout)
 
     return {
-        ...layout,
-        ...resolveCatalogRuntimeLayoutOverrides(catalogRuntimeConfig)
+        ...layoutWithoutBehaviorConfig,
+        ...resolveCatalogRuntimeLayoutOverrides(sparseBehaviorSource)
     }
 }

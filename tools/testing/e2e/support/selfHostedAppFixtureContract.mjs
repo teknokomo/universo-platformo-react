@@ -3,6 +3,7 @@ import { buildVLC, computeSnapshotHash } from '@universo/utils'
 
 export const SELF_HOSTED_APP_FIXTURE_FILENAME = 'metahubs-self-hosted-app-snapshot.json'
 export const SELF_HOSTED_APP_SCREENSHOTS_DIRNAME = 'self-hosted-app'
+export const SELF_HOSTED_APP_STRUCTURE_VERSION = '0.1.0'
 
 export const SELF_HOSTED_APP_CANONICAL_METAHUB = {
     name: {
@@ -46,6 +47,30 @@ export const SELF_HOSTED_APP_LAYOUT = {
         enableRowReordering: true,
         cardColumns: 3,
         rowHeight: 'auto'
+    }
+}
+
+export const SELF_HOSTED_APP_SETTINGS_LAYOUT = {
+    name: {
+        en: 'Settings Catalog Layout',
+        ru: 'Макет каталога настроек'
+    },
+    description: {
+        en: 'Catalog-specific layout override for the Settings catalog.',
+        ru: 'Специальный макет каталога для каталога настроек.'
+    },
+    runtimeConfig: {
+        showDetailsTitle: false,
+        showViewToggle: false,
+        defaultViewMode: 'list',
+        showFilterBar: false
+    },
+    catalogBehavior: {
+        showCreateButton: true,
+        searchMode: 'server',
+        createSurface: 'page',
+        editSurface: 'page',
+        copySurface: 'page'
     }
 }
 
@@ -287,6 +312,23 @@ const readLocalizedText = (value, locale = 'en') => {
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
+const isLocalizedCodenameObject = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'locales' in value)
+
+const flattenFieldRecords = (fields) => {
+    if (!Array.isArray(fields)) {
+        return []
+    }
+
+    return fields.flatMap((field) => {
+        const normalizedField = field && typeof field === 'object' ? field : null
+        if (!normalizedField) {
+            return []
+        }
+
+        return [normalizedField, ...flattenFieldRecords(normalizedField.childFields)]
+    })
+}
+
 const setLocalizedContent = (value, locale, content) => {
     if (!value || typeof value !== 'object') {
         return
@@ -348,127 +390,8 @@ export function buildSelfHostedAppLiveMetahubCodename(suffix) {
     return buildVLC(SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en, SELF_HOSTED_APP_CANONICAL_METAHUB.codename.ru)
 }
 
-function canonicalizeMenuWidgetConfig(config) {
-    const nextConfig = config && typeof config === 'object' ? { ...config } : {}
-    nextConfig.autoShowAllCatalogs = true
-    nextConfig.showTitle = true
-
-    const titleField = ensureLocalizedField(nextConfig, 'title')
-    if (titleField) {
-        setLocalizedContent(titleField, 'en', SELF_HOSTED_APP_LAYOUT.menuTitle.en)
-        setLocalizedContent(titleField, 'ru', SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
-    }
-
-    return nextConfig
-}
-
 export function canonicalizeSelfHostedAppEnvelope(envelope) {
     const nextEnvelope = JSON.parse(JSON.stringify(envelope))
-
-    if (nextEnvelope?.metahub?.name) {
-        setLocalizedContent(nextEnvelope.metahub.name, 'en', SELF_HOSTED_APP_CANONICAL_METAHUB.name.en)
-        setLocalizedContent(nextEnvelope.metahub.name, 'ru', SELF_HOSTED_APP_CANONICAL_METAHUB.name.ru)
-    }
-
-    if (nextEnvelope?.metahub?.description) {
-        setLocalizedContent(nextEnvelope.metahub.description, 'en', SELF_HOSTED_APP_CANONICAL_METAHUB.description.en)
-        setLocalizedContent(nextEnvelope.metahub.description, 'ru', SELF_HOSTED_APP_CANONICAL_METAHUB.description.ru)
-    }
-
-    if (nextEnvelope?.metahub?.codename) {
-        setLocalizedContent(nextEnvelope.metahub.codename, 'en', SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en)
-        setLocalizedContent(nextEnvelope.metahub.codename, 'ru', SELF_HOSTED_APP_CANONICAL_METAHUB.codename.ru)
-    }
-
-    const entities = Object.values(nextEnvelope?.snapshot?.entities ?? {})
-    for (const section of SELF_HOSTED_APP_SECTIONS) {
-        const entity = findSectionEntity(entities, section)
-        if (!entity) {
-            continue
-        }
-
-        const presentation = entity.presentation && typeof entity.presentation === 'object' ? entity.presentation : (entity.presentation = {})
-        const nameField = ensureLocalizedField(presentation, 'name')
-        const descriptionField = ensureLocalizedField(presentation, 'description')
-
-        if (nameField) {
-            setLocalizedContent(nameField, 'en', section.name.en)
-            setLocalizedContent(nameField, 'ru', section.name.ru)
-        }
-        if (descriptionField) {
-            setLocalizedContent(descriptionField, 'en', section.description.en)
-            setLocalizedContent(descriptionField, 'ru', section.description.ru)
-        }
-
-        setEntityCodename(entity, section.name.en, section.name.ru)
-    }
-
-    for (const entity of entities) {
-        if (readCodenameText(entity?.codename) !== 'Main') {
-            continue
-        }
-
-        const nameEn = readLocalizedText(entity?.presentation?.name, 'en')
-        const nameRu = readLocalizedText(entity?.presentation?.name, 'ru')
-        if (nameEn && nameRu) {
-            setEntityCodename(entity, nameEn, nameRu)
-        }
-    }
-
-    const defaultLayout = findDefaultLayout(nextEnvelope)
-    if (defaultLayout) {
-        const layoutName = ensureLocalizedField(defaultLayout, 'name')
-        const layoutDescription = ensureLocalizedField(defaultLayout, 'description')
-
-        if (layoutName) {
-            setLocalizedContent(layoutName, 'en', SELF_HOSTED_APP_LAYOUT.name.en)
-            setLocalizedContent(layoutName, 'ru', SELF_HOSTED_APP_LAYOUT.name.ru)
-        }
-        if (layoutDescription) {
-            setLocalizedContent(layoutDescription, 'en', SELF_HOSTED_APP_LAYOUT.description.en)
-            setLocalizedContent(layoutDescription, 'ru', SELF_HOSTED_APP_LAYOUT.description.ru)
-        }
-
-        defaultLayout.config = {
-            ...(defaultLayout.config && typeof defaultLayout.config === 'object' ? defaultLayout.config : {}),
-            ...SELF_HOSTED_APP_LAYOUT.runtimeConfig
-        }
-    }
-
-    if (nextEnvelope?.snapshot?.layoutConfig && typeof nextEnvelope.snapshot.layoutConfig === 'object') {
-        nextEnvelope.snapshot.layoutConfig = {
-            ...nextEnvelope.snapshot.layoutConfig,
-            ...SELF_HOSTED_APP_LAYOUT.runtimeConfig
-        }
-    }
-
-    const layoutWidgets = Array.isArray(nextEnvelope?.snapshot?.layoutZoneWidgets) ? nextEnvelope.snapshot.layoutZoneWidgets : []
-    if (defaultLayout && Array.isArray(nextEnvelope?.snapshot?.layoutZoneWidgets)) {
-        const menuWidgets = layoutWidgets.filter(
-            (widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget'
-        )
-        const canonicalMenuWidget =
-            menuWidgets.find((widget) => readLocalizedText(widget?.config?.title, 'en') === SELF_HOSTED_APP_LAYOUT.menuTitle.en) ??
-            menuWidgets[0] ??
-            null
-
-        if (canonicalMenuWidget) {
-            canonicalMenuWidget.config = canonicalizeMenuWidgetConfig(canonicalMenuWidget.config)
-            const minSortOrder = Math.min(
-                ...menuWidgets
-                    .map((widget) => Number(widget?.sortOrder))
-                    .filter((value) => Number.isFinite(value) && value > 0)
-            )
-            if (Number.isFinite(minSortOrder)) {
-                canonicalMenuWidget.sortOrder = minSortOrder
-            }
-
-            nextEnvelope.snapshot.layoutZoneWidgets = layoutWidgets.filter(
-                (widget) =>
-                    !(widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget' && widget?.id !== canonicalMenuWidget.id)
-            )
-        }
-    }
 
     if (nextEnvelope?.snapshot && typeof nextEnvelope.snapshot === 'object') {
         nextEnvelope.snapshotHash = computeSnapshotHash(nextEnvelope.snapshot)
@@ -515,12 +438,22 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
     if (metahubCodenameRu !== SELF_HOSTED_APP_CANONICAL_METAHUB.codename.ru) {
         errors.push(`Unexpected Russian self-hosted app fixture codename: ${metahubCodenameRu || '<missing>'}`)
     }
+    if (!isLocalizedCodenameObject(envelope?.metahub?.codename)) {
+        errors.push('Self-hosted app fixture metahub codename must be exported as a localized codename object')
+    }
     if ([metahubNameEn, metahubNameRu, metahubCodename, metahubCodenameRu].some((value) => typeof value === 'string' && /e2e|runid|self-model|imported-/i.test(value))) {
         errors.push('Self-hosted app fixture identity still contains run-specific or legacy self-model markers')
     }
 
+    const structureVersion = envelope?.snapshot?.versionEnvelope?.structureVersion
+    if (structureVersion !== SELF_HOSTED_APP_STRUCTURE_VERSION) {
+        errors.push(
+            `Self-hosted app fixture structureVersion drifted: ${String(structureVersion)} != ${SELF_HOSTED_APP_STRUCTURE_VERSION}`
+        )
+    }
+
     const entities = Object.values(envelope?.snapshot?.entities ?? {})
-    if (entities.some((entity) => entity.kind === 'catalog' && (entity.codename === 'Attributes' || readLocalizedText(entity.presentation?.name, 'en') === 'Attributes'))) {
+    if (entities.some((entity) => entity.kind === 'catalog' && (readCodenameText(entity?.codename) === 'Attributes' || readLocalizedText(entity.presentation?.name, 'en') === 'Attributes'))) {
         errors.push('Self-hosted app fixture still contains the deprecated standalone Attributes catalog')
     }
     if (
@@ -545,6 +478,39 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         entities.some((entity) => ['MainHub', 'MainCatalog', 'MainSet', 'MainEnumeration'].includes(readCodenameText(entity?.codename)))
     ) {
         errors.push('Self-hosted app fixture still contains legacy type-suffixed Main codenames')
+    }
+
+    for (const entity of entities) {
+        if (!isLocalizedCodenameObject(entity?.codename) || !readCodenameText(entity?.codename)) {
+            errors.push(`Entity ${String(entity?.id || '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    for (const field of entities.flatMap((entity) => flattenFieldRecords(entity?.fields))) {
+        if (!isLocalizedCodenameObject(field?.codename) || !readCodenameText(field?.codename)) {
+            errors.push(`Field ${String(field?.id || '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    const enumerationValues = Object.values(envelope?.snapshot?.enumerationValues ?? {})
+    for (const value of enumerationValues.flat()) {
+        if (!isLocalizedCodenameObject(value?.codename) || !readCodenameText(value?.codename)) {
+            errors.push(`Enumeration value ${String(value?.id || '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    const constants = Object.values(envelope?.snapshot?.constants ?? {})
+    for (const constant of constants.flat()) {
+        if (!isLocalizedCodenameObject(constant?.codename) || !readCodenameText(constant?.codename)) {
+            errors.push(`Constant ${String(constant?.id || '<unknown>')} must keep codename as a localized snapshot object`)
+        }
+    }
+
+    const scripts = Array.isArray(envelope?.snapshot?.scripts) ? envelope.snapshot.scripts : []
+    for (const script of scripts) {
+        if (!isLocalizedCodenameObject(script?.codename) || !readCodenameText(script?.codename)) {
+            errors.push(`Script ${String(script?.id || '<unknown>')} must keep codename as a localized snapshot object`)
+        }
     }
 
     const layouts = Array.isArray(envelope?.snapshot?.layouts) ? envelope.snapshot.layouts : []
@@ -590,9 +556,12 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         const menuWidgets = layoutWidgets.filter(
             (widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget'
         )
-        const menuWidget = menuWidgets[0]
-        if (menuWidgets.length !== 1) {
-            errors.push(`Self-hosted app fixture must contain exactly one menuWidget for the default layout, received ${menuWidgets.length}`)
+        const activeMenuWidgets = menuWidgets.filter((widget) => widget?.isActive !== false)
+        const menuWidget = activeMenuWidgets[0] ?? menuWidgets[0]
+        if (activeMenuWidgets.length !== 1) {
+            errors.push(
+                `Self-hosted app fixture must contain exactly one active menuWidget for the default layout, received ${activeMenuWidgets.length}`
+            )
         }
         if (!menuWidget) {
             errors.push('Self-hosted app fixture default layout is missing the menuWidget zone widget')
@@ -681,6 +650,86 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         for (const expectedRow of SELF_HOSTED_APP_SETTINGS_BASELINE) {
             if (!actualKeys.has(expectedRow.Key)) {
                 errors.push(`Settings baseline is missing key ${expectedRow.Key}`)
+            }
+        }
+
+        const catalogLayouts = Array.isArray(envelope?.snapshot?.catalogLayouts) ? envelope.snapshot.catalogLayouts : []
+        const settingsCatalogLayouts = catalogLayouts.filter((layout) => layout?.catalogId === settingsCatalog.id)
+
+        if (settingsCatalogLayouts.length !== 1) {
+            errors.push(
+                `Self-hosted app fixture must contain exactly one catalog-specific layout for Settings, received ${settingsCatalogLayouts.length}`
+            )
+        }
+
+        const settingsLayout = settingsCatalogLayouts[0]
+        const defaultLayout = findDefaultLayout(envelope)
+        const layoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
+        const catalogLayoutWidgetOverrides = Array.isArray(envelope?.snapshot?.catalogLayoutWidgetOverrides)
+            ? envelope.snapshot.catalogLayoutWidgetOverrides
+            : []
+
+        if (!settingsLayout) {
+            errors.push('Self-hosted app fixture is missing the Settings catalog-specific layout override')
+        } else {
+            if (readLocalizedText(settingsLayout.name, 'en') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.name.en) {
+                errors.push('Settings catalog layout is missing the canonical English name')
+            }
+            if (readLocalizedText(settingsLayout.name, 'ru') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.name.ru) {
+                errors.push('Settings catalog layout is missing the canonical Russian name')
+            }
+            if (readLocalizedText(settingsLayout.description, 'en') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.description.en) {
+                errors.push('Settings catalog layout is missing the canonical English description')
+            }
+            if (readLocalizedText(settingsLayout.description, 'ru') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.description.ru) {
+                errors.push('Settings catalog layout is missing the canonical Russian description')
+            }
+            if (defaultLayout?.id && settingsLayout.baseLayoutId !== defaultLayout.id) {
+                errors.push('Settings catalog layout must inherit from the canonical default layout')
+            }
+
+            const settingsLayoutConfig = settingsLayout?.config && typeof settingsLayout.config === 'object' ? settingsLayout.config : {}
+            for (const [key, expectedValue] of Object.entries({
+                showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
+                defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
+                showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar
+            })) {
+                if (settingsLayoutConfig[key] !== expectedValue) {
+                    errors.push(
+                        `Settings catalog layout runtime config drifted for ${key}: ${String(settingsLayoutConfig[key])} != ${String(expectedValue)}`
+                    )
+                }
+            }
+
+            const settingsCatalogBehavior =
+                settingsLayoutConfig.catalogBehavior && typeof settingsLayoutConfig.catalogBehavior === 'object'
+                    ? settingsLayoutConfig.catalogBehavior
+                    : {}
+
+            for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior)) {
+                if (settingsCatalogBehavior[key] !== expectedValue) {
+                    errors.push(
+                        `Settings catalog layout catalogBehavior drifted for ${key}: ${String(settingsCatalogBehavior[key])} != ${String(expectedValue)}`
+                    )
+                }
+            }
+
+            const defaultDetailsTitleWidget = layoutWidgets.find(
+                (widget) => widget?.layoutId === defaultLayout?.id && widget?.widgetKey === 'detailsTitle' && widget?.isActive !== false
+            )
+            if (!defaultDetailsTitleWidget?.id) {
+                errors.push('Self-hosted app fixture default layout is missing the active detailsTitle widget needed for Settings overrides')
+            } else {
+                const detailsTitleOverride = catalogLayoutWidgetOverrides.find(
+                    (override) =>
+                        override?.catalogLayoutId === settingsLayout.id &&
+                        override?.baseWidgetId === defaultDetailsTitleWidget.id &&
+                        override?.isDeletedOverride !== true
+                )
+
+                if (!detailsTitleOverride || detailsTitleOverride.isActive !== false) {
+                    errors.push('Settings catalog layout must disable the inherited detailsTitle widget via a catalog layout override')
+                }
             }
         }
     }
