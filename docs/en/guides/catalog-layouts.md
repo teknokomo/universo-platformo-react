@@ -1,4 +1,5 @@
-description: How catalog-specific layouts inherit from global layouts, store sparse visibility and placement overrides, and control catalog runtime behavior.
+---
+description: How catalog-specific layouts inherit from global layouts, store sparse visibility and placement overrides, and control catalog runtime behavior from the Common section.
 ---
 
 # Catalog Layouts
@@ -16,7 +17,7 @@ Each catalog layout points to a global base layout and then adds only the catalo
 ## Creating The First Catalog Layout
 
 1. Open the target metahub.
-2. Go to General -> Layouts for the global context, or open the catalog route that leads to its layout list.
+2. Go to Common -> Layouts for the global context, or open the catalog route that leads to its layout list.
 3. Create a catalog layout and choose the base global layout.
 4. Reorder or toggle inherited widgets as needed, or add catalog-only widgets.
 
@@ -26,7 +27,7 @@ The selected catalog layout owns catalog runtime behavior such as:
 - create button visibility;
 - search mode;
 - create, edit, and copy surface type.
-Until the first catalog layout exists, runtime keeps using the catalog fallback runtime settings.
+Until the first catalog layout exists, runtime keeps using the selected global layout behavior as the default baseline.
 
 ## Publication And Runtime
 
@@ -36,6 +37,6 @@ Inherited widgets keep their base config during materialization; overlay rows on
 
 ## Related Reading
 
-- [General Section](general-section.md)
+- [Common Section](general-section.md)
 - [Metahubs](../platform/metahubs.md)
 - [Applications](../platform/applications.md)

@@ -375,12 +375,12 @@ describe('Metahubs Routes', () => {
                 schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1'
             })
             mockExec.query.mockImplementation(async (sql: string) => {
-                if (sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects WHERE kind = 'hub'`)) {
-                    return [{ count: 2 }]
-                }
-
-                if (sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects WHERE kind = 'catalog'`)) {
-                    return [{ count: 5 }]
+                if (
+                    sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`) &&
+                    sql.includes(`COUNT(*) FILTER (WHERE kind = 'hub')::int AS "hubsCount"`) &&
+                    sql.includes(`COUNT(*) FILTER (WHERE kind = 'catalog')::int AS "catalogsCount"`)
+                ) {
+                    return [{ hubsCount: 2, catalogsCount: 5 }]
                 }
 
                 return []
@@ -402,6 +402,13 @@ describe('Metahubs Routes', () => {
             expect(response.body.items[0]).toHaveProperty('createdAt')
             expect(response.body.items[0]).toHaveProperty('updatedAt')
             expect(response.body).toMatchObject({ total: 1, limit: 100, offset: 0 })
+
+            const countsSql = mockExec.query.mock.calls
+                .map(([sql]: [string]) => sql)
+                .find((sql: string) => sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`))
+
+            expect(countsSql).toContain(`_upl_deleted = false`)
+            expect(countsSql).toContain(`_mhb_deleted = false`)
         })
 
         it('should handle pagination parameters correctly', async () => {

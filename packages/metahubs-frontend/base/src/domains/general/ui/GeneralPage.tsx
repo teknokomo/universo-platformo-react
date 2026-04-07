@@ -9,7 +9,7 @@ import { LayoutListContent } from '../../layouts/ui/LayoutList'
 
 type GeneralTab = 'layouts'
 
-export default function CommonPage() {
+export default function GeneralPage() {
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t } = useTranslation('metahubs')
     const [activeTab, setActiveTab] = useState<GeneralTab>('layouts')

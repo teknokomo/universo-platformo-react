@@ -33,7 +33,7 @@ The browser-authored Playwright flow uses this step to prove that the quiz scrip
 
 ## Step 3: Attach The Widget To A Layout
 
-1. Open General -> Layouts and select the layout that should host the quiz.
+1. Open Common -> Layouts and select the layout that should host the quiz.
 2. Add or edit a `quizWidget` widget in the center zone.
 3. Set `scriptCodename` to `quiz-widget`.
 4. Save the layout and verify that the widget stays in the layout details view.

@@ -45,6 +45,25 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-07 PR Review Follow-up For GH753
+
+Closed the post-publication bot-review follow-up on PR #753 without widening scope beyond what the review evidence justified. This pass fixed malformed EN/RU guide frontmatter, aligned user-facing docs with the shipped Common/Common -> Layouts terminology and the current layout-owned runtime behavior contract, renamed the internal `GeneralPage` export to match its file, and consolidated metahub hub/catalog counts into one active-row-safe aggregate query per branch schema.
+
+| Area | Resolution |
+| --- | --- |
+| Documentation contract | EN/RU guide, summary, and platform pages now use the shipped Common terminology, `catalog-layouts` has valid frontmatter again, and docs no longer describe the removed catalog fallback runtime-settings contract. |
+| Frontend naming alignment | `packages/metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx` now exports `GeneralPage`, while the public `MetahubCommon` route/export remains unchanged. |
+| Backend metahub counts | Metahub summary paths now use one `COUNT(*) FILTER (...)` query with `_upl_deleted = false AND _mhb_deleted = false`, reducing duplicate scans and restoring the branch active-row contract. |
+| Regression coverage | `metahubsRoutes.test.ts` now asserts the consolidated count query shape and active-row filtering; focused frontend export/Common-page tests stayed green after the rename. |
+| Validation | Targeted frontend and backend regressions passed, edited EN/RU doc pairs kept exact line-count parity, and the canonical root `pnpm build` completed green. A full `@universo/metahubs-frontend` suite attempt still surfaced unrelated pre-existing `MetahubMigrations.test.tsx` mock failures outside this patch scope. |
+
+### Validation
+
+- `pnpm docs:i18n:check` returned `i18n-docs OK. Checked 0 pair(s). Scope=resources`; manual `wc -l` verification confirmed parity for every edited EN/RU doc pair.
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/__tests__/exports.test.ts src/domains/general/ui/__tests__/GeneralPage.test.tsx`
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/metahubsRoutes.test.ts`
+- `pnpm build` passed successfully (`30 successful`, `25 cached`, `1m28.286s`).
+
 ## 2026-04-07 Layout-Owned Catalog Behavior Contract Closure
 
 Closed the reopened QA remediation that found catalog CRUD/UI/API still preserving a legacy `runtimeConfig` contract after runtime behavior ownership had already moved to layout `catalogBehavior`. This pass removed the stale frontend/backend contract, stripped persisted leftovers during catalog update/copy flows, realigned focused regressions with the live runtime contract, and finished with green focused tests plus the canonical root build.

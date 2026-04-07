@@ -61,7 +61,7 @@
 ## Руководства
 
 * [Обзор](guides/README.md)
-* [General Section](guides/general-section.md)
+* [Common Section](guides/general-section.md)
 * [Catalog Layouts](guides/catalog-layouts.md)
 * [Metahub Scripting](guides/metahub-scripting.md)
 * [Туториал: приложение-квиз](guides/quiz-application-tutorial.md)
