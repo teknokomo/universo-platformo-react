@@ -13,8 +13,8 @@ import {
     type ScriptModuleRole,
     type ScriptSourceKind
 } from '@universo/types'
-import { createLocalizedContent } from '@universo/utils'
-import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import { createLocalizedContent, getCodenamePrimary } from '@universo/utils'
+import type { PublishedApplicationSnapshot, SnapshotScriptDefinition } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
 
 type PersistedAppScriptRowDb = {
@@ -118,11 +118,20 @@ const normalizeManifest = (value: unknown): ScriptManifest => {
     }
 }
 
+const resolveSnapshotScriptCodename = (codename: SnapshotScriptDefinition['codename']): string => {
+    const text = getCodenamePrimary(codename).trim()
+    if (text.length === 0) {
+        throw new Error('[SchemaSync] Invalid runtime script codename in snapshot')
+    }
+
+    return text
+}
+
 const normalizeSnapshotScripts = (snapshot: PublishedApplicationSnapshot): ApplicationScriptDefinition[] => {
     const rawScripts = Array.isArray(snapshot.scripts) ? snapshot.scripts : []
 
     return rawScripts
-        .filter((script): script is ApplicationScriptDefinition =>
+        .filter((script): script is SnapshotScriptDefinition =>
             Boolean(script && typeof script === 'object' && typeof script.id === 'string')
         )
         .map((script) => {
@@ -134,7 +143,7 @@ const normalizeSnapshotScripts = (snapshot: PublishedApplicationSnapshot): Appli
 
             return {
                 ...script,
-                codename: String(script.codename),
+                codename: resolveSnapshotScriptCodename(script.codename),
                 attachedToId: script.attachedToId ?? null,
                 moduleRole: script.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE,
                 sourceKind: script.sourceKind ?? DEFAULT_SCRIPT_SOURCE_KIND,

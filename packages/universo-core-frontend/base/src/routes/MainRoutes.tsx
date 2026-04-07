@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useParams } from 'react-router-dom'
 
 import '@universo/admin-frontend/i18n'
 import '@universo/start-frontend/i18n'
@@ -52,7 +52,7 @@ const EnumerationValueList = Loadable(lazy(() => import('@universo/metahubs-fron
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
 const ConstantList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.ConstantList }))))
 const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
-const MetahubLayouts = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayouts }))))
+const MetahubCommon = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubCommon }))))
 const MetahubLayoutDetails = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails }))))
 const MetahubMigrations = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrations }))))
 const MetahubMigrationGuard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrationGuard }))))
@@ -92,6 +92,16 @@ const ApplicationDialogScope = () => (
         <Outlet />
     </ApplicationDialogSettingsProvider>
 )
+
+const LegacyMetahubLayoutsRedirect = () => {
+    const { metahubId } = useParams<{ metahubId: string }>()
+    return <Navigate to={metahubId ? `/metahub/${metahubId}/common` : '/metahubs'} replace />
+}
+
+const LegacyMetahubLayoutDetailsRedirect = () => {
+    const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
+    return <Navigate to={metahubId && layoutId ? `/metahub/${metahubId}/common/layouts/${layoutId}` : '/metahubs'} replace />
+}
 
 const HomeRoute = {
     path: '/',
@@ -223,12 +233,17 @@ const MainRoutes = {
                 { path: 'publication/:publicationId/applications', element: <PublicationApplicationList /> },
                 { path: 'migrations', element: <MetahubMigrations /> },
                 { path: 'branches', element: <BranchList /> },
+                { path: 'common', element: <MetahubCommon /> },
+                { path: 'common/layouts/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'general', element: <Navigate to='../common' replace /> },
+                { path: 'general/layouts/:layoutId', element: <LegacyMetahubLayoutDetailsRedirect /> },
+                { path: 'catalog/:catalogId/layout/:layoutId', element: <MetahubLayoutDetails /> },
                 { path: 'hubs', element: <HubList /> },
                 { path: 'catalogs', element: <CatalogList /> },
                 { path: 'sets', element: <SetList /> },
                 { path: 'enumerations', element: <EnumerationList /> },
-                { path: 'layouts', element: <MetahubLayouts /> },
-                { path: 'layouts/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'layouts', element: <LegacyMetahubLayoutsRedirect /> },
+                { path: 'layouts/:layoutId', element: <LegacyMetahubLayoutDetailsRedirect /> },
                 { path: 'catalog/:catalogId/attributes', element: <AttributeList /> },
                 { path: 'catalog/:catalogId/system', element: <AttributeList /> },
                 { path: 'catalog/:catalogId/elements', element: <ElementList /> },

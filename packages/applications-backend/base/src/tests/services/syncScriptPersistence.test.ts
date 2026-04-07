@@ -1,5 +1,14 @@
 import type { ApplicationScriptDefinition } from '@universo/types'
-import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import type { PublishedApplicationSnapshot, SnapshotScriptDefinition } from '../../services/applicationSyncContracts'
+
+const createCodenameVlc = (primary: string, secondary?: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: primary, version: 1, isActive: true },
+        ...(secondary ? { ru: { content: secondary, version: 1, isActive: true } } : {})
+    }
+})
 
 type StoredScriptRow = Record<string, unknown>
 
@@ -32,7 +41,7 @@ import { hasPublishedScriptsChanges, persistPublishedScripts } from '../../route
 const scopedIndexDefinition =
     "CREATE UNIQUE INDEX idx_app_scripts_codename_active ON _app_scripts (attached_to_kind, COALESCE(attached_to_id, '00000000-0000-0000-0000-000000000000'::uuid), module_role, codename) WHERE ((_upl_deleted = false) AND (_app_deleted = false))"
 
-const createSnapshotScript = (overrides: Partial<ApplicationScriptDefinition> = {}): ApplicationScriptDefinition => ({
+const createSnapshotScript = (overrides: Partial<SnapshotScriptDefinition> = {}): SnapshotScriptDefinition => ({
     id: overrides.id ?? 'script-1',
     codename: overrides.codename ?? 'quiz-widget',
     presentation: overrides.presentation ?? {
@@ -101,7 +110,7 @@ const createStoredScriptRow = (overrides: Partial<StoredScriptRow> = {}): Stored
     _upl_version: overrides._upl_version ?? 1
 })
 
-const createSnapshot = (scripts: ApplicationScriptDefinition[]): PublishedApplicationSnapshot => ({
+const createSnapshot = (scripts: SnapshotScriptDefinition[]): PublishedApplicationSnapshot => ({
     entities: {},
     scripts
 })
@@ -277,7 +286,7 @@ describe('syncScriptPersistence', () => {
                 }),
                 createSnapshotScript({
                     id: 'script-new',
-                    codename: 'score-widget',
+                    codename: createCodenameVlc('score-widget', 'виджет-очки'),
                     attachedToId: 'catalog-2',
                     checksum: 'score-checksum'
                 })

@@ -39,7 +39,7 @@ Use the Playwright browser suite when implementation must be validated against t
 - Application settings coverage that persists workspace limits and verifies runtime row creation becomes blocked at the configured limit.
 - Application workspace regression coverage that verifies the pre-schema limits info-state and browser-level multi-user isolation when workspaces are enabled.
 - Application runtime coverage that creates, edits, copies, and deletes runtime rows through the existing shared CRUD UI while verifying persisted row data after each step.
-- Codename coverage that verifies UI switching between single-locale and localized editors while persisted codenames stay in VLC form.
+- Codename coverage that verifies UI switching between single-locale and localized editors while persisted codenames remain one JSONB/VLC field; disabling localized editing may trim non-primary locales, but must never flatten storage to plain text.
 - Codename UX coverage that verifies name-driven auto-fill, manual codename override, and full-name reset restoring auto-generation.
 - Metahub create-options coverage that verifies optional default entities can be disabled while branch/layout remain mandatory.
 - Publication variant coverage for publication-only and publication-plus-application-without-schema flows in addition to the combined publication-plus-schema regression path.
@@ -58,7 +58,7 @@ Use the Playwright browser suite when implementation must be validated against t
 5. Let cleanup finish so the manifest can remove test users and test data safely.
 6. Keep browser login retries bounded and only for visible transient auth-error alerts on `/auth`; persistent login failures should still be treated as defects.
 7. When browser behavior depends on platform codename defaults, prefer the browser-covered `/metahubs/codename-defaults` contract over assuming an admin-settings write has already propagated everywhere.
-8. Keep admin role helpers aligned with the shared VLC codename contract so disabling codename localization trims locale variants without corrupting the persisted JSONB shape.
+8. Keep admin role helpers aligned with the shared one-field VLC codename contract so `general.codenameLocalizedEnabled` only trims locale variants inside the persisted JSONB payload and never behaves like a storage-type switch.
 9. Reuse the shared `apps-template-mui` dialog and row-actions contracts for runtime CRUD flows instead of introducing runtime-specific test-only selectors or alternate admin surfaces.
 10. For board pages, assert the real dashboard counters against backend summary APIs instead of introducing separate board-only fixtures or fake analytics components.
 11. For connector-board and migration pages, assert the existing cards and migration table against backend migration APIs instead of adding duplicate migration widgets or hard-coded DOM assumptions.

@@ -31,7 +31,6 @@ import ToggleOnRoundedIcon from '@mui/icons-material/ToggleOnRounded'
 import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded'
 
 import { useCommonTranslations } from '@universo/i18n'
-import { defaultDashboardLayoutConfig, type DashboardLayoutConfig } from '@universo/types'
 import {
     TemplateMainCard as MainCard,
     ItemCard,
@@ -56,15 +55,20 @@ import { STORAGE_KEYS } from '../../../constants/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { metahubsQueryKeys } from '../../shared'
+import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
 import { useCopyLayout, useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
-import type { MetahubLayout, MetahubLayoutDisplay, MetahubLayoutLocalizedPayload } from '../../../types'
+import type {
+    Metahub,
+    MetahubCreateLayoutPayload,
+    MetahubLayout,
+    MetahubLayoutDisplay,
+    MetahubLayoutLocalizedPayload
+} from '../../../types'
 import { getVLCString, toMetahubLayoutDisplay } from '../../../types'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeLayoutCopyOptions } from '@universo/utils'
 import { isPendingEntity, getPendingAction } from '@universo/utils'
-
-const DEFAULT_DASHBOARD_CONFIG: DashboardLayoutConfig = defaultDashboardLayoutConfig
 
 type LayoutFormValues = {
     templateKey: 'dashboard'
@@ -89,6 +93,27 @@ type LayoutRowLike = { id?: string }
 type LayoutMenuState = {
     anchorEl: HTMLElement | null
     layout: MetahubLayout | null
+}
+
+type LayoutListProps = {
+    metahubId?: string
+    catalogId?: string | null
+    detailBasePath?: string
+    title?: string | null
+    emptyTitle?: string
+    emptyDescription?: string
+    embedded?: boolean
+    compactHeader?: boolean
+}
+
+type LayoutListContentProps = LayoutListProps & {
+    renderPageShell?: boolean
+}
+
+const normalizeCatalogId = (catalogId?: string | null): string | null => {
+    if (typeof catalogId !== 'string') return null
+    const trimmed = catalogId.trim()
+    return trimmed.length > 0 ? trimmed : null
 }
 
 const appendLocalizedCopySuffix = (
@@ -144,13 +169,33 @@ const hasHttpResponseStatus = (error: unknown): boolean => {
     return Boolean(response && typeof response === 'object' && 'status' in (response as Record<string, unknown>))
 }
 
-const LayoutList = () => {
+export const LayoutListContent = ({
+    metahubId: metahubIdProp,
+    catalogId: catalogIdProp,
+    detailBasePath: detailBasePathProp,
+    title,
+    emptyTitle,
+    emptyDescription,
+    embedded = false,
+    compactHeader,
+    renderPageShell = false
+}: LayoutListContentProps = {}) => {
     const navigate = useNavigate()
-    const { metahubId } = useParams<{ metahubId: string }>()
+    const { metahubId: routeMetahubId, catalogId: routeCatalogId } = useParams<{ metahubId: string; catalogId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
+
+    const metahubId = metahubIdProp ?? routeMetahubId
+    const catalogId = normalizeCatalogId(catalogIdProp ?? routeCatalogId)
+    const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
+    const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
+    const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
+    const useCompactEmbeddedHeader = compactHeader ?? (embedded && Boolean(catalogId))
+    const detailBasePath =
+        detailBasePathProp ??
+        (metahubId ? (catalogId ? `/metahub/${metahubId}/catalog/${catalogId}/layout` : `/metahub/${metahubId}/layouts`) : '')
 
     const [view, setView] = useViewPreference(STORAGE_KEYS.LAYOUT_DISPLAY_STYLE)
 
@@ -167,9 +212,9 @@ const LayoutList = () => {
     const copyLayoutMutation = useCopyLayout()
 
     const paginationResult = usePaginated<MetahubLayout, 'name' | 'created' | 'updated'>({
-        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, params) : () => ['empty'],
+        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, { ...params, catalogId }) : () => ['empty'],
         queryFn: metahubId
-            ? (params) => layoutsApi.listLayouts(metahubId, params)
+            ? (params) => layoutsApi.listLayouts(metahubId, { ...params, catalogId })
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'updated',
@@ -191,13 +236,13 @@ const LayoutList = () => {
             if (!metahubId) return
             revealPendingEntityFeedback({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId),
+                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, catalogId),
                 entityId: layoutId,
                 extraQueryKeys: [metahubsQueryKeys.layoutDetail(metahubId, layoutId)]
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+        [catalogId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
     )
 
     const activeCount = useMemo(() => layouts.filter((l) => l.isActive).length, [layouts])
@@ -217,21 +262,34 @@ const LayoutList = () => {
 
     const closeMenu = () => setMenuState({ anchorEl: null, layout: null })
 
+    const buildLayoutPath = useCallback(
+        (layoutId: string) => {
+            if (!detailBasePath) return ''
+            return `${detailBasePath}/${layoutId}`
+        },
+        [detailBasePath]
+    )
+
     const goToLayout = (layout: MetahubLayout) => {
-        navigate(`/metahub/${metahubId}/layouts/${layout.id}`)
+        const nextPath = buildLayoutPath(layout.id)
+        if (!nextPath) return
+        navigate(nextPath)
     }
 
     const handleAddNew = () => {
+        if (!canManageLayouts) return
         setDialogError(null)
         openCreate()
     }
 
     const handleEdit = (layout: MetahubLayout) => {
+        if (!canManageLayouts) return
         setDialogError(null)
         openEdit(layout)
     }
 
     const handleCopy = (layout: MetahubLayout) => {
+        if (!canManageLayouts) return
         setCopyDialogError(null)
         openCopy(layout)
     }
@@ -298,7 +356,7 @@ const LayoutList = () => {
     const toPayload = useCallback(
         (
             values: LayoutDialogValues,
-            options?: { expectedVersion?: number; includeConfig?: boolean; existingLayout?: MetahubLayout | null }
+            options?: { expectedVersion?: number; existingLayout?: MetahubLayout | null }
         ): MetahubLayoutLocalizedPayload => {
             const uiLocale = normalizeLocale(i18n.language)
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(values.nameVlc)
@@ -326,9 +384,6 @@ const LayoutList = () => {
                 isActive: Boolean(values.isActive),
                 isDefault: Boolean(values.isDefault),
                 expectedVersion: options?.expectedVersion
-            }
-            if (options?.includeConfig) {
-                payload.config = DEFAULT_DASHBOARD_CONFIG as unknown as Record<string, unknown>
             }
             return payload
         },
@@ -361,15 +416,18 @@ const LayoutList = () => {
     )
 
     const handleCreate = async (values: LayoutDialogValues) => {
-        if (!metahubId) return
+        if (!metahubId || !canManageLayouts) return
         setDialogError(null)
-        const payload = toPayload(values, { includeConfig: true })
+        const payload: MetahubCreateLayoutPayload = {
+            ...toPayload(values),
+            ...(catalogId ? { catalogId } : {})
+        }
         createLayoutMutation.mutate({ metahubId, data: payload })
         close('create')
     }
 
     const handleUpdate = async (values: LayoutDialogValues) => {
-        if (!metahubId || !dialogs.edit.item) return
+        if (!metahubId || !dialogs.edit.item || !canManageLayouts) return
         const currentLayout = dialogs.edit.item
         setDialogError(null)
         const payload = toPayload(values, {
@@ -380,7 +438,12 @@ const LayoutList = () => {
 
         close('edit')
         updateLayoutMutation.mutate(
-            { metahubId, layoutId: currentLayout.id, data: payload },
+            {
+                metahubId,
+                layoutId: currentLayout.id,
+                catalogId: currentLayout.catalogId ?? catalogId,
+                data: payload
+            },
             {
                 onError: (error: unknown) => {
                     const message = error instanceof Error ? error.message : String(error)
@@ -392,13 +455,14 @@ const LayoutList = () => {
     }
 
     const handleCopyLayout = async (values: LayoutDialogValues) => {
-        if (!metahubId || !dialogs.copy.item) return
+        if (!metahubId || !dialogs.copy.item || !canManageLayouts) return
         try {
             setCopyDialogError(null)
             const payload = toCopyPayload(values)
             copyLayoutMutation.mutate({
                 metahubId,
                 layoutId: dialogs.copy.item.id,
+                catalogId: dialogs.copy.item.catalogId ?? catalogId,
                 data: payload
             })
             close('copy')
@@ -409,11 +473,12 @@ const LayoutList = () => {
     }
 
     const handleSetDefault = async (layout: MetahubLayout) => {
-        if (!metahubId) return
+        if (!metahubId || !canManageLayouts) return
         try {
             updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
+                catalogId: layout.catalogId ?? catalogId,
                 data: { isDefault: true, expectedVersion: layout.version }
             })
         } catch (e: unknown) {
@@ -422,11 +487,12 @@ const LayoutList = () => {
     }
 
     const handleToggleActive = async (layout: MetahubLayout) => {
-        if (!metahubId) return
+        if (!metahubId || !canManageLayouts) return
         try {
             updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
+                catalogId: layout.catalogId ?? catalogId,
                 data: { isActive: !layout.isActive, expectedVersion: layout.version }
             })
         } catch (e: unknown) {
@@ -435,13 +501,18 @@ const LayoutList = () => {
     }
 
     const handleDelete = (layout: MetahubLayout) => {
+        if (!canManageLayouts) return
         openDelete(layout)
     }
 
     const handleDeleteConfirm = async () => {
-        if (!metahubId || !dialogs.delete.item) return
+        if (!metahubId || !dialogs.delete.item || !canManageLayouts) return
         try {
-            deleteLayoutMutation.mutate({ metahubId, layoutId: dialogs.delete.item.id })
+            deleteLayoutMutation.mutate({
+                metahubId,
+                layoutId: dialogs.delete.item.id,
+                catalogId: dialogs.delete.item.catalogId ?? catalogId
+            })
             close('delete')
         } catch (e: unknown) {
             notifyError(t, enqueueSnackbar, e)
@@ -574,7 +645,7 @@ const LayoutList = () => {
                             </Typography>
                         </ButtonBase>
                     ) : (
-                        <Link to={`/metahub/${metahubId}/layouts/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <Link to={buildLayoutPath(row.id)} style={{ textDecoration: 'none', color: 'inherit' }}>
                             <Typography
                                 sx={{
                                     fontSize: 14,
@@ -634,7 +705,7 @@ const LayoutList = () => {
                 )
             }
         ],
-        [handlePendingLayoutInteraction, metahubId, t, tc]
+        [buildLayoutPath, handlePendingLayoutInteraction, t, tc]
     )
 
     // Keep edit dialog state in sync if list updates (e.g., optimistic lock changes).
@@ -662,16 +733,11 @@ const LayoutList = () => {
     const disableDeactivate = Boolean(menuLayout?.isDefault) || (Boolean(menuLayout?.isActive) && activeCount <= 1)
     const disableDelete = Boolean(menuLayout?.isDefault)
     const disableSetDefault = !menuLayout?.isActive || Boolean(menuLayout?.isDefault)
+    const contentOffsetSx = embedded ? 0 : { xs: -1.5, md: -2 }
+    const resolvedTitle = title === undefined ? t('layouts.title', 'Layouts') : title ?? undefined
 
-    return (
-        <MainCard
-            sx={{ maxWidth: '100%', width: '100%' }}
-            contentSX={{ px: 0, py: 0 }}
-            disableContentPadding
-            disableHeader
-            border={false}
-            shadow={false}
-        >
+    const listContent = (
+        <>
             {error ? (
                 <EmptyListState
                     image={APIEmptySVG}
@@ -686,7 +752,8 @@ const LayoutList = () => {
                         search
                         searchPlaceholder={t('layouts.searchPlaceholder', 'Search layouts...')}
                         onSearchChange={handleSearchChange}
-                        title={t('layouts.title', 'Layouts')}
+                        title={embedded ? undefined : resolvedTitle}
+                        adaptiveSearch={useCompactEmbeddedHeader}
                     >
                         <ToolbarControls
                             viewToggleEnabled
@@ -694,11 +761,25 @@ const LayoutList = () => {
                             onViewModeChange={(mode: string) => setView(mode === 'list' ? 'list' : 'card')}
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
+                            sx={
+                                useCompactEmbeddedHeader
+                                    ? {
+                                          height: 40,
+                                          minHeight: 40,
+                                          flexWrap: 'nowrap',
+                                          width: 'auto'
+                                      }
+                                    : undefined
+                            }
+                            primaryAction={
+                                canManageLayouts
+                                    ? {
+                                          label: tc('create'),
+                                          onClick: handleAddNew,
+                                          startIcon: <AddRoundedIcon />
+                                      }
+                                    : undefined
+                            }
                         />
                     </ViewHeader>
 
@@ -711,9 +792,11 @@ const LayoutList = () => {
                     ) : !isLoading && layouts.length === 0 ? (
                         <EmptyListState
                             image={APIEmptySVG}
-                            imageAlt={t('layouts.empty', 'No layouts')}
-                            title={t('layouts.empty', 'No layouts')}
-                            description={t('layouts.emptyDescription', 'Create a layout to configure published applications UI')}
+                            imageAlt={emptyTitle || t('layouts.empty', 'No layouts')}
+                            title={emptyTitle || t('layouts.empty', 'No layouts')}
+                            description={
+                                emptyDescription || t('layouts.emptyDescription', 'Create a layout to configure published applications UI')
+                            }
                         />
                     ) : (
                         <>
@@ -723,11 +806,11 @@ const LayoutList = () => {
                                     sx={{
                                         display: 'grid',
                                         gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
+                                        mx: contentOffsetSx,
                                         gridTemplateColumns: {
                                             xs: '1fr',
-                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                            sm: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+                                            lg: 'repeat(auto-fit, minmax(260px, 1fr))'
                                         }
                                     }}
                                 >
@@ -777,14 +860,12 @@ const LayoutList = () => {
                                     ))}
                                 </Box>
                             ) : (
-                                <Box data-testid='metahub-layouts-list-content' sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                <Box data-testid='metahub-layouts-list-content' sx={{ mx: contentOffsetSx }}>
                                     <FlowListTable
                                         data={layouts.map(getCardData)}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: LayoutRowLike) =>
-                                            row?.id ? `/metahub/${metahubId}/layouts/${row.id}` : undefined
-                                        }
+                                        getRowLink={(row: LayoutRowLike) => (row?.id ? buildLayoutPath(row.id) : undefined)}
                                         onPendingInteractionAttempt={(row: LayoutRowLike) => handlePendingLayoutInteraction(row.id)}
                                         customColumns={layoutColumns}
                                         i18nNamespace='flowList'
@@ -804,7 +885,7 @@ const LayoutList = () => {
                     )}
 
                     {!isLoading && layouts.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                        <Box sx={{ mx: contentOffsetSx, mt: 2 }}>
                             <PaginationControls
                                 pagination={paginationResult.pagination}
                                 actions={paginationResult.actions}
@@ -833,61 +914,67 @@ const LayoutList = () => {
                     <SettingsRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                     {t('layouts.actions.configure', 'Configure')}
                 </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) handleEdit(menuLayout)
-                        closeMenu()
-                    }}
-                >
-                    <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {tc('actions.edit', 'Edit')}
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) handleCopy(menuLayout)
-                        closeMenu()
-                    }}
-                >
-                    <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {tc('actions.copy', 'Copy')}
-                </MenuItem>
-                <Divider />
-                <MenuItem
-                    disabled={disableSetDefault}
-                    onClick={() => {
-                        if (menuLayout) void handleSetDefault(menuLayout)
-                        closeMenu()
-                    }}
-                >
-                    <StarRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {t('layouts.actions.setDefault', 'Set as default')}
-                </MenuItem>
-                <MenuItem
-                    disabled={disableDeactivate}
-                    onClick={() => {
-                        if (menuLayout) void handleToggleActive(menuLayout)
-                        closeMenu()
-                    }}
-                >
-                    {menuLayout?.isActive ? (
-                        <ToggleOffRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    ) : (
-                        <ToggleOnRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    )}
-                    {menuLayout?.isActive ? t('layouts.actions.deactivate', 'Deactivate') : t('layouts.actions.activate', 'Activate')}
-                </MenuItem>
-                <Divider />
-                <MenuItem
-                    disabled={disableDelete}
-                    onClick={() => {
-                        if (menuLayout) void handleDelete(menuLayout)
-                        closeMenu()
-                    }}
-                    sx={{ color: 'error.main' }}
-                >
-                    <DeleteRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {tc('actions.delete', 'Delete')}
-                </MenuItem>
+                {canManageLayouts ? (
+                    <>
+                        <MenuItem
+                            onClick={() => {
+                                if (menuLayout) handleEdit(menuLayout)
+                                closeMenu()
+                            }}
+                        >
+                            <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {tc('actions.edit', 'Edit')}
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => {
+                                if (menuLayout) handleCopy(menuLayout)
+                                closeMenu()
+                            }}
+                        >
+                            <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {tc('actions.copy', 'Copy')}
+                        </MenuItem>
+                        <Divider />
+                        <MenuItem
+                            disabled={disableSetDefault}
+                            onClick={() => {
+                                if (menuLayout) void handleSetDefault(menuLayout)
+                                closeMenu()
+                            }}
+                        >
+                            <StarRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {t('layouts.actions.setDefault', 'Set as default')}
+                        </MenuItem>
+                        <MenuItem
+                            disabled={disableDeactivate}
+                            onClick={() => {
+                                if (menuLayout) void handleToggleActive(menuLayout)
+                                closeMenu()
+                            }}
+                        >
+                            {menuLayout?.isActive ? (
+                                <ToggleOffRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            ) : (
+                                <ToggleOnRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            )}
+                            {menuLayout?.isActive
+                                ? t('layouts.actions.deactivate', 'Deactivate')
+                                : t('layouts.actions.activate', 'Activate')}
+                        </MenuItem>
+                        <Divider />
+                        <MenuItem
+                            disabled={disableDelete}
+                            onClick={() => {
+                                if (menuLayout) void handleDelete(menuLayout)
+                                closeMenu()
+                            }}
+                            sx={{ color: 'error.main' }}
+                        >
+                            <DeleteRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {tc('actions.delete', 'Delete')}
+                        </MenuItem>
+                    </>
+                ) : null}
             </Menu>
 
             <EntityFormDialog
@@ -1008,8 +1095,27 @@ const LayoutList = () => {
                 onCancel={() => close('delete')}
                 onConfirm={handleDeleteConfirm}
             />
+        </>
+    )
+
+    if (!renderPageShell) {
+        return listContent
+    }
+
+    return (
+        <MainCard
+            sx={{ maxWidth: '100%', width: '100%' }}
+            contentSX={{ px: 0, py: 0 }}
+            disableContentPadding
+            disableHeader
+            border={false}
+            shadow={false}
+        >
+            {listContent}
         </MainCard>
     )
 }
+
+const LayoutList = (props: LayoutListProps) => <LayoutListContent {...props} renderPageShell={!props.embedded} />
 
 export default LayoutList

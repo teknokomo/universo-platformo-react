@@ -52,14 +52,24 @@ jest.mock('../../domains/layouts/services/MetahubLayoutsService', () => {
 })
 
 describe('Layouts Routes', () => {
+    type MockExecTransaction = {
+        query: jest.Mock
+        transaction: jest.Mock
+        isReleased: () => boolean
+    }
+
     const createLayoutCopyTransactionTrx = (params?: {
         copiedLayout?: Record<string, unknown>
         sourceWidgets?: Array<Record<string, unknown>>
+        sourceOverrides?: Array<Record<string, unknown>>
+        baseWidgets?: Array<Record<string, unknown>>
     }) => {
         const created =
             params?.copiedLayout ??
             ({
                 id: 'layout-copy-id',
+                catalog_id: null,
+                base_layout_id: null,
                 template_key: 'dashboard',
                 name: {
                     _schema: 'v1',
@@ -79,6 +89,8 @@ describe('Layouts Routes', () => {
             } as Record<string, unknown>)
 
         const sourceWidgets = params?.sourceWidgets ?? []
+        const sourceOverrides = params?.sourceOverrides ?? []
+        const baseWidgets = params?.baseWidgets ?? []
 
         const queryMock = jest.fn().mockResolvedValue([])
         // Sequence: INSERT layout RETURNING * → [created]
@@ -87,7 +99,14 @@ describe('Layouts Routes', () => {
             // SELECT widgets → sourceWidgets
             queryMock.mockResolvedValueOnce(sourceWidgets)
             // INSERT widgets batch → undefined
-            queryMock.mockResolvedValueOnce(undefined as any)
+            queryMock.mockResolvedValueOnce(undefined)
+        }
+        if (sourceOverrides.length > 0 || baseWidgets.length > 0) {
+            queryMock.mockResolvedValueOnce(sourceOverrides)
+            if (baseWidgets.length > 0) {
+                queryMock.mockResolvedValueOnce(baseWidgets)
+            }
+            queryMock.mockResolvedValueOnce(undefined)
         }
 
         return { query: queryMock }
@@ -95,7 +114,9 @@ describe('Layouts Routes', () => {
 
     const mockExec = {
         query: jest.fn(async () => []),
-        transaction: jest.fn(async (cb: any) => cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })),
+        transaction: jest.fn(async (cb: (trx: MockExecTransaction) => Promise<unknown>) =>
+            cb({ query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false })
+        ),
         isReleased: () => false
     }
 
@@ -119,7 +140,7 @@ describe('Layouts Routes', () => {
     const buildApp = () => {
         const app = express()
         app.use(express.json())
-        app.use(createLayoutsRoutes(ensureAuth, () => mockExec as any, mockRateLimiter, mockRateLimiter))
+        app.use(createLayoutsRoutes(ensureAuth, () => mockExec as never, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler)
         return app
     }
@@ -203,7 +224,7 @@ describe('Layouts Routes', () => {
             // Only INSERT layout query, no widget queries
             expect(trx.query).toHaveBeenCalledTimes(1)
             const insertParams = (trx.query as jest.Mock).mock.calls[0]?.[1]
-            const config = JSON.parse(insertParams?.[3] as string)
+            const config = JSON.parse(insertParams?.[5] as string)
             expect(config.__skipDefaultZoneWidgetSeed).toBe(true)
         })
 
@@ -239,6 +260,113 @@ describe('Layouts Routes', () => {
             const widgetInsertParams = (trx.query as jest.Mock).mock.calls[2]?.[1] as unknown[]
             // is_active is the 6th param per widget (index 5)
             expect(widgetInsertParams?.[5]).toBe(false)
+        })
+
+        it('copies catalog layout scope and inherited overrides when deactivating copied widgets', async () => {
+            mockGetLayoutById.mockResolvedValueOnce({
+                id: 'layout-1',
+                catalogId: 'catalog-1',
+                baseLayoutId: 'base-layout-1',
+                templateKey: 'dashboard',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Catalog dashboard' }
+                    }
+                },
+                description: null,
+                config: {
+                    dashboardBehavior: {
+                        showCreateButton: false,
+                        searchMode: 'server'
+                    }
+                },
+                isActive: true,
+                sortOrder: 0
+            })
+
+            const trx = createLayoutCopyTransactionTrx({
+                copiedLayout: {
+                    id: 'layout-copy-id',
+                    catalog_id: 'catalog-1',
+                    base_layout_id: 'base-layout-1',
+                    template_key: 'dashboard',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Catalog dashboard (copy)' }
+                        }
+                    },
+                    description: null,
+                    config: {
+                        dashboardBehavior: {
+                            showCreateButton: false,
+                            searchMode: 'server'
+                        }
+                    },
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1,
+                    _upl_created_at: '2026-02-26T00:00:00.000Z',
+                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
+                },
+                sourceWidgets: [
+                    {
+                        id: 'owned-widget-1',
+                        zone: 'left',
+                        widget_key: 'menuWidget',
+                        sort_order: 1,
+                        config: { title: 'Owned menu' },
+                        is_active: true
+                    }
+                ],
+                sourceOverrides: [
+                    {
+                        base_widget_id: 'base-widget-1',
+                        zone: 'right',
+                        sort_order: 2,
+                        config: { title: 'Catalog override' },
+                        is_active: true,
+                        is_deleted_override: false
+                    }
+                ],
+                baseWidgets: [{ id: 'base-widget-1' }, { id: 'base-widget-2' }]
+            })
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/layout/layout-1/copy')
+                .send({
+                    copyWidgets: true,
+                    deactivateAllWidgets: true,
+                    name: { en: 'Catalog dashboard (copy)' }
+                })
+                .expect(201)
+
+            expect(response.body.catalogId).toBe('catalog-1')
+            expect(response.body.baseLayoutId).toBe('base-layout-1')
+            expect(trx.query).toHaveBeenCalledTimes(6)
+
+            const layoutInsertParams = (trx.query as jest.Mock).mock.calls[0]?.[1] as unknown[]
+            expect(layoutInsertParams?.[0]).toBe('catalog-1')
+            expect(layoutInsertParams?.[1]).toBe('base-layout-1')
+
+            const overrideInsertParams = (trx.query as jest.Mock).mock.calls[5]?.[1] as unknown[]
+            expect(overrideInsertParams?.[0]).toBe('layout-copy-id')
+            expect(overrideInsertParams?.[1]).toBe('base-widget-1')
+            expect(overrideInsertParams?.[5]).toBe(false)
+            expect(overrideInsertParams?.[6]).toBe(false)
+            expect(overrideInsertParams?.[12]).toBe('layout-copy-id')
+            expect(overrideInsertParams?.[13]).toBe('base-widget-2')
+            expect(overrideInsertParams?.[17]).toBe(false)
+            expect(overrideInsertParams?.[18]).toBe(false)
+            expect(overrideInsertParams?.[23]).toBe(true)
         })
     })
 

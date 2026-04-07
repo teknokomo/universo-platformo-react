@@ -8,12 +8,12 @@ import {
 } from '../../domains/metahubs/services/structureVersions'
 
 describe('structureVersions registry', () => {
-    it('exposes v3 as current structure revision', () => {
-        expect(CURRENT_STRUCTURE_VERSION).toBe(3)
+    it('exposes v1 as current structure revision', () => {
+        expect(CURRENT_STRUCTURE_VERSION).toBe(1)
     })
 
     it('exposes current semver label', () => {
-        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.3.0')
+        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.1.0')
     })
 
     it('exposes enumeration values table in current structure version', () => {

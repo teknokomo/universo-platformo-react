@@ -7,7 +7,9 @@ import type {
     MetaFieldSnapshot,
     MetaElementSnapshot,
     MetaConstantSnapshot,
-    MetahubLayoutSnapshot
+    MetahubLayoutSnapshot,
+    MetahubCatalogLayoutSnapshot,
+    MetahubCatalogLayoutWidgetOverrideSnapshot
 } from '../../publications/services/SnapshotSerializer'
 import { ensureCodenameValue } from '../../shared/codename'
 import { toJsonbValue } from '../../shared/jsonb'
@@ -20,6 +22,8 @@ const log = createLogger('SnapshotRestoreService')
 type SnapshotScript = NonNullable<MetahubSnapshot['scripts']>[number] & {
     sourceCode?: string
 }
+
+const getScriptCodenameText = (codename: SnapshotScript['codename']): string => getCodenamePrimary(codename) ?? '[unknown]'
 
 const getEntityCodenameText = (codename: MetaEntitySnapshot['codename']): string => {
     if (typeof codename === 'string') return codename
@@ -52,7 +56,7 @@ export class SnapshotRestoreService {
             await this.restoreEnumerationValues(trx, snapshot, entityIdMap, userId)
             await this.restoreElements(trx, snapshot, entityIdMap, userId)
             await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, attributeIdMap, userId)
-            await this.restoreLayouts(trx, snapshot, userId)
+            await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
         })
     }
 
@@ -417,10 +421,11 @@ export class SnapshotRestoreService {
 
         for (const script of scripts) {
             const attachedToId = this.resolveScriptAttachmentId(script, metahubId, entityIdMap, attributeIdMap)
+            const scriptCodenameText = getScriptCodenameText(script.codename)
 
             if (script.attachedToKind !== 'metahub' && !attachedToId) {
                 log.warn(
-                    `Script attachment ${script.attachedToKind}:${script.attachedToId ?? '[null]'} not found during snapshot restore, skipping script ${script.codename}`
+                    `Script attachment ${script.attachedToKind}:${script.attachedToId ?? '[null]'} not found during snapshot restore, skipping script ${scriptCodenameText}`
                 )
                 continue
             }
@@ -488,7 +493,7 @@ export class SnapshotRestoreService {
             return script.sourceCode
         }
 
-        const normalizedCodename = script.codename.replace(/[^a-zA-Z0-9]/g, '_') || 'ImportedSnapshotScript'
+        const normalizedCodename = getScriptCodenameText(script.codename).replace(/[^a-zA-Z0-9]/g, '_') || 'ImportedSnapshotScript'
 
         return [
             '// Imported from metahub snapshot.',
@@ -501,25 +506,76 @@ export class SnapshotRestoreService {
 
     // ── Final pass: Layouts + zone widgets ────────────────────────────────
 
-    private async restoreLayouts(qb: Knex.Transaction, snapshot: MetahubSnapshot, userId: string): Promise<void> {
+    private async restoreLayouts(
+        qb: Knex.Transaction,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        userId: string
+    ): Promise<void> {
         const layouts = snapshot.layouts ?? []
+        const catalogLayouts = snapshot.catalogLayouts ?? []
+        const overrides = snapshot.catalogLayoutWidgetOverrides ?? []
         const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
 
         // Fresh branch initialization seeds a default dashboard layout. Snapshot import
         // must replace that template seed with the snapshot's canonical layout set.
         await qb.withSchema(this.schemaName).from(widgetTableName).del()
+        await qb.withSchema(this.schemaName).from('_mhb_catalog_widget_overrides').del()
         await qb.withSchema(this.schemaName).from('_mhb_layouts').del()
 
-        if (!layouts.length) return
+        if (!layouts.length && !catalogLayouts.length) return
 
         const now = new Date()
         const layoutIdMap = new Map<string, string>() // old layout id → new layout id
+        const widgetIdMap = new Map<string, string>() // old widget id → new widget id
 
         for (const layout of layouts) {
             const [inserted] = await qb
                 .withSchema(this.schemaName)
                 .into('_mhb_layouts')
                 .insert({
+                    catalog_id: null,
+                    base_layout_id: null,
+                    template_key: layout.templateKey ?? 'dashboard',
+                    name: layout.name ?? {},
+                    description: layout.description ?? null,
+                    config: layout.config ?? {},
+                    is_active: layout.isActive !== false,
+                    is_default: layout.isDefault ?? false,
+                    sort_order: layout.sortOrder ?? 0,
+                    owner_id: null,
+                    _upl_created_at: now,
+                    _upl_created_by: userId,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: false,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+                .returning('id')
+
+            layoutIdMap.set(layout.id, inserted.id)
+        }
+
+        for (const layout of catalogLayouts) {
+            const newCatalogId = entityIdMap.get(layout.catalogId)
+            const newBaseLayoutId = layoutIdMap.get(layout.baseLayoutId)
+
+            if (!newCatalogId || !newBaseLayoutId) {
+                log.warn(`Catalog layout ${layout.id} has unresolved references, skipping restore`)
+                continue
+            }
+
+            const [inserted] = await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_layouts')
+                .insert({
+                    catalog_id: newCatalogId,
+                    base_layout_id: newBaseLayoutId,
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
                     description: layout.description ?? null,
@@ -555,7 +611,7 @@ export class SnapshotRestoreService {
                 continue
             }
 
-            await qb
+            const [inserted] = await qb
                 .withSchema(this.schemaName)
                 .into(widgetTableName)
                 .insert({
@@ -565,6 +621,45 @@ export class SnapshotRestoreService {
                     sort_order: widget.sortOrder ?? 0,
                     config: widget.config ?? {},
                     is_active: widget.isActive !== false,
+                    _upl_created_at: now,
+                    _upl_created_by: userId,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: false,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+                .returning('id')
+
+            widgetIdMap.set(widget.id, inserted.id)
+        }
+
+        if (!overrides.length) return
+
+        for (const override of overrides) {
+            const newCatalogLayoutId = layoutIdMap.get(override.catalogLayoutId)
+            const newBaseWidgetId = widgetIdMap.get(override.baseWidgetId)
+
+            if (!newCatalogLayoutId || !newBaseWidgetId) {
+                log.warn(`Catalog widget override ${override.id} has unresolved references, skipping restore`)
+                continue
+            }
+
+            await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_catalog_widget_overrides')
+                .insert({
+                    catalog_layout_id: newCatalogLayoutId,
+                    base_widget_id: newBaseWidgetId,
+                    zone: override.zone ?? null,
+                    sort_order: override.sortOrder ?? null,
+                    config: override.config ?? null,
+                    is_active: typeof override.isActive === 'boolean' ? override.isActive : null,
+                    is_deleted_override: override.isDeletedOverride === true,
                     _upl_created_at: now,
                     _upl_created_by: userId,
                     _upl_updated_at: now,

@@ -5,10 +5,12 @@ import {
     createLoggedInApiContext,
     createMetahub,
     createMetahubAttribute,
+    createLayout,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
     syncApplicationSchema,
+    toggleLayoutZoneWidgetActive,
     disposeApiContext,
     getLayout,
     listLayouts,
@@ -26,11 +28,11 @@ import {
     SELF_HOSTED_APP_PUBLICATION,
     SELF_HOSTED_APP_SCREENSHOTS_DIRNAME,
     SELF_HOSTED_APP_SECTIONS,
+    SELF_HOSTED_APP_SETTINGS_LAYOUT,
     SELF_HOSTED_APP_SETTINGS_BASELINE,
     assertSelfHostedAppEnvelopeContract,
     buildSelfHostedAppLiveMetahubCodename,
     buildSelfHostedAppLiveMetahubName,
-    canonicalizeSelfHostedAppEnvelope,
     getSelfHostedAppCatalogAttributes
 } from '../../support/selfHostedAppFixtureContract.mjs'
 
@@ -74,7 +76,8 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
 
     expect(response.ok).toBe(true)
     const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-    const menuWidgets = Array.isArray(zoneWidgets) ? zoneWidgets.filter((widget) => widget?.widgetKey === 'menuWidget') : []
+    const zoneWidgetItems = Array.isArray(zoneWidgets?.items) ? zoneWidgets.items : []
+    const menuWidgets = zoneWidgetItems.filter((widget) => widget?.widgetKey === 'menuWidget')
     const primaryMenuWidget = menuWidgets[0]
 
     if (primaryMenuWidget?.id) {
@@ -122,6 +125,51 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
 
     const updatedLayout = await getLayout(api, metahubId, layoutId)
     expect(updatedLayout?.config).toMatchObject(SELF_HOSTED_APP_LAYOUT.runtimeConfig)
+
+    return layoutId
+}
+
+async function createSettingsCatalogLayoutOverride(api: ApiContext, metahubId: string, catalogId: string, baseLayoutId: string) {
+    const created = await createLayout(api, metahubId, {
+        catalogId,
+        baseLayoutId,
+        templateKey: 'dashboard',
+        name: SELF_HOSTED_APP_SETTINGS_LAYOUT.name,
+        namePrimaryLocale: 'en',
+        description: SELF_HOSTED_APP_SETTINGS_LAYOUT.description,
+        descriptionPrimaryLocale: 'en',
+        config: {
+            ...SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig,
+            catalogBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior
+        },
+        isActive: true,
+        isDefault: true
+    })
+
+    expect(created?.catalogId ?? created?.data?.catalogId).toBe(catalogId)
+    expect(created?.baseLayoutId ?? created?.data?.baseLayoutId).toBe(baseLayoutId)
+
+    const settingsLayoutId = created?.id ?? created?.data?.id
+    const settingsLayoutWidgets = await listLayoutZoneWidgets(api, metahubId, settingsLayoutId)
+    const settingsLayoutWidgetItems = Array.isArray(settingsLayoutWidgets?.items) ? settingsLayoutWidgets.items : []
+    const detailsTitleWidget = settingsLayoutWidgetItems.find(
+        (widget) => widget?.widgetKey === 'detailsTitle' && widget?.isActive !== false
+    )
+
+    if (detailsTitleWidget?.id) {
+        const toggleResponse = await toggleLayoutZoneWidgetActive(api, metahubId, settingsLayoutId, detailsTitleWidget.id, false)
+        expect(toggleResponse?.item?.isActive).toBe(false)
+    }
+
+    const updatedSettingsLayout = await getLayout(api, metahubId, settingsLayoutId)
+    expect(updatedSettingsLayout?.config).toMatchObject({
+        showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
+        defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
+        showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar,
+        catalogBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior
+    })
+
+    return settingsLayoutId
 }
 
 /* ────── Helper: raw GET via cookies ────── */
@@ -268,7 +316,12 @@ test.describe('Metahubs Self-Hosted App Export', () => {
 
         expect(Object.keys(sectionMap).length).toBe(SELF_HOSTED_APP_SECTIONS.length)
 
-        await applyEnhancedLayoutConfig(api, metahubId)
+        const defaultLayoutId = await applyEnhancedLayoutConfig(api, metahubId)
+
+        if (sectionMap.settings) {
+            const settingsLayoutId = await createSettingsCatalogLayoutOverride(api, metahubId, sectionMap.settings, defaultLayoutId)
+            expect(typeof settingsLayoutId).toBe('string')
+        }
 
         /* ── 3. Screenshot: metahub catalogs in UI ── */
         try {
@@ -373,13 +426,12 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         expect((envelope.snapshotHash as string).length).toBe(64)
         expect(envelope.snapshot).toBeTruthy()
 
-        const canonicalEnvelope = canonicalizeSelfHostedAppEnvelope(envelope)
-        validateSnapshotEnvelope(canonicalEnvelope)
-        assertSelfHostedAppEnvelopeContract(canonicalEnvelope)
+        validateSnapshotEnvelope(envelope)
+        assertSelfHostedAppEnvelopeContract(envelope)
 
         /* ── 11. Save snapshot to fixtures (persists after test cleanup) ── */
         const fixturePath = path.join(FIXTURES_DIR, SELF_HOSTED_APP_FIXTURE_FILENAME)
-        fs.writeFileSync(fixturePath, JSON.stringify(canonicalEnvelope, null, 2), 'utf8')
+        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
         expect(fs.existsSync(fixturePath)).toBe(true)
 
         const stats = fs.statSync(fixturePath)

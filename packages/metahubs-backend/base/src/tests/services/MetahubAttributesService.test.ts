@@ -140,6 +140,51 @@ describe('MetahubAttributesService active-row filtering', () => {
         )
     })
 
+    it('preserves localized codename payloads for snapshot-oriented attribute reads', async () => {
+        const localizedCodename = {
+            _schema: '1',
+            _primary: 'en',
+            locales: {
+                en: { content: 'title', version: 1, isActive: true },
+                ru: { content: 'название', version: 1, isActive: true }
+            }
+        }
+
+        mockExecQuery.mockResolvedValueOnce([
+            {
+                id: 'attr-1',
+                object_id: 'object-1',
+                codename: localizedCodename,
+                presentation: { name: { en: 'Title' } },
+                data_type: 'STRING',
+                is_required: true,
+                is_display_attribute: false,
+                target_object_id: null,
+                target_object_kind: null,
+                target_constant_id: null,
+                parent_attribute_id: null,
+                sort_order: 1,
+                validation_rules: null,
+                ui_config: null,
+                _upl_version: 1,
+                _upl_created_at: '2026-03-13T00:00:00.000Z',
+                _upl_updated_at: '2026-03-13T00:00:00.000Z'
+            }
+        ])
+
+        const result = await service.findAllFlatForSnapshot('metahub-1', 'object-1', 'user-1', 'all')
+
+        expect(result).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'attr-1',
+                    catalogId: 'object-1',
+                    codename: localizedCodename
+                })
+            ])
+        )
+    })
+
     it('rejects reserved managed-system codenames for business attributes', async () => {
         await expect(
             service.create('metahub-1', {

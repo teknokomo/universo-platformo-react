@@ -1,5 +1,68 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
+## Layout-Owned Catalog Runtime Behavior Pattern (IMPORTANT)
+**Rule**: Catalog runtime create/edit/copy/search behavior must be owned by layout config, not by a separate catalog fallback form or by catalog object `runtimeConfig` fallback during runtime resolution.
+**Required**:
+- Store catalog runtime behavior as the nested `catalogBehavior` block inside layout `config`, reusing the existing behavior shape/enums.
+- Treat the global layout as the default baseline for all catalogs until a catalog-specific layout exists.
+- Do not resolve active runtime behavior from catalog object `runtimeConfig`; runtime helpers and controllers must read the selected layout config only.
+- Catalog CRUD/UI/API contracts must not accept, return, or serialize legacy catalog `runtimeConfig`; update/copy flows should explicitly strip stale persisted `config.runtimeConfig` so a second source of truth cannot survive unrelated writes.
+- Do not keep dashboard widget-visibility booleans as persisted catalog-layout fork state; strip them from stored catalog layout config and reconstruct them from effective widgets during publication/runtime materialization.
+- Keep the catalog dialog Layout tab as a pure embedded layout manager; do not reintroduce a separate fallback-runtime form there.
+**Detection**: `rg "catalogBehavior|resolveCatalogLayoutBehaviorConfig|buildDashboardWidgetVisibilityConfig|runtimeConfig" packages/universo-utils packages/applications-backend packages/metahubs-backend packages/metahubs-frontend`
+**Why**: QA found that the earlier implementation still behaved too much like a copied catalog fallback model: runtime behavior was partially resolved from legacy catalog settings, catalog CRUD/UI still preserved `runtimeConfig`, catalog layouts stored copied widget-visibility booleans, and the catalog dialog still exposed an outdated fallback form. The stable contract is now layout-owned behavior plus sparse catalog storage with runtime materialization.
+## Imported Fixture Playwright Timeout Pattern (IMPORTANT)
+**Rule**: Browser flows that import a full metahub fixture and then create an application schema must opt into an explicit extended Playwright timeout instead of relying on the default 60-second test budget.
+**Required**:
+- Use `test.setTimeout(180_000)` or higher on imported-fixture flows that include metahub import, application creation, and first schema sync in one test body.
+- Diagnose timeout failures against the total test budget first before assuming a backend stall; a late `waitForResponse(...)` failure can be a false signal when earlier bootstrap/import work already consumed most of the default timeout.
+- Remove temporary backend instrumentation after narrowing the issue if the root cause is test-budget exhaustion rather than a real runtime hang.
+**Detection**: `rg "test\.setTimeout\(180_000\)|imported snapshot publication creates schema on first connector attempt|snapshot-import" tools/testing/e2e/specs`
+**Why**: The imported self-hosted connector schema flow appeared to hang on `/application/:id/sync`, but step logging proved runtime sync completed in a few seconds. The real failure was the default Playwright timeout expiring after a long fixture import/bootstrap path.
+## Shared Entity Dialog Context Parity Pattern (IMPORTANT)
+**Rule**: Entity edit dialogs opened from nested `Settings` buttons must receive the same full action context as dialogs opened from top-level list pages, especially `metahubId`, so shared tab builders render the same Scripts/Layout surfaces.
+**Required**:
+- Pass `metahubId` and any other list-origin routing context into shared action builders for nested entity settings dialogs.
+- Reuse the same shared tab/action builders across list-origin and settings-origin entrypoints instead of maintaining separate tab compositions.
+- Cover the parity seam with focused regressions so missing context cannot silently drop Scripts or the catalog Layout manager from one dialog entrypoint only.
+**Detection**: `rg "metahubId:.*actionContext|Scripts|Layout" packages/metahubs-frontend/base/src/domains/**`
+**Why**: The nested entity `Settings` dialogs were rendering an older tab set because the shared builders only enabled Scripts/Layout tabs when `metahubId` was present in the action context.
+## Single-Shell Embedded Page Reuse Pattern (IMPORTANT)
+**Rule**: When a parent page embeds an existing list/detail page inside its own tabbed shell, extract a shell-less content component and keep the standalone page as a thin wrapper; never nest full page chrome inside another page shell.
+**Required**:
+- Let the parent page own the outer `MainCard`, `ViewHeader`, tabs, and page spacing.
+- Expose a shell-less content seam for embedded reuse, for example a named `*Content` export or an explicit `renderPageShell={false}` contract.
+- Preserve the public standalone route contract by keeping the default page component as a wrapper around the shared content.
+- Add focused regression coverage that proves the embedded path renders the shell-less content seam and does not mount the standalone page wrapper.
+**Detection**: `rg "renderPageShell|LayoutListContent|GeneralPage" packages/metahubs-frontend`
+**Why**: QA found that the General page still mounted the standalone Layouts page inside its own header/tab shell. The behavior worked, but the nested `MainCard`/`ViewHeader` composition left architecture debt that future General tabs could easily copy.
+## Full Layout Snapshot Export And Global Layout Cache Invalidation Pattern (IMPORTANT)
+**Rule**: Layout snapshots must carry the full design-time layout set, and global base-layout mutations in the authoring UI must invalidate the full metahub layouts query tree rather than only the edited layout detail.
+**Required**:
+- `attachLayoutsToSnapshot()` must export all global and catalog layouts from `_mhb_layouts`, not only active rows, so snapshot export/import preserves authoring state consistently.
+- Snapshot override rows must be scoped to catalog layouts that are actually exported into `snapshot.catalogLayouts`.
+- `defaultLayoutId` and `layoutConfig` should still resolve from the active/default global baseline so runtime consumers keep the same active-layout semantics.
+- Global layout config/widget mutations in `LayoutDetails` and the shared layouts mutation hooks must invalidate `metahubsQueryKeys.layoutsRoot(metahubId)` so cached inherited catalog layout views are marked stale under the shared 5-minute QueryClient cache.
+**Detection**: `rg "attachLayoutsToSnapshot|layoutsRoot\(|invalidateLayoutsQueries\.all|safeInvalidateQueriesInactive" packages/metahubs-backend packages/metahubs-frontend`
+**Why**: QA found two linked seams: active-only snapshot export could drop authoring layouts while still serializing override rows, and per-layout React Query invalidation left inherited catalog views stale after base global layout mutations.
+## Runtime Startup Catalog Resolution Pattern (IMPORTANT)
+**Rule**: When runtime opens without an explicit `catalogId`, the preferred startup catalog may be inferred only from the global default or active runtime layout, never from a catalog-scoped runtime layout.
+**Required**:
+- Resolve implicit startup menu bindings from `_app_layouts` rows where `catalog_id IS NULL`.
+- Keep catalog-scoped runtime layouts eligible only after a concrete catalog has already been selected.
+- Preserve the existing explicit-catalog fallback path where runtime first tries `catalog_id = $1` and then falls back to the global layout.
+- Keep a focused regression test on the startup-resolution helper so future runtime-controller refactors cannot silently widen the implicit root-selection scope again.
+**Detection**: `rg "resolvePreferredCatalogIdFromGlobalMenu|catalog_id IS NULL|loadRuntimeSelectedLayout" packages/applications-backend`
+**Why**: The General/catalog-layout feature already flattened catalog layouts into runtime rows, but QA found that the implicit startup path could still derive its preferred catalog from a catalog-scoped runtime layout. Constraining that lookup to the global layout scope preserves deterministic root navigation while keeping explicit catalog runtime selection unchanged.
+## Catalog Layout Inherited Widget Contract Pattern (IMPORTANT)
+**Rule**: Catalog layouts must expose inherited base-layout widgets as read-only config surfaces while still allowing move/toggle overrides through the sparse overlay model, and publication/runtime flows must flatten the merged result into ordinary layout/widget rows.
+**Required**:
+- Return `isInherited` for inherited catalog-layout widgets so the shared editor can distinguish inherited vs catalog-owned rows.
+- Reject inherited widget config edits, removal, and direct reassignment at the backend service layer; only move/toggle operations may create or update sparse override rows.
+- Keep catalog-owned widgets in the existing `_mhb_widgets` table and store inherited-widget deltas only in `_mhb_catalog_widget_overrides`; do not add a runtime override table.
+- Ignore inherited override config during snapshot export and application sync so inherited runtime widgets always materialize with base widget config.
+**Detection**: `rg "isInherited|_mhb_catalog_widget_overrides|Inherited widgets cannot" packages/metahubs-backend packages/metahubs-frontend packages/applications-backend`
+**Why**: The broader General/catalog-layout feature already shipped, but QA found that inherited widgets were still config-editable in the shared editor. Preserving this contract prevents future layout refactors from silently turning inherited widgets into mutable copies or runtime-config drift.
 ## MUI Select JSDOM Geometry Pattern (IMPORTANT)
 **Rule**: Frontend jsdom tests that open MUI `Select` / `Menu` / `Popover` surfaces must provide a stable non-zero anchor geometry instead of tolerating noisy `anchorEl` warnings.
 **Required**:
@@ -178,6 +241,7 @@
 **Rule**: Persist codename in one field only, `codename JSONB`, using the canonical VLC / `VersionedLocalizedContent<string>` shape; do not persist `codename_localized`, string-only codename storage, or `presentation.codename` as a second codename seam.
 **Required**:
 - Use the extracted primary locale content as the canonical machine identifier for duplicate checks, uniqueness indexes, ordering, and route/store lookups.
+- Treat `general.codenameLocalizedEnabled` as a VLC payload-shaping/editor flag only: when false, persist a single-locale VLC via `enforceSingleLocaleCodename(...)` instead of flattening codename to plain text or reviving legacy secondary codename columns.
 - Sanitize every locale entry in the codename VLC document under the configured codename style/alphabet policy, but enforce hard uniqueness only on the extracted primary locale content.
 - Implement SQL uniqueness and sort semantics through immutable extracted-primary expression indexes or helper expressions rather than by storing a second machine codename column.
 - For fixed system apps, any codename storage/index contract change that must reach already-deployed schemas requires a new versioned `post_schema_generation` migration ID; editing an already-applied bootstrap definition is not a live upgrade path.
@@ -383,11 +447,12 @@
 ## Shared Publication Snapshot Hash Pattern (CRITICAL)
 **Rule**: Publication snapshot hash normalization must live in one shared helper in `@universo/utils`, and both producer and consumer packages must use that helper for canonical verification.
 **Required**:
-- Keep publication hash normalization aligned with `SnapshotSerializer.normalizeSnapshotForHash(...)`, including `systemFields` and omission semantics for absent optional keys.
+- Keep publication hash normalization aligned with `SnapshotSerializer.normalizeSnapshotForHash(...)`, including `systemFields`, exported design-time sections such as `scripts`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, and omission semantics for absent optional keys.
+- Treat every new snapshot-export section as a shared hash-contract change: update `PublicationSnapshotHashInput`, `normalizePublicationSnapshotForHash(...)`, and the corresponding snapshot-envelope plus release-checksum regressions in the same wave.
 - Make both `@universo/metahubs-backend` and `@universo/applications-backend` call the shared helper instead of maintaining package-local copies.
 - Add direct shared regression coverage whenever publication snapshot structure changes.
 **Detection**: `rg "publicationSnapshotHash|normalizePublicationSnapshotForHash|normalizeSnapshotForHash" packages/universo-utils/base/src packages/applications-backend/base/src packages/metahubs-backend/base/src`
-**Why**: Producer/consumer drift already caused false snapshot-hash mismatches during application sync; one shared normalization seam keeps publication export and runtime validation aligned.
+**Why**: Producer/consumer drift already caused false snapshot-hash mismatches during application sync; one shared normalization seam keeps publication export, transport validation, and release-bundle lineage aligned.
 ## Scoped Paginated View Isolation Pattern (IMPORTANT)
 **Rule**: Screens that switch between semantically different paginated scopes inside the same component instance must not reuse previous-query placeholder data across query-key changes.
 **Required**:

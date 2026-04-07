@@ -10,6 +10,15 @@ import {
     validateApplicationReleaseBundleArtifacts
 } from '../../services/applicationReleaseBundle'
 
+const createCodenameVlc = (primary: string, secondary?: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: primary, version: 1, isActive: true },
+        ...(secondary ? { ru: { content: secondary, version: 1, isActive: true } } : {})
+    }
+})
+
 describe('applicationReleaseBundle', () => {
     const snapshot = {
         versionEnvelope: {
@@ -20,7 +29,7 @@ describe('applicationReleaseBundle', () => {
         entities: {
             catalog_products: {
                 id: 'catalog-products',
-                codename: 'products',
+                codename: createCodenameVlc('products', 'продукты'),
                 kind: 'catalog',
                 fields: []
             }
@@ -75,7 +84,9 @@ describe('applicationReleaseBundle', () => {
                 payload: {
                     entities: [
                         expect.objectContaining({
-                            ...snapshot.entities.catalog_products,
+                            id: 'catalog-products',
+                            codename: 'products',
+                            kind: 'catalog',
                             config: {}
                         })
                     ],
@@ -98,7 +109,9 @@ describe('applicationReleaseBundle', () => {
                 payload: {
                     entities: [
                         expect.objectContaining({
-                            ...snapshot.entities.catalog_products,
+                            id: 'catalog-products',
+                            codename: 'products',
+                            kind: 'catalog',
                             config: {}
                         })
                     ],
@@ -473,14 +486,14 @@ describe('applicationReleaseBundle', () => {
             entities: {
                 'catalog-resources': {
                     id: 'catalog-resources',
-                    codename: 'resources',
+                    codename: createCodenameVlc('resources', 'ресурсы'),
                     kind: 'catalog',
                     presentation: { name: {} },
                     config: {},
                     fields: [
                         {
                             id: tableFieldId,
-                            codename: 'NestedResources',
+                            codename: createCodenameVlc('NestedResources', 'ВложенныеРесурсы'),
                             dataType: 'TABLE',
                             isRequired: false,
                             isDisplayAttribute: false,
@@ -491,7 +504,7 @@ describe('applicationReleaseBundle', () => {
                             childFields: [
                                 {
                                     id: childFieldId,
-                                    codename: 'NestedTitle',
+                                    codename: createCodenameVlc('NestedTitle', 'ВложенныйЗаголовок'),
                                     dataType: 'STRING',
                                     isRequired: true,
                                     isDisplayAttribute: true,
@@ -505,7 +518,7 @@ describe('applicationReleaseBundle', () => {
                         },
                         {
                             id: setFieldId,
-                            codename: 'Motto',
+                            codename: createCodenameVlc('Motto', 'Девиз'),
                             dataType: 'REF',
                             isRequired: false,
                             isDisplayAttribute: false,
@@ -525,7 +538,7 @@ describe('applicationReleaseBundle', () => {
                     {
                         id: constantId,
                         objectId: setId,
-                        codename: 'MottoConstant',
+                        codename: createCodenameVlc('MottoConstant', 'КонстантаДевиз'),
                         dataType: 'STRING',
                         presentation: {
                             name: {
@@ -568,10 +581,12 @@ describe('applicationReleaseBundle', () => {
         expect(rootTableField).toEqual(
             expect.objectContaining({
                 id: tableFieldId,
+                codename: 'NestedResources',
                 dataType: 'TABLE',
                 childFields: [
                     expect.objectContaining({
                         id: childFieldId,
+                        codename: 'NestedTitle',
                         parentAttributeId: tableFieldId
                     })
                 ]
@@ -580,6 +595,7 @@ describe('applicationReleaseBundle', () => {
         expect(flatChildField).toEqual(
             expect.objectContaining({
                 id: childFieldId,
+                codename: 'NestedTitle',
                 parentAttributeId: tableFieldId,
                 dataType: 'STRING'
             })
@@ -587,6 +603,7 @@ describe('applicationReleaseBundle', () => {
         expect(setField).toEqual(
             expect.objectContaining({
                 id: setFieldId,
+                codename: 'Motto',
                 targetConstantId: constantId,
                 uiConfig: expect.objectContaining({
                     targetConstantId: constantId,

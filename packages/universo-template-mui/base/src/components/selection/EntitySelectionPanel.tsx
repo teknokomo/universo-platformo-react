@@ -368,7 +368,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 <DialogTitle>{labels.dialogTitle}</DialogTitle>
                 <DialogContent dividers sx={{ p: 0 }}>
                     {/* Search field */}
-                    <Box sx={{ p: 2, pb: 1 }}>
+                    <Box sx={{ p: 2, pb: 1.5, borderBottom: 1, borderColor: 'divider' }}>
                         <TextField
                             size='small'
                             fullWidth
@@ -387,13 +387,14 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                     </Box>
 
                     {/* Entity list */}
-                    <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                    <List sx={{ maxHeight: 300, overflow: 'auto', px: 1, py: 1 }}>
                         {filteredEntities.length > 0 ? (
                             filteredEntities.map((entity) => (
                                 <ListItem key={entity.id} disablePadding>
                                     <ListItemButton
                                         onClick={() => handleTogglePending(entity.id)}
                                         dense
+                                        sx={{ borderRadius: 1 }}
                                         data-testid={`entity-selection-option-${entity.id}`}
                                     >
                                         <ListItemIcon sx={{ minWidth: 36 }}>
@@ -408,7 +409,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                                 </ListItem>
                             ))
                         ) : (
-                            <ListItem>
+                            <ListItem sx={{ py: 2 }}>
                                 <ListItemText primary={labels.noAvailableMessage} sx={{ textAlign: 'center', color: 'text.secondary' }} />
                             </ListItem>
                         )}

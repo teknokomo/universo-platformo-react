@@ -2664,14 +2664,24 @@ describe('Applications Routes', () => {
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('information_schema.tables')) {
+                    return [{ exists: true }]
+                }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
                         {
                             id: runtimeCatalogId,
                             codename: 'orders',
-                            table_name: 'orders',
+                            table_name: 'orders'
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                    return [
+                        {
+                            id: 'layout-orders',
                             config: {
-                                runtimeConfig: {
+                                catalogBehavior: {
                                     enableRowReordering: true,
                                     reorderPersistenceField: 'sort_order'
                                 }

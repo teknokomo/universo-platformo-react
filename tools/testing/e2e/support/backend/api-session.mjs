@@ -504,6 +504,15 @@ export async function listMetahubCatalogs(api, metahubId, params = {}) {
     return response.json()
 }
 
+export async function createMetahubCatalog(api, metahubId, payload) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/catalogs`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Creating catalog in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function listMetahubScripts(api, metahubId, params = {}) {
     const query = new URLSearchParams()
 
@@ -1108,6 +1117,24 @@ export async function listLayouts(api, metahubId, params = {}) {
     return response.json()
 }
 
+export async function createLayout(api, metahubId, payload) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/layouts`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Creating layout in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function updateLayout(api, metahubId, layoutId, payload) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Updating layout ${layoutId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function getLayout(api, metahubId, layoutId) {
     const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/layout/${layoutId}`, { method: 'GET' })
     if (!response.ok) {
@@ -1121,6 +1148,38 @@ export async function listLayoutZoneWidgets(api, metahubId, layoutId) {
     const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widgets`, { method: 'GET' })
     if (!response.ok) {
         throw await buildError(response, `Listing layout widgets for layout ${layoutId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function assignLayoutZoneWidget(api, metahubId, layoutId, payload) {
+    const response = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Assigning widget to layout ${layoutId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function moveLayoutZoneWidget(api, metahubId, layoutId, payload) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widgets/move`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Moving widget in layout ${layoutId} for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function toggleLayoutZoneWidgetActive(api, metahubId, layoutId, widgetId, isActive) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/toggle-active`,
+        { isActive }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Toggling widget ${widgetId} in layout ${layoutId} for metahub ${metahubId}`)
     }
 
     return response.json()

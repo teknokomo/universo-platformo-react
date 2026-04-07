@@ -5,8 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
+const createLayoutMutate = vi.fn()
 const updateLayoutMutate = vi.fn()
 const updateLayoutMutateAsync = vi.fn()
+const mockUseMetahubDetails = vi.fn()
+const mockToolbarControls = vi.fn()
+const mockViewHeader = vi.fn()
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -26,13 +30,30 @@ vi.mock('../../../../hooks/useViewPreference', () => ({
 }))
 
 vi.mock('../../hooks/mutations', () => ({
-    useCreateLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useCreateLayout: () => ({ mutate: createLayoutMutate, mutateAsync: vi.fn(), isPending: false }),
     useUpdateLayout: () => ({ mutate: updateLayoutMutate, mutateAsync: updateLayoutMutateAsync, isPending: false }),
     useDeleteLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useCopyLayout: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
 
+vi.mock('../../../metahubs/hooks', () => ({
+    useMetahubDetails: (...args: unknown[]) => mockUseMetahubDetails(...args)
+}))
+
 const mockUsePaginated = vi.fn()
+
+const createVisibleDomRect = (): DOMRect =>
+    ({
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 40,
+        top: 0,
+        right: 160,
+        bottom: 40,
+        left: 0,
+        toJSON: () => ({})
+    } as DOMRect)
 
 vi.mock('@universo/template-mui', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@universo/template-mui')>()
@@ -44,15 +65,19 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                 {headerAction}
             </div>
         ),
-        ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) => (
-            <button onClick={primaryAction?.onClick}>{primaryAction?.label ?? 'create'}</button>
-        ),
-        ViewHeaderMUI: ({ children, title }: { children: ReactNode; title?: string }) => (
-            <div>
-                <h1>{title}</h1>
-                {children}
-            </div>
-        ),
+        ToolbarControls: (props: { primaryAction?: { label: string; onClick: () => void } }) => {
+            mockToolbarControls(props)
+            return props.primaryAction ? <button onClick={props.primaryAction.onClick}>{props.primaryAction.label}</button> : null
+        },
+        ViewHeaderMUI: (props: { children: ReactNode; title?: string; controlsWrap?: boolean }) => {
+            mockViewHeader(props)
+            return (
+                <div>
+                    <h1>{props.title}</h1>
+                    {props.children}
+                </div>
+            )
+        },
         EmptyListState: () => <div>empty</div>,
         SkeletonGrid: () => <div>loading</div>,
         APIEmptySVG: 'svg',
@@ -115,6 +140,11 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
         return (
             <div>
                 <div>{title}</div>
+                {title === 'Create layout' ? (
+                    <button onClick={() => void onSave?.(values)} type='button'>
+                        submit-layout-create
+                    </button>
+                ) : null}
                 {title === 'Edit layout' ? (
                     <button onClick={() => void onSave?.(values)} type='button'>
                         submit-layout-edit
@@ -141,6 +171,10 @@ import LayoutList from '../LayoutList'
 describe('LayoutList copy flow entry', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(createVisibleDomRect)
+        mockUseMetahubDetails.mockReturnValue({
+            data: { permissions: { manageMetahub: true } }
+        })
         mockUsePaginated.mockReturnValue({
             data: [
                 {
@@ -173,6 +207,70 @@ describe('LayoutList copy flow entry', () => {
                 goToPage: vi.fn()
             }
         })
+    })
+
+    it('enables adaptive embedded header controls for catalog layout lists', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout']}> 
+                    <Routes>
+                        <Route path='/metahub/:metahubId/catalog/:catalogId/layout' element={<LayoutList embedded />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => {
+            expect(mockViewHeader).toHaveBeenCalled()
+        })
+
+        expect(mockViewHeader).toHaveBeenCalledWith(expect.objectContaining({ adaptiveSearch: true, title: undefined }))
+        expect(mockToolbarControls).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sx: expect.objectContaining({
+                    height: 40,
+                    minHeight: 40,
+                    flexWrap: 'nowrap',
+                    width: 'auto'
+                })
+            })
+        )
+    })
+
+    it('keeps the standard header layout for embedded Common page lists', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/common']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/common' element={<LayoutList embedded />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => {
+            expect(mockViewHeader).toHaveBeenCalled()
+        })
+
+        const headerProps = mockViewHeader.mock.calls.at(-1)?.[0]
+        const toolbarProps = mockToolbarControls.mock.calls.at(-1)?.[0]
+
+        expect(headerProps).toEqual(expect.objectContaining({ adaptiveSearch: false, title: undefined }))
+        expect(toolbarProps?.sx).toBeUndefined()
     })
 
     it('opens copy dialog from layout row menu', async () => {
@@ -237,5 +335,117 @@ describe('LayoutList copy flow entry', () => {
         })
 
         expect(updateLayoutMutateAsync).not.toHaveBeenCalled()
+    })
+
+    it('hides create and mutation menu actions when the user cannot manage the metahub', async () => {
+        mockUseMetahubDetails.mockReturnValue({
+            data: { permissions: { manageMetahub: false } }
+        })
+
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/layouts']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/layouts' element={<LayoutList />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        expect(screen.queryByRole('button', { name: 'create' })).not.toBeInTheDocument()
+
+        const menuButton = screen.getByTestId('layout-more-icon').closest('button')
+        expect(menuButton).not.toBeNull()
+        await user.click(menuButton as HTMLButtonElement)
+
+        expect(await screen.findByText('Configure')).toBeInTheDocument()
+        expect(screen.queryByText('Edit')).not.toBeInTheDocument()
+        expect(screen.queryByText('Copy')).not.toBeInTheDocument()
+        expect(screen.queryByText('Set as default')).not.toBeInTheDocument()
+        expect(screen.queryByText('Activate')).not.toBeInTheDocument()
+        expect(screen.queryByText('Deactivate')).not.toBeInTheDocument()
+        expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    })
+
+    it('creates the first catalog layout without seeding legacy runtime behavior config from the catalog form', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/catalog/:catalogId/layout' element={<LayoutList />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'create' }))
+        expect(screen.getByText('Create layout')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'submit-layout-create' }))
+
+        await waitFor(() => {
+            expect(createLayoutMutate).toHaveBeenCalledTimes(1)
+        })
+
+        const payload = createLayoutMutate.mock.calls[0]?.[0]
+        expect(payload).toMatchObject({
+            metahubId: 'metahub-1',
+            data: {
+                catalogId: 'catalog-1'
+            }
+        })
+        expect(payload.data.config).toBeUndefined()
+    })
+
+    it('creates manual global layouts without pre-seeding dashboard config', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/layouts']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/layouts' element={<LayoutList />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'create' }))
+        expect(screen.getByText('Create layout')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'submit-layout-create' }))
+
+        await waitFor(() => {
+            expect(createLayoutMutate).toHaveBeenCalledTimes(1)
+        })
+
+        const payload = createLayoutMutate.mock.calls[0]?.[0]
+        expect(payload).toMatchObject({
+            metahubId: 'metahub-1'
+        })
+        expect(payload.data.catalogId).toBeUndefined()
+        expect(payload.data.config).toBeUndefined()
     })
 })

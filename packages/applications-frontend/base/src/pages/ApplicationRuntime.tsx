@@ -162,11 +162,33 @@ const ApplicationRuntime = () => {
         state.handleCloseForm()
     }, [clearRuntimeFormParams, state])
 
+    const handledPageSurfaceRequestRef = useRef<string | null>(null)
+    const suppressPageSurfaceOpenRef = useRef(false)
+
+    const handleFormSubmitSurface = useCallback(
+        async (data: Record<string, unknown>) => {
+            if (searchParams.get('surface') === 'page') {
+                suppressPageSurfaceOpenRef.current = true
+            }
+            await state.handleFormSubmit(data)
+        },
+        [searchParams, state]
+    )
+
     useEffect(() => {
-        if (searchParams.get('surface') !== 'page') return
+        if (searchParams.get('surface') !== 'page') {
+            handledPageSurfaceRequestRef.current = null
+            suppressPageSurfaceOpenRef.current = false
+            return
+        }
+
+        if (suppressPageSurfaceOpenRef.current) {
+            return
+        }
 
         const mode = searchParams.get('mode')
         const rowId = searchParams.get('rowId')
+        const requestKey = mode ? `${mode}:${rowId ?? ''}` : null
 
         if (mode === 'create') {
             if (!showCreateButton) {
@@ -176,6 +198,12 @@ const ApplicationRuntime = () => {
                 clearRuntimeFormParams()
                 return
             }
+
+            if (handledPageSurfaceRequestRef.current === requestKey) {
+                return
+            }
+
+            handledPageSurfaceRequestRef.current = requestKey
 
             if (!state.formOpen) {
                 state.handleOpenCreate()
@@ -187,6 +215,12 @@ const ApplicationRuntime = () => {
             clearRuntimeFormParams()
             return
         }
+
+        if (handledPageSurfaceRequestRef.current === requestKey) {
+            return
+        }
+
+        handledPageSurfaceRequestRef.current = requestKey
 
         if (mode === 'edit' && rowId && (!state.formOpen || state.editRowId !== rowId)) {
             state.handleOpenEdit(rowId)
@@ -212,10 +246,45 @@ const ApplicationRuntime = () => {
             handleOpenCreate: handleOpenCreateSurface,
             handleOpenEdit: handleOpenEditSurface,
             handleOpenCopy: handleOpenCopySurface,
-            handleCloseForm: handleCloseFormSurface
+            handleCloseForm: handleCloseFormSurface,
+            handleFormSubmit: handleFormSubmitSurface
         }),
-        [handleCloseFormSurface, handleOpenCopySurface, handleOpenCreateSurface, handleOpenEditSurface, state]
+        [handleCloseFormSurface, handleFormSubmitSurface, handleOpenCopySurface, handleOpenCreateSurface, handleOpenEditSurface, state]
     )
+
+    const activeCatalogSelectionId = state.selectedCatalogId ?? state.activeCatalogId
+    const previousCatalogSelectionRef = useRef<string | undefined>(undefined)
+
+    useEffect(() => {
+        const previousCatalogSelectionId = previousCatalogSelectionRef.current
+
+        if (
+            previousCatalogSelectionId &&
+            activeCatalogSelectionId &&
+            previousCatalogSelectionId !== activeCatalogSelectionId
+        ) {
+            handledPageSurfaceRequestRef.current = null
+            suppressPageSurfaceOpenRef.current = false
+
+            if (state.formOpen || state.editRowId || state.copyRowId) {
+                state.handleCloseForm()
+            }
+
+            if (searchParams.has('surface') || searchParams.has('mode') || searchParams.has('rowId')) {
+                clearRuntimeFormParams()
+            }
+        }
+
+        previousCatalogSelectionRef.current = activeCatalogSelectionId
+    }, [
+        activeCatalogSelectionId,
+        clearRuntimeFormParams,
+        searchParams,
+        state.copyRowId,
+        state.editRowId,
+        state.formOpen,
+        state.handleCloseForm
+    ])
 
     const activeFormSurface =
         searchParams.get('surface') === 'page' && !(searchParams.get('mode') === 'create' && !showCreateButton) ? 'page' : 'dialog'

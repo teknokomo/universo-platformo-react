@@ -201,6 +201,7 @@ export type SnapshotEnumerationValue = {
 
 export type SnapshotLayoutRow = {
     id?: unknown
+    catalogId?: unknown
     templateKey?: unknown
     name?: unknown
     description?: unknown
@@ -208,6 +209,22 @@ export type SnapshotLayoutRow = {
     isActive?: unknown
     isDefault?: unknown
     sortOrder?: unknown
+}
+
+export type SnapshotCatalogLayoutRow = SnapshotLayoutRow & {
+    catalogId?: unknown
+    baseLayoutId?: unknown
+}
+
+export type SnapshotCatalogLayoutWidgetOverrideRow = {
+    id?: unknown
+    catalogLayoutId?: unknown
+    baseWidgetId?: unknown
+    zone?: unknown
+    sortOrder?: unknown
+    config?: unknown
+    isActive?: unknown
+    isDeletedOverride?: unknown
 }
 
 export type SnapshotWidgetRow = {
@@ -227,6 +244,7 @@ export const REF_DATA_TYPE = AttributeDataType.REF
 
 export type PersistedAppLayout = {
     id: string
+    catalogId: string | null
     templateKey: string
     name: Record<string, unknown>
     description: Record<string, unknown> | null
@@ -247,6 +265,7 @@ export type PersistedAppLayoutZoneWidget = {
 
 export type PersistedAppLayoutRowDb = {
     id: unknown
+    catalog_id: unknown
     template_key: unknown
     name: unknown
     description: unknown

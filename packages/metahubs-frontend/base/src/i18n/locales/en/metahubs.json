@@ -287,6 +287,11 @@
             "dragHint": "Drag widgets between zones to change runtime composition.",
             "addWidget": "Add widget",
             "widgetCatalogTitle": "Available widgets",
+            "inheritedBadge": "Inherited",
+            "catalogBehaviorTitleGlobal": "Default catalog runtime behavior",
+            "catalogBehaviorTitleCatalog": "Catalog runtime behavior",
+            "catalogBehaviorDescriptionGlobal": "These settings define the default create/search behavior for catalogs that use this global layout until a catalog-specific layout overrides it.",
+            "catalogBehaviorDescriptionCatalog": "This catalog layout overrides the create/search behavior inherited from its global base layout.",
             "viewSettings": "Application View Settings",
             "showViewToggle": "Card/table view toggle",
             "defaultViewMode": "Default view mode",
@@ -620,6 +625,12 @@
             "dragHandle": "Drag to reorder"
         }
     },
+    "general": {
+        "title": "Common",
+        "tabs": {
+            "layouts": "Layouts"
+        }
+    },
     "catalogs": {
         "title": "Catalogs",
         "allTitle": "Catalogs",
@@ -684,11 +695,20 @@
         "tabs": {
             "general": "General",
             "hubs": "Hubs",
-            "layout": "Layout",
+            "layout": "Layouts",
             "options": "Options"
+        },
+        "layoutTab": {
+            "catalogLayoutsHelper": "Catalog layouts own widget composition and catalog runtime behavior. The active global layout continues to work until you create a catalog-specific override.",
+            "emptyTitle": "No catalog layouts",
+            "emptyDescription": "This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.",
+            "unavailable": "Catalog layouts are available when this catalog is opened inside a metahub context."
         },
         "runtime": {
             "showSearch": "Search/filter bar",
+            "searchMode": "Search mode",
+            "searchModePageLocal": "Page-local",
+            "searchModeServer": "Server",
             "showCreateButton": "Show create button",
             "showViewToggle": "Card/table view toggle",
             "enableRowReordering": "Enable row reordering",

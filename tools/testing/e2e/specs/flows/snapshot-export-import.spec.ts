@@ -5,6 +5,8 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
+    listLayoutZoneWidgets,
+    listLayouts,
     listMetahubCatalogs,
     listMetahubEnumerations,
     listMetahubHubs,
@@ -17,6 +19,7 @@ import { createLocalizedContent } from '@universo/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
     SELF_HOSTED_APP_FIXTURE_FILENAME,
+    SELF_HOSTED_APP_SETTINGS_LAYOUT,
     assertSelfHostedAppEnvelopeContract
 } from '../../support/selfHostedAppFixtureContract.mjs'
 
@@ -246,6 +249,29 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect((hubs.items ?? []).length).toBe(fixture.expectedCounts.hubs)
         expect((sets.items ?? []).length).toBe(fixture.expectedCounts.sets)
         expect((enumerations.items ?? []).length).toBe(fixture.expectedCounts.enumerations)
+
+        const settingsCatalog = (catalogs.items ?? []).find((catalog) => readLocalizedText(catalog?.name) === 'Settings')
+        expect(typeof settingsCatalog?.id).toBe('string')
+
+        const settingsLayouts = await listLayouts(api, importedId, {
+            catalogId: settingsCatalog?.id,
+            limit: 20,
+            offset: 0
+        })
+        expect((settingsLayouts.items ?? []).length).toBe(1)
+        const settingsLayout = settingsLayouts.items?.[0]
+        expect(readLocalizedText(settingsLayout?.name)).toBe(SELF_HOSTED_APP_SETTINGS_LAYOUT.name.en)
+        expect(settingsLayout?.config).toMatchObject({
+            showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
+            defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
+            showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar,
+            catalogBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior
+        })
+        expect(typeof settingsLayout?.baseLayoutId).toBe('string')
+
+        const settingsLayoutWidgets = await listLayoutZoneWidgets(api, importedId, settingsLayout?.id)
+        const detailsTitleWidget = settingsLayoutWidgets.items?.find((widget) => widget?.widgetKey === 'detailsTitle')
+        expect(detailsTitleWidget?.isActive).toBe(false)
 
         await page.goto(`/metahub/${importedId}/catalogs`)
         await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()

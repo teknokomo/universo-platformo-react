@@ -39,7 +39,7 @@
 - Application settings coverage с сохранением workspace limits и проверкой, что создание runtime rows блокируется на достигнутом лимите.
 - Browser-покрытие application workspace regressions: проверка info-state в limits до создания схемы и browser-level изоляции данных между пользователями при включённых workspaces.
 - Browser-покрытие application runtime CRUD: создание, редактирование, копирование и удаление runtime rows через существующий shared CRUD UI с backend-проверкой persisted данных после каждого шага.
-- Codename coverage, которая проверяет переключение UI между single-locale и localized editor без изменения VLC-формы в persisted данных.
+- Codename coverage, которая проверяет переключение UI между single-locale и localized editor при сохранении одного JSONB/VLC поля codename; отключение localized editing может убирать non-primary locale variants, но не должно превращать storage в plain text.
 - Browser-покрытие codename UX: автогенерация от name, остановка синхронизации после ручной правки codename и восстановление автогенерации после полного очищения name.
 - Browser-покрытие metahub create options: optional default entities можно отключить, но branch/layout остаются обязательными.
 - Browser-покрытие publication creation variants: publication only и publication plus linked application без немедленного schema sync в дополнение к combined regression path.
@@ -58,7 +58,7 @@
 5. Дайте cleanup завершиться, чтобы manifest безопасно удалил test users и test data.
 6. Оставляйте browser login retries строго ограниченными и используйте их только для видимых transient auth-error alert на `/auth`; постоянные login failures должны оставаться дефектами.
 7. Когда browser-поведение зависит от platform codename defaults, ориентируйтесь на покрытый браузерным тестом контракт `/metahubs/codename-defaults`, а не только на факт успешной записи в admin settings.
-8. Держите admin role helpers синхронизированными с общим VLC codename contract, чтобы отключение codename localization удаляло лишние locale variants, но не ломало JSONB-форму хранения.
+8. Держите admin role helpers синхронизированными с общим one-field VLC codename contract, чтобы `general.codenameLocalizedEnabled` только сокращал locale variants внутри persisted JSONB payload и никогда не вёл себя как переключатель типа хранения.
 9. Для application runtime CRUD переиспользуйте общий контракт `apps-template-mui` для row actions и form dialogs, а не вводите runtime-specific test-only selectors или параллельные admin surfaces.
 10. Для board pages сверяйте реальные dashboard counters с backend summary API, а не создавайте отдельные тестовые overview widgets или фальшивые analytics components.
 11. Для connector board и migration history проверяйте существующие cards и migration table через backend migration API, а не добавляйте отдельные test-only widgets или жёстко прошитые DOM-предположения.

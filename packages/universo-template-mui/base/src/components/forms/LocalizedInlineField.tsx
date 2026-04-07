@@ -18,6 +18,7 @@ const FALLBACK_LOCALES = [
 type LocaleOption = { code: string; label: string; isDefault: boolean }
 
 const PrimaryBadge = styled(Badge)(({ theme }) => ({
+    overflow: 'visible',
     '& .MuiBadge-badge': {
         minWidth: 16,
         height: 16,
@@ -105,9 +106,11 @@ const resolveInlineMetrics = (size?: 'small' | 'medium') => {
     const isSmall = size === 'small'
     const buttonHeight = isSmall ? 22 : 24
     const buttonMinWidth = isSmall ? 32 : 36
-    const offset = isSmall ? -4 : -6
-    const fieldCenter = isSmall ? 20 : 28
-    return { buttonHeight, buttonMinWidth, offset, fieldCenter }
+    const connectorOffset = isSmall ? 4 : 6
+    const rowPaddingTop = isSmall ? 8 : 10
+    const rowPaddingRight = isSmall ? 8 : 10
+    const fieldCenter = (isSmall ? 20 : 28) + rowPaddingTop
+    return { buttonHeight, buttonMinWidth, connectorOffset, rowPaddingTop, rowPaddingRight, fieldCenter }
 }
 
 /** Simple non-localized field variant (no hooks needed) */
@@ -473,7 +476,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                 const isPrimary = value._primary === locale
                 const buttonLabel = locale.toUpperCase()
                 const metrics = resolveInlineMetrics(size)
-                const connectorOffset = Math.abs(metrics.offset)
+                const connectorOffset = metrics.connectorOffset
                 const showConnector = orderedLocales.length > 1 && connectorOffset > 0
                 const isFirst = index === 0
                 const isLast = index === orderedLocales.length - 1
@@ -509,7 +512,16 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                     isErrorLocale && error ? error : hasMinLengthError ? `min: ${minLength}` : helperText || constraintText
 
                 return (
-                    <Box key={locale} sx={{ position: 'relative', overflow: 'visible' }}>
+                    <Box
+                        key={locale}
+                        data-testid={`localized-inline-row-${locale}`}
+                        sx={{
+                            position: 'relative',
+                            overflow: 'visible',
+                            pt: `${metrics.rowPaddingTop}px`,
+                            pr: `${metrics.rowPaddingRight}px`
+                        }}
+                    >
                         {showConnector && (
                             <Box
                                 sx={{
@@ -548,10 +560,11 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             }}
                         />
                         <Box
+                            data-testid={`localized-inline-badge-${locale}`}
                             sx={{
                                 position: 'absolute',
-                                top: metrics.offset,
-                                right: metrics.offset,
+                                top: 0,
+                                right: 0,
                                 zIndex: 1
                             }}
                         >

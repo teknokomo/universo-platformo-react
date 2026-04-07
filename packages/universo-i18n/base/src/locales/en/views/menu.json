@@ -48,6 +48,8 @@
         "connectors": "Connectors",
         "migrations": "Migrations",
         "branches": "Branches",
+        "general": "General",
+        "commonSection": "Common",
         "hubs": "Hubs",
         "catalogs": "Catalogs",
         "sets": "Sets",

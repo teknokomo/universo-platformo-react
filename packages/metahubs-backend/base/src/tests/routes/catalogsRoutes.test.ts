@@ -429,33 +429,8 @@ describe('Catalogs Routes', () => {
             expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
         })
 
-        it('persists runtimeConfig when creating a catalog', async () => {
-            const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
-            mockObjectsService.createCatalog.mockResolvedValueOnce({
-                id: 'catalog-runtime-new',
-                codename: 'RuntimeCatalog',
-                presentation: { name: { en: 'Runtime Catalog' }, description: undefined },
-                config: {
-                    hubs: [],
-                    isSingleHub: false,
-                    isRequiredHub: false,
-                    sortOrder: 0,
-                    runtimeConfig: {
-                        showViewToggle: false,
-                        defaultViewMode: 'card',
-                        enableRowReordering: true
-                    }
-                },
-                _upl_version: 1,
-                created_at: new Date('2026-02-11T00:00:00.000Z'),
-                updated_at: new Date('2026-02-11T00:00:00.000Z')
-            })
-
+        it('rejects legacy runtimeConfig when creating a catalog', async () => {
             const app = buildApp()
-            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
-                callback(tx)
-            )
-
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
                 .send({
@@ -467,30 +442,10 @@ describe('Catalogs Routes', () => {
                         enableRowReordering: true
                     }
                 })
-                .expect(201)
+                .expect(400)
 
-            expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
-                'test-metahub-id',
-                expect.objectContaining({
-                    config: expect.objectContaining({
-                        runtimeConfig: expect.objectContaining({
-                            useLayoutOverrides: true,
-                            showViewToggle: false,
-                            defaultViewMode: 'card',
-                            enableRowReordering: true
-                        })
-                    })
-                }),
-                'test-user-id',
-                tx
-            )
-            expect(response.body.runtimeConfig).toEqual(
-                expect.objectContaining({
-                    showViewToggle: false,
-                    defaultViewMode: 'card',
-                    enableRowReordering: true
-                })
-            )
+            expect(response.body.error).toBe('Validation failed')
+            expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
         })
     })
 
@@ -572,7 +527,7 @@ describe('Catalogs Routes', () => {
     })
 
     describe('PATCH /metahub/:metahubId/catalog/:catalogId', () => {
-        it('persists runtimeConfig when updating a catalog', async () => {
+        it('rejects legacy runtimeConfig when updating a catalog', async () => {
             mockObjectsService.findById.mockResolvedValueOnce({
                 id: 'catalog-1',
                 kind: 'catalog',
@@ -593,25 +548,6 @@ describe('Catalogs Routes', () => {
                 created_at: new Date('2026-02-11T00:00:00.000Z'),
                 updated_at: new Date('2026-02-11T00:00:00.000Z')
             })
-            mockObjectsService.updateCatalog.mockResolvedValueOnce({
-                id: 'catalog-1',
-                codename: 'products',
-                presentation: { name: { en: 'Products' }, description: { en: 'Products description' } },
-                config: {
-                    hubs: [],
-                    isSingleHub: false,
-                    isRequiredHub: false,
-                    sortOrder: 3,
-                    runtimeConfig: {
-                        showViewToggle: false,
-                        defaultViewMode: 'card',
-                        enableRowReordering: true
-                    }
-                },
-                _upl_version: 2,
-                created_at: new Date('2026-02-11T00:00:00.000Z'),
-                updated_at: new Date('2026-02-12T00:00:00.000Z')
-            })
 
             const app = buildApp()
             const response = await request(app)
@@ -623,30 +559,10 @@ describe('Catalogs Routes', () => {
                         enableRowReordering: true
                     }
                 })
-                .expect(200)
+                .expect(400)
 
-            expect(mockObjectsService.updateCatalog).toHaveBeenCalledWith(
-                'test-metahub-id',
-                'catalog-1',
-                expect.objectContaining({
-                    config: expect.objectContaining({
-                        runtimeConfig: expect.objectContaining({
-                            useLayoutOverrides: true,
-                            showViewToggle: false,
-                            defaultViewMode: 'card',
-                            enableRowReordering: true
-                        })
-                    })
-                }),
-                'test-user-id'
-            )
-            expect(response.body.runtimeConfig).toEqual(
-                expect.objectContaining({
-                    showViewToggle: false,
-                    defaultViewMode: 'card',
-                    enableRowReordering: true
-                })
-            )
+            expect(response.body.error).toBe('Validation failed')
+            expect(mockObjectsService.updateCatalog).not.toHaveBeenCalled()
         })
     })
 
@@ -848,7 +764,7 @@ describe('Catalogs Routes', () => {
             expect(Array.isArray(response.body.details)).toBe(true)
         })
 
-        it('persists runtimeConfig overrides when copying a catalog', async () => {
+        it('rejects legacy runtimeConfig overrides when copying a catalog', async () => {
             mockObjectsService.findById.mockResolvedValueOnce({
                 id: 'catalog-1',
                 kind: 'catalog',
@@ -866,33 +782,6 @@ describe('Catalogs Routes', () => {
                     }
                 }
             })
-            mockObjectsService.createCatalog.mockResolvedValueOnce({
-                id: 'catalog-copy-runtime-id',
-                codename: 'ProductsCopy',
-                presentation: {
-                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
-                    description: null
-                },
-                config: {
-                    hubs: [],
-                    isSingleHub: false,
-                    isRequiredHub: false,
-                    sortOrder: 6,
-                    runtimeConfig: {
-                        showViewToggle: false,
-                        defaultViewMode: 'card',
-                        enableRowReordering: true
-                    }
-                },
-                _upl_version: 1,
-                _upl_created_at: '2026-02-26T00:00:00.000Z',
-                _upl_updated_at: '2026-02-26T00:00:00.000Z'
-            })
-
-            const trx = createCatalogCopyTransactionTrx()
-            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
-                callback(trx)
-            )
 
             const app = buildApp()
             const response = await request(app)
@@ -907,33 +796,13 @@ describe('Catalogs Routes', () => {
                     copyAttributes: false,
                     copyElements: false
                 })
-                .expect(201)
+                .expect(400)
 
-            expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
-                'test-metahub-id',
-                expect.objectContaining({
-                    config: expect.objectContaining({
-                        runtimeConfig: expect.objectContaining({
-                            useLayoutOverrides: true,
-                            showViewToggle: false,
-                            defaultViewMode: 'card',
-                            enableRowReordering: true
-                        })
-                    })
-                }),
-                'test-user-id',
-                trx
-            )
-            expect(response.body.runtimeConfig).toEqual(
-                expect.objectContaining({
-                    showViewToggle: false,
-                    defaultViewMode: 'card',
-                    enableRowReordering: true
-                })
-            )
+            expect(response.body.error).toBe('Validation failed')
+            expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
         })
 
-        it('preserves sparse legacy runtimeConfig when updating unrelated fields', async () => {
+        it('strips sparse legacy runtimeConfig when updating unrelated fields', async () => {
             mockObjectsService.findById.mockResolvedValueOnce({
                 id: 'catalog-legacy',
                 kind: 'catalog',
@@ -973,7 +842,7 @@ describe('Catalogs Routes', () => {
             })
 
             const app = buildApp()
-            await request(app)
+            const response = await request(app)
                 .patch('/metahub/test-metahub-id/catalog/catalog-legacy')
                 .send({ name: { en: 'Products 2' } })
                 .expect(200)
@@ -983,14 +852,12 @@ describe('Catalogs Routes', () => {
                 'catalog-legacy',
                 expect.objectContaining({
                     config: expect.objectContaining({
-                        runtimeConfig: {
-                            showViewToggle: false,
-                            defaultViewMode: 'card'
-                        }
+                        runtimeConfig: undefined
                     })
                 }),
                 'test-user-id'
             )
+            expect(response.body).not.toHaveProperty('runtimeConfig')
         })
 
         it('copies catalog successfully when attributes and elements copy are disabled', async () => {

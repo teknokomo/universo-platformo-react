@@ -8,6 +8,7 @@ interface MetahubsBundle {
     metahubs?: Record<string, unknown>
     export?: Record<string, unknown>
     layouts?: Record<string, unknown>
+    general?: Record<string, unknown>
     menus?: Record<string, unknown>
     templates?: Record<string, unknown>
     meta_sections?: Record<string, unknown>
@@ -46,6 +47,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
             ...metahubsActions,
             ...(bundle?.actions ?? {})
         },
+        general: bundle?.general ?? {},
         templates: bundle?.templates ?? {},
         branches: bundle?.branches ?? {},
         layouts: bundle?.layouts ?? {},

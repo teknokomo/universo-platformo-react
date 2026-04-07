@@ -1,3 +1,4 @@
+import { getCodenamePrimary } from '@universo/utils'
 import { AttributeDataType } from '@universo/types'
 import type { EntityDefinition, FieldDefinition } from '../ddl'
 import type { MetaConstantSnapshot, MetahubSnapshot } from '../publications/services/SnapshotSerializer'
@@ -11,6 +12,11 @@ type SetConstantRefPayload = {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+const resolveSnapshotCodenameText = (value: MetaConstantSnapshot['codename'] | null | undefined): string | null => {
+    const text = getCodenamePrimary(value).trim()
+    return text.length > 0 ? text : null
+}
 
 const buildSetConstantLookups = (
     snapshot: MetahubSnapshot
@@ -55,7 +61,7 @@ const toSetConstantRefPayload = (
 
     return {
         id: constant.id,
-        codename: typeof constant.codename === 'string' ? constant.codename : null,
+        codename: resolveSnapshotCodenameText(constant.codename),
         dataType: typeof constant.dataType === 'string' ? constant.dataType : null,
         value: Object.prototype.hasOwnProperty.call(constant, 'value') ? constant.value : null,
         name: presentationName ?? null

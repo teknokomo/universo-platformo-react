@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
 import {
   normalizeCatalogRuntimeViewConfig,
+  resolveCatalogLayoutBehaviorConfig,
   resolveCatalogRuntimeDashboardLayoutConfig,
   resolveApplicationLifecycleContractFromConfig
 } from '@universo/utils'
@@ -189,6 +190,184 @@ const buildRuntimeRowsOrderBy = (reorderColumnName: string | null) => {
   return `${quoteIdentifier(reorderColumnName)} ASC NULLS LAST, _upl_created_at ASC NULLS LAST, id ASC`
 }
 
+const runtimeSystemTableExists = async (
+  manager: DbExecutor,
+  schemaName: string,
+  tableName: string
+) => {
+  const [row] = (await manager.query(
+    `
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = $1 AND table_name = $2
+      ) AS exists
+    `,
+    [schemaName, tableName]
+  )) as Array<{ exists: boolean }>
+
+  return row?.exists === true
+}
+
+const loadRuntimeSelectedLayout = async (params: {
+  manager: DbExecutor
+  schemaName: string
+  schemaIdent: string
+  catalogId: string
+}) => {
+  const { manager, schemaName, schemaIdent, catalogId } = params
+  const layoutsExist = await runtimeSystemTableExists(manager, schemaName, '_app_layouts')
+  if (!layoutsExist) {
+    return { layoutId: null, layoutConfig: {} as Record<string, unknown> }
+  }
+
+  const rows = (await manager.query(
+    `
+      SELECT id, config
+      FROM ${schemaIdent}._app_layouts
+      WHERE (catalog_id = $1 OR catalog_id IS NULL)
+        AND (is_default = true OR is_active = true)
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      ORDER BY CASE WHEN catalog_id = $1 THEN 0 ELSE 1 END,
+               is_default DESC,
+               is_active DESC,
+               sort_order ASC,
+               _upl_created_at ASC
+      LIMIT 1
+    `,
+    [catalogId]
+  )) as Array<{ id: string; config: Record<string, unknown> | null }>
+
+  return {
+    layoutId: rows[0]?.id ?? null,
+    layoutConfig: rows[0]?.config ?? {}
+  }
+}
+
+export const resolvePreferredCatalogIdFromGlobalMenu = async (params: {
+  manager: DbExecutor
+  schemaName: string
+  schemaIdent: string
+}) => {
+  const { manager, schemaName, schemaIdent } = params
+
+  try {
+    const [{ layoutsExists, widgetsExists }] = (await manager.query(
+      `
+        SELECT
+          EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = $1 AND table_name = '_app_layouts'
+          ) AS "layoutsExists",
+          EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = $1 AND table_name = '_app_widgets'
+          ) AS "widgetsExists"
+      `,
+      [schemaName]
+    )) as Array<{ layoutsExists: boolean; widgetsExists: boolean }>
+
+    if (!layoutsExists || !widgetsExists) {
+      return null
+    }
+
+    const defaultLayoutRows = (await manager.query(
+      `
+        SELECT id
+        FROM ${schemaIdent}._app_layouts
+        WHERE catalog_id IS NULL
+          AND (is_default = true OR is_active = true)
+          AND _upl_deleted = false
+          AND _app_deleted = false
+        ORDER BY is_default DESC,
+                 is_active DESC,
+                 sort_order ASC,
+                 _upl_created_at ASC
+        LIMIT 1
+      `
+    )) as Array<{ id: string }>
+    const activeLayoutId = defaultLayoutRows[0]?.id
+
+    if (!activeLayoutId) {
+      return null
+    }
+
+    const menuWidgets = (await manager.query(
+      `
+        SELECT config
+        FROM ${schemaIdent}._app_widgets
+        WHERE layout_id = $1
+          AND zone = 'left'
+          AND widget_key = 'menuWidget'
+          AND _upl_deleted = false
+          AND _app_deleted = false
+        ORDER BY sort_order ASC, _upl_created_at ASC
+      `,
+      [activeLayoutId]
+    )) as Array<{ config?: unknown }>
+
+    const boundMenuConfig = menuWidgets
+      .map((row) =>
+        row.config && typeof row.config === 'object'
+          ? (row.config as Record<string, unknown>)
+          : null
+      )
+      .find((cfg) => Boolean(cfg?.bindToHub) && typeof cfg?.boundHubId === 'string')
+
+    const boundHubId =
+      typeof boundMenuConfig?.boundHubId === 'string'
+        ? boundMenuConfig.boundHubId
+        : null
+    if (!boundHubId) {
+      return null
+    }
+
+    const preferredCatalogRows = (await manager.query(
+      `
+        SELECT id
+        FROM ${schemaIdent}._app_objects
+        WHERE kind = 'catalog'
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          AND config->'hubs' @> $1::jsonb
+        ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC, codename ASC
+        LIMIT 1
+      `,
+      [JSON.stringify([boundHubId])]
+    )) as Array<{ id: string }>
+
+    return preferredCatalogRows[0]?.id ?? null
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[ApplicationsRuntime] Failed to resolve preferred startup catalog from menu binding (ignored)',
+      e
+    )
+    return null
+  }
+}
+
+const resolveEffectiveCatalogRuntimeConfig = async (params: {
+  manager: DbExecutor
+  schemaName: string
+  schemaIdent: string
+  catalogId: string
+}) => {
+  const selectedLayout = await loadRuntimeSelectedLayout({
+    manager: params.manager,
+    schemaName: params.schemaName,
+    schemaIdent: params.schemaIdent,
+    catalogId: params.catalogId
+  })
+
+  return {
+    selectedLayout,
+    runtimeConfig: resolveCatalogLayoutBehaviorConfig({
+      layoutConfig: selectedLayout.layoutConfig
+    })
+  }
+}
+
 const getNextRuntimeSortValue = async (params: {
   manager: DbExecutor
   dataTableIdent: string
@@ -356,93 +535,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       lifecycleContract: resolveApplicationLifecycleContractFromConfig(catalogRow.config)
     }))
 
-    let preferredCatalogIdFromMenu: string | null = null
-    if (!requestedCatalogId) {
-      try {
-        const [{ layoutsExists, widgetsExists }] = (await manager.query(
-          `
-            SELECT
-              EXISTS (
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = $1 AND table_name = '_app_layouts'
-              ) AS "layoutsExists",
-              EXISTS (
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = $1 AND table_name = '_app_widgets'
-              ) AS "widgetsExists"
-          `,
-          [schemaName]
-        )) as Array<{ layoutsExists: boolean; widgetsExists: boolean }>
-
-        if (layoutsExists && widgetsExists) {
-          const defaultLayoutRows = (await manager.query(
-            `
-              SELECT id
-              FROM ${schemaIdent}._app_layouts
-              WHERE (is_default = true OR is_active = true)
-                AND _upl_deleted = false
-                AND _app_deleted = false
-              ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
-              LIMIT 1
-            `
-          )) as Array<{ id: string }>
-          const activeLayoutId = defaultLayoutRows[0]?.id
-
-          if (activeLayoutId) {
-            const menuWidgets = (await manager.query(
-              `
-                SELECT config
-                FROM ${schemaIdent}._app_widgets
-                WHERE layout_id = $1
-                  AND zone = 'left'
-                  AND widget_key = 'menuWidget'
-                  AND _upl_deleted = false
-                  AND _app_deleted = false
-                ORDER BY sort_order ASC, _upl_created_at ASC
-              `,
-              [activeLayoutId]
-            )) as Array<{ config?: unknown }>
-
-            const boundMenuConfig = menuWidgets
-              .map((row) =>
-                row.config && typeof row.config === 'object'
-                  ? (row.config as Record<string, unknown>)
-                  : null
-              )
-              .find(
-                (cfg) => Boolean(cfg?.bindToHub) && typeof cfg?.boundHubId === 'string'
-              )
-
-            const boundHubId =
-              typeof boundMenuConfig?.boundHubId === 'string'
-                ? boundMenuConfig.boundHubId
-                : null
-            if (boundHubId) {
-              const preferredCatalogRows = (await manager.query(
-                `
-                  SELECT id
-                  FROM ${schemaIdent}._app_objects
-                  WHERE kind = 'catalog'
-                    AND _upl_deleted = false
-                    AND _app_deleted = false
-                    AND config->'hubs' @> $1::jsonb
-                  ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC, codename ASC
-                  LIMIT 1
-                `,
-                [JSON.stringify([boundHubId])]
-              )) as Array<{ id: string }>
-              preferredCatalogIdFromMenu = preferredCatalogRows[0]?.id ?? null
-            }
-          }
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          '[ApplicationsRuntime] Failed to resolve preferred startup catalog from menu binding (ignored)',
-          e
-        )
-      }
-    }
+    const preferredCatalogIdFromMenu = requestedCatalogId
+      ? null
+      : await resolvePreferredCatalogIdFromGlobalMenu({
+          manager,
+          schemaName,
+          schemaIdent
+        })
 
     const activeCatalog =
       (requestedCatalogId
@@ -756,9 +855,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       )
     }
 
-    const activeCatalogRuntimeConfig = normalizeCatalogRuntimeViewConfig(
-      (activeCatalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
-    )
+    const { selectedLayout, runtimeConfig: activeCatalogRuntimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+      manager,
+      schemaName,
+      schemaIdent,
+      catalogId: activeCatalog.id
+    })
     const reorderFieldAttr = resolveRuntimeReorderField(
       safeAttributes,
       activeCatalogRuntimeConfig.enableRowReordering
@@ -839,31 +941,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     // Optional layout config for runtime UI (Dashboard sections show/hide).
     let layoutConfig: Record<string, unknown> = {}
     try {
-      const [{ layoutsExists }] = (await manager.query(
-        `
-          SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1 AND table_name = '_app_layouts'
-          ) AS "layoutsExists"
-        `,
-        [schemaName]
-      )) as Array<{ layoutsExists: boolean }>
+      const layoutsExists = await runtimeSystemTableExists(manager, schemaName, '_app_layouts')
 
       if (layoutsExists) {
-        const layoutRows = (await manager.query(
-          `
-            SELECT config
-            FROM ${schemaIdent}._app_layouts
-            WHERE (is_default = true OR is_active = true)
-              AND _upl_deleted = false
-              AND _app_deleted = false
-            ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
-            LIMIT 1
-          `
-        )) as Array<{ config: Record<string, unknown> | null }>
-
-        layoutConfig = layoutRows?.[0]?.config ?? {}
+        layoutConfig = selectedLayout.layoutConfig
       } else {
         // Backward compatibility for old schemas.
         const [{ settingsExists }] = (await manager.query(
@@ -901,10 +982,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       )
     }
 
-    layoutConfig = resolveCatalogRuntimeDashboardLayoutConfig({
-      layoutConfig,
-      catalogRuntimeConfig: activeCatalogRuntimeConfig
-    })
+    layoutConfig = resolveCatalogRuntimeDashboardLayoutConfig({ layoutConfig })
     layoutConfig = {
       ...layoutConfig,
       enableRowReordering: canPersistRowReordering
@@ -914,9 +992,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       id: catalogRow.id,
       codename: catalogRow.codename,
       tableName: catalogRow.table_name,
-      runtimeConfig: normalizeCatalogRuntimeViewConfig(
-        (catalogRow.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
-      ),
+      runtimeConfig:
+        catalogRow.id === activeCatalog.id
+          ? activeCatalogRuntimeConfig
+          : normalizeCatalogRuntimeViewConfig(undefined),
       name: resolvePresentationName(
         catalogRow.presentation,
         requestedLocale,
@@ -949,21 +1028,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         [schemaName]
       )) as Array<{ zoneWidgetsExists: boolean }>
 
-      if (zoneWidgetsExists) {
-        const defaultLayoutRows = (await manager.query(
-          `
-            SELECT id
-            FROM ${schemaIdent}._app_layouts
-            WHERE (is_default = true OR is_active = true)
-              AND _upl_deleted = false
-              AND _app_deleted = false
-            ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
-            LIMIT 1
-          `
-        )) as Array<{ id: string }>
-        const activeLayoutId = defaultLayoutRows[0]?.id
-
-        if (activeLayoutId) {
+      if (zoneWidgetsExists && selectedLayout.layoutId) {
           const widgetRows = (await manager.query(
             `
               SELECT id, widget_key, sort_order, config, zone
@@ -974,7 +1039,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 AND _app_deleted = false
               ORDER BY sort_order ASC, _upl_created_at ASC
             `,
-            [activeLayoutId]
+            [selectedLayout.layoutId]
           )) as Array<{
             id: string
             widget_key: string
@@ -1000,7 +1065,6 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
               zoneWidgets.left.push(mapped)
             }
           }
-        }
       }
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -2504,9 +2568,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       }
     }
 
-    const runtimeConfig = normalizeCatalogRuntimeViewConfig(
-      (catalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
-    )
+    const { runtimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+      manager: ctx.manager,
+      schemaName: ctx.schemaName,
+      schemaIdent: ctx.schemaIdent,
+      catalogId: catalog.id
+    })
     const reorderFieldAttr = resolveRuntimeReorderField(
       safeAttrs,
       runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
@@ -2998,9 +3065,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       undefined,
       ctx.currentWorkspaceId
     )
-    const runtimeConfig = normalizeCatalogRuntimeViewConfig(
-      (catalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
-    )
+    const { runtimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+      manager: ctx.manager,
+      schemaName: ctx.schemaName,
+      schemaIdent: ctx.schemaIdent,
+      catalogId: catalog.id
+    })
     const reorderFieldAttr = resolveRuntimeReorderField(
       nonTableAttrs,
       runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
@@ -3520,9 +3590,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
       return res.status(404).json({ error: catalogError })
     }
 
-    const runtimeConfig = normalizeCatalogRuntimeViewConfig(
-      (catalog.config?.runtimeConfig ?? undefined) as Record<string, unknown> | undefined
-    )
+    const { runtimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+      manager: ctx.manager,
+      schemaName: ctx.schemaName,
+      schemaIdent: ctx.schemaIdent,
+      catalogId: catalog.id
+    })
     const reorderFieldAttr = resolveRuntimeReorderField(attrs, runtimeConfig.reorderPersistenceField)
 
     if (!runtimeConfig.enableRowReordering || !reorderFieldAttr) {

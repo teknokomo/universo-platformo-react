@@ -13,7 +13,10 @@ import { Link } from 'react-router-dom'
 const PageContentHeader = styled('div')(({ theme }) => ({
     display: 'flex',
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    width: '100%',
     gap: theme.spacing(2)
 }))
 
@@ -31,9 +34,16 @@ const PageHeaderBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
 const PageHeaderToolbar = styled('div')(({ theme }) => ({
     display: 'flex',
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
     gap: theme.spacing(1),
-    // Ensure the toolbar is always on the right side, even after wrapping
-    marginLeft: 'auto'
+    marginLeft: 'auto',
+    minWidth: 0,
+    [theme.breakpoints.down('sm')]: {
+        width: '100%',
+        marginLeft: 0,
+        justifyContent: 'flex-start'
+    }
 }))
 
 export interface Breadcrumb {

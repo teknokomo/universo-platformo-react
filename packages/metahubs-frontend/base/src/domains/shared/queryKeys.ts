@@ -3,6 +3,16 @@ import { PaginationParams } from '../../types'
 
 type AttributeListScope = 'business' | 'system' | 'all'
 
+const normalizeLayoutScopeCatalogId = (catalogId?: string | null): string | null => {
+    if (typeof catalogId !== 'string') return null
+    const trimmed = catalogId.trim()
+    return trimmed.length > 0 ? trimmed : null
+}
+
+const normalizeLayoutScope = (catalogId?: string | null) => ({
+    catalogId: normalizeLayoutScopeCatalogId(catalogId)
+})
+
 /**
  * Centralized query key factory for metahubs
  * Following TanStack Query v5 best practices
@@ -97,17 +107,23 @@ export const metahubsQueryKeys = {
     },
 
     // Layouts scoped to a specific metahub
-    layouts: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'layouts'] as const,
+    layoutsRoot: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'layouts'] as const,
 
-    layoutsList: (metahubId: string, params?: PaginationParams) => {
+    layouts: (metahubId: string, catalogId?: string | null) =>
+        [...metahubsQueryKeys.layoutsRoot(metahubId), normalizeLayoutScope(catalogId)] as const,
+
+    layoutsListBase: (metahubId: string, catalogId?: string | null) => [...metahubsQueryKeys.layouts(metahubId, catalogId), 'list'] as const,
+
+    layoutsList: (metahubId: string, params?: PaginationParams & { catalogId?: string | null }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            catalogId: normalizeLayoutScopeCatalogId(params?.catalogId)
         }
-        return [...metahubsQueryKeys.layouts(metahubId), 'list', normalized] as const
+        return [...metahubsQueryKeys.layoutsListBase(metahubId, normalized.catalogId), normalized] as const
     },
 
     layoutDetail: (metahubId: string, layoutId: string) => [...metahubsQueryKeys.layouts(metahubId), 'detail', layoutId] as const,
@@ -432,10 +448,10 @@ export const invalidateHubsQueries = {
 }
 
 export const invalidateLayoutsQueries = {
-    all: (queryClient: QueryClient, metahubId: string) => queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layouts(metahubId) }),
+    all: (queryClient: QueryClient, metahubId: string) => queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsRoot(metahubId) }),
 
-    lists: (queryClient: QueryClient, metahubId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsList(metahubId) }),
+    lists: (queryClient: QueryClient, metahubId: string, catalogId?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsListBase(metahubId, catalogId) }),
 
     detail: (queryClient: QueryClient, metahubId: string, layoutId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId) })

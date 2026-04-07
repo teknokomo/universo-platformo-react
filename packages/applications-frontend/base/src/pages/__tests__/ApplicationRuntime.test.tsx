@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, waitFor, screen } from '@testing-library/react'
+import { act, render, waitFor, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ApplicationRuntime from '../ApplicationRuntime'
@@ -10,8 +10,10 @@ const runtimeMocks = vi.hoisted(() => ({
     mutate: vi.fn(),
     handlePendingInteractionAttempt: vi.fn(() => false),
     handleOpenCreate: vi.fn(),
+    handleCloseForm: vi.fn(),
     setPaginationModel: vi.fn(),
-    dashboardStateOverrides: {} as Record<string, unknown>
+    dashboardStateOverrides: {} as Record<string, unknown>,
+    triggerRerender: undefined as undefined | (() => void)
 }))
 
 vi.mock('react-i18next', () => ({
@@ -91,7 +93,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                 isSubmitting: false,
                 handleOpenCreate: runtimeMocks.handleOpenCreate,
                 handleOpenEdit: vi.fn(),
-                handleCloseForm: vi.fn(),
+                handleCloseForm: runtimeMocks.handleCloseForm,
                 handleFormSubmit: vi.fn().mockResolvedValue(undefined),
                 deleteRowId: null,
                 deleteError: null,
@@ -128,6 +130,26 @@ function renderRuntimePageAt(route: string) {
     )
 }
 
+function RuntimeHarness({ route }: { route: string }) {
+    const [, setTick] = useState(0)
+
+    runtimeMocks.triggerRerender = () => {
+        setTick((value) => value + 1)
+    }
+
+    return (
+        <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Routes>
+                <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+            </Routes>
+        </MemoryRouter>
+    )
+}
+
+function renderRuntimeHarness(route: string) {
+    return render(<RuntimeHarness route={route} />)
+}
+
 function renderBooleanCell(rowId: string) {
     const renderer = runtimeMocks.capturedCellRenderers?.BOOLEAN
     if (!renderer) {
@@ -157,7 +179,9 @@ describe('ApplicationRuntime pending interaction safety', () => {
         vi.clearAllMocks()
         runtimeMocks.capturedCellRenderers = null
         runtimeMocks.handlePendingInteractionAttempt.mockReturnValue(false)
+        runtimeMocks.handleCloseForm.mockReset()
         runtimeMocks.dashboardStateOverrides = {}
+        runtimeMocks.triggerRerender = undefined
     })
 
     it('shows loading state before runtime data is available', () => {
@@ -269,6 +293,58 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
     })
 
+    it('does not reopen an already-consumed create page surface after the form closes', async () => {
+        const pageSurfaceAppData = {
+            zoneWidgets: { left: [], right: [], center: [] },
+            menus: [],
+            activeMenuId: null,
+            catalog: {
+                name: 'Details',
+                runtimeConfig: { createSurface: 'page' }
+            }
+        }
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: false
+        }
+
+        const view = renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+        })
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: true
+        }
+
+        view.rerender(
+            <MemoryRouter initialEntries={['/applications/app-1/runtime?surface=page&mode=create']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Routes>
+                    <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        runtimeMocks.handleOpenCreate.mockClear()
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: false
+        }
+
+        view.rerender(
+            <MemoryRouter initialEntries={['/applications/app-1/runtime?surface=page&mode=create']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Routes>
+                    <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+    })
+
     it('blocks direct create page navigation when the catalog hides the create action', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
@@ -286,6 +362,57 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
 
         await waitFor(() => {
+            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
+        })
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+    })
+
+    it('clears page surface state when the active catalog changes', async () => {
+        const catalogOneData = {
+            zoneWidgets: { left: [], right: [], center: [] },
+            menus: [],
+            activeMenuId: null,
+            catalog: {
+                name: 'Catalog One',
+                runtimeConfig: { createSurface: 'page' }
+            }
+        }
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: catalogOneData,
+            formOpen: false,
+            activeCatalogId: 'catalog-1',
+            selectedCatalogId: 'catalog-1'
+        }
+
+        renderRuntimeHarness('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
+        })
+
+        runtimeMocks.handleOpenCreate.mockClear()
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                ...catalogOneData,
+                catalog: {
+                    name: 'Catalog Two',
+                    runtimeConfig: { createSurface: 'page' }
+                }
+            },
+            formOpen: true,
+            activeCatalogId: 'catalog-2',
+            selectedCatalogId: 'catalog-2'
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(runtimeMocks.handleCloseForm).toHaveBeenCalledTimes(1)
             expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
         })
         expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()

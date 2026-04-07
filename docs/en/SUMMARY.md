@@ -61,6 +61,8 @@
 ## Guides
 
 * [Overview](guides/README.md)
+* [General Section](guides/general-section.md)
+* [Catalog Layouts](guides/catalog-layouts.md)
 * [Metahub Scripting](guides/metahub-scripting.md)
 * [Quiz Application Tutorial](guides/quiz-application-tutorial.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)

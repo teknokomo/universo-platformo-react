@@ -5,6 +5,8 @@
  * No database access - only data transformation and validation.
  */
 
+import { createHash } from 'crypto'
+
 import { type Request, type Response, type RequestHandler } from 'express'
 import stableStringify from 'json-stable-stringify'
 import { assertCanonicalIdentifier, assertCanonicalSchemaName, quoteIdentifier } from '@universo/migrations-core'
@@ -35,11 +37,42 @@ import {
     type SyncableApplicationRecord,
     type PersistedAppLayout,
     type PersistedAppLayoutZoneWidget,
+    type SnapshotCatalogLayoutRow,
+    type SnapshotCatalogLayoutWidgetOverrideRow,
     type SnapshotLayoutRow,
     type SnapshotWidgetRow,
     type EntityField,
     type SnapshotElementRow,
 } from './syncTypes'
+
+const buildDashboardWidgetVisibilityConfig = (items: Array<{ widgetKey: string; zone: string }>): Record<string, boolean> => {
+    const active = new Set(items.map((item) => item.widgetKey))
+    const centerActive = new Set(items.filter((item) => item.zone === 'center').map((item) => item.widgetKey))
+    const hasLeftWidget = items.some((item) => item.zone === 'left')
+    const hasRightWidget = items.some((item) => item.zone === 'right')
+
+    return {
+        showSideMenu: hasLeftWidget,
+        showRightSideMenu: hasRightWidget,
+        showAppNavbar: active.has('appNavbar'),
+        showHeader: active.has('header'),
+        showBreadcrumbs: active.has('breadcrumbs'),
+        showSearch: active.has('search'),
+        showDatePicker: active.has('datePicker'),
+        showOptionsMenu: active.has('optionsMenu'),
+        showLanguageSwitcher: active.has('languageSwitcher'),
+        showOverviewTitle: centerActive.has('overviewTitle'),
+        showOverviewCards: centerActive.has('overviewCards'),
+        showSessionsChart: centerActive.has('sessionsChart'),
+        showPageViewsChart: centerActive.has('pageViewsChart'),
+        showDetailsTitle: centerActive.has('detailsTitle'),
+        showDetailsTable: centerActive.has('detailsTable'),
+        showColumnsContainer: centerActive.has('columnsContainer'),
+        showProductTree: centerActive.has('productTree'),
+        showUsersByCountryChart: centerActive.has('usersByCountryChart'),
+        showFooter: active.has('footer')
+    }
+}
 
 // --- Core utilities ---
 
@@ -330,13 +363,43 @@ export function extractInstalledReleaseMetadataSchemaSnapshot(
 
 // --- Snapshot normalizers ---
 
-export function normalizeSnapshotLayouts(snapshot: PublishedApplicationSnapshot): PersistedAppLayout[] {
+type MaterializedSnapshotWidget = PersistedAppLayoutZoneWidget & {
+    isActive: boolean
+}
+
+type NormalizedCatalogLayout = PersistedAppLayout & {
+    baseLayoutId: string
+}
+
+type NormalizedCatalogWidgetOverride = {
+    catalogLayoutId: string
+    baseWidgetId: string
+    zone: string | null
+    sortOrder: number | null
+    config: Record<string, unknown> | null
+    isActive: boolean | null
+    isDeletedOverride: boolean
+}
+
+const CATALOG_LAYOUT_WIDGET_NAMESPACE = 'catalog-layout-widget'
+
+const buildSyntheticUuid = (namespace: string, left: string, right: string): string => {
+    const digest = createHash('sha1').update(`${namespace}:${left}:${right}`).digest('hex').slice(0, 32).split('')
+    digest[12] = '5'
+    digest[16] = ['8', '9', 'a', 'b'][parseInt(digest[16] ?? '0', 16) % 4]
+    const hex = digest.join('')
+
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
+
+const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot): PersistedAppLayout[] => {
     const rows = (Array.isArray(snapshot.layouts) ? snapshot.layouts : [])
         .map((layout) => {
             const normalizedLayout = (layout ?? {}) as SnapshotLayoutRow
 
             return {
                 id: String(normalizedLayout.id ?? ''),
+                catalogId: typeof normalizedLayout.catalogId === 'string' && normalizedLayout.catalogId.length > 0 ? normalizedLayout.catalogId : null,
                 templateKey:
                     typeof normalizedLayout.templateKey === 'string' && normalizedLayout.templateKey.length > 0
                         ? normalizedLayout.templateKey
@@ -354,37 +417,208 @@ export function normalizeSnapshotLayouts(snapshot: PublishedApplicationSnapshot)
     const desiredDefaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
     if (desiredDefaultLayoutId) {
         for (const row of rows) {
-            row.isDefault = row.id === desiredDefaultLayoutId
+            if (row.catalogId === null) {
+                row.isDefault = row.id === desiredDefaultLayoutId
+            }
         }
     }
 
-    if (rows.length > 0 && !rows.some((row) => row.isDefault)) {
-        const fallback = rows.find((row) => row.isActive) ?? rows[0]
+    return rows
+}
+
+const ensureScopedDefaultLayouts = (rows: PersistedAppLayout[]): PersistedAppLayout[] => {
+    const rowsByScope = new Map<string, PersistedAppLayout[]>()
+
+    for (const row of rows) {
+        const scopeKey = row.catalogId ?? '__global__'
+        const bucket = rowsByScope.get(scopeKey) ?? []
+        bucket.push(row)
+        rowsByScope.set(scopeKey, bucket)
+    }
+
+    for (const bucket of rowsByScope.values()) {
+        if (bucket.length === 0) continue
+        if (bucket.some((row) => row.isDefault)) continue
+        const fallback = bucket.find((row) => row.isActive) ?? bucket[0]
         fallback.isDefault = true
     }
 
-    return rows.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
+    return rows.sort((a, b) => {
+        if ((a.catalogId ?? '') !== (b.catalogId ?? '')) {
+            return (a.catalogId ?? '').localeCompare(b.catalogId ?? '')
+        }
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+        return a.id.localeCompare(b.id)
+    })
 }
 
-export function normalizeSnapshotLayoutZoneWidgets(snapshot: PublishedApplicationSnapshot): PersistedAppLayoutZoneWidget[] {
+const normalizeSnapshotWidgetEntries = (snapshot: PublishedApplicationSnapshot): MaterializedSnapshotWidget[] => {
     return (Array.isArray(snapshot.layoutZoneWidgets) ? snapshot.layoutZoneWidgets : [])
         .map((item) => (item ?? {}) as SnapshotWidgetRow)
-        .filter((item) => item.isActive !== false)
         .map((item) => ({
             id: String(item.id ?? ''),
             layoutId: String(item.layoutId ?? ''),
             zone: typeof item.zone === 'string' ? item.zone : 'center',
             widgetKey: typeof item.widgetKey === 'string' ? item.widgetKey : '',
             sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
-            config: isRecord(item.config) ? item.config : {}
+            config: isRecord(item.config) ? item.config : {},
+            isActive: item.isActive !== false
         }))
         .filter((item) => item.id.length > 0 && item.layoutId.length > 0 && item.widgetKey.length > 0)
+}
+
+const normalizeSnapshotCatalogLayouts = (snapshot: PublishedApplicationSnapshot): NormalizedCatalogLayout[] => {
+    return (Array.isArray(snapshot.catalogLayouts) ? snapshot.catalogLayouts : [])
+        .map((layout) => (layout ?? {}) as SnapshotCatalogLayoutRow)
+        .map((layout) => ({
+            id: String(layout.id ?? ''),
+            catalogId: typeof layout.catalogId === 'string' && layout.catalogId.length > 0 ? layout.catalogId : null,
+            baseLayoutId: typeof layout.baseLayoutId === 'string' && layout.baseLayoutId.length > 0 ? layout.baseLayoutId : '',
+            templateKey: typeof layout.templateKey === 'string' && layout.templateKey.length > 0 ? layout.templateKey : 'dashboard',
+            name: isRecord(layout.name) ? layout.name : {},
+            description: isRecord(layout.description) ? layout.description : null,
+            config: isRecord(layout.config) ? layout.config : {},
+            isActive: layout.isActive !== false,
+            isDefault: Boolean(layout.isDefault),
+            sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0
+        }))
+        .filter((layout) => layout.id.length > 0 && layout.catalogId && layout.baseLayoutId.length > 0) as NormalizedCatalogLayout[]
+}
+
+const normalizeSnapshotCatalogLayoutWidgetOverrides = (
+    snapshot: PublishedApplicationSnapshot
+): NormalizedCatalogWidgetOverride[] => {
+    return (Array.isArray(snapshot.catalogLayoutWidgetOverrides) ? snapshot.catalogLayoutWidgetOverrides : [])
+        .map((row) => (row ?? {}) as SnapshotCatalogLayoutWidgetOverrideRow)
+        .map((row) => ({
+            catalogLayoutId:
+                typeof row.catalogLayoutId === 'string' && row.catalogLayoutId.length > 0 ? row.catalogLayoutId : '',
+            baseWidgetId: typeof row.baseWidgetId === 'string' && row.baseWidgetId.length > 0 ? row.baseWidgetId : '',
+            zone: typeof row.zone === 'string' && row.zone.length > 0 ? row.zone : null,
+            sortOrder: typeof row.sortOrder === 'number' ? row.sortOrder : null,
+            config: null,
+            isActive: typeof row.isActive === 'boolean' ? row.isActive : null,
+            isDeletedOverride: row.isDeletedOverride === true
+        }))
+        .filter((row) => row.catalogLayoutId.length > 0 && row.baseWidgetId.length > 0)
+}
+
+const materializeSnapshotLayoutsAndWidgets = (snapshot: PublishedApplicationSnapshot): {
+    layouts: PersistedAppLayout[]
+    widgets: PersistedAppLayoutZoneWidget[]
+} => {
+    const globalLayouts = normalizeSnapshotLayoutEntries(snapshot)
+    const rawWidgets = normalizeSnapshotWidgetEntries(snapshot)
+    const catalogLayouts = normalizeSnapshotCatalogLayouts(snapshot)
+    const overrideRows = normalizeSnapshotCatalogLayoutWidgetOverrides(snapshot)
+
+    if (catalogLayouts.length === 0) {
+        const layouts = ensureScopedDefaultLayouts(globalLayouts)
+        const allowedLayoutIds = new Set(layouts.map((layout) => layout.id))
+        const widgets = rawWidgets
+            .filter((item) => item.isActive && allowedLayoutIds.has(item.layoutId))
+            .map(({ isActive: _isActive, ...item }) => item)
+            .sort((a, b) => {
+                if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
+                if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
+                if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                return a.id.localeCompare(b.id)
+            })
+
+        return { layouts, widgets }
+    }
+
+    const baseLayoutMap = new Map(globalLayouts.map((layout) => [layout.id, layout]))
+    const widgetsByLayoutId = new Map<string, MaterializedSnapshotWidget[]>()
+    for (const widget of rawWidgets) {
+        const bucket = widgetsByLayoutId.get(widget.layoutId) ?? []
+        bucket.push(widget)
+        widgetsByLayoutId.set(widget.layoutId, bucket)
+    }
+
+    const overrideMap = new Map<string, NormalizedCatalogWidgetOverride>()
+    for (const override of overrideRows) {
+        overrideMap.set(`${override.catalogLayoutId}:${override.baseWidgetId}`, override)
+    }
+
+    const materializedLayouts: PersistedAppLayout[] = [...globalLayouts]
+    const materializedWidgets: MaterializedSnapshotWidget[] = rawWidgets.filter((item) => baseLayoutMap.has(item.layoutId))
+
+    for (const catalogLayout of catalogLayouts) {
+        const baseLayout = baseLayoutMap.get(catalogLayout.baseLayoutId)
+        if (!baseLayout || !catalogLayout.catalogId) {
+            continue
+        }
+
+        const materializedCatalogWidgets: MaterializedSnapshotWidget[] = []
+
+        const baseWidgets = widgetsByLayoutId.get(catalogLayout.baseLayoutId) ?? []
+        const ownedWidgets = (widgetsByLayoutId.get(catalogLayout.id) ?? []).map((item) => ({
+            ...item,
+            layoutId: catalogLayout.id
+        }))
+
+        for (const baseWidget of baseWidgets) {
+            const override = overrideMap.get(`${catalogLayout.id}:${baseWidget.id}`)
+            if (override?.isDeletedOverride) {
+                continue
+            }
+
+            materializedCatalogWidgets.push({
+                id: buildSyntheticUuid(CATALOG_LAYOUT_WIDGET_NAMESPACE, catalogLayout.id, baseWidget.id),
+                layoutId: catalogLayout.id,
+                zone: override?.zone ?? baseWidget.zone,
+                widgetKey: baseWidget.widgetKey,
+                sortOrder: override?.sortOrder ?? baseWidget.sortOrder,
+                config: baseWidget.config,
+                isActive: override?.isActive ?? baseWidget.isActive
+            })
+        }
+
+        materializedLayouts.push({
+            id: catalogLayout.id,
+            catalogId: catalogLayout.catalogId,
+            templateKey: catalogLayout.templateKey || baseLayout.templateKey,
+            name: Object.keys(catalogLayout.name).length > 0 ? catalogLayout.name : baseLayout.name,
+            description: catalogLayout.description ?? baseLayout.description,
+            config: {
+                ...baseLayout.config,
+                ...catalogLayout.config,
+                ...buildDashboardWidgetVisibilityConfig(
+                    [...materializedCatalogWidgets, ...ownedWidgets]
+                        .filter((item) => item.isActive !== false)
+                        .map((item) => ({ widgetKey: item.widgetKey, zone: item.zone }))
+                )
+            },
+            isActive: catalogLayout.isActive,
+            isDefault: catalogLayout.isDefault,
+            sortOrder: catalogLayout.sortOrder
+        })
+
+        materializedWidgets.push(...materializedCatalogWidgets, ...ownedWidgets)
+    }
+
+    const layouts = ensureScopedDefaultLayouts(materializedLayouts)
+    const allowedLayoutIds = new Set(layouts.map((layout) => layout.id))
+    const widgets = materializedWidgets
+        .filter((item) => item.isActive && allowedLayoutIds.has(item.layoutId))
+        .map(({ isActive: _isActive, ...item }) => item)
         .sort((a, b) => {
             if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
             if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
             if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
             return a.id.localeCompare(b.id)
         })
+
+    return { layouts, widgets }
+}
+
+export function normalizeSnapshotLayouts(snapshot: PublishedApplicationSnapshot): PersistedAppLayout[] {
+    return materializeSnapshotLayoutsAndWidgets(snapshot).layouts
+}
+
+export function normalizeSnapshotLayoutZoneWidgets(snapshot: PublishedApplicationSnapshot): PersistedAppLayoutZoneWidget[] {
+    return materializeSnapshotLayoutsAndWidgets(snapshot).widgets
 }
 
 // --- Seeding helpers ---

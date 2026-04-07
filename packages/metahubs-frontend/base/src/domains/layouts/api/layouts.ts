@@ -1,6 +1,7 @@
 import { apiClient } from '../../shared'
 import type {
     DashboardLayoutWidgetCatalogItem,
+    MetahubCreateLayoutPayload,
     MetahubLayout,
     MetahubLayoutLocalizedPayload,
     MetahubLayoutZoneWidget,
@@ -9,10 +10,16 @@ import type {
 } from '../../../types'
 import type { DashboardLayoutWidgetKey, DashboardLayoutZone, LayoutCopyOptions } from '@universo/types'
 
+export type LayoutScopeParams = {
+    catalogId?: string | null
+}
+
+export type LayoutListParams = PaginationParams & LayoutScopeParams
+
 /**
  * List layouts for a specific metahub
  */
-export const listLayouts = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetahubLayout>> => {
+export const listLayouts = async (metahubId: string, params?: LayoutListParams): Promise<PaginatedResponse<MetahubLayout>> => {
     const response = await apiClient.get<{ items: MetahubLayout[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/layouts`,
         {
@@ -21,7 +28,8 @@ export const listLayouts = async (metahubId: string, params?: PaginationParams):
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                catalogId: params?.catalogId ?? undefined
             }
         }
     )
@@ -48,7 +56,7 @@ export const getLayout = (metahubId: string, layoutId: string) => apiClient.get<
 /**
  * Create a new layout
  */
-export const createLayout = (metahubId: string, data: MetahubLayoutLocalizedPayload) =>
+export const createLayout = (metahubId: string, data: MetahubCreateLayoutPayload) =>
     apiClient.post<MetahubLayout>(`/metahub/${metahubId}/layouts`, data)
 
 export type LayoutCopyInput = {

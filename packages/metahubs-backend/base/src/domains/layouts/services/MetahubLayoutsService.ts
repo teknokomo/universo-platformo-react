@@ -19,6 +19,8 @@ export type LayoutTemplateKey = 'dashboard'
 
 export interface MetahubLayoutRow {
     id: string
+    catalogId: string | null
+    baseLayoutId: string | null
     templateKey: LayoutTemplateKey
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
@@ -39,6 +41,7 @@ export interface DashboardLayoutZoneWidgetRow {
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
+    isInherited?: boolean
     createdAt: string
     updatedAt: string
 }
@@ -49,6 +52,7 @@ export interface LayoutListOptions {
     sortBy?: 'name' | 'created' | 'updated'
     sortOrder?: 'asc' | 'desc'
     search?: string
+    catalogId?: string
     includeDeleted?: boolean
 }
 
@@ -65,7 +69,61 @@ type ZoneWidgetConfigRow = {
     is_active?: boolean
 }
 
+type LayoutScopeRow = {
+    id: string
+    catalog_id?: string | null
+    base_layout_id?: string | null
+    config?: unknown
+}
+
+type CatalogWidgetOverrideDbRow = {
+    id: string
+    catalog_layout_id: string
+    base_widget_id: string
+    zone?: unknown
+    sort_order?: unknown
+    config?: unknown
+    is_active?: unknown
+    is_deleted_override?: unknown
+    _upl_created_at?: unknown
+    _upl_updated_at?: unknown
+}
+
+type ResolvedLayoutWidgetState = {
+    id: string
+    layoutId: string
+    widgetKey: DashboardLayoutWidgetKey
+    zone: DashboardLayoutZone
+    sortOrder: number
+    config: Record<string, unknown>
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+    isInherited: boolean
+    baseWidgetId: string | null
+    baseZone: DashboardLayoutZone | null
+    baseSortOrder: number | null
+    baseIsActive: boolean | null
+}
+
 export const LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY = '__skipDefaultZoneWidgetSeed'
+
+const DASHBOARD_WIDGET_VISIBILITY_CONFIG_KEYS = Object.keys(buildDashboardLayoutConfig([]))
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const stripDashboardWidgetVisibilityConfig = (config: unknown): Record<string, unknown> => {
+    if (!isRecord(config)) {
+        return {}
+    }
+
+    const nextConfig = { ...config }
+    for (const key of DASHBOARD_WIDGET_VISIBILITY_CONFIG_KEYS) {
+        delete nextConfig[key]
+    }
+
+    return nextConfig
+}
 
 const layoutTemplateKeySchema = z.literal('dashboard')
 const layoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
@@ -81,6 +139,8 @@ const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(DASHBOARD_LAYOUT_WIDG
 
 export const createLayoutSchema = z
     .object({
+        catalogId: z.string().uuid().optional(),
+        baseLayoutId: z.string().uuid().optional(),
         templateKey: layoutTemplateKeySchema.default('dashboard'),
         name: z.any(),
         description: z.any().optional().nullable(),
@@ -159,6 +219,8 @@ export class MetahubLayoutsService {
     private mapRow(row: DbRow): MetahubLayoutRow {
         return {
             id: String(row.id),
+            catalogId: typeof row.catalog_id === 'string' ? row.catalog_id : null,
+            baseLayoutId: typeof row.base_layout_id === 'string' ? row.base_layout_id : null,
             templateKey: (row.template_key ?? 'dashboard') as LayoutTemplateKey,
             name: row.name as VersionedLocalizedContent<string>,
             description: (row.description as VersionedLocalizedContent<string> | null) ?? null,
@@ -193,6 +255,116 @@ export class MetahubLayoutsService {
         }
     }
 
+    private buildCatalogScopeWhereSql(catalogId: string | null | undefined, nextParamIndex: number): { sql: string; params: unknown[] } {
+        if (catalogId) {
+            return { sql: `catalog_id = $${nextParamIndex}`, params: [catalogId] }
+        }
+
+        return { sql: 'catalog_id IS NULL', params: [] }
+    }
+
+    private async getLayoutScopeRow(db: SqlQueryable, schemaName: string, layoutId: string): Promise<LayoutScopeRow | null> {
+        const lt = qSchemaTable(schemaName, '_mhb_layouts')
+        return queryOne<LayoutScopeRow>(
+            db,
+            `SELECT id, catalog_id, base_layout_id, config
+             FROM ${lt}
+             WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
+            [layoutId]
+        )
+    }
+
+    private async assertCatalogObjectExists(db: SqlQueryable, schemaName: string, catalogId: string): Promise<void> {
+        const ot = qSchemaTable(schemaName, '_mhb_objects')
+        const catalogRow = await queryOne<{ id: string }>(
+            db,
+            `SELECT id FROM ${ot}
+             WHERE id = $1
+               AND kind = 'catalog'
+               AND _upl_deleted = false
+               AND _mhb_deleted = false`,
+            [catalogId]
+        )
+
+        if (!catalogRow) {
+            throw new MetahubNotFoundError('Catalog', catalogId)
+        }
+    }
+
+    private async resolveCreateBaseLayout(
+        db: SqlQueryable,
+        schemaName: string,
+        catalogId: string | null | undefined,
+        requestedBaseLayoutId: string | undefined
+    ): Promise<LayoutScopeRow | null> {
+        if (!catalogId) {
+            return null
+        }
+
+        const lt = qSchemaTable(schemaName, '_mhb_layouts')
+
+        if (requestedBaseLayoutId) {
+            const baseLayout = await queryOne<LayoutScopeRow>(
+                db,
+                `SELECT id, catalog_id, base_layout_id, config FROM ${lt}
+                 WHERE id = $1
+                   AND catalog_id IS NULL
+                   AND _upl_deleted = false
+                   AND _mhb_deleted = false`,
+                [requestedBaseLayoutId]
+            )
+
+            if (!baseLayout) {
+                throw this.createConflictError('Base layout must reference an existing global layout')
+            }
+
+            return baseLayout
+        }
+
+        const fallbackBaseLayout = await queryOne<LayoutScopeRow>(
+            db,
+            `SELECT id, catalog_id, base_layout_id, config FROM ${lt}
+             WHERE catalog_id IS NULL
+               AND is_active = true
+               AND _upl_deleted = false
+               AND _mhb_deleted = false
+             ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
+             LIMIT 1`,
+            []
+        )
+
+        if (!fallbackBaseLayout) {
+            throw this.createConflictError('Catalog layouts require an existing global base layout')
+        }
+
+        return fallbackBaseLayout
+    }
+
+    private resolveCatalogWidgetActiveOverride(isActive: boolean, baseIsActive: boolean | null): boolean | null {
+        if (baseIsActive === null) {
+            return isActive
+        }
+
+        return isActive === baseIsActive ? null : isActive
+    }
+
+    private async softDeleteCatalogWidgetOverride(
+        db: SqlQueryable,
+        schemaName: string,
+        overrideId: string,
+        userId?: string | null
+    ): Promise<void> {
+        const ot = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
+        const now = new Date()
+
+        await db.query(
+            `UPDATE ${ot} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
+                _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
+             WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false`,
+            [now, userId ?? null, overrideId]
+        )
+    }
+
     private async normalizeZoneSortOrders(
         db: SqlQueryable,
         schemaName: string,
@@ -221,6 +393,256 @@ export class MetahubLayoutsService {
         }
     }
 
+    private isCatalogLayout(scope: LayoutScopeRow | DbRow | null | undefined): boolean {
+        return typeof scope?.catalog_id === 'string' && typeof scope?.base_layout_id === 'string'
+    }
+
+    private async listResolvedLayoutWidgetStates(
+        db: SqlQueryable,
+        schemaName: string,
+        layoutScope: LayoutScopeRow
+    ): Promise<ResolvedLayoutWidgetState[]> {
+        const wt = qSchemaTable(schemaName, '_mhb_widgets')
+        const ot = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
+        const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
+
+        if (!this.isCatalogLayout(layoutScope)) {
+            const rows = await queryMany<DbRow>(
+                db,
+                `SELECT * FROM ${wt} WHERE layout_id = $1 AND ${ACTIVE}
+                 ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
+                [layoutScope.id]
+            )
+
+            return rows.map((row) => ({
+                id: String(row.id),
+                layoutId: String(row.layout_id),
+                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+                zone: String(row.zone) as DashboardLayoutZone,
+                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
+                config: (row.config as Record<string, unknown>) ?? {},
+                isActive: row.is_active !== false,
+                createdAt: String(row._upl_created_at),
+                updatedAt: String(row._upl_updated_at),
+                isInherited: false,
+                baseWidgetId: null,
+                baseZone: null,
+                baseSortOrder: null,
+                baseIsActive: null
+            }))
+        }
+
+        const baseLayoutId = String(layoutScope.base_layout_id)
+        const baseRows = await queryMany<DbRow>(
+            db,
+            `SELECT * FROM ${wt} WHERE layout_id = $1 AND ${ACTIVE}
+             ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
+            [baseLayoutId]
+        )
+        const ownedRows = await queryMany<DbRow>(
+            db,
+            `SELECT * FROM ${wt} WHERE layout_id = $1 AND ${ACTIVE}
+             ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
+            [layoutScope.id]
+        )
+        const overrideRows = await queryMany<CatalogWidgetOverrideDbRow>(
+            db,
+            `SELECT * FROM ${ot} WHERE catalog_layout_id = $1 AND ${ACTIVE}
+             ORDER BY _upl_created_at ASC`,
+            [layoutScope.id]
+        )
+        const overrideMap = new Map(overrideRows.map((row) => [String(row.base_widget_id), row]))
+
+        const resolved: ResolvedLayoutWidgetState[] = []
+
+        for (const row of baseRows) {
+            const baseWidgetId = String(row.id)
+            const override = overrideMap.get(baseWidgetId)
+            if (override?.is_deleted_override === true) {
+                continue
+            }
+
+            const baseConfig = (row.config as Record<string, unknown>) ?? {}
+            resolved.push({
+                id: baseWidgetId,
+                layoutId: layoutScope.id,
+                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+                zone: (override?.zone ? String(override.zone) : String(row.zone)) as DashboardLayoutZone,
+                sortOrder:
+                    typeof override?.sort_order === 'number'
+                        ? override.sort_order
+                        : typeof row.sort_order === 'number'
+                        ? row.sort_order
+                        : 1,
+                config: baseConfig,
+                isActive: typeof override?.is_active === 'boolean' ? override.is_active : row.is_active !== false,
+                createdAt: String(row._upl_created_at),
+                updatedAt: String(override?._upl_updated_at ?? row._upl_updated_at),
+                isInherited: true,
+                baseWidgetId,
+                baseZone: String(row.zone) as DashboardLayoutZone,
+                baseSortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
+                baseIsActive: row.is_active !== false
+            })
+        }
+
+        for (const row of ownedRows) {
+            resolved.push({
+                id: String(row.id),
+                layoutId: String(row.layout_id),
+                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+                zone: String(row.zone) as DashboardLayoutZone,
+                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
+                config: (row.config as Record<string, unknown>) ?? {},
+                isActive: row.is_active !== false,
+                createdAt: String(row._upl_created_at),
+                updatedAt: String(row._upl_updated_at),
+                isInherited: false,
+                baseWidgetId: null,
+                baseZone: null,
+                baseSortOrder: null,
+                baseIsActive: null
+            })
+        }
+
+        return resolved.sort((a, b) => {
+            if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
+            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+            return a.id.localeCompare(b.id)
+        })
+    }
+
+    private async upsertCatalogWidgetOverride(
+        db: SqlQueryable,
+        schemaName: string,
+        args: {
+            catalogLayoutId: string
+            baseWidgetId: string
+            patch: {
+                zone?: DashboardLayoutZone | null
+                sortOrder?: number | null
+                isActive?: boolean | null
+                isDeletedOverride?: boolean
+            }
+            userId?: string | null
+        }
+    ): Promise<void> {
+        const { catalogLayoutId, baseWidgetId, patch, userId } = args
+        const ot = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
+        const now = new Date()
+
+        const existing = await queryOne<CatalogWidgetOverrideDbRow>(
+            db,
+            `SELECT * FROM ${ot}
+             WHERE catalog_layout_id = $1 AND base_widget_id = $2 AND _upl_deleted = false AND _mhb_deleted = false`,
+            [catalogLayoutId, baseWidgetId]
+        )
+
+        const existingZone = typeof existing?.zone === 'string' ? (String(existing.zone) as DashboardLayoutZone) : null
+        const existingSortOrder = typeof existing?.sort_order === 'number' ? existing.sort_order : null
+        const existingIsActive = typeof existing?.is_active === 'boolean' ? existing.is_active : null
+        const nextZone = patch.zone !== undefined ? patch.zone : existingZone
+        const nextSortOrder = patch.sortOrder !== undefined ? patch.sortOrder : existingSortOrder
+    const nextConfig = null
+        const nextIsActive = patch.isActive !== undefined ? patch.isActive : existingIsActive
+        const nextIsDeletedOverride = patch.isDeletedOverride === true
+
+        if (!nextIsDeletedOverride && nextZone === null && nextSortOrder === null && nextConfig === null && nextIsActive === null) {
+            if (existing?.id) {
+                await this.softDeleteCatalogWidgetOverride(db, schemaName, existing.id, userId)
+            }
+            return
+        }
+
+        if (existing) {
+            await db.query(
+                `UPDATE ${ot}
+                 SET zone = $1,
+                     sort_order = $2,
+                     config = $3,
+                     is_active = $4,
+                     is_deleted_override = $5,
+                     _upl_updated_at = $6,
+                     _upl_updated_by = $7,
+                     _upl_version = _upl_version + 1
+                 WHERE id = $8`,
+                [nextZone, nextSortOrder, nextConfig, nextIsActive, nextIsDeletedOverride, now, userId ?? null, existing.id]
+            )
+            return
+        }
+
+        await db.query(
+            `INSERT INTO ${ot} (
+                catalog_layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
+                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                _mhb_published, _mhb_archived, _mhb_deleted
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7,
+                $8, $9, $8, $9,
+                1, false, false, false,
+                true, false, false
+             )`,
+            [catalogLayoutId, baseWidgetId, nextZone, nextSortOrder, nextConfig, nextIsActive, nextIsDeletedOverride, now, userId ?? null]
+        )
+    }
+
+    private async normalizeResolvedCatalogLayoutSortOrders(
+        db: SqlQueryable,
+        schemaName: string,
+        layoutScope: LayoutScopeRow,
+        widgets: ResolvedLayoutWidgetState[],
+        userId?: string | null
+    ): Promise<void> {
+        const wt = qSchemaTable(schemaName, '_mhb_widgets')
+        const now = new Date()
+
+        for (const zone of DASHBOARD_LAYOUT_ZONES) {
+            const zoneItems = widgets
+                .filter((item) => item.zone === zone)
+                .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
+
+            for (let index = 0; index < zoneItems.length; index += 1) {
+                const item = zoneItems[index]
+                const nextSortOrder = index + 1
+                if (item.isInherited && item.baseWidgetId) {
+                    await this.upsertCatalogWidgetOverride(db, schemaName, {
+                        catalogLayoutId: layoutScope.id,
+                        baseWidgetId: item.baseWidgetId,
+                        patch: {
+                            zone: item.baseZone !== null && item.zone !== item.baseZone ? item.zone : null,
+                            sortOrder: item.baseSortOrder !== null && nextSortOrder !== item.baseSortOrder ? nextSortOrder : null,
+                            isDeletedOverride: false
+                        },
+                        userId
+                    })
+                } else {
+                    await db.query(
+                        `UPDATE ${wt} SET zone = $1, sort_order = $2,
+                            _upl_updated_at = $3, _upl_updated_by = $4, _upl_version = _upl_version + 1
+                         WHERE id = $5 AND _upl_deleted = false AND _mhb_deleted = false`,
+                        [item.zone, nextSortOrder, now, userId ?? null, item.id]
+                    )
+                }
+            }
+        }
+    }
+
+    private mapResolvedLayoutWidgetState(row: ResolvedLayoutWidgetState): DashboardLayoutZoneWidgetRow {
+        return {
+            id: row.id,
+            layoutId: row.layoutId,
+            zone: row.zone,
+            widgetKey: row.widgetKey,
+            sortOrder: row.sortOrder,
+            config: row.config,
+            isActive: row.isActive,
+            isInherited: row.isInherited,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt
+        }
+    }
+
     private async syncLayoutConfigFromZoneWidgets(
         db: SqlQueryable,
         schemaName: string,
@@ -229,28 +651,31 @@ export class MetahubLayoutsService {
     ): Promise<void> {
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
-        const widgets = await queryMany<ZoneWidgetConfigRow>(
-            db,
-            `SELECT widget_key, zone, is_active FROM ${wt}
-             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
-            [layoutId]
-        )
-        const layoutRow = await queryOne<{ config?: unknown }>(
-            db,
-            `SELECT config FROM ${lt} WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
-            [layoutId]
-        )
+        const layoutRow = await this.getLayoutScopeRow(db, schemaName, layoutId)
+        if (!layoutRow) {
+            return
+        }
 
-        const activeWidgets = widgets.filter((row) => row.is_active !== false)
         const currentConfig = layoutRow?.config && typeof layoutRow.config === 'object' ? layoutRow.config : {}
-        const nextConfig = {
-            ...currentConfig,
-            ...buildDashboardLayoutConfig(
-                activeWidgets.map((row) => ({
-                    widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                    zone: String(row.zone) as DashboardLayoutZone
-                }))
+        let nextConfig = stripDashboardWidgetVisibilityConfig(currentConfig)
+
+        if (!this.isCatalogLayout(layoutRow)) {
+            const widgetRows = await queryMany<ZoneWidgetConfigRow>(
+                db,
+                `SELECT widget_key, zone, is_active FROM ${wt}
+                 WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
+                [layoutId]
             )
+            const activeWidgets = widgetRows.filter((row) => row.is_active !== false)
+            nextConfig = {
+                ...nextConfig,
+                ...buildDashboardLayoutConfig(
+                    activeWidgets.map((row) => ({
+                        widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+                        zone: String(row.zone) as DashboardLayoutZone
+                    }))
+                )
+            }
         }
 
         await db.query(
@@ -261,16 +686,15 @@ export class MetahubLayoutsService {
     }
 
     private async ensureDefaultZoneWidgets(db: SqlQueryable, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
-        const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
 
-        const layoutRow = await queryOne<{ config?: unknown }>(
-            db,
-            `SELECT config FROM ${lt} WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
-            [layoutId]
-        )
+        const layoutRow = await this.getLayoutScopeRow(db, schemaName, layoutId)
 
         if (!layoutRow) {
+            return
+        }
+
+        if (this.isCatalogLayout(layoutRow)) {
             return
         }
 
@@ -314,7 +738,7 @@ export class MetahubLayoutsService {
     async listLayouts(metahubId: string, options: LayoutListOptions, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
-        const { limit = 20, offset = 0, sortBy = 'updated', sortOrder = 'desc', search, includeDeleted = false } = options
+        const { limit = 20, offset = 0, sortBy = 'updated', sortOrder = 'desc', search, catalogId, includeDeleted = false } = options
 
         const conditions: string[] = []
         const params: unknown[] = []
@@ -329,6 +753,11 @@ export class MetahubLayoutsService {
             params.push(`%${escaped}%`)
             idx++
         }
+
+        const scopeClause = this.buildCatalogScopeWhereSql(catalogId ?? null, idx)
+        conditions.push(scopeClause.sql)
+        params.push(...scopeClause.params)
+        idx += scopeClause.params.length
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
@@ -373,6 +802,7 @@ export class MetahubLayoutsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const now = new Date()
+        const catalogId = input.catalogId ?? null
 
         const isActive = input.isActive ?? true
         const isDefault = input.isDefault ?? false
@@ -381,28 +811,40 @@ export class MetahubLayoutsService {
         }
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            if (catalogId) {
+                await this.assertCatalogObjectExists(tx, schemaName, catalogId)
+            }
+
+            const baseLayout = await this.resolveCreateBaseLayout(tx, schemaName, catalogId, input.baseLayoutId)
+
             if (isDefault) {
+                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 3)
                 await tx.query(
                     `UPDATE ${lt} SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
-                     WHERE _upl_deleted = false AND _mhb_deleted = false`,
-                    [now, userId ?? null]
+                     WHERE _upl_deleted = false AND _mhb_deleted = false AND ${scopeClause.sql}`,
+                    [now, userId ?? null, ...scopeClause.params]
                 )
             }
 
-            const defaultConfig = buildDashboardLayoutConfig(DEFAULT_DASHBOARD_ZONE_WIDGETS.filter((w) => w.isActive !== false))
+            const baseLayoutConfig = stripDashboardWidgetVisibilityConfig(baseLayout?.config)
+            const nextConfig = catalogId
+                ? { ...baseLayoutConfig, ...stripDashboardWidgetVisibilityConfig(input.config) }
+                : input.config ?? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
             const created = await queryOneOrThrow<DbRow>(
                 tx,
-                `INSERT INTO ${lt} (template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+                `INSERT INTO ${lt} (catalog_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
                     _upl_version, _upl_archived, _upl_deleted, _upl_locked,
                     _mhb_published, _mhb_archived, _mhb_deleted)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $9, $10, 1, false, false, false, true, false, false)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $11, $12, 1, false, false, false, true, false, false)
                  RETURNING *`,
                 [
+                    catalogId,
+                    baseLayout?.id ?? null,
                     input.templateKey ?? 'dashboard',
                     JSON.stringify(input.name),
                     input.description ? JSON.stringify(input.description) : null,
-                    JSON.stringify(input.config ?? defaultConfig),
+                    JSON.stringify(nextConfig),
                     isActive,
                     isDefault,
                     input.sortOrder ?? 0,
@@ -412,7 +854,9 @@ export class MetahubLayoutsService {
                 ]
             )
 
-            await this.ensureDefaultZoneWidgets(tx, schemaName, String(created.id), userId ?? null)
+            if (!catalogId && !this.shouldSkipDefaultZoneWidgetSeed(nextConfig)) {
+                await this.ensureDefaultZoneWidgets(tx, schemaName, String(created.id), userId ?? null)
+            }
             return this.mapRow(created)
         })
     }
@@ -436,6 +880,8 @@ export class MetahubLayoutsService {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
 
+            const catalogId = typeof existing.catalog_id === 'string' ? existing.catalog_id : null
+
             const nextIsActive = input.isActive ?? Boolean(existing.is_active)
             const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
 
@@ -445,8 +891,10 @@ export class MetahubLayoutsService {
 
             // Prevent unsetting the last default layout.
             if (Boolean(existing.is_default) && !nextIsDefault) {
+                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 1)
                 const [countRow] = await tx.query<{ count: number }>(
-                    `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_default = true`
+                    `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_default = true AND ${scopeClause.sql}`,
+                    scopeClause.params
                 )
                 const defaultCount = countRow?.count ?? 0
                 if (Number.isFinite(defaultCount) && defaultCount <= 1) {
@@ -456,8 +904,10 @@ export class MetahubLayoutsService {
 
             // Prevent deactivating the last active layout.
             if (!nextIsActive) {
+                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 1)
                 const [countRow] = await tx.query<{ count: number }>(
-                    `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_active = true`
+                    `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_active = true AND ${scopeClause.sql}`,
+                    scopeClause.params
                 )
                 const activeCount = countRow?.count ?? 0
                 if (Number.isFinite(activeCount) && activeCount <= 1) {
@@ -466,10 +916,11 @@ export class MetahubLayoutsService {
             }
 
             if (nextIsDefault) {
+                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 4)
                 await tx.query(
                     `UPDATE ${lt} SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
-                     WHERE ${ACTIVE} AND id != $3`,
-                    [now, userId ?? null, layoutId]
+                     WHERE ${ACTIVE} AND id != $3 AND ${scopeClause.sql}`,
+                    [now, userId ?? null, layoutId, ...scopeClause.params]
                 )
             }
 
@@ -506,6 +957,7 @@ export class MetahubLayoutsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
+        const ot = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
         const now = new Date()
 
@@ -515,19 +967,42 @@ export class MetahubLayoutsService {
             if (!existing) {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
+            const catalogId = typeof existing.catalog_id === 'string' ? existing.catalog_id : null
             if (existing.is_default) {
                 throw this.createConflictError('Cannot delete default layout')
             }
 
+            if (!catalogId) {
+                const [dependentCatalogLayout] = await tx.query<{ id: string }>(
+                    `SELECT id FROM ${lt}
+                     WHERE base_layout_id = $1 AND ${ACTIVE}
+                     LIMIT 1`,
+                    [layoutId]
+                )
+
+                if (dependentCatalogLayout?.id) {
+                    throw this.createConflictError('Cannot delete a global layout that is used by catalog layouts')
+                }
+            }
+
             if (existing.is_active) {
+                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 1)
                 const [countRow] = await tx.query<{ count: number }>(
-                    `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_active = true`
+                    `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_active = true AND ${scopeClause.sql}`,
+                    scopeClause.params
                 )
                 const activeCount = countRow?.count ?? 0
                 if (Number.isFinite(activeCount) && activeCount <= 1) {
                     throw this.createConflictError('At least one active layout is required')
                 }
             }
+
+            await tx.query(
+                `UPDATE ${ot} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
+                    _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
+                 WHERE catalog_layout_id = $3 AND ${ACTIVE}`,
+                [now, userId ?? null, layoutId]
+            )
 
             // Cascade: soft-delete all zone widgets belonging to this layout
             await tx.query(
@@ -560,6 +1035,13 @@ export class MetahubLayoutsService {
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (layoutScope && this.isCatalogLayout(layoutScope)) {
+                return (await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)).map((row) =>
+                    this.mapResolvedLayoutWidgetState(row)
+                )
+            }
+
             const rows = await queryMany<DbRow>(
                 tx,
                 `SELECT * FROM ${wt} WHERE layout_id = $1 AND ${ACTIVE}
@@ -584,6 +1066,96 @@ export class MetahubLayoutsService {
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) {
+                throw new MetahubNotFoundError('Layout', layoutId)
+            }
+
+            if (this.isCatalogLayout(layoutScope)) {
+                const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const nextSortOrder = input.sortOrder ?? resolvedWidgets.filter((row) => row.zone === input.zone).length + 1
+                const isMulti = multiInstanceSet.has(input.widgetKey)
+
+                if (!isMulti) {
+                    const ownedWidget = resolvedWidgets.find((row) => !row.isInherited && row.widgetKey === input.widgetKey)
+                    if (ownedWidget) {
+                        await tx.query(
+                            `UPDATE ${wt} SET zone = $1, sort_order = $2, config = $3,
+                                _upl_updated_at = $4, _upl_updated_by = $5, _upl_version = _upl_version + 1
+                             WHERE id = $6`,
+                            [
+                                input.zone,
+                                nextSortOrder,
+                                JSON.stringify(input.config ?? ownedWidget.config),
+                                new Date(),
+                                userId ?? null,
+                                ownedWidget.id
+                            ]
+                        )
+                    } else {
+                        const inheritedWidget = resolvedWidgets.find((row) => row.isInherited && row.widgetKey === input.widgetKey)
+                        if (inheritedWidget?.baseWidgetId) {
+                            throw new MetahubValidationError(
+                                'Inherited widgets cannot be reassigned. Move or toggle the existing widget instead.',
+                                {
+                                    widgetId: inheritedWidget.id,
+                                    widgetKey: inheritedWidget.widgetKey,
+                                    layoutId
+                                }
+                            )
+                        } else {
+                            await queryOneOrThrow<DbRow>(
+                                tx,
+                                `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
+                                    _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                                    _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                                    _mhb_published, _mhb_archived, _mhb_deleted)
+                                 VALUES ($1, $2, $3, $4, $5, true, $6, $7, $6, $7, 1, false, false, false, true, false, false)
+                                 RETURNING *`,
+                                [
+                                    layoutId,
+                                    input.zone,
+                                    input.widgetKey,
+                                    nextSortOrder,
+                                    JSON.stringify(input.config ?? {}),
+                                    new Date(),
+                                    userId ?? null
+                                ]
+                            )
+                        }
+                    }
+                } else {
+                    await queryOneOrThrow<DbRow>(
+                        tx,
+                        `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
+                            _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                            _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                            _mhb_published, _mhb_archived, _mhb_deleted)
+                         VALUES ($1, $2, $3, $4, $5, true, $6, $7, $6, $7, 1, false, false, false, true, false, false)
+                         RETURNING *`,
+                        [
+                            layoutId,
+                            input.zone,
+                            input.widgetKey,
+                            nextSortOrder,
+                            JSON.stringify(input.config ?? {}),
+                            new Date(),
+                            userId ?? null
+                        ]
+                    )
+                }
+
+                const normalizedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                await this.normalizeResolvedCatalogLayoutSortOrders(tx, schemaName, layoutScope, normalizedWidgets, userId ?? null)
+                await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+
+                const refreshedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const createdWidget = refreshedWidgets.find((row) => row.widgetKey === input.widgetKey && row.zone === input.zone)
+                if (!createdWidget) {
+                    throw this.createNotFoundError('Zone widget not found after assignment')
+                }
+                return this.mapResolvedLayoutWidgetState(createdWidget)
+            }
 
             const now = new Date()
             const zoneRows = await queryMany<{ id: string }>(tx, `SELECT id FROM ${wt} WHERE layout_id = $1 AND zone = $2 AND ${ACTIVE}`, [
@@ -653,6 +1225,46 @@ export class MetahubLayoutsService {
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) {
+                throw new MetahubNotFoundError('Layout', layoutId)
+            }
+
+            if (this.isCatalogLayout(layoutScope)) {
+                const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const current = resolvedWidgets.find((row) => row.id === input.widgetId)
+                if (!current) throw new MetahubNotFoundError('Layout widget', input.widgetId)
+
+                const sourceZone = current.zone
+                const targetZone = input.targetZone ?? sourceZone
+                this.assertWidgetAllowedInZone(current.widgetKey, targetZone)
+
+                const remaining = resolvedWidgets.filter((row) => row.id !== input.widgetId)
+                const targetZoneItems = remaining.filter((row) => row.zone === targetZone)
+                const targetIndex =
+                    typeof input.targetIndex === 'number'
+                        ? Math.max(0, Math.min(input.targetIndex, targetZoneItems.length))
+                        : targetZoneItems.length
+                const insertBefore = targetZoneItems[targetIndex]
+                const insertIndex = insertBefore ? remaining.findIndex((row) => row.id === insertBefore.id) : remaining.length
+                const moved = { ...current, zone: targetZone }
+                remaining.splice(insertIndex, 0, moved)
+
+                for (const zone of DASHBOARD_LAYOUT_ZONES) {
+                    let sortOrder = 1
+                    for (const row of remaining) {
+                        if (row.zone !== zone) continue
+                        row.sortOrder = sortOrder
+                        sortOrder += 1
+                    }
+                }
+
+                await this.normalizeResolvedCatalogLayoutSortOrders(tx, schemaName, layoutScope, remaining, userId ?? null)
+                await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+                return (await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)).map((row) =>
+                    this.mapResolvedLayoutWidgetState(row)
+                )
+            }
 
             const current = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1 AND layout_id = $2 AND ${ACTIVE}`, [
                 input.widgetId,
@@ -707,6 +1319,39 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
+            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) {
+                return
+            }
+
+            if (this.isCatalogLayout(layoutScope)) {
+                const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const current = resolvedWidgets.find((row) => row.id === widgetId)
+                if (!current) {
+                    return
+                }
+
+                if (current.isInherited) {
+                    throw new MetahubValidationError('Inherited widgets cannot be removed. Move or toggle the inherited widget instead.', {
+                        widgetId: current.id,
+                        widgetKey: current.widgetKey,
+                        layoutId
+                    })
+                }
+
+                await tx.query(
+                    `UPDATE ${wt} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
+                        _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
+                     WHERE id = $3`,
+                    [new Date(), userId ?? null, current.id]
+                )
+
+                const refreshedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                await this.normalizeResolvedCatalogLayoutSortOrders(tx, schemaName, layoutScope, refreshedWidgets, userId ?? null)
+                await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+                return
+            }
+
             const current = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1 AND layout_id = $2 AND ${ACTIVE}`, [
                 widgetId,
                 layoutId
@@ -742,6 +1387,45 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) {
+                throw this.createNotFoundError('Layout not found')
+            }
+
+            if (this.isCatalogLayout(layoutScope)) {
+                const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const currentResolved = resolvedWidgets.find((row) => row.id === widgetId)
+                if (!currentResolved) {
+                    throw this.createNotFoundError('Zone widget not found')
+                }
+
+                if (currentResolved.isInherited) {
+                    throw new MetahubValidationError(
+                        'Inherited widgets inherit config from the base layout and cannot be edited.',
+                        {
+                            widgetId: currentResolved.id,
+                            widgetKey: currentResolved.widgetKey,
+                            layoutId
+                        }
+                    )
+                }
+
+                const now = new Date()
+                await tx.query(
+                    `UPDATE ${wt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
+                     WHERE id = $4`,
+                    [JSON.stringify(config), now, userId ?? null, currentResolved.id]
+                )
+
+                await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+                const refreshed = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const updated = refreshed.find((row) => row.id === widgetId)
+                if (!updated) {
+                    throw this.createNotFoundError('Zone widget not found')
+                }
+                return this.mapResolvedLayoutWidgetState(updated)
+            }
+
             const current = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1 AND layout_id = $2 AND ${ACTIVE}`, [
                 widgetId,
                 layoutId
@@ -779,6 +1463,46 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) {
+                throw this.createNotFoundError('Layout not found')
+            }
+
+            if (this.isCatalogLayout(layoutScope)) {
+                const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const currentResolved = resolvedWidgets.find((row) => row.id === widgetId)
+                if (!currentResolved) {
+                    throw this.createNotFoundError('Zone widget not found')
+                }
+
+                if (!currentResolved.isInherited) {
+                    const now = new Date()
+                    await tx.query(
+                        `UPDATE ${wt} SET is_active = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
+                         WHERE id = $4`,
+                        [isActive, now, userId ?? null, currentResolved.id]
+                    )
+                } else if (currentResolved.baseWidgetId) {
+                    await this.upsertCatalogWidgetOverride(tx, schemaName, {
+                        catalogLayoutId: layoutId,
+                        baseWidgetId: currentResolved.baseWidgetId,
+                        patch: {
+                            isActive: this.resolveCatalogWidgetActiveOverride(isActive, currentResolved.baseIsActive),
+                            isDeletedOverride: false
+                        },
+                        userId
+                    })
+                }
+
+                await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+                const refreshed = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                const updated = refreshed.find((row) => row.id === widgetId)
+                if (!updated) {
+                    throw this.createNotFoundError('Zone widget not found')
+                }
+                return this.mapResolvedLayoutWidgetState(updated)
+            }
+
             const current = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1 AND layout_id = $2 AND ${ACTIVE}`, [
                 widgetId,
                 layoutId

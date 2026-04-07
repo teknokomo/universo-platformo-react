@@ -359,6 +359,7 @@ describe('Metahubs Routes', () => {
                     isPublic: false,
                     templateId: null,
                     templateVersionId: null,
+                    defaultBranchId: 'branch-main',
                     _uplVersion: 1,
                     _uplCreatedAt: new Date('2025-01-01'),
                     _uplUpdatedAt: new Date('2025-01-02'),
@@ -368,6 +369,22 @@ describe('Metahubs Routes', () => {
             ]
 
             mockListMetahubs.mockResolvedValue({ items: mockMetahubs, total: 1 })
+            mockFindBranchByIdAndMetahub.mockResolvedValue({
+                id: 'branch-main',
+                metahubId: 'metahub-1',
+                schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1'
+            })
+            mockExec.query.mockImplementation(async (sql: string) => {
+                if (sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects WHERE kind = 'hub'`)) {
+                    return [{ count: 2 }]
+                }
+
+                if (sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects WHERE kind = 'catalog'`)) {
+                    return [{ count: 5 }]
+                }
+
+                return []
+            })
 
             const app = buildApp()
 
@@ -378,8 +395,8 @@ describe('Metahubs Routes', () => {
                 id: 'metahub-1',
                 name: 'Test Metahub',
                 description: 'Test Description',
-                hubsCount: 0,
-                catalogsCount: 0,
+                hubsCount: 2,
+                catalogsCount: 5,
                 membersCount: 0
             })
             expect(response.body.items[0]).toHaveProperty('createdAt')

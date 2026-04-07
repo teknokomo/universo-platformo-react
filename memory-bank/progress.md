@@ -4,6 +4,318 @@
 ---
 ## ⚠️ IMPORTANT: Version History Table
 
+**The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
+| Release      | Date       | Codename                                           | Highlights                                                                                          |
+| ------------ | ---------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 0.57.0-alpha | 2026-04-03 | 0.57.0 Alpha — 2026-04-03                          | QA remediation, controller extraction, domain-error cleanup, Playwright CLI hardening              |
+| 0.56.0-alpha | 2026-03-27 | 0.56.0 Alpha — 2026-03-27 (Cured Disease) 🤒      | Entity-display fixes, codename JSONB/VLC convergence, security hardening, csurf replacement        |
+| 0.55.0-alpha | 2026-03-19 | 0.55.0 Alpha — 2026-03-19 (Best Role) 🎬          | DB access standard, start app, platform attributes, admin roles/metapanel, application workspaces, bootstrap superuser |
+| 0.54.0-alpha | 2026-03-13 | 0.54.0 Alpha — 2026-03-13 (Beaver Migration) 🦫   | MetaHub drag-and-drop ordering, nested hubs, create options/settings UX, optimistic CRUD, SQL-first convergence |
+| 0.53.0-alpha | 2026-03-05 | 0.53.0 Alpha — 2026-03-04 (Lucky Set) 🍱          | Copy options expansion across Applications, Metahubs, Branches, and Sets/Constants delivery        |
+| 0.52.0-alpha | 2026-02-25 | 0.52.0 Alpha — 2026-02-25 (Tabular infinity) 🤪   | TABLE UX/data table improvements and NUMBER behavior hardening across form contexts                 |
+| 0.51.0-alpha | 2026-02-19 | 0.51.0 Alpha — 2026-02-19 (Counting Sticks) 🥢    | Headless Controller, Application Templates, Enumerations                                            |
+| 0.50.0-alpha | 2026-02-13 | 0.50.0 Alpha — 2026-02-13 (Great Love) ❤️         | Applications, Template System, DDL Migration Engine, Enhanced Migrations                            |
+| 0.49.0-alpha | 2026-02-05 | 0.49.0 Alpha — 2026-02-05 (Stylish Cow) 🐮        | Attribute Data Types, Display Attribute, Layouts System                                             |
+| 0.48.0-alpha | 2026-01-29 | 0.48.0 Alpha — 2026-01-29 (Joint Work) 🪏         | Branches, Elements rename, Three-level system fields                                                |
+| 0.47.0-alpha | 2026-01-23 | 0.47.0 Alpha — 2026-01-23 (Friendly Integration) 🫶 | Runtime migrations, Publications, schema-ddl                                                      |
+| 0.46.0-alpha | 2026-01-16 | 0.46.0 Alpha — 2026-01-16 (Running Stream) 🌊     | Applications modules, DDD architecture                                                              |
+| 0.45.0-alpha | 2026-01-12 | 0.45.0 Alpha — 2026-01-11 (Structured Structure) 😳 | i18n localized fields, VLC, Catalogs                                                              |
+| 0.44.0-alpha | 2026-01-04 | 0.44.0 Alpha — 2026-01-04 (Fascinating Acquaintance) 🖖 | Onboarding, legal consent, cookie banner, captcha                                              |
+| 0.43.0-alpha | 2025-12-27 | 0.43.0 Alpha — 2025-12-27 (New Future) 🏋️‍♂️    | Pagination fixes, onboarding wizard                                                                 |
+| 0.42.0-alpha | 2025-12-18 | 0.42.0 Alpha — 2025-12-18 (Dance Agents) 👯‍♀️   | VLC system, dynamic locales, upstream shell 3.0                                                    |
+| 0.41.0-alpha | 2025-12-11 | 0.41.0 Alpha — 2025-12-11 (High Mountains) 🌄     | Admin panel, auth migration, UUID v7                                                                |
+| 0.40.0-alpha | 2025-12-06 | 0.40.0 Alpha — 2025-12-05 (Straight Rows) 🎹      | Package extraction, Admin RBAC, global naming                                                       |
+| 0.39.0-alpha | 2025-11-26 | 0.39.0 Alpha — 2025-11-25 (Mighty Campaign) 🧙🏿 | Storages, Campaigns, useMutation refactor                                                          |
+| 0.38.0-alpha | 2025-11-22 | 0.38.0 Alpha — 2025-11-21 (Secret Organization) 🥷 | Projects, AR.js Quiz, Organizations                                                               |
+| 0.37.0-alpha | 2025-11-14 | 0.37.0 Alpha — 2025-11-13 (Smooth Horizons) 🌅    | REST API docs, Uniks metrics, Clusters                                                              |
+| 0.36.0-alpha | 2025-11-07 | 0.36.0 Alpha — 2025-11-07 (Revolutionary indicators) 📈 | dayjs migration, publish-frontend, Metaverse Dashboard                                         |
+| 0.35.0-alpha | 2025-10-30 | 0.35.0 Alpha — 2025-10-30 (Bold Steps) 💃         | i18n TypeScript migration, Rate limiting                                                            |
+| 0.34.0-alpha | 2025-10-23 | 0.34.0 Alpha — 2025-10-23 (Black Hole) ☕️        | Global monorepo refactoring, tsdown build system                                                   |
+| 0.33.0-alpha | 2025-10-16 | 0.33.0 Alpha — 2025-10-16 (School Test) 💼        | Publication system fixes, Metaverses module                                                         |
+| 0.32.0-alpha | 2025-10-09 | 0.32.0 Alpha — 2025-10-09 (Straight Path) 🛴      | Canvas versioning, Telemetry, Pagination                                                            |
+| 0.31.0-alpha | 2025-10-02 | 0.31.0 Alpha — 2025-10-02 (Victory Versions) 🏆   | Quiz editing, Canvas refactor, MUI Template                                                         |
+| 0.30.0-alpha | 2025-09-21 | 0.30.0 Alpha — 2025-09-21 (New Doors) 🚪          | TypeScript aliases, Publication library, Analytics                                                  |
+| 0.29.0-alpha | 2025-09-15 | 0.29.0 Alpha — 2025-09-15 (Cluster Backpack) 🎒   | Resources/Entities architecture, CI i18n                                                            |
+| 0.28.0-alpha | 2025-09-07 | 0.28.0 Alpha — 2025-09-07 (Orbital Switch) 🥨     | Resources, Entities modules, Template quiz                                                          |
+| 0.27.0-alpha | 2025-08-31 | 0.27.0 Alpha — 2025-08-31 (Stable Takeoff) 🐣     | Finance module, i18n, Language switcher                                                             |
+| 0.26.0-alpha | 2025-08-24 | 0.26.0 Alpha — 2025-08-24 (Slow Colossus) 🐌      | MMOOMM template, Colyseus multiplayer                                                               |
+| 0.25.0-alpha | 2025-08-17 | 0.25.0 Alpha — 2025-08-17 (Gentle Memory) 😼      | Space Builder, Metaverse MVP, core utils                                                            |
+| 0.24.0-alpha | 2025-08-12 | 0.24.0 Alpha — 2025-08-12 (Stellar Backdrop) 🌌   | Space Builder enhancements, AR.js wallpaper                                                         |
+| 0.23.0-alpha | 2025-08-05 | 0.23.0 Alpha — 2025-08-05 (Vanishing Asteroid) ☄️ | Russian docs, UPDL node params                                                                      |
+| 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
+| 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
+
+## 2026-04-07 Layout-Owned Catalog Behavior Contract Closure
+
+Closed the reopened QA remediation that found catalog CRUD/UI/API still preserving a legacy `runtimeConfig` contract after runtime behavior ownership had already moved to layout `catalogBehavior`. This pass removed the stale frontend/backend contract, stripped persisted leftovers during catalog update/copy flows, realigned focused regressions with the live runtime contract, and finished with green focused tests plus the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Frontend catalog contract | `CatalogActions.tsx`, `CatalogList.tsx`, shared catalog types, and the focused catalog dialog regression no longer serialize or expose legacy `runtimeConfig` in catalog create/edit/copy flows. |
+| Backend catalog API contract | The metahubs catalog controller no longer accepts or returns `runtimeConfig`; update/copy flows now pass `config.runtimeConfig: undefined` into persistence so stale stored values are stripped instead of surviving unrelated writes. |
+| Regression alignment | Metahubs backend route tests now reject legacy `runtimeConfig` on create/update/copy and assert stale values are stripped, while the applications backend runtime reorder regression now sources enablement from `_app_layouts.config.catalogBehavior`. |
+| Validation | Focused metahubs frontend/backend/applications backend suites passed, touched-file ESLint recheck had `0` errors, and the canonical root `pnpm build` finished green with `30 successful`, `28 cached`, and `1m8.073s`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/metahubs/ui/__tests__/actionsFactories.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/catalogsRoutes.test.ts`
+- `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm exec eslint packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx packages/metahubs-frontend/base/src/domains/catalogs/ui/catalogListUtils.ts packages/metahubs-frontend/base/src/domains/metahubs/ui/__tests__/actionsFactories.test.ts packages/metahubs-frontend/base/src/types.ts packages/metahubs-backend/base/src/domains/catalogs/controllers/catalogsController.ts packages/metahubs-backend/base/src/tests/routes/catalogsRoutes.test.ts packages/applications-backend/base/src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm build` passed successfully.
+
+## 2026-04-07 Snapshot Hash Integrity And Catalog Layout Docs Closure
+
+Closed the QA remediation wave that reopened the publication snapshot integrity contract after the broader Common/catalog-layout feature had already shipped. This pass stayed narrow and cross-cutting: extend the shared canonical snapshot hash/checksum helper to cover every exported design-time section currently used by publication export, lock the seam with focused regressions, align the catalog-layout docs with the shipped inherited-widget contract, and finish with green package plus root builds.
+
+| Area | Resolution |
+| --- | --- |
+| Canonical snapshot integrity | `normalizePublicationSnapshotForHash(...)` now includes `scripts`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, so snapshot envelope integrity checks and application release checksums both react to those exported design-time sections. |
+| Regression coverage | Focused `publicationSnapshotHash` and `snapshotArchive` regressions now fail when scripts or catalog overlay sections change without hash drift and reject tampered envelopes that try to reuse an old digest. |
+| Documentation alignment | EN/RU `catalog-layouts` guides now describe inherited widgets as sparse visibility/placement overlays only and explicitly state that inherited config remains sourced from the base layout. |
+| Validation | Focused `@universo/utils` tests passed (`22/22`), `pnpm --filter @universo/utils build` completed green, and the canonical root `pnpm build` finished successfully. |
+
+### Validation
+
+- `pnpm --filter @universo/utils test -- --run src/serialization/__tests__/publicationSnapshotHash.test.ts src/snapshot/__tests__/snapshotArchive.test.ts`
+- `pnpm --filter @universo/utils build`
+- `pnpm build` passed successfully.
+
+## 2026-04-07 Self-Hosted Fixture Regeneration And Current Structure Baseline Closure
+
+Closed the remaining QA remediation tail around the committed self-hosted snapshot fixture. This pass aligned the generator with the sparse Settings layout contract, fixed the current metahub structure-version baseline so fresh `0.1.0` branch schemas include `_mhb_scripts`, regenerated the self-hosted fixture through the real browser flow, re-proved import/runtime behavior, and finished with a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Generator sparse-layout contract | `metahubs-self-hosted-app-export.spec.ts` now asserts only the persisted sparse Settings layout fields and leaves `showDetailsTitle` as a widget-override concern, matching the committed fixture and import proof contract. |
+| Current structure baseline | `systemTableDefinitions.ts` now maps structure version `1` to `SYSTEM_TABLES` instead of `SYSTEM_TABLES_V1`, so fresh current-version branch schemas include `_mhb_scripts` and publication export/application creation no longer fail inside the self-hosted generator flow. |
+| Fixture regeneration | The browser self-hosted generator passed and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the live artifact, with `snapshot.versionEnvelope.structureVersion = 0.1.0`. |
+| Import/runtime proof | The browser snapshot import flow passed against the regenerated fixture, confirming the self-hosted snapshot imports through the UI, restores MVP structure, and preserves the expected runtime contract. |
+| Validation | Focused metahubs-backend `systemTableDefinitions` coverage passed (`27/27`), the browser self-hosted generator passed (`2 passed`, `4.7m`), `snapshot-export-import.spec.ts` passed (`5 passed`, `1.9m`), and the canonical root `pnpm build` completed green. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/systemTableDefinitions.test.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-self-hosted-app-export.spec.ts --project generators`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --project chromium`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 QA Regression Sweep For Catalog Dialogs, Common Layout Header, And Codename Contract Re-Audit Closure
+
+Closed the reopened browser QA wave triggered after a clean rebuild, database reset, and import from the regenerated self-hosted snapshot fixture. This pass restored the shared catalog dialog helper/export contract, separated Common -> Layouts from the compact dialog-width header mode, fixed a backend undefined-JSON binding bug that surfaced once the dialog path worked again, and re-audited docs/memory around the codename JSONB/VLC storage contract.
+
+| Area | Resolution |
+| --- | --- |
+| Catalog dialog helper seam | `CatalogActions.tsx` again exports the shared initial-values, copy, and validation helpers expected by catalog edit/copy actions plus nested Settings entrypoints from attributes/elements, removing the `buildInitialValues` / `buildCatalogInitialValues$1` browser crashes. |
+| Common layouts header mode | `LayoutList.tsx` now separates `compactHeader` from generic embedded rendering and `GeneralPage` forces the standard full-width Common -> Layouts toolbar/search layout while catalog dialog layout managers keep the compact adaptive variant. |
+| Regression coverage | Focused frontend regressions now lock the Common embedded-header contract and the catalog action helper/export seam, while Playwright opens `Settings` from attributes/elements routes and asserts the parent `Edit Catalog` dialog remains usable. |
+| Backend JSON binding hardening | `MetahubObjectsService.ts` strips undefined entries from `presentation` and `config` before update SQL binding, and focused backend coverage now fails closed on the exact undefined-binding regression revealed by Playwright after the frontend fix. |
+| Codename contract re-audit | The repository re-audit confirmed storage remains one `codename` JSONB/VLC field; `general.codenameLocalizedEnabled` still exists, but only trims non-primary locale variants before persistence via `enforceSingleLocaleCodename(...)`. Stale currentResearch/docs wording was corrected, and no workspace artifact named `admin-role-codename-localized-contract-20260323.json` exists. |
+| Validation | Focused metahubs-frontend regressions passed, focused metahubs-backend `MetahubObjectsService` tests passed (`7/7`), Playwright `metahub-domain-entities.spec.ts` passed (`3 passed`, `3.2m`), and the canonical root `pnpm build` finished green with `30 successful`, `30 total`. |
+
+### Validation
+
+- Focused metahubs-frontend Vitest regressions for `GeneralPage`, `LayoutList.copyFlow`, and `actionsFactories` passed.
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/MetahubObjectsService.test.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-domain-entities.spec.ts --project chromium`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 VLC Snapshot Contract And Browser-Faithful Fixture Regeneration Closure
+
+Closed the last snapshot-export QA wave around localized/VLC codename preservation and truthful fixture regeneration. This pass fixed the final field-level attribute-read seam, regenerated both committed browser-authored fixtures from raw export flows, aligned the import proof with the shipped sparse catalog-layout contract, and ended with fresh targeted validation plus the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Field-level VLC export seam | `MetahubAttributesService` now exposes a snapshot-oriented attribute read path that preserves localized field codename objects for snapshot serialization without widening the default UI/API string contract. `SnapshotSerializer` uses that path only for export, and focused backend regressions lock the behavior. |
+| Raw fixture regeneration | The quiz and self-hosted Playwright generators both passed against the stricter raw contracts and rewrote `tools/fixtures/metahubs-quiz-app-snapshot.json` plus `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the real browser/export flow instead of post-export canonicalization. |
+| Import-proof alignment | The browser snapshot import/export proof now matches the sparse catalog-layout contract: the Settings catalog layout keeps `showDetailsTitle` as an inherited-widget override rather than a stored config flag, and the spec now verifies that through the imported layout widget state. |
+| Validation | Focused metahubs-backend tests passed (`14/14`), focused universo-utils snapshot/hash tests passed (`17/17`), the browser `snapshot-export-import.spec.ts` flow passed (`5 passed`, `2.0m`), and the canonical root `pnpm build` completed green with `30 successful`, `30 cached`, and `384ms`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/MetahubAttributesService.test.ts src/tests/services/SnapshotSerializer.test.ts`
+- `pnpm --filter @universo/utils test -- --run src/snapshot/__tests__/snapshotArchive.test.ts src/serialization/__tests__/publicationSnapshotHash.test.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --project chromium`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 QA Closure For Snapshot Export And Layout Cache Consistency
+
+Closed the two remaining seam-level defects that reopened the General/catalog-layout wave after the broader feature had already been functionally validated. This pass stayed narrow: preserve full design-time layout state in snapshot export/import, invalidate dependent catalog layout caches after global base-layout mutations, refresh the stale runtime materialization expectation, and then rerun focused validation plus the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Snapshot export consistency | `snapshotLayouts.ts` now exports the full global/catalog layout set instead of active-only rows and filters override rows to catalog layouts that are actually exported, so snapshot round-tripping no longer drops inactive authoring layouts or carries orphaned override references. |
+| Backend regression coverage | Added `src/tests/shared/snapshotLayouts.test.ts` to prove inactive global/catalog layouts and scoped override rows survive export, while existing `SnapshotRestoreService` and layout-route coverage stayed green. |
+| Frontend cache invalidation | `LayoutDetails.tsx` and `domains/layouts/hooks/mutations.ts` now invalidate `metahubsQueryKeys.layoutsRoot(metahubId)` for global layout config/widget mutations, which marks dependent inherited catalog layout views stale under the shared 5-minute React Query cache. |
+| Frontend regression coverage | Added `LayoutDetails.cacheInvalidation.test.tsx` to lock the global-layout invalidation contract and kept inherited-widget and copy-flow regressions green. |
+| Runtime validation alignment | `syncLayoutMaterialization.test.ts` now asserts the current widget-placement-driven visibility contract, matching the shipped runtime materialization behavior instead of the stale pre-remediation expectation. |
+| Validation | Focused metahubs-backend (`18/18`), metahubs-frontend (`10/10`), applications-backend (`2/2`), applications-frontend (`11/11`), and apps-template-mui (`5/5`) suites passed; targeted Playwright flows for `metahub-general-catalog-layouts.spec.ts` (`2 passed`, `2.0m`) and `snapshot-export-import.spec.ts` (`5 passed`, `2.1m`) also passed; IDE diagnostics for all touched files stayed clean; and the canonical root `pnpm build` finished green with `30 successful`, `28 cached`, and `1m9.26s`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/shared/snapshotLayouts.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/layoutsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/layouts/ui/__tests__/LayoutDetails.cacheInvalidation.test.tsx src/domains/layouts/ui/__tests__/LayoutDetails.inheritedWidgets.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/services/syncLayoutMaterialization.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- --run src/pages/__tests__/ApplicationRuntime.test.tsx`
+- `pnpm --filter @universo/apps-template-mui test -- --run src/standalone/__tests__/DashboardApp.test.tsx`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-general-catalog-layouts.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --project chromium`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Catalog Layout QA Remediation And UI Finalization Closure
+
+Closed the reopened catalog-layout QA wave that remained after the earlier General/Common-section delivery had already shipped. This pass removed the last legacy fallback behavior seam, made the catalog dialog Layout tab a pure embedded layout manager, tightened sparse catalog layout storage versus published runtime materialization, and ended with fresh build plus real-browser validation.
+
+| Area | Resolution |
+| --- | --- |
+| Layout-only runtime behavior contract | `catalogRuntimeConfig.ts` and `runtimeRowsController.ts` now resolve catalog runtime behavior only from layout config. The global layout is the default baseline until a catalog-specific layout exists; catalog object `runtimeConfig` is no longer the canonical fallback for create/edit/copy/search behavior. |
+| Sparse catalog layout storage | `MetahubLayoutsService` now strips dashboard widget-visibility booleans from stored catalog layout config while preserving non-widget settings such as `catalogBehavior`. Catalog layouts no longer behave like copied full-config forks of the global layout. |
+| Published runtime materialization | `syncHelpers.ts` now reconstructs dashboard widget-visibility booleans from effective materialized widgets when flattening catalog layouts into `_app_layouts`, so sparse design-time storage still yields correct runtime behavior. |
+| Catalog dialog UX | The catalog tab now ships as `Layouts` / `Макеты`, the redundant embedded heading and legacy fallback form are removed, embedded layout content renders without standalone shell gutters, and the shared `ViewHeader` adaptive-search contract keeps search/view/create controls usable inside dialog-width toolbars. |
+| Layout detail ownership | `LayoutDetails.tsx` now exposes default catalog runtime behavior controls on global layouts and override-specific behavior controls on catalog layouts, matching the runtime contract that behavior lives in layouts rather than in a separate catalog fallback form. |
+| Validation | Focused utils/frontend/backend/shared-header tests passed, `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the real `metahub-general-catalog-layouts.spec.ts` Playwright flow passed (`2 passed`, `1.8m`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/utils test -- --run src/validation/__tests__/catalogRuntimeConfig.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/__tests__/exports.test.ts src/domains/catalogs/ui/__tests__/SettingsOriginTabs.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx`
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/MetahubLayoutsService.test.ts`
+- `pnpm --filter @universo/template-mui test -- src/components/headers/__tests__/ViewHeader.test.tsx`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-general-catalog-layouts.spec.ts`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Common Section, Dialog Tabs, Fixtures, And Import Verification Closure
+
+Closed the broad follow-up wave that started from the Common/layout regressions and ended in fixture regeneration plus browser import verification. This pass corrected the product wording and i18n seam, aligned all relevant dialog entrypoints with the shipped tab contract, repaired manual layout defaults and embedded toolbar responsiveness, regenerated both committed fixtures, and proved the imported self-hosted plus quiz flows in the browser.
+
+| Area | Resolution |
+| --- | --- |
+| Common section rename and i18n repair | The former General section now ships as `Common` / `Общие` across menu, breadcrumbs, page content, selectors, and `/common` routes, and the metahubs i18n registration once again includes the missing section keys so Russian sessions no longer fall back to English defaults. |
+| Layout authoring regressions | Manually created layouts now start with empty zones instead of seeded widgets, localized field badges no longer clip inside layout dialogs, and the single-shell Common layouts surface remains intact. |
+| Dialog parity and adaptive catalog toolbar | Shared entity settings dialogs now receive the same metahub-aware action context regardless of whether they are opened from list pages or nested `Settings` buttons, which restores Scripts/Layout tab parity. The embedded catalog Layout toolbar now wraps controls in dialog-width contexts instead of overflowing the action row. |
+| Fixture regeneration | The Playwright generator sources were updated and both committed fixtures were regenerated. The self-hosted fixture now includes a dedicated Settings catalog layout override that visibly changes the imported application runtime for that catalog. |
+| Import verification and timeout closure | The previously failing imported connector flow turned out not to be a backend sync hang: runtime sync completed quickly, but the Playwright test exhausted the default 60-second budget after import/bootstrap work. The flow now uses `test.setTimeout(180_000)`, the temporary backend instrumentation was removed, and the full fixture import verification trio passed (`8 passed`, `5.6m`). |
+
+### Validation
+
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-self-hosted-app-export.spec.ts tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts --project generators`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/application-connectors.spec.ts --project chromium --grep "imported snapshot publication creates schema on first connector attempt"`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts tools/testing/e2e/specs/flows/application-connectors.spec.ts tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts --project chromium`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Final QA Closure For General Page Single-Shell Contract
+
+Closed the last confirmed architecture debt that remained after the broader General-section and catalog-specific layouts feature had already been functionally revalidated. This pass stayed intentionally narrow: stop mounting the standalone Layouts page inside the General page shell, extract a shell-less reusable layouts content layer, add focused regression coverage for that composition rule, and rerun the relevant browser/build proof.
+
+| Area | Resolution |
+| --- | --- |
+| Single-shell General composition | `GeneralPage.tsx` now follows the shared `SettingsPage` single-shell pattern with one top-level `MainCard` / `ViewHeader` / tabs shell instead of mounting a second standalone layouts page inside the tab body. |
+| Layouts content reuse | `LayoutList.tsx` now exports `LayoutListContent` so embedded flows can reuse the existing layouts CRUD/search/dialog implementation with `renderPageShell={false}`, while the default `LayoutList` wrapper preserves standalone route behavior. |
+| Focused regression coverage | Added `packages/metahubs-frontend/base/src/domains/general/ui/__tests__/GeneralPage.test.tsx` to lock the General header/tab shell contract and assert that embedded General usage renders `LayoutListContent` rather than the standalone `LayoutList` page wrapper. |
+| Browser/build validation | Focused metahubs-frontend Vitest passed (`7/7` across `GeneralPage.test.tsx`, `LayoutList.copyFlow.test.tsx`, and `LayoutDetails.inheritedWidgets.test.tsx`), targeted ESLint on the changed frontend files passed clean, the real Playwright General/catalog-layout flows passed (`3 passed`, `2.3m`), and the canonical root `pnpm build` completed green after the refactor. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/general/ui/__tests__/GeneralPage.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx src/domains/layouts/ui/__tests__/LayoutDetails.inheritedWidgets.test.tsx`
+- `pnpm exec eslint packages/metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx packages/metahubs-frontend/base/src/domains/general/ui/__tests__/GeneralPage.test.tsx packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutList.tsx`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-layouts.spec.ts tools/testing/e2e/specs/flows/metahub-general-catalog-layouts.spec.ts`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Reopened QA Closure For Inherited Catalog Widget Contract
+
+## 2026-04-06 Post-QA Completion Closure For General Section Runtime Selection, Permissions, And Docs
+
+Closed the last non-E2E follow-up items that remained after the broader General-section and catalog-specific layouts wave had already been revalidated. This pass stayed narrow and contract-driven: keep implicit runtime startup selection anchored to the global layout scope, align the shared layout authoring UI with the backend `manageMetahub` permission contract, and finish the missing General/catalog-layout GitBook guide surfaces in both locales.
+
+| Area | Resolution |
+| --- | --- |
+| Runtime startup selection | `runtimeRowsController.ts` now resolves the menu-bound startup catalog from the global default or active runtime layout only, preventing implicit root navigation from deriving its preferred catalog from a catalog-scoped runtime layout. |
+| Frontend permission gating | `LayoutList.tsx` and `LayoutDetails.tsx` now treat `permissions.manageMetahub` as the shared mutation gate: write affordances are hidden or disabled for read-only users while detail inspection remains available. |
+| Focused regressions | Added a new applications-backend runtime-controller regression plus expanded metahubs-frontend layout tests that lock the read-only layout-authoring contract without regressing existing inherited-widget and copy-flow coverage. |
+| Documentation closure | Added EN/RU `guides/general-section.md` and `guides/catalog-layouts.md`, updated both guide indexes and `SUMMARY.md` files, and replaced stale `Layouts` navigation wording in the touched authoring guides with `General -> Layouts` while keeping EN/RU line parity exact. |
+| Validation | Focused applications-backend Jest passed (`1/1`), focused metahubs-frontend Vitest passed (`6/6`), the first root build attempt failed only on a transient `@universo/core-frontend` heap OOM, and the canonical full root build completed green after rerunning with `NODE_OPTIONS=--max-old-space-size=8192` (`30 successful`, `30 total`, `3m10.931s`). |
+
+### Validation
+
+- `pnpm --filter @universo/applications-backend test -- src/tests/controllers/runtimeRowsController.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx src/domains/layouts/ui/__tests__/LayoutDetails.inheritedWidgets.test.tsx`
+- `wc -l docs/en/guides/general-section.md docs/ru/guides/general-section.md docs/en/guides/catalog-layouts.md docs/ru/guides/catalog-layouts.md docs/en/guides/app-template-views.md docs/ru/guides/app-template-views.md docs/en/guides/quiz-application-tutorial.md docs/ru/guides/quiz-application-tutorial.md docs/en/guides/README.md docs/ru/guides/README.md docs/en/SUMMARY.md docs/ru/SUMMARY.md`
+- `NODE_OPTIONS=--max-old-space-size=8192 pnpm build` passed successfully.
+
+## 2026-04-06 Reopened QA Closure For Inherited Catalog Widget Contract
+
+Closed the only confirmed defect that reopened the General-section and catalog-specific layouts wave after the broader feature had already shipped. This pass kept the sparse overlay architecture intact while tightening the inherited-widget contract so inherited base-layout widgets remain draggable and toggleable in catalog layouts, but their config stays read-only and runtime materialization no longer preserves stale inherited config overrides.
+
+| Area | Resolution |
+| --- | --- |
+| Backend mutation boundary | `MetahubLayoutsService` now exposes `isInherited` on catalog-layout widget payloads and rejects inherited widget config edits, removal, and direct reassignment while keeping move/toggle behavior on sparse override rows only. |
+| Snapshot/runtime materialization | `snapshotLayouts.ts`, `syncHelpers.ts`, and the runtime materialization tests now treat inherited override config as inert, so inherited widgets always materialize with base widget config instead of freezing catalog-specific config drift. |
+| Shared editor UX | `LayoutDetails.tsx` now renders inherited badges, keeps drag/toggle affordances for inherited rows, and hides edit/remove actions for those rows while leaving catalog-owned widgets fully editable. |
+| Regression coverage | Focused metahubs-backend service tests, focused metahubs-frontend layout tests, and focused applications-backend sync tests now fail loudly on the inherited-widget read-only contract. |
+| Browser proof and validation | `pnpm run build:e2e` completed green, the real `metahub-general-catalog-layouts.spec.ts` flow passed with `2 passed` in `1.8m`, and the canonical root `pnpm build` remained green with `30 successful` tasks. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/MetahubLayoutsService.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/layouts/ui/__tests__/LayoutDetails.inheritedWidgets.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/services/syncLayoutMaterialization.test.ts`
+- `pnpm run build:e2e`
+- `pnpm exec node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-general-catalog-layouts.spec.ts`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 QA Remediation Closure For General Section And Catalog-Specific Layouts
+
+Closed the follow-up QA defects that remained after the original General-section and catalog-specific layouts delivery had already shipped. This pass stayed narrow and contract-focused: preserve catalog layout scope during copy flows, restore true base-layout inheritance for new catalog layouts, stop sparse override persistence from freezing inherited widget state, and fail closed when `catalog_id` does not point to a real catalog object.
+
+| Area | Resolution |
+| --- | --- |
+| Catalog layout copy contract | `layoutsController.ts` now preserves `catalog_id`, `base_layout_id`, catalog-owned widgets, and sparse inherited overrides when copying catalog-scoped layouts, including deactivate-all widget copies for inherited base widgets. |
+| Base-layout inheritance | `MetahubLayoutsService.createLayout(...)` now validates the target catalog and starts catalog layouts from the selected global base layout config plus explicit incoming sparse overrides instead of dashboard defaults. |
+| Sparse override persistence | Catalog inherited-widget updates now keep only true delta rows in `_mhb_catalog_widget_overrides`, and empty override rows are soft-deleted so later global widget config changes continue to flow into catalog layouts. |
+| Frontend create payload | `LayoutList.tsx` now sends only the sparse catalog behavior seed for first catalog-layout creation instead of a full dashboard default config blob. |
+| Regression coverage | Focused backend route/service tests now lock the copy contract, inherited-config merge, catalog-kind validation, and override cleanup behavior; focused frontend coverage locks the sparse create payload; the real General/catalog-layout Playwright flow stayed green. |
+| Validation | Focused backend Jest passed (`13/13`), focused frontend Vitest passed (`3/3`), touched-file ESLint for the remediated layout files finished clean, `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `2.0m`), and the canonical root `pnpm build` finished green with `EXIT:0`. |
+
+## 2026-04-06 Final Verification Closure For Metahub General Section And Catalog-Specific Layouts
+
+Closed the remaining verification and documentation debt for the General-section plus catalog-specific layouts feature after the earlier implementation waves had already shipped the backend, runtime, and authoring foundations. This final pass repaired the last runtime page-surface race, reran the real browser/runtime proof on a fresh build, synchronized the EN/RU product docs with the shipped contract, and ended with clean environment hygiene plus the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Runtime page-surface stability | `ApplicationRuntime` now suppresses already-consumed page-surface requests after successful create/edit/copy submit, preventing the runtime dialog from reopening during URL/form-close transitions. Focused `ApplicationRuntime.test.tsx` passed again (`11/11`) with the new consumed-request regression covered. |
+| Backend/runtime verification | The repaired backend coverage now locks active-base lookup, referenced-global-layout deletion guards, sparse snapshot restore/remap behavior, and runtime materialization invariants for catalog overlays and inherited synthetic widgets. |
+| Browser/runtime proof | After a fresh `pnpm run build:e2e`, the comprehensive `metahub-general-catalog-layouts.spec.ts` flow passed again (`2 passed`, `1.9m`), proving `/general`, catalog layout authoring, custom-vs-fallback runtime behavior, supported runtime widget materialization, and authored create/edit/copy page surfaces on the real `/a/...` runtime. |
+| Documentation closure | The touched EN/RU `platform/metahubs.md` pages now describe the shipped General tab, sparse catalog layout overlay model, behavior fallback, and runtime materialization flow while preserving exact line parity (`63/63`). |
+| Validation and hygiene | `pnpm run test:e2e:cleanup && pnpm run test:e2e:doctor -- --assert-empty` ended clean with no owned schemas, auth users, or local artifacts left behind, and the canonical root `pnpm build` finished green with `30 successful`, `24 cached`, and `1m11.613s`. |
+
+### Validation
+
+- `pnpm --filter @universo/applications-frontend test -- --run src/pages/__tests__/ApplicationRuntime.test.tsx`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-general-catalog-layouts.spec.ts`
+- `pnpm run test:e2e:cleanup && pnpm run test:e2e:doctor -- --assert-empty`
+- `pnpm build` passed successfully.
+
+## 2026-04-06 Metahub General Section + Catalog-Specific Layouts Frontend Authoring Completion
+
+Completed the catalog-specific layout authoring frontend slice for the metahub General section after the shared/backend/runtime foundations and the General page/menu/routes/breadcrumb/i18n integration were already in place. This pass finished the catalog-scoped authoring flow by wiring the catalog dialog to the shared layout editor primitives, preserving catalog runtime behavior as the fallback until the first catalog layout exists, and validating the touched frontend/build seams. The broader browser-runtime scenario remains an open closure item in `tasks.md`.
+
+| Area | Resolution |
+| --- | --- |
+| Catalog dialog authoring entrypoint | Embedded the catalog-scoped `LayoutList` into the catalog edit dialog Layout tab so catalog runtimeConfig behavior continues to act as the fallback before the first custom layout exists. |
+| Catalog layout routing | Added the dedicated catalog layout detail route/context at `/metahub/:metahubId/catalog/:catalogId/layout/:layoutId`, so catalog-origin navigation lands in the existing layout editor with catalog scope preserved. |
+| Breadcrumb and detail context | Updated breadcrumbs and layout-detail context resolution so catalog-origin layout navigation keeps the metahub -> catalog -> layout path instead of collapsing to the global-layout flow. |
+| Catalog-only behavior editing | `LayoutDetails` now exposes catalog-scoped editing for `showCreateButton`, `searchMode`, `createSurface`, `editSurface`, and `copySurface` through the catalog layout behavior-config path. |
+| I18n and regression coverage | Added EN/RU copy for the catalog authoring path; focused metahubs-frontend coverage now proves first-layout seeding from runtimeConfig fallback and catalog-context propagation into the catalog dialog Layout tab. |
+| Validation | Focused `@universo/metahubs-frontend` regressions passed (`10/10` across `LayoutList.copyFlow.test.tsx` and `actionsFactories.test.ts`), earlier targeted builds passed for `@universo/metahubs-frontend`, `@universo/core-frontend`, and `@universo/template-mui`, and the final root `pnpm build` passed with `30 successful`, `30 total`, `20 cached`, and `2m37.171s`. |
+
+### Validation
+
+- Focused `@universo/metahubs-frontend` tests passed across `LayoutList.copyFlow.test.tsx` and `actionsFactories.test.ts` (`10/10`).
+- Targeted package builds passed for `@universo/metahubs-frontend`, `@universo/core-frontend`, and `@universo/template-mui`.
+- Final root `pnpm build` passed with `30 successful`, `30 total`, `20 cached`, and `2m37.171s`.
+
 
 ## 2026-04-06 Final QA Debt Closure For Runtime Sync Coverage And Docs
 
@@ -49,46 +361,6 @@ Closed the documentation/tutorial closure for the admin and application dialog s
 - `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts --project generators`
 - Verified the four generated files under `docs/assets/quiz-tutorial/`.
 - `pnpm build` passed successfully.
-**The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
-| Release      | Date       | Codename                                           | Highlights                                                                                          |
-| ------------ | ---------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 0.57.0-alpha | 2026-04-03 | 0.57.0 Alpha — 2026-04-03                          | QA remediation, controller extraction, domain-error cleanup, Playwright CLI hardening              |
-| 0.56.0-alpha | 2026-03-27 | 0.56.0 Alpha — 2026-03-27 (Cured Disease) 🤒      | Entity-display fixes, codename JSONB/VLC convergence, security hardening, csurf replacement        |
-| 0.55.0-alpha | 2026-03-19 | 0.55.0 Alpha — 2026-03-19 (Best Role) 🎬          | DB access standard, start app, platform attributes, admin roles/metapanel, application workspaces, bootstrap superuser |
-| 0.54.0-alpha | 2026-03-13 | 0.54.0 Alpha — 2026-03-13 (Beaver Migration) 🦫   | MetaHub drag-and-drop ordering, nested hubs, create options/settings UX, optimistic CRUD, SQL-first convergence |
-| 0.53.0-alpha | 2026-03-05 | 0.53.0 Alpha — 2026-03-04 (Lucky Set) 🍱          | Copy options expansion across Applications, Metahubs, Branches, and Sets/Constants delivery        |
-| 0.52.0-alpha | 2026-02-25 | 0.52.0 Alpha — 2026-02-25 (Tabular infinity) 🤪   | TABLE UX/data table improvements and NUMBER behavior hardening across form contexts                 |
-| 0.51.0-alpha | 2026-02-19 | 0.51.0 Alpha — 2026-02-19 (Counting Sticks) 🥢    | Headless Controller, Application Templates, Enumerations                                            |
-| 0.50.0-alpha | 2026-02-13 | 0.50.0 Alpha — 2026-02-13 (Great Love) ❤️         | Applications, Template System, DDL Migration Engine, Enhanced Migrations                            |
-| 0.49.0-alpha | 2026-02-05 | 0.49.0 Alpha — 2026-02-05 (Stylish Cow) 🐮        | Attribute Data Types, Display Attribute, Layouts System                                             |
-| 0.48.0-alpha | 2026-01-29 | 0.48.0 Alpha — 2026-01-29 (Joint Work) 🪏         | Branches, Elements rename, Three-level system fields                                                |
-| 0.47.0-alpha | 2026-01-23 | 0.47.0 Alpha — 2026-01-23 (Friendly Integration) 🫶 | Runtime migrations, Publications, schema-ddl                                                      |
-| 0.46.0-alpha | 2026-01-16 | 0.46.0 Alpha — 2026-01-16 (Running Stream) 🌊     | Applications modules, DDD architecture                                                              |
-| 0.45.0-alpha | 2026-01-12 | 0.45.0 Alpha — 2026-01-11 (Structured Structure) 😳 | i18n localized fields, VLC, Catalogs                                                              |
-| 0.44.0-alpha | 2026-01-04 | 0.44.0 Alpha — 2026-01-04 (Fascinating Acquaintance) 🖖 | Onboarding, legal consent, cookie banner, captcha                                              |
-| 0.43.0-alpha | 2025-12-27 | 0.43.0 Alpha — 2025-12-27 (New Future) 🏋️‍♂️    | Pagination fixes, onboarding wizard                                                                 |
-| 0.42.0-alpha | 2025-12-18 | 0.42.0 Alpha — 2025-12-18 (Dance Agents) 👯‍♀️   | VLC system, dynamic locales, upstream shell 3.0                                                    |
-| 0.41.0-alpha | 2025-12-11 | 0.41.0 Alpha — 2025-12-11 (High Mountains) 🌄     | Admin panel, auth migration, UUID v7                                                                |
-| 0.40.0-alpha | 2025-12-06 | 0.40.0 Alpha — 2025-12-05 (Straight Rows) 🎹      | Package extraction, Admin RBAC, global naming                                                       |
-| 0.39.0-alpha | 2025-11-26 | 0.39.0 Alpha — 2025-11-25 (Mighty Campaign) 🧙🏿 | Storages, Campaigns, useMutation refactor                                                          |
-| 0.38.0-alpha | 2025-11-22 | 0.38.0 Alpha — 2025-11-21 (Secret Organization) 🥷 | Projects, AR.js Quiz, Organizations                                                               |
-| 0.37.0-alpha | 2025-11-14 | 0.37.0 Alpha — 2025-11-13 (Smooth Horizons) 🌅    | REST API docs, Uniks metrics, Clusters                                                              |
-| 0.36.0-alpha | 2025-11-07 | 0.36.0 Alpha — 2025-11-07 (Revolutionary indicators) 📈 | dayjs migration, publish-frontend, Metaverse Dashboard                                         |
-| 0.35.0-alpha | 2025-10-30 | 0.35.0 Alpha — 2025-10-30 (Bold Steps) 💃         | i18n TypeScript migration, Rate limiting                                                            |
-| 0.34.0-alpha | 2025-10-23 | 0.34.0 Alpha — 2025-10-23 (Black Hole) ☕️        | Global monorepo refactoring, tsdown build system                                                   |
-| 0.33.0-alpha | 2025-10-16 | 0.33.0 Alpha — 2025-10-16 (School Test) 💼        | Publication system fixes, Metaverses module                                                         |
-| 0.32.0-alpha | 2025-10-09 | 0.32.0 Alpha — 2025-10-09 (Straight Path) 🛴      | Canvas versioning, Telemetry, Pagination                                                            |
-| 0.31.0-alpha | 2025-10-02 | 0.31.0 Alpha — 2025-10-02 (Victory Versions) 🏆   | Quiz editing, Canvas refactor, MUI Template                                                         |
-| 0.30.0-alpha | 2025-09-21 | 0.30.0 Alpha — 2025-09-21 (New Doors) 🚪          | TypeScript aliases, Publication library, Analytics                                                  |
-| 0.29.0-alpha | 2025-09-15 | 0.29.0 Alpha — 2025-09-15 (Cluster Backpack) 🎒   | Resources/Entities architecture, CI i18n                                                            |
-| 0.28.0-alpha | 2025-09-07 | 0.28.0 Alpha — 2025-09-07 (Orbital Switch) 🥨     | Resources, Entities modules, Template quiz                                                          |
-| 0.27.0-alpha | 2025-08-31 | 0.27.0 Alpha — 2025-08-31 (Stable Takeoff) 🐣     | Finance module, i18n, Language switcher                                                             |
-| 0.26.0-alpha | 2025-08-24 | 0.26.0 Alpha — 2025-08-24 (Slow Colossus) 🐌      | MMOOMM template, Colyseus multiplayer                                                               |
-| 0.25.0-alpha | 2025-08-17 | 0.25.0 Alpha — 2025-08-17 (Gentle Memory) 😼      | Space Builder, Metaverse MVP, core utils                                                            |
-| 0.24.0-alpha | 2025-08-12 | 0.24.0 Alpha — 2025-08-12 (Stellar Backdrop) 🌌   | Space Builder enhancements, AR.js wallpaper                                                         |
-| 0.23.0-alpha | 2025-08-05 | 0.23.0 Alpha — 2025-08-05 (Vanishing Asteroid) ☄️ | Russian docs, UPDL node params                                                                      |
-| 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
-| 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
 ## 2026-04-06 QA Remediation Closure For Dialog Settings And GitBook Coverage
 
@@ -327,293 +599,33 @@ Closed the next concrete self-hosted drift cluster that became visible only afte
 - `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --grep "self-hosted app snapshot fixture imports through the browser UI and restores MVP structure"`
 - `pnpm build` passed successfully
 
-## 2026-04-04 Fresh-Import Self-Hosted Publication/Settings Regression Closure
+## 2026-04-04 Self-Hosted Closure Archive
 
-Closed the next honest defect cluster found only after the user did a full rebuild, cleared the database, and imported the committed self-hosted fixture into a fresh environment. This pass stayed intentionally narrow: fix the publication inner-route cache collision, remove duplicated settings-page chrome, repair the self-hosted live codename payload so the generator can create the metahub again, regenerate the committed fixture with the intended EN/RU codename contract, and prove that the regenerated artifact still imports through the real browser flow.
+Condensed the overlapping 2026-04-04 self-hosted follow-up entries into one durable record so this file stays within the target range while preserving the implementation trail. The detailed validation inventory remains reflected in repository history and in the surviving 2026-04-03/2026-04-06 progress entries; the outcomes below are the current source of truth for the archived wave.
 
-| Area | Resolution |
+| Area | Durable outcome |
 | --- | --- |
-| Publication cache-shape collision | `useMetahubPublicationName()` now uses its own breadcrumb query key instead of reusing publication detail cache storage, eliminating the object/string collision that could surface as an empty publication settings name or `[object Object]` breadcrumbs after repeated navigation. |
-| Application settings header chrome | `ApplicationSettings` no longer passes the application display name as `ViewHeader.description`, so the page renders only the intended main title instead of a duplicated subtitle. |
-| Self-hosted live codename contract | The shared self-hosted generator builder now returns a valid CodenameVLC payload for live metahub creation, matching the backend `requiredCodenamePayloadSchema` instead of posting a plain locale map. |
-| Committed fixture regeneration | The Playwright self-hosted generator reran successfully and rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`; the committed artifact now contains the stable canonical EN/RU metahub codename locales and exactly one canonical left-side `Catalogs` menuWidget. |
-| Real consumer validation | The targeted browser import flow for `self-hosted app snapshot fixture imports through the browser UI and restores MVP structure` passed against the regenerated committed fixture, confirming the export/import consumer path stays green after the codename/menu-widget corrections. |
-| Final validation | Targeted `applications-frontend` and `template-mui` regression tests passed, `pnpm run build:e2e` remained green, the Playwright generator rerun passed (`2 passed`), the targeted browser import flow passed (`2 passed`), and the final root `pnpm build` finished green with `28/28` successful tasks. |
-
-### Validation
-
-- `pnpm --filter @universo/template-mui test -- src/hooks/__tests__/useBreadcrumbName.test.ts`
-- `pnpm --filter @universo/applications-frontend test -- --run src/pages/__tests__/ApplicationSettings.test.tsx`
-- `pnpm run build:e2e`
-- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
-- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --grep "self-hosted app snapshot fixture imports through the browser UI and restores MVP structure"`
-- `pnpm build` passed successfully
-
-## 2026-04-04 Post-QA Regression Closure Reopened
-
-Closed the final honest defects that remained after the earlier 2026-04-04 self-hosted parity and QA-remediation passes were challenged by direct browser verification. This follow-up stayed intentionally narrow: repair the stale fixture hash contract, restore runtime inheritance semantics, fix publication settings hydration and branch-label rendering, seed localized default codenames correctly, and prove the repaired state through focused tests plus the real browser import flow.
-
-| Area | Resolution |
-| --- | --- |
-| Self-hosted fixture hash contract | `canonicalizeSelfHostedAppEnvelope()` now recomputes `snapshotHash` after canonical snapshot mutations, and the committed `tools/fixtures/metahubs-self-hosted-app-snapshot.json` was rewritten with the validator-clean hash `0904ee61b0db8b1c541c9a8b2008d7af35a9c5768f497cf89586af83346b1d7c`. |
-| Catalog runtime inheritance | `resolveCatalogRuntimeDashboardLayoutConfig()` now applies only explicit catalog overrides, so omitted catalog runtime fields keep inheriting layout-level defaults instead of being clobbered by eager defaulting. |
-| Publication dialog hydration | `EntityFormDialog` now keeps hydrating async `initialExtraValues` while the form is pristine and stops overwriting them after the user edits, restoring real publication settings/edit behavior. |
-| Publication branch labels | Publication list/version data hooks now resolve VLC codenames into localized strings before interpolation, eliminating `[object Object]` labels in branch selectors and lists. |
-| Localized default codenames | `TemplateSeedExecutor` now derives non-primary locale codename values from localized entity names during template seeding, so default `Main` entities carry Russian codename locales alongside English ones. |
-| Validation-blocker closure | The required Playwright rerun exposed a real `@universo/utils` dist issue where Node-side ESM could not resolve extensionless Day.js plugin/locale imports. `formatDate.ts` now uses explicit `.js` Day.js specifiers so built package consumers resolve correctly. |
-| Final validation | Focused utils, template-mui, metahubs-frontend, and metahubs-backend regression suites passed; the committed fixture validated through the shared snapshot validator; the real self-hosted browser import flow passed; `pnpm run build:e2e` passed; and the canonical root `pnpm build` finished green. |
-
-### Validation
-
-- `pnpm --filter @universo/utils test -- --run src/validation/__tests__/catalogRuntimeConfig.test.ts`
-- `pnpm --filter @universo/universo-template-mui test -- --run src/components/dialogs/__tests__/EntityFormDialog.test.tsx`
-- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/publications/hooks/__tests__/usePublicationVersionListData.test.tsx`
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/templateSeedTransactionScope.test.ts`
-- shared snapshot-validator script reported `fixture-valid` for `tools/fixtures/metahubs-self-hosted-app-snapshot.json`
-- `pnpm build --filter @universo/utils`
-- `pnpm run build:e2e`
-- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --grep "self-hosted app snapshot fixture imports through the browser UI and restores MVP structure"`
-- `pnpm build` passed successfully
-
-## 2026-04-04 Final Self-Hosted Documentation Drift Closure
-
-Closed the last low-severity debt left by the 2026-04-04 self-hosted QA audit after the runtime, backend, fixture, and route-proof fixes were already complete. This final pass was intentionally limited to documentation truthfulness so the shipped artifact contract, the tooling guides, and the memory-bank status all describe the same finished state.
-
-| Area | Resolution |
-| --- | --- |
-| E2E generator docs | Updated both E2E READMEs so the generator screenshots note now points to the canonical `test-results/self-hosted-app/` directory naming instead of the stale self-model path. |
-| Drift verification | Targeted workspace grep confirmed the old `test-results/self-model` screenshot-path reference no longer appears in the active tooling/docs surface. |
-| Final parity closure | Memory-bank task and active-context state now explicitly record that the self-hosted parity wave no longer carries even low-severity documentation drift from the QA audit. |
-
-### Validation
-
-- Targeted workspace grep for `test-results/self-model` under `tools/testing/e2e/**` returned no matches
-- Diagnostics for `tools/testing/e2e/README.md`, `tools/testing/e2e/README-RU.md`, and `memory-bank/tasks.md` were clean
-
-## 2026-04-04 Final Self-Hosted QA Audit Remediation
-
-Closed the last concrete defects that remained after the 2026-04-04 QA audit challenged the earlier self-hosted parity completion claim. This follow-up stayed intentionally narrow: tighten export authorization, repair the product copy in the canonical self-hosted fixture contract, remove the final legacy self-model marker, prove catalog runtime config through HTTP route coverage, and document migrations parity the way the real implementation already ships it.
-
-| Area | Resolution |
-| --- | --- |
-| Export authorization contract | `GET /metahub/:metahubId/export` now requires `manageMetahub` on the backend instead of plain membership access, the metahub frontend gates export behind `permissions.manageMetahub`, and the export route suite now includes a direct `403` forbidden regression path. |
-| Catalog runtimeConfig route proof | Added route-level Jest coverage for catalog `runtimeConfig` persistence across create, update, and copy HTTP flows so the shared catalog runtime contract is now verified through controller validation and route payloads, not only through service/shared-schema seams. |
-| Canonical fixture/product copy | Rewrote the self-hosted fixture contract text to clean product-grade EN/RU names and descriptions for the metahub, layout, publication metadata, and all canonical sections; extended the canonicalizer to normalize section/layout/menu-widget metadata and regenerated the committed `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from that corrected contract. |
-| Legacy self-model naming cleanup | Removed the last consumer-side `imported-self-model-fixture` codename marker from the self-hosted connector flow so the shipped consumer validation path no longer leaks transitional identity. |
-| Migration parity evidence | Updated the plan/memory trail so migrations parity is described honestly as the shipped self-hosted menu/page/guard surface already present in `metahubs-frontend` and `applications-frontend`, rather than as an implied synthetic fixture section. |
-| Final validation | Focused metahubs-backend export tests passed, focused catalogs route `runtimeConfig` tests passed, focused metahubs-frontend `MetahubList` Vitest passed after repairing its `StandardDialog` test double, the regenerated fixture passed the canonical contract assertion, and the final root `pnpm build` finished green with `28/28` successful tasks. |
-
-### Validation
-
-- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/metahubsRoutes.test.ts -t "GET /metahub/:metahubId/export"`
-- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/catalogsRoutes.test.ts -t "runtimeConfig"`
-- `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/MetahubList.test.tsx`
-- `node --input-type=module` canonicalized and re-asserted `tools/fixtures/metahubs-self-hosted-app-snapshot.json` via `canonicalizeSelfHostedAppEnvelope()` + `assertSelfHostedAppEnvelopeContract()`
-- `pnpm build` passed with `28/28` successful tasks
-
-## 2026-04-04 Self-Hosted Fixture Consumer Compatibility Closure
-
-Closed the last verified downstream defect that remained after the canonical self-hosted fixture regeneration pass. The generator, CLI, and committed fixture were already corrected, but real consumer validation still found one honest blocker: imported self-hosted publications could still fail on the first connector-driven application schema creation flow.
-
-| Area | Resolution |
-| --- | --- |
-| Applications runtime sync compatibility | `applications-backend` now normalizes imported enumeration-value codenames as canonical VLC payloads during runtime seeding instead of collapsing them to string-only values. This preserves JSONB compatibility for `_app_values` and keeps imported self-hosted snapshots valid during schema sync. |
-| Regression coverage | Added focused `applicationSyncSeeding` coverage that locks the enum-value VLC codename path so future snapshot/runtime refactors fail loudly before reaching browser flows. |
-| Runtime validation discipline | Confirmed that server/runtime checks consume package build output rather than only live TypeScript source, so the applications-backend package was rebuilt before repeating the real import -> connector -> sync verification. |
-| Consumer-flow validation | Reproduced the failing flow directly through backend API helpers, confirmed the error source, rebuilt the package, then revalidated both self-hosted fixture-consuming Playwright flows: browser import remained green and the previously failing connector-driven first schema creation flow now returns `200` and reaches `schemaStatus: synced`. |
-| Final validation | Focused applications-backend Jest passed, targeted self-hosted Playwright consumer reruns passed, and the canonical root `pnpm build` finished green with `28/28` successful tasks. |
-
-### Validation
-
-- `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/routes/applicationSyncSeeding.test.ts`
-- `pnpm build --filter @universo/applications-backend`
-- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/application-connectors.spec.ts --grep "imported snapshot publication creates schema on first connector attempt"`
-- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --grep "self-hosted app snapshot fixture imports through the browser UI and restores MVP structure"`
-- `pnpm build` passed with `28/28` successful tasks
-
-## 2026-04-04 Final Self-Hosted Parity Completion Pass
-
-Closed the last QA-confirmed defects that still separated the nominally finished self-hosted parity wave from an actually complete, validation-clean delivery. This pass stayed intentionally narrow: fix the remaining runtime truthfulness bugs, expose the already-supported metahub export affordance, repair the stale frontend test seam, and bring the plan/memory status into line with reality.
-
-| Area | Resolution |
-| --- | --- |
-| Persisted reorder fail-closed contract | `MainGrid` now exposes durable row reordering only when the runtime has a complete dataset and no active local search, while showing explicit user-facing copy when partial-data or filtered views make persisted order ambiguous. |
-| Hidden-create route hardening | `ApplicationRuntime` now blocks direct page-surface create activation when `catalog.runtimeConfig.showCreateButton` is false, so search-param navigation cannot bypass authored create restrictions. |
-| Direct metahub export UX | The metahub frontend now exposes export as a per-entity action backed by the existing `/metahub/:id/export` route, matching the supported backend surface without introducing ambiguous list-level export behavior. |
-| Test and lint debt cleanup | Repaired the stale `ApplicationSettings` shared mock, fixed the touched-file formatting drift in `apps-template-mui`, and added focused regression coverage for reorder fail-closed behavior plus hidden-create page-surface blocking. |
-| Final validation | Focused Vitest suites passed for the touched apps-template and applications-frontend files, lint passed for `@universo/apps-template-mui`, `@universo/applications-frontend`, and `@universo/metahubs-frontend`, and the canonical root `pnpm build` finished green with `28/28` successful tasks. |
-
-### Validation
-
-- `pnpm --filter @universo/apps-template-mui test -- src/dashboard/components/__tests__/MainGrid.test.tsx src/standalone/__tests__/DashboardApp.test.tsx`
-- `pnpm --filter @universo/applications-frontend test -- src/pages/__tests__/ApplicationRuntime.test.tsx`
-- `pnpm --filter @universo/applications-frontend test -- src/pages/__tests__/ApplicationSettings.test.tsx`
-- `pnpm --filter @universo/apps-template-mui lint`
-- `pnpm --filter @universo/applications-frontend lint`
-- `pnpm --filter @universo/metahubs-frontend lint`
-- `pnpm build` passed with `28/28` successful tasks
-
-## 2026-04-04 Final QA Remediation Closure For Metahub Self-Hosted Parity
-
-Closed the final follow-up wave that remained after the nominal self-hosted parity completion. This pass stayed limited to the defects confirmed by the QA review: the committed fixture was still stale, the English metahubs locale bundle had corrupted runtime/layout copy, and the regression net did not fail loudly enough to catch either problem.
-
-| Area | Resolution |
-| --- | --- |
-| English locale repair | Repaired `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json` so the catalog runtime/layout strings are genuinely English again and no longer bleed the malformed `sets` content into the EN bundle. |
-| Package-level regression coverage | Strengthened `packages/metahubs-frontend/base/src/__tests__/exports.test.ts` so EN runtime/layout strings are asserted explicitly and `sets.runtime` is required to stay absent from the exported EN shape. |
-| Fixture-consumer regression coverage | Tightened the self-hosted snapshot/import and connector Playwright flows plus the generator assertions so they require the real self-hosted fixture identity, reject stale standalone `Attributes`, and require `Settings`. |
-| Real generator contract fix | The targeted self-hosted generator initially failed in `seedSettingsBaseline()` because the seeded settings rows used lowercase payload keys while element validation expects normalized attribute codenames. Updating both generator sources to use `Key` / `Value` / `Category` fixed the root cause. |
-| Committed fixture regeneration | Reran the real self-hosted generator successfully and regenerated `tools/fixtures/metahubs-self-hosted-app-snapshot.json` so the committed artifact now carries the self-hosted metahub identity and current `Settings` catalog structure instead of the stale self-model output. |
-| Final validation | Focused metahubs-frontend tests passed, the targeted self-hosted generator rerun passed (`2 passed`), artifact sanity checks confirmed the regenerated fixture content, and the canonical root `pnpm build` finished green with `28/28` successful tasks. |
-
-### Validation
-
-- `pnpm --filter @universo/metahubs-frontend test -- --run src/__tests__/exports.test.ts`
-- `pnpm run build:e2e`
-- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
-- `pnpm build` passed with `28/28` successful tasks
-
-## 2026-04-04 Metahub Self-Hosting Parity Wave Completion
-
-Closed the remaining implementation phases from the 2026-04-04 self-hosting parity plan after the QA pass surfaced real defects and unfinished seams. This completion pass finished the standalone/runtime UX parity, the self-hosted migration navigation seam, the V2 self-hosted fixture/tooling contract, and the final validation/build closure.
-
-| Area | Resolution |
-| --- | --- |
-| Runtime page-surface parity | Standalone `DashboardApp` now derives the active CRUD form surface from authored catalog runtime config (`createSurface`, `editSurface`, `copySurface`) instead of always forcing dialog mode. A focused `DashboardApp.test.tsx` suite now locks that behavior. |
-| Self-hosted migration parity | The application dashboard menu now exposes `/migrations`, reusing the existing application migration page/guard route so self-hosted admins can discover migration history/status directly from navigation. |
-| V2 self-hosted fixture/tooling contract | Renamed the transitional self-model artifacts to `tools/create-metahubs-self-hosted-app.mjs`, `tools/testing/e2e/specs/generators/metahubs-self-hosted-app-export.spec.ts`, and `tools/fixtures/metahubs-self-hosted-app-snapshot.json`; updated dependent flow specs and EN/RU E2E docs; removed the standalone `Attributes` catalog from generator/CLI output; and seeded a non-empty runtime settings baseline in the `Settings` catalog. |
-| Snapshot/export/import regression closure | Updated the import/export Playwright flows to consume the renamed self-hosted fixture artifact and to assert the new filename through the browser import dialog contract. |
-| Shared browser export stability | Final root validation exposed that `@universo/utils` exported `normalizeDashboardLayoutConfig` only from the Node entrypoint; the browser entry now exports the same runtime/dashboard normalization helpers, fixing the real shared-package drift at the source. |
-| Final validation | Focused Vitest suites passed for `applications-frontend` and `apps-template-mui`; the renamed Playwright specs loaded cleanly via `--list`; the renamed CLI helper passed `node --check`; `@universo/utils` and `@universo/core-frontend` rebuilt successfully after the export fix; and the final root `pnpm build` passed with `28/28` tasks. |
-
-### Validation
-
-- `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/routes/applicationsRoutes.test.ts`
-- `pnpm --filter @universo/apps-template-mui test -- src/standalone/__tests__/DashboardApp.test.tsx`
-- `pnpm --filter @universo/applications-frontend test -- src/__tests__/exports.test.ts`
-- `node --check tools/create-metahubs-self-hosted-app.mjs`
-- `pnpm exec playwright test --config tools/testing/e2e/playwright.config.mjs tools/testing/e2e/specs/flows/application-connectors.spec.ts tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts tools/testing/e2e/specs/generators/metahubs-self-hosted-app-export.spec.ts --list`
-- `pnpm --filter @universo/utils build`
-- `pnpm --filter @universo/core-frontend build`
-- `pnpm build` passed with `28/28` successful tasks
-
-## 2026-04-04 Metahub Self-Hosting Runtime Surface Follow-up
-
-Closed another small but real parity gap in the published runtime after the DataGrid-first and persisted-reorder wave. The goal of this pass was to make the authored catalog runtime config more truthful in the UI and to harden the new page-surface behavior with focused tests.
-
-| Area | Resolution |
-| --- | --- |
-| Catalog create-button contract | `ApplicationRuntime` and standalone `DashboardApp` now honor `catalog.runtimeConfig.showCreateButton`, so authored catalogs can suppress the create CTA instead of always rendering it. |
-| Page-surface regression coverage | `ApplicationRuntime.test.tsx` now covers both configured page-surface create flow and direct URL-driven page-surface activation, so the new `surface=page` search-param contract is no longer untested. |
-| Shared page primitives build health | The follow-up package build exposed stale `Link` imports from `react-router` inside shared apps-template page components; these were corrected to `react-router-dom` so the page-surface stack compiles cleanly. |
-
-### Validation
-
-- `pnpm --filter @universo/applications-frontend test -- --run src/pages/__tests__/ApplicationRuntime.test.tsx`
-- `pnpm --filter @universo/apps-template-mui build`
-- `pnpm --filter @universo/applications-frontend build`
-
-## 2026-04-04 Metahub Self-Hosting Parity Plan QA Revision
-
-Completed the QA review of the new metahub self-hosting parity plan before implementation. The outcome was a tighter, more codebase-aligned plan rather than new production code.
-
-| Area | Resolution |
-| --- | --- |
-| Config-contract scope | Refined the plan so catalog-level runtime settings reuse the existing flat layout-style keys instead of introducing a new nested runtime-settings DSL for the MVP. |
-| Attribute presentation seam | Recorded that the existing attribute `uiConfig.widget` contract already includes `textarea`, so multiline planning should extend that seam first instead of inventing a parallel editor contract unless implementation proves it insufficient. |
-| Shared UI reuse | Clarified that catalog and attribute changes must extend the existing tabbed `EntityFormDialog` flows and that page editing must wrap shared form logic rather than fork CRUD surfaces. |
-| Cross-package schema alignment | Added an explicit requirement to unify the runtime/dashboard config schema across `metahubs`, `applications-backend`, and `apps-template-mui` so enhanced view flags cannot be lost during publication sync or application install. |
-| Migration-control parity | Added a dedicated migration-control parity phase so the self-hosted metahub plan explicitly covers status/history/plan/apply UX instead of leaving migrations as an implicit future gap. |
-| Fixture replacement scope | Expanded the plan to cover the real rename surface for `tools/fixtures/self-model-metahub-snapshot.json`, including the generator spec, CLI helper, E2E flows, and docs that currently hardcode the old filename. |
-| Validation workflow | Added an explicit rule that full browser flows must use the repository wrapper-based E2E commands, while direct `pnpm exec playwright screenshot` should stay limited to visual captures against a known running app. |
-
-### Validation
-
-- Codebase inspection across metahubs backend/frontend, applications backend, and apps-template runtime paths
-- README and docs review for affected packages and guides
-- Additional MUI DataGrid guidance review for quick filter, row height, and pagination behavior
-- Updated `memory-bank/plan/metahub-self-hosted-app-parity-plan-2026-04-04.md` as the canonical discussion-ready plan
-
-## 2026-04-03 PR #747 Review Remediation Closure
-
-Closed the selective remediation pass for bot review comments on PR #747. The work stayed constrained to findings that were verified against the current branch state and backed by code inspection plus targeted documentation checks.
-
-| Area | Resolution |
-| --- | --- |
-| Import/export controller hygiene | Moved `attachLayoutsToSnapshot` back into the main import section in `publicationsController.ts`, matching the ES module top-level import requirement. |
-| Frontend type correctness | `ImportSnapshotDialog.tsx` now imports `ChangeEvent` directly instead of referencing `React.ChangeEvent` without a React namespace import. |
-| Snapshot validation coverage | `snapshotArchive.test.ts` now validates the actually polluted snapshot payload and proves dangerous keys are stripped while preserving valid data. |
-| Snapshot restore diagnostics | `SnapshotRestoreService` warning logs now print the primary codename text instead of interpolating a VLC object into the message. |
-| Import codename collision hardening | `metahubsController.importFromSnapshot()` now appends a random hex suffix in addition to `Date.now()` when deriving the imported metahub codename. |
-| Runtime FlowListTable compatibility | `MainGrid` now passes a minimal DataGrid-style API shim to `renderCell` callbacks in the FlowListTable path, and the runtime test suite covers that contract directly. |
-| Scope discipline | Review comments suggesting server-side runtime search and persisted row ordering were explicitly rejected for this pass because they were broader feature suggestions rather than safe correctness fixes. |
-
-### Validation
-
-- `pnpm --filter @universo/utils test -- --run src/snapshot/__tests__/snapshotArchive.test.ts`
-- `pnpm --filter @universo/apps-template-mui test -- --run src/dashboard/components/__tests__/MainGrid.test.tsx`
-- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts`
-- `pnpm build` passed with `28/28` successful tasks
-
-## 2026-04-04 Verified Snapshot/Runtime Residual Gap Closure
-
-Closed the small follow-up wave that remained after direct verification of the previous snapshot/runtime remediation pass. The work stayed constrained to the proven gaps: early import rollback coverage, deterministic runtime browser proof, self-model fixture fidelity, and stale generator tooling/docs.
-
-| Area | Resolution |
-| --- | --- |
-| Import rollback completeness | `importFromSnapshot()` now routes the two early post-create failure branches (`Failed to create metahub branch`, `Branch schema not found`) through the same compensating cleanup path used for restore/publication failures instead of returning before rollback. |
-| Backend regression coverage | `metahubsRoutes.test.ts` now proves rollback behavior for those early branch/schema failure paths in addition to restore-failure and cleanup-failure coverage. |
-| Runtime browser proof | `app-runtime-views.spec.ts` now provisions a real metahub/publication/application, uses the real `/a/...` route, creates runtime rows through the UI, and asserts card mode, search filtering, and FlowListTable activation when row reordering is enabled. |
-| Self-model fixture fidelity | The self-model generator reran successfully and regenerated `tools/fixtures/self-model-metahub-snapshot.json` with persisted enhanced runtime layout config fields (`showViewToggle`, `showFilterBar`, `defaultViewMode`, `cardColumns`, `rowHeight`, `enableRowReordering`). |
-| Manual utility and docs | `tools/create-self-model-metahub.mjs` now fetches CSRF from `/api/v1/auth/csrf` and persists layout config after widget synchronization; the English and Russian E2E READMEs now describe the real 13-section generator scope. |
-
-### Validation
-
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/metahubsRoutes.test.ts`
-- `pnpm run build:e2e`
-- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/app-runtime-views.spec.ts`
-- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-model"`
-- `pnpm build` passed with `28/28` successful tasks (`25` cached)
-
-## 2026-04-03 QA Remediation Follow-up For Snapshot/Runtime Settings Hardening
-
-## 2026-04-03 QA Closure For Snapshot Import Cleanup, Runtime Contracts, And Self-Model Scope
-
-Closed the six-point implementation pass that reopened the earlier snapshot/runtime wave only for concrete QA defects. The work stayed surgical: fail-closed import cleanup, runtime list-contract repair, real row-reordering consumption, self-model scope correction, and diagnostics cleanup.
-
-| Area | Resolution |
-| --- | --- |
-| Snapshot import rollback | `metahubsController.importFromSnapshot()` now compensates restore/publication failures by dropping created branch schemas, soft-deleting created metahub/publication metadata, clearing metahub schema cache, and returning explicit rollback vs cleanup-failure API codes. |
-| Backend regression coverage | `metahubsRoutes.test.ts` now proves both cleanup-success and cleanup-failure import paths; `SnapshotRestoreService.test.ts` remained green after diagnostics cleanup. |
-| Runtime search/pagination contract | `MainGrid` now uses local filtered totals and page slices when search narrows the already-loaded dataset, instead of mixing filtered rows with stale server `rowCount`. The enhanced table path also hides the internal DataGrid footer and uses the shared external pagination controls consistently. |
-| Real row reordering | `enableRowReordering` is wired end-to-end again: layout config schema/defaults, `LayoutDetails` UI, and apps-template runtime now switch table rendering to shared `FlowListTable` sortable mode instead of leaving a noop config seam. |
-| Self-model scope | The Playwright generator and `tools/create-self-model-metahub.mjs` now create the planned 13 sections via 10 catalog sections plus real hub/set/enumeration endpoints, seed an enumeration value, and regenerate `tools/fixtures/self-model-metahub-snapshot.json` from the corrected architecture. |
-| QA diagnostics cleanup | `snapshotArchive.test.ts` and `SnapshotRestoreService.test.ts` no longer carry the editor/type errors that triggered the QA follow-up. |
-
-### Validation
-
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/metahubsRoutes.test.ts`
-- `pnpm --filter @universo/apps-template-mui test`
-- `pnpm --filter @universo/utils test -- --run snapshot`
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/SnapshotRestoreService.test.ts`
-- `pnpm run test:e2e:generators -- --grep "self-model"`
-- `pnpm build` passed with `28/28` successful tasks
-
-Closed the narrow post-QA remediation wave that remained after the snapshot/import implementation landed. The work stayed intentionally scoped to validated defects rather than reopening the larger feature surface.
-
-| Area | Resolution |
-| --- | --- |
-| Snapshot transport contract | Tightened `buildSnapshotEnvelope()` to the shared transport snapshot type and aligned the touched backend export callsites and utils tests with that stricter contract. |
-| Runtime settings contract | Removed the stale `enableRowReordering` setting from the live apps-template-mui layout/runtime schema, metahubs layout translations, and public docs so the product no longer advertises a noop runtime feature. |
-| Backend regression coverage | Added direct publication import happy-path assertions for permission gating, version deactivation, `active_version_id` update, linked-app notification, and imported source metadata. |
-| Repository hygiene | Deleted accidental repository-root artifact files that were outside the project contract. |
-
-### Validation
-
-- Editor diagnostics for the touched implementation files reported no errors.
-- `pnpm --filter @universo/utils test -- snapshotArchive.test.ts` passed (`15/15`).
-- `pnpm --filter @universo/metahubs-backend test -- publicationsRoutes.test.ts metahubsRoutes.test.ts SnapshotRestoreService.test.ts` passed (`4` suites, `76` passed, `4` skipped).
-- Final root `pnpm build` passed with `28/28` successful tasks.
+| Fixture and codename fidelity | Repeated real-generator reruns normalized the committed self-hosted fixture, stabilized localized metahub/default-entity codename behavior, removed stale standalone-section drift, and preserved canonical menu/layout metadata. |
+| Import/export and publication UX | The archived 2026-04-04 passes closed publication breadcrumb/settings hydration, import/publication linkage, snapshot-hash stability, management-level export authorization, and browser-import fidelity for the committed self-hosted artifact. |
+| Runtime/layout contract | The self-hosted/runtime follow-ups restored sparse catalog runtime inheritance, hardened create/reorder truthfulness in the runtime UI, aligned authored page-surface behavior with shared runtime/dialog contracts, and kept imported runtime sync compatible with VLC codename payloads. |
+| Validation and browser proof | Focused backend/frontend regressions, generator reruns, targeted browser import/connector/runtime flows, and canonical root builds all completed green across the archived self-hosted closure wave. |
+| Documentation and status trail | E2E docs, memory-bank status, and migration-parity wording were aligned so the shipped self-hosted surface is described as real navigation/page/guard functionality instead of synthetic fixture structure. |
+
+### Archived scope
+
+- Fresh-import self-hosted publication/settings regression closure
+- Post-QA regression closure reopened
+- Final self-hosted documentation drift closure
+- Final self-hosted QA audit remediation
+- Self-hosted fixture consumer compatibility closure
+- Final self-hosted parity completion pass
+- Final QA remediation closure for metahub self-hosted parity
+- Metahub self-hosting parity wave completion
+- Metahub self-hosting runtime surface follow-up
+- Metahub self-hosting parity plan QA revision
+- PR #747 review remediation closure
+- Verified snapshot/runtime residual-gap closure
+- 2026-04-03 snapshot/runtime QA follow-up hardening closures
 
 ## 2026-04-03 Snapshot Import Final Stabilization And Full E2E Closure
 

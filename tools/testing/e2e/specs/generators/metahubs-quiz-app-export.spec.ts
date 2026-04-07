@@ -24,8 +24,7 @@ import {
     QUIZ_WIDGET_SOURCE,
     assertQuizFixtureEnvelopeContract,
     buildQuizLiveMetahubCodename,
-    buildQuizLiveMetahubName,
-    canonicalizeQuizFixtureEnvelope
+    buildQuizLiveMetahubName
 } from '../../support/quizFixtureContract'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -221,12 +220,11 @@ test.describe('Metahubs Quiz App Export', () => {
         expect((envelope.snapshotHash as string).length).toBe(64)
         expect(envelope.snapshot).toBeTruthy()
 
-        const canonicalEnvelope = canonicalizeQuizFixtureEnvelope(envelope)
-        validateSnapshotEnvelope(canonicalEnvelope)
-        assertQuizFixtureEnvelopeContract(canonicalEnvelope)
+        validateSnapshotEnvelope(envelope)
+        assertQuizFixtureEnvelopeContract(envelope)
 
         const fixturePath = path.join(FIXTURES_DIR, QUIZ_FIXTURE_FILENAME)
-        fs.writeFileSync(fixturePath, JSON.stringify(canonicalEnvelope, null, 2), 'utf8')
+        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
 
         expect(fs.existsSync(fixturePath)).toBe(true)
         const stats = fs.statSync(fixturePath)

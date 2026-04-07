@@ -599,11 +599,43 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         })
 
         const globalRoleName = isSu ? await getGlobalRoleCodename(q, userId) : null
+        const metahubCounts = await Promise.all(
+            metahubs.map(async (metahub) => {
+                const defaultBranchId = metahub.defaultBranchId ?? null
+                if (!defaultBranchId) {
+                    return { hubsCount: 0, catalogsCount: 0 }
+                }
 
-        const result = metahubs.map((m) => {
+                const branch = await findBranchByIdAndMetahub(exec, defaultBranchId, metahub.id)
+                const schemaName = branch?.schemaName ?? null
+
+                if (!schemaName || !isManagedMetahubSchemaName(schemaName)) {
+                    return { hubsCount: 0, catalogsCount: 0 }
+                }
+
+                const schemaIdent = quoteIdentifier(schemaName)
+
+                try {
+                    const [hubsResult, catalogsResult] = await Promise.all([
+                        exec.query<{ count: number }>(`SELECT COUNT(*)::int as count FROM ${schemaIdent}._mhb_objects WHERE kind = 'hub'`),
+                        exec.query<{ count: number }>(`SELECT COUNT(*)::int as count FROM ${schemaIdent}._mhb_objects WHERE kind = 'catalog'`)
+                    ])
+
+                    return {
+                        hubsCount: hubsResult?.[0]?.count ?? 0,
+                        catalogsCount: catalogsResult?.[0]?.count ?? 0
+                    }
+                } catch {
+                    return { hubsCount: 0, catalogsCount: 0 }
+                }
+            })
+        )
+
+        const result = metahubs.map((m, index) => {
             const role = m.membershipRole ? (m.membershipRole as MetahubRole) : globalRoleName ? 'owner' : 'member'
             const accessType = m.membershipRole ? 'member' : globalRoleName ?? 'member'
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
+            const counts = metahubCounts[index] ?? { hubsCount: 0, catalogsCount: 0 }
 
             return {
                 id: m.id,
@@ -617,8 +649,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 version: m._uplVersion || 1,
                 createdAt: m._uplCreatedAt,
                 updatedAt: m._uplUpdatedAt,
-                hubsCount: 0,
-                catalogsCount: 0,
+                hubsCount: counts.hubsCount,
+                catalogsCount: counts.catalogsCount,
                 membersCount: m.membersCount,
                 role,
                 accessType,

@@ -1,5 +1,5 @@
-import type { CatalogRuntimeViewConfig, VersionedLocalizedContent } from '@universo/types'
-import type { CatalogDisplay, CatalogLocalizedPayload } from '../../../types'
+import type { VersionedLocalizedContent } from '@universo/types'
+import type { CatalogDisplay } from '../../../types'
 import { getVLCString, toCatalogDisplay } from '../../../types'
 import type { CatalogWithHubs } from '../api'
 
@@ -32,7 +32,6 @@ export type CatalogFormValues = {
     hubIds: string[]
     isSingleHub: boolean
     isRequiredHub?: boolean
-    runtimeConfig: CatalogRuntimeViewConfig
 }
 
 export type CatalogPendingData = { expectedVersion?: number } & Record<string, unknown>

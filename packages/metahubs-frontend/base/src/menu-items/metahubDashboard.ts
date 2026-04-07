@@ -66,6 +66,14 @@ const metahubDashboard: MenuItem = {
             type: 'divider'
         },
         {
+            id: 'metahub-common',
+            title: 'menu:commonSection',
+            type: 'item',
+            url: '/common',
+            icon: icons.IconLayoutDashboard,
+            breadcrumbs: true
+        },
+        {
             id: 'hubs',
             title: 'menu:hubs',
             type: 'item',
@@ -101,14 +109,6 @@ const metahubDashboard: MenuItem = {
             id: 'divider-secondary',
             title: '',
             type: 'divider'
-        },
-        {
-            id: 'layouts',
-            title: 'menu:layouts',
-            type: 'item',
-            url: '/layouts',
-            icon: icons.IconLayoutDashboard,
-            breadcrumbs: true
         },
         {
             id: 'publications',
