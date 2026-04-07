@@ -6,12 +6,12 @@
 
 ## Current Focus: PR Review Follow-up For GH753 - Completed 2026-04-07
 
-- Goal status: bot-review follow-up is implemented and validated on `feature/gh752-general-catalog-layouts`; the remaining step is only to push the ready commit into PR #753.
+- Goal status: bot-review follow-up is implemented, validated, and pushed on `feature/gh752-general-catalog-layouts`; no active implementation step remains for PR #753.
 - Review triage result: accepted fixes were limited to real seams only: malformed EN/RU guide frontmatter, stale Common/General wording across user-facing docs, internal `GeneralPage` naming drift, and duplicated metahub count queries that skipped the branch active-row predicate.
 - Code/doc closure: Common/Common -> Layouts terminology now matches the shipped UI throughout the touched docs, catalog-layout guides no longer describe the removed catalog fallback runtime-settings contract, and metahub summary counts now use one filtered aggregate query per branch schema instead of two separate scans.
 - Validation evidence: targeted `@universo/metahubs-frontend` tests passed (`4/4`), targeted `@universo/metahubs-backend` metahubs routes passed (`51/51`, `4 skipped`), edited EN/RU docs kept exact line-count parity, and the canonical root `pnpm build` completed successfully (`30 successful`, `25 cached`, `1m28s`).
 - Residual note: a full `@universo/metahubs-frontend` package test attempt still exposes unrelated pre-existing `MetahubMigrations.test.tsx` failures caused by an incomplete `@universo/template-mui` mock missing `PAGE_CONTENT_GUTTER_MX`; this follow-up intentionally did not broaden scope into that existing test debt.
-- Next workflow step: push the follow-up commit to PR #753 and wait for the next review round; no active code blocker remains inside the accepted PR-review scope.
+- Next workflow step: wait for the next review round on PR #753; no active code blocker remains inside the accepted PR-review scope.
 
 ## Recently Completed Context
 

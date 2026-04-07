@@ -55,7 +55,7 @@ Closed the post-publication bot-review follow-up on PR #753 without widening sco
 | Frontend naming alignment | `packages/metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx` now exports `GeneralPage`, while the public `MetahubCommon` route/export remains unchanged. |
 | Backend metahub counts | Metahub summary paths now use one `COUNT(*) FILTER (...)` query with `_upl_deleted = false AND _mhb_deleted = false`, reducing duplicate scans and restoring the branch active-row contract. |
 | Regression coverage | `metahubsRoutes.test.ts` now asserts the consolidated count query shape and active-row filtering; focused frontend export/Common-page tests stayed green after the rename. |
-| Validation | Targeted frontend and backend regressions passed, edited EN/RU doc pairs kept exact line-count parity, and the canonical root `pnpm build` completed green. A full `@universo/metahubs-frontend` suite attempt still surfaced unrelated pre-existing `MetahubMigrations.test.tsx` mock failures outside this patch scope. |
+| Validation | Targeted frontend and backend regressions passed, edited EN/RU doc pairs kept exact line-count parity, the canonical root `pnpm build` completed green, and the follow-up was pushed to PR #753. A full `@universo/metahubs-frontend` suite attempt still surfaced unrelated pre-existing `MetahubMigrations.test.tsx` mock failures outside this patch scope. |
 
 ### Validation
 

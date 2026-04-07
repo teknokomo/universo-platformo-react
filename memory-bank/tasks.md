@@ -19,7 +19,7 @@
 	- Outcome: Targeted `@universo/metahubs-frontend` tests (`exports.test.ts`, `GeneralPage.test.tsx`) passed, targeted `@universo/metahubs-backend` `metahubsRoutes.test.ts` passed (`51/51`, `4 skipped`), manual EN/RU doc line-count parity matched on every edited pair, and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m28s`).
 - [x] Update PR #753 with the validated follow-up commit(s) from `feature/gh752-general-catalog-layouts`.
 	- Note: A full `@universo/metahubs-frontend` package test attempt surfaced unrelated pre-existing failures in `MetahubMigrations.test.tsx` due an incomplete `@universo/template-mui` mock (`PAGE_CONTENT_GUTTER_MX` missing); keep that debt out of this PR-review patch set.
-	- Outcome: The validated follow-up commit is ready to be pushed from `feature/gh752-general-catalog-layouts` into PR #753.
+	- Outcome: Follow-up commits `c54537683` and the final memory-bank sync were pushed from `feature/gh752-general-catalog-layouts` into PR #753.
 
 ## Completed Session: 2026-04-07 QA Remediation For Layout-Owned Catalog Behavior Contract
 
