@@ -113,13 +113,13 @@ test('@flow metahub settings expose and persist common dialog preferences', asyn
         await expect(page.getByRole('heading', { name: 'Dialog size preset' })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Allow fullscreen expansion' })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Allow dialog resize' })).toBeVisible()
-        await expect(page.getByRole('heading', { name: 'Dialog close behavior' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Popup window type' })).toBeVisible()
 
         await page.getByLabel('Dialog size preset').click()
         await page.getByRole('option', { name: 'Large (about 800 px)' }).click()
 
-        await page.getByLabel('Dialog close behavior').click()
-        await page.getByRole('option', { name: 'Outside click closes the dialog' }).click()
+        await page.getByLabel('Popup window type').click()
+        await page.getByRole('option', { name: 'Non-modal windows' }).click()
 
         const saveButton = page.getByRole('button', { name: 'Save' })
         await expect(saveButton).toBeVisible()

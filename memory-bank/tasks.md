@@ -6,6 +6,36 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active Session: 2026-04-08 Wait Window And PR Review Follow-up For GH755
+
+- [x] Start a non-blocking 20-minute wait window before any PR-review work begins.
+	- Note: The user explicitly requested a full 20-minute pause so bot review comments on PR #755 can arrive before triage starts.
+	- Outcome: a user-level `systemd-run --on-active=20m` timer plus a journal follower completed successfully before PR inspection resumed.
+- [x] Re-enter the PR branch and verify the local branch context after the wait window ends.
+	- Note: The repository had been switched back to `main` after publishing PR #755, so the follow-up needed to resume on `feature/gh754-common-shared-tabs`.
+	- Outcome: local HEAD is back on `feature/gh754-common-shared-tabs`; the only immediate post-switch conflict was the expected memory-bank stash handoff and it is being resolved in place.
+- [x] Inspect PR #755 for bot comments, review threads, and other automated feedback.
+	- Note: Collect every unresolved suggestion first, then group the claims by file/concern before deciding whether a code change is justified.
+	- Outcome: the PR contains two bot summary reviews and two actionable Copilot inline comments; no human review threads or issue comments are present.
+- [x] QA-validate each accepted suggestion against the current codebase and external documentation before editing.
+	- Note: Only implement fixes that are factually correct, codebase-consistent, and low-risk for adjacent runtime/publication/Common-section behavior.
+	- Outcome: only the two Copilot comments on `tools/testing/e2e/support/backend/e2eCleanup.mjs` survived QA review; discovery had regressed from unconditional merge behavior to `size === 0` gating, which could leak orphaned resources on partial manifests.
+- [x] Implement the validated PR-review fixes with the smallest safe patch set.
+	- Note: Keep scope limited to real defects confirmed during triage; do not broaden into unrelated cleanup.
+	- Outcome: `e2eCleanup.mjs` now always attempts metahub/application discovery by `runId` and only downgrades discovery failures to warnings when explicit manifest ids already exist.
+- [x] Fix the five failing unrelated `@flow` regressions from the repository-recommended verification chain.
+	- Note: The user explicitly requested full green validation before pushing, so the broader `test:e2e:agent` failures are now in scope even though they are not part of the bot review itself.
+	- Outcome: the confirmed drift came from stale E2E expectations versus the current shipped UI contracts: admin settings now explicitly switch to the `Metahubs` tab before touching codename defaults, Common layouts no longer assert a non-existent `Layouts` page heading, and metahub common-dialog settings now use the shipped `Popup window type` / `Non-modal windows` labels. The originally reported `application-runtime-scripting-quiz` path is green on focused reruns.
+- [x] Repair the additional full-run seams that only surfaced after the first wide verification rerun.
+	- Note: The first post-fix `pnpm run test:e2e:agent` pass exposed two more blockers that were not part of the initial five-spec triage: a flaky codename-mode list-refresh assertion and an out-of-date quiz snapshot integrity hash.
+	- Outcome: `codename-mode` now waits for backend persistence before asserting list visibility, and the canonical `metahubs-quiz-app-snapshot.json` fixture plus its contract helper were updated so snapshot import integrity validation succeeds again.
+- [x] Re-run the relevant focused tests and the canonical verification needed before pushing.
+	- Note: Prefer touched-package validation first, then finish with the full root `pnpm build` because the user requested full verification before sending files back to the PR.
+	- Outcome: focused reruns passed for the five originally reported flow specs and for the later `codename-mode` + `snapshot-import-quiz-runtime` seams, and the final repository-recommended `pnpm run test:e2e:agent` pass is green with `45 passed`.
+- [ ] Push the follow-up commit(s) to PR #755 and sync memory-bank closure state.
+	- Note: After a green validation stack, push back to `feature/gh754-common-shared-tabs`, then update `activeContext.md`, `progress.md`, and this ledger with the actual review outcome.
+	- Success condition: PR #755 contains the follow-up commit set and memory-bank reflects the post-review state.
+
 ## Completed Session: 2026-04-08 Post-QA Lint Closure Remediation
 
 - [x] Re-baseline the Shared/Common wave against the QA finding that package lint is still red.
@@ -343,6 +373,7 @@ Implementation note: execute phases in order, but land shared script type/normal
 	- Outcome: Architecture docs and memory-bank references now describe the shipped shared snapshot/runtime materialization and Common/shared flows.
 - [x] 8.4 Script scopes documentation (general/library vs metahub vs object-attached)
 	- Outcome: The `general/library` scope is documented as the import-only shared-library seam distinct from metahub and object-attached executable scripts.
+## Completed Session: 2026-04-07 PR Review Triage For GH753
 
 - [x] Collect all bot review threads from PR #753 and validate each claim against the current code/docs contract.
 	- Note: Rejected speculative follow-ups like new query params or caching because the review evidence only justified low-risk correctness/docs fixes plus a safe query consolidation.

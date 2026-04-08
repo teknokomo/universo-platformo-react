@@ -4,25 +4,19 @@
 
 ---
 
-## Current Focus: Shared/Common Wave Closed, Awaiting Next Task
+## Current Focus: PR Review Follow-up For GH755
 
-- Goal: keep the repository state aligned with the now-validated Shared/Common implementation closure and avoid reopening already closed post-QA remediation seams without a new request.
-- Status: **COMPLETE** — the last release-blocking lint closure pass is finished, and the touched backend/frontend packages plus the canonical root build are green again.
-- Latest closure evidence:
-  1. `pnpm --filter @universo/metahubs-backend lint` exits green on the current tree.
-  2. `pnpm --filter @universo/metahubs-frontend lint` exits green on the current tree.
-  3. Focused backend route validation passed (`35/35`).
-  4. Focused frontend validation passed (`18/18`).
-  5. Root `pnpm build` passed (`30 successful`, `30 total`, `EXIT:0`).
-- Constraints to preserve for any follow-up work:
-  1. Preserve the routed-object ownership contract in attribute move/update/delete/reorder paths.
-  2. Preserve the shipped Common/shared UX contracts: behavior under `Presentation`, deferred exclusion persistence until dialog save, shell-less Common alignment, and settled-response Playwright mutation waits.
-  3. Preserve the runtime/publication contracts for scoped shared field ids, scoped shared enumeration value ids, and `general/library` fail-closed scripting.
+- Goal: wait window is complete; inspect PR #755 feedback and implement only the fixes that survive codebase and documentation QA review.
+- Branch context: active work must stay on `feature/gh754-common-shared-tabs`, because PR #755 already points at that branch.
+- Base state to preserve: the Shared/Common wave is currently green on this branch, including backend/frontend lint, focused backend route coverage (`35/35`), focused frontend coverage (`18/18`), and the canonical root `pnpm build` (`30 successful`, `30 total`, `EXIT:0`).
+- Change policy: only accept review suggestions that are confirmed by current source behavior, tests, or authoritative documentation and that do not break the routed-object ownership contract, settled-response Playwright waits, or the runtime/publication shared-id and `general/library` fail-closed scripting contracts.
+- Review triage result: only the two Copilot inline comments on `tools/testing/e2e/support/backend/e2eCleanup.mjs` were actionable; the Gemini review explicitly reported no additional issues.
+- Verification status: the accepted cleanup discovery fix plus the broader E2E follow-ups are implemented and validated. The confirmed flow regressions were stale UI-contract expectations (`admin-instance-settings`, `metahub-layouts`, `metahub-settings`), an asynchronous metahub-list refresh seam in `codename-mode`, and a stale integrity hash in the canonical quiz snapshot fixture surfaced by `snapshot-import-quiz-runtime`. The final repository-recommended `pnpm run test:e2e:agent` pass is green (`45 passed`).
 
 ## Immediate Next Steps
 
-- Wait for the next user instruction.
-- If independent verification is requested again, switch to QA mode and re-run the broader acceptance checks from the closed Shared/Common wave.
+- Commit and push the validated follow-up set to `feature/gh754-common-shared-tabs` so PR #755 picks up the bot-fix, the E2E contract repairs, and the quiz snapshot hash refresh.
+- After push, collapse this active context back to an idle/awaiting-next-task state.
 
 ## References
 

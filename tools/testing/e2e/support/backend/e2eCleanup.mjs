@@ -79,30 +79,29 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
 
         const explicitApplications = Array.isArray(manifest.createdApplications) ? manifest.createdApplications : []
         const applicationIds = new Set(explicitApplications.map((item) => item.id).filter(Boolean))
+        const hasExplicitApplicationIds = applicationIds.size > 0
 
-        if (applicationIds.size === 0) {
-            try {
-                const searchedApps = await listApplications(api, {
-                    limit: 200,
-                    offset: 0,
-                    search: manifest.runId
-                })
+        try {
+            const searchedApps = await listApplications(api, {
+                limit: 200,
+                offset: 0,
+                search: manifest.runId
+            })
 
-                for (const item of searchedApps.items ?? []) {
-                    if (item?.id) {
-                        applicationIds.add(item.id)
-                    }
+            for (const item of searchedApps.items ?? []) {
+                if (item?.id) {
+                    applicationIds.add(item.id)
                 }
-            } catch (error) {
-                if (applicationIds.size === 0) {
-                    throw error
-                }
+            }
+        } catch (error) {
+            if (!hasExplicitApplicationIds) {
+                throw error
+            }
 
-                if (!quiet) {
-                    console.warn(
-                        `[e2e-cleanup] Application discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
-                    )
-                }
+            if (!quiet) {
+                console.warn(
+                    `[e2e-cleanup] Application discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
+                )
             }
         }
 
@@ -127,30 +126,29 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
 
         const explicitMetahubs = Array.isArray(manifest.createdMetahubs) ? manifest.createdMetahubs : []
         const metahubIds = new Set(explicitMetahubs.map((item) => item.id).filter(Boolean))
+        const hasExplicitMetahubIds = metahubIds.size > 0
 
-        if (metahubIds.size === 0) {
-            try {
-                const searched = await listMetahubs(api, {
-                    limit: 200,
-                    offset: 0,
-                    search: manifest.runId
-                })
+        try {
+            const searched = await listMetahubs(api, {
+                limit: 200,
+                offset: 0,
+                search: manifest.runId
+            })
 
-                for (const item of searched.items ?? []) {
-                    if (item?.id) {
-                        metahubIds.add(item.id)
-                    }
+            for (const item of searched.items ?? []) {
+                if (item?.id) {
+                    metahubIds.add(item.id)
                 }
-            } catch (error) {
-                if (metahubIds.size === 0) {
-                    throw error
-                }
+            }
+        } catch (error) {
+            if (!hasExplicitMetahubIds) {
+                throw error
+            }
 
-                if (!quiet) {
-                    console.warn(
-                        `[e2e-cleanup] Metahub discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
-                    )
-                }
+            if (!quiet) {
+                console.warn(
+                    `[e2e-cleanup] Metahub discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
+                )
             }
         }
 

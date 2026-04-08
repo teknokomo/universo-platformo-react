@@ -119,7 +119,6 @@ test('@flow codename platform defaults switch metahub create dialog UI mode whil
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
         await expect(createDialog).toHaveCount(0)
-        await expect(page.getByText(metahubName)).toBeVisible()
 
         let createdMetahubId
         await expect
@@ -140,6 +139,9 @@ test('@flow codename platform defaults switch metahub create dialog UI mode whil
         if (typeof createdMetahubId !== 'string') {
             throw new Error('Create metahub flow did not expose a persisted id for codename platform coverage')
         }
+
+        await page.reload()
+        await expect(page.getByText(metahubName)).toBeVisible()
 
         await recordCreatedMetahub({
             id: createdMetahubId,

@@ -45,6 +45,24 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-08 PR #755 Review Follow-up And E2E Recovery
+
+Closed the post-publish follow-up for PR #755 after the enforced 20-minute wait window, bot-review triage, and the user-requested requirement to keep repairing the branch until the repository-recommended E2E gate was fully green again. The actual accepted review fix stayed narrow in backend cleanup logic, but full validation also uncovered stale E2E expectations, a codename-mode list-refresh seam, and a stale quiz snapshot integrity hash that had to be repaired before the PR could be safely updated.
+
+| Area | Resolution |
+| --- | --- |
+| PR review triage | Reviewed PR #755 after the wait window; Gemini reported no actionable issues, while the only accepted Copilot findings were the two `e2eCleanup.mjs` comments about application/metahub discovery drift on partial manifests. |
+| Cleanup hardening | `tools/testing/e2e/support/backend/e2eCleanup.mjs` now always attempts discovery by `runId` and only downgrades discovery failures to warnings when explicit manifest ids already exist, restoring the safer merged-cleanup behavior. |
+| E2E contract repairs | Rebased stale browser expectations to the shipped UI contracts: admin settings now switch to the `Metahubs` tab before touching codename defaults, Common layouts no longer expect a redundant `Layouts` heading, and metahub common-dialog settings use the shipped `Popup window type` / `Non-modal windows` labels. |
+| Additional wide-run fixes | Stabilized `codename-mode` around persisted backend state instead of instantaneous list refresh, refreshed the canonical `metahubs-quiz-app-snapshot.json` `snapshotHash`, and taught `quizFixtureContract` to fail fast when the fixture hash drifts again. |
+| Validation | Focused reruns passed for the originally failing flow specs plus the later `codename-mode` and `snapshot-import-quiz-runtime` seams, and the final `pnpm run test:e2e:agent` pass completed green with `45 passed` (`38.6m`). |
+
+### Validation
+
+- `pnpm exec node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/admin-instance-settings.spec.ts tools/testing/e2e/specs/flows/application-runtime-scripting-quiz.spec.ts tools/testing/e2e/specs/flows/codename-mode.spec.ts tools/testing/e2e/specs/flows/metahub-layouts.spec.ts tools/testing/e2e/specs/flows/metahub-settings.spec.ts`
+- `pnpm exec node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/codename-mode.spec.ts tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts`
+- `pnpm run test:e2e:agent`
+
 ## 2026-04-08 Post-QA Lint Closure Remediation
 
 Closed the last release-blocking QA follow-up after the Shared/Common implementation itself was already functionally green. The remaining gap was package lint drift in the touched backend/frontend files rather than a product or security defect, so this final pass stayed narrow: restore green package lint exits, re-run focused regressions, and confirm the canonical root build still holds.

@@ -93,7 +93,6 @@ test('@flow metahub General layouts tab and layout details load through the ship
         await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
         await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
-        await expect(page.getByRole('heading', { name: 'Layouts' })).toBeVisible()
         await expect(page.getByText(layoutName, { exact: true })).toBeVisible()
 
         const layoutsListBounds = await getHorizontalBounds(

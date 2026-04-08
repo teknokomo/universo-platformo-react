@@ -100,7 +100,12 @@ test('@flow @permission admin can edit instances and persist admin settings from
         await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
         await expect(page.getByRole('button', { name: 'Save Changes' })).toHaveCount(0)
 
+        const metahubsTab = page.getByRole('tab', { name: 'Metahubs' })
+        await metahubsTab.click()
+        await expect(metahubsTab).toHaveAttribute('aria-selected', 'true')
+
         const allowMixedAlphabetsRow = page.getByTestId('admin-setting-codenameAllowMixedAlphabets')
+        await expect(allowMixedAlphabetsRow).toBeVisible()
         const allowMixedAlphabetsSwitch = allowMixedAlphabetsRow.getByRole('switch')
 
         if (nextAllowMixedAlphabets) {
